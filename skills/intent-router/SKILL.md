@@ -1,19 +1,19 @@
 ---
-name: personal-router
+name: intent-router
 description: >
-  Personal skill router for Santiago's exact stack. Fires automatically when intent is
-  ambiguous — reads USAGE.md from ~/claude-config to score the prompt against every
-  installed skill's TRIGGERS/BLOCKS/PRIORITY and invokes the best match.
-  Use when the user's request could involve multiple skills, or when the right tool
-  isn't immediately obvious. Skip for simple file edits, direct questions, and
-  single-tool operations where the answer is unambiguous.
+  Config-driven intent router. Fires automatically when intent is ambiguous — reads
+  USAGE.md from ~/claude-config to score the prompt against every installed skill's
+  TRIGGERS/BLOCKS/PRIORITY and invokes the best match. Use when the request could
+  involve multiple skills or when the right tool isn't immediately obvious. Skip for
+  simple file edits, direct questions, and single-tool operations where the answer
+  is unambiguous.
 ---
 
-# Personal Router
+# Intent Router
 
-Intelligent dispatcher for Santiago's installed skill stack. Reads live routing rules
-from `~/claude-config/USAGE.md`, scores the current prompt, announces the winner,
-and invokes it.
+Config-driven skill dispatcher. Reads live routing rules from `~/claude-config/USAGE.md`,
+scores the current prompt against every skill's TRIGGERS/BLOCKS/PRIORITY, announces
+the winner in one line, and invokes it.
 
 ## When to fire
 

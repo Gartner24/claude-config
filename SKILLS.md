@@ -55,6 +55,33 @@ npx skills add chrishan17/skill-router/skills/skill-router -a claude-code -g -y
 
 ---
 
+### intent-router
+**Source:** this repo — `skills/intent-router/SKILL.md`
+**Install:**
+```bash
+mkdir -p ~/.claude/skills/intent-router
+cp skills/intent-router/SKILL.md ~/.claude/skills/intent-router/SKILL.md
+```
+Or if cloning fresh:
+```bash
+git clone https://github.com/Gartner24/claude-config ~/claude-config
+mkdir -p ~/.claude/skills/intent-router
+cp ~/claude-config/skills/intent-router/SKILL.md ~/.claude/skills/intent-router/SKILL.md
+```
+**What it does:** Config-driven intent router that sits on top of `skill-router`. Reads `~/claude-config/USAGE.md` at runtime, scores the current prompt against every skill's `TRIGGERS/BLOCKS/PRIORITY` fields, and invokes the best match. Fires only on ambiguous prompts - silent pass-through otherwise.
+**Requires:** `~/claude-config/USAGE.md` to exist (this repo cloned locally). Falls back to a built-in table if not found.
+**Personal override rules baked in:**
+- mem-search fires before anything else on memory-check signals
+- council fires before implement skills on decision signals
+- design-motion-principles wins over impeccable animate on motion-primary prompts
+- investigate wins on all bug/error prompts
+- brainstorming fires before gsd-plan-phase on vague/exploratory prompts
+
+**To update routing when you add a skill:** add a routing block to `USAGE.md` and commit. The router reads it on next invocation.
+**When to use:** Always active - fires automatically when Claude detects ambiguous intent.
+
+---
+
 ## Decision-making
 
 ### council
