@@ -2,7 +2,7 @@
 name: intent-router
 description: >
   Config-driven intent router. Fires automatically when intent is ambiguous — reads
-  USAGE.md from ~/claude-config to score the prompt against every installed skill's
+  USAGE.md from ~/projects/personal/claude-config to score the prompt against every installed skill's
   TRIGGERS/BLOCKS/PRIORITY and invokes the best match. Use when the request could
   involve multiple skills or when the right tool isn't immediately obvious. Skip for
   simple file edits, direct questions, and single-tool operations where the answer
@@ -11,7 +11,7 @@ description: >
 
 # Intent Router
 
-Config-driven skill dispatcher. Reads live routing rules from `~/claude-config/USAGE.md`,
+Config-driven skill dispatcher. Reads live routing rules from `~/projects/personal/claude-config/USAGE.md`,
 scores the current prompt against every skill's TRIGGERS/BLOCKS/PRIORITY, announces
 the winner in one line, and invokes it.
 
@@ -30,11 +30,11 @@ Skip this skill when:
 ## Step 1 — Load routing table
 
 ```bash
-cat ~/claude-config/USAGE.md 2>/dev/null || echo "ROUTING_TABLE_MISSING"
+cat ~/projects/personal/claude-config/USAGE.md 2>/dev/null || echo "ROUTING_TABLE_MISSING"
 ```
 
 If output is `ROUTING_TABLE_MISSING`: fall back to the built-in table at the
-bottom of this skill. Tell the user: "Routing table not found at ~/claude-config/USAGE.md
+bottom of this skill. Tell the user: "Routing table not found at ~/projects/personal/claude-config/USAGE.md
 — using built-in defaults. Clone https://github.com/Gartner24/claude-config to get
 personalized routing."
 
@@ -127,7 +127,7 @@ These rules encode personal preferences that override pure trigger scoring:
 
 ## Built-in fallback table
 
-Used only when `~/claude-config/USAGE.md` is not found.
+Used only when `~/projects/personal/claude-config/USAGE.md` is not found.
 
 | Skill | Triggers | Priority |
 |-------|----------|----------|
