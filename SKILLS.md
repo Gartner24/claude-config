@@ -64,12 +64,12 @@ cp skills/intent-router/SKILL.md ~/.claude/skills/intent-router/SKILL.md
 ```
 Or if cloning fresh:
 ```bash
-git clone https://github.com/Gartner24/claude-config ~/projects/personal/claude-config
+git clone https://github.com/Gartner24/claude-config ~/claude-config
 mkdir -p ~/.claude/skills/intent-router
-cp ~/projects/personal/claude-config/skills/intent-router/SKILL.md ~/.claude/skills/intent-router/SKILL.md
+cp ~/claude-config/skills/intent-router/SKILL.md ~/.claude/skills/intent-router/SKILL.md
 ```
-**What it does:** Config-driven intent router that sits on top of `skill-router`. Reads `~/projects/personal/claude-config/USAGE.md` at runtime, scores the current prompt against every skill's `TRIGGERS/BLOCKS/PRIORITY` fields, and invokes the best match. Fires only on ambiguous prompts - silent pass-through otherwise.
-**Requires:** `~/projects/personal/claude-config/USAGE.md` to exist (this repo cloned locally). Falls back to a built-in table if not found.
+**What it does:** Config-driven intent router that sits on top of `skill-router`. Reads `~/claude-config/USAGE.md` at runtime, scores the current prompt against every skill's `TRIGGERS/BLOCKS/PRIORITY` fields, and invokes the best match. Fires only on ambiguous prompts - silent pass-through otherwise.
+**Requires:** `~/claude-config/USAGE.md` to exist (this repo cloned locally). Falls back to a built-in table if not found.
 **Personal override rules baked in:**
 - mem-search fires before anything else on memory-check signals
 - council fires before implement skills on decision signals
