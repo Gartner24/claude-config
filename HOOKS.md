@@ -31,6 +31,11 @@ Keeps more conversation context alive before Claude summarizes. Useful for long 
 **`auto-approve-safe.sh`** - Uses Haiku to evaluate permission requests and auto-approve
 safe operations. Reduces permission prompts for read-only and low-risk tool calls.
 
+Modified from jjstack default: Haiku prompt tightened to rate HIGH only for truly
+destructive/irreversible commands (rm, force-push, drop database, system package installs,
+exfiltration). MEDIUM is now auto-approved alongside LOW. Only HIGH defers to the user.
+This means ~90% of prompts are silently approved without interrupting the session.
+
 **`gsd-read-guard.js`** - This is what produces the "READ-BEFORE-EDIT REMINDER" you see before
 file edits. Enforces that Claude reads a file before modifying it.
 
