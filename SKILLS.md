@@ -4,28 +4,21 @@ Skills installed outside the plugin system. Each needs to be reinstalled manuall
 
 ## Skill frameworks
 
-These are full systems with many sub-skills. Install them first - other skills may depend on them.
+These are full systems with many sub-skills. **You only need to install jjstack** - it installs gstack automatically as a declared dependency.
 
-### gstack
-**Source:** https://github.com/garrytan/gstack
-**Install:**
-```bash
-git clone https://github.com/garrytan/gstack.git ~/.claude/skills/gstack
-cd ~/.claude/skills/gstack && ./setup
-```
-**What it adds:** The GSD project management system. 50+ skills prefixed `gsd-` covering planning, execution, review, and shipping. The backbone of most project work.
-**Key sub-skills:** `/gsd-new-project`, `/gsd-plan-phase`, `/gsd-execute-phase`, `/gsd-review`, `/gsd-debug`, `/gsd-ship`, `/autoplan`, `/investigate`, `/qa`, `/ship`, `/review` (pre-landing), `/office-hours`, `/retro`
-
----
-
-### jjstack
+### jjstack (installs gstack automatically)
 **Source:** https://github.com/JesperJurcenoks/jjstack
 **Install:**
 ```bash
 git clone git@github.com:JesperJurcenoks/jjstack.git ~/.claude/skills/jjstack
 cd ~/.claude/skills/jjstack && ./setup
 ```
-**What it adds:** A product/UX layer on top of gstack. Adds opinionated skills for code quality, product thinking, and developer experience. All jjstack skills are symlinked into `~/.claude/skills/`.
+jjstack's setup script checks for gstack and clones + sets it up from `garrytan/gstack` if not present. You do not need to install gstack separately.
+
+**What jjstack adds:** A product/UX layer on top of gstack. Adds opinionated skills for code quality, product thinking, and developer experience. All jjstack skills are symlinked into `~/.claude/skills/`.
+
+**What gstack adds (auto-installed):** The GSD project management system. 50+ skills prefixed `gsd-` covering planning, execution, review, and shipping. The backbone of most project work.
+**Key gstack sub-skills:** `/gsd-new-project`, `/gsd-plan-phase`, `/gsd-execute-phase`, `/gsd-review`, `/gsd-debug`, `/gsd-ship`, `/autoplan`, `/investigate`, `/qa`, `/ship`, `/review` (pre-landing), `/office-hours`, `/retro`
 **Key sub-skills:** `/dev-philosophy`, `/heal`, `/kano-model`, `/lean`, `/mcp-server`, `/new-submodule`, `/product-manager-review`, `/python-coder`, `/qa-review`, `/receiving-code-review`, `/security-review`, `/smart-context7`, `/smart-review`, `/smart-simplify`, `/state-doc`, `/two-stage-review`, `/unit-test-builder`, `/verify-before-done`, `/work-order`, `/worktrees`, `/writing-skills`, `/jj-qa`, `/github-setup`
 
 ---
