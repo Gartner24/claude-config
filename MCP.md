@@ -1,6 +1,23 @@
 # MCP Servers
 
-Configured in `~/.claude.json` under `mcpServers`.
+Two MCP servers are active. `magic` is manually configured in `~/.claude.json`.
+`context7` is a claude.ai-managed connector enabled in `settings.local.json`.
+
+## context7
+
+**Source:** claude.ai MCP connectors (managed by Claude Code)
+**Enabled in:** `settings.local.json` via `enabledMcpjsonServers: ["context7"]`
+
+Fetches live documentation for any library, framework, SDK, or CLI tool. Use when asking
+about React, Next.js, Prisma, Tailwind, Django, or any other library - even well-known ones.
+Your training data may not reflect recent changes; context7 fetches current docs.
+
+**When to use:** Any question about library API syntax, configuration, version migration,
+or CLI usage. Claude will automatically reach for it when you ask about a library.
+
+**Re-enable on new machine:** Go to Claude Code settings -> MCP -> enable context7 connector.
+
+---
 
 ## magic (21st-dev)
 
