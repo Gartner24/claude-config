@@ -235,10 +235,27 @@ No routing needed - they fire on their own:
 | New page/screen | taste skill -> `/impeccable shape` -> build -> `/impeccable audit` -> `/impeccable polish` |
 | Animation feels wrong | `/design-motion-principles` audit mode |
 | Code works but messy | `/smart-simplify` |
+| Dead code / unused symbols | `/refactor-clean` |
 | Second opinion on architecture | `/council` |
 | Starting a long session | `/context-restore` or `/learn-codebase` |
 | Shipping a PR | `/review` -> fix -> `/ship` |
+| Reviewing someone else's PR | `/review-pr` |
 | Full deploy pipeline | `/land-and-deploy` |
+| Build / compile error | `/build-fix` (or `/go-build`, `/rust-build`, `/gradle-build`) |
+| Go code review | `/go-review` |
+| Python code review | `/python-review` |
+| Rust code review | `/rust-review` |
+| TDD from scratch | `/tdd-workflow` |
+| E2E test with Playwright | `/e2e-testing` |
+| Coverage gaps | `/test-coverage` |
+| Security vulnerabilities | `/security-scan` |
+| Tasks that can run in parallel | `/multi-plan` then `/multi-execute` |
+| Research before coding | `/search-first` |
+| Write an ADR | `/architecture-decision-records` |
+| Production readiness check | `/production-audit` |
+| Write a PRD | `/plan-prd` |
+| Create a reusable skill | `/skill-create` |
+| New to this codebase | `/codebase-onboarding` |
 
 ---
 
@@ -254,3 +271,254 @@ These two work as a pair:
 - Claude-mem provides **what was learned** (persistent memory of outcomes)
 
 Run `/mem-search "X"` before starting any non-trivial task to check if it was solved before.
+
+---
+
+## Language-specific review and build
+
+### go-review
+TRIGGERS: review this go, go code review, review my go, check this go file, go-specific review
+BLOCKS: non-go code
+PRIORITY: 8 - prefer over generic /review when file is Go
+
+### python-review
+TRIGGERS: review this python, python code review, review my python, check this python
+BLOCKS: non-python code
+PRIORITY: 8
+
+### rust-review
+TRIGGERS: review this rust, rust code review, review my rust, check this rust, unsafe rust
+BLOCKS: non-rust code
+PRIORITY: 8
+
+### fastapi-review
+TRIGGERS: review this fastapi, fastapi code review, review my endpoint, check this api route
+BLOCKS: non-fastapi code
+PRIORITY: 8
+
+### build-fix
+TRIGGERS: build error, build failed, compilation error, won't compile, can't build, fix the build, build is broken, linker error
+BLOCKS: runtime errors (use investigate instead)
+PRIORITY: 9 - fires before ad-hoc debugging on any build/compile failure
+
+### go-build
+TRIGGERS: go build error, go compilation error, go module error, go import error
+BLOCKS: nothing
+PRIORITY: 9 - prefer over /build-fix when language is clearly Go
+
+### rust-build
+TRIGGERS: rust build error, cargo error, rust compilation, borrow checker error, lifetime error
+BLOCKS: nothing
+PRIORITY: 9 - prefer over /build-fix when language is clearly Rust
+
+### gradle-build
+TRIGGERS: gradle build error, gradle failed, maven error, java build error, spring boot build
+BLOCKS: nothing
+PRIORITY: 9 - prefer over /build-fix when language is Java/Kotlin
+
+---
+
+## TDD and testing
+
+### tdd-workflow
+TRIGGERS: TDD, test driven, write tests first, red green refactor, test first, unit test workflow
+BLOCKS: adding tests to existing code (use gsd-add-tests instead)
+PRIORITY: 8 - fires when TDD methodology is explicitly requested
+
+### e2e-testing
+TRIGGERS: e2e test, end to end test, playwright, browser test, user flow test, integration test full stack
+BLOCKS: unit tests
+PRIORITY: 8
+
+### test-coverage
+TRIGGERS: test coverage, coverage gaps, what is not covered, coverage analysis, missing tests, uncovered code, coverage report
+BLOCKS: nothing
+PRIORITY: 8
+
+---
+
+## Multi-agent orchestration
+
+### multi-plan
+TRIGGERS: parallel tasks, multi-agent plan, decompose into agents, parallelize this, split into workers, independent tasks, fan out
+BLOCKS: sequential single-task work
+PRIORITY: 8 - prefer over gsd-plan-phase when tasks are clearly parallelizable
+
+### multi-execute
+TRIGGERS: execute in parallel, run agents in parallel, multi-agent execute, spawn agents for
+BLOCKS: no multi-agent plan exists yet
+PRIORITY: 7
+
+### multi-workflow
+TRIGGERS: multi-service workflow, coordinate services, multiple services, full stack agents
+BLOCKS: nothing
+PRIORITY: 7
+
+### multi-backend
+TRIGGERS: backend agents, multiple backend services, parallel backend work, backend orchestration
+BLOCKS: nothing
+PRIORITY: 7
+
+### multi-frontend
+TRIGGERS: frontend agents, multiple frontend tasks, parallel frontend work, frontend orchestration
+BLOCKS: nothing
+PRIORITY: 7
+
+---
+
+## Research and deep work
+
+### search-first
+TRIGGERS: research before, look this up first, check before coding, understand before implementing, what does X do, how does X work
+BLOCKS: nothing
+PRIORITY: 8 - fires before implementation when explicit research intent is present
+
+### deep-research
+TRIGGERS: deep research, thorough research, comprehensive research, research this topic, explore this in depth
+BLOCKS: simple questions with obvious answers
+PRIORITY: 7
+
+### iterative-retrieval
+TRIGGERS: progressively refine, retrieve context iteratively, build up context step by step, narrow down
+BLOCKS: nothing
+PRIORITY: 6
+
+---
+
+## Security
+
+### security-scan
+TRIGGERS: security scan, vulnerability scan, check for vulnerabilities, security audit, scan for issues, security check
+BLOCKS: nothing
+PRIORITY: 8
+
+---
+
+## Documentation and writing
+
+### update-docs
+TRIGGERS: update the docs, sync documentation, update readme, docs are outdated, documentation needs updating
+BLOCKS: nothing
+PRIORITY: 7
+
+### plan-prd
+TRIGGERS: write a PRD, product requirements document, requirements doc, spec this out, write the spec, product spec
+BLOCKS: nothing
+PRIORITY: 7
+
+### article-writing
+TRIGGERS: write an article, technical article, write a blog post, write about this, draft an article, technical writing
+BLOCKS: nothing
+PRIORITY: 7
+
+---
+
+## Architecture and structure
+
+### hexagonal-architecture
+TRIGGERS: hexagonal architecture, ports and adapters, clean architecture, DDD, domain driven design, decouple layers
+BLOCKS: nothing
+PRIORITY: 7
+
+### architecture-decision-records
+TRIGGERS: ADR, architecture decision record, document this decision, record this architecture choice, write an ADR
+BLOCKS: nothing
+PRIORITY: 8
+
+### codebase-onboarding
+TRIGGERS: onboard to this codebase, understand this codebase, explain the structure, how is this project organized
+BLOCKS: nothing
+PRIORITY: 7 - use after learn-codebase for structured analysis
+
+### production-audit
+TRIGGERS: production audit, production readiness, is this production ready, production checklist, ready for prod, pre-production
+BLOCKS: nothing
+PRIORITY: 7
+
+---
+
+## Performance
+
+### benchmark
+TRIGGERS: benchmark this, performance benchmark, measure performance, how fast is this, perf test, latency benchmark
+BLOCKS: nothing
+PRIORITY: 7
+
+---
+
+## PR workflow
+
+### pr
+TRIGGERS: create a PR, open a PR, make a pull request, submit PR, open pull request
+BLOCKS: nothing
+PRIORITY: 8 - use /pr for PR creation only; use /ship for full commit+push+PR flow
+
+### review-pr
+TRIGGERS: review this PR, PR review, review pull request, look at this PR, someone else's PR
+BLOCKS: nothing
+PRIORITY: 8 - use over /review when reviewing an external or teammate PR (not your own diff)
+
+---
+
+## Quality and refactoring
+
+### quality-gate
+TRIGGERS: quality check, quality gate, check quality, is this good enough, pre-merge quality, verify quality
+BLOCKS: nothing
+PRIORITY: 7
+
+### refactor-clean
+TRIGGERS: dead code, remove unused code, clean up dead code, refactor clean, unused functions, remove unused
+BLOCKS: nothing
+PRIORITY: 7 - prefer smart-simplify (jjstack) for general simplification; use /refactor-clean for dead code specifically
+
+### checkpoint
+TRIGGERS: save checkpoint, checkpoint this, mark progress, save verification state
+BLOCKS: nothing
+PRIORITY: 6
+
+---
+
+## Skill management
+
+### skill-create
+TRIGGERS: create a skill, generate a skill, new skill, skill from git history, extract this as a skill, make a skill
+BLOCKS: nothing
+PRIORITY: 8
+
+---
+
+## Reference skills (no routing - use by name or context)
+
+These are knowledge/pattern skills. Claude uses them when working in the relevant context,
+or you can invoke them explicitly. They do not need trigger-based routing.
+
+| Skill | When to use |
+|-------|------------|
+| `golang-patterns` | Go idioms, interfaces, error handling |
+| `golang-testing` | Go test patterns, table tests, benchmarks |
+| `python-patterns` | Python idioms, dataclasses, typing |
+| `python-testing` | pytest, fixtures, parametrize |
+| `rust-patterns` | Rust idioms, ownership, traits |
+| `rust-testing` | Rust test patterns, cargo test |
+| `java-coding-standards` | Java idioms, naming, structure |
+| `jpa-patterns` | JPA/Hibernate queries, entities |
+| `fastapi-patterns` | FastAPI routes, dependencies, schemas |
+| `django-patterns` | Django models, views, ORM |
+| `frontend-patterns` | React, Next.js component patterns |
+| `backend-patterns` | API, database, caching patterns |
+| `nestjs-patterns` | NestJS modules, controllers, DI |
+| `nextjs-turbopack` | Next.js Turbopack config and migration |
+| `vite-patterns` | Vite config, plugins, HMR |
+| `prisma-patterns` | Prisma schema, queries, migrations |
+| `postgres-patterns` | PostgreSQL query optimization, indexing |
+| `database-migrations` | Migration patterns across ORMs |
+| `redis-patterns` | Redis data structures, caching, pub/sub |
+| `api-design` | REST API design, pagination, errors |
+| `docker-patterns` | Dockerfile, Compose, networking |
+| `deployment-patterns` | CI/CD, health checks, rollbacks |
+| `coding-standards` | Language-agnostic code quality rules |
+| `error-handling` | Error patterns across languages |
+| `git-workflow` | Commit format, branch strategy |
+| `mcp-server-patterns` | Building MCP servers |
+| `api-connector-builder` | Connecting to external APIs |
