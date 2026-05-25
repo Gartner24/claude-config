@@ -184,3 +184,109 @@ npx skills add https://github.com/Leonxlnx/taste-skill --skill "industrial-bruta
 ### getsentry-skills
 **What it does:** Sentry integration skills - agents aware of Sentry error tracking.
 **Location:** `~/.claude/skills/getsentry-skills/`
+
+---
+
+## ECC cherry-pick (affaan-m/ecc)
+
+**Source:** https://github.com/affaan-m/ecc
+**Install method:** Manual cherry-pick - NOT using install.sh. Cloned to /tmp/ecc and copied selected files only.
+**What was NOT installed:** hooks/, scripts/, settings.json, MCP configs, ECC-specific skills (configure-ecc, security-scan agent, instinct system, continuous-learning). All of those conflict with jjstack/gsd/claude-mem.
+
+### Agents installed (~/.claude/agents/)
+
+Language reviewers and build resolvers:
+- `go-reviewer.md`, `go-build-resolver.md`
+- `python-reviewer.md`
+- `typescript-reviewer.md`
+- `rust-reviewer.md`, `rust-build-resolver.md`
+- `java-reviewer.md`, `java-build-resolver.md`
+- `build-error-resolver.md` (generic)
+
+General purpose:
+- `architect.md`, `code-architect.md`, `code-reviewer.md`, `code-explorer.md`
+- `planner.md`, `tdd-guide.md`, `security-reviewer.md`
+- `refactor-cleaner.md`, `doc-updater.md`, `docs-lookup.md`
+- `e2e-runner.md`, `loop-operator.md`
+- `database-reviewer.md`, `performance-optimizer.md`
+- `silent-failure-hunter.md`, `chief-of-staff.md`
+- `pr-test-analyzer.md`, `a11y-architect.md`
+
+### Rules installed (~/.claude/rules/ecc/)
+
+Language-specific "must always / must never" guidelines. Not auto-loaded - add @imports to project CLAUDE.md:
+```
+@~/.claude/rules/ecc/common/coding-style.md
+@~/.claude/rules/ecc/<language>/coding-style.md
+```
+Languages: common, typescript, python, golang, rust, java, web
+
+### Skills installed (~/.claude/skills/)
+
+Language patterns: `golang-patterns`, `golang-testing`, `python-patterns`, `python-testing`, `rust-patterns`, `rust-testing`, `java-coding-standards`, `jpa-patterns`, `fastapi-patterns`, `django-patterns`
+
+Frontend/Backend: `frontend-patterns`, `backend-patterns`, `api-design`, `nextjs-turbopack`, `nestjs-patterns`, `vite-patterns`, `prisma-patterns`
+
+Infrastructure: `deployment-patterns`, `docker-patterns`, `postgres-patterns`, `database-migrations`, `redis-patterns`
+
+Architecture: `hexagonal-architecture`, `architecture-decision-records`, `coding-standards`, `error-handling`, `git-workflow`
+
+Workflow: `tdd-workflow`, `e2e-testing`, `search-first`, `autonomous-loops`, `iterative-retrieval`, `deep-research`, `production-audit`, `codebase-onboarding`
+
+Tools: `mcp-server-patterns`, `github-ops`, `benchmark`, `api-connector-builder`, `article-writing`
+
+### Commands installed (~/.claude/commands/)
+
+Language-specific: `/go-review`, `/go-test`, `/go-build`, `/python-review`, `/rust-review`, `/rust-build`, `/rust-test`, `/gradle-build`, `/fastapi-review`
+
+Multi-agent: `/multi-plan`, `/multi-execute`, `/multi-workflow`, `/multi-backend`, `/multi-frontend`
+
+General: `/plan`, `/build-fix`, `/refactor-clean`, `/quality-gate`, `/test-coverage`, `/update-docs`, `/checkpoint`, `/skill-create`, `/security-scan`, `/pr`, `/project-init`, `/review-pr`, `/plan-prd`
+
+### Reinstall on new machine
+```bash
+git clone --depth=1 https://github.com/affaan-m/ecc /tmp/ecc
+
+# Agents
+for agent in go-reviewer.md go-build-resolver.md python-reviewer.md typescript-reviewer.md \
+  rust-reviewer.md rust-build-resolver.md java-reviewer.md java-build-resolver.md \
+  build-error-resolver.md architect.md code-architect.md code-reviewer.md code-explorer.md \
+  planner.md tdd-guide.md security-reviewer.md refactor-cleaner.md doc-updater.md \
+  docs-lookup.md e2e-runner.md loop-operator.md database-reviewer.md performance-optimizer.md \
+  silent-failure-hunter.md chief-of-staff.md pr-test-analyzer.md a11y-architect.md; do
+  cp /tmp/ecc/agents/$agent ~/.claude/agents/
+done
+
+# Rules
+mkdir -p ~/.claude/rules/ecc
+for lang in common typescript python golang rust java web; do
+  cp -r /tmp/ecc/rules/$lang ~/.claude/rules/ecc/
+done
+
+# Skills
+for skill in coding-standards backend-patterns frontend-patterns api-design \
+  deployment-patterns docker-patterns golang-patterns golang-testing \
+  python-patterns python-testing rust-patterns rust-testing \
+  java-coding-standards jpa-patterns fastapi-patterns django-patterns \
+  tdd-workflow e2e-testing database-migrations postgres-patterns redis-patterns \
+  prisma-patterns vite-patterns nextjs-turbopack nestjs-patterns \
+  hexagonal-architecture architecture-decision-records error-handling git-workflow \
+  codebase-onboarding production-audit autonomous-loops iterative-retrieval \
+  deep-research mcp-server-patterns article-writing github-ops benchmark \
+  api-connector-builder search-first; do
+  cp -r /tmp/ecc/skills/$skill ~/.claude/skills/
+done
+
+# Commands
+mkdir -p ~/.claude/commands
+for cmd in go-review.md go-test.md go-build.md python-review.md \
+  rust-review.md rust-build.md rust-test.md gradle-build.md fastapi-review.md \
+  multi-plan.md multi-execute.md multi-workflow.md multi-backend.md multi-frontend.md \
+  plan.md build-fix.md refactor-clean.md quality-gate.md test-coverage.md \
+  update-docs.md checkpoint.md skill-create.md security-scan.md \
+  pr.md project-init.md review-pr.md plan-prd.md; do
+  cp /tmp/ecc/commands/$cmd ~/.claude/commands/
+done
+
+rm -rf /tmp/ecc
+```
