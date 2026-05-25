@@ -290,3 +290,50 @@ done
 
 rm -rf /tmp/ecc
 ```
+
+### Available but not installed (safe to add anytime)
+
+These were skipped to keep the initial install focused. No conflicts with any existing tools. To install any of them, clone ECC and copy the specific file/directory.
+
+**Agents** - copy to `~/.claude/agents/`:
+```bash
+git clone --depth=1 https://github.com/affaan-m/ecc /tmp/ecc
+# then copy what you want:
+cp /tmp/ecc/agents/fastapi-reviewer.md ~/.claude/agents/       # Python FastAPI review
+cp /tmp/ecc/agents/django-reviewer.md ~/.claude/agents/        # Python Django review
+cp /tmp/ecc/agents/django-build-resolver.md ~/.claude/agents/  # Django build errors
+cp /tmp/ecc/agents/code-simplifier.md ~/.claude/agents/        # Simplification subagent
+cp /tmp/ecc/agents/comment-analyzer.md ~/.claude/agents/       # Code comment quality
+cp /tmp/ecc/agents/type-design-analyzer.md ~/.claude/agents/   # TypeScript type analysis
+cp /tmp/ecc/agents/harness-optimizer.md ~/.claude/agents/      # Claude Code config tuning
+rm -rf /tmp/ecc
+```
+
+**Skills** - copy to `~/.claude/skills/`:
+```bash
+git clone --depth=1 https://github.com/affaan-m/ecc /tmp/ecc
+# then copy what you want:
+cp -r /tmp/ecc/skills/code-tour ~/.claude/skills/                        # Walkthrough of unfamiliar codebases
+cp -r /tmp/ecc/skills/benchmark-optimization-loop ~/.claude/skills/      # Perf benchmarking loops
+cp -r /tmp/ecc/skills/frontend-a11y ~/.claude/skills/                    # Accessibility patterns
+cp -r /tmp/ecc/skills/product-lens ~/.claude/skills/                     # Product thinking for code decisions
+cp -r /tmp/ecc/skills/context-budget ~/.claude/skills/                   # Context window management
+cp -r /tmp/ecc/skills/regex-vs-llm-structured-text ~/.claude/skills/     # Regex vs LLM decision framework
+cp -r /tmp/ecc/skills/agentic-engineering ~/.claude/skills/              # Patterns for building agents
+cp -r /tmp/ecc/skills/ai-first-engineering ~/.claude/skills/             # AI-first dev workflow
+cp -r /tmp/ecc/skills/blueprint ~/.claude/skills/                        # Project scaffolding blueprints
+cp -r /tmp/ecc/skills/prompt-optimizer ~/.claude/skills/                 # Prompt quality improvement
+cp -r /tmp/ecc/skills/exa-search ~/.claude/skills/                       # Research with Exa API
+cp -r /tmp/ecc/skills/design-system ~/.claude/skills/                    # Design system patterns
+cp -r /tmp/ecc/skills/plan-orchestrate ~/.claude/skills/                 # Orchestration planning
+rm -rf /tmp/ecc
+```
+
+**Commands** - copy to `~/.claude/commands/`:
+```bash
+git clone --depth=1 https://github.com/affaan-m/ecc /tmp/ecc
+cp /tmp/ecc/commands/feature-dev.md ~/.claude/commands/     # /feature-dev - feature dev workflow
+cp /tmp/ecc/commands/skill-health.md ~/.claude/commands/    # /skill-health - check skill quality
+cp /tmp/ecc/commands/update-codemaps.md ~/.claude/commands/ # /update-codemaps - update project codemaps
+rm -rf /tmp/ecc
+```
