@@ -13,7 +13,8 @@ restore a new machine, remember what you have, or decide which tool to reach for
 | [SKILLS.md](SKILLS.md) | Community skills (installed via `npx skills add` or manually) |
 | [MCP.md](MCP.md) | MCP servers (magic + context7) |
 | [HOOKS.md](HOOKS.md) | Hook scripts - what each does and where it comes from |
-| [USAGE.md](USAGE.md) | When and how to use each skill - decision guide |
+| [USAGE.md](USAGE.md) | Decision guide + machine-readable routing rules (read by personal-router) |
+| [skills/personal-router/SKILL.md](skills/personal-router/SKILL.md) | Personal router skill - reads USAGE.md, routes prompts to the right skill |
 | [CLAUDE.md](CLAUDE.md) | Global Claude behavior config (`~/.claude/CLAUDE.md`) |
 | [settings.json](settings.json) | Full `~/.claude/settings.json` (hooks, model, env, plugins) |
 | [settings.local.json](settings.local.json) | `~/.claude/settings.local.json` (MCP connectors) |
