@@ -11,9 +11,13 @@ restore a new machine, remember what you have, or decide which tool to reach for
 |------|----------------|
 | [PLUGINS.md](PLUGINS.md) | Official plugins (installed via `claude plugin install`) |
 | [SKILLS.md](SKILLS.md) | Community skills (installed via `npx skills add` or manually) |
-| [MCP.md](MCP.md) | MCP servers configured in `~/.claude.json` |
+| [MCP.md](MCP.md) | MCP servers (magic + context7) |
+| [HOOKS.md](HOOKS.md) | Hook scripts - what each does and where it comes from |
 | [USAGE.md](USAGE.md) | When and how to use each skill - decision guide |
 | [CLAUDE.md](CLAUDE.md) | Global Claude behavior config (`~/.claude/CLAUDE.md`) |
+| [settings.json](settings.json) | Full `~/.claude/settings.json` (hooks, model, env, plugins) |
+| [settings.local.json](settings.local.json) | `~/.claude/settings.local.json` (MCP connectors) |
+| [mcp-config.json](mcp-config.json) | `~/.claude.json` mcpServers block |
 
 ## Stack overview
 
@@ -46,6 +50,7 @@ Community skills (installed manually or via npx skills add)
 
 MCP servers
   magic (21st-dev)     - Component generation with 21st.dev design system
+  context7             - Live library documentation fetcher
 ```
 
 ## Restore on a new machine
