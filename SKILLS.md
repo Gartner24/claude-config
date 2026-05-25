@@ -17,8 +17,27 @@ jjstack's setup script checks for gstack and clones + sets it up from `garrytan/
 
 **What jjstack adds:** A product/UX layer on top of gstack. Adds opinionated skills for code quality, product thinking, and developer experience. All jjstack skills are symlinked into `~/.claude/skills/`.
 
-**What gstack adds (auto-installed):** The GSD project management system. 50+ skills prefixed `gsd-` covering planning, execution, review, and shipping. The backbone of most project work.
-**Key gstack sub-skills:** `/gsd-new-project`, `/gsd-plan-phase`, `/gsd-execute-phase`, `/gsd-review`, `/gsd-debug`, `/gsd-ship`, `/autoplan`, `/investigate`, `/qa`, `/ship`, `/review` (pre-landing), `/office-hours`, `/retro`
+**What gstack adds (auto-installed):** The task management layer - `/autoplan`, `/investigate`, `/qa`, `/ship`, `/review`, `/office-hours`, `/retro`, and the browser automation system. NOT the gsd-* skills.
+
+---
+
+### get-shit-done-cc (GSD) - installs the gsd-* skills
+**Source:** https://github.com/gsd-build/get-shit-done
+**Package:** `get-shit-done-cc` on npm (by TÂCHES)
+**Install:**
+```bash
+npx get-shit-done-cc
+```
+**Current version:** 1.34.2
+
+This is what actually installs the 50+ `gsd-*` skills and the `~/.claude/get-shit-done/` directory (workflows, references, templates). It is completely separate from gstack. The two integrate - gstack hooks reference GSD state files - but neither installs the other.
+
+**What it installs:**
+- `~/.claude/get-shit-done/` - workflow engine, references, templates
+- All `~/.claude/skills/gsd-*` directories - the slash commands
+- `~/.claude/gsd-file-manifest.json` - install manifest
+
+**Key skills:** `/gsd-new-project`, `/gsd-plan-phase`, `/gsd-execute-phase`, `/gsd-review`, `/gsd-debug`, `/gsd-ship`, `/gsd-discuss-phase`, `/gsd-validate-phase`, `/gsd-map-codebase`
 **Key sub-skills:** `/dev-philosophy`, `/heal`, `/kano-model`, `/lean`, `/mcp-server`, `/new-submodule`, `/product-manager-review`, `/python-coder`, `/qa-review`, `/receiving-code-review`, `/security-review`, `/smart-context7`, `/smart-review`, `/smart-simplify`, `/state-doc`, `/two-stage-review`, `/unit-test-builder`, `/verify-before-done`, `/work-order`, `/worktrees`, `/writing-skills`, `/jj-qa`, `/github-setup`
 
 ---
