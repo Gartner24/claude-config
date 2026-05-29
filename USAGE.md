@@ -1,33 +1,16 @@
 # Usage Guide
 
-When to reach for which skill. This is the decision guide - not a feature list.
-
-The personal-router skill reads the TRIGGERS/BLOCKS/PRIORITY fields from this file
-to route prompts automatically. Keep those fields accurate when you add skills.
-
+Decision guide for skill routing. The intent-router reads TRIGGERS/BLOCKS/PRIORITY fields.
 ROUTING-FORMAT-VERSION: 1
 
 ---
 
-## Starting a new project
-
-### gsd-new-project
-TRIGGERS: new project, start a project, initialize project, fresh project, from scratch, create a roadmap, new repo setup
-BLOCKS: existing project, adding a feature, small change
-PRIORITY: 9 - highest for project init; nothing else should fire first on a blank slate
-
-1. `/gsd-new-project` - creates roadmap, phases, milestones
-2. `/impeccable teach` - give Claude design context for the project (run once)
-3. `/learn-codebase` (claude-mem) - prime Claude's memory with the codebase
-
----
-
-## Memory and context (check these first)
+## Memory and context
 
 ### mem-search
 TRIGGERS: did we solve this, did we do this before, how did we, remember when, previously, last time, past session, have we already
 BLOCKS: nothing - memory check should always fire when these phrases appear
-PRIORITY: 10 - highest priority overall; always check memory before starting any non-trivial task
+PRIORITY: 10 - always check memory before starting any non-trivial task
 
 ### context-restore
 TRIGGERS: resume, continue where, pick up where, last session, where were we, restore context, I was working on
@@ -39,11 +22,14 @@ TRIGGERS: learn this codebase, prime the codebase, get up to speed, read all the
 BLOCKS: already primed this session
 PRIORITY: 8
 
-- `/mem-search` - did we solve this before? search past sessions
-- `/learn-codebase` - read every file in a repo into memory (one-time per project)
-- `/context-save` - snapshot current session to continue later
-- `/context-restore` - resume from a saved snapshot
-- `/smart-explore` (claude-mem) - explore a codebase semantically
+---
+
+## Project init
+
+### gsd-new-project
+TRIGGERS: new project, start a project, initialize project, fresh project, from scratch, create a roadmap, new repo setup
+BLOCKS: existing project, adding a feature, small change
+PRIORITY: 9
 
 ---
 
@@ -52,29 +38,20 @@ PRIORITY: 8
 ### council
 TRIGGERS: should I, which is better, tradeoff, tradeoffs, architecture choice, monolith, microservice, which database, which library, build vs buy, second opinion, not sure which approach, multiple options, launch decision, risk, 3 possible causes, can't decide, help me decide, debate
 BLOCKS: simple questions with one clear answer, implementation tasks, bug fixes with obvious cause
-PRIORITY: 9 - invoke before any implementation skill when decision signals are present
-
-Use `/council` when one answer isn't enough:
-- Architecture choices (monolith vs microservices, which DB, which library)
-- Debugging with 3+ possible causes
-- Strategy tradeoffs
-- Whether to build vs buy
-- Launch decisions with real risk
-
-Council runs 3 rounds: independent analysis, cross-examination, final verdict with confidence.
+PRIORITY: 9
 
 ---
 
-## Planning a feature
+## Planning
 
 ### brainstorming
 TRIGGERS: new feature, let's build, I want to add, design this, let's make, create a, I'm thinking of building, plan this feature, explore this idea, before we start
 BLOCKS: already have a plan, executing existing plan, bug fix
-PRIORITY: 8 - fires before gsd-plan-phase; explore intent before writing plans
+PRIORITY: 8
 
 ### gsd-plan-phase
 TRIGGERS: plan this, break this down, create tasks, make a plan, roadmap, phase plan, detailed plan, implementation plan
-BLOCKS: new project (use gsd-new-project), ambiguous idea (use brainstorming first)
+BLOCKS: new project, ambiguous idea
 PRIORITY: 7
 
 ### gsd-execute-phase
@@ -82,26 +59,19 @@ TRIGGERS: execute the plan, run the plan, start phase, implement phase, do the p
 BLOCKS: no plan exists yet
 PRIORITY: 7
 
-1. `/brainstorming` (superpowers) - explore intent before writing code
-2. `/gsd-plan-phase` - break feature into executable tasks with a written plan
-3. `/gsd-execute-phase` - execute the plan with checkpoints
-
 ---
 
 ## Debugging
 
 ### investigate
 TRIGGERS: bug, error, crash, broken, not working, failing, unexpected behavior, wrong output, exception, traceback, it broke, why is this, what's wrong, debug, fix this error
-BLOCKS: nothing - always use investigate for bugs over ad-hoc debugging
+BLOCKS: nothing
 PRIORITY: 9
 
-### council (for complex bugs)
-TRIGGERS: 3 possible causes, multiple causes, not sure why, could be X or Y or Z, weird bug, intermittent, hard to reproduce
+### systematic-debugging
+TRIGGERS: complex bug, hard to debug, need a systematic approach, methodical debugging
 BLOCKS: simple bugs with obvious cause
-PRIORITY: 9 - tie with investigate; use council THEN investigate when causes are unclear
-
-- `/investigate` for bugs - systematic debugging, scientific method
-- `/council` then `/investigate` when there are 3+ possible causes
+PRIORITY: 8
 
 ---
 
@@ -109,32 +79,26 @@ PRIORITY: 9 - tie with investigate; use council THEN investigate when causes are
 
 ### qa
 TRIGGERS: does this work, test this, verify it works, check if it works, run the app, does it work, make sure it works, test the feature, test it manually
-BLOCKS: writing tests (use gsd-add-tests), code review (use review)
+BLOCKS: writing tests, code review
 PRIORITY: 8
 
 ### review
 TRIGGERS: review this, pre-landing, before I merge, check this PR, code review, review my changes, check my diff, is this ready to merge
-BLOCKS: nothing - review fires on any merge/PR intent
+BLOCKS: nothing
 PRIORITY: 8
 
 ### ship
 TRIGGERS: ship it, push this, create a PR, commit and push, submit PR, deploy, send it
-BLOCKS: not committed yet (commit first), failing tests
+BLOCKS: not committed yet, failing tests
 PRIORITY: 8
-
-- `/skill-router` is always active - describe what you want and it routes to the right skill
-- `/investigate` for bugs - systematic debugging, scientific method
-- `/qa` to test something works - actually runs the app and checks behavior
-- `/review` before merging - pre-landing diff review (SQL safety, logic bugs, security)
-- `/ship` to create a PR and push - handles commit, PR description, branch
 
 ---
 
-## UI / frontend work
+## UI / frontend
 
 ### impeccable (audit)
 TRIGGERS: audit the UI, check the design, accessibility issues, anti-patterns, a11y, performance issues in UI, responsive check, design quality
-BLOCKS: motion specifically (use design-motion-principles instead)
+BLOCKS: motion specifically
 PRIORITY: 8
 
 ### impeccable (polish)
@@ -149,35 +113,23 @@ PRIORITY: 7
 
 ### design-motion-principles
 TRIGGERS: animation, motion, transition, animate this, feels wrong motion, too fast, too slow, spring, easing, framer motion, CSS animation, motion design, this animation, audit animations, motion audit, movement, feels janky, bounce, hover effect feels
-BLOCKS: static UI with no animation (use impeccable instead)
-PRIORITY: 8 - prefer over impeccable animate when motion is the primary concern
+BLOCKS: static UI with no animation
+PRIORITY: 8
 
-### taste skills (pick one per project)
-TRIGGERS for high-end-visual-design: premium, polished, high-end, Stripe feel, Linear feel, Vercel feel, calm UI, expensive looking, soft contrast, whitespace heavy
-TRIGGERS for minimalist-ui: minimal, clean, Notion feel, editorial, restrained, Linear feel, simple layout
-TRIGGERS for industrial-brutalist-ui: brutalist, experimental, raw, Swiss type, sharp contrast, bold layout
-PRIORITY: 6 - taste selection; run once per project before any UI work
+### high-end-visual-design
+TRIGGERS: premium, polished, high-end, Stripe feel, Linear feel, Vercel feel, calm UI, expensive looking, soft contrast, whitespace heavy
+BLOCKS: nothing
+PRIORITY: 6
 
-Pick a taste skill first (sets visual direction), then use impeccable for quality:
+### minimalist-ui
+TRIGGERS: minimal, clean, Notion feel, editorial, restrained, simple layout
+BLOCKS: nothing
+PRIORITY: 6
 
-- `high-end-visual-design` - calm, premium, polished (Stripe/Linear/Vercel feel)
-- `minimalist-ui` - editorial, restrained (Notion feel)
-- `industrial-brutalist-ui` - experimental, sharp, mechanical (use intentionally)
-- `ui-ux-pro-max` - when you need to explore styles or pick from a broad palette
-
-Then impeccable commands:
-- `/impeccable critique` - is the UX hierarchy clear? does it feel right?
-- `/impeccable audit` - technical check: a11y, performance, responsive, anti-patterns
-- `/impeccable polish` - final pass before shipping
-- `/impeccable bolder` / `/impeccable quieter` - tune the energy level
-- `/impeccable animate` - add motion (use design-motion-principles for motion-first work)
-
-For motion specifically:
-- `/design-motion-principles` - create mode (build with motion) or audit mode (review + HTML report)
-- Emil Kowalski lens = restraint. Cuts unnecessary animation.
-
-For component generation:
-- magic MCP is active - ask for a component and it searches the 21st.dev library
+### industrial-brutalist-ui
+TRIGGERS: brutalist, experimental, raw, Swiss type, sharp contrast, bold layout
+BLOCKS: nothing
+PRIORITY: 6
 
 ---
 
@@ -185,7 +137,7 @@ For component generation:
 
 ### two-stage-review
 TRIGGERS: large diff, big PR, many files changed, complex review, thorough review, deep review
-BLOCKS: small change (use review instead)
+BLOCKS: small change
 PRIORITY: 7
 
 ### code-review (high effort)
@@ -193,41 +145,232 @@ TRIGGERS: security review, important PR, sensitive change, production code, care
 BLOCKS: nothing
 PRIORITY: 8
 
-| Situation | Command |
-|-----------|---------|
-| Quick sanity check | `/code-review` (low effort) |
-| Normal PR before merge | `/review` (gstack pre-landing) |
-| Important PR, security-sensitive | `/code-review` (high/max effort) |
-| Full pipeline: plan + review | `/autoplan` |
-
-`/two-stage-review` - splits review into fast structural check then deep logic check. Use for large diffs.
-
 ---
 
-## Autonomous / long-running work
+## Autonomous
 
 ### ralph-loop
 TRIGGERS: keep going, run autonomously, don't stop, continue without me, run this in the background, autonomous, loop on this, keep running
 BLOCKS: nothing
 PRIORITY: 7
 
-- `/ralph-loop` - runs Claude autonomously, keeps going without re-prompting
-- `/gsd-autonomous` - gstack's autonomous mode for multi-step plans
-- `/babysit` (claude-mem) - monitors a background job and reports back
+---
+
+## Language review and build
+
+### go-review
+TRIGGERS: review this go, go code review, review my go, check this go file, go-specific review
+BLOCKS: non-go code
+PRIORITY: 8
+
+### python-review
+TRIGGERS: review this python, python code review, review my python, check this python
+BLOCKS: non-python code
+PRIORITY: 8
+
+### rust-review
+TRIGGERS: review this rust, rust code review, review my rust, check this rust, unsafe rust
+BLOCKS: non-rust code
+PRIORITY: 8
+
+### fastapi-review
+TRIGGERS: review this fastapi, fastapi code review, review my endpoint, check this api route
+BLOCKS: non-fastapi code
+PRIORITY: 8
+
+### build-fix
+TRIGGERS: build error, build failed, compilation error, won't compile, can't build, fix the build, build is broken, linker error
+BLOCKS: runtime errors
+PRIORITY: 9
+
+### go-build
+TRIGGERS: go build error, go compilation error, go module error, go import error
+BLOCKS: nothing
+PRIORITY: 9
+
+### rust-build
+TRIGGERS: rust build error, cargo error, rust compilation, borrow checker error, lifetime error
+BLOCKS: nothing
+PRIORITY: 9
+
+### gradle-build
+TRIGGERS: gradle build error, gradle failed, maven error, java build error, spring boot build
+BLOCKS: nothing
+PRIORITY: 9
 
 ---
 
-## Quality floors (always-on from jjstack)
+## Testing
 
-These aren't commands - they're behaviors jjstack enforces automatically.
-No routing needed - they fire on their own:
-- `verify-before-done` - verifies work actually works before saying done
-- `smart-review` - elevated review standard for any code change
-- `smart-simplify` - simplifies code after a feature lands
+### tdd-workflow
+TRIGGERS: TDD, test driven, write tests first, red green refactor, test first, unit test workflow
+BLOCKS: adding tests to existing code
+PRIORITY: 8
+
+### e2e-testing
+TRIGGERS: e2e test, end to end test, playwright, browser test, user flow test, integration test full stack
+BLOCKS: unit tests
+PRIORITY: 8
+
+### test-coverage
+TRIGGERS: test coverage, coverage gaps, what is not covered, coverage analysis, missing tests, uncovered code, coverage report
+BLOCKS: nothing
+PRIORITY: 8
 
 ---
 
-## Specific scenarios (routing cheat sheet)
+## Multi-agent
+
+### multi-plan
+TRIGGERS: parallel tasks, multi-agent plan, decompose into agents, parallelize this, split into workers, independent tasks, fan out
+BLOCKS: sequential single-task work
+PRIORITY: 8
+
+### multi-execute
+TRIGGERS: execute in parallel, run agents in parallel, multi-agent execute, spawn agents for
+BLOCKS: no multi-agent plan exists yet
+PRIORITY: 7
+
+### multi-workflow
+TRIGGERS: multi-service workflow, coordinate services, multiple services, full stack agents
+BLOCKS: nothing
+PRIORITY: 7
+
+### multi-backend
+TRIGGERS: backend agents, multiple backend services, parallel backend work, backend orchestration
+BLOCKS: nothing
+PRIORITY: 7
+
+### multi-frontend
+TRIGGERS: frontend agents, multiple frontend tasks, parallel frontend work, frontend orchestration
+BLOCKS: nothing
+PRIORITY: 7
+
+---
+
+## Research
+
+### search-first
+TRIGGERS: research before, look this up first, check before coding, understand before implementing, what does X do, how does X work
+BLOCKS: nothing
+PRIORITY: 8
+
+### deep-research
+TRIGGERS: deep research, thorough research, comprehensive research, research this topic, explore this in depth
+BLOCKS: simple questions with obvious answers
+PRIORITY: 7
+
+### iterative-retrieval
+TRIGGERS: progressively refine, retrieve context iteratively, build up context step by step, narrow down
+BLOCKS: nothing
+PRIORITY: 6
+
+---
+
+## Security
+
+### security-scan
+TRIGGERS: security scan, vulnerability scan, check for vulnerabilities, security audit, scan for issues, security check
+BLOCKS: nothing
+PRIORITY: 8
+
+---
+
+## Docs and writing
+
+### update-docs
+TRIGGERS: update the docs, sync documentation, update readme, docs are outdated, documentation needs updating
+BLOCKS: nothing
+PRIORITY: 7
+
+### plan-prd
+TRIGGERS: write a PRD, product requirements document, requirements doc, spec this out, write the spec, product spec
+BLOCKS: nothing
+PRIORITY: 7
+
+### article-writing
+TRIGGERS: write an article, technical article, write a blog post, write about this, draft an article, technical writing
+BLOCKS: nothing
+PRIORITY: 7
+
+---
+
+## Architecture
+
+### hexagonal-architecture
+TRIGGERS: hexagonal architecture, ports and adapters, clean architecture, DDD, domain driven design, decouple layers
+BLOCKS: nothing
+PRIORITY: 7
+
+### architecture-decision-records
+TRIGGERS: ADR, architecture decision record, document this decision, record this architecture choice, write an ADR
+BLOCKS: nothing
+PRIORITY: 8
+
+### codebase-onboarding
+TRIGGERS: onboard to this codebase, understand this codebase, explain the structure, how is this project organized
+BLOCKS: nothing
+PRIORITY: 7
+
+### production-audit
+TRIGGERS: production audit, production readiness, is this production ready, production checklist, ready for prod, pre-production
+BLOCKS: nothing
+PRIORITY: 7
+
+---
+
+## Performance
+
+### benchmark
+TRIGGERS: benchmark this, performance benchmark, measure performance, how fast is this, perf test, latency benchmark
+BLOCKS: nothing
+PRIORITY: 7
+
+---
+
+## PR workflow
+
+### pr
+TRIGGERS: create a PR, open a PR, make a pull request, submit PR, open pull request
+BLOCKS: nothing
+PRIORITY: 8
+
+### review-pr
+TRIGGERS: review this PR, PR review, review pull request, look at this PR, someone else's PR
+BLOCKS: nothing
+PRIORITY: 8
+
+---
+
+## Quality and refactoring
+
+### quality-gate
+TRIGGERS: quality check, quality gate, check quality, is this good enough, pre-merge quality, verify quality
+BLOCKS: nothing
+PRIORITY: 7
+
+### refactor-clean
+TRIGGERS: dead code, remove unused code, clean up dead code, refactor clean, unused functions, remove unused
+BLOCKS: nothing
+PRIORITY: 7
+
+### checkpoint
+TRIGGERS: save checkpoint, checkpoint this, mark progress, save verification state
+BLOCKS: nothing
+PRIORITY: 6
+
+---
+
+## Skill management
+
+### skill-create
+TRIGGERS: create a skill, generate a skill, new skill, skill from git history, extract this as a skill, make a skill
+BLOCKS: nothing
+PRIORITY: 8
+
+---
+
+## Cheat sheet
 
 | Scenario | Route |
 |----------|-------|
@@ -259,239 +402,7 @@ No routing needed - they fire on their own:
 
 ---
 
-## Superpowers + claude-mem synergy
-
-### systematic-debugging
-TRIGGERS: complex bug, hard to debug, need a systematic approach, methodical debugging
-BLOCKS: simple bugs with obvious cause
-PRIORITY: 8
-
-These two work as a pair:
-- Superpowers provides **how to do things** (structured skill workflows)
-- Claude-mem provides **what was learned** (persistent memory of outcomes)
-
-Run `/mem-search "X"` before starting any non-trivial task to check if it was solved before.
-
----
-
-## Language-specific review and build
-
-### go-review
-TRIGGERS: review this go, go code review, review my go, check this go file, go-specific review
-BLOCKS: non-go code
-PRIORITY: 8 - prefer over generic /review when file is Go
-
-### python-review
-TRIGGERS: review this python, python code review, review my python, check this python
-BLOCKS: non-python code
-PRIORITY: 8
-
-### rust-review
-TRIGGERS: review this rust, rust code review, review my rust, check this rust, unsafe rust
-BLOCKS: non-rust code
-PRIORITY: 8
-
-### fastapi-review
-TRIGGERS: review this fastapi, fastapi code review, review my endpoint, check this api route
-BLOCKS: non-fastapi code
-PRIORITY: 8
-
-### build-fix
-TRIGGERS: build error, build failed, compilation error, won't compile, can't build, fix the build, build is broken, linker error
-BLOCKS: runtime errors (use investigate instead)
-PRIORITY: 9 - fires before ad-hoc debugging on any build/compile failure
-
-### go-build
-TRIGGERS: go build error, go compilation error, go module error, go import error
-BLOCKS: nothing
-PRIORITY: 9 - prefer over /build-fix when language is clearly Go
-
-### rust-build
-TRIGGERS: rust build error, cargo error, rust compilation, borrow checker error, lifetime error
-BLOCKS: nothing
-PRIORITY: 9 - prefer over /build-fix when language is clearly Rust
-
-### gradle-build
-TRIGGERS: gradle build error, gradle failed, maven error, java build error, spring boot build
-BLOCKS: nothing
-PRIORITY: 9 - prefer over /build-fix when language is Java/Kotlin
-
----
-
-## TDD and testing
-
-### tdd-workflow
-TRIGGERS: TDD, test driven, write tests first, red green refactor, test first, unit test workflow
-BLOCKS: adding tests to existing code (use gsd-add-tests instead)
-PRIORITY: 8 - fires when TDD methodology is explicitly requested
-
-### e2e-testing
-TRIGGERS: e2e test, end to end test, playwright, browser test, user flow test, integration test full stack
-BLOCKS: unit tests
-PRIORITY: 8
-
-### test-coverage
-TRIGGERS: test coverage, coverage gaps, what is not covered, coverage analysis, missing tests, uncovered code, coverage report
-BLOCKS: nothing
-PRIORITY: 8
-
----
-
-## Multi-agent orchestration
-
-### multi-plan
-TRIGGERS: parallel tasks, multi-agent plan, decompose into agents, parallelize this, split into workers, independent tasks, fan out
-BLOCKS: sequential single-task work
-PRIORITY: 8 - prefer over gsd-plan-phase when tasks are clearly parallelizable
-
-### multi-execute
-TRIGGERS: execute in parallel, run agents in parallel, multi-agent execute, spawn agents for
-BLOCKS: no multi-agent plan exists yet
-PRIORITY: 7
-
-### multi-workflow
-TRIGGERS: multi-service workflow, coordinate services, multiple services, full stack agents
-BLOCKS: nothing
-PRIORITY: 7
-
-### multi-backend
-TRIGGERS: backend agents, multiple backend services, parallel backend work, backend orchestration
-BLOCKS: nothing
-PRIORITY: 7
-
-### multi-frontend
-TRIGGERS: frontend agents, multiple frontend tasks, parallel frontend work, frontend orchestration
-BLOCKS: nothing
-PRIORITY: 7
-
----
-
-## Research and deep work
-
-### search-first
-TRIGGERS: research before, look this up first, check before coding, understand before implementing, what does X do, how does X work
-BLOCKS: nothing
-PRIORITY: 8 - fires before implementation when explicit research intent is present
-
-### deep-research
-TRIGGERS: deep research, thorough research, comprehensive research, research this topic, explore this in depth
-BLOCKS: simple questions with obvious answers
-PRIORITY: 7
-
-### iterative-retrieval
-TRIGGERS: progressively refine, retrieve context iteratively, build up context step by step, narrow down
-BLOCKS: nothing
-PRIORITY: 6
-
----
-
-## Security
-
-### security-scan
-TRIGGERS: security scan, vulnerability scan, check for vulnerabilities, security audit, scan for issues, security check
-BLOCKS: nothing
-PRIORITY: 8
-
----
-
-## Documentation and writing
-
-### update-docs
-TRIGGERS: update the docs, sync documentation, update readme, docs are outdated, documentation needs updating
-BLOCKS: nothing
-PRIORITY: 7
-
-### plan-prd
-TRIGGERS: write a PRD, product requirements document, requirements doc, spec this out, write the spec, product spec
-BLOCKS: nothing
-PRIORITY: 7
-
-### article-writing
-TRIGGERS: write an article, technical article, write a blog post, write about this, draft an article, technical writing
-BLOCKS: nothing
-PRIORITY: 7
-
----
-
-## Architecture and structure
-
-### hexagonal-architecture
-TRIGGERS: hexagonal architecture, ports and adapters, clean architecture, DDD, domain driven design, decouple layers
-BLOCKS: nothing
-PRIORITY: 7
-
-### architecture-decision-records
-TRIGGERS: ADR, architecture decision record, document this decision, record this architecture choice, write an ADR
-BLOCKS: nothing
-PRIORITY: 8
-
-### codebase-onboarding
-TRIGGERS: onboard to this codebase, understand this codebase, explain the structure, how is this project organized
-BLOCKS: nothing
-PRIORITY: 7 - use after learn-codebase for structured analysis
-
-### production-audit
-TRIGGERS: production audit, production readiness, is this production ready, production checklist, ready for prod, pre-production
-BLOCKS: nothing
-PRIORITY: 7
-
----
-
-## Performance
-
-### benchmark
-TRIGGERS: benchmark this, performance benchmark, measure performance, how fast is this, perf test, latency benchmark
-BLOCKS: nothing
-PRIORITY: 7
-
----
-
-## PR workflow
-
-### pr
-TRIGGERS: create a PR, open a PR, make a pull request, submit PR, open pull request
-BLOCKS: nothing
-PRIORITY: 8 - use /pr for PR creation only; use /ship for full commit+push+PR flow
-
-### review-pr
-TRIGGERS: review this PR, PR review, review pull request, look at this PR, someone else's PR
-BLOCKS: nothing
-PRIORITY: 8 - use over /review when reviewing an external or teammate PR (not your own diff)
-
----
-
-## Quality and refactoring
-
-### quality-gate
-TRIGGERS: quality check, quality gate, check quality, is this good enough, pre-merge quality, verify quality
-BLOCKS: nothing
-PRIORITY: 7
-
-### refactor-clean
-TRIGGERS: dead code, remove unused code, clean up dead code, refactor clean, unused functions, remove unused
-BLOCKS: nothing
-PRIORITY: 7 - prefer smart-simplify (jjstack) for general simplification; use /refactor-clean for dead code specifically
-
-### checkpoint
-TRIGGERS: save checkpoint, checkpoint this, mark progress, save verification state
-BLOCKS: nothing
-PRIORITY: 6
-
----
-
-## Skill management
-
-### skill-create
-TRIGGERS: create a skill, generate a skill, new skill, skill from git history, extract this as a skill, make a skill
-BLOCKS: nothing
-PRIORITY: 8
-
----
-
-## Reference skills (no routing - use by name or context)
-
-These are knowledge/pattern skills. Claude uses them when working in the relevant context,
-or you can invoke them explicitly. They do not need trigger-based routing.
+## Reference skills (no routing - use by name)
 
 | Skill | When to use |
 |-------|------------|
