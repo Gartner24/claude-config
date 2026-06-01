@@ -1,6 +1,6 @@
 {
   "env": {
-    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "95"
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "100"
   },
   "model": "opusplan",
   "hooks": {
@@ -68,16 +68,6 @@
           {
             "type": "command",
             "command": "node \"/home/santiago/.claude/hooks/gsd-prompt-guard.js\"",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"/home/santiago/.claude/hooks/gsd-read-guard.js\"",
             "timeout": 5
           }
         ]
@@ -157,6 +147,6 @@
       }
     }
   },
-  "voiceEnabled": false,
-  "agentPushNotifEnabled": false
+  "agentPushNotifEnabled": false,
+  "voiceEnabled": false
 }
