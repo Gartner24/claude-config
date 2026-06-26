@@ -30,7 +30,7 @@ Required:
 - **Identity:** brand name, one-liner/positioning, audience, offerings + pricing, mascot (or none), signature color.
 - **Jurisdiction (gate):** the client's country/region -> sets the LEGAL-GUIDE region AND the payment
   gateway (Colombia -> Habeas Data + DIAN + **Wompi**; international -> CCPA/GDPR + **Stripe**). Confirm this explicitly.
-- **Existing design system:** do they already have a `brand-system.md`? (-> Step 4 gate)
+- **Existing design system:** do they already have a locked `brand-system.html`? (-> Step 4 gate)
 - **Existing content/assets:** copy, logo, photos, domain, what's missing.
 - **Contact & channels:** inbox email, personal email, primary CTA + phone/WhatsApp number, socials, locales.
 - **Infra:** GitHub org, analytics/status hosts.
@@ -38,12 +38,13 @@ Required:
 Do not proceed to build with gaps. Confirm the filled intake back to the user.
 
 ## Step 4 - Brand-system gate (HARD - no build without it)
-A locked **`brand-system.md`** must exist and be signed off before any building (static template §1).
-- **Exists + signed off** -> read it; it's the binding source of truth (Claude follows the `.md`, not any HTML board).
-- **Missing or not signed off** -> STOP and produce it first: fill `templates/brand-system.template.md`
-  (run `/design` for direction + template §3 for the mascot/logo assets - Nano Banana is the user's
-  manual step, `vtracer` post-process is in-session), show the client, get **explicit sign-off**, then
-  continue. Never build off-brand because the system wasn't locked.
+A locked **`brand-system.html`** must exist and be signed off before any building (static template §1).
+- **Exists + signed off** -> read it; it's the binding source of truth. Follow its **machine-readable
+  tokens** (the `:root` CSS custom properties + the `#brand-tokens` JSON block) - exact values, not eyeballed.
+- **Missing or not signed off** -> STOP and produce it first with **`/brand-system`** (fills
+  `templates/brand-system.template.md` -> emits `brand-system.html`; the mascot/logo come from template
+  §3 - Nano Banana is the user's manual step, `vtracer` post-process is in-session). Show the client, get
+  **explicit sign-off**, then continue. Never build off-brand because the board wasn't locked.
 
 ## Step 5 - Scaffold the client repo
 Create a NEW private repo for the client (use the `github-setup` skill or `gh`), Astro static output,
