@@ -15,5 +15,5 @@ If `$ARGUMENTS` is empty, ask: what to design + where, and whether to reuse an e
 1. **Direction - `ui-ux-pro-max`.** Lock style + palette + font pairing + stack. If a saved project/client direction exists, reuse it. If not, propose 2 directions and wait for a pick.
 2. **Source - `magic` MCP (21st.dev) via `/ui`.** Generate/source real shadcn/Tailwind components matching the locked direction before hand-rolling anything. Skip this step if the stack is not React/Next + Tailwind.
 3. **Assemble - `frontend-design` + `impeccable`.** Implement the components into the page.
-4. **Motion - `design-motion-principles` (build mode).** Add motion only where it earns its place. Kowalski restraint, no motion slop.
-5. **Gate - audit before presenting.** Run `/impeccable audit` AND a motion audit. Report what failed, fix it, then present. Never skip this step.
+4. **Motion - `design-motion-principles` (build mode).** It is the motion specialist (Emil Kowalski lens); use it for all motion, and `impeccable` for everything else. Add motion only where it earns its place. Kowalski restraint, no motion slop.
+5. **Gate - audit before presenting.** Run `/impeccable audit` (UX, a11y, responsive, perf) AND `design-motion-principles` audit mode (catches AI-slop motion). Report what failed, fix it, then present. Never skip this step.
