@@ -17,7 +17,7 @@ Determine the type from `$ARGUMENTS`; if unclear, ask. Map it:
 - **Static brochure** -> base only.
 - **Booking (pay in person)** -> base + `modules/booking.md`.
 - **Booking + online payment** -> base + `modules/booking.md` + `modules/payments.md`.
-- **Headless commerce** -> base + `modules/headless-commerce.md` + `modules/payments.md` (check if it needs its own SSR base).
+- **Headless commerce** -> base + `modules/headless-commerce.md` + `modules/payments.md` (stays on the static base: SSG catalog + island cart + Worker/D1; own SSR base only if the client needs live multi-SKU inventory rendered into HTML or personalized SSR pages).
 
 ## Step 2 - Read the spec
 Read the base template + the chosen module(s) + both guides. These are the binding instructions and
@@ -41,7 +41,10 @@ Propose the asset list + section plan + chosen hero signature concept, and **wai
 - **`astro-patterns`** - Astro conventions throughout.
 - Assets: user does the mascot; you source stock/cutouts/brand SVG (template section 13).
 - Implement **SEO-GUIDE** + **LEGAL-GUIDE** across all pages.
-- Build the module(s): booking (Workers + D1 + Durable Objects + Resend + Google Calendar + `.ics`) and/or payments (multi-gateway: Wompi CO + DIAN / Stripe intl) per their module docs.
+- Build the module(s) per their docs:
+  - **booking** - Workers + D1 + Durable Objects (no double-booking) + Resend + Google Calendar + `.ics`.
+  - **payments** - multi-gateway (Wompi CO incl. integrity + events secrets + DIAN / Stripe intl); idempotent webhook is the correctness core; PSP-hosted checkout (SAQ-A).
+  - **headless-commerce** - SSG catalog + island cart + Worker/D1; reuses the DO lock (no oversell) and payments' webhook; product page shows live price/stock, not stale SSG.
 
 ## Step 6 - Gate + launch
 - Run **`/production-audit`** + the template section 15 pre-launch gate + module pre-launch additions.
