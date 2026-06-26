@@ -173,6 +173,30 @@ npx skills add https://github.com/Leonxlnx/taste-skill --skill "industrial-bruta
 
 ---
 
+## Client site build system (custom)
+
+Custom skills + commands for the freelance website business. The full how-to lives in the build
+system repo: `~/projects/freelance/website-build-templates/WORKFLOW.md`.
+
+### astro-patterns (skill)
+**What it does:** Astro static-site conventions for the freelance stack (islands/client directives,
+`astro:assets`, content collections, trailing-slash/canonical hygiene, CSP-with-islands, Cloudflare
+Workers-vs-Pages). Grounded in official Astro docs.
+**When to use:** building or reviewing any Astro site. Auto-fires; or invoke by name.
+
+### /design (command)
+**What it does:** Runs the design pipeline: lock direction (`ui-ux-pro-max`) -> source components
+(magic MCP) -> assemble (`frontend-design` + `impeccable`) -> motion (`design-motion-principles`) ->
+audit. You can supply style, brand, assets, or a Figma URL; anything omitted is proposed.
+
+### /new-site (command)
+**What it does:** Orchestrates a full client website build - picks the site type, pulls the right
+base template + modules + guides from the build system, scaffolds the client repo, fills variables,
+and runs the build order (firing `/design`, `astro-patterns`, SEO/legal, audits, deploy). One command
+instead of a checklist. See `WORKFLOW.md`.
+
+---
+
 ## Specialized
 
 ### inboundsavvy-webmaster
