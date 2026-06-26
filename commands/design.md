@@ -6,6 +6,8 @@ description: Run the design pipeline - lock direction (ui-ux-pro-max), source re
 
 Run the full design pipeline on the request in `$ARGUMENTS`. Setup reference: `~/claude-config/DESIGN-PIPELINE.md`.
 
+You can supply as much or as little as you want: target style or direction, brand colors and fonts, reference images (paste/drag them in), a Figma URL, or existing components/CSS to match. Whatever you provide overrides the proposal step and is locked as the direction; whatever you leave out gets proposed (2 options) and confirmed before anything is built.
+
 If `$ARGUMENTS` is empty, ask: what to design + where, and whether to reuse an existing project/client direction.
 
 ## Pipeline
