@@ -23,18 +23,34 @@ Determine the type from `$ARGUMENTS`; if unclear, ask. Map it:
 Read the base template + the chosen module(s) + both guides. These are the binding instructions and
 the pre-launch gate. Do not restate them; follow them.
 
-## Step 3 - Client inputs (fill the template's section 0 variables)
-Gather brand/domain/offerings/contact from the client's brand system (`brand-system.html`) and the
-intake docs. Reuse a saved per-client direction if one exists. Ask only for what is missing. If brand
-assets do not exist yet, follow the template's section 3 (mascot/logo - the Nano Banana steps are
-done by the user; post-processing with `vtracer` is in-session).
+## Step 3 - Intake (the full §0 - NOT a one-liner)
+`$ARGUMENTS` is only a seed. Gather the **complete** §0 intake before building - pull what exists from
+the client's brand system + the `business` intake docs, and **ask for everything missing**.
+Required:
+- **Identity:** brand name, one-liner/positioning, audience, offerings + pricing, mascot (or none), signature color.
+- **Jurisdiction (gate):** the client's country/region -> sets the LEGAL-GUIDE region AND the payment
+  gateway (Colombia -> Habeas Data + DIAN + **Wompi**; international -> CCPA/GDPR + **Stripe**). Confirm this explicitly.
+- **Existing design system:** do they already have a `brand-system.md`? (-> Step 4 gate)
+- **Existing content/assets:** copy, logo, photos, domain, what's missing.
+- **Contact & channels:** inbox email, personal email, primary CTA + phone/WhatsApp number, socials, locales.
+- **Infra:** GitHub org, analytics/status hosts.
 
-## Step 4 - Scaffold the client repo
+Do not proceed to build with gaps. Confirm the filled intake back to the user.
+
+## Step 4 - Brand-system gate (HARD - no build without it)
+A locked **`brand-system.md`** must exist and be signed off before any building (static template §1).
+- **Exists + signed off** -> read it; it's the binding source of truth (Claude follows the `.md`, not any HTML board).
+- **Missing or not signed off** -> STOP and produce it first: fill `templates/brand-system.template.md`
+  (run `/design` for direction + template §3 for the mascot/logo assets - Nano Banana is the user's
+  manual step, `vtracer` post-process is in-session), show the client, get **explicit sign-off**, then
+  continue. Never build off-brand because the system wasn't locked.
+
+## Step 5 - Scaffold the client repo
 Create a NEW private repo for the client (use the `github-setup` skill or `gh`), Astro static output,
 per the `astro-patterns` skill (islands only where needed, `trailingSlash: 'always'`, `astro:assets`,
 Cloudflare Workers/Pages). One client = one repo (like `example.studio`). Never build in the template repo.
 
-## Step 5 - Propose, then build (the template's build order)
+## Step 6 - Propose, then build (the template's build order)
 Propose the asset list + section plan + chosen hero signature concept, and **wait for sign-off**
 (template build-order step 2). Then run the template build order, invoking the skills it names:
 - **`/design`** - lock direction -> source components (magic MCP) -> assemble (`frontend-design` + `impeccable`) -> motion (`design-motion-principles`) -> audit.
@@ -46,10 +62,10 @@ Propose the asset list + section plan + chosen hero signature concept, and **wai
   - **payments** - multi-gateway (Wompi CO incl. integrity + events secrets + DIAN / Stripe intl); idempotent webhook is the correctness core; PSP-hosted checkout (SAQ-A).
   - **headless-commerce** - SSG catalog + island cart + Worker/D1; reuses the DO lock (no oversell) and payments' webhook; product page shows live price/stock, not stale SSG.
 
-## Step 6 - Gate + launch
+## Step 7 - Gate + launch
 - Run **`/production-audit`** + the template section 15 pre-launch gate + module pre-launch additions.
 - Run **`a11y-architect`** and **`security-review`** passes.
 - Deploy to Cloudflare (`land-and-deploy` / `deployment-patterns`). Confirm Lighthouse green, no placeholders.
 
-## Step 7 - Hand off
+## Step 8 - Hand off
 Point back to `business` for the off-boarding/thank-you/renewal step. Done.
