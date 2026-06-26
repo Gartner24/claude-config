@@ -59,3 +59,12 @@ ECC rules are at ~/.claude/rules/ecc/ (common + typescript, python, golang, rust
 To activate for a project, add to that project's CLAUDE.md:
 @~/.claude/rules/ecc/common/coding-style.md
 @~/.claude/rules/ecc/<language>/coding-style.md
+
+## UI / design work - pipeline rule
+For any UI build or redesign in a React + Tailwind project (full setup: ~/claude-config/DESIGN-PIPELINE.md):
+1. Lock direction first with ui-ux-pro-max: style + palette + font pairing + stack. Reuse the saved project/client direction if one exists; otherwise propose 2 and wait.
+2. Source components from the magic MCP (21st.dev) before hand-rolling - use /ui or /design.
+3. Assemble with frontend-design + impeccable.
+4. Add motion with design-motion-principles (build mode) only where it earns its place - Kowalski restraint, no motion slop.
+5. Before showing anything: run /impeccable audit AND a motion audit. Report what failed, fix it, then present.
+Never skip step 5. If the stack is not React/Tailwind, skip step 2 (Magic is React-only).
