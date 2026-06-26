@@ -21,7 +21,7 @@ The foundation. Adds structured, opinionated workflows for every major dev activ
 
 ---
 
-### claude-mem `v13.3.0`
+### claude-mem `v13.5.6`
 **Source:** `thedotmack/claude-mem`
 **Install:** `claude plugin install claude-mem`
 **Skills it adds:** `/mem-search`, `/learn-codebase`, `/smart-explore`, `/knowledge-agent`, `/make-plan`, `/do`, `/babysit`, `/weekly-digests`, `/timeline-report`, `/pathfinder`, `/wowerpoint`, `/oh-my-issues`, `/how-it-works`, `/design-is`, `/version-bump`
@@ -79,3 +79,12 @@ Autonomous loop runner. Keeps Claude running on a task continuously without manu
 **Install:** `claude plugin install clangd-lsp`
 
 C/C++ Language Server Protocol integration. Adds LSP tool for C/C++ projects.
+
+---
+
+### ponytail `v4.8.3`
+**Source:** `DietrichGebert/ponytail` (third-party marketplace, not official)
+**Install:** `claude plugins marketplace add DietrichGebert/ponytail` then `claude plugins install ponytail@ponytail`
+**Skills it adds:** `/ponytail`, `/ponytail-audit`, `/ponytail-debt`, `/ponytail-gain`, `/ponytail-help`, `/ponytail-review`
+
+"Lazy senior dev" code-minimization mode. Climbs a YAGNI ladder (does it need to exist -> already in codebase -> stdlib -> native -> installed dep -> one line -> minimal code) and prefers the shortest working diff. Active every session via a SessionStart hook; state in `~/.claude/.ponytail-active`. Levels: `lite` / `full` (default) / `ultra`, switch with `/ponytail <level>`. Disable with "stop ponytail" / "normal mode".

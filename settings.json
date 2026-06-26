@@ -2,7 +2,9 @@
   "env": {
     "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "100"
   },
-  "model": "opusplan",
+  "permissions": {
+    "defaultMode": "auto"
+  },
   "hooks": {
     "SessionStart": [
       {
@@ -137,7 +139,8 @@
     "code-review@claude-plugins-official": true,
     "code-simplifier@claude-plugins-official": true,
     "feature-dev@claude-plugins-official": true,
-    "ralph-loop@claude-plugins-official": true
+    "ralph-loop@claude-plugins-official": true,
+    "ponytail@ponytail": true
   },
   "extraKnownMarketplaces": {
     "thedotmack": {
@@ -145,8 +148,16 @@
         "source": "github",
         "repo": "thedotmack/claude-mem"
       }
+    },
+    "ponytail": {
+      "source": {
+        "source": "github",
+        "repo": "DietrichGebert/ponytail"
+      }
     }
   },
   "agentPushNotifEnabled": false,
-  "voiceEnabled": false
+  "skipAutoPermissionPrompt": true,
+  "voiceEnabled": false,
+  "tui": "fullscreen"
 }

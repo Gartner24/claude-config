@@ -169,6 +169,8 @@ npx skills add https://github.com/Leonxlnx/taste-skill --skill "industrial-bruta
 **What it does:** 67 styles, 96 palettes, 57 font pairings, 25 chart types, 13 framework stacks (React, Next.js, Vue, Svelte, SwiftUI, React Native, Flutter, Tailwind, shadcn/ui). Broad design intelligence.
 **When to use:** When you need style exploration or need a complete stack decision. Pairs with impeccable for quality control.
 
+> **Full design pipeline:** `ui-ux-pro-max` -> `21st.dev`/magic MCP -> `frontend-design` + `impeccable` -> `design-motion-principles` -> audit gate. Setup and the reusable kickoff prompt are in [DESIGN-PIPELINE.md](DESIGN-PIPELINE.md).
+
 ---
 
 ## Specialized
