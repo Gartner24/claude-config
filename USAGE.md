@@ -96,6 +96,16 @@ PRIORITY: 8
 
 ## UI / frontend
 
+### ui-ux-pro-max
+TRIGGERS: new design, redesign, design this, design a page, design a component, from scratch, what style, pick a style, choose a palette, font pairing, pick fonts, choose a stack, design direction, make this look like, style exploration, new page, new section
+BLOCKS: nothing
+PRIORITY: 9 - lock direction (style + palette + fonts + stack) before anything is built; chain into 21st.dev
+
+### 21st.dev
+TRIGGERS: build the UI, build this, scaffold, implement the design, need a navbar, need a hero, need a pricing section, need a table, need a modal, need a card, need a component, find a component, real component, production component, shadcn, block, registry
+BLOCKS: stack is not React/Next + Tailwind + shadcn/Radix
+PRIORITY: 8 - chain after ui-ux-pro-max; source real components via /ui (magic MCP) instead of hand-rolling
+
 ### impeccable (audit)
 TRIGGERS: audit the UI, check the design, accessibility issues, anti-patterns, a11y, performance issues in UI, responsive check, design quality
 BLOCKS: motion specifically
