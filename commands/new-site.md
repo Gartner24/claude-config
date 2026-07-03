@@ -14,7 +14,7 @@ repo** - it never edits the build system itself.
 
 ## Step 1 - Site type -> template + modules
 Determine the type from `$ARGUMENTS`; if unclear, ask. Map it:
-- **Static brochure** -> base only.
+- **Content / marketing site** -> base only. (Statically rendered = fast + crawlable + AI-search-ready; "static" is the rendering, not a page count - it scales to a full content hub.)
 - **Booking (pay in person)** -> base + `modules/booking.md`.
 - **Booking + online payment** -> base + `modules/booking.md` + `modules/payments.md`.
 - **Headless commerce** -> base + `modules/headless-commerce.md` + `modules/payments.md` (stays on the static base: SSG catalog + island cart + Worker/D1; own SSR base only if the client needs live multi-SKU inventory rendered into HTML or personalized SSR pages).
@@ -32,6 +32,9 @@ Required:
   gateway (Colombia -> Habeas Data + DIAN + **Wompi**; international -> CCPA/GDPR + **Stripe**). Confirm this explicitly.
 - **Existing design system:** do they already have a locked `brand-system.html`? (-> Step 4 gate)
 - **Existing content/assets:** copy, logo, photos, domain, what's missing.
+- **Content map (AI-SEO):** the real questions/searches the client's customer has before buying or hiring -
+  this fuels the topical page plan (SEO-GUIDE §0.5). What do they ask? What are they deciding between?
+  Build genuinely-helpful pages that answer those - **never** a page per keyword (Google scaled-content-abuse).
 - **Contact & channels:** inbox email, personal email, primary CTA + phone/WhatsApp number, socials, locales.
 - **Infra:** GitHub org, analytics/status hosts.
 
@@ -57,7 +60,8 @@ Propose the asset list + section plan + chosen hero signature concept, and **wai
 - **`/design`** - lock direction -> source components (magic MCP) -> assemble (`frontend-design` + `impeccable`) -> motion (`design-motion-principles`) -> audit.
 - **`astro-patterns`** - Astro conventions throughout.
 - Assets: user does the mascot; you source stock/cutouts/brand SVG (template section 13).
-- Implement **SEO-GUIDE** + **LEGAL-GUIDE** across all pages.
+- Implement **SEO-GUIDE** (incl. §0.5 the AI-search era: helpful, topical content answering the customer's
+  real questions, structured data, crawlable HTML; **no page-per-keyword**) + **LEGAL-GUIDE** across all pages.
 - Build the module(s) per their docs:
   - **booking** - Workers + D1 + Durable Objects (no double-booking) + Resend + Google Calendar + `.ics`.
   - **payments** - multi-gateway (Wompi CO incl. integrity + events secrets + DIAN / Stripe intl); idempotent webhook is the correctness core; PSP-hosted checkout (SAQ-A).
