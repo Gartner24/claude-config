@@ -19,9 +19,9 @@ registered in `USAGE.md` + `SKILLS.md`, and referenced by the command that uses 
 | **claude-seo** | plugin (AgriciDaniel) | **USER INSTALLS** (checklist) | seo-ops / `/monthly-ops` / `/new-site` | 10.7k*, MIT, audit-only, no account access |
 | **security-guidance** | plugin (Anthropic) | **USER INSTALLS** (checklist) | review workflow (passive) | Set `ENABLE_STOP_REVIEW=0` to cap per-turn cost |
 | **canvas-design** | skill (Anthropic) | **USER INSTALLS** (checklist) | `/brand-system` collateral | OG/social/marketing graphics |
-| **nano-banana** | our skill (from local) | A2 - adapt to Gemini API | `/brand-system` + `/new-site` assets | Replaces manual Nano Banana step; Gemini API (not kie) |
-| **video-to-website** | our skill (from local) | A2 - adapt to Astro/CF | `/new-site` premium hero + `/design` | Port vanilla GSAP -> Astro island |
-| **business-analyzer** | 3rd-party (local) | loose in `~/.claude/skills` - relocate to claude-config | `/brand-system` + `/new-site` discovery | Client discovery / financials / pricing-GTM |
+| **nano-banana** | our skill (from local) | authored (`skills/nano-banana` + Gemini script) | `/brand-system` + `/new-site` assets | Gemini API (not kie); structured-prompt realism |
+| **video-to-website** | our skill (from local) | authored (`skills/video-to-website`, Astro) | `/new-site` premium hero + `/design` | Ported vanilla GSAP -> Astro island + Cloudflare |
+| **business-analyzer** | 3rd-party (local) | relocated to `claude-config/skills` + symlinked | `/new-site` discovery (business-analyzer skill) | Audience / competitive / financials / pricing-GTM / SWOT |
 | **graphify** | dev tool (pip) | **USER INSTALLS** (`pip install graphifyy`) | meta - index the whole system | Knowledge graph of code+docs; NOT video |
 
 ## Rejected (logged so we don't re-litigate)
