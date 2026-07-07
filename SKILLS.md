@@ -195,6 +195,30 @@ base template + modules + guides from the build system, scaffolds the client rep
 and runs the build order (firing `/design`, `astro-patterns`, SEO/legal, audits, deploy). One command
 instead of a checklist. See `WORKFLOW.md`.
 
+### /monthly-ops (command)
+**What it does:** Runs one client's monthly **retainer** cycle - Care base + the add-ons they bought
+(SEO/AEO, Content, GBP, Reviews, Backlinks) + AI-visibility, then drafts the monthly report and hard-stops
+for your review. Executes the runbooks in `website-build-templates/guides/MONTHLY-OPS-GUIDE.md`.
+
+### seo-ops (skill)
+**What it does:** Recurring SEO/AEO for a live client site (claude-seo audit, page-2 internal links, GSC
+language mining, structured-data upkeep, IndexNow re-index). Run-time counterpart to SEO-GUIDE. Used by
+`/monthly-ops` SEO add-on.
+
+### content-ops (skill)
+**What it does:** Writes site copy + blog content that gets a client found, in their voice, never AI slop.
+Build-time page copy (for `/new-site`) and the monthly blog add-on (for `/monthly-ops`). Uses voice-dna +
+anti-ai-writing; obeys SEO-GUIDE topical rules.
+
+### voice-dna (skill) + anti-ai-writing (skill)
+**What they do:** voice-dna builds a per-client voice profile from ~20 samples; anti-ai-writing is the final
+de-slop pass. Both feed `content-ops`. (3rd-party, `artemnovitckii/content-skills`, MIT; tracked in
+claude-config.)
+
+> **Skills evaluation log:** every skill considered (adopted/rejected + why + where wired) is in
+> `SKILLS-EVALUATION.md`. Pending adaptation (A2): `nano-banana` (Gemini), `video-to-website` (Astro),
+> `business-analyzer` (relocate). Plugins to install: see `PLUGINS.md` (claude-seo, security-guidance).
+
 ---
 
 ## Specialized

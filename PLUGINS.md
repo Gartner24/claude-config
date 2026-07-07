@@ -88,3 +88,23 @@ C/C++ Language Server Protocol integration. Adds LSP tool for C/C++ projects.
 **Skills it adds:** `/ponytail`, `/ponytail-audit`, `/ponytail-debt`, `/ponytail-gain`, `/ponytail-help`, `/ponytail-review`
 
 "Lazy senior dev" code-minimization mode. Climbs a YAGNI ladder (does it need to exist -> already in codebase -> stdlib -> native -> installed dep -> one line -> minimal code) and prefers the shortest working diff. Active every session via a SessionStart hook; state in `~/.claude/.ponytail-active`. Levels: `lite` / `full` (default) / `ultra`, switch with `/ponytail <level>`. Disable with "stop ponytail" / "normal mode".
+
+---
+
+## Client services (to install)
+
+### claude-seo `[install when ready]`
+**Source:** `AgriciDaniel/claude-seo` (10.7k stars, MIT)
+**Install:** `claude plugin marketplace add AgriciDaniel/claude-seo` then `claude plugin install claude-seo@agricidaniel-claude-seo`
+
+Runnable SEO/AEO **audit** engine (25 sub-skills + 18 GEO/AEO agents) - audit-only, no account access, no
+auto-publish. Complements the build-time `SEO-GUIDE.md` (guide = spec, this = runnable audit). Wired into the
+`seo-ops` skill / `/monthly-ops` SEO add-on. See `SKILLS-EVALUATION.md`.
+
+### security-guidance `[install when ready]`
+**Source:** `claude-plugins-official/security-guidance` (Anthropic, 31.7k stars)
+**Install:** `claude plugin install security-guidance@claude-plugins-official`
+
+Passive security net: regex warnings on Edit/Write, diff review on Stop, agentic flow analysis on commit.
+Complements the on-demand review-stack. **Cost note:** set `ENABLE_STOP_REVIEW=0` to skip the per-turn Stop
+review (keep the commit-time review) if per-message API cost bites.
