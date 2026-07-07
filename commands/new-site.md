@@ -60,6 +60,12 @@ Cloudflare Workers/Pages). One client = one repo (like `example.studio`). Never 
 Propose the asset list + section plan + chosen hero signature concept, and **wait for sign-off**
 (template build-order step 2). Then run the template build order, invoking the skills it names:
 - **`/design`** - lock direction -> source components (magic MCP) -> assemble (`frontend-design` + `impeccable`) -> motion (`design-motion-principles`) -> audit.
+- **The commerce storefront is a DESIGN surface, not a freebie.** For a store, the engine vendors a
+  `starter/` storefront (shop grid, product page, cart, checkout) that `setup.sh` copies into `src/`. It is a
+  **functional REFERENCE** - it renders the engine's data with no-JS fallbacks - **NOT the finished design.**
+  Run `/design` over these storefront surfaces and rebuild/re-skin them to the brand system, exactly like any
+  other page. **Never present the generic starter look as the client's design**, and never call the store
+  "done" while it still looks like the starter.
 - **`astro-patterns`** - Astro conventions throughout.
 - **Copy:** draft page copy with **`content-ops`** (Mode A - collaborative, client approves before code; the homepage answers the 7 questions, "why you" clear in 5s).
 - Assets: user does the mascot; you source stock/cutouts/brand SVG (template section 13). Generate custom imagery with **`nano-banana`** (Gemini). For a premium scroll-hero built from a video, use **`video-to-website`**.
