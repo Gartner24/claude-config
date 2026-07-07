@@ -494,6 +494,7 @@ EXAMPLE: "extract this debugging flow as a reusable skill"
 | Bug with 3+ possible causes | `/council` then `/investigate` | "3 possible causes for this crash, help me decide which to chase" |
 | New page/screen | taste skill -> `/impeccable shape` -> build -> `/impeccable audit` -> `/impeccable polish` | "design a new pricing page from scratch" |
 | Full design pipeline | `/design` (or describe it) | "/design a dashboard - reuse project context, audit before showing me" |
+| Client's monthly retainer cycle | `/monthly-ops <client>` | "run this month's SEO/content/GBP ops for camisetasdiez" |
 | Animation feels wrong | `/design-motion-principles` audit mode | "this transition feels janky, audit the motion" |
 | Code works but messy | `/smart-simplify` | "this works but it's messy, simplify it" |
 | Dead code / unused symbols | `/refactor-clean` | "remove the unused functions in this file" |
