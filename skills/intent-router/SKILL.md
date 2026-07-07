@@ -1,12 +1,10 @@
 ---
 name: intent-router
 description: >
-  Config-driven intent router. Fires automatically when intent is ambiguous — reads
-  USAGE.md from ~/claude-config to score the prompt against every installed skill's
-  TRIGGERS/BLOCKS/PRIORITY and invokes the best match. Use when the request could
-  involve multiple skills or when the right tool isn't immediately obvious. Skip for
-  simple file edits, direct questions, and single-tool operations where the answer
-  is unambiguous.
+  Use when a request could involve multiple skills, mentions a workflow (debug, review,
+  ship, build, design) without naming one, or the right tool isn't immediately obvious.
+  Skip for simple file edits, direct factual questions, single-tool operations, and any
+  request that already names a skill.
 ---
 
 # Intent Router
@@ -66,7 +64,7 @@ For each skill in the table:
 
 - **Clear winner** (top score ≥ 2× second place): proceed to Step 5.
 - **Tie or close race** (top two scores within 20% of each other): check if they
-  are a known sequence (e.g. `council` → `investigate`, `brainstorming` → `gsd-plan-phase`).
+  are a known sequence (e.g. `council` → `investigate`).
   If yes, note both in the announcement and invoke the first. If no natural sequence,
   pick the higher-priority skill.
 - **Nothing above threshold**: exit silently. Do not announce, do not intercept.
@@ -119,9 +117,9 @@ These rules encode personal preferences that override pure trigger scoring:
 4. **investigate over ad-hoc debugging** — any bug/error prompt goes to
    `/investigate`, never to a general coding response. No exceptions.
 
-5. **brainstorming before gsd-plan-phase** — if the idea is still vague or
+5. **brainstorming before any plan/build skill** — if the idea is still vague or
    exploratory (`I want to`, `I'm thinking`, `maybe we could`), route to
-   `/brainstorming` before `/gsd-plan-phase`.
+   `/brainstorming` before any planning or implementation skill.
 
 ---
 
@@ -134,7 +132,6 @@ Used only when `~/claude-config/USAGE.md` is not found.
 | mem-search | did we solve, previously, last time, remember | 10 |
 | council | should I, tradeoff, architecture choice, which is better, second opinion | 9 |
 | investigate | bug, error, crash, broken, not working, failing | 9 |
-| gsd-new-project | new project, start a project, initialize project | 9 |
 | context-restore | resume, continue where, pick up where | 9 |
 | brainstorming | new feature, let's build, I want to add, design this | 8 |
 | qa | does this work, test this, verify it works | 8 |
@@ -142,6 +139,5 @@ Used only when `~/claude-config/USAGE.md` is not found.
 | ship | ship it, push this, create a PR, deploy | 8 |
 | impeccable audit | audit the UI, check the design, a11y, anti-patterns | 8 |
 | design-motion-principles | animation, motion, transition, animate, easing, spring | 8 |
-| gsd-plan-phase | plan this, break this down, create tasks | 7 |
 | ralph-loop | keep going, run autonomously, don't stop | 7 |
 | two-stage-review | large diff, big PR, complex review | 7 |
