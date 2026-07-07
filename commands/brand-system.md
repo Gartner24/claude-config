@@ -20,7 +20,8 @@ needed to decide.
 Run the design-direction work: `ui-ux-pro-max` (style + palette + font pairing), plus the aesthetic
 skills (`high-end-visual-design` / `minimalist-ui` / etc. as fits) and `impeccable` for discipline.
 Lock: positioning/essence, voice, color, typography, spacing/layout, logo + lockups, mascot (if any),
-imagery direction, motion principles, do/don't. Follow the template spec section by section.
+imagery direction, motion principles, do/don't. Follow the template spec section by section. Generate the
+mascot and brand imagery with the **`nano-banana`** skill (Gemini; `vtracer` post-process to vectorize a logo).
 
 ## Step 2 - Emit `brand-system.html` (canonical + visual in one file)
 A single self-contained HTML file that is BOTH the human sign-off board AND the machine source:

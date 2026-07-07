@@ -420,6 +420,27 @@ BLOCKS: nothing
 PRIORITY: 7
 EXAMPLE: "build a voice-dna from these 20 posts so content sounds like the client"
 
+### nano-banana
+WHAT: Generate controlled hyper-realistic images (product / hero / brand / blog) via Google's Gemini image model.
+TRIGGERS: generate image, product shot, hero image, brand imagery, nano banana, realistic image, ai image, blog image, mascot image
+BLOCKS: nothing
+PRIORITY: 7
+EXAMPLE: "generate a realistic product hero image for the store"
+
+### video-to-website
+WHAT: Turn a video into a premium scroll-driven animated hero (Astro island; canvas frames + GSAP/Lenis choreography).
+TRIGGERS: scroll animation, video to website, scroll hero, scrollytelling, apple-style scroll, canvas scroll, premium hero, scroll experience
+BLOCKS: nothing
+PRIORITY: 7
+EXAMPLE: "make a premium scroll-driven hero from this product video"
+
+### business-analyzer
+WHAT: Structure a client's market / positioning / pricing discovery (audience, competitive, financials, pricing-GTM, SWOT).
+TRIGGERS: analyze this business, client discovery, market analysis, competitive analysis, pricing strategy, what does this client need, business analysis
+BLOCKS: nothing
+PRIORITY: 7
+EXAMPLE: "analyze this client's business - audience, competitors, and pricing"
+
 ---
 
 ## Architecture

@@ -25,7 +25,9 @@ the pre-launch gate. Do not restate them; follow them.
 
 ## Step 3 - Intake (the full §0 - NOT a one-liner)
 `$ARGUMENTS` is only a seed. Gather the **complete** §0 intake before building - pull what exists from
-the client's brand system + the `business` intake docs, and **ask for everything missing**.
+the client's brand system + the `business` intake docs, and **ask for everything missing**. When the
+client's market / positioning / pricing is unclear, use the **`business-analyzer`** skill to structure the
+discovery (audience, competitive, pricing-GTM).
 Required:
 - **Identity:** brand name, one-liner/positioning, audience, offerings + pricing, mascot (or none), signature color.
 - **Jurisdiction (gate):** the client's country/region -> sets the LEGAL-GUIDE region AND the payment
@@ -59,7 +61,8 @@ Propose the asset list + section plan + chosen hero signature concept, and **wai
 (template build-order step 2). Then run the template build order, invoking the skills it names:
 - **`/design`** - lock direction -> source components (magic MCP) -> assemble (`frontend-design` + `impeccable`) -> motion (`design-motion-principles`) -> audit.
 - **`astro-patterns`** - Astro conventions throughout.
-- Assets: user does the mascot; you source stock/cutouts/brand SVG (template section 13).
+- **Copy:** draft page copy with **`content-ops`** (Mode A - collaborative, client approves before code; the homepage answers the 7 questions, "why you" clear in 5s).
+- Assets: user does the mascot; you source stock/cutouts/brand SVG (template section 13). Generate custom imagery with **`nano-banana`** (Gemini). For a premium scroll-hero built from a video, use **`video-to-website`**.
 - Implement **SEO-GUIDE** (incl. §0.5 the AI-search era: helpful, topical content answering the customer's
   real questions, structured data, crawlable HTML; **no page-per-keyword**) + **LEGAL-GUIDE** across all pages.
 - Build the module(s) per their docs:
@@ -71,6 +74,9 @@ Propose the asset list + section plan + chosen hero signature concept, and **wai
 - Run **`/production-audit`** + the template section 15 pre-launch gate + module pre-launch additions.
 - Run **`a11y-architect`** and **`security-review`** passes.
 - Deploy to Cloudflare (`land-and-deploy` / `deployment-patterns`). Confirm Lighthouse green, no placeholders.
+- **Index:** submit the sitemap in Google Search Console + Bing Webmaster, and ping **IndexNow** for the URL set.
 
-## Step 8 - Hand off
-Point back to `business` for the off-boarding/thank-you/renewal step. Done.
+## Step 8 - Hand off + offer the retainer
+Point back to `business` for off-boarding/thank-you. **Then offer the monthly retainer** - Care base +
+add-ons (`tiers.tex` / `MONTHLY-OPS-GUIDE.md`). The build is client acquisition; the retainer is the business.
+If they take it, set the client's retainer scope and run their cycle with **`/monthly-ops`**.

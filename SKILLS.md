@@ -215,9 +215,14 @@ anti-ai-writing; obeys SEO-GUIDE topical rules.
 de-slop pass. Both feed `content-ops`. (3rd-party, `artemnovitckii/content-skills`, MIT; tracked in
 claude-config.)
 
+### nano-banana + video-to-website + business-analyzer (skills)
+**What they do:** `nano-banana` generates controlled realistic imagery via Google's Gemini (in `/brand-system`
++ assets); `video-to-website` builds a premium scroll-hero from a video as an Astro island (in `/new-site`);
+`business-analyzer` structures client market/pricing/competitive discovery (in `/new-site` intake). All in
+`claude-config/skills`, symlinked.
+
 > **Skills evaluation log:** every skill considered (adopted/rejected + why + where wired) is in
-> `SKILLS-EVALUATION.md`. Pending adaptation (A2): `nano-banana` (Gemini), `video-to-website` (Astro),
-> `business-analyzer` (relocate). Plugins to install: see `PLUGINS.md` (claude-seo, security-guidance).
+> `SKILLS-EVALUATION.md`. Plugins to install: see `PLUGINS.md` (claude-seo, security-guidance).
 
 ---
 
