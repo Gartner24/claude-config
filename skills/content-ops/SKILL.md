@@ -10,8 +10,10 @@ description: >
 
 # Content Ops
 
-The content engine. Two modes - pick by the job. Quality-first and penalty-safe. Grounded in
-`~/projects/freelance/website-build-templates/guides/SEO-GUIDE.md` (canonical) and `MONTHLY-OPS-GUIDE.md` §2.
+The content engine. Two modes - pick by the job. Quality-first and penalty-safe. Grounded in the
+build-templates guides: **`CONTENT-GUIDE.md`** (canonical for what a page says + the 7 homepage questions +
+scan structure + the copy method), `SEO-GUIDE.md` (technical + AEO/GEO), and `MONTHLY-OPS-GUIDE.md` §2
+(recurring blog cadence).
 
 ## Mode A - build-time page copy (in `/new-site`)
 Collaborative, not done-for-you. Frame to the client: *"we work through your copy together - placement
