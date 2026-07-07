@@ -44,17 +44,6 @@ EXAMPLE: "prime the codebase, I just cloned this repo and need to get up to spee
 
 ---
 
-## Project init
-
-### gsd-new-project
-WHAT: Bootstraps a brand-new project with a roadmap, PROJECT.md, and phase structure.
-TRIGGERS: new project, start a project, initialize project, fresh project, from scratch, create a roadmap, new repo setup
-BLOCKS: existing project, adding a feature, small change
-PRIORITY: 9
-EXAMPLE: "start a new project from scratch for a CLI that syncs my dotfiles"
-
----
-
 ## Hard decisions
 
 ### council
@@ -74,20 +63,6 @@ TRIGGERS: new feature, let's build, I want to add, design this, let's make, crea
 BLOCKS: already have a plan, executing existing plan, bug fix
 PRIORITY: 8
 EXAMPLE: "I'm thinking of building a status dashboard for my home server - let's explore it first"
-
-### gsd-plan-phase
-WHAT: Turns an agreed idea into an executable phase plan with task breakdown and dependencies.
-TRIGGERS: plan this, break this down, create tasks, make a plan, roadmap, phase plan, detailed plan, implementation plan
-BLOCKS: new project, ambiguous idea
-PRIORITY: 7
-EXAMPLE: "break this down into a detailed implementation plan with tasks"
-
-### gsd-execute-phase
-WHAT: Executes an existing phase plan with atomic commits and checkpoints.
-TRIGGERS: execute the plan, run the plan, start phase, implement phase, do the plan
-BLOCKS: no plan exists yet
-PRIORITY: 7
-EXAMPLE: "execute the plan for phase 3"
 
 ---
 
