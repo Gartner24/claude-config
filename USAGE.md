@@ -390,6 +390,38 @@ EXAMPLE: "draft a technical blog post about debugging the USB ethernet driver"
 
 ---
 
+## Client services (retainer)
+
+### seo-ops
+WHAT: Runs the monthly recurring SEO/AEO for a LIVE client site - claude-seo audit, page-2 internal links, GSC language mining, structured-data upkeep, IndexNow re-index.
+TRIGGERS: monthly seo, seo ops, recurring seo, seo retainer, aeo ops, re-index, indexnow, page 2 internal links, seo audit for client
+BLOCKS: build-time SEO of a brand-new site (that's SEO-GUIDE via /new-site)
+PRIORITY: 8
+EXAMPLE: "run this month's SEO ops for camisetasdiez - audit + page-2 internal links"
+
+### content-ops
+WHAT: Writes site copy + blog content that gets a client FOUND, in their voice, never AI slop (build-time copy or the monthly blog add-on).
+TRIGGERS: write content, blog post, website copy, page copy, content ops, topical content, write for client, blog cadence, get found content
+BLOCKS: nothing
+PRIORITY: 8
+EXAMPLE: "write this month's 4 blog posts for the plumber - from their real customer questions"
+
+### anti-ai-writing
+WHAT: Final de-slop pass on any written content - makes it sound like a specific person, not AI.
+TRIGGERS: sounds like ai, de-slop, anti-ai, make it human, generic writing, ai tells, final writing pass
+BLOCKS: nothing
+PRIORITY: 7
+EXAMPLE: "this draft reads like AI - run the anti-ai pass"
+
+### voice-dna
+WHAT: Builds a reusable voice profile from ~20 real samples so content matches a specific person's voice.
+TRIGGERS: voice profile, sound like me, my voice, client voice, voice dna, match my writing
+BLOCKS: nothing
+PRIORITY: 7
+EXAMPLE: "build a voice-dna from these 20 posts so content sounds like the client"
+
+---
+
 ## Architecture
 
 ### hexagonal-architecture
