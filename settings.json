@@ -1,10 +1,29 @@
 {
+  "includeCoAuthoredBy": false,
+  "cleanupPeriodDays": 365,
+  "alwaysThinkingEnabled": true,
+  "spinnerTipsEnabled": false,
   "env": {
     "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "100"
   },
   "permissions": {
-    "defaultMode": "auto"
+    "defaultMode": "auto",
+    "deny": [
+      "Read(**/.env.production)",
+      "Read(**/.env.production.local)",
+      "Read(**/.env.prod)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*.p12)",
+      "Read(**/*.pfx)",
+      "Read(**/id_rsa)",
+      "Read(**/id_ed25519)",
+      "Read(**/.ssh/id_*)",
+      "Read(**/.aws/credentials)",
+      "Read(**/.pgpass)"
+    ]
   },
+  "model": "opus[1m]",
   "hooks": {
     "SessionStart": [
       {
@@ -28,6 +47,14 @@
           {
             "type": "command",
             "command": "bash /home/santiago/.claude/hooks/gsd-session-state.sh"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pgrep -f chroma-reaper.sh >/dev/null 2>&1 || setsid nohup bash /home/santiago/.claude/scripts/chroma-reaper.sh >/dev/null 2>&1 < /dev/null &"
           }
         ]
       }
@@ -64,6 +91,16 @@
       }
     ],
     "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /home/santiago/.claude/hooks/block-destructive.sh",
+            "timeout": 5
+          }
+        ]
+      },
       {
         "matcher": "Write|Edit",
         "hooks": [
@@ -140,7 +177,8 @@
     "code-simplifier@claude-plugins-official": true,
     "feature-dev@claude-plugins-official": true,
     "ralph-loop@claude-plugins-official": true,
-    "ponytail@ponytail": true
+    "ponytail@ponytail": true,
+    "security-guidance@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "thedotmack": {
@@ -154,10 +192,16 @@
         "source": "github",
         "repo": "DietrichGebert/ponytail"
       }
+    },
+    "agricidaniel-claude-seo": {
+      "source": {
+        "source": "github",
+        "repo": "AgriciDaniel/claude-seo"
+      }
     }
   },
+  "tui": "fullscreen",
   "agentPushNotifEnabled": false,
   "skipAutoPermissionPrompt": true,
-  "voiceEnabled": false,
-  "tui": "fullscreen"
+  "voiceEnabled": false
 }
