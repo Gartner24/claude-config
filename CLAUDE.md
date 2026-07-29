@@ -66,5 +66,8 @@ For any UI build or redesign in a React + Tailwind project (full setup: ~/claude
 2. Source components from the magic MCP (21st.dev) before hand-rolling - use /ui or /design.
 3. Assemble with frontend-design + impeccable.
 4. Add motion with design-motion-principles (build mode) only where it earns its place - Kowalski restraint, no motion slop.
-5. Before showing anything: run /impeccable audit AND a motion audit. Report what failed, fix it, then present.
+5. Before showing anything: run /impeccable critique (UX) AND /impeccable audit (a11y/perf/responsive) AND a motion audit. Report what failed, fix it, then present.
 Never skip step 5. If the stack is not React/Tailwind, skip step 2 (Magic is React-only).
+# graphify
+- **graphify** (`~/.claude/skills/graphify/SKILL.md`) - any input to knowledge graph. Trigger: `/graphify`
+When the user types `/graphify`, use the installed graphify skill or instructions before doing anything else.

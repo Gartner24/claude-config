@@ -2,6 +2,27 @@
 
 Skills installed outside the plugin system. Each needs to be reinstalled manually on a new machine.
 
+## Installed versions (last verified 2026-07-29)
+
+| Thing | Version | Update with |
+|-------|---------|-------------|
+| gstack | 1.60.1.0 | `git -C ~/.claude/skills/gstack merge --ff-only origin/main && ./setup` |
+| jjstack | 0.36.0 | same, in `~/.claude/skills/jjstack` (stash the local `hooks/auto-approve-safe.sh` tweak first) |
+| get-shit-done-cc | 1.34.2 **pinned** | do NOT run `npx get-shit-done-cc` - see below |
+| impeccable | 4.0.3 | `npx skills add pbakaus/impeccable --skill impeccable -a claude-code -g -y` |
+| graphify | 0.9.29 | `pipx upgrade graphifyy && graphify install claude` |
+| @21st-dev/cli | 1.15.0 | `npm install -g @21st-dev/cli@latest` |
+| Claude Code | 2.1.220 | `claude update` |
+
+Everything else (skill-router, the three taste skills, design-motion-principles,
+anthropic-security-review, getsentry-skills, the ECC cherry-picks) was verified against
+upstream on 2026-07-29 and is current.
+
+**Order matters on upgrade:** gstack's `./setup` overwrites the shared skill symlinks
+(`qa`, `review`, `ship`, `office-hours`, …) to point at gstack. Always run gstack's setup
+**first**, then jjstack's, which re-points them at the jjstack wrappers. `/jjstack-repair`
+fixes it if you get the order wrong.
+
 ## Skill frameworks
 
 These are full systems with many sub-skills. **You only need to install jjstack** - it installs gstack automatically as a declared dependency.
@@ -17,6 +38,30 @@ jjstack's setup script checks for gstack and clones + sets it up from `garrytan/
 
 **What jjstack adds:** A product/UX layer on top of gstack. Adds opinionated skills for code quality, product thinking, and developer experience. All jjstack skills are symlinked into `~/.claude/skills/`.
 
+**New in 0.36.0** (added 2026-07-29): `/antigravity` and `/deepseek` (second-opinion review
+via Google AGY and DeepSeek/OpenCode, alongside the existing `/codex`), `/consensus`
+(four-vendor panel), `/groom` (dedup and consolidate memories/skills), `/plan-edit`
+(surgical, sectioned plan editing with track-changes diffs), `/qa-build-loop` (replaces the
+removed `/qa-loop` - unattended TDD loop between iris-qa and a code worker),
+`/reconnect-mcp`, and the session-continuity trio `/save-and-clear`, `/save-and-exit`,
+`/resume-from-clear` plus `/rollover` that ties them together.
+
+**Known upstream bug (0.36.0, not patched):** `bin/jjstack-gbrain-phi-lib.sh`'s
+`reconstruct_cwd` cannot invert a Claude Code project slug whose path contains a dot-directory.
+Claude Code encodes both `/` and `.` as `-`, so `-home-santiago--claude` should map back to
+`/home/santiago/.claude` but resolves to `/home/santiago/-claude`. This surfaces as the one
+`test/smoke.sh` failure ("reconstruct_cwd resolves a real path" - that test also hardcodes the
+author's own `/home/jesper/...` path, so it cannot pass here either way). **Impact today: none.**
+The only callers are `jjstack-memory-bridge` and `jjstack-memory-to-learnings`, both gbrain
+paths, and gbrain is not installed on this machine. Left unpatched on purpose - a second local
+diff inside the jjstack checkout is a maintenance cost for a dead code path. Re-check after any
+jjstack upgrade, and before ever running `/setup-gbrain`.
+
+**Local modification:** `hooks/auto-approve-safe.sh` is tuned so the Haiku safety rater only
+returns HIGH for genuinely destructive commands, and MEDIUM auto-approves alongside LOW. The
+diff is kept at `hooks/jjstack-auto-approve-safe.patch` in this repo so it survives an
+upgrade - `git stash` before fast-forwarding jjstack, then `git stash pop`.
+
 **What gstack adds (auto-installed):** The task management layer - `/autoplan`, `/investigate`, `/qa`, `/ship`, `/review`, `/office-hours`, `/retro`, and the browser automation system. NOT the gsd-* skills.
 
 ---
@@ -28,17 +73,27 @@ jjstack's setup script checks for gstack and clones + sets it up from `garrytan/
 ```bash
 npx get-shit-done-cc
 ```
-**Current version:** 1.34.2
+**Current version:** 1.34.2 - **deliberately pinned, do not upgrade blind.** Upstream is on
+1.42.3, but the `gsd-*` skills were purged from this machine on purpose (commit `33f5b27`,
+"purge dead GSD routes"). Re-running `npx get-shit-done-cc` would reinstall all 50+ of them
+and undo that. Only what the hooks still need is kept.
 
-This is what actually installs the 50+ `gsd-*` skills and the `~/.claude/get-shit-done/` directory (workflows, references, templates). It is completely separate from gstack. The two integrate - gstack hooks reference GSD state files - but neither installs the other.
-
-**What it installs:**
-- `~/.claude/get-shit-done/` - workflow engine, references, templates
-- All `~/.claude/skills/gsd-*` directories - the slash commands
+**What is still installed and load-bearing:**
+- `~/.claude/get-shit-done/` - workflow engine, references, templates (read by the `gsd-*` hooks)
 - `~/.claude/gsd-file-manifest.json` - install manifest
+- The `gsd-*` hooks in `~/.claude/hooks/` wired into `settings.json`
 
-**Key skills:** `/gsd-new-project`, `/gsd-plan-phase`, `/gsd-execute-phase`, `/gsd-review`, `/gsd-debug`, `/gsd-ship`, `/gsd-discuss-phase`, `/gsd-validate-phase`, `/gsd-map-codebase`
-**Key sub-skills:** `/dev-philosophy`, `/heal`, `/kano-model`, `/lean`, `/mcp-server`, `/new-submodule`, `/product-manager-review`, `/python-coder`, `/qa-review`, `/receiving-code-review`, `/security-review`, `/smart-context7`, `/smart-review`, `/smart-simplify`, `/state-doc`, `/two-stage-review`, `/unit-test-builder`, `/verify-before-done`, `/work-order`, `/worktrees`, `/writing-skills`, `/jj-qa`, `/github-setup`
+**What is NOT installed:** every `~/.claude/skills/gsd-*` skill. There are none on this
+machine and that is intentional.
+
+**Correction:** the sub-skills previously listed here (`/dev-philosophy`, `/heal`,
+`/kano-model`, `/lean`, `/mcp-server`, `/new-submodule`, `/product-manager-review`,
+`/python-coder`, `/qa-review`, `/receiving-code-review`, `/security-review`,
+`/smart-context7`, `/smart-review`, `/smart-simplify`, `/state-doc`, `/two-stage-review`,
+`/unit-test-builder`, `/verify-before-done`, `/work-order`, `/worktrees`, `/writing-skills`,
+`/jj-qa`, `/github-setup`) come from **jjstack**, not GSD - they are symlinks into
+`~/.claude/skills/jjstack/skills/`. Same for `/council`, which is no longer the standalone
+`tsenart/council-skill` install.
 
 ---
 
@@ -85,13 +140,15 @@ cp ~/claude-config/skills/intent-router/SKILL.md ~/.claude/skills/intent-router/
 ## Decision-making
 
 ### council
-**Source:** https://github.com/tsenart/council-skill
-**Install:**
-```bash
-npx skills add tsenart/council-skill --skill council -a claude-code -g -y
-```
-**What it does:** Runs a structured 3-round multi-perspective deliberation: independent analysis, cross-examination, final verdict. For hard decisions where one answer isn't enough.
+**Source:** jjstack (`~/.claude/skills/jjstack/skills/council`) - **superseded** the standalone
+`tsenart/council-skill` install. `~/.claude/skills/council` is now a symlink into jjstack, so it
+updates with jjstack; there is nothing separate to install.
+**What it does:** Runs a structured multi-perspective deliberation: independent analysis,
+cross-examination, final verdict. As of jjstack 0.36.0 it also runs an automatic
+"Competitor-did-it" pass when the panel returns an "impossible" verdict.
 **When to use:** Architecture decisions, strategy tradeoffs, risk reviews, debugging hypotheses with multiple possible causes, launch decisions.
+**Related (also jjstack):** `/consensus` runs the same idea across four *vendors* - Claude, Codex
+(OpenAI), AGY/Antigravity (Google), DeepSeek - on flat-rate/free tiers.
 
 ---
 
@@ -104,8 +161,10 @@ npx skills add tsenart/council-skill --skill council -a claude-code -g -y
 npx skills add pbakaus/impeccable --skill impeccable -a claude-code -g -y
 ```
 **What it does:** 23 design commands covering typography, color, spacing, motion, interaction, responsive, and UX writing. 27 deterministic anti-pattern rules. Built on top of `frontend-design`.
-**Key commands:** `/impeccable audit`, `/impeccable polish`, `/impeccable critique`, `/impeccable teach`, `/impeccable bolder`, `/impeccable quieter`, `/impeccable distill`, `/impeccable animate`
-**When to use:** Any frontend UI work. Run `/impeccable audit` before shipping UI. Run `/impeccable teach` once per new project to set design context.
+**Current version:** 4.0.3 (upgraded 2026-07-29 from a v3 snapshot)
+**Key commands:** `/impeccable critique` (UX review), `/impeccable audit` (a11y/perf/responsive), `/impeccable polish`, `/impeccable shape`, `/impeccable bolder`, `/impeccable quieter`, `/impeccable distill`, `/impeccable animate`, `/impeccable live`
+**When to use:** Any frontend UI work. Run `critique` **and** `audit` before shipping UI - in v4 they split: `audit` is technical only, `critique` carries the UX review.
+**v4 breaking changes:** `teach` is gone - use `/impeccable init` (writes `PRODUCT.md`) and `/impeccable document` (writes `DESIGN.md` from existing code) once per project. `craft` is a deprecated alias. Subagents now ship as `.toml`/`.yaml` under `agents/` instead of `.md`.
 
 ---
 
@@ -115,15 +174,14 @@ npx skills add pbakaus/impeccable --skill impeccable -a claude-code -g -y
 **Source:** https://github.com/kylezantos/design-motion-principles
 **Install:**
 ```bash
-mkdir -p ~/.claude/skills/design-motion-principles/references ~/.claude/skills/design-motion-principles/workflows
-BASE="https://raw.githubusercontent.com/kylezantos/design-motion-principles/main/skills/design-motion-principles"
-curl -s "$BASE/SKILL.md" -o ~/.claude/skills/design-motion-principles/SKILL.md
-for f in accessibility.md anti-checklist.md audit-checklist.md creation-gotchas.md emil-kowalski.md jakub-krehel.md jhey-tompkins.md motion-cookbook.md output-format.md performance.md; do
-  curl -s "$BASE/references/$f" -o ~/.claude/skills/design-motion-principles/references/$f
-done
-curl -s "$BASE/workflows/audit.md" -o ~/.claude/skills/design-motion-principles/workflows/audit.md
-curl -s "$BASE/workflows/create.md" -o ~/.claude/skills/design-motion-principles/workflows/create.md
+git clone --depth=1 https://github.com/kylezantos/design-motion-principles /tmp/dmp
+mkdir -p ~/.claude/skills/design-motion-principles
+cp -a /tmp/dmp/skills/design-motion-principles/. ~/.claude/skills/design-motion-principles/
+rm -rf /tmp/dmp
 ```
+> The old per-file `curl` loop was replaced on 2026-07-29 - upstream added
+> `references/demo-shell.html` and `references/report-template.html`, which a fixed file list
+> silently skips. Clone-and-copy picks up new files automatically.
 **What it does:** Motion design through three lenses: Emil Kowalski (restraint), Jakub Krehel (production polish), Jhey Tompkins (creative). Two modes: build (create components with motion) and audit (review existing animations, generate HTML report with demos).
 **When to use:** Any UI with transitions, animations, or interactive states. Run audit mode before shipping. The Emil Kowalski lens will cut unnecessary animation; use it to gut-check AI-generated motion slop.
 
@@ -223,6 +281,41 @@ claude-config.)
 
 > **Skills evaluation log:** every skill considered (adopted/rejected + why + where wired) is in
 > `SKILLS-EVALUATION.md`. Plugins to install: see `PLUGINS.md` (claude-seo, security-guidance).
+
+---
+
+## Undocumented at install time (inventoried 2026-07-29)
+
+These are installed and working but their install command was never recorded. Source is
+listed as UNKNOWN where it could not be verified from the files themselves - do not guess a
+URL when reinstalling, check `skills.sh` or the tool that shipped them.
+
+### 21st.dev skill set (7 skills)
+`21st-ai`, `21st-cli-use`, `21st-design-sync`, `21st-registry`, `21st-ui-build`,
+`21st-ui-explore`, `21st-ui-review`. They all drive the `21st` CLI (`@21st-dev/cli`, global
+npm, currently 1.15.0), so keep the CLI current with `npm install -g @21st-dev/cli@latest`.
+Distinct from the `magic` MCP: the MCP generates, the CLI searches/installs/publishes.
+
+### Cloudflare skill set (10 skills)
+`cloudflare`, `cloudflare-email-service`, `cloudflare-one`, `cloudflare-one-migrations`,
+`durable-objects`, `sandbox-sdk`, `wrangler`, `workers-best-practices`, `agents-sdk`,
+`turnstile-spin`. **Source: UNKNOWN** (no repo reference in the SKILL.md files).
+
+### Loose extras
+`review-stack` (dispatches security + database + language + code reviewers in parallel),
+`web-perf` (web performance audit), `docs-sync` (private doc ecosystem re-sync).
+**Source: UNKNOWN / hand-written locally.**
+
+### graphify
+**Source:** https://github.com/safishamsi/graphify - a Python package, not a skill repo.
+**Install / update:**
+```bash
+pipx install graphifyy     # note the package name is graphifyy, the CLI is graphify
+pipx upgrade graphifyy
+graphify install claude    # (re)writes ~/.claude/skills/graphify + registers it in CLAUDE.md
+```
+The skill carries its own `.graphify_version`; if it drifts from the package version the CLI
+warns on every run. Turns any folder into a navigable knowledge graph. Trigger: `/graphify`.
 
 ---
 

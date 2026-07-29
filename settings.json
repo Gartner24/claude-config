@@ -1,13 +1,10 @@
 {
-  "includeCoAuthoredBy": false,
   "cleanupPeriodDays": 365,
-  "alwaysThinkingEnabled": true,
-  "spinnerTipsEnabled": false,
   "env": {
     "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "100"
   },
+  "includeCoAuthoredBy": false,
   "permissions": {
-    "defaultMode": "auto",
     "deny": [
       "Read(**/.env.production)",
       "Read(**/.env.production.local)",
@@ -21,7 +18,8 @@
       "Read(**/.ssh/id_*)",
       "Read(**/.aws/credentials)",
       "Read(**/.pgpass)"
-    ]
+    ],
+    "defaultMode": "auto"
   },
   "model": "opus[1m]",
   "hooks": {
@@ -200,7 +198,10 @@
       }
     }
   },
+  "spinnerTipsEnabled": false,
+  "alwaysThinkingEnabled": true,
   "tui": "fullscreen",
+  "theme": "dark-daltonized",
   "agentPushNotifEnabled": false,
   "skipAutoPermissionPrompt": true,
   "voiceEnabled": false

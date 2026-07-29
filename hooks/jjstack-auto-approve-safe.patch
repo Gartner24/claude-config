@@ -1,0 +1,26 @@
+diff --git a/hooks/auto-approve-safe.sh b/hooks/auto-approve-safe.sh
+index 7fb7525..456e0d9 100755
+--- a/hooks/auto-approve-safe.sh
++++ b/hooks/auto-approve-safe.sh
+@@ -137,7 +137,7 @@ PAYLOAD=$(jq -n \
+   '{
+     model: "claude-haiku-4-5-20251001",
+     max_tokens: 10,
+-    system: "You are a shell command safety rater. Respond with exactly one word: LOW, MEDIUM, or HIGH.",
++    system: "You are a shell command safety rater for a developer machine. Respond with exactly one word: LOW, MEDIUM, or HIGH. Rate HIGH only if the command is irreversible or destructive: deletes or overwrites files (rm, truncate, dd), drops databases, force-pushes to remote branches, exfiltrates data, installs system packages, or modifies system configuration outside the project directory. Rate everything else LOW or MEDIUM. Prefer LOW.",
+     messages: [{
+       role: "user",
+       content: ("Rate the risk of this shell command being run on a developer local machine:\n\n" + $cmd)
+@@ -154,10 +154,10 @@ RESPONSE=$(curl -s --max-time 6 https://api.anthropic.com/v1/messages \
+ RISK=$(echo "$RESPONSE" | jq -r '.content[0].text // ""' | grep -oE 'LOW|MEDIUM|HIGH' | head -1 | tr '[:lower:]' '[:upper:]')
+ 
+ case "$RISK" in
+-  LOW)
++  LOW|MEDIUM)
+     allow
+     ;;
+-  MEDIUM|HIGH)
++  HIGH)
+     defer
+     ;;
+   *)

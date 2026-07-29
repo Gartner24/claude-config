@@ -77,8 +77,8 @@ For any UI build or redesign in a React + Tailwind project:
 3. Assemble with frontend-design + impeccable.
 4. Add motion with design-motion-principles (build mode) only where it earns its
    place - Kowalski restraint, no motion slop.
-5. Before showing me anything: run /impeccable audit AND a motion audit.
-   Report what failed, fix it, then present.
+5. Before showing me anything: run /impeccable critique (UX) AND /impeccable audit
+   (a11y/perf/responsive) AND a motion audit. Report what failed, fix it, then present.
 
 Never skip step 5. If the stack is not React/Tailwind, skip step 2 (Magic is React-only).
 ```
@@ -89,7 +89,9 @@ Never skip step 5. If the stack is not React/Tailwind, skip step 2 (Magic is Rea
 
 Running these once is what lets the kickoff prompt stay short:
 
-- `/impeccable teach` - sets design context for the project.
+- `/impeccable init` - captures durable product context in `PRODUCT.md`.
+- `/impeccable document` - generates `DESIGN.md` from the existing project code.
+  (These two replaced `/impeccable teach`, removed in impeccable v4.)
 - Lock a `ui-ux-pro-max` direction (style + palette + fonts + stack) and **save it per client**, so a returning client's look comes back automatically instead of being re-decided.
 
 ---
@@ -111,8 +113,8 @@ Run the pipeline:
    match the locked direction via /ui. Skip if stack isn't React/Tailwind.
 3. frontend-design + impeccable - assemble and implement.
 4. design-motion-principles (build) - motion only where it earns its place.
-5. Before showing me: run /impeccable audit AND a motion audit. Report what
-   failed, then fix.
+5. Before showing me: run /impeccable critique AND /impeccable audit AND a motion
+   audit. Report what failed, then fix.
 ```
 
 ### Short version (after a project context is set)
@@ -127,6 +129,6 @@ Run the pipeline:
 
 ```
 direction          ->  source            ->  build                    ->  motion                       ->  gate                          ->  ship
-(ui-ux-pro-max,        (21st.dev /           (frontend-design +           (design-motion-principles,       (impeccable audit +
- +1 aesthetic skill)    magic MCP)            impeccable)                  build mode)                      motion audit)
+(ui-ux-pro-max,        (21st.dev /           (frontend-design +           (design-motion-principles,       (impeccable critique +
+ +1 aesthetic skill)    magic MCP)            impeccable)                  build mode)                      audit + motion audit)
 ```

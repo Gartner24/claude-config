@@ -1,11 +1,13 @@
 # MCP Servers
 
 Two MCP servers are active. `magic` is manually configured in `~/.claude.json`.
-`context7` is a claude.ai-managed connector enabled in `settings.local.json`.
+`context7` is enabled in `settings.local.json` **and** declared in `~/.mcp.json`.
 
 ## context7
 
-**Source:** claude.ai MCP connectors (managed by Claude Code)
+**Source:** claude.ai MCP connectors, plus a stdio entry in `~/.mcp.json` that jjstack's
+`./setup` writes (`npx -y @upstash/context7-mcp`). Setup detects an existing `context7` key
+and skips, so re-running it is safe.
 **Enabled in:** `settings.local.json` via `enabledMcpjsonServers: ["context7"]`
 
 Fetches live documentation for any library, framework, SDK, or CLI tool. Use when asking
