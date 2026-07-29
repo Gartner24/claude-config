@@ -19,6 +19,17 @@ restore a new machine, remember what you have, or decide which tool to reach for
 | [settings.json](settings.json) | Full `~/.claude/settings.json` (hooks, model, env, plugins) |
 | [settings.local.json](settings.local.json) | `~/.claude/settings.local.json` (MCP connectors) |
 | [mcp-config.json](mcp-config.json) | `~/.claude.json` mcpServers block |
+| [agents/](agents/) | Copy of `~/.claude/agents/` - the 27 ECC subagent definitions |
+| [rules/](rules/) | Copy of `~/.claude/rules/` - the ECC per-language rule files |
+| [hooks/](hooks/) | Hand-written hooks + the jjstack `auto-approve-safe.sh` patch |
+| [scripts/](scripts/) | Hand-written session scripts (`chroma-reaper.sh`) |
+| [sync.sh](sync.sh) | Pulls the live `~/.claude` config into this repo. Run before committing. |
+
+## Keeping this repo honest
+
+`agents/`, `rules/`, `hooks/`, `scripts/`, `CLAUDE.md`, and `settings.json` are **copies**, not
+symlinks (unlike `skills/` and `commands/`, which are symlinked into `~/.claude`). They drift.
+Run `./sync.sh` then `git diff` before committing to pull the live state back in.
 
 ## Stack overview
 
@@ -34,20 +45,29 @@ Plugins (official, auto-update)
   code-simplifier      - refactor agent
   ralph-loop           - autonomous loop runner
   clangd-lsp           - C/C++ LSP
+  ponytail             - "lazy senior dev" code-minimization mode
+  security-guidance    - passive security net (Edit/Write warnings, Stop + commit review)
 
-Skill frameworks (self-updating via setup scripts)
-  gstack               - GSD project management system (garrytan/gstack)
+Skill frameworks (git checkouts + setup scripts - run gstack's setup BEFORE jjstack's)
+  gstack               - project management system (garrytan/gstack)
   jjstack              - Product/UX layer on top of gstack (JesperJurcenoks/jjstack)
+  get-shit-done-cc     - PINNED at 1.34.2, hooks only, gsd-* skills deliberately purged
 
 Community skills (installed manually or via npx skills add)
   skill-router         - Routes prompts to the right skill automatically
-  council              - Multi-agent deliberation for hard decisions
-  impeccable           - Frontend design system with /impeccable audit
+  impeccable           - Frontend design system: /impeccable critique + audit
   design-motion-principles - Emil Kowalski motion design
   high-end-visual-design   - Soft/premium UI taste
   minimalist-ui            - Minimalist UI taste (Notion/Linear)
   industrial-brutalist-ui  - Brutalist UI taste (BETA)
   ui-ux-pro-max            - 67 styles, 96 palettes, design intelligence
+  graphify                 - Any input -> navigable knowledge graph (pipx: graphifyy)
+  21st.dev set (7)         - drive the `21st` CLI: search/install/publish components
+  Cloudflare set (10)      - workers, wrangler, durable objects, zero trust, ...
+  ECC cherry-pick          - ~40 language/pattern skills + 27 agents + rules/
+
+Moved into jjstack (no longer separate installs)
+  council              - Multi-agent deliberation; /consensus adds a 4-vendor panel
 
 MCP servers
   magic (21st-dev)     - Component generation with 21st.dev design system

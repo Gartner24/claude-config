@@ -12,7 +12,7 @@ Without claude-mem, superpowers forgets context between sessions. Without superp
 
 ## Installed plugins
 
-### superpowers `v5.1.0`
+### superpowers `v6.2.0`
 **Source:** `claude-plugins-official/superpowers`
 **Install:** `claude plugin install superpowers`
 **Skills it adds:** `/brainstorming`, `/test-driven-development`, `/systematic-debugging`, `/writing-plans`, `/executing-plans`, `/subagent-driven-development`, `/dispatching-parallel-agents`, `/requesting-code-review`, `/receiving-code-review`, `/finishing-a-development-branch`, `/using-git-worktrees`, `/verification-before-completion`, `/writing-skills`
@@ -21,7 +21,7 @@ The foundation. Adds structured, opinionated workflows for every major dev activ
 
 ---
 
-### claude-mem `v13.5.6`
+### claude-mem `v13.12.4`
 **Source:** `thedotmack/claude-mem`
 **Install:** `claude plugin install claude-mem`
 **Skills it adds:** `/mem-search`, `/learn-codebase`, `/smart-explore`, `/knowledge-agent`, `/make-plan`, `/do`, `/babysit`, `/weekly-digests`, `/timeline-report`, `/pathfinder`, `/wowerpoint`, `/oh-my-issues`, `/how-it-works`, `/design-is`, `/version-bump`
@@ -82,7 +82,7 @@ C/C++ Language Server Protocol integration. Adds LSP tool for C/C++ projects.
 
 ---
 
-### ponytail `v4.8.3`
+### ponytail `v4.8.4`
 **Source:** `DietrichGebert/ponytail` (third-party marketplace, not official)
 **Install:** `claude plugins marketplace add DietrichGebert/ponytail` then `claude plugins install ponytail@ponytail`
 **Skills it adds:** `/ponytail`, `/ponytail-audit`, `/ponytail-debt`, `/ponytail-gain`, `/ponytail-help`, `/ponytail-review`
@@ -91,20 +91,38 @@ C/C++ Language Server Protocol integration. Adds LSP tool for C/C++ projects.
 
 ---
 
-## Client services (to install)
+### security-guidance `v2.0.6`
+**Source:** `claude-plugins-official/security-guidance` (Anthropic)
+**Install:** `claude plugin install security-guidance@claude-plugins-official`
 
-### claude-seo `[install when ready]`
-**Source:** `AgriciDaniel/claude-seo` (10.7k stars, MIT)
-**Install:** `claude plugin marketplace add AgriciDaniel/claude-seo` then `claude plugin install claude-seo@agricidaniel-claude-seo`
+Installed 2026-07-07. Passive security net: regex warnings on Edit/Write, diff review on Stop, agentic flow
+analysis on commit. Complements the on-demand `review-stack` skill. **Cost note:** set `ENABLE_STOP_REVIEW=0`
+to skip the per-turn Stop review (keep the commit-time review) if per-message API cost bites.
+
+---
+
+## Marketplace added, plugin not installed
+
+### claude-seo `[marketplace added, not installed]`
+**Source:** `AgriciDaniel/claude-seo` (MIT)
+**Marketplace:** already registered as `agricidaniel-claude-seo` in `settings.json` and
+`~/.claude/plugins/known_marketplaces.json`.
+**Install when ready:** `claude plugin install claude-seo@agricidaniel-claude-seo`
 
 Runnable SEO/AEO **audit** engine (25 sub-skills + 18 GEO/AEO agents) - audit-only, no account access, no
 auto-publish. Complements the build-time `SEO-GUIDE.md` (guide = spec, this = runnable audit). Wired into the
 `seo-ops` skill / `/monthly-ops` SEO add-on. See `SKILLS-EVALUATION.md`.
 
-### security-guidance `[install when ready]`
-**Source:** `claude-plugins-official/security-guidance` (Anthropic, 31.7k stars)
-**Install:** `claude plugin install security-guidance@claude-plugins-official`
+---
 
-Passive security net: regex warnings on Edit/Write, diff review on Stop, agentic flow analysis on commit.
-Complements the on-demand review-stack. **Cost note:** set `ENABLE_STOP_REVIEW=0` to skip the per-turn Stop
-review (keep the commit-time review) if per-message API cost bites.
+## Keeping plugins current
+
+```bash
+for m in claude-plugins-official thedotmack ponytail agricidaniel-claude-seo; do
+  claude plugin marketplace update "$m"
+done
+claude plugin list                       # then, per plugin:
+claude plugin update <plugin>@<marketplace>
+```
+Restart Claude Code afterwards - updates are staged, not hot-applied. Versions above were
+last verified 2026-07-29.
