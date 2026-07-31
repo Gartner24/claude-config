@@ -296,15 +296,46 @@ URL when reinstalling, check `skills.sh` or the tool that shipped them.
 npm, currently 1.15.0), so keep the CLI current with `npm install -g @21st-dev/cli@latest`.
 Distinct from the `magic` MCP: the MCP generates, the CLI searches/installs/publishes.
 
-### Cloudflare skill set (10 skills)
-`cloudflare`, `cloudflare-email-service`, `cloudflare-one`, `cloudflare-one-migrations`,
-`durable-objects`, `sandbox-sdk`, `wrangler`, `workers-best-practices`, `agents-sdk`,
-`turnstile-spin`. **Source: UNKNOWN** (no repo reference in the SKILL.md files).
+### Cloudflare skill set (11 skills)
+**Source:** https://github.com/cloudflare/skills - Cloudflare's official skill bundle.
+Installed as a batch on 2026-07-02; the source was traced back on 2026-07-29 from repo
+references inside the SKILL.md files, since the install command was never recorded.
+
+`agents-sdk`, `cloudflare`, `cloudflare-email-service`, `cloudflare-one`,
+`cloudflare-one-migrations`, `durable-objects`, `sandbox-sdk`, `turnstile-spin`, `web-perf`,
+`workers-best-practices`, `wrangler`.
+
+**Install / update** (upstream's own recommendation - clone once, symlink, then `git pull`
+updates all 11 at once instead of re-copying):
+```bash
+git clone https://github.com/cloudflare/skills ~/.config/cloudflare-skills
+for s in agents-sdk cloudflare cloudflare-email-service cloudflare-one \
+         cloudflare-one-migrations durable-objects sandbox-sdk turnstile-spin \
+         web-perf workers-best-practices wrangler; do
+  ln -sfn ~/.config/cloudflare-skills/skills/$s ~/.claude/skills/$s
+done
+```
+The current install is a **copy**, not a symlink, so it does not self-update. Verified against
+upstream on 2026-07-29: 10 of 11 byte-identical.
+
+**`turnstile-spin` has drifted** and is the one exception. Upstream rewrote it (scripts are now
+documented in the README, `SKILL.md` is canonical instead of mirroring the docs page). The local
+copy also carries `scripts/fetch-secret.sh`, `scripts/worker-deploy.sh`, and a whole
+`templates/worker/` scaffold that upstream no longer ships - almost certainly leftovers from the
+older release, but not provably so. Refresh with:
+```bash
+cp -a ~/.config/cloudflare-skills/skills/turnstile-spin/. ~/.claude/skills/turnstile-spin/
+```
+That leaves the three orphans in place; delete them by hand once you have confirmed you did not
+write them.
+
+**Also in that repo, not installed:** `commands/build-agent.md`, `commands/build-mcp.md`,
+`rules/workers.mdc`.
 
 ### Loose extras
 `review-stack` (dispatches security + database + language + code reviewers in parallel),
-`web-perf` (web performance audit), `docs-sync` (private doc ecosystem re-sync).
-**Source: UNKNOWN / hand-written locally.**
+`docs-sync` (private doc ecosystem re-sync). **Source: UNKNOWN / hand-written locally.**
+(`web-perf` was previously listed here - it is Cloudflare's, see above.)
 
 ### graphify
 **Source:** https://github.com/safishamsi/graphify - a Python package, not a skill repo.

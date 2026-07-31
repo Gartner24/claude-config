@@ -63,7 +63,7 @@ Community skills (installed manually or via npx skills add)
   ui-ux-pro-max            - 67 styles, 96 palettes, design intelligence
   graphify                 - Any input -> navigable knowledge graph (pipx: graphifyy)
   21st.dev set (7)         - drive the `21st` CLI: search/install/publish components
-  Cloudflare set (10)      - workers, wrangler, durable objects, zero trust, ...
+  Cloudflare set (11)      - cloudflare/skills: workers, wrangler, durable objects, zero trust
   ECC cherry-pick          - ~40 language/pattern skills + 27 agents + rules/
 
 Moved into jjstack (no longer separate installs)
