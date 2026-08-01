@@ -20,7 +20,7 @@ restore a new machine, remember what you have, or decide which tool to reach for
 | [settings.local.json](settings.local.json) | `~/.claude/settings.local.json` (MCP connectors) |
 | [mcp-config.json](mcp-config.json) | `~/.claude.json` mcpServers block |
 | [agents/](agents/) | Copy of `~/.claude/agents/` - the 27 ECC subagent definitions |
-| [rules/](rules/) | Copy of `~/.claude/rules/` - the ECC per-language rule files |
+| [rules/](rules/) | Copy of `~/.claude/rules/` - the ECC per-language rule files, plus the rules below |
 | [hooks/](hooks/) | Hand-written hooks + the jjstack `auto-approve-safe.sh` patch |
 | [scripts/](scripts/) | Hand-written session scripts (`chroma-reaper.sh`) |
 | [sync.sh](sync.sh) | Pulls the live `~/.claude` config into this repo. Run before committing. |
@@ -30,6 +30,28 @@ restore a new machine, remember what you have, or decide which tool to reach for
 `agents/`, `rules/`, `hooks/`, `scripts/`, `CLAUDE.md`, and `settings.json` are **copies**, not
 symlinks (unlike `skills/` and `commands/`, which are symlinked into `~/.claude`). They drift.
 Run `./sync.sh` then `git diff` before committing to pull the live state back in.
+
+Edit the live files in `~/.claude/`, never the copies here. `sync.sh` copies live over repo, so an
+edit made directly in this repo is silently overwritten on the next sync.
+
+## Rules earned the hard way
+
+The ECC rule files started as a cherry-pick of someone else's defaults. These additions did not:
+each is here because it cost something on a real project, and each is written so a future session
+does not pay again. Provenance is recorded so it is possible to judge later whether a rule still
+earns its place.
+
+| Rule | Where | Why it exists |
+|------|-------|---------------|
+| An absent answer rendered as a definite one | `rules/ecc/common/code-review.md` | The highest-yield defect class found across a twelve-layer console redesign, in new and pre-existing code alike. A count that has not loaded is not zero; a failed fetch is not an empty list. One instance had a defaulted count switching off the guard on account deletion |
+| Get the RED back when the test came second | `rules/ecc/common/testing.md` | The TDD section assumes you watched the test fail. Bug fixes skip that, so the fix gets mutation-checked instead: break the source, confirm that test goes red, restore |
+| A test that reimplements the logic passes forever | `rules/ecc/common/testing.md` | Caught twice on one project. A test that defines a local copy of the behaviour and never imports the module stays green when the real fix is reverted |
+| A mock weaker than the real module passes anything | `rules/ecc/common/testing.md` | A hook mocked without one field meant a control that could never render, with every test passing |
+| Shell discipline | `CLAUDE.md` | The Bash cwd persists between calls, so a stale `cd` looks exactly like a deleted tree. `$(...)` does not expand in a quoted heredoc, which once put an unexpanded placeholder into a public PR comment |
+| Grep before writing against a symbol | `CLAUDE.md` | A helper that reads plausibly may not exist. Only running the test caught it |
+
+Project-specific findings stay in that project's own `CLAUDE.md`. Only rules that transfer to any
+codebase belong here.
 
 ## Stack overview
 
