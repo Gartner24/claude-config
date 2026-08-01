@@ -83,6 +83,21 @@ Use these agents for code review:
 
 ## Common Issues to Catch
 
+### An absent answer rendered as a definite one
+
+The highest-yield class to look for in any code that renders fetched data, and the easiest to miss because it looks like defensive coding.
+
+For every count, list, status or total on screen, ask what it shows while the request is in flight, and what it shows after the request failed:
+
+- `total ?? 0` reports a site with no visitors and an account owning no websites, when the truth is that nothing arrived.
+- An empty array from a failed fetch renders identically to a genuinely empty collection, producing "no results", "no builds", "nobody else has access".
+- A response missing a field is not a response saying the field is absent.
+- A count that has not loaded is not zero, and a fetch that failed is not an empty list.
+
+Falling back to different behaviour is fine. Falling back to a different fact is not. When the answer is unknown, say so or say nothing, and never print the zero.
+
+Watch for it especially where a value gates a destructive control: a count defaulting to zero can switch off the guard on an irreversible action.
+
 ### Security
 
 - Hardcoded credentials (API keys, passwords, tokens)

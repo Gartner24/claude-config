@@ -48,6 +48,13 @@
 - If a value is unknown: return null or "UNKNOWN". Never guess.
 - If a file or resource was not read: do not reference its contents.
 - Downstream systems break on hallucinated values. Accuracy over completeness.
+- Grep for a symbol before writing code or a test against it. A helper that reads plausibly may not exist.
+
+## Shell Discipline
+- The Bash working directory persists between calls. Use absolute paths, or cd back in the same command.
+- Before concluding a file or directory is missing, run pwd. A stale cd looks exactly like a deleted tree.
+- $(...) and backticks do NOT expand inside a quoted heredoc (<<'EOF'). Either hardcode the value or leave the delimiter unquoted on purpose.
+- Read back anything sent outward - a PR comment, an issue body, a posted message - before moving on. An unexpanded placeholder is public the moment it posts.
 
 ## Token Efficiency
 - Pipeline calls compound. Every token saved per call multiplies across runs.
