@@ -25,7 +25,7 @@ Skip this skill when:
 - The task is a simple file edit, read, or single-tool operation
 - Answering a direct factual question
 
-## Step 1  -  Load routing table
+## Step 1 - Load routing table
 
 ```bash
 cat ~/claude-config/USAGE.md 2>/dev/null || echo "ROUTING_TABLE_MISSING"
@@ -33,10 +33,10 @@ cat ~/claude-config/USAGE.md 2>/dev/null || echo "ROUTING_TABLE_MISSING"
 
 If output is `ROUTING_TABLE_MISSING`: fall back to the built-in table at the
 bottom of this skill. Tell the user: "Routing table not found at ~/claude-config/USAGE.md
- -  using built-in defaults. Clone https://github.com/Gartner24/claude-config to get
+- using built-in defaults. Clone https://github.com/Gartner24/claude-config to get
 personalized routing."
 
-## Step 2  -  Parse routing blocks
+## Step 2 - Parse routing blocks
 
 From the USAGE.md output, extract every block in this format:
 
@@ -49,18 +49,18 @@ PRIORITY: <number> - <reason>
 
 Build an internal scoring table: `{ skill, triggers[], blocks[], priority }`.
 
-## Step 3  -  Score the prompt
+## Step 3 - Score the prompt
 
 Take the user's current message (the prompt that triggered this skill).
 
 For each skill in the table:
-1. **Block check first**  -  if any BLOCKS phrase appears in the prompt, score = 0. Skip.
-2. **Trigger score**  -  count how many TRIGGERS phrases match the prompt (substring,
+1. **Block check first** - if any BLOCKS phrase appears in the prompt, score = 0. Skip.
+2. **Trigger score** - count how many TRIGGERS phrases match the prompt (substring,
    case-insensitive). Score = match_count x priority.
-3. **Threshold**  -  discard any skill with score < 3. If nothing clears the threshold,
+3. **Threshold** - discard any skill with score < 3. If nothing clears the threshold,
    exit silently without invoking anything (prompt is not skill-territory).
 
-## Step 4  -  Resolve winner
+## Step 4 - Resolve winner
 
 - **Clear winner** (top score >= 2x second place): proceed to Step 5.
 - **Tie or close race** (top two scores within 20% of each other): check if they
@@ -69,27 +69,27 @@ For each skill in the table:
   pick the higher-priority skill.
 - **Nothing above threshold**: exit silently. Do not announce, do not intercept.
 
-## Step 5  -  Announce and invoke
+## Step 5 - Announce and invoke
 
 One line only, then invoke immediately. Format:
 
 ```
-Using /<skill-name>  -  <one-phrase reason from TRIGGERS match>.
+Using /<skill-name> - <one-phrase reason from TRIGGERS match>.
 ```
 
 Examples:
 ```
-Using /council  -  tradeoff decision with multiple valid approaches.
-Using /investigate  -  error with unclear cause.
-Using /design-motion-principles  -  motion-first request; prefer over impeccable animate.
-Using /brainstorming  -  new feature request; explore intent before planning.
-Using /mem-search  -  checking if this was solved in a previous session first.
+Using /council - tradeoff decision with multiple valid approaches.
+Using /investigate - error with unclear cause.
+Using /animate - motion-first request; building new motion.
+Using /brainstorming - new feature request; explore intent before planning.
+Using /mem-search - checking if this was solved in a previous session first.
 ```
 
 After the announcement, invoke the skill exactly as if the user had typed `/<skill-name>`.
 Pass the original user prompt as context.
 
-## Step 6  -  After invocation
+## Step 6 - After invocation
 
 Nothing. Do not add a summary, do not explain what happened. The invoked skill
 takes over completely.
@@ -100,15 +100,15 @@ takes over completely.
 
 These rules encode personal preferences that override pure trigger scoring:
 
-1. **mem-search first**  -  if the prompt contains memory-check signals
+1. **mem-search first** - if the prompt contains memory-check signals
    (`did we`, `last time`, `previously`, `remember`), invoke `/mem-search` before
    anything else, even if another skill scores higher.
 
-2. **council before implement**  -  if the prompt contains `should I`, `which is better`,
+2. **council before implement** - if the prompt contains `should I`, `which is better`,
    `tradeoff`, or `can't decide` AND would otherwise route to a build/plan skill,
    route to `/council` first.
 
-3. **motion dispatches by kind, never to a single skill**  -  a motion prompt is
+3. **motion dispatches by kind, never to a single skill** - a motion prompt is
    never handled by a general coding response, but it is also never all routed to
    one skill. Pick by what is being asked (updated 2026-08-06):
    - build new motion -> `animate` (Emil Kowalski's own skill, the primary source)
@@ -124,7 +124,7 @@ These rules encode personal preferences that override pure trigger scoring:
      wanted. It was the motion skill before the emilkowalski set was installed;
      it is now demoted to priority 5 and kept for that one output.
 
-4. **investigate over ad-hoc debugging, but not over the specialists**  -  a runtime
+4. **investigate over ad-hoc debugging, but not over the specialists** - a runtime
    or logic bug goes to `/investigate`, never to a general coding response. It does
    NOT take prompts that name a more specific failure:
    - build, compile, or type errors -> `/build-fix` (or `/go-build`, `/rust-build`,
@@ -136,7 +136,7 @@ These rules encode personal preferences that override pure trigger scoring:
    that appear in all of the above, so it will often score highly. Prefer the
    specialist whenever the prompt names a toolchain, a build step, or a domain.
 
-5. **brainstorming before any plan/build skill**  -  if the idea is still vague or
+5. **brainstorming before any plan/build skill** - if the idea is still vague or
    exploratory (`I want to`, `I'm thinking`, `maybe we could`), route to
    `/brainstorming` before any planning or implementation skill.
 
@@ -157,6 +157,10 @@ Used only when `~/claude-config/USAGE.md` is not found.
 | review | review this, before I merge, check this PR | 8 |
 | ship | ship it, push this, create a PR, deploy | 8 |
 | impeccable audit | audit the UI, check the design, a11y, anti-patterns | 8 |
-| design-motion-principles | animation, motion, transition, animate, easing, spring | 8 |
+| animate | animate this, add motion, svg animation, micro-interaction | 9 |
+| transitions-dev | transition, dropdown animation, modal animation, accordion | 9 |
+| gsap | gsap, scrolltrigger, scroll animation, parallax, pin the section | 9 |
+| apple-design | spring, gesture, drag, swipe, sheet, momentum | 9 |
+| review-animations | audit the motion, feels janky, animation feels off | 9 |
 | ralph-loop | keep going, run autonomously, don't stop | 7 |
 | two-stage-review | large diff, big PR, complex review | 7 |
