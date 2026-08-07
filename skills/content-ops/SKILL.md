@@ -12,7 +12,7 @@ description: >
 
 The content engine. Two modes - pick by the job. Quality-first and penalty-safe. Grounded in the
 build-templates guides: **`CONTENT-GUIDE.md`** (canonical for what a page says + the 7 homepage questions +
-scan structure + the copy method), `SEO-GUIDE.md` (technical + AEO/GEO), and `MONTHLY-OPS-GUIDE.md` §2
+scan structure + the copy method), `SEO-GUIDE.md` (technical + AEO/GEO), and `MONTHLY-OPS-GUIDE.md` sec. 2
 (recurring blog cadence).
 
 ## Mode A - build-time page copy (in `/new-site`)
@@ -27,7 +27,7 @@ guidance + editing support - so it sounds like you and sells."*
 4. Optimize per SEO-GUIDE (unique title/description, one H1, semantic structure).
 
 ## Mode B - recurring blog content (in `/monthly-ops` Content add-on)
-Sell "getting found," not "writing blogs." Per MONTHLY-OPS-GUIDE §2:
+Sell "getting found," not "writing blogs." Per MONTHLY-OPS-GUIDE sec. 2:
 1. **Pick real questions** the customer Googles: AnswerThePublic (free) + GSC queries + the client's FAQ.
    One clear intent each. **Never** a page per keyword.
 2. **Get the expertise.** Interview the client (prompt: *"ask me anything you'd need to write a truly

@@ -23,8 +23,8 @@ Determine the type from `$ARGUMENTS`; if unclear, ask. Map it:
 Read the base template + the chosen module(s) + both guides. These are the binding instructions and
 the pre-launch gate. Do not restate them; follow them.
 
-## Step 3 - Intake (the full §0 - NOT a one-liner)
-`$ARGUMENTS` is only a seed. Gather the **complete** §0 intake before building - pull what exists from
+## Step 3 - Intake (the full sec. 0 - NOT a one-liner)
+`$ARGUMENTS` is only a seed. Gather the **complete** sec. 0 intake before building - pull what exists from
 the client's brand system + the `business` intake docs, and **ask for everything missing**. When the
 client's market / positioning / pricing is unclear, use the **`business-analyzer`** skill to structure the
 discovery (audience, competitive, pricing-GTM).
@@ -35,7 +35,7 @@ Required:
 - **Existing design system:** do they already have a locked `brand-system.html`? (-> Step 4 gate)
 - **Existing content/assets:** copy, logo, photos, domain, what's missing.
 - **Content map (AI-SEO):** the real questions/searches the client's customer has before buying or hiring -
-  this fuels the topical page plan (SEO-GUIDE §0.5). What do they ask? What are they deciding between?
+  this fuels the topical page plan (SEO-GUIDE sec. 0.5). What do they ask? What are they deciding between?
   Build genuinely-helpful pages that answer those - **never** a page per keyword (Google scaled-content-abuse).
 - **Contact & channels:** inbox email, personal email, primary CTA + phone/WhatsApp number, socials, locales.
 - **Infra:** GitHub org, analytics/status hosts.
@@ -43,12 +43,12 @@ Required:
 Do not proceed to build with gaps. Confirm the filled intake back to the user.
 
 ## Step 4 - Brand-system gate (HARD - no build without it)
-A locked **`brand-system.html`** must exist and be signed off before any building (static template §1).
+A locked **`brand-system.html`** must exist and be signed off before any building (static template sec. 1).
 - **Exists + signed off** -> read it; it's the binding source of truth. Follow its **machine-readable
   tokens** (the `:root` CSS custom properties + the `#brand-tokens` JSON block) - exact values, not eyeballed.
 - **Missing or not signed off** -> STOP and produce it first with **`/brand-system`** (fills
   `templates/brand-system.template.md` -> emits `brand-system.html`; the mascot/logo come from template
-  §3 - Nano Banana is the user's manual step, `vtracer` post-process is in-session). Show the client, get
+  sec. 3 - Nano Banana is the user's manual step, `vtracer` post-process is in-session). Show the client, get
   **explicit sign-off**, then continue. Never build off-brand because the board wasn't locked.
 
 ## Step 5 - Scaffold the client repo
@@ -69,7 +69,7 @@ Propose the asset list + section plan + chosen hero signature concept, and **wai
 - **`astro-patterns`** - Astro conventions throughout.
 - **Copy:** draft page copy with **`content-ops`** (Mode A - collaborative, client approves before code; the homepage answers the 7 questions, "why you" clear in 5s).
 - Assets: user does the mascot; you source stock/cutouts/brand SVG (template section 13). Generate custom imagery with **`nano-banana`** (Gemini). For a premium scroll-hero built from a video, use **`video-to-website`**.
-- Implement **SEO-GUIDE** (incl. §0.5 the AI-search era: helpful, topical content answering the customer's
+- Implement **SEO-GUIDE** (incl. sec. 0.5 the AI-search era: helpful, topical content answering the customer's
   real questions, structured data, crawlable HTML; **no page-per-keyword**) + **LEGAL-GUIDE** across all pages.
 - Build the module(s) per their docs:
   - **booking** - Workers + D1 + Durable Objects (no double-booking) + Resend + Google Calendar + `.ics`.
