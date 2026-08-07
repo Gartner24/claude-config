@@ -116,7 +116,7 @@ npx skills add chrishan17/skill-router/skills/skill-router -a claude-code -g -y
 ---
 
 ### intent-router
-**Source:** this repo  -  `skills/intent-router/SKILL.md`
+**Source:** this repo - `skills/intent-router/SKILL.md`
 **Install:**
 ```bash
 mkdir -p ~/.claude/skills/intent-router

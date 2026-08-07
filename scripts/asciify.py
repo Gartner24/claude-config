@@ -10,6 +10,7 @@ Usage:
   python3 scripts/asciify.py            # rewrite in place
 """
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -21,9 +22,14 @@ SKIP_SUBSTR = ("anti-ai-writing",)
 # Accented characters inside real names. Stripping these corrupts the name.
 KEEP = {"Â", "é"}  # A-circumflex (TACHES), e-acute (cafes)
 
+# Dashes are handled by regex before the char table, so that surrounding spaces
+# are absorbed instead of doubled: " - " must not become "  -  ".
+DASH_RE = [
+    (r"[ \t]*—[ \t]*", " - "),  # em dash
+    (r"[ \t]*–[ \t]*", "-"),    # en dash (usually a range: 3-5)
+]
+
 SUBS = {
-    "—": " - ",   # em dash
-    "–": "-",     # en dash
     "−": "-",     # minus sign
     "→": "->",    # rightwards arrow
     "↔": "<->",   # left right arrow
@@ -57,6 +63,8 @@ def owned(rel):
 
 
 def convert(text):
+    for pat, rep in DASH_RE:
+        text = re.sub(pat, rep, text)
     out = []
     left = []
     for ch in text:
