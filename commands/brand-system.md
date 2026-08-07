@@ -16,12 +16,27 @@ Whatever the client has: logo(s), existing colors/fonts, photos, sites they like
 there's nothing, make the decisions yourself from their positioning/audience. Ask only for what's
 needed to decide.
 
-## Step 1 - Make the brand decisions
-Run the design-direction work: `ui-ux-pro-max` (style + palette + font pairing), plus the aesthetic
-skills (`high-end-visual-design` / `minimalist-ui` / etc. as fits) and `impeccable` for discipline.
-Lock: positioning/essence, voice, color, typography, spacing/layout, logo + lockups, mascot (if any),
-imagery direction, motion principles, do/don't. Follow the template spec section by section. Generate the
-mascot and brand imagery with the **`nano-banana`** skill (Gemini; `vtracer` post-process to vectorize a logo).
+## Step 1 - Make the brand decisions (follow the craft guide, not a lookup)
+**Read `~/projects/freelance/website-build-templates/guides/BRAND-SYSTEM-GUIDE.md` and follow its
+12-step pipeline (guide sec. 1).** That guide is the CRAFT layer; `ui-ux-pro-max` is only a raw-options
+database (styles/palettes/pairings) you may pull candidates from, NOT the decision process. Also use the
+aesthetic skills (`high-end-visual-design` / `minimalist-ui` / etc. as fits) and `impeccable` for discipline.
+- **Commit a direction (guide sec. 2):** distil positioning to 3-5 DISCRIMINATING adjectives (+ one tension
+  axis + one anti-adjective), pick ONE register, state "we are X, specifically NOT Y". Hedging averages to generic.
+- **Type (guide sec. 3):** a character display + a neutral body chosen for the register with a stated reason,
+  from the guide's self-hostable register table. Never default to Inter/Poppins/Montserrat. Fluid clamp
+  scale with SPACES around every operator; `tabular-nums` on prices/scores.
+- **Color + tokens (guide sec. 4):** brand-tinted neutrals as the workhorse + ONE owned signal color, OKLCH
+  ramps, 60-30-10; define ALL token groups (color/type/space/radius/shadow/motion); action color passes
+  AA as a fill AND on the page.
+- **Logo / layout / imagery / motion (guide sec. 5-6):** wordmark designed (not a font typed at defaults), a
+  stated layout POV, one imagery treatment, one signature motion moment.
+- Lock: positioning/essence, voice, color, typography, spacing/layout, logo + lockups, mascot (if any),
+  imagery direction, motion principles, do/don't. Follow the template spec section by section.
+Generate the mascot and brand imagery with the **`nano-banana`** skill (Gemini; `vtracer` post-process to
+vectorize a logo). Prove the direction on 2-3 REAL applied surfaces, never a swatch sheet.
+- **Audit before showing (guide sec. 7 + sec. 10):** walk the applied surfaces against the 32-item anti-generic
+  catalog; fix every P0 / type / layout / logo tell. Zero unaddressed tells is the gate to Step 3.
 
 ## Step 2 - Emit `brand-system.html` (canonical + visual in one file)
 A single self-contained HTML file that is BOTH the human sign-off board AND the machine source:
@@ -36,7 +51,7 @@ A single self-contained HTML file that is BOTH the human sign-off board AND the 
 
 ## Step 3 - Sign-off (the gate)
 Show the client the board. Get **explicit sign-off**. Record it in the file (a visible status line:
-`signed off YYYY-MM-DD`). Until signed off, the build is blocked (static template §1 / `/new-site` Step 4).
+`signed off YYYY-MM-DD`). Until signed off, the build is blocked (static template sec. 1 / `/new-site` Step 4).
 
 ## Output
 `brand-system.html` in the client repo. `/new-site` and the templates read **this file's tokens** as
