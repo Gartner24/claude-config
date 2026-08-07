@@ -71,14 +71,19 @@ This is the Claude Code equivalent of the router - it makes the chaining fire on
 
 For any UI build or redesign in a React + Tailwind project:
 
-1. Lock direction first with ui-ux-pro-max: style + palette + font pairing + stack.
+1. Lock direction first. If I point at a reference (screenshot/image/URL), run design-dna
+   to extract it. Otherwise ui-ux-pro-max: style + palette + font pairing + stack.
    Reuse the saved project/client direction if one exists; otherwise propose 2 and wait.
 2. Source components from the `magic` MCP (21st.dev) before hand-rolling - use /ui.
 3. Assemble with frontend-design + impeccable.
-4. Add motion with design-motion-principles (build mode) only where it earns its
-   place - Kowalski restraint, no motion slop.
+4. Add motion only where it earns its place - Kowalski restraint, no motion slop.
+   Pick by kind: animate (general), transitions-dev (plain CSS transitions),
+   gsap-scrolltrigger / gsap-timeline (scroll + choreography), apple-design
+   (gesture, spring, drag/swipe/sheet), threejs-* (3D).
 5. Before showing me anything: run /impeccable critique (UX) AND /impeccable audit
-   (a11y/perf/responsive) AND a motion audit. Report what failed, fix it, then present.
+   (a11y/perf/responsive) AND a motion audit (review-animations on the diff,
+   improve-animations on a whole app, transitions-polish for timing).
+   Report what failed, fix it, then present.
 
 Never skip step 5. If the stack is not React/Tailwind, skip step 2 (Magic is React-only).
 ```
@@ -107,14 +112,16 @@ Context: [new page | edit existing page] - [client name / personal]
 Existing project context: [yes, reuse it | no, set it now]
 
 Run the pipeline:
-1. ui-ux-pro-max - lock direction: style + palette + font pairing + stack.
+1. Lock direction. If I gave you a reference image/URL, use design-dna to extract it.
+   Otherwise ui-ux-pro-max: style + palette + font pairing + stack.
    If project context exists, reuse it. If not, propose 2 directions and wait.
 2. 21st.dev (magic MCP) - source/generate real shadcn/Tailwind components that
    match the locked direction via /ui. Skip if stack isn't React/Tailwind.
 3. frontend-design + impeccable - assemble and implement.
-4. design-motion-principles (build) - motion only where it earns its place.
+4. Motion only where it earns its place: animate (general), transitions-dev (plain
+   CSS transitions), gsap-scrolltrigger/gsap-timeline (scroll), apple-design (gesture).
 5. Before showing me: run /impeccable critique AND /impeccable audit AND a motion
-   audit. Report what failed, then fix.
+   audit (review-animations / transitions-polish). Report what failed, then fix.
 ```
 
 ### Short version (after a project context is set)
@@ -129,6 +136,8 @@ Run the pipeline:
 
 ```
 direction          ->  source            ->  build                    ->  motion                       ->  gate                          ->  ship
-(ui-ux-pro-max,        (21st.dev /           (frontend-design +           (design-motion-principles,       (impeccable critique +
- +1 aesthetic skill)    magic MCP)            impeccable)                  build mode)                      audit + motion audit)
+(design-dna from a     (21st.dev /           (frontend-design +           (animate / transitions-dev /     (impeccable critique +
+ reference, else        magic MCP)            impeccable)                  gsap-* / apple-design)           audit + review-animations)
+ ui-ux-pro-max,
+ +1 aesthetic skill)
 ```

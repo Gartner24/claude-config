@@ -18,8 +18,13 @@ Everything else (skill-router, the three taste skills, design-motion-principles,
 anthropic-security-review, getsentry-skills, the ECC cherry-picks) was verified against
 upstream on 2026-07-29 and is current.
 
+**Added 2026-08-06** (all `git clone --depth=1`, no pinned version - re-clone to update):
+emilkowalski/skills (9), gsap-skills (8), threejs-skills (10), transitions.dev (2),
+design-dna, humanizer, 12 of coreyhaines31/marketingskills, and `packshot` (zip-only, back it up).
+Sections below carry the exact install command for each.
+
 **Order matters on upgrade:** gstack's `./setup` overwrites the shared skill symlinks
-(`qa`, `review`, `ship`, `office-hours`, …) to point at gstack. Always run gstack's setup
+(`qa`, `review`, `ship`, `office-hours`, ...) to point at gstack. Always run gstack's setup
 **first**, then jjstack's, which re-points them at the jjstack wrappers. `/jjstack-repair`
 fixes it if you get the order wrong.
 
@@ -111,7 +116,7 @@ npx skills add chrishan17/skill-router/skills/skill-router -a claude-code -g -y
 ---
 
 ### intent-router
-**Source:** this repo — `skills/intent-router/SKILL.md`
+**Source:** this repo  -  `skills/intent-router/SKILL.md`
 **Install:**
 ```bash
 mkdir -p ~/.claude/skills/intent-router
@@ -128,8 +133,8 @@ cp ~/claude-config/skills/intent-router/SKILL.md ~/.claude/skills/intent-router/
 **Personal override rules baked in:**
 - mem-search fires before anything else on memory-check signals
 - council fires before implement skills on decision signals
-- design-motion-principles wins over impeccable animate on motion-primary prompts
-- investigate wins on all bug/error prompts
+- motion dispatches by kind: animate (build), transitions-dev (CSS), gsap-* (scroll), apple-design (gesture), review-animations (audit)
+- investigate wins on runtime/logic bugs, but build/compile/type errors go to build-fix and the toolchain resolvers
 - brainstorming fires before gsd-plan-phase on vague/exploratory prompts
 
 **To update routing when you add a skill:** add a routing block to `USAGE.md` and commit. The router reads it on next invocation.
@@ -184,6 +189,107 @@ rm -rf /tmp/dmp
 > silently skips. Clone-and-copy picks up new files automatically.
 **What it does:** Motion design through three lenses: Emil Kowalski (restraint), Jakub Krehel (production polish), Jhey Tompkins (creative). Two modes: build (create components with motion) and audit (review existing animations, generate HTML report with demos).
 **When to use:** Any UI with transitions, animations, or interactive states. Run audit mode before shipping. The Emil Kowalski lens will cut unnecessary animation; use it to gut-check AI-generated motion slop.
+> Superseded in practice by the emilkowalski set below, which is the primary source this
+> skill distills secondhand. Kept because its audit mode emits an HTML report with looping
+> demos - nothing else here does that.
+
+---
+
+### emilkowalski/skills (9 skills) - added 2026-08-06
+**Source:** https://github.com/emilkowalski/skills (26.4k stars)
+**Install:**
+```bash
+git clone --depth=1 https://github.com/emilkowalski/skills /tmp/emil
+for s in /tmp/emil/skills/*/; do cp -a "$s" ~/.claude/skills/"$(basename "$s")"; done
+rm -rf /tmp/emil
+```
+**Skills:** `animate` (build motion from scratch), `review-animations` (critique a diff),
+`improve-animations` (audit a whole codebase, emits plans for cheaper models),
+`find-animation-opportunities` (read-only hunt for places that should animate),
+`animation-vocabulary` (reverse-lookup glossary: "the bouncy thing when a popover opens" -> Pop in),
+`apple-design` (WWDC *Designing Fluid Interfaces* translated to web: springs, velocity,
+interruptible transitions, materials, optical typography), `emil-design-eng` (the underlying
+philosophy), `prototype`, `pick-ui-library`.
+**Why it earns the slot:** this is Emil Kowalski's own repo - the primary source behind
+design-motion-principles' strongest lens. Nine granular skills instead of one broad one, so
+the right one fires per task.
+**Pipeline fit:** `/design` step 4 (motion) and step 5 (audit). Prefer `animate` over
+design-motion-principles build mode; prefer `review-animations` for a diff and
+`improve-animations` for a whole app.
+
+---
+
+### gsap-skills (8 skills) - added 2026-08-06
+**Source:** https://github.com/greensock/gsap-skills (13.1k stars, official GreenSock)
+**Install:**
+```bash
+git clone --depth=1 https://github.com/greensock/gsap-skills /tmp/gsap
+for s in /tmp/gsap/skills/*/; do cp -a "$s" ~/.claude/skills/"$(basename "$s")"; done
+rm -rf /tmp/gsap
+```
+**Skills:** `gsap-core`, `gsap-timeline`, `gsap-scrolltrigger`, `gsap-react`,
+`gsap-frameworks` (Vue/Svelte), `gsap-plugins` (Flip, Draggable, SplitText, Observer,
+CustomEase...), `gsap-performance`, `gsap-utils`.
+**Why it earns the slot:** official, actively maintained, and nothing local covered GSAP at
+all. Includes `gsap.matchMedia()` reduced-motion patterns.
+**When to use:** scroll-driven animation, pinned sections, timeline choreography. For simple
+CSS transitions use `transitions-dev` instead - do not reach for GSAP by default.
+
+---
+
+### transitions.dev (2 skills) - added 2026-08-06
+**Source:** https://github.com/Jakubantalik/transitions.dev (2.5k stars)
+**Install:**
+```bash
+git clone --depth=1 https://github.com/Jakubantalik/transitions.dev /tmp/tdev
+for s in /tmp/tdev/skills/*/; do cp -a "$s" ~/.claude/skills/"$(basename "$s")"; done
+rm -rf /tmp/tdev
+```
+**Skills:** `transitions-dev` (production-ready CSS transitions: dropdowns, modals, badges,
+skeleton loaders, sliding tabs, accordions, icon swaps), `transitions-polish` (tune existing
+motion against a motion-token scale - open/close asymmetry, hover-in vs hover-out, stagger).
+**Why it earns the slot:** the concrete copy-paste layer under the principles skills. Also
+the only one here with a motion-token vocabulary for replacing hardcoded durations.
+
+---
+
+## Design - reverse-engineering a reference
+
+### design-dna - added 2026-08-06
+**Source:** https://github.com/zanwei/design-dna (1.3k stars)
+**Install:**
+```bash
+git clone --depth=1 https://github.com/zanwei/design-dna /tmp/ddna
+mkdir -p ~/.claude/skills/design-dna
+cp -a /tmp/ddna/SKILL.md /tmp/ddna/references /tmp/ddna/docs ~/.claude/skills/design-dna/
+rm -rf /tmp/ddna
+```
+**What it does:** turns a screenshot, image, or URL into a quantified Design DNA JSON across
+three dimensions - design tokens, qualitative style, and visual effects (Canvas/WebGL/shaders/
+scroll). Then generates matching UI from that JSON plus your content.
+**Why it earns the slot:** nothing local reverse-engineers a reference. ui-ux-pro-max picks a
+direction from a catalog; this one extracts it from a design you point at.
+**Pipeline fit:** `/design` step 1. When a client shows you a site they like, run this before
+ui-ux-pro-max instead of it.
+
+---
+
+## Design - 3D
+
+### threejs-skills (10 skills) - added 2026-08-06
+**Source:** https://github.com/CloudAI-X/threejs-skills (2.9k stars)
+**Install:**
+```bash
+git clone --depth=1 https://github.com/CloudAI-X/threejs-skills /tmp/tjs
+for s in /tmp/tjs/skills/*/; do cp -a "$s" ~/.claude/skills/"$(basename "$s")"; done
+rm -rf /tmp/tjs
+```
+**Skills:** `threejs-fundamentals`, `threejs-geometry`, `threejs-materials`,
+`threejs-lighting`, `threejs-textures`, `threejs-shaders`, `threejs-loaders` (GLTF/HDR),
+`threejs-animation`, `threejs-interaction` (raycasting, controls), `threejs-postprocessing`
+(bloom, DOF, EffectComposer).
+**When to use:** only on actual WebGL work. Pairs with `gsap-scrolltrigger` for scroll-driven
+3D and with `design-dna`'s visual-effects dimension.
 
 ---
 
@@ -273,11 +379,86 @@ anti-ai-writing; obeys SEO-GUIDE topical rules.
 de-slop pass. Both feed `content-ops`. (3rd-party, `artemnovitckii/content-skills`, MIT; tracked in
 claude-config.)
 
+### humanizer (skill) - added 2026-08-06
+**Source:** https://github.com/blader/humanizer (34k stars, MIT)
+**Install:**
+```bash
+git clone --depth=1 https://github.com/blader/humanizer /tmp/hum
+mkdir -p ~/.claude/skills/humanizer
+cp -a /tmp/hum/SKILL.md /tmp/hum/scripts ~/.claude/skills/humanizer/
+rm -rf /tmp/hum
+```
+**What it does:** detects and rewrites 33 named AI-writing tells derived from Wikipedia's
+"Signs of AI writing" guide - inflated symbolism, promotional language, superficial `-ing`
+analyses, vague attributions, em dash overuse, rule of three, negative parallelisms, filler.
+**Overlaps `anti-ai-writing` on purpose.** Different jobs: anti-ai-writing is voice-aware and
+tuned to the client profile from voice-dna; humanizer is a mechanical named-pattern sweep with
+a script. Run humanizer for the pattern sweep, anti-ai-writing as the final voice pass.
+Do not run both blind and expect the second to have anything left to do.
+
 ### nano-banana + video-to-website + business-analyzer (skills)
 **What they do:** `nano-banana` generates controlled realistic imagery via Google's Gemini (in `/brand-system`
 + assets); `video-to-website` builds a premium scroll-hero from a video as an Astro island (in `/new-site`);
 `business-analyzer` structures client market/pricing/competitive discovery (in `/new-site` intake). All in
 `claude-config/skills`, symlinked.
+
+### packshot (skill) - added 2026-08-06
+**Source:** hand-delivered zip (no public repo). Original archive kept at
+`~/Downloads/PACKSHOT CLAUDE SKILL-*.zip`. Not vendored - lives only in `~/.claude/skills/packshot/`,
+so **back it up before wiping a machine; there is nowhere to re-download it from.**
+**What it does:** Claude audits product reference photos, picks a staging archetype
+(ghost-mannequin / flat-lay / folded), transcribes on-product typography, writes a material
+narrative, appends a fixed render spec, then renders a clean commercial packshot.
+**Runtime cost:** renders on FAL via `fal-ai/nano-banana-2/edit`, ~$0.12 per image.
+**Requires a `FAL_KEY`** in the env or `.env` at the project root (NOT currently set). The
+skill checks and stops without it.
+**Python deps live in a venv at `~/.claude/skills/packshot/.venv`** (25 MB, already built).
+Not optional and not a preference: Arch is PEP 668 so `pip install fal-client` is refused
+system-wide, and **pipx cannot install it either** - `fal-client` is a library with no CLI
+entry point, so pipx has nothing to expose and the script still can't import it. Rebuild on a
+new machine with:
+```bash
+cd ~/.claude/skills/packshot && python3 -m venv .venv && ./.venv/bin/pip install fal-client requests
+```
+The skill invokes `~/.claude/skills/packshot/.venv/bin/python`, never system `python3`.
+**Local adaptations (upstream was written for someone else's repo layout):**
+- Step 1 read `./brands/*/brand-identity/visual-guidelines.md` from a `/brand` skill we do not
+  have. Rewired to read `brand-system.html` from our `/brand-system`, with the old path as a
+  fallback and "no brand system found" as a valid outcome rather than a hard stop.
+- Output moved from `brands/[brand]/packshots/` to `./packshots/[output-name]/`.
+- Script path fixed: upstream said `skills/references/generate-packshot.py`, which does not
+  exist in the archive. Now `~/.claude/skills/packshot/generate-packshot.py`.
+- Added a Requirements section and per-generation cost callouts.
+**vs `nano-banana`:** nano-banana is the free Gemini path for general imagery. packshot is the
+paid FAL path and the only one with the ghost-mannequin prompt engineering. Reach for
+nano-banana first unless the job is specifically a commercial product shot.
+
+---
+
+## Marketing and conversion (added 2026-08-06)
+
+### marketingskills - 12 of 47 skills
+**Source:** https://github.com/coreyhaines31/marketingskills (43k stars, MIT)
+**Install:**
+```bash
+git clone --depth=1 https://github.com/coreyhaines31/marketingskills /tmp/mkt
+for n in marketing-psychology cro signup onboarding popups paywalls pricing offers \
+         ab-testing launch lead-magnets customer-research; do
+  cp -a /tmp/mkt/skills/$n ~/.claude/skills/$n
+done
+rm -rf /tmp/mkt
+```
+**Deliberately NOT installed:** `copywriting`, `copy-editing`, `content-strategy`, `social`,
+`emails`, `seo-audit`, `ai-seo`, `programmatic-seo`, `schema`, `site-architecture`, `image`,
+`video`, and the rest of the 47. Our `content-ops`, `article-writing`, `seo-ops`, `voice-dna`
+and `business-analyzer` already cover that ground, and `image`/`video` would collide by name.
+Revisit if a client job needs one - the install line above takes a name, not a whole repo.
+**What the 12 add that we did not have:**
+- `marketing-psychology` - 72 named mental models with guidance on which fits where. The most
+  distinctive skill in the repo; nothing local resembles it.
+- CRO family (`cro`, `signup`, `onboarding`, `popups`, `paywalls`, `pricing`, `offers`,
+  `ab-testing`) - page and flow conversion work. `/new-site` had no conversion layer at all.
+- `launch`, `lead-magnets`, `customer-research` - GTM and discovery, feed `business-analyzer`.
 
 > **Skills evaluation log:** every skill considered (adopted/rejected + why + where wired) is in
 > `SKILLS-EVALUATION.md`. Plugins to install: see `PLUGINS.md` (claude-seo, security-guidance).

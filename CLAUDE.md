@@ -69,11 +69,11 @@ To activate for a project, add to that project's CLAUDE.md:
 
 ## UI / design work - pipeline rule
 For any UI build or redesign in a React + Tailwind project (full setup: ~/claude-config/DESIGN-PIPELINE.md):
-1. Lock direction first with ui-ux-pro-max: style + palette + font pairing + stack. Reuse the saved project/client direction if one exists; otherwise propose 2 and wait.
+1. Lock direction first. A reference the user points at (screenshot/image/URL) -> design-dna to extract it. Otherwise ui-ux-pro-max: style + palette + font pairing + stack. Reuse the saved project/client direction if one exists; otherwise propose 2 and wait.
 2. Source components from the magic MCP (21st.dev) before hand-rolling - use /ui or /design.
 3. Assemble with frontend-design + impeccable.
-4. Add motion with design-motion-principles (build mode) only where it earns its place - Kowalski restraint, no motion slop.
-5. Before showing anything: run /impeccable critique (UX) AND /impeccable audit (a11y/perf/responsive) AND a motion audit. Report what failed, fix it, then present.
+4. Add motion only where it earns its place - Kowalski restraint, no motion slop. Pick by kind: animate (general), transitions-dev (plain CSS transitions), gsap-scrolltrigger/gsap-timeline (scroll + choreography), apple-design (gesture/spring/physical), threejs-* (3D).
+5. Before showing anything: run /impeccable critique (UX) AND /impeccable audit (a11y/perf/responsive) AND a motion audit (review-animations on the diff, improve-animations on a whole app, transitions-polish for timing). Report what failed, fix it, then present.
 Never skip step 5. If the stack is not React/Tailwind, skip step 2 (Magic is React-only).
 # graphify
 - **graphify** (`~/.claude/skills/graphify/SKILL.md`) - any input to knowledge graph. Trigger: `/graphify`
