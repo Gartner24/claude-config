@@ -1,2 +1,8 @@
 __pycache__/
 *.pyc
+
+# client/employer skills - kept on disk for the ~/.claude symlinks, never published
+skills/admin-design/
+skills/inboundsavvy-website/
+skills/inboundsavvy-template/
+skills/inboundsavvy-shared/
