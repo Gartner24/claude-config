@@ -503,7 +503,7 @@ updates all 11 at once instead of re-copying):
 ```bash
 git clone https://github.com/cloudflare/skills ~/.config/cloudflare-skills
 for s in agents-sdk cloudflare cloudflare-email-service cloudflare-one \
-         cloudflare-one-migrations durable-objects sandbox-sdk turnstile-spin \
+         cloudflare-one-migrations durable-objects sandbox-stable sandbox-next turnstile-spin \
          web-perf workers-best-practices wrangler; do
   ln -sfn ~/.config/cloudflare-skills/skills/$s ~/.claude/skills/$s
 done
