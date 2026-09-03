@@ -537,10 +537,18 @@ Dispatches `regression-hunter` + `pr-intent-verifier` + `security-reviewer` +
 `database-reviewer` + the matching language reviewer + `code-reviewer` in parallel, then
 synthesizes by severity. Takes local changes **or** a PR number: `/review-stack 123`.
 
-It is not a replacement for `/code-review`, which is Claude Code's own reviewer and is
-faster for a plain correctness pass. review-stack adds the passes `/code-review` does not
-run - regression hunting, PR-intent verification, DB concurrency, security. On a PR that
-matters, run both.
+It is not a replacement for `/code-review`, which is Claude Code's own reviewer (a
+different implementation, shipped in the CLI binary - there is no file for it on disk).
+review-stack **invokes `/code-review` itself** as a seventh reviewer and merges its
+findings, so there is no reason to run both by hand. It never launches `ultra`: that is a
+billed cloud review and only the user may start it.
+
+Output is a fixed structure every run - Verdict, Intent, Actionable comments, Nits,
+Pre-existing, Scope, Coverage - with one ASCII severity scheme (`[CRITICAL]` `[HIGH]`
+`[MEDIUM]` `[LOW]` `[PRE-EXISTING]`). Reviewers that emit emoji circles or their own
+vocabulary get normalized in step 4a. Actionable comments are anchored at repo-relative
+`path:line` with a ```suggestion block where the fix is unambiguous, so they paste
+straight onto the PR.
 
 Multi-repo sessions: the skill pins `REPO_DIR`, `SLUG`, and `BASE` up front and passes
 absolute paths to every agent, because a subagent does not inherit which repo you meant.
