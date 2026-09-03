@@ -12,7 +12,7 @@ Without claude-mem, superpowers forgets context between sessions. Without superp
 
 ## Installed plugins
 
-### superpowers `v6.2.0`
+### superpowers `v6.3.0`
 **Source:** `claude-plugins-official/superpowers`
 **Install:** `claude plugin install superpowers`
 **Skills it adds:** `/brainstorming`, `/test-driven-development`, `/systematic-debugging`, `/writing-plans`, `/executing-plans`, `/subagent-driven-development`, `/dispatching-parallel-agents`, `/requesting-code-review`, `/receiving-code-review`, `/finishing-a-development-branch`, `/using-git-worktrees`, `/verification-before-completion`, `/writing-skills`
@@ -21,7 +21,7 @@ The foundation. Adds structured, opinionated workflows for every major dev activ
 
 ---
 
-### claude-mem `v13.12.4`
+### claude-mem `v13.24.0`
 **Source:** `thedotmack/claude-mem`
 **Install:** `claude plugin install claude-mem`
 **Skills it adds:** `/mem-search`, `/learn-codebase`, `/smart-explore`, `/knowledge-agent`, `/make-plan`, `/do`, `/babysit`, `/weekly-digests`, `/timeline-report`, `/pathfinder`, `/wowerpoint`, `/oh-my-issues`, `/how-it-works`, `/design-is`, `/version-bump`
@@ -82,7 +82,7 @@ C/C++ Language Server Protocol integration. Adds LSP tool for C/C++ projects.
 
 ---
 
-### ponytail `v4.8.4`
+### ponytail `v4.9.0`
 **Source:** `DietrichGebert/ponytail` (third-party marketplace, not official)
 **Install:** `claude plugins marketplace add DietrichGebert/ponytail` then `claude plugins install ponytail@ponytail`
 **Skills it adds:** `/ponytail`, `/ponytail-audit`, `/ponytail-debt`, `/ponytail-gain`, `/ponytail-help`, `/ponytail-review`
@@ -91,7 +91,7 @@ C/C++ Language Server Protocol integration. Adds LSP tool for C/C++ projects.
 
 ---
 
-### security-guidance `v2.0.6`
+### security-guidance `v2.0.7`
 **Source:** `claude-plugins-official/security-guidance` (Anthropic)
 **Install:** `claude plugin install security-guidance@claude-plugins-official`
 
@@ -125,4 +125,4 @@ claude plugin list                       # then, per plugin:
 claude plugin update <plugin>@<marketplace>
 ```
 Restart Claude Code afterwards - updates are staged, not hot-applied. Versions above were
-last verified 2026-07-29.
+last verified 2026-09-02.

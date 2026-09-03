@@ -2,21 +2,27 @@
 
 Skills installed outside the plugin system. Each needs to be reinstalled manually on a new machine.
 
-## Installed versions (last verified 2026-07-29)
+## Installed versions (last verified 2026-09-02)
 
 | Thing | Version | Update with |
 |-------|---------|-------------|
-| gstack | 1.60.1.0 | `git -C ~/.claude/skills/gstack merge --ff-only origin/main && ./setup` |
+| gstack | 1.79.0.0 | `git -C ~/.claude/skills/gstack merge --ff-only origin/main && ./setup` |
 | jjstack | 0.36.0 | same, in `~/.claude/skills/jjstack` (stash the local `hooks/auto-approve-safe.sh` tweak first) |
 | get-shit-done-cc | 1.34.2 **pinned** | do NOT run `npx get-shit-done-cc` - see below |
-| impeccable | 4.0.3 | `npx skills add pbakaus/impeccable --skill impeccable -a claude-code -g -y` |
-| graphify | 0.9.29 | `pipx upgrade graphifyy && graphify install claude` |
-| @21st-dev/cli | 1.15.0 | `npm install -g @21st-dev/cli@latest` |
-| Claude Code | 2.1.220 | `claude update` |
+| impeccable | 4.1.3 | `npx skills add pbakaus/impeccable --skill impeccable -a claude-code -g -y` |
+| graphify | 0.9.53 | `pipx upgrade graphifyy && graphify install claude` |
+| @21st-dev/cli | 1.17.0 | `npm install -g @21st-dev/cli@latest` |
+| Claude Code | 2.1.259 | `claude update` |
 
 Everything else (skill-router, the three taste skills, design-motion-principles,
-anthropic-security-review, getsentry-skills, the ECC cherry-picks) was verified against
-upstream on 2026-07-29 and is current.
+anthropic-security-review, getsentry-skills, the emilkowalski / gsap / threejs /
+transitions.dev / marketingskills sets, design-dna, humanizer) was re-pulled from upstream on
+2026-09-02 and is current.
+
+**The ECC cherry-pick is deliberately frozen.** Upstream `affaan-m/ecc` has grown 41 agents and
+16 language rule directories we do not have, and the local `rules/` files carry the hand-earned
+additions listed in the README. Re-copying upstream would overwrite them. Adopt selectively, by
+hand, or not at all.
 
 **Added 2026-08-06** (all `git clone --depth=1`, no pinned version - re-clone to update):
 emilkowalski/skills (9), gsap-skills (8), threejs-skills (10), transitions.dev (2),
@@ -483,8 +489,14 @@ Installed as a batch on 2026-07-02; the source was traced back on 2026-07-29 fro
 references inside the SKILL.md files, since the install command was never recorded.
 
 `agents-sdk`, `cloudflare`, `cloudflare-email-service`, `cloudflare-one`,
-`cloudflare-one-migrations`, `durable-objects`, `sandbox-sdk`, `turnstile-spin`, `web-perf`,
-`workers-best-practices`, `wrangler`.
+`cloudflare-one-migrations`, `durable-objects`, `sandbox-stable`, `sandbox-next`,
+`turnstile-spin`, `web-perf`, `workers-best-practices`, `wrangler`.
+
+**2026-09-02 refresh:** upstream split `sandbox-sdk` into `sandbox-stable` (current default npm
+package), `sandbox-next` (1.0 preview) and `sandbox-migrate-to-next` (porting only, deliberately
+not installed). `sandbox-sdk` was deleted locally. `cloudflare`, `cloudflare-email-service` and
+`turnstile-spin` had drifted and were re-copied; the other seven were byte-identical. The three
+`turnstile-spin` orphans below survived the re-copy - still unresolved.
 
 **Install / update** (upstream's own recommendation - clone once, symlink, then `git pull`
 updates all 11 at once instead of re-copying):
