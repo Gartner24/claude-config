@@ -35,7 +35,9 @@ Three different tools share the word "review". Pick by target, never by habit:
   `--fix` to apply. First stop for "are there bugs in this diff".
 - `/review-stack` - the multi-agent gate. Adds what /code-review does not run:
   regression-hunter, pr-intent-verifier, security, DB concurrency. Takes a PR number
-  too. Use before shipping and on every PR from someone else.
+  too, and **invokes /code-review itself** as a seventh reviewer, so never run both by
+  hand. Use before shipping and on every PR from someone else. It never launches
+  `ultra` - that is billed and yours to type.
 - `/review` - jjstack's local pre-landing pass. NOT the built-in. It shadows Claude's
   `/review` alias, so type `/code-review` when you mean the built-in.
 
