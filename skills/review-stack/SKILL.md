@@ -1,6 +1,6 @@
 ---
 name: review-stack
-description: Run the multi-agent pre-ship review stack over local changes OR someone else's pull request - dispatch regression-hunter + pr-intent-verifier + security-reviewer + database-reviewer + the matching language reviewer + code-reviewer as parallel subagents, then synthesize findings by severity. Use before shipping, before committing to a shared branch, after touching payments/auth/user-input/DB/money-stock code, when reviewing a teammate's PR, when asked "does this PR actually fix it", or when asked to "run the review stack", "review PR 123", "the security stack", or "the pre-ship review". Reviews and REPORTS only - never edits, never checks out, never posts.
+description: Run the multi-agent pre-ship review stack over local changes OR someone else's pull request - dispatch regression-hunter + pr-intent-verifier + security-reviewer + database-reviewer + the matching language reviewer + code-reviewer as parallel subagents, then synthesize findings by severity. Use before shipping, before committing to a shared branch, after touching payments/auth/user-input/DB/money-stock code, when reviewing a teammate's PR, when asked "does this PR actually fix it", or when asked to "run the review stack", "review PR 123", "the security stack", or "the pre-ship review". Skip it for a small low-risk diff of your own - under ~200 lines, under ~10 files, nothing touching auth/payments/migrations/deletion/config/crypto, no contract or test changes - and use /code-review for that instead. Reviews and REPORTS only - never edits, never checks out, never posts.
 ---
 
 # Review Stack
@@ -20,10 +20,33 @@ Dispatch the reviewer agents IN PARALLEL, then synthesize one ranked report.
 these agents. **This skill runs it for you** (step 3d), so you never have to run both by
 hand. Its findings are normalized and merged with everything else in step 4.
 
-Use `/code-review` alone, not this skill, when you just want bugs in a small diff. It is
-faster and cheaper. Reach for this skill when the change is big, risky, or someone
-else's - it adds regression hunting, PR-intent verification, DB concurrency, and security,
-and cross-checks them against each other and against `/code-review`.
+### Which one - decide from the diff, not from a feeling
+
+Nothing routes this automatically. Run the check, then say which way it went in one line.
+
+```bash
+git -C "$REPO_DIR" diff --stat "$BASE...HEAD" | tail -1        # files, +/- lines
+git -C "$REPO_DIR" diff --name-only "$BASE...HEAD" | grep -icE \
+  'auth|login|session|token|passwd|password|crypt|payment|charge|billing|invoice|price|\
+migration|schema|\.sql$|delete|purge|drop|permission|role|acl|webhook|secret|\.env'
+```
+
+**`/code-review` alone is enough when ALL of these hold:**
+- under ~200 changed lines **and** under ~10 files
+- the risk grep above returns 0
+- no public contract changed: exported signature, API response field, DB column, enum
+  member, config key, env var, CLI flag
+- no test deleted, renamed, skipped, or weakened
+- it is your own change, not someone else's PR
+
+**Any single one fails -> run this skill.** Two of them are absolute and override the size
+check entirely: a PR that is not yours, and anything the risk grep hits. A three-line
+change to a permission check is exactly the diff that needs seven reviewers, and exactly
+the one a size threshold waves through.
+
+If the user invoked this skill on a diff that meets every bullet, say so in one line and
+run `/code-review` for them instead of the full stack. Do not silently burn seven agents
+on a typo fix, and do not refuse either - just say which you ran and why.
 
 **Never invoke `/code-review ultra` from here.** Ultra is a billed cloud review and only
 the user may launch it. If the change warrants it, say so in the report and let them type
