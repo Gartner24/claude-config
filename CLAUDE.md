@@ -22,6 +22,20 @@
 - No error handling for scenarios that cannot happen.
 - Three similar lines is better than a premature abstraction.
 
+## The ticket is the spec
+- The issue, ticket, or message that asked for the work IS the requirement. Not a
+  suggestion, not a starting point, not a description of a problem for you to solve
+  a better way.
+- Read it before writing code, and extract its acceptance criteria as a literal
+  checklist. If there is no issue, the request in the message is the checklist.
+- A requirement you think is wrong is a question, not a decision. Say why in one or
+  two sentences and then either build what was asked, or wait if proceeding either
+  way would waste the work. Never silently substitute your own judgement and ship it.
+- Before saying done, walk the checklist and point at the code satisfying each item.
+  Anything you could not do is stated plainly, not omitted.
+- Partial delivery presented as complete is the failure this prevents. It has cost
+  real money.
+
 ## Review Rules
 - State the bug. Show the fix. Stop.
 - No suggestions beyond the scope of the review.

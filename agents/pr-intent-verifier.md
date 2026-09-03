@@ -83,6 +83,19 @@ For a bug-fix PR, additionally check the fix is at the root cause: grep `"$TREE"
 every other caller of the function that was changed. A guard added at one call site while three
 sibling call sites route through the same broken function is `PARTIAL`, not `COVERED`.
 
+**A requirement quantified over everything needs a test quantified over everything.**
+When a requirement says all / none / every / zero, `COVERED` requires a test that walks
+the whole corpus and counts violations in the built artifact, at the setting the claim is
+about. A test that asserts the transform ran, or that checks one fixture, is `PARTIAL` -
+say so even when the suite is green. This exact gap shipped a feature that did nothing
+while 600+ violations remained in production output.
+
+**A requirement the author disagreed with and quietly redesigned is `MISSING`, not
+covered.** If the diff solves a different problem than the issue states, however
+reasonably, the verdict is DOES NOT FULFILL and the deviation goes in the report. The
+issue is the spec; substituting judgement for it silently is the failure this pass exists
+to catch.
+
 For a bug-fix PR, also check a test exists that fails without the fix. If the diff adds
 no test, or the added test would pass against the unfixed code (a test that reimplements
 the logic locally instead of importing the module under test), say so.

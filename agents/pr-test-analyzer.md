@@ -52,3 +52,26 @@ Rate gaps by impact:
 2. critical gaps
 3. improvement suggestions
 4. positive observations
+
+## A universal claim needs a corpus-wide assertion
+
+The highest-value question here, and the one a coverage number cannot answer.
+
+For every requirement phrased as **all**, **none**, **every** or **zero**, find the test
+and check three things:
+
+1. Does it assert on the **built artifact** the user receives, or on the machinery -
+   "the transform was called", "the flag is true", a returned shape?
+2. Does it walk the **whole corpus**, or one fixture? One fixture proves one fixture.
+3. Does it **count** violations and assert zero, printing the offenders? A boolean says
+   something broke; a number says how far off it is.
+
+If the claim is conditional on an env var or build mode, the test must run under that
+condition and read the output produced there. A test running in development cannot
+verify a claim about production.
+
+Report a failure of any of the three as a real finding even when the suite is green and
+coverage is high. A test of this shape passed while 600+ violations shipped: the line
+was covered, by an assertion that could not fail for the reason that mattered. A
+mutation check does not catch it either - breaking the source turns a wrongly-scoped
+test red too, which proves it is wired, not that it measures the right thing.
