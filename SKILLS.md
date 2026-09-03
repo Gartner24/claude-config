@@ -526,9 +526,27 @@ write them.
 `rules/workers.mdc`.
 
 ### Loose extras
-`review-stack` (dispatches security + database + language + code reviewers in parallel),
 `docs-sync` (private doc ecosystem re-sync). **Source: UNKNOWN / hand-written locally.**
 (`web-perf` was previously listed here - it is Cloudflare's, see above.)
+
+### review-stack (owned, in this repo)
+`skills/review-stack/`, symlinked to `~/.claude/skills/review-stack`. Hand-written; it
+used to live only in `~/.claude` and was neither published nor backed up.
+
+Dispatches `regression-hunter` + `pr-intent-verifier` + `security-reviewer` +
+`database-reviewer` + the matching language reviewer + `code-reviewer` in parallel, then
+synthesizes by severity. Takes local changes **or** a PR number: `/review-stack 123`.
+
+It is not a replacement for `/code-review`, which is Claude Code's own reviewer and is
+faster for a plain correctness pass. review-stack adds the passes `/code-review` does not
+run - regression hunting, PR-intent verification, DB concurrency, security. On a PR that
+matters, run both.
+
+Multi-repo sessions: the skill pins `REPO_DIR`, `SLUG`, and `BASE` up front and passes
+absolute paths to every agent, because a subagent does not inherit which repo you meant.
+PR mode uses a throwaway `git worktree`, never `gh pr checkout` - it must never move you
+off your branch or strand uncommitted work in one of the other repos the session is
+holding.
 
 ### graphify
 **Source:** https://github.com/safishamsi/graphify - a Python package, not a skill repo.
@@ -583,6 +601,13 @@ General purpose:
 - `database-reviewer.md`, `performance-optimizer.md`
 - `silent-failure-hunter.md`, `chief-of-staff.md`
 - `pr-test-analyzer.md`, `a11y-architect.md`
+
+Review-stack's two (hand-written, owned):
+- `regression-hunter.md` - what worked before this diff and stops working after it.
+  Seven hunts; the highest-yield is bugfix reversal (`git log -L` on deleted lines - a
+  line added by a `fix:` commit and removed here is the same bug coming back).
+- `pr-intent-verifier.md` - does the change do what the PR says, and nothing else.
+  Requirement checklist from the linked issue, every COVERED needs a `file:line`.
 
 ### Rules installed (~/.claude/rules/ecc/)
 
