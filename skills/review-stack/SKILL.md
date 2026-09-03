@@ -101,11 +101,29 @@ need `git log`, `git blame`, and a greppable tree. Get one **without moving the 
 their branch**:
 
 ```bash
-WT=$(mktemp -d)/pr-$N
+WT_ROOT=$(mktemp -d)
 git -C "$REPO_DIR" fetch -q origin "pull/$N/head:refs/heads/rs-pr-$N"
-git -C "$REPO_DIR" worktree add -q "$WT" "rs-pr-$N"
 MERGE_BASE=$(git -C "$REPO_DIR" merge-base "origin/$BASE" "rs-pr-$N")
 ```
+
+**One worktree per agent. Never one shared between them.**
+
+```bash
+for a in regression intent security database language quality silent tests; do
+  git -C "$REPO_DIR" worktree add -q --detach "$WT_ROOT/$a" "rs-pr-$N"
+done
+```
+
+Several agents run mutation checks: back up a source file, break it, re-run the suite to
+confirm a test goes red, restore. In a shared tree those edits land under every other
+agent mid-run, and the failure is silent - an agent reports on a file another agent was
+halfway through breaking. Triangulation can rescue the conclusions, but it can just as
+easily produce three agents agreeing on an artifact, and you cannot tell which happened
+from the output.
+
+Detached worktrees at the same commit are independent and nearly free: seven of them on a
+small repo cost a few hundred KB, because they share the object store. There is no reason
+to economise here.
 
 Never `gh pr checkout` and never `git checkout` in `$REPO_DIR`: both move the user's
 HEAD and can strand uncommitted work, which is unrecoverable damage in a session that is
@@ -119,10 +137,11 @@ git -C "$REPO_DIR" status --short | wc -l    # must equal the count from before 
 Diff the PR against `$MERGE_BASE`, not against `$BASE` - otherwise every commit that
 landed on the base branch since the PR forked shows up as the author's work.
 
-**Tear the worktree down when the report is written, pass or fail:**
+**Tear them all down when the report is written, pass or fail:**
 
 ```bash
-git -C "$REPO_DIR" worktree remove --force "$WT"
+for a in "$WT_ROOT"/*; do git -C "$REPO_DIR" worktree remove --force "$a"; done
+git -C "$REPO_DIR" worktree prune
 git -C "$REPO_DIR" branch -D "rs-pr-$N"
 ```
 
@@ -137,9 +156,13 @@ agent prompts.
 ```bash
 M=$(mktemp -d)
 gh pr view "$N" --repo "$SLUG" --json title,body,url,author,closingIssuesReferences > "$M/pr.json"
-git -C "$WT" diff "$MERGE_BASE"...HEAD > "$M/pr.diff"
-git -C "$WT" diff --stat "$MERGE_BASE"...HEAD > "$M/pr.stat"
+gh pr view "$N" --repo "$SLUG" --json files -q '.files[].path' > "$M/pr.files"
+git -C "$WT_ROOT/regression" diff "$MERGE_BASE"...HEAD > "$M/pr.diff"
+git -C "$WT_ROOT/regression" diff --stat "$MERGE_BASE"...HEAD > "$M/pr.stat"
 ```
+
+`$M/pr.files` is the list of files GitHub considers part of the PR. Step 5 needs it: a
+review comment can only attach to a file in that list.
 
 For each linked issue - `closingIssuesReferences`, plus body matches on
 `(close[sd]?|fix(e[sd])?|resolve[sd]?)\s+#\d+`:
@@ -155,7 +178,8 @@ silently and a clean report means nothing:
 Never let a review silently cover less than it claims.
 
 State the resolved scope in one line before dispatching: `SLUG`, `BASE`, head ref,
-merge-base sha, file count, +/- lines, worktree path, and whether the tree is checked out.
+merge-base sha, file count, +/- lines, how many worktrees you made, and whether the
+tree is checked out.
 
 ## 2. Pick the reviewer set
 
@@ -184,11 +208,13 @@ inherit your intent about which repo this is**:
 
 ```
 Repo:       $SLUG
-Tree:       $WT            <- cd here; do not use relative paths, do not use cwd
+Tree:       $WT_ROOT/<this agent's name>   <- YOURS ALONE. cd here. Never a sibling's.
 Base:       $MERGE_BASE
-Diff:       $M/pr.diff     Stat: $M/pr.stat
+Diff:       $M/pr.diff     Stat: $M/pr.stat     Files: $M/pr.files
 PR + issues: $M/pr.json, $M/issue-*.json
-Report findings only. Do NOT edit files, do NOT post comments, do NOT switch branches.
+You may edit files inside your own tree for a mutation check, as long as you restore
+them. Never touch $REPO_DIR or another agent's tree. Do NOT post comments or switch
+branches.
 ```
 
 Then the per-agent brief:
@@ -331,18 +357,70 @@ This is the section you can paste onto the PR, so every entry has to stand alone
 
 ### Posting
 
-Still report-only - print the section, do not post it. The user has two ways to land it:
+Still report-only: print it, never post it unprompted. When the user does ask you to post,
+what goes on the PR is **not** what you printed in the terminal.
 
-- `/code-review <PR#> --comment` posts Claude's own findings inline natively.
-- To post these, one comment at a time, they run:
+#### Two audiences, two documents
+
+| | Terminal (the user) | PR comment (the author) |
+| --- | --- | --- |
+| Verdict, Intent, findings, Scope | yes | yes |
+| Nits | yes | yes, collapsed |
+| **Coverage** | **yes** | **never** |
+| Which agents ran, how many, which failed | yes | never |
+| Worktrees, mutation checks, tooling caveats | yes | never |
+| "N reviewers", "N findings cut", concurrency notes | yes | never |
+
+The author asked for a review of their branch. How the review was produced is your
+business, not theirs - it reads as a machine talking about itself, it dates instantly,
+and a caveat about your own tooling invites them to discount findings that are correct.
+Keep every word of it in the terminal.
+
+Strip on the way out: reviewer counts and names, the agent roster, worktree and
+mutation-check mechanics, "N findings cut for lack of evidence", suite-wide pass/fail
+totals the author can already see in CI, and any sentence beginning "one caveat on my
+side". If a finding cannot be stated without naming how it was found, cite the evidence
+(`file:line`, a commit sha, a test name) and drop the method.
+
+#### One body comment, plus a few inline
+
+**Body comment** - the default, and where the reasoning lives. Findings that form one
+argument stay together: three symptoms of a single design problem are worth more as one
+paragraph than as three threads, and the sentence that links them is usually the most
+useful line in the review.
+
+**Inline comment** - only when BOTH hold:
+
+1. it anchors to a line in a file listed in `$M/pr.files`, and
+2. the argument stands alone - the reader does not need a file outside the diff to follow it
+
+Test 1 is hard: GitHub rejects a review comment on a file that is not in the PR. Test 2
+is judgement, and it is the one that matters. A finding whose whole case rests on
+`meta.js` behaviour does not belong inline on `pagemapUtils.js` just because the anchor
+line happens to be in the diff - inline, it reads as a nitpick and the argument is lost.
+
+Cap inline at five. **Never post a nit inline.** A row of style threads is what makes an
+author stop reading the bot.
+
+For each inline finding, add a ```suggestion block only when the fix is unambiguous and
+fits the anchored lines - GitHub applies those verbatim, so a wrong one is worse than
+prose.
+
+Expect the split to lean heavily toward the body. A review that found one connected
+design problem may post zero inline comments and still be the most useful review the
+author gets that week.
+
+#### Mechanics
 
 ```bash
+gh pr comment "$N" --repo "$SLUG" --body-file body.md          # the one body comment
 gh api "repos/$SLUG/pulls/$N/comments" \
-  -f body="<the comment text>" -f commit_id="<head sha>" \
-  -f path="<repo-relative path>" -F line=<line> -f side=RIGHT
+  -f body="<text>" -f commit_id="$(git -C "$WT_ROOT/regression" rev-parse HEAD)" \
+  -f path="<repo-relative path>" -F line=<line> -f side=RIGHT   # one inline finding
 ```
 
-Never run either yourself unless the user asks in the same breath.
+Paths are repo-relative, never the worktree path. Post the body first: if an inline call
+fails because a line moved, the review is still delivered.
 
 ## 6. Report only
 
@@ -351,5 +429,5 @@ step (state the bug, show the fix, stop). To put findings on the PR, the user ru
 `/code-review <PR#> --comment` or asks you to post - never unprompted, and never push to
 someone else's branch.
 
-Confirm the worktree is removed and the user is on the branch they started on. Then
+Confirm every worktree is removed and the user is on the branch they started on. Then
 re-run this skill after fixes land to confirm the findings are cleared.
