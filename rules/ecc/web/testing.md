@@ -13,10 +13,13 @@
 
 ### 2. Accessibility
 
-- Run automated accessibility checks
+- Run axe-core in CI (jest-axe, or @axe-core/playwright for rendered pages). The rules
+  `aria-required-children`, `aria-required-parent` and `aria-dialog-name` catch the
+  container-role and unnamed-dialog defects that human review misses - six of those
+  shipped through review in one project. Prose does not close a CI gap
 - Test keyboard navigation
 - Verify reduced-motion behavior
-- Verify color contrast
+- Verify color contrast, and re-verify after a *background* change, not only after a text change
 
 ### 3. Performance
 
@@ -50,6 +53,9 @@ test('landing hero loads', async ({ page }) => {
 
 ## Unit Tests
 
+- Run the production build, not only the test runner. A test runner's module resolution
+  is not the bundler's, so a green suite does not prove an import resolves in the built
+  output
 - Test utilities, data transforms, and custom hooks
 - For highly visual components, visual regression often carries more signal than brittle markup assertions
 - Visual regression supplements coverage targets; it does not replace them

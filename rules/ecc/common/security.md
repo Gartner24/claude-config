@@ -6,7 +6,7 @@ Before ANY commit:
 - [ ] No hardcoded secrets (API keys, passwords, tokens)
 - [ ] All user inputs validated
 - [ ] SQL injection prevention (parameterized queries)
-- [ ] XSS prevention (sanitized HTML)
+- [ ] Escaping at every interpreter boundary: HTML, SQL, CSS, shell, template
 - [ ] CSRF protection enabled
 - [ ] Authentication/authorization verified
 - [ ] Rate limiting on all endpoints

@@ -85,7 +85,7 @@ Use these agents for code review:
 
 ### An absent answer rendered as a definite one
 
-The highest-yield class to look for in any code that renders fetched data, and the easiest to miss because it looks like defensive coding.
+The highest-yield class to look for in any code that renders fetched data, and the easiest to miss because it looks like defensive coding. Found more than a dozen times in a single console redesign.
 
 For every count, list, status or total on screen, ask what it shows while the request is in flight, and what it shows after the request failed:
 
@@ -97,6 +97,8 @@ For every count, list, status or total on screen, ask what it shows while the re
 Falling back to different behaviour is fine. Falling back to a different fact is not. When the answer is unknown, say so or say nothing, and never print the zero.
 
 Watch for it especially where a value gates a destructive control: a count defaulting to zero can switch off the guard on an irreversible action.
+
+The same trap runs the other way for a lookup into a table you own - design tokens, an enum map, a constant registry. There a miss is a typo, not an absence, so a default beside the lookup buries it permanently: `colors.gray[950] || '#0f172a'` returned the fallback on every read because the path did not exist, and the result looked correct. Validate the key or let it throw. Genuinely optional external values - an env var, a user setting, an absent config field - keep their defaults; the difference is whether you wrote the table.
 
 ### Security
 
