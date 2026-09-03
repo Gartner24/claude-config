@@ -41,6 +41,14 @@ Three different tools share the word "review". Pick by target, never by habit:
 - `/review` - jjstack's local pre-landing pass. NOT the built-in. It shadows Claude's
   `/review` alias, so type `/code-review` when you mean the built-in.
 
+### Which one: /code-review or /review-stack
+`/code-review` alone is enough when ALL hold: under ~200 lines and ~10 files, nothing
+touching auth/payments/migrations/deletion/permissions/crypto/config, no contract change
+(exported signature, API field, DB column, enum, env var, CLI flag), no test deleted or
+skipped, and it is your own change. Any one fails -> `/review-stack`. Two override size
+outright: someone else's PR, and anything on a risk path. A three-line permission change
+is exactly what a size threshold waves through.
+
 ### Every review answers these two first
 1. **Regression:** what worked before this diff and stops working after it? Grep every
    caller outside the diff. Read `git log -L` on deleted lines: a line added by a `fix:`
