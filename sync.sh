@@ -8,7 +8,8 @@ REPO="$(cd "$(dirname "$0")" && pwd)"
 LIVE="$HOME/.claude"
 
 cp "$LIVE/CLAUDE.md"            "$REPO/CLAUDE.md"
-cp "$LIVE/settings.json"        "$REPO/settings.json"
+# autoMode carries client repo names, env-file names, and internal domains - this repo is public.
+jq 'del(.autoMode)' "$LIVE/settings.json" > "$REPO/settings.json"
 cp "$LIVE/settings.local.json"  "$REPO/settings.local.json"
 
 # ponytail: copy-over, no delete - stale files show up in git status, delete by hand
