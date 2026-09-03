@@ -1,7 +1,7 @@
 ---
 name: seo-ops
 description: >
-  Run recurring SEO/AEO for a LIVE client site - monthly audit, page-2 internal-link lifts,
+  Run recurring SEO/AEO for a live client site - monthly audit, page-2 internal-link lifts,
   GSC language mining, structured-data upkeep, and re-indexing (IndexNow). The run-time counterpart to
   the build-time SEO-GUIDE. Use for the /monthly-ops SEO/AEO Ops add-on. Uses claude-seo for the audit
   when installed. Never page-per-keyword or automated/bought/exchanged backlinks.

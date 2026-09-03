@@ -15,7 +15,7 @@ process - the process lives in the guide.
 
 ## Step 1 - Load the client's retainer scope
 Determine which add-ons this client pays for (Care base is always on). Source, in order: the client's retainer
-record in `business`; a `retainer.md` in the client repo; else **ask** and confirm. Only run the
+record in the business repo; a `retainer.md` in the client repo; else **ask** and confirm. Only run the
 runbooks they bought - never do unpaid work, never skip paid work.
 
 ## Step 2 - Care base (always) - MONTHLY-OPS-GUIDE sec. 0
@@ -40,7 +40,7 @@ Follow the guide section for each, invoking the wired tool/skill at each step:
 Run 3-5 buyer prompts in ChatGPT/Perplexity/Gemini/Claude; record mentions vs competitors; note one action.
 
 ## Step 5 - Draft the monthly report - sec. 7
-Assemble the report (LaTeX template in `business`): Health, then a section per bought add-on, then
+Assemble the report (LaTeX template in the business repo): Health, then a section per bought add-on, then
 AI-visibility, then "next month" (2-3 focuses). Keep it honest (amber/red included).
 
 ## Step 6 - Gate (HARD)
