@@ -27,6 +27,28 @@
 - No suggestions beyond the scope of the review.
 - No compliments on the code before or after the review.
 
+### Which reviewer to use
+Three different tools share the word "review". Pick by target, never by habit:
+- `/code-review` - Claude Code's own reviewer. Local diff, or pass a target:
+  `/code-review 123` (PR), `/code-review main...HEAD`, `/code-review high`,
+  `/code-review ultra` (deep cloud pass), `--comment` to post inline PR comments,
+  `--fix` to apply. First stop for "are there bugs in this diff".
+- `/review-stack` - the multi-agent gate. Adds what /code-review does not run:
+  regression-hunter, pr-intent-verifier, security, DB concurrency. Takes a PR number
+  too. Use before shipping and on every PR from someone else.
+- `/review` - jjstack's local pre-landing pass. NOT the built-in. It shadows Claude's
+  `/review` alias, so type `/code-review` when you mean the built-in.
+
+### Every review answers these two first
+1. **Regression:** what worked before this diff and stops working after it? Grep every
+   caller outside the diff. Read `git log -L` on deleted lines: a line added by a `fix:`
+   commit and removed here is the same bug coming back.
+2. **Intent:** does the change do what the PR/issue says, and nothing else? Every
+   "covered" needs a `file:line`. A guard added at one call site while siblings route
+   through the same broken function is PARTIAL, not done.
+A finding with no `file:line`, or a behavior claim with no citation, is a false positive.
+Cut it and say how many you cut.
+
 ## Debugging Rules
 - Never speculate about a bug without reading the relevant code first.
 - State what you found, where, and the fix. One pass.
