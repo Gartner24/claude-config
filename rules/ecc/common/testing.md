@@ -24,7 +24,10 @@ The workflow above depends on step 2: you watched the test fail, so you know it 
 Mutation-check instead. Break the source deliberately, confirm that specific test goes red, restore it:
 
 1. Back up the file with `cp` to a scratch path. Never `git checkout`, which discards unrelated edits.
-2. Invert or remove the guard the fix added.
+2. Invert or remove the guard the fix added. A fix that touched several call sites has
+   several guards: revert each one alone and watch that site's test go red. Two handlers
+   dereferencing the same undefined argument were both fixed and only one was tested;
+   the second path shipped uncovered and had to be pinned in a follow-up PR.
 3. Run the test. It must fail, and it must be the test you wrote.
 4. Restore from the backup and confirm the suite is green again.
 
@@ -32,7 +35,7 @@ State in the summary that the check was run. A test that passes against the brok
 
 ### A test that reimplements the logic passes forever
 
-The most common way a test covers nothing is defining a local copy of the behaviour and asserting against that, never importing the module under test. Reverting the real fix then leaves the whole suite green.
+The most common way a test covers nothing is defining a local copy of the behaviour and asserting against that, never importing the module under test. Caught twice in one codebase, both times a local helper standing in for the real module. Reverting the real fix then leaves the whole suite green.
 
 Import the module under test. If it is awkward to render or construct, that is an argument for a shared fixture, not for a stand-in copy of its logic in the test file.
 
@@ -77,7 +80,7 @@ covered, by an assertion that could not fail for the reason that mattered.
 
 ### A mock weaker than the real module passes anything
 
-A hook or module mocked with fewer fields than it really returns lets broken code through. Mock the shape the consumer actually reads, not the minimum that makes the test run.
+A hook or module mocked with fewer fields than it really returns lets broken code through. A module mocked without one field the consumer reads meant a retry control that could never render, and every test passed. Mock the shape the consumer actually reads, not the minimum that makes the test run.
 
 ## Agent Support
 
