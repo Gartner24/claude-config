@@ -526,7 +526,7 @@ write them.
 `rules/workers.mdc`.
 
 ### Loose extras
-`docs-sync` (private doc ecosystem re-sync). **Source: UNKNOWN / hand-written locally.**
+A private doc-ecosystem re-sync skill, kept local and not published here.
 (`web-perf` was previously listed here - it is Cloudflare's, see above.)
 
 ### review-stack (owned, in this repo)

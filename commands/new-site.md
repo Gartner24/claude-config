@@ -10,7 +10,7 @@ repo** - it never edits the build system itself.
 
 **Build system location:** `~/projects/freelance/website-build-templates`
 - base: `templates/static.md` | modules: `modules/*.md` | guides: `guides/SEO-GUIDE.md`, `guides/LEGAL-GUIDE.md`
-**Business inputs:** `~/projects/freelance/business` (intake, tiers, Wompi/Stripe guides)
+**Business inputs:** `~/projects/freelance/business` (intake, tiers, payment-gateway guides)
 
 ## Step 1 - Site type -> template + modules
 Determine the type from `$ARGUMENTS`; if unclear, ask. Map it:
@@ -25,7 +25,7 @@ the pre-launch gate. Do not restate them; follow them.
 
 ## Step 3 - Intake (the full sec. 0 - NOT a one-liner)
 `$ARGUMENTS` is only a seed. Gather the **complete** sec. 0 intake before building - pull what exists from
-the client's brand system + the `business` intake docs, and **ask for everything missing**. When the
+the client's brand system + the business repo's intake docs, and **ask for everything missing**. When the
 client's market / positioning / pricing is unclear, use the **`business-analyzer`** skill to structure the
 discovery (audience, competitive, pricing-GTM).
 Required:
@@ -54,7 +54,7 @@ A locked **`brand-system.html`** must exist and be signed off before any buildin
 ## Step 5 - Scaffold the client repo
 Create a NEW private repo for the client (use the `github-setup` skill or `gh`), Astro static output,
 per the `astro-patterns` skill (islands only where needed, `trailingSlash: 'always'`, `astro:assets`,
-Cloudflare Workers/Pages). One client = one repo (like `example.studio`). Never build in the template repo.
+Cloudflare Workers/Pages). One client = one repo, named for the client's domain. Never build in the template repo.
 
 ## Step 6 - Propose, then build (the template's build order)
 Propose the asset list + section plan + chosen hero signature concept, and **wait for sign-off**
@@ -83,6 +83,6 @@ Propose the asset list + section plan + chosen hero signature concept, and **wai
 - **Index:** submit the sitemap in Google Search Console + Bing Webmaster, and ping **IndexNow** for the URL set.
 
 ## Step 8 - Hand off + offer the retainer
-Point back to `business` for off-boarding/thank-you. **Then offer the monthly retainer** - Care base +
+Point back to the business repo for off-boarding/thank-you. **Then offer the monthly retainer** - Care base +
 add-ons (`tiers.tex` / `MONTHLY-OPS-GUIDE.md`). The build is client acquisition; the retainer is the business.
 If they take it, set the client's retainer scope and run their cycle with **`/monthly-ops`**.
