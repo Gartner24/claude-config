@@ -534,7 +534,7 @@ WHAT: Runs the monthly recurring SEO/AEO for a LIVE client site - claude-seo aud
 TRIGGERS: monthly seo, seo ops, recurring seo, seo retainer, aeo ops, re-index, indexnow, page 2 internal links, seo audit for client
 BLOCKS: build-time SEO of a brand-new site (that's SEO-GUIDE via /new-site)
 PRIORITY: 8
-EXAMPLE: "run this month's SEO ops for camisetasdiez - audit + page-2 internal links"
+EXAMPLE: "run this month's SEO ops for <client> - audit + page-2 internal links"
 
 ### content-ops
 WHAT: Writes site copy + blog content that gets a client FOUND, in their voice, never AI slop (build-time copy or the monthly blog add-on).
@@ -684,7 +684,7 @@ EXAMPLE: "extract this debugging flow as a reusable skill"
 | Bug with 3+ possible causes | `/council` then `/investigate` | "3 possible causes for this crash, help me decide which to chase" |
 | New page/screen | taste skill -> `/impeccable shape` -> build -> `/impeccable audit` -> `/impeccable polish` | "design a new pricing page from scratch" |
 | Full design pipeline | `/design` (or describe it) | "/design a dashboard - reuse project context, audit before showing me" |
-| Client's monthly retainer cycle | `/monthly-ops <client>` | "run this month's SEO/content/GBP ops for camisetasdiez" |
+| Client's monthly retainer cycle | `/monthly-ops <client>` | "run this month's SEO/content/GBP ops for <client>" |
 | Match a reference design | `design-dna` (before ui-ux-pro-max) | "make it look like this screenshot, pull the tokens out" |
 | Add motion to something | `animate` | "animate this SVG logo, draw the paths in on load" |
 | Plain CSS transition | `transitions-dev` | "make the modal open smoothly and the accordion expand" |

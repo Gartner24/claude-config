@@ -20,7 +20,7 @@ transitions.dev / marketingskills sets, design-dna, humanizer) was re-pulled fro
 2026-09-02 and is current.
 
 **The ECC cherry-pick is deliberately frozen.** Upstream `affaan-m/ecc` has grown 41 agents and
-16 language rule directories we do not have, and the local `rules/` files carry the hand-earned
+15 language rule directories we do not have, and the local `rules/` files carry the hand-earned
 additions listed in the README. Re-copying upstream would overwrite them. Adopt selectively, by
 hand, or not at all.
 
@@ -39,10 +39,10 @@ fixes it if you get the order wrong.
 These are full systems with many sub-skills. **You only need to install jjstack** - it installs gstack automatically as a declared dependency.
 
 ### jjstack (installs gstack automatically)
-**Source:** https://github.com/JesperJurcenoks/jjstack
+**Source:** https://github.com/disciplin-run-org/jjstack (public; formerly JesperJurcenoks/jjstack)
 **Install:**
 ```bash
-git clone git@github.com:JesperJurcenoks/jjstack.git ~/.claude/skills/jjstack
+git clone https://github.com/disciplin-run-org/jjstack.git ~/.claude/skills/jjstack
 cd ~/.claude/skills/jjstack && ./setup
 ```
 jjstack's setup script checks for gstack and clones + sets it up from `garrytan/gstack` if not present. You do not need to install gstack separately.
@@ -141,7 +141,6 @@ cp ~/claude-config/skills/intent-router/SKILL.md ~/.claude/skills/intent-router/
 - council fires before implement skills on decision signals
 - motion dispatches by kind: animate (build), transitions-dev (CSS), gsap-* (scroll), apple-design (gesture), review-animations (audit)
 - investigate wins on runtime/logic bugs, but build/compile/type errors go to build-fix and the toolchain resolvers
-- brainstorming fires before gsd-plan-phase on vague/exploratory prompts
 
 **To update routing when you add a skill:** add a routing block to `USAGE.md` and commit. The router reads it on next invocation.
 **When to use:** Always active - fires automatically when Claude detects ambiguous intent.
@@ -171,8 +170,8 @@ cross-examination, final verdict. As of jjstack 0.36.0 it also runs an automatic
 ```bash
 npx skills add pbakaus/impeccable --skill impeccable -a claude-code -g -y
 ```
-**What it does:** 23 design commands covering typography, color, spacing, motion, interaction, responsive, and UX writing. 27 deterministic anti-pattern rules. Built on top of `frontend-design`.
-**Current version:** 4.0.3 (upgraded 2026-07-29 from a v3 snapshot)
+**What it does:** 23 design commands covering typography, color, spacing, motion, interaction, responsive, and UX writing. 61 deterministic anti-pattern rules. Built on top of `frontend-design`.
+**Current version:** 4.1.3
 **Key commands:** `/impeccable critique` (UX review), `/impeccable audit` (a11y/perf/responsive), `/impeccable polish`, `/impeccable shape`, `/impeccable bolder`, `/impeccable quieter`, `/impeccable distill`, `/impeccable animate`, `/impeccable live`
 **When to use:** Any frontend UI work. Run `critique` **and** `audit` before shipping UI - in v4 they split: `audit` is technical only, `critique` carries the UX review.
 **v4 breaking changes:** `teach` is gone - use `/impeccable init` (writes `PRODUCT.md`) and `/impeccable document` (writes `DESIGN.md` from existing code) once per project. `craft` is a deprecated alias. Subagents now ship as `.toml`/`.yaml` under `agents/` instead of `.md`.
@@ -201,8 +200,8 @@ rm -rf /tmp/dmp
 
 ---
 
-### emilkowalski/skills (9 skills) - added 2026-08-06
-**Source:** https://github.com/emilkowalski/skills (26.4k stars)
+### emilkowalski/skills (12 skills upstream; 9 installed here) - added 2026-08-06
+**Source:** https://github.com/emilkowalski/skills
 **Install:**
 ```bash
 git clone --depth=1 https://github.com/emilkowalski/skills /tmp/emil
@@ -219,7 +218,7 @@ philosophy), `prototype`, `pick-ui-library`.
 **Why it earns the slot:** this is Emil Kowalski's own repo - the primary source behind
 design-motion-principles' strongest lens. Nine granular skills instead of one broad one, so
 the right one fires per task.
-**Pipeline fit:** `/design` step 4 (motion) and step 5 (audit). Prefer `animate` over
+**Pipeline fit:** `/design` step 6 (motion) and step 7 (audit). Prefer `animate` over
 design-motion-principles build mode; prefer `review-animations` for a diff and
 `improve-animations` for a whole app.
 
@@ -244,7 +243,7 @@ CSS transitions use `transitions-dev` instead - do not reach for GSAP by default
 ---
 
 ### transitions.dev (2 skills) - added 2026-08-06
-**Source:** https://github.com/Jakubantalik/transitions.dev (2.5k stars)
+**Source:** https://github.com/Jakubantalik/transitions.dev
 **Install:**
 ```bash
 git clone --depth=1 https://github.com/Jakubantalik/transitions.dev /tmp/tdev
@@ -262,7 +261,7 @@ the only one here with a motion-token vocabulary for replacing hardcoded duratio
 ## Design - reverse-engineering a reference
 
 ### design-dna - added 2026-08-06
-**Source:** https://github.com/zanwei/design-dna (1.3k stars)
+**Source:** https://github.com/zanwei/design-dna
 **Install:**
 ```bash
 git clone --depth=1 https://github.com/zanwei/design-dna /tmp/ddna
@@ -283,7 +282,7 @@ ui-ux-pro-max instead of it.
 ## Design - 3D
 
 ### threejs-skills (10 skills) - added 2026-08-06
-**Source:** https://github.com/CloudAI-X/threejs-skills (2.9k stars)
+**Source:** https://github.com/CloudAI-X/threejs-skills
 **Install:**
 ```bash
 git clone --depth=1 https://github.com/CloudAI-X/threejs-skills /tmp/tjs
@@ -443,7 +442,7 @@ nano-banana first unless the job is specifically a commercial product shot.
 
 ## Marketing and conversion (added 2026-08-06)
 
-### marketingskills - 12 of 47 skills
+### marketingskills - 12 of 50 skills
 **Source:** https://github.com/coreyhaines31/marketingskills (43k stars, MIT)
 **Install:**
 ```bash
@@ -480,10 +479,10 @@ URL when reinstalling, check `skills.sh` or the tool that shipped them.
 ### 21st.dev skill set (7 skills)
 `21st-ai`, `21st-cli-use`, `21st-design-sync`, `21st-registry`, `21st-ui-build`,
 `21st-ui-explore`, `21st-ui-review`. They all drive the `21st` CLI (`@21st-dev/cli`, global
-npm, currently 1.15.0), so keep the CLI current with `npm install -g @21st-dev/cli@latest`.
+npm, currently 1.17.0), so keep the CLI current with `npm install -g @21st-dev/cli@latest`.
 Distinct from the `magic` MCP: the MCP generates, the CLI searches/installs/publishes.
 
-### Cloudflare skill set (11 skills)
+### Cloudflare skill set (12 skills)
 **Source:** https://github.com/cloudflare/skills - Cloudflare's official skill bundle.
 Installed as a batch on 2026-07-02; the source was traced back on 2026-07-29 from repo
 references inside the SKILL.md files, since the install command was never recorded.
@@ -499,7 +498,7 @@ not installed). `sandbox-sdk` was deleted locally. `cloudflare`, `cloudflare-ema
 `turnstile-spin` orphans below survived the re-copy - still unresolved.
 
 **Install / update** (upstream's own recommendation - clone once, symlink, then `git pull`
-updates all 11 at once instead of re-copying):
+updates all 12 at once instead of re-copying):
 ```bash
 git clone https://github.com/cloudflare/skills ~/.config/cloudflare-skills
 for s in agents-sdk cloudflare cloudflare-email-service cloudflare-one \
@@ -509,7 +508,6 @@ for s in agents-sdk cloudflare cloudflare-email-service cloudflare-one \
 done
 ```
 The current install is a **copy**, not a symlink, so it does not self-update. Verified against
-upstream on 2026-07-29: 10 of 11 byte-identical.
 
 **`turnstile-spin` has drifted** and is the one exception. Upstream rewrote it (scripts are now
 documented in the README, `SKILL.md` is canonical instead of mirroring the docs page). The local
@@ -517,7 +515,9 @@ copy also carries `scripts/fetch-secret.sh`, `scripts/worker-deploy.sh`, and a w
 `templates/worker/` scaffold that upstream no longer ships - almost certainly leftovers from the
 older release, but not provably so. Refresh with:
 ```bash
-cp -a ~/.config/cloudflare-skills/skills/turnstile-spin/. ~/.claude/skills/turnstile-spin/
+git clone --depth=1 https://github.com/cloudflare/skills /tmp/cfs \
+  && cp -a /tmp/cfs/skills/turnstile-spin/. ~/.claude/skills/turnstile-spin/ \
+  && rm -rf /tmp/cfs
 ```
 That leaves the three orphans in place; delete them by hand once you have confirmed you did not
 write them.
@@ -557,7 +557,7 @@ off your branch or strand uncommitted work in one of the other repos the session
 holding.
 
 ### graphify
-**Source:** https://github.com/safishamsi/graphify - a Python package, not a skill repo.
+**Source:** https://github.com/Graphify-Labs/graphify (formerly safishamsi/graphify) - a Python package, not a skill repo.
 **Install / update:**
 ```bash
 pipx install graphifyy     # note the package name is graphifyy, the CLI is graphify
@@ -571,9 +571,9 @@ warns on every run. Turns any folder into a navigable knowledge graph. Trigger: 
 
 ## Specialized
 
-### inboundsavvy-webmaster
-**What it does:** Custom skill for InboundSavvy CMS. Edit pages, sections, design system, images via natural language.
-**When to use:** Only for InboundSavvy website work.
+### inboundsavvy-webmaster (not published - client work)
+**What it does:** Client CMS skill. Lives only in `~/.claude/skills/`; not vendored here, like the other client skills excluded in `.gitignore`.
+**When to use:** Client website work only.
 
 ### anthropic-security-review
 **What it does:** Python-based security review toolkit from Anthropic. Not a SKILL.md skill - a standalone tool.
@@ -621,8 +621,7 @@ Review-stack's two (hand-written, owned):
 
 Language-specific "must always / must never" guidelines. Not auto-loaded - add @imports to project CLAUDE.md:
 ```
-@~/.claude/rules/ecc/common/coding-style.md
-@~/.claude/rules/ecc/<language>/coding-style.md
+@~/.claude/rules/ecc/<language>/index.md
 ```
 Languages: common, typescript, python, golang, rust, java, web
 
@@ -649,24 +648,30 @@ Multi-agent: `/multi-plan`, `/multi-execute`, `/multi-workflow`, `/multi-backend
 General: `/plan`, `/build-fix`, `/refactor-clean`, `/quality-gate`, `/test-coverage`, `/update-docs`, `/checkpoint`, `/skill-create`, `/security-scan`, `/pr`, `/project-init`, `/review-pr`, `/plan-prd`
 
 ### Reinstall on new machine
+
+Agents and rules come from **this repo**, not from upstream. Re-copying upstream would
+overwrite the local additions in `rules/ecc/common/code-review.md` and `common/testing.md`
+and drop the two hand-written agents - which is exactly what the loops here used to do.
+
 ```bash
-git clone --depth=1 https://github.com/affaan-m/ecc /tmp/ecc
+# Agents + rules: from this repo. `cp -a <dir>/.` copies contents, so new files are
+# picked up automatically and no list can go stale.
+cp -a agents/. ~/.claude/agents/
+mkdir -p ~/.claude/rules
+cp -a rules/.  ~/.claude/rules/
 
-# Agents
-for agent in go-reviewer.md go-build-resolver.md python-reviewer.md typescript-reviewer.md \
-  rust-reviewer.md rust-build-resolver.md java-reviewer.md java-build-resolver.md \
-  build-error-resolver.md architect.md code-architect.md code-reviewer.md code-explorer.md \
-  planner.md tdd-guide.md security-reviewer.md refactor-cleaner.md doc-updater.md \
-  docs-lookup.md e2e-runner.md loop-operator.md database-reviewer.md performance-optimizer.md \
-  silent-failure-hunter.md chief-of-staff.md pr-test-analyzer.md a11y-architect.md; do
-  cp /tmp/ecc/agents/$agent ~/.claude/agents/
-done
+# Hooks + scripts, also from this repo
+cp -a hooks/block-destructive.sh ~/.claude/hooks/
+cp -a scripts/chroma-reaper.sh   ~/.claude/scripts/
+chmod +x ~/.claude/hooks/block-destructive.sh ~/.claude/scripts/chroma-reaper.sh
+bash ~/.claude/hooks/block-destructive.sh --test   # must print "all self-checks passed"
+```
 
-# Rules
-mkdir -p ~/.claude/rules/ecc
-for lang in common typescript python golang rust java web; do
-  cp -r /tmp/ecc/rules/$lang ~/.claude/rules/ecc/
-done
+The ECC **skills** and **commands** are not vendored here, so those still come from
+upstream:
+
+```bash
+git clone --depth=1 https://github.com/affaan-m/ECC /tmp/ecc
 
 # Skills
 for skill in coding-standards backend-patterns frontend-patterns api-design \
@@ -695,6 +700,7 @@ done
 
 rm -rf /tmp/ecc
 ```
+
 
 ### Available but not installed (safe to add anytime)
 

@@ -2,7 +2,7 @@
 
 Personal Claude Code setup: plugins, skills, MCP servers, and global config.
 
-This repo is the source of truth for everything installed on this machine. Use it to
+This repo is the source of truth for the hand-maintained parts of this setup. The frameworks (gstack, jjstack, get-shit-done-cc, plugins) are documented, not vendored, and client skills are deliberately excluded - see `.gitignore` and NOTICE.md. Use it to
 restore a new machine, remember what you have, or decide which tool to reach for.
 
 ## Quick map
@@ -16,13 +16,13 @@ restore a new machine, remember what you have, or decide which tool to reach for
 | [USAGE.md](USAGE.md) | Decision guide + machine-readable routing rules (read by personal-router) |
 | [skills/intent-router/SKILL.md](skills/intent-router/SKILL.md) | intent-router skill - reads USAGE.md, scores prompts, invokes the right skill |
 | [CLAUDE.md](CLAUDE.md) | Global Claude behavior config (`~/.claude/CLAUDE.md`) |
-| [settings.json](settings.json) | Full `~/.claude/settings.json` (hooks, model, env, plugins) |
+| [settings.json](settings.json) | `~/.claude/settings.json` minus the `autoMode` block, which `sync.sh` strips (hooks, model, env, plugins) |
 | [settings.local.json](settings.local.json) | `~/.claude/settings.local.json` (MCP connectors) |
 | [mcp-config.json](mcp-config.json) | `~/.claude.json` mcpServers block |
-| [agents/](agents/) | Copy of `~/.claude/agents/` - the 27 ECC subagent definitions |
+| [agents/](agents/) | Copy of `~/.claude/agents/` - 29 subagent definitions - the 27 from ECC plus review-stack's two (see NOTICE.md) |
 | [rules/](rules/) | Copy of `~/.claude/rules/` - the ECC per-language rule files, plus the rules below |
 | [hooks/](hooks/) | Hand-written hooks + the jjstack `auto-approve-safe.sh` patch |
-| [scripts/](scripts/) | Hand-written session scripts (`chroma-reaper.sh`) |
+| [scripts/](scripts/) | `chroma-reaper.sh` (session script, synced from live); `check-routing.py` and `asciify.py` (repo-only tooling: routing-table regression test, ASCII linter) |
 | [sync.sh](sync.sh) | Pulls the live `~/.claude` config into this repo. Run before committing. |
 
 ## Keeping this repo honest
@@ -53,6 +53,16 @@ earns its place.
 Project-specific findings stay in that project's own `CLAUDE.md`. Only rules that transfer to any
 codebase belong here.
 
+**Turning them on.** The rules are not auto-loaded. Add one line to the project's `CLAUDE.md`:
+
+```
+@~/.claude/rules/ecc/typescript/index.md
+```
+
+Swap `typescript` for `python`, `golang`, `rust`, `java`, `web`, or `common`. Each index pulls in
+the ten shared rules plus that language's set - 15 to 17 files. Import a single `coding-style.md`
+instead and you get two files, none of them the ones in the table above.
+
 ## Stack overview
 
 The setup is layered:
@@ -72,7 +82,7 @@ Plugins (official, auto-update)
 
 Skill frameworks (git checkouts + setup scripts - run gstack's setup BEFORE jjstack's)
   gstack               - project management system (garrytan/gstack)
-  jjstack              - Product/UX layer on top of gstack (JesperJurcenoks/jjstack)
+  jjstack              - Product/UX layer on top of gstack (disciplin-run-org/jjstack)
   get-shit-done-cc     - PINNED at 1.34.2, hooks only, gsd-* skills deliberately purged
 
 Community skills (installed manually or via npx skills add)

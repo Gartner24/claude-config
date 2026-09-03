@@ -1,7 +1,7 @@
 # Skills Evaluation Log
 
 Every third-party skill/tool considered for the this stack, its verdict, and where it's wired. The
-antidote to loose, forgotten skills (like `inboundsavvy-webmaster` once was). Evaluated 2026-07 during the
+antidote to loose, forgotten skills (like the client CMS skill once was). Evaluated 2026-07 during the
 services-pivot revision. Full research + rationale: `~/Downloads/marketing-playbook/REVISION-PLAN.md` sec. 3/sec. 9.
 
 **Rule:** nothing is installed-and-forgotten. Adopted -> lives in `claude-config/skills/` (or PLUGINS.md),
@@ -16,13 +16,13 @@ registered in `USAGE.md` + `SKILLS.md`, and referenced by the command that uses 
 | **content-ops** | our skill | authored (`skills/content-ops`) | `/monthly-ops` Content + `/new-site` copy | Uses voice-dna + anti-ai-writing; SEO-GUIDE topical rules |
 | **anti-ai-writing** | 3rd-party (artemnovitckii) | installed (`skills/anti-ai-writing`) | content-ops | MIT; de-slop final pass |
 | **voice-dna** | 3rd-party method (artemnovitckii) | installed (`skills/voice-dna`) | content-ops | Build a `voice-dna.md` per client from ~20 samples |
-| **claude-seo** | plugin (AgriciDaniel) | **USER INSTALLS** (checklist) | seo-ops / `/monthly-ops` / `/new-site` | 10.7k*, MIT, audit-only, no account access |
+| **claude-seo** | plugin (AgriciDaniel) | **INSTALLED** 2026-07-07 (checklist) | seo-ops / `/monthly-ops` / `/new-site` | 10.7k*, MIT, audit-only, no account access |
 | **security-guidance** | plugin (Anthropic) | **USER INSTALLS** (checklist) | review workflow (passive) | Set `ENABLE_STOP_REVIEW=0` to cap per-turn cost |
 | **canvas-design** | skill (Anthropic) | **USER INSTALLS** (checklist) | `/brand-system` collateral | OG/social/marketing graphics |
 | **nano-banana** | our skill (from local) | authored (`skills/nano-banana` + Gemini script) | `/brand-system` + `/new-site` assets | Gemini API (not kie); structured-prompt realism |
 | **video-to-website** | our skill (from local) | authored (`skills/video-to-website`, Astro) | `/new-site` premium hero + `/design` | Ported vanilla GSAP -> Astro island + Cloudflare |
 | **business-analyzer** | 3rd-party (local) | relocated to `claude-config/skills` + symlinked | `/new-site` discovery (business-analyzer skill) | Audience / competitive / financials / pricing-GTM / SWOT |
-| **graphify** | dev tool (pip) | **USER INSTALLS** (`pip install graphifyy`) | meta - index the whole system | Knowledge graph of code+docs; NOT video |
+| **graphify** | dev tool (pip) | **USER INSTALLS** (`pipx install graphifyy`) | meta - index the whole system | Knowledge graph of code+docs; NOT video |
 
 ## Rejected (logged so we don't re-litigate)
 
@@ -46,7 +46,7 @@ registered in `USAGE.md` + `SKILLS.md`, and referenced by the command that uses 
 | **karpathy-guidelines** (multica-ai) | The 200k-star repo is ONE skill: behavioral guardrails against LLM overcomplication and non-surgical edits. That is what ponytail mode + our CLAUDE.md already enforce, harder and with a persistence contract. |
 | **gstack design-review** | Already installed via jjstack. The awesomeskill.ai listing is the same skill. |
 | **anthropics/skill-creator** | Already installed as an official plugin (`plugins/marketplaces/claude-plugins-official/plugins/skill-creator`). |
-| **impeccable** | Already at 4.0.3. |
+| **impeccable** | Already at 4.1.3. |
 | **Dialkit** | Not a skill - an npm package (`dialkit@1.4.3`), a runtime control panel for tweaking UI values. Install per-project if a build wants it, not into the skill namespace. |
 | **Whisper** | Not a skill - OpenAI's speech-to-text model. |
 | **HeyGen / Hedra** | Not skills - avatar-video SaaS. |
@@ -77,7 +77,7 @@ bio link will resolve it. Repo-existence checks were not completed: GitHub code 
 | **zanwei/design-dna** | 3rd-party (1.3k*) | installed | `/design` step 1 | Reverse-engineers a reference screenshot/URL into token JSON. ui-ux-pro-max picks from a catalog; this extracts from a real design. |
 | **threejs-skills** (10) | 3rd-party (2.9k*) | installed | `/design` step 6 (3D only) | User confirmed 3D work. Dead weight otherwise - drop if no WebGL project lands. |
 | **blader/humanizer** | 3rd-party (34k*, MIT) | installed | content pipeline, before anti-ai-writing | Knowingly overlaps `anti-ai-writing`. Mechanical 33-pattern sweep vs our voice-aware pass. Run humanizer first, anti-ai-writing last. |
-| **marketingskills** (12 of 47) | 3rd-party (43k*, MIT) | installed | `/design` step 8, `/new-site`, `business-analyzer` | marketing-psychology + CRO family + launch/lead-magnets/customer-research. `/new-site` had no conversion layer. |
+| **marketingskills** (12 of 50) | 3rd-party (MIT) | installed | `/design` step 8, `/new-site`, `business-analyzer` | marketing-psychology + CRO family + launch/lead-magnets/customer-research. `/new-site` had no conversion layer. |
 | **packshot** | hand-delivered zip | installed + adapted | `/brand-system` assets | **No public repo - the zip in ~/Downloads is the only copy.** Needs `pip install fal-client` + `FAL_KEY`; ~$0.12/image on FAL. Rewired to read `brand-system.html`; output to `./packshots/`. |
 
 ## Content-writing pack (situational - install per need)

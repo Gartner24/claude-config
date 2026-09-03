@@ -42,7 +42,8 @@ Anthropic's official frontend design skill. Baseline for UI work. Impeccable and
 ### code-review
 **Source:** `claude-plugins-official/code-review`
 **Install:** `claude plugin install code-review`
-**Skills it adds:** `/code-review` (effort levels: low/medium/high/max, `--comment` for inline PR comments)
+**Skills it adds:** `/code-review:code-review` - reviews a GitHub **pull request** with parallel agents and confidence scoring, then posts one comment. That is all it does.
+**Not this plugin:** effort levels, `ultra`, `--comment`, `--fix` and non-PR targets belong to Claude Code's built-in `/code-review`, which ships in the CLI binary and has no file on disk. See CLAUDE.md for which to reach for.
 
 Focused diff review. Use before merging. Pairs with `/review` (gstack) for pre-landing checks.
 
