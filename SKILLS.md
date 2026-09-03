@@ -571,7 +571,7 @@ warns on every run. Turns any folder into a navigable knowledge graph. Trigger: 
 
 ## Specialized
 
-### inboundsavvy-webmaster (not published - client work)
+### Client CMS skill (not published)
 **What it does:** Client CMS skill. Lives only in `~/.claude/skills/`; not vendored here, like the other client skills excluded in `.gitignore`.
 **When to use:** Client website work only.
 

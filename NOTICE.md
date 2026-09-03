@@ -13,6 +13,7 @@ because the LICENSE covers only the parts authored here.
 | `skills/intent-router/`, `USAGE.md` | Prompt-to-skill routing table and its scorer |
 | `scripts/check-routing.py`, `scripts/asciify.py` | Repo tooling |
 | `hooks/block-destructive.sh` | Destructive-command guard |
+| `rules/ecc/*/index.md` (7 files) | Per-language rule indexes - authored here, not upstream. They only `@import` the files below. |
 | `sync.sh`, `CLAUDE.md`, `rules/ecc/common/{code-review,testing}.md` additions | Setup and the hand-earned rules |
 
 ## Redistributed from elsewhere
@@ -20,7 +21,7 @@ because the LICENSE covers only the parts authored here.
 | Path | Upstream | Notes |
 |---|---|---|
 | `agents/` (27 of 29 files) | [affaan-m/ECC](https://github.com/affaan-m/ECC) | Cherry-picked, then frozen. Confirm ECC's license before reusing. |
-| `rules/ecc/` (all 43 files) | [affaan-m/ECC](https://github.com/affaan-m/ECC) | Same, plus local additions in `common/code-review.md` and `common/testing.md`. |
+| `rules/ecc/` (43 of 50 files) | [affaan-m/ECC](https://github.com/affaan-m/ECC) | Same, plus local additions in `common/code-review.md` and `common/testing.md`. The other 7 are the `index.md` files listed above. |
 | `skills/anti-ai-writing/` | third party, MIT | Recorded in `SKILLS-EVALUATION.md`. |
 | `skills/voice-dna/`, `skills/business-analyzer/` | third party | **License not recorded.** Verify before relying on redistribution. |
 | `hooks/jjstack-auto-approve-safe.patch` | a local diff against [disciplin-run-org/jjstack](https://github.com/disciplin-run-org/jjstack) | Patch only; jjstack itself is not vendored. |
