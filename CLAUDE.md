@@ -96,8 +96,7 @@ Cut it and say how many you cut.
 ## Language Rules
 ECC rules are at ~/.claude/rules/ecc/ (common + typescript, python, golang, rust, java, web).
 To activate for a project, add to that project's CLAUDE.md:
-@~/.claude/rules/ecc/common/coding-style.md
-@~/.claude/rules/ecc/<language>/coding-style.md
+@~/.claude/rules/ecc/<language>/index.md
 
 ## UI / design work - pipeline rule
 For any UI build or redesign in a React + Tailwind project (full setup: ~/claude-config/DESIGN-PIPELINE.md):
