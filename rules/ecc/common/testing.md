@@ -36,6 +36,38 @@ The most common way a test covers nothing is defining a local copy of the behavi
 
 Import the module under test. If it is awkward to render or construct, that is an argument for a shared fixture, not for a stand-in copy of its logic in the test file.
 
+## A universal claim needs a corpus-wide assertion on the real artifact
+
+When the requirement says **all**, **none**, **every**, or **zero** - "no inline styles
+in the production build", "every route requires auth", "no secrets in the bundle",
+"all prices are in cents" - a fixture cannot verify it and neither can asserting that
+the transform ran.
+
+A mutation check does not save you here. Break the source and a wrongly-scoped test
+still goes red, which proves it is wired, not that it measures the right thing.
+
+Three requirements, all of them:
+
+1. **Assert on the artifact the user receives**, not on the machinery that produces it.
+   The built file, the rendered HTML, the API response. Not "the extractor was called",
+   not "the flag is true", not "the function returns the right shape".
+2. **Quantify over the whole corpus.** Walk every file, route, or record the claim
+   covers and count violations. One fixture proves one fixture.
+3. **Assert the count is zero, and print the count on failure.** `expect(violations)
+   .toHaveLength(0)` with the offenders listed. A boolean tells you something broke; a
+   number tells you how far off you are, and a number that reads 600 is unmissable.
+
+If the claim is conditional - gated on an env var, a build mode, a feature flag - the
+test sets that condition and inspects the output produced under it. A test that runs in
+development cannot verify a claim about production.
+
+### Why this is its own rule
+
+A test asserting that the machinery ran passed while 600+ violations shipped to
+production. The suite was green, the mutation check would have passed, and the feature
+was entirely non-functional. Coverage percentage says nothing about this: the line was
+covered, by an assertion that could not fail for the reason that mattered.
+
 ## Troubleshooting Test Failures
 
 1. Use **tdd-guide** agent
