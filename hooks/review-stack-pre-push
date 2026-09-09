@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# review-stack pre-push gate.
+#
+# Refuses to push a commit that has no review-stack receipt, or whose receipt
+# records a BLOCK verdict. Costs nothing: it calls no model, it only checks for
+# a file that /review-stack writes when it finishes.
+#
+# Receipts live in <git-dir>/review-stack/<sha> and are never committed.
+# Bypass: git push --no-verify   or   REVIEW_STACK_BYPASS=1 git push
+set -u
+
+[ "${REVIEW_STACK_BYPASS:-0}" = "1" ] && exit 0
+
+if ! GITDIR=$(git rev-parse --git-dir 2>/dev/null); then
+  echo "review-stack: cannot locate the git dir - refusing to push." >&2
+  echo "  bypass: git push --no-verify" >&2
+  exit 1                       # fail CLOSED: a gate that opens on error is not a gate
+fi
+RCPT="$GITDIR/review-stack"
+ZERO=0000000000000000000000000000000000000000
+missing=""
+blocked=""
+
+while read -r localref localsha remoteref remotesha; do
+  [ -z "${localsha:-}" ] && continue
+  [ "$localsha" = "$ZERO" ] && continue          # branch deletion
+  case "$localref" in refs/heads/*) ;; *) continue ;; esac
+  short=$(git rev-parse --short "$localsha" 2>/dev/null || echo "$localsha")
+  name=${localref#refs/heads/}
+  if [ ! -f "$RCPT/$localsha" ]; then
+    missing="$missing  $short  $name"$'\n'
+  elif grep -qE '^verdict:[[:space:]]*BLOCK' "$RCPT/$localsha"; then
+    blocked="$blocked  $short  $name"$'\n'
+  fi
+done
+
+[ -z "$missing" ] && [ -z "$blocked" ] && exit 0
+
+{
+  echo
+  echo "Push refused by review-stack."
+  if [ -n "$missing" ]; then
+    echo
+    echo "No review receipt for:"
+    printf '%s' "$missing"
+  fi
+  if [ -n "$blocked" ]; then
+    echo
+    echo "Reviewed, verdict BLOCK:"
+    printf '%s' "$blocked"
+  fi
+  cat <<'MSG'
+
+  run:     /review-stack sealed
+  then:    git push
+  bypass:  git push --no-verify
+
+Receipts are per commit sha. Fixing findings makes a new sha, so re-run the
+review after fixing. That is the intended flow, not a bug.
+MSG
+} >&2
+exit 1
