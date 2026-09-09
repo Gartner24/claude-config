@@ -543,8 +543,31 @@ review-stack **invokes `/code-review` itself** as a seventh reviewer and merges 
 findings, so there is no reason to run both by hand. It never launches `ultra`: that is a
 billed cloud review and only the user may start it.
 
-Output is a fixed structure every run - Verdict, Intent, Actionable comments, Nits,
-Pre-existing, Scope, Coverage - with one ASCII severity scheme (`[CRITICAL]` `[HIGH]`
+**The blind lane (added later).** Alongside the reviewer set above, the same diff is
+reviewed a second time by `regression-hunter` + `code-reviewer` + `security-reviewer` given
+no intent, no session context, no memory and no git history - it works from a tree built by
+`git ls-files | tar` with no `.git` in it, plus a mechanically generated packet (diff,
+changed files, and call sites outside the diff). The report gains a `Disagreements` section,
+and a blind finding can only be dismissed by refuting it with a `file:line`, never by
+"that was intentional". `sealed` upgrades it from subagents to isolated `claude -p`
+subprocesses with MCP, hooks and CLAUDE.md all shut off - measured USD 5-19 a run, which is
+why it is opt-in. A prose-only diff skips the lane entirely: a change whose added lines are
+an essay explaining its own purpose cannot be reviewed blind.
+
+**Spec conformance.** Contracts living in `docs/specs/` are below the review base by
+construction, so nothing ever loaded them. The skill now scores spec filenames against the
+changed paths and hands the top three to `pr-intent-verifier`, in local mode as well as PR
+mode.
+
+**Stacked branches.** `BASE` is auto-detected as the nearest parent branch rather than the
+repo default, because on a merge-up stack `main` pulls in every branch beneath yours. The
+report states what the base hides: commits, lines, and authors not covered.
+
+**Receipts.** A completed run writes `.git/review-stack/<sha>`; `hooks/review-stack-pre-push`
+refuses to push a commit that has none. See HOOKS.md.
+
+Output is a fixed structure every run - Verdict, Intent, Actionable comments, Disagreements,
+Nits, Pre-existing, Scope, Coverage - with one ASCII severity scheme (`[CRITICAL]` `[HIGH]`
 `[MEDIUM]` `[LOW]` `[PRE-EXISTING]`). Reviewers that emit emoji circles or their own
 vocabulary get normalized in step 4a. Actionable comments are anchored at repo-relative
 `path:line` with a ```suggestion block where the fix is unambiguous, so they paste
