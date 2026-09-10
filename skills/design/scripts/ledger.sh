@@ -87,6 +87,25 @@ def ledger_path(explicit=None):
                 return cand
     die("no run found - run 'ledger.sh init <target> [--pipeline design|brand]' first")
 
+def find_artifact(target, name):
+    """Locate the gate artifact. It is NOT always at the target root: a real project
+    keeps brand-system.html in brand/, and hardcoding <target>/<name> blocked a run
+    whose board was present, complete and passing the contract."""
+    direct = target / name
+    if direct.exists():
+        return direct
+    skip = {".git", "node_modules", "dist", "build", ".next", ".venv", ".design", "public"}
+    best = None
+    for root, dirs, files in os.walk(target):
+        dirs[:] = [d for d in dirs if d not in skip]
+        if name in files:
+            cand = pathlib.Path(root) / name
+            # prefer the shallowest match, so a stray copy deep in the tree never wins
+            if best is None or len(cand.parts) < len(best.parts):
+                best = cand
+    return best
+
+
 def steps_of(doc):
     return PIPELINES[doc.get("pipeline", "design")]["steps"]
 
@@ -171,9 +190,11 @@ elif cmd in ("show", "check"):
     if gate.get("status") != "RAN":
         failures.append(f"the '{G['step']}' step did not run - it may never be skipped")
     else:
-        art = target / G["artifact"]
-        if not art.exists() or art.stat().st_size == 0:
-            failures.append(f"gate artifact missing or empty: {art}")
+        art = find_artifact(target, G["artifact"])
+        if art is None:
+            failures.append(f"gate artifact not found anywhere under {target}: {G['artifact']}")
+        elif art.stat().st_size == 0:
+            failures.append(f"gate artifact is empty: {art}")
         else:
             if G.get("validator"):
                 # A brand board has a checkable shape, so prove conformance, not existence.
