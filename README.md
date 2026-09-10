@@ -27,7 +27,7 @@ restore a new machine, remember what you have, or decide which tool to reach for
 
 ## Keeping this repo honest
 
-`agents/`, `rules/`, `hooks/`, `scripts/`, `CLAUDE.md`, and `settings.json` are **copies**, not
+`agents/`, `rules/`, `hooks/`, `scripts/`, `CLAUDE.md`, and `settings.json` are **copies**, not Also `skills-audit.sh` - drift and local-override audit for `~/.claude/skills`.
 symlinks (unlike `skills/` and `commands/`, which are symlinked into `~/.claude`). They drift.
 Run `./sync.sh` then `git diff` before committing to pull the live state back in.
 
