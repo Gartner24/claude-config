@@ -157,8 +157,20 @@ elif cmd == "set":
             die(f"step '{step}' may never be skipped. Run it.")
         if val not in allowed:
             die(f"'{val}' is not a legal skip reason for '{step}'. legal: {', '.join(allowed)}")
-    doc["steps"][step] = {"status": status, "evidence" if status == "RAN" else "reason": val}
+    # Count re-runs of a step. An audit that keeps re-opening is the failure mode this
+    # pipeline hit on its first real use: nine design-gate passes over one file in ninety
+    # minutes, each triggered by the last one's findings. Prose budgets did not stop it.
+    prev = doc["steps"].get(step, {})
+    runs = prev.get("runs", 0) + 1
+    doc["steps"][step] = {"status": status, "evidence" if status == "RAN" else "reason": val,
+                          "runs": runs}
     save(p, doc)
+    if runs >= 3:
+        print(f"BUDGET: '{step}' has now been closed {runs} times.\n"
+              f"        Three passes is the budget. Do not open another - report what stands\n"
+              f"        and hand the remaining findings to the human as a list. An artifact\n"
+              f"        that survived three audits needs a decision, not a fourth audit.",
+              file=sys.stderr)
     # The active pointer is global, so a mutation from inside project B used to land in
     # project A's ledger with no sign. Always print the resolved path, and say so loudly
     # when the ledger being written is not the tree you are standing in.

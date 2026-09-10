@@ -24,6 +24,59 @@ non-empty, and is newer than every file under the target. A thin report to satis
 check is the one failure mode this whole mechanism cannot catch - do not be the reason it
 gets a content check bolted on.
 
+## Budgets - these are rules, not targets
+
+**This skill shipped without them and immediately ran nine passes over one file in ninety
+minutes**, each pass framed as "pass N's blockers", each generating the next. Every round was
+a real reading of real markup. The net movement after pass three was nits.
+
+| Budget | Value | When it is hit |
+|---|---|---|
+| Passes over one surface | **3** | Stop. Report what stands as `PASS WITH FINDINGS` and hand the rest to the human as a list. |
+| Wall-clock | 20 min per pass | Stop the current lens, report what ran, mark the rest a gap |
+| Findings in the report | 10 | The rest go in one line: "N lower-severity findings dropped" |
+
+**Re-audit rules, from pass 2 onward:**
+
+- Open with the previous pass's finding count and verify ONLY its must-fixes: fixed, still
+  open, or regressed.
+- **Raise nothing below P1 that was not already listed.** A fresh low-severity observation on
+  pass 3 about markup pass 2 read and passed is not a finding - it is a new opinion. One line
+  under Coverage notes, uncounted.
+- **A defect the fixes CREATED is in scope at full severity**, wherever it lands. That is a
+  regression, not a new opinion, and the distinction is the whole rule.
+- **If the finding count did not fall, the verdict is `STOP`.** Say so plainly: the audit is
+  generating work faster than it retires it, and a human decides what happens next. Do not
+  open another pass.
+
+An artifact that has passed three audits and still produces findings does not need a fourth
+audit. It needs a decision.
+
+## Use the right browser MCP - this is worth minutes per pass
+
+Two browser MCPs are connected and they are not interchangeable. **`chrome-devtools` is the
+one for auditing.** `claude-in-chrome` drives a real logged-in browser and is for reaching
+pages behind a session; reaching for it here means screenshotting and poking at the DOM by
+hand, which is what turned early runs into 10-13 minutes per pass.
+
+Verified tool names, 29 exposed. The four that do almost all of this skill's work:
+
+| Need | Tool | Note |
+|---|---|---|
+| a11y + perf + SEO + best-practices scores | **`lighthouse_audit`** | One call. Replaces `npx @axe-core/cli` AND `npx lighthouse`. Start here. |
+| the a11y tree as TEXT | **`take_snapshot`** | Reads structure, roles and names without a screenshot. Far better than eyeballing an image for landmark, heading and label checks. |
+| real Core Web Vitals | **`performance_start_trace`** -> load -> **`performance_stop_trace`** | Then `performance_analyze_insight` for a specific finding. |
+| responsive widths | **`resize_page`** | 320/375/768/1024/1440/1920, then `take_snapshot` or `take_screenshot` at each. |
+
+Also available and occasionally useful: `list_console_messages` (errors the page is throwing),
+`list_network_requests` (payload weight, what actually loaded), `emulate` (device and
+`prefers-color-scheme`, so the dark theme is audited as rendered rather than as CSS),
+`evaluate_script` (read computed styles for the contrast and token checks),
+`navigate_page`, `new_page`, `wait_for`, `take_heapsnapshot`.
+
+If `lighthouse_audit` covers a check below, use it rather than the shell fallback - the
+fallbacks exist for when no browser is available, not as the first choice.
+
 ## Run these, in this order
 
 **1. Token portability.** The universal claim, so count it across the whole corpus rather
@@ -41,8 +94,10 @@ phrased to pass or fail against a diff or a rendered page. Report the fail count
 every failing item by number. **Over 8 fails means the page reads as generated on sight** -
 say that in those words, at the top.
 
-**3. Accessibility.** axe-core over the rendered page if it can be served. **The `--tags`
-flag is mandatory**, because axe-core ships `target-size` (WCAG 2.2, the 24x24 tap-target
+**3. Accessibility.** `lighthouse_audit` first - it runs axe internally and returns the
+score plus violations, and `take_snapshot` gives you the a11y tree to read directly. Use the
+shell fallback below only when no browser MCP is available. **If you do shell out, the
+`--tags` flag is mandatory**, because axe-core ships `target-size` (WCAG 2.2, the 24x24 tap-target
 rule) **disabled by default** - "disabled by default, until WCAG 2.2 is more widely
 adopted". Omit `--tags` and the one automatable 2.2 rule silently never fires:
 
@@ -112,7 +167,8 @@ put it beside the primary reference. Name the drift concretely - "the reference 
 ```markdown
 # Design audit - <surface> - <date>
 
-verdict: PASS | PASS WITH FINDINGS | FAIL
+verdict: PASS | PASS WITH FINDINGS | FAIL | STOP (budget hit, or findings did not fall)
+pass: <n> of 3
 ai-tell fails: <n>/36        (over 8 = reads as generated)
 token leaks: <n>
 a11y: <n> critical, <n> serious   | or: static only (page not served)
