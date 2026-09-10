@@ -4,9 +4,28 @@ from fontTools.pens.boundsPen import BoundsPen
 
 CACHE = os.environ.get('GFONTS_CACHE') or os.path.expanduser('~/.cache/gfonts')
 MCACHE = os.path.join(CACHE, 'metrics')
+# Bump when the shape or provenance of a cached record changes. Entries written by an
+# older version are ignored rather than served - a cache that outlives its schema hands
+# back confidently wrong data, which is worse than a slow re-measure.
+MCACHE_V = 2
 
 def gf_dir(family):
     return family.lower().replace(' ', '').replace('-', '')
+
+_META = None
+
+def _axes_from_metadata(family):
+    """Variable-font axes for a family, from the cached corpus metadata."""
+    global _META
+    if _META is None:
+        try:
+            raw = open(os.path.join(CACHE, 'gfmeta.txt')).read()
+            _META = {f['family']: f for f in json.loads(raw[raw.index('{'):])['familyMetadataList']}
+        except Exception:
+            _META = {}
+    f = _META.get(family) or {}
+    return [(a['tag'], a['min'], a['max']) for a in f.get('axes', [])]
+
 
 def fetch(family):
     """Get the family's default TTF.
@@ -56,10 +75,14 @@ def metrics(family, use_cache=True):
     cpath = os.path.join(MCACHE, gf_dir(family) + '.json')
     if use_cache and os.path.exists(cpath):
         try:
-            with open(cpath) as fh: return json.load(fh)
+            with open(cpath) as fh: c = json.load(fh)
+            if c.get('_v') == MCACHE_V:
+                return c
         except Exception:
             pass
     m = _measure(family)
+    if m is not None:
+        m['_v'] = MCACHE_V
     if m is not None and use_cache:
         os.makedirs(MCACHE, exist_ok=True)
         try:
@@ -88,7 +111,11 @@ def _measure(family):
       'width_class': os2.usWidthClass,
       'n_advance_em': round(adv('n'), 4) if adv('n') else None,
       'glyphs': len(f.getGlyphOrder()),
-      'axes': [(a.axisTag, a.minValue, a.maxValue) for a in f['fvar'].axes] if 'fvar' in f else [],
+      # The CSS API serves the STATIC Regular, which carries no fvar - so axes come from
+      # the cached family metadata, which is authoritative for the family and was already
+      # being fetched. Reading them off whichever binary happened to be in the repo (the
+      # old path) was never better, and this way a static-only fetch still reports them.
+      'axes': _axes_from_metadata(family),
       'tnum': 'tnum' in feats, 'onum': 'onum' in feats, 'smcp': 'smcp' in feats,
       'kern': 'kern' in feats or 'kern' in f,
       'features': feats,
