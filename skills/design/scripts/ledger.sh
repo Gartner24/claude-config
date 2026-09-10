@@ -201,6 +201,20 @@ if cmd == "init":
     if run.exists():
         try:
             prev = json.loads(run.read_text())
+        except Exception:
+            prev = {}
+        owner = prev.get("session")
+        if owner and owner != SESSION and "--force" not in sys.argv:
+            optr = _CDIR / f".design-active-{owner}"
+            if optr.exists() and (time.time() - optr.stat().st_mtime) < 86400:
+                die(f"session {owner} already has a {prev.get('pipeline','design')} run open here:\n"
+                    f"  {target}\n\n"
+                    f"Two sessions sharing one ledger overwrite each other silently: this init\n"
+                    f"would archive their rows, and they would then write into yours believing\n"
+                    f"it is theirs. Neither session gets told.\n\n"
+                    f"Finish or stop that run first  ->  bash ledger.sh show {target}\n"
+                    f"If it is genuinely dead, delete {optr} or re-run with --force.")
+        try:
             tag = prev.get("pipeline", "run")
             stamp = (prev.get("started", "") or time.strftime("%Y-%m-%dT%H:%M:%S")).replace(":", "").replace("-", "")
             archive = d / f"run-{tag}-{stamp}.json"
@@ -212,6 +226,7 @@ if cmd == "init":
 
     doc = {
         "pipeline": pipeline,
+        "session": SESSION,
         "target": str(target),
         "started": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "steps": {k: {"status": "PENDING"} for k in PIPELINES[pipeline]["steps"]},
@@ -231,6 +246,13 @@ elif cmd == "set":
     if len(argv) < 4: die("usage: ledger.sh set <step> RAN|SKIPPED <evidence-or-reason>")
     step, status, val = argv[1], argv[2].upper(), " ".join(argv[3:])
     p = ledger_path(); doc = json.loads(p.read_text()); STEPS = steps_of(doc)
+    owner = doc.get("session")
+    if owner and owner != SESSION:
+        optr = _CDIR / f".design-active-{owner}"
+        if optr.exists() and (time.time() - optr.stat().st_mtime) < 86400:
+            die(f"refusing to write: this ledger belongs to session {owner}, still open.\n"
+                f"  {p}\n"
+                f"Run 'ledger.sh init <target>' for your own run, or wait for that one to end.")
     if step not in STEPS: die(f"unknown step '{step}'. known: {', '.join(STEPS)}")
     if status not in ("RAN", "SKIPPED"): die("status must be RAN or SKIPPED")
     if status == "SKIPPED":
