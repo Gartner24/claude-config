@@ -11,7 +11,7 @@
 # State: <target>/.design/run.json. Active pointer: ~/.claude/.design-active
 set -euo pipefail
 exec python3 - "$@" <<'PY'
-import json, os, subprocess, sys, time, pathlib
+import json, os, re, subprocess, sys, time, pathlib
 
 POINTER = pathlib.Path.home() / ".claude" / ".design-active"   # cleared when the gate passes
 LAST    = pathlib.Path.home() / ".claude" / ".design-last"     # never cleared, so 'show' still works after
@@ -86,6 +86,48 @@ def ledger_path(explicit=None):
             if cand.exists():
                 return cand
     die("no run found - run 'ledger.sh init <target> [--pipeline design|brand]' first")
+
+def stale_files(target, report):
+    """Files the audit COVERED that changed after it ran.
+
+    This used to walk the whole target tree, so any edit anywhere invalidated the audit -
+    touching a data-layer module, or just running the test suite, blocked a design gate that
+    had examined two styled-components files. On the first real run it flagged 5 files, none
+    of which the audit had looked at. A gate that cries wolf teaches people to bypass gates.
+
+    Scope to the paths the report itself names. If it names none, fall back to the whole tree
+    and SAY SO, because an unscoped check is still better than no check.
+    """
+    rmt = report.stat().st_mtime
+    text = report.read_text(errors="replace")
+    covered, seen = [], set()
+    for m in re.finditer(r"[\w./-]+\.(?:tsx?|jsx?|mjs|cjs|vue|svelte|astro|css|scss|less|"
+                         r"styl|html|php|erb|heex|templ|json|md)\b", text):
+        rel = m.group(0).lstrip("./")
+        if rel in seen:
+            continue
+        seen.add(rel)
+        fp = target / rel
+        if fp.is_file():
+            covered.append(fp)
+
+    if covered:
+        return [str(f) for f in covered if f.stat().st_mtime > rmt + 1]
+
+    # Nothing citable in the report - fall back to the tree walk.
+    skip = {".design", ".git", "node_modules", "dist", "build", ".next", ".venv", "coverage"}
+    out = []
+    for root, dirs, files in os.walk(target):
+        dirs[:] = [x for x in dirs if x not in skip]
+        for f in files:
+            fp = os.path.join(root, f)
+            try:
+                if os.path.getmtime(fp) > rmt + 1:
+                    out.append(fp)
+            except OSError:
+                pass
+    return out
+
 
 def find_artifact(target, name):
     """Locate the gate artifact. It is NOT always at the target root: a real project
@@ -230,20 +272,12 @@ elif cmd in ("show", "check"):
                             failures.append("brand board does not conform to the output contract:\n      "
                                             + "\n      ".join(head))
             if G.get("staleness"):
-                rmt, stale = art.stat().st_mtime, []
-                for root, dirs, files in os.walk(target):
-                    dirs[:] = [x for x in dirs if x not in
-                               (".design", ".git", "node_modules", "dist", "build", ".next", ".venv")]
-                    for f in files:
-                        fp = os.path.join(root, f)
-                        try:
-                            if os.path.getmtime(fp) > rmt + 1: stale.append(fp)
-                        except OSError:
-                            pass
-                    if len(stale) > 3: break
+                stale = stale_files(target, art)
                 if stale:
-                    failures.append(f"{len(stale)} file(s) changed after the gate ran, "
-                                    f"e.g. {stale[0]} - re-run it")
+                    shown = "\n      ".join(stale[:8])
+                    more = f"\n      ... and {len(stale) - 8} more" if len(stale) > 8 else ""
+                    failures.append(f"{len(stale)} audited file(s) changed after the gate ran:"
+                                    f"\n      {shown}{more}\n      Re-run the gate over these.")
 
     if cmd == "show":
         w = max(len(r[0]) for r in rows)
