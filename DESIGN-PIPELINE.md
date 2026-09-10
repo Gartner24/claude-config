@@ -1,143 +1,139 @@
-# Design Pipeline - setup & reuse
+# Design pipeline - setup and use
 
-A tutorial for wiring `ui-ux-pro-max` + `21st.dev` (and the rest of the stack) so you stop rewriting the prompt.
-
-**Do Steps 1-4 once per machine/project. Then use the kickoff prompt for every task.**
-
----
-
-## Step 1 - Install 21st Magic MCP in Claude Code
-
-**1a. Get an API key.** Go to `https://21st.dev/magic/console` and generate one. Free tier has usage limits; heavier use needs a plan.
-
-**1b. Install it user-scoped** (recommended - works across all client projects):
+Rewritten 2026-09-09. The previous version taught a setup that no longer works: it told you
+to run
 
 ```
 claude mcp add magic --scope user --env API_KEY="YOUR_KEY" -- npx -y @21st-dev/magic@latest
 ```
 
-**Or** project-scoped via the CLI installer:
+which is the exact command that produced the broken server that failed on every session for
+months. `@21st-dev/magic` is now a shim; the service moved to `https://21st.dev/api/mcp` and
+switched from an `API_KEY` env var to an `x-api-key` header. It also documented `/ui` and
+`/21` as if they were commands. They were never protocol features, only tool-description
+conventions, and they are gone.
 
-```
-npx @21st-dev/cli@latest install claude --api-key YOUR_KEY
-```
-
-**Or** add it manually to `.mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "magic": {
-      "command": "npx",
-      "args": ["-y", "@21st-dev/magic@latest"],
-      "env": { "API_KEY": "YOUR_KEY" }
-    }
-  }
-}
-```
-
-Claude Code auto-loads the server. After that, `/ui ...` generates components straight into the repo, e.g. `/ui a pricing table with three tiers and a monthly/annual toggle`.
-
-> Magic writes files into the project - review its writes like any agent edit. It's React + Tailwind (shadcn-style) only.
+There is almost nothing to set up now. Read the "One-time" section, then use `/design`.
 
 ---
 
-## Step 2 - Add router entries (for the trigger router)
+## What runs the pipeline
 
-```
-ui-ux-pro-max
-TRIGGERS: new design, redesign, design this, design a page, design a component, from scratch, what style, pick a style, choose a palette, font pairing, pick fonts, choose a stack, design direction, make this look like, style exploration, new page, new section
-BLOCKS: nothing
-PRIORITY: 9      # runs first - direction before anything is built
+Three skills, not a prompt you retype:
 
-21st.dev
-TRIGGERS: build the UI, build this, scaffold, implement the design, need a navbar, need a hero, need a pricing section, need a table, need a modal, need a card, need a component, find a component, real component, production component, shadcn, block, registry
-BLOCKS: nothing
-CONDITION: stack is React / Next + Tailwind + shadcn/Radix   # skip otherwise
-PRIORITY: 8      # runs after direction is locked
-CHAIN-AFTER: ui-ux-pro-max
-```
+| | Owns | Enforced by |
+|---|---|---|
+| **`/brand-system`** | Client identity: positioning, register, type, colour, logo, voice | Run ledger + Stop hook. `emit` closes only when the board passes the contract checker. |
+| **`/design`** | Surfaces: a page, a section, a component, in any stack | Run ledger + Stop hook. `gate` can never be skipped. |
+| **`/assets`** | Imagery, icons, shapes, background removal | Triage table - most assets are coded or fetched, not generated. |
 
-Two rules make them work together: pro-max at priority 9 decides direction first; 21st chains after it to source real components matching that direction instead of building from zero.
+`/design-gate` is the blind auditor `/design` calls. It runs forked, with no memory of the
+build, because an auditor that argued for a choice cannot grade it.
+
+**A signed `brand-system.html` outranks everything.** `/design` transcribes its `:root`
+tokens; it does not re-derive them.
 
 ---
 
-## Step 3 - Add the pipeline rule to CLAUDE.md (for Claude Code)
+## One-time
 
-This is the Claude Code equivalent of the router - it makes the chaining fire on its own. Paste into the project's `CLAUDE.md` (or `~/.claude/CLAUDE.md` for all projects):
+**Already installed and connected** - nothing to do:
 
 ```
-## UI / design work - pipeline rule
-
-For any UI build or redesign in a React + Tailwind project:
-
-1. Lock direction first. If I point at a reference (screenshot/image/URL), run design-dna
-   to extract it. Otherwise ui-ux-pro-max: style + palette + font pairing + stack.
-   Reuse the saved project/client direction if one exists; otherwise propose 2 and wait.
-2. Source components from the `magic` MCP (21st.dev) before hand-rolling - use /ui.
-3. Assemble with frontend-design + impeccable.
-4. Add motion only where it earns its place - Kowalski restraint, no motion slop.
-   Pick by kind: animate (general), transitions-dev (plain CSS transitions),
-   gsap-scrolltrigger / gsap-timeline (scroll + choreography), apple-design
-   (gesture, spring, drag/swipe/sheet), threejs-* (3D).
-5. Before showing me anything: run /impeccable critique (UX) AND /impeccable audit
-   (a11y/perf/responsive) AND a motion audit (review-animations on the diff,
-   improve-animations on a whole app, transitions-polish for timing).
-   Report what failed, fix it, then present.
-
-Never skip step 5. If the stack is not React/Tailwind, skip step 2 (Magic is React-only).
+mobbin           real shipped app screens, returned inline as images   (paid Mobbin plan, OAuth)
+shadcn           component sourcing, any registry                      (no key, user-scoped)
+21st             inspiration, React+Tailwind only                      (x-api-key)
+chrome-devtools  real perf measurement, drives Brave in a throwaway profile
 ```
+
+If `/mcp` does not list one, restart the session - MCP servers load at start.
+
+**The only thing you still have to do yourself:**
+
+```bash
+bash ~/.claude/skills/assets/scripts/gemini-key.sh set     # paste the key, hidden
+bash ~/.claude/skills/assets/scripts/gemini-key.sh test    # proves billing is actually on
+```
+
+Image generation is **not** on the Gemini API free tier and a consumer Gemini subscription
+grants no API quota, so the key must be attached to a billing-enabled project. Budget $2-4 per
+site. Without a key `/assets` still works - it hands you paste-ready prompts to run in the
+Gemini app instead of silently skipping imagery.
+
+**Optional, per project:** `pnpm dlx shadcn@latest mcp init --client claude` pins the shadcn
+server into the repo's `.mcp.json` so teammates get it too. Not needed for you - it is already
+user-scoped.
 
 ---
 
-## Step 4 - Per-project / per-client one-time setup
-
-Running these once is what lets the kickoff prompt stay short:
-
-- `/impeccable init` - captures durable product context in `PRODUCT.md`.
-- `/impeccable document` - generates `DESIGN.md` from the existing project code.
-  (These two replaced `/impeccable teach`, removed in impeccable v4.)
-- Lock a `ui-ux-pro-max` direction (style + palette + fonts + stack) and **save it per client**, so a returning client's look comes back automatically instead of being re-decided.
-
----
-
-## Use it - the kickoff prompt
-
-Paste this and fill the brackets:
+## Using it
 
 ```
 /design [what + where]
-
-Context: [new page | edit existing page] - [client name / personal]
-Existing project context: [yes, reuse it | no, set it now]
-
-Run the pipeline:
-1. Lock direction. If I gave you a reference image/URL, use design-dna to extract it.
-   Otherwise ui-ux-pro-max: style + palette + font pairing + stack.
-   If project context exists, reuse it. If not, propose 2 directions and wait.
-2. 21st.dev (magic MCP) - source/generate real shadcn/Tailwind components that
-   match the locked direction via /ui. Skip if stack isn't React/Tailwind.
-3. frontend-design + impeccable - assemble and implement.
-4. Motion only where it earns its place: animate (general), transitions-dev (plain
-   CSS transitions), gsap-scrolltrigger/gsap-timeline (scroll), apple-design (gesture).
-5. Before showing me: run /impeccable critique AND /impeccable audit AND a motion
-   audit (review-animations / transitions-polish). Report what failed, then fix.
 ```
 
-### Short version (after a project context is set)
+That is the whole prompt. Everything the old kickoff block spelled out is now in the skill,
+and the skill is enforced rather than suggested. Add context only when it changes the answer:
+a reference image or URL, brand colours, a Figma link, existing CSS to match. Whatever you
+supply is locked as given; whatever you leave out gets decided and stated.
+
+For a client build, run `/brand-system` first. `/design` will otherwise propose a direction
+the client never signed off on.
+
+### What actually happens
 
 ```
-/design [change] - reuse project context, source from magic MCP, audit before showing me.
+detect     which stack, from the repo, not from assumption
+reference  look at real shipped UI first - Mobbin, then Refero, then public galleries
+direction  brand-system > design-dna on a reference > saved direction > ui-ux-pro-max
+tokens     the direction becomes tokens.css - this is what makes it stack-agnostic
+source     shadcn MCP, then the per-stack matrix
+assemble   frontend-design + impeccable
+assets     /assets
+motion     animate, only where it earns its place
+gate       design-gate, blind. Cannot be skipped.
+conversion cro/pricing/signup/paywalls, marketing surfaces only
 ```
+
+Each step closes a row in `<project>/.design/run.json` with evidence, or a skip reason from a
+closed vocabulary. A Stop hook refuses to end the turn while a row is open. The closing table
+is generated from that file, so it cannot claim a step ran when it did not.
 
 ---
 
-## Pipeline at a glance
+## The two rules that matter most
 
+**1. Fonts and colours are searched, never picked from a list.** A lookup table cannot produce
+variety - that is why every site used to come out with the same faces. The old brand guide had
+25 families in a 6-row table and recommended Inter in half of them.
+
+```bash
+python3 ~/.claude/skills/design/scripts/fontsearch.py \
+  --adjectives loud active --anti calm --category Display --seed <client-slug>
+node ~/.claude/skills/design/scripts/build-ramp.mjs --hue <deg> --sat 0.9
 ```
-direction          ->  source            ->  build                    ->  motion                       ->  gate                          ->  ship
-(design-dna from a     (21st.dev /           (frontend-design +           (animate / transitions-dev /     (impeccable critique +
- reference, else        magic MCP)            impeccable)                  gsap-* / apple-design)           audit + review-animations)
- ui-ux-pro-max,
- +1 aesthetic skill)
-```
+
+`--seed <client-slug>` is mandatory: it samples the qualifying band instead of always taking
+the top of the ranking. The `--min-pop 300` floor excludes Inter, Roboto, Poppins, Montserrat,
+Open Sans, Lato and Playfair by construction - all of them are top-30 by popularity - and
+still leaves 189 quality-72+ Display families.
+
+**2. Most assets should never touch an image model.** Icons come from Iconify, backgrounds and
+grain and blobs are code, OG cards are rendered text, UI mockups are screenshots of the real
+thing, and portraits are a hard stop that asks you for a real photograph. Generation is for
+conceptual and atmospheric imagery, and that is roughly one asset in five.
+
+---
+
+## Reference material
+
+Long-form, in the skills rather than here so it loads on demand:
+
+- `skills/design/references/craft.md` - the 36-item AI-tell checklist and 25 ranked craft moves
+- `skills/design/references/stacks.md` - stack detection, component matrix, the token schema
+- `skills/design/references/reference-lock.md` - Mobbin/Refero, gallery ladder, ToS boundaries
+- `skills/assets/references/` - generation, sourcing, shapes, editing, prompting
+- `~/projects/freelance/website-build-templates/guides/BRAND-SYSTEM-GUIDE.md` - the craft layer
+
+Verify the tooling still works after touching it:
+`bash ~/.claude/skills/design/scripts/test-ledger.sh` (37 assertions)

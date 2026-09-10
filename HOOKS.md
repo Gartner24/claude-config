@@ -22,6 +22,7 @@ and reinstalling those frameworks restores them. Two are hand-written and live i
 | `injection-guard.sh` | jjstack | Scans Write/Edit content for prompt injection in .md files |
 | `mcp-reconnect.sh` | jjstack | Reconnects MCP servers on tool failure. Not symlinked into `~/.claude/hooks/` - settings.json calls it at `~/.claude/skills/jjstack/hooks/` |
 | `block-destructive.sh` | **hand-written** (this repo, `hooks/`) | PreToolUse gate on Bash - hard-blocks `rm -rf` against absolute/home/parent/wildcard targets |
+| `gate.sh` | **hand-written** (this repo, `skills/design/scripts/`) | **Stop** hook, and the only one registered from SKILL.md frontmatter rather than `settings.json` - `design` and `brand-system` both declare it. Exits 0 immediately unless `~/.claude/.design-active` exists, so it never touches an unrelated session. When a run is open it exits 2 (blocking) with the unclosed ledger rows, at most twice; the third stop releases and marks the run `escaped:true`. An abandoned ledger (>24h) or an unreadable one also releases. Verified by `skills/design/scripts/test-ledger.sh`. |
 | `chroma-reaper.sh` | **hand-written** (this repo, `scripts/`) | Background reaper started once per session; keeps claude-mem's chroma processes from piling up |
 
 ## Key behaviors these enable

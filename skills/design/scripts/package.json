@@ -1,0 +1,8 @@
+{
+  "name": "design-scripts",
+  "private": true,
+  "description": "Deps for build-ramp.mjs. culori does the OKLCH conversion and gamut mapping. node_modules is committed on purpose so the ramp generator works on a fresh clone with no install step.",
+  "type": "commonjs",
+  "license": "MIT",
+  "dependencies": { "culori": "^4.0.2" }
+}
