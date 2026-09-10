@@ -172,6 +172,23 @@ if cmd == "init":
     d = target / ".design"
     d.mkdir(parents=True, exist_ok=True)
     run = d / "run.json"
+
+    # Both pipelines write run.json. Initialising /design in a repo that just finished
+    # /brand-system would silently destroy the brand run's evidence - every step's
+    # reasoning, the competitor arc, the type provenance. Archive it instead. The receipt
+    # is the point of the ledger; overwriting one to start another defeats it.
+    if run.exists():
+        try:
+            prev = json.loads(run.read_text())
+            tag = prev.get("pipeline", "run")
+            stamp = (prev.get("started", "") or time.strftime("%Y-%m-%dT%H:%M:%S")).replace(":", "").replace("-", "")
+            archive = d / f"run-{tag}-{stamp}.json"
+            archive.write_text(json.dumps(prev, indent=2) + "\n")
+            print(f"archived the previous {tag} ledger -> {archive.name}")
+        except Exception as e:
+            die(f"refusing to overwrite {run}: it exists and could not be archived ({e}).\n"
+                f"Move it aside by hand, then re-run init.")
+
     doc = {
         "pipeline": pipeline,
         "target": str(target),
