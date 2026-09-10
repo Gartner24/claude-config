@@ -93,7 +93,27 @@ Pick ONE register (guide sec. 3.1). Keep exactly one adjective as the **tension 
 "we are X, specifically NOT Y". Hedging averages to generic, and the average is where generic
 lives. Evidence: the register plus the tension axis plus the anti-adjective.
 
-## 4. type - search the corpus, never pick from a list
+## 4. type - a search, unless the client already decided
+
+**A client-mandated typeface outranks the search, and is not a failure of it.** If the brief,
+the existing identity, a licence they already hold, or a parent-brand guideline fixes the
+face, that IS the answer - record it and move on. Do not "improve" it, do not run the search
+to second-guess it, and never quietly substitute a lookalike because the mandated face is
+popular or not on Google Fonts. A brand the client cannot reproduce is worthless to them.
+
+Record which of these applies, because the next session must not re-decide it:
+
+| Provenance | What to record |
+|---|---|
+| `client-mandated` | the face, who mandated it, and the licence they hold (foundry, seats, web/desktop) |
+| `inherited` | the existing asset it was measured off, via `design-dna` |
+| `searched` | the seed, the adjectives, and every constraint loosened |
+
+If the mandated face is commercial, say so in the board and name the licence - a
+self-hosting instruction the client has no right to follow is worse than no instruction.
+If it cannot be self-hosted at all, say that too rather than silently swapping it.
+
+**Only when nothing is fixed do you search.** Then: search the corpus, never pick from a list.
 
 ```bash
 bash ~/.claude/skills/design/scripts/fontdata.sh
@@ -147,6 +167,24 @@ A wordmark is drawn, not a font set at defaults. Guide sec. 6. Horizontal and st
 lockups, both modes, clear-space rule, and a reduction test down to favicon scale. Generate
 source imagery with `/assets`; vectorize with `vtracer`. Skip only when the client supplied a
 finished mark.
+
+**[P0] Every shipped lockup carries outlines, not live text.** An SVG with `<text
+font-family="X">` renders in a fallback on any machine without X - a printer, a sign-maker, a
+client's Word document - and the letterforms you argued for are gone. Keep the live-text file
+alongside as `<name>-editable.svg` and ship the outlined one.
+
+Convert with the real font at the size it is set at, not at the font's default. A variable
+face must be instantiated at the rendered optical size first: Bodoni Moda defaults to
+`opsz 11`, so outlining a 58px wordmark without pinning `opsz 58` freezes small-text
+hairlines at display size, which for a Didone destroys the contrast that chose it.
+
+```bash
+inkscape --actions="select-all;object-to-path;export-filename:out.svg;export-plain-svg;export-do" in.svg
+npx -y svgo --multipass out.svg
+```
+
+Then prove it: render the outlined file with the font uninstalled and diff it against the
+font-rendered original. Zero differing pixels, or it is not outlined.
 
 ## 7. imagery and motion - one treatment, one signature moment
 
