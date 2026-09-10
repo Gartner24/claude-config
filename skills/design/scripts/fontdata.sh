@@ -30,6 +30,9 @@ get() { # url dest
 
 [ "${1:-}" = "--force" ] && export FORCE=1
 
+# enrich.py also writes measured per-family metrics under $CACHE/metrics/. Those are
+# derived from the font binaries and never expire; delete that directory to force a
+# re-measure after a family is updated upstream.
 echo "caching Google Fonts data -> $CACHE"
 get "https://fonts.google.com/metadata/fonts" "$CACHE/gfmeta.txt"
 get "https://raw.githubusercontent.com/google/fonts/main/tags/all/families.csv" "$CACHE/gftags.csv"
