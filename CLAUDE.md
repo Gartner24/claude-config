@@ -57,6 +57,11 @@ target, never by habit:
   10 findings. Idempotent on purpose: same code in, same verdict out, and a re-review
   reports only regressions and new P0/P1. `--deep` forces recall-max. Report lands in
   `{repo}/jjstack/`. **This is the default before landing.**
+- `/jj-security-review` - jjstack's security pass. **Renamed from `/security-review` in
+  jjstack 0.40.2 (pulled 2026-09-09)** specifically so Claude Code's own built-in
+  `/security-review` stays reachable - the built-in has no other name. So: `/security-review`
+  is now Anthropic's, `/jj-security-review` is jjstack's (Anthropic's methodology + Sentry's
+  investigation-first approach + OWASP Top 10:2025 + MCP-specific CWE). Neither is `/review`.
 - `/review-stack` - the heavy adversarial gate, and the only one with a blind lane: the
   same diff reviewed with no intent, no session context, no memory and no git history,
   then a Disagreements section where the two lanes differ. Also checks the build against
