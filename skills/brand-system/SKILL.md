@@ -73,13 +73,18 @@ on them. It is the only measure-and-verify path in this toolchain and it returns
 profile rather than an impression. Evidence: the profile path. Nothing supplied at all is the
 one legal skip.
 
-**Then widen once, to the register - not to the category.** `/design`'s reference ladder
-(Mobbin MCP, then Refero MCP, then the galleries) is available here too; the full ladder and
-its ToS boundaries are in `~/.claude/skills/design/references/reference-lock.md`. Use it to
-see how the chosen register is executed well by anyone, not to see what this client's rivals
-did - that is step 5's job and it is a different question. Refero suits this better than
-Mobbin, because `refero_get_style` returns an extracted design system rather than a
-screenshot. Two or three references is enough; you are calibrating, not sourcing a direction.
+**Then widen once, to the register - and NOT through `/design`'s reference ladder.** Mobbin
+and Refero index app screens and web UI. A brand system is a wordmark, a palette, a voice and
+a type system, and those are not visible in a screenshot of somebody's settings page. Reaching
+for that ladder here is a category error.
+
+Use **guide sec. 9** instead: a named-brand cheat-sheet per register - Nike and Supreme for
+bold/street, Aime Leon Dore and Fear of God for premium/editorial, Stripe and Linear for
+technical - with the signature move distilled for each. Study two or three of the named
+brands directly, at their own sites, and take the MOVE rather than the look. That is
+reference at the identity layer, which is the layer this skill works at.
+
+`/design` uses the Mobbin/Refero ladder later, for the surfaces, where it is the right tool.
 
 ## 3. direction - commit, do not hedge
 
