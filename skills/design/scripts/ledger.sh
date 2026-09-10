@@ -352,6 +352,31 @@ elif cmd in ("show", "check"):
         for f in failures: print(f"BLOCKED: {f}")
         sys.exit(1 if failures else 0)
 
+elif cmd == "adopt":
+    # Take ownership of an existing ledger from THIS session, without re-initialising it.
+    # A run started before per-session pointers existed has no owner and no pointer, so its
+    # gate sits inert. This adopts it in place - no restart, no lost rows. Also the upgrade
+    # path for anyone whose run predates that change.
+    if len(argv) < 2: die("usage: ledger.sh adopt <target-dir>")
+    target = pathlib.Path(argv[1]).resolve()
+    run = target / ".design" / "run.json"
+    if not run.exists(): die(f"no ledger at {run}")
+    doc = json.loads(run.read_text())
+    owner = doc.get("session")
+    if owner and owner != SESSION:
+        optr = _CDIR / f".design-active-{owner}"
+        if optr.exists() and (time.time() - optr.stat().st_mtime) < 86400:
+            die(f"session {owner} still owns this ledger. Stop that run first, or delete {optr}.")
+    doc["session"] = SESSION
+    save(run, doc)
+    POINTER.parent.mkdir(parents=True, exist_ok=True)
+    POINTER.write_text(str(run) + "\n")
+    LAST.write_text(str(run) + "\n")
+    op = [k for k, v in doc["steps"].items() if v["status"] == "PENDING"]
+    print(f"adopted {doc.get('pipeline','design')} run at {run}")
+    print(f"  session: {SESSION}")
+    print(f"  open rows: {', '.join(op) if op else 'none'}")
+
 elif cmd == "done":
     if POINTER.exists(): POINTER.unlink()
     print("run closed")

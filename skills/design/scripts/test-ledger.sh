@@ -186,4 +186,28 @@ sys.exit(0 if d.get('session')=='own-1' and d['steps']['direction']['status']=='
 rm -f "$HOME/.claude/.design-active-own-1"
 CLAUDE_CODE_SESSION_ID=own-2 bash $LED init "$TO" >/dev/null 2>&1; chk "a dead owner releases the repo" "$?" "0"
 rm -f "$HOME/.claude/.design-active-own-"* "$HOME/.claude/.design-last-own-"*
+
+# adopt: a run started before per-session pointers existed has no owner and no
+# pointer, so its gate sits inert. Adopting must fix that in place, without
+# re-initialising - a live session cannot afford to lose its ledger or its context.
+TAD=$(mktemp -d)
+echo
+echo "T: adopt takes over an ownerless run in place"
+CLAUDE_CODE_SESSION_ID=ad-1 bash $LED init "$TAD" >/dev/null 2>&1
+CLAUDE_CODE_SESSION_ID=ad-1 bash $LED set detect RAN "work worth keeping" >/dev/null 2>&1
+python3 -c "
+import json,pathlib
+p=pathlib.Path('$TAD/.design/run.json'); d=json.loads(p.read_text()); d.pop('session',None)
+p.write_text(json.dumps(d,indent=2))"                      # simulate a pre-upgrade ledger
+rm -f "$HOME/.claude/.design-active-ad-1"
+printf '{"session_id":"ad-2"}' | bash $GATE >/dev/null 2>&1; chk "ownerless run: gate is inert" "$?" "0"
+CLAUDE_CODE_SESSION_ID=ad-2 bash $LED adopt "$TAD" >/dev/null 2>&1; chk "adopt succeeds" "$?" "0"
+printf '{"session_id":"ad-2"}' | bash $GATE >/dev/null 2>&1; chk "adopted run: gate active again" "$?" "2"
+python3 -c "
+import json,sys
+d=json.load(open('$TAD/.design/run.json'))
+sys.exit(0 if d['steps']['detect'].get('evidence')=='work worth keeping' else 1)" \
+  && ok "adopt preserved the existing rows" || no "adopt preserved the existing rows"
+CLAUDE_CODE_SESSION_ID=ad-3 bash $LED adopt "$TAD" >/dev/null 2>&1; chk "cannot adopt a live owner's ledger" "$?" "1"
+rm -f "$HOME/.claude/.design-active-ad-"* "$HOME/.claude/.design-last-ad-"*
 echo; echo "TOTAL pass=$PASS fail=$FAIL"; [ $FAIL -eq 0 ] || exit 1
