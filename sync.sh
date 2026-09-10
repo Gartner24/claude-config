@@ -22,7 +22,8 @@ cp -a "$LIVE/rules/."  "$REPO/rules/"
 
 # Hooks + scripts that are real files here (the rest are framework symlinks).
 mkdir -p "$REPO/hooks" "$REPO/scripts"
-cp "$LIVE/hooks/block-destructive.sh" "$REPO/hooks/"
+cp "$LIVE/hooks/block-destructive.sh"     "$REPO/hooks/"
+cp "$LIVE/hooks/review-stack-pre-push" "$REPO/hooks/"
 cp "$LIVE/scripts/chroma-reaper.sh"   "$REPO/scripts/"
 
 # Local tweak to jjstack's hook, kept as a patch so it survives a jjstack upgrade.
