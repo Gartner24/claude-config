@@ -161,4 +161,29 @@ CLAUDE_CODE_SESSION_ID=iso-A bash $LED set gate RAN .design/audit-report.md >/de
 printf '{"session_id":"iso-A"}' | bash $GATE >/dev/null 2>&1; chk "session A releases when A is done" "$?" "0"
 printf '{"session_id":"iso-B"}' | bash $GATE >/dev/null 2>&1; chk "session B still blocks - unaffected by A" "$?" "2"
 rm -f "$HOME/.claude/.design-active-iso-"* "$HOME/.claude/.design-last-iso-"*
+
+# ---------------------------------------------------------------------------
+# ledger ownership. Per-session pointers stopped two sessions in DIFFERENT repos
+# colliding; they did not stop two sessions in the SAME repo. The second init
+# archived the first's rows and the first then wrote into the second's ledger,
+# both believing it was theirs, neither told.
+TO=$(mktemp -d); mkdir -p "$TO/sub"
+echo
+echo "T: a repo's ledger is owned by one session"
+CLAUDE_CODE_SESSION_ID=own-1 bash $LED init "$TO" >/dev/null 2>&1
+CLAUDE_CODE_SESSION_ID=own-1 bash $LED set detect RAN "own-1 work" >/dev/null 2>&1
+CLAUDE_CODE_SESSION_ID=own-2 bash $LED init "$TO" >/dev/null 2>&1; chk "second session cannot init the same repo" "$?" "1"
+CLAUDE_CODE_SESSION_ID=own-2 bash $LED init "$TO" 2>&1 | grep -q "already has a design run open" \
+  && ok "and it says which session owns it" || no "and it says which session owns it"
+( cd "$TO/sub" && CLAUDE_CODE_SESSION_ID=own-2 bash $LED set direction RAN "intrusion" >/dev/null 2>&1 )
+chk "second session cannot write the owner's ledger" "$?" "1"
+python3 -c "
+import json,sys
+d=json.load(open('$TO/.design/run.json'))
+sys.exit(0 if d.get('session')=='own-1' and d['steps']['direction']['status']=='PENDING'
+         and d['steps']['detect'].get('evidence')=='own-1 work' else 1)" \
+  && ok "owner's rows survive the attempt" || no "owner's rows survive the attempt"
+rm -f "$HOME/.claude/.design-active-own-1"
+CLAUDE_CODE_SESSION_ID=own-2 bash $LED init "$TO" >/dev/null 2>&1; chk "a dead owner releases the repo" "$?" "0"
+rm -f "$HOME/.claude/.design-active-own-"* "$HOME/.claude/.design-last-own-"*
 echo; echo "TOTAL pass=$PASS fail=$FAIL"; [ $FAIL -eq 0 ] || exit 1
