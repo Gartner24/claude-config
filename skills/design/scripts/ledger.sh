@@ -13,8 +13,29 @@ set -euo pipefail
 exec python3 - "$@" <<'PY'
 import json, os, re, subprocess, sys, time, pathlib
 
-POINTER = pathlib.Path.home() / ".claude" / ".design-active"   # cleared when the gate passes
-LAST    = pathlib.Path.home() / ".claude" / ".design-last"     # never cleared, so 'show' still works after
+# The active pointer is PER SESSION. It used to be one global file, so two sessions each
+# running /design fought over it: the last `init` won, and the other session's Stop hook
+# then gated on a ledger from a repo it was not in, citing steps it never ran. Observed
+# live with two real runs 77 seconds apart.
+#
+# CLAUDE_CODE_SESSION_ID is set in the hook and tool environment and matches the session's
+# transcript filename. Falling back to "global" keeps a bare shell invocation working.
+SESSION = os.environ.get("CLAUDE_CODE_SESSION_ID") or "global"
+_CDIR   = pathlib.Path.home() / ".claude"
+POINTER = _CDIR / f".design-active-{SESSION}"   # cleared when the gate passes
+LAST    = _CDIR / f".design-last-{SESSION}"     # never cleared, so 'show' still works after
+
+
+def _sweep_stale_pointers(days=7):
+    """Session pointers outlive their sessions. Drop ones older than a week."""
+    import time as _t
+    cutoff = _t.time() - days * 86400
+    for f in _CDIR.glob(".design-active-*"):
+        try:
+            if f.stat().st_mtime < cutoff:
+                f.unlink()
+        except OSError:
+            pass
 
 # Each pipeline: ordered steps -> the reasons that step may legally be skipped.
 # An empty tuple means never. Free prose is what makes a skip unfalsifiable, so there is none.
@@ -199,9 +220,11 @@ if cmd == "init":
     }
     save(run, doc)
     POINTER.parent.mkdir(parents=True, exist_ok=True)
+    _sweep_stale_pointers()
     POINTER.write_text(str(run) + "\n")
     LAST.write_text(str(run) + "\n")
     print(f"ledger initialised ({pipeline}): {run}")
+    print(f"session: {SESSION}")
     print("steps: " + ", ".join(PIPELINES[pipeline]["steps"]))
 
 elif cmd == "set":

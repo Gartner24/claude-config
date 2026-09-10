@@ -7,9 +7,17 @@
 #   hooks: { Stop: [ { hooks: [ { type: command, command: "bash $HOME/.claude/skills/design/scripts/gate.sh" } ] } ] }
 set -uo pipefail
 LEDGER="$HOME/.claude/skills/design/scripts/ledger.sh"
-POINTER="$HOME/.claude/.design-active"
 
-cat >/dev/null 2>&1   # drain the hook's JSON stdin; we key off the pointer file
+# The hook payload carries session_id on stdin. This used to be discarded and the pointer
+# was a single global file - so with two sessions running /design, each gated on whichever
+# one had initialised last. Read the id, and fall back to the env var, then to "global".
+PAYLOAD="$(cat 2>/dev/null || true)"
+SESSION="$(printf '%s' "$PAYLOAD" | python3 -c 'import json,sys
+try: print(json.load(sys.stdin).get("session_id") or "")
+except Exception: print("")' 2>/dev/null)"
+[ -n "$SESSION" ] || SESSION="${CLAUDE_CODE_SESSION_ID:-global}"
+POINTER="$HOME/.claude/.design-active-$SESSION"
+export CLAUDE_CODE_SESSION_ID="$SESSION"   # so the ledger.sh call below resolves the same one
 
 [ -f "$POINTER" ] || exit 0
 RUN="$(head -n1 "$POINTER" 2>/dev/null || true)"

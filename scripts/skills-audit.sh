@@ -59,6 +59,7 @@ import json;print(len(json.load(open('$MANIFEST'))))") skills)"
     ;;
 
   check)
+    TMPNOW=$(mktemp); trap "rm -f \"$TMPNOW\"" EXIT
     echo "== version-controlled trees =="
     for r in "${REPOS[@]}"; do
       [ -d "$r/.git" ] || { printf "  %-28s (not a repo)\n" "$(basename "$r")"; continue; }
@@ -88,8 +89,8 @@ import json;print(len(json.load(open('$MANIFEST'))))") skills)"
       echo "  no baseline yet - run: skills-audit.sh snapshot"
       exit 0
     fi
-    hash_all > /tmp/.skills-now.json
-    python3 - "$MANIFEST" /tmp/.skills-now.json <<'PY'
+    hash_all > "$TMPNOW"
+    python3 - "$MANIFEST" "$TMPNOW" <<'PY'
 import json, sys
 old = json.load(open(sys.argv[1])); new = json.load(open(sys.argv[2]))
 added   = sorted(set(new) - set(old))
