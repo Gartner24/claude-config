@@ -73,6 +73,14 @@ on them. It is the only measure-and-verify path in this toolchain and it returns
 profile rather than an impression. Evidence: the profile path. Nothing supplied at all is the
 one legal skip.
 
+**Then widen once, to the register - not to the category.** `/design`'s reference ladder
+(Mobbin MCP, then Refero MCP, then the galleries) is available here too; the full ladder and
+its ToS boundaries are in `~/.claude/skills/design/references/reference-lock.md`. Use it to
+see how the chosen register is executed well by anyone, not to see what this client's rivals
+did - that is step 5's job and it is a different question. Refero suits this better than
+Mobbin, because `refero_get_style` returns an extracted design system rather than a
+screenshot. Two or three references is enough; you are calibrating, not sourcing a direction.
+
 ## 3. direction - commit, do not hedge
 
 Pick ONE register (guide sec. 3.1). Keep exactly one adjective as the **tension axis**
@@ -104,6 +112,21 @@ a default face. Evidence: both faces, the seed, and the reason.
 Map 8-12 competitors into OKLCH, bin hue into 24 buckets, commit to **OCCUPY or VACATE** and
 say which. Subtract the semantic anchors (12-42 danger, 60-90 warning, 135-165 success)
 before choosing. Guide sec. 5.3.
+
+**Where the competitor set comes from** - this step needs real colours from real rivals, and
+you must not invent them:
+
+1. A research file already in the project (`RESEARCH.md`, a brief, an audit). Grep it for hex
+   values first - the work may already be done.
+2. Otherwise ask the client for 8-12 named competitors, or name them yourself from the
+   positioning and say you did.
+3. Get each one's actual brand colour by visiting their site with the **Chrome MCP** and
+   sampling the rendered page - their nav, their primary button, their headline. Not a gallery
+   and not Mobbin: those show you good design, and here you need *these specific rivals*.
+4. Record every source with its URL in `.design/color.md`, so the arc argument can be checked.
+
+If you cannot assemble at least 8, say so plainly and state that the OCCUPY/VACATE call is
+made on a thin sample. Do not present a hue-arc argument built on colours you assumed.
 
 ```bash
 node ~/.claude/skills/design/scripts/build-ramp.mjs --hue <deg> --sat <0-1>
