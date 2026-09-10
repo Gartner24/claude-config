@@ -48,7 +48,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pgrep -f chroma-reaper.sh >/dev/null 2>&1 || setsid nohup bash /home/santiago/.claude/scripts/chroma-reaper.sh >/dev/null 2>&1 < /dev/null &"
+            "command": "setsid nohup bash /home/santiago/.claude/scripts/chroma-reaper.sh >/dev/null 2>&1 < /dev/null &"
           }
         ]
       }
