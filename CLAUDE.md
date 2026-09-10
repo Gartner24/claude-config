@@ -42,26 +42,41 @@
 - No compliments on the code before or after the review.
 
 ### Which reviewer to use
-Three different tools share the word "review". Pick by target, never by habit:
+Three tools share the word "review", and two of them wrap a third internally. Pick by
+target, never by habit:
 - `/code-review` - Claude Code's own reviewer. Local diff, or pass a target:
   `/code-review 123` (PR), `/code-review main...HEAD`, `/code-review high`,
   `/code-review ultra` (deep cloud pass), `--comment` to post inline PR comments,
   `--fix` to apply. First stop for "are there bugs in this diff".
-- `/review-stack` - the multi-agent gate. Adds what /code-review does not run:
-  regression-hunter, pr-intent-verifier, security, DB concurrency. Takes a PR number
-  too, and **invokes /code-review itself** as a seventh reviewer, so never run both by
-  hand. Use before shipping and on every PR from someone else. It never launches
-  `ultra` - that is billed and yours to type.
-- `/review` - jjstack's local pre-landing pass. NOT the built-in. It shadows Claude's
-  `/review` alias, so type `/code-review` when you mean the built-in.
+- `/review` - jjstack's, NOT the built-in. It shadows Claude's `/review` alias, so type
+  `/code-review` when you mean the built-in. Deterministic pre-flight (the repo's own
+  typechecker, linter and tests, a blast-radius map of callers outside the diff, the
+  stated intent), then gstack's `/review`, then four bounded lenses - context,
+  correctness, security, coverage+absence - then per-finding verification behind a
+  confidence gate, ending in APPROVE / CAUTION / REJECT. Hard budgets: 60 min, 4 agents,
+  10 findings. Idempotent on purpose: same code in, same verdict out, and a re-review
+  reports only regressions and new P0/P1. `--deep` forces recall-max. Report lands in
+  `{repo}/jjstack/`. **This is the default before landing.**
+- `/review-stack` - the heavy adversarial gate, and the only one with a blind lane: the
+  same diff reviewed with no intent, no session context, no memory and no git history,
+  then a Disagreements section where the two lanes differ. Also checks the build against
+  `docs/specs/` contracts, auto-detects a stacked base, and writes the receipt the
+  pre-push hook requires. `sealed` upgrades the blind lane to isolated subprocesses
+  (measured USD 5-19 a run). It never launches `ultra` - that is billed and yours to type.
 
-### Which one: /code-review or /review-stack
-`/code-review` alone is enough when ALL hold: under ~200 lines and ~10 files, nothing
-touching auth/payments/migrations/deletion/permissions/crypto/config, no contract change
-(exported signature, API field, DB column, enum, env var, CLI flag), no test deleted or
-skipped, and it is your own change. Any one fails -> `/review-stack`. Two override size
-outright: someone else's PR, and anything on a risk path. A three-line permission change
-is exactly what a size threshold waves through.
+### Which one, and never two at once
+- **Default before landing: `/review`.** Budgeted, converges, cheap enough to re-run.
+- `/code-review` alone is enough when ALL hold: under ~200 lines and ~10 files, nothing
+  touching auth/payments/migrations/deletion/permissions/crypto/config, no contract change
+  (exported signature, API field, DB column, enum, env var, CLI flag), no test deleted or
+  skipped, and it is your own change. Any one fails -> escalate.
+- `/review-stack` when you distrust your own framing, not merely when the diff is large:
+  someone else's PR, anything on a risk path, or a change where "it was intentional" is
+  carrying too much weight. A three-line permission change is exactly what a size
+  threshold waves through. Add `sealed` when the answer has to survive your own memory.
+- **Never run `/review` and `/review-stack` over the same diff.** Both wrap a gstack or
+  Claude reviewer internally, so you pay for that pass twice and then reconcile two
+  reports that disagree for reasons neither one states.
 
 ### Every review answers these two first
 1. **Regression:** what worked before this diff and stops working after it? Grep every
