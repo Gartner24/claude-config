@@ -113,13 +113,21 @@ To activate for a project, add to that project's CLAUDE.md:
 @~/.claude/rules/ecc/<language>/index.md
 
 ## UI / design work - pipeline rule
-For any UI build or redesign in a React + Tailwind project (full setup: ~/claude-config/DESIGN-PIPELINE.md):
-1. Lock direction first. A reference the user points at (screenshot/image/URL) -> design-dna to extract it. Otherwise ui-ux-pro-max: style + palette + font pairing + stack. Reuse the saved project/client direction if one exists; otherwise propose 2 and wait.
-2. Source components from the magic MCP (21st.dev) before hand-rolling - use /ui or /design.
-3. Assemble with frontend-design + impeccable.
-4. Add motion only where it earns its place - Kowalski restraint, no motion slop. Pick by kind: animate (general), transitions-dev (plain CSS transitions), gsap-scrolltrigger/gsap-timeline (scroll + choreography), apple-design (gesture/spring/physical), threejs-* (3D).
-5. Before showing anything: run /impeccable critique (UX) AND /impeccable audit (a11y/perf/responsive) AND a motion audit (review-animations on the diff, improve-animations on a whole app, transitions-polish for timing). Report what failed, fix it, then present.
-Never skip step 5. If the stack is not React/Tailwind, skip step 2 (Magic is React-only).
+Any UI build, redesign, restyle or interface polish, in **any** stack: run the `design`
+skill. Do not paraphrase its pipeline here - it opens a run ledger and registers a Stop
+hook, and a summarized copy of the steps is how steps got skipped before.
+
+- `design` - the pipeline. Detect stack -> reference-lock against real shipped UI ->
+  direction -> tokens -> source -> assemble -> assets -> motion -> gate -> conversion.
+  Stack-agnostic: Tailwind keeps its fast path, everything else has a real one.
+- `assets` - imagery, icons, shapes, background removal. Standalone or as step 7.
+- `design-gate` - the blind audit. Invoked by `design`; the Stop hook will not release
+  the run until its report exists and is newer than every file it audited.
+
+The old 5-step copy of this rule and `~/claude-config/commands/design.md` are retired
+(2026-09-09). Setup notes in `~/claude-config/DESIGN-PIPELINE.md` are stale on two points:
+`/ui` and `/21` were never protocol features, and the `magic` MCP is now optional rather
+than the primary component source.
 # graphify
 - **graphify** (`~/.claude/skills/graphify/SKILL.md`) - any input to knowledge graph. Trigger: `/graphify`
 When the user types `/graphify`, use the installed graphify skill or instructions before doing anything else.

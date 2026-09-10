@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+# Self-check for ledger.sh + gate.sh. Fails loudly. No framework.
+# Resolve relative to this file, not to one machine's absolute paths.
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LED="$HERE/ledger.sh"
+GATE="$HERE/gate.sh"
+
+# Run against a FAKE HOME. Both scripts derive their pointer files from $HOME, so this is
+# the only way the suite provably cannot touch real state. It previously backed up
+# .design-active but not .design-last - which ledger.sh rewrites on every init - and
+# clobbered the real one, so `ledger.sh show` with no argument would render a throwaway
+# test ledger. gate.sh also resolves LEDGER from $HOME, so the tree is symlinked in.
+T=$(mktemp -d); PASS=0; FAIL=0
+REAL_HOME="$HOME"
+export HOME="$T/home"
+mkdir -p "$HOME/.claude/skills/design"
+ln -s "$HERE" "$HOME/.claude/skills/design/scripts"
+POINTER="$HOME/.claude/.design-active"
+
+ok(){ PASS=$((PASS+1)); printf "  ok   %s\n" "$1"; }
+no(){ FAIL=$((FAIL+1)); printf "  FAIL %s\n" "$1"; }
+chk(){ if [ "$2" = "$3" ]; then ok "$1"; else no "$1 (got '$2', want '$3')"; fi; }
+
+echo "T: no active run -> gate must not interfere"
+echo '{}' | bash $GATE >/dev/null 2>&1; chk "gate exits 0 with no pointer" "$?" "0"
+
+echo "T: init"
+mkdir -p "$T/src"; echo "body{}" > "$T/src/a.css"
+bash $LED init "$T" >/dev/null 2>&1; chk "init exit" "$?" "0"
+[ -f "$T/.design/run.json" ] && ok "run.json written" || no "run.json written"
+[ -f "$POINTER" ] && ok "pointer written" || no "pointer written"
+
+echo "T: incomplete run is caught"
+bash $LED check >/dev/null 2>&1; chk "check fails while PENDING" "$?" "1"
+echo '{}' | bash $GATE >/dev/null 2>&1; chk "gate BLOCKS while PENDING" "$?" "2"
+
+echo "T: closed skip vocabulary"
+# Assert on the MESSAGE, not just the exit code: an empty allowed-set and an
+# unrecognised token both exit 1, so exit code alone cannot tell them apart and the
+# test would stay green if 'gate' were quietly given a legal skip reason.
+bash $LED set gate SKIPPED not-marketing-surface 2>&1 | grep -q "may never be skipped" \
+  && ok "gate rejected by the empty allowed-set rule" || no "gate rejected by the empty allowed-set rule"
+bash $LED set detect SKIPPED whatever 2>&1 | grep -q "may never be skipped" \
+  && ok "detect rejected by the empty allowed-set rule" || no "detect rejected by the empty allowed-set rule"
+# Defense in depth: a hand-edited ledger must not get past the check either.
+python3 -c "
+import json; p='$T/.design/run.json'; d=json.load(open(p))
+d['steps']['gate']={'status':'SKIPPED','reason':'not-marketing-surface'}
+json.dump(d,open(p,'w'),indent=2)"
+bash $LED check 2>&1 | grep -q "did not run" \
+  && ok "hand-edited gate skip still blocks" || no "hand-edited gate skip still blocks"
+python3 -c "
+import json; p='$T/.design/run.json'; d=json.load(open(p))
+d['steps']['gate']={'status':'PENDING'}
+json.dump(d,open(p,'w'),indent=2)"
+bash $LED set source SKIPPED i-felt-like-it >/dev/null 2>&1;      chk "invented reason rejected" "$?" "1"
+bash $LED set source SKIPPED not-react >/dev/null 2>&1;           chk "reason not in this step's set rejected" "$?" "1"
+bash $LED set source SKIPPED no-component-need >/dev/null 2>&1;   chk "legal skip accepted" "$?" "0"
+bash $LED set nonsense RAN x >/dev/null 2>&1;                     chk "unknown step rejected" "$?" "1"
+
+echo "T: close the rest"
+for s in detect reference direction tokens assemble assets motion conversion; do bash $LED set $s RAN "ev-$s" >/dev/null 2>&1; done
+bash $LED set gate RAN ".design/audit-report.md" >/dev/null 2>&1
+bash $LED check >/dev/null 2>&1; chk "check still fails - no audit report on disk" "$?" "1"
+
+echo "T: empty report does not satisfy the gate"
+: > "$T/.design/audit-report.md"
+bash $LED check >/dev/null 2>&1; chk "empty report rejected" "$?" "1"
+
+echo "T: real report passes"
+printf '# Audit\nscore: 8/10\nfindings: 0 critical\n' > "$T/.design/audit-report.md"
+bash $LED check >/dev/null 2>&1; chk "check passes with a real report" "$?" "0"
+
+echo "T: staleness - editing after the audit re-opens the gate"
+sleep 1.1; echo "body{color:red}" > "$T/src/a.css"
+bash $LED check >/dev/null 2>&1; chk "edit after audit fails the check" "$?" "1"
+echo '{}' | bash $GATE >/dev/null 2>&1; chk "gate blocks on stale audit" "$?" "2"
+
+echo "T: gate releases a clean run and clears the pointer"
+sleep 1.1; printf '# Audit\nscore: 8/10\n' > "$T/.design/audit-report.md"
+echo '{}' | bash $GATE >/dev/null 2>&1; chk "gate exits 0 when clean" "$?" "0"
+[ -f "$POINTER" ] && no "pointer cleared after pass" || ok "pointer cleared after pass"
+
+echo "T: escape hatch - never trap a session forever"
+bash $LED init "$T" >/dev/null 2>&1
+rm -f "$T/.design/audit-report.md"
+echo '{}' | bash $GATE >/dev/null 2>&1; chk "block 1" "$?" "2"
+echo '{}' | bash $GATE >/dev/null 2>&1; chk "block 2" "$?" "2"
+echo '{}' | bash $GATE >/dev/null 2>&1; chk "block 3 releases" "$?" "0"
+python3 -c "
+import json,sys; d=json.load(open('$T/.design/run.json'))
+sys.exit(0 if d.get('escaped') is True else 1)" && ok "escaped:true recorded" || no "escaped:true recorded"
+bash $LED show "$T" 2>/dev/null | grep -q "NOT fully audited" && ok "show warns about the escape" || no "show warns about the escape"
+
+echo "T: stale ledger (>24h) never holds a session"
+bash $LED init "$T" >/dev/null 2>&1
+touch -d "2 days ago" "$T/.design/run.json"
+echo '{}' | bash $GATE >/dev/null 2>&1; chk "abandoned run released" "$?" "0"
+
+
+# ---------------------------------------------------------------------------
+# brand pipeline
+KIT="${BRAND_KIT:-$REAL_HOME/projects/freelance/website-build-templates}"
+FIX="$KIT/scripts/fixtures"
+export BRAND_VALIDATOR="$KIT/scripts/check-brand-system.py"
+if [ ! -d "$FIX" ] || [ ! -f "$BRAND_VALIDATOR" ]; then
+  echo "  SKIP brand-validator tests - kit not found at $KIT (set BRAND_KIT)"; SKIP_BRAND=1
+fi
+T2=$(mktemp -d)
+echo
+echo "T: brand pipeline - init and step vocabulary"
+bash $LED init "$T2" --pipeline brand >/dev/null 2>&1; chk "brand init" "$?" "0"
+python3 -c "
+import json,sys;d=json.load(open('$T2/.design/run.json'))
+sys.exit(0 if d.get('pipeline')=='brand' and 'emit' in d['steps'] and 'detect' not in d['steps'] else 1)" \
+  && ok "brand steps loaded, design steps absent" || no "brand steps loaded, design steps absent"
+bash $LED set detect RAN x >/dev/null 2>&1;  chk "design step rejected in brand run" "$?" "1"
+bash $LED set emit SKIPPED internal-project 2>&1 | grep -q "may never be skipped" \
+  && ok "emit rejected by the empty allowed-set rule" || no "emit rejected by the empty allowed-set rule"
+bash $LED set logo SKIPPED logo-supplied >/dev/null 2>&1; chk "logo-supplied accepted" "$?" "0"
+bash $LED set signoff SKIPPED internal-project >/dev/null 2>&1; chk "internal-project accepted" "$?" "0"
+
+echo "T: brand gate validates CONTENT, not just existence"
+for s in brief reference direction type color imagery surfaces audit; do bash $LED set $s RAN "ev" >/dev/null 2>&1; done
+bash $LED set emit RAN brand-system.html >/dev/null 2>&1
+bash $LED check >/dev/null 2>&1; chk "no board on disk -> blocked" "$?" "1"
+
+cp $FIX/fixture-inter.html "$T2/brand-system.html"
+bash $LED check 2>&1 | grep -q "does not conform" \
+  && ok "non-conforming board blocked by the validator" || no "non-conforming board blocked by the validator"
+
+cp $FIX/fixture-broken.html "$T2/brand-system.html"
+bash $LED check >/dev/null 2>&1; chk "broken clamp board blocked" "$?" "1"
+
+cp $FIX/fixture-conforming.html "$T2/brand-system.html"
+bash $LED check >/dev/null 2>&1; chk "conforming board passes the gate" "$?" "0"
+echo '{}' | bash $GATE >/dev/null 2>&1; chk "Stop hook releases a conforming brand run" "$?" "0"
+
+echo; echo "TOTAL pass=$PASS fail=$FAIL"; [ $FAIL -eq 0 ] || exit 1
