@@ -15,14 +15,17 @@ REAL_HOME="$HOME"
 export HOME="$T/home"
 mkdir -p "$HOME/.claude/skills/design"
 ln -s "$HERE" "$HOME/.claude/skills/design/scripts"
-POINTER="$HOME/.claude/.design-active"
+# The pointer is per-session. Pin one so the suite is deterministic and can never
+# collide with a real run happening in another session while it executes.
+export CLAUDE_CODE_SESSION_ID="test-$$"
+POINTER="$HOME/.claude/.design-active-$CLAUDE_CODE_SESSION_ID"
 
 ok(){ PASS=$((PASS+1)); printf "  ok   %s\n" "$1"; }
 no(){ FAIL=$((FAIL+1)); printf "  FAIL %s\n" "$1"; }
 chk(){ if [ "$2" = "$3" ]; then ok "$1"; else no "$1 (got '$2', want '$3')"; fi; }
 
 echo "T: no active run -> gate must not interfere"
-echo '{}' | bash $GATE >/dev/null 2>&1; chk "gate exits 0 with no pointer" "$?" "0"
+printf '{"session_id":"%s"}' "$CLAUDE_CODE_SESSION_ID" | bash $GATE >/dev/null 2>&1; chk "gate exits 0 with no pointer" "$?" "0"
 
 echo "T: init"
 mkdir -p "$T/src"; echo "body{}" > "$T/src/a.css"
@@ -32,7 +35,7 @@ bash $LED init "$T" >/dev/null 2>&1; chk "init exit" "$?" "0"
 
 echo "T: incomplete run is caught"
 bash $LED check >/dev/null 2>&1; chk "check fails while PENDING" "$?" "1"
-echo '{}' | bash $GATE >/dev/null 2>&1; chk "gate BLOCKS while PENDING" "$?" "2"
+printf '{"session_id":"%s"}' "$CLAUDE_CODE_SESSION_ID" | bash $GATE >/dev/null 2>&1; chk "gate BLOCKS while PENDING" "$?" "2"
 
 echo "T: closed skip vocabulary"
 # Assert on the MESSAGE, not just the exit code: an empty allowed-set and an
@@ -74,19 +77,19 @@ bash $LED check >/dev/null 2>&1; chk "check passes with a real report" "$?" "0"
 echo "T: staleness - editing after the audit re-opens the gate"
 sleep 1.1; echo "body{color:red}" > "$T/src/a.css"
 bash $LED check >/dev/null 2>&1; chk "edit after audit fails the check" "$?" "1"
-echo '{}' | bash $GATE >/dev/null 2>&1; chk "gate blocks on stale audit" "$?" "2"
+printf '{"session_id":"%s"}' "$CLAUDE_CODE_SESSION_ID" | bash $GATE >/dev/null 2>&1; chk "gate blocks on stale audit" "$?" "2"
 
 echo "T: gate releases a clean run and clears the pointer"
 sleep 1.1; printf '# Audit\nscore: 8/10\n' > "$T/.design/audit-report.md"
-echo '{}' | bash $GATE >/dev/null 2>&1; chk "gate exits 0 when clean" "$?" "0"
+printf '{"session_id":"%s"}' "$CLAUDE_CODE_SESSION_ID" | bash $GATE >/dev/null 2>&1; chk "gate exits 0 when clean" "$?" "0"
 [ -f "$POINTER" ] && no "pointer cleared after pass" || ok "pointer cleared after pass"
 
 echo "T: escape hatch - never trap a session forever"
 bash $LED init "$T" >/dev/null 2>&1
 rm -f "$T/.design/audit-report.md"
-echo '{}' | bash $GATE >/dev/null 2>&1; chk "block 1" "$?" "2"
-echo '{}' | bash $GATE >/dev/null 2>&1; chk "block 2" "$?" "2"
-echo '{}' | bash $GATE >/dev/null 2>&1; chk "block 3 releases" "$?" "0"
+printf '{"session_id":"%s"}' "$CLAUDE_CODE_SESSION_ID" | bash $GATE >/dev/null 2>&1; chk "block 1" "$?" "2"
+printf '{"session_id":"%s"}' "$CLAUDE_CODE_SESSION_ID" | bash $GATE >/dev/null 2>&1; chk "block 2" "$?" "2"
+printf '{"session_id":"%s"}' "$CLAUDE_CODE_SESSION_ID" | bash $GATE >/dev/null 2>&1; chk "block 3 releases" "$?" "0"
 python3 -c "
 import json,sys; d=json.load(open('$T/.design/run.json'))
 sys.exit(0 if d.get('escaped') is True else 1)" && ok "escaped:true recorded" || no "escaped:true recorded"
@@ -95,7 +98,7 @@ bash $LED show "$T" 2>/dev/null | grep -q "NOT fully audited" && ok "show warns 
 echo "T: stale ledger (>24h) never holds a session"
 bash $LED init "$T" >/dev/null 2>&1
 touch -d "2 days ago" "$T/.design/run.json"
-echo '{}' | bash $GATE >/dev/null 2>&1; chk "abandoned run released" "$?" "0"
+printf '{"session_id":"%s"}' "$CLAUDE_CODE_SESSION_ID" | bash $GATE >/dev/null 2>&1; chk "abandoned run released" "$?" "0"
 
 
 # ---------------------------------------------------------------------------
@@ -134,6 +137,28 @@ bash $LED check >/dev/null 2>&1; chk "broken clamp board blocked" "$?" "1"
 
 cp $FIX/fixture-conforming.html "$T2/brand-system.html"
 bash $LED check >/dev/null 2>&1; chk "conforming board passes the gate" "$?" "0"
-echo '{}' | bash $GATE >/dev/null 2>&1; chk "Stop hook releases a conforming brand run" "$?" "0"
+printf '{"session_id":"%s"}' "$CLAUDE_CODE_SESSION_ID" | bash $GATE >/dev/null 2>&1; chk "Stop hook releases a conforming brand run" "$?" "0"
 
+
+# ---------------------------------------------------------------------------
+# session isolation. Two /design runs at once used to fight over one global
+# pointer: the last init won and the other session's Stop hook gated on a ledger
+# from a repo it was not in. Observed live with two real runs 77 seconds apart.
+TA=$(mktemp -d); TB=$(mktemp -d)
+echo
+echo "T: two sessions do not share a pointer"
+CLAUDE_CODE_SESSION_ID=iso-A bash $LED init "$TA" >/dev/null 2>&1
+CLAUDE_CODE_SESSION_ID=iso-B bash $LED init "$TB" >/dev/null 2>&1
+a=$(cat "$HOME/.claude/.design-active-iso-A" 2>/dev/null)
+b=$(cat "$HOME/.claude/.design-active-iso-B" 2>/dev/null)
+[ -n "$a" ] && [ -n "$b" ] && [ "$a" != "$b" ] && ok "each session has its own pointer" || no "each session has its own pointer"
+for s in detect reference direction tokens source assemble; do CLAUDE_CODE_SESSION_ID=iso-A bash $LED set $s RAN ev >/dev/null 2>&1; done
+CLAUDE_CODE_SESSION_ID=iso-A bash $LED set assets SKIPPED no-imagery-needed >/dev/null 2>&1
+CLAUDE_CODE_SESSION_ID=iso-A bash $LED set motion SKIPPED no-motion-warranted >/dev/null 2>&1
+CLAUDE_CODE_SESSION_ID=iso-A bash $LED set conversion SKIPPED not-marketing-surface >/dev/null 2>&1
+mkdir -p "$TA/.design"; printf '# Audit\nscore 9/10\n' > "$TA/.design/audit-report.md"
+CLAUDE_CODE_SESSION_ID=iso-A bash $LED set gate RAN .design/audit-report.md >/dev/null 2>&1
+printf '{"session_id":"iso-A"}' | bash $GATE >/dev/null 2>&1; chk "session A releases when A is done" "$?" "0"
+printf '{"session_id":"iso-B"}' | bash $GATE >/dev/null 2>&1; chk "session B still blocks - unaffected by A" "$?" "2"
+rm -f "$HOME/.claude/.design-active-iso-"* "$HOME/.claude/.design-last-iso-"*
 echo; echo "TOTAL pass=$PASS fail=$FAIL"; [ $FAIL -eq 0 ] || exit 1
