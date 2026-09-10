@@ -111,18 +111,46 @@ EXAMPLE: "ship it - commit, push, and open the PR"
 
 ## UI / frontend
 
-### ui-ux-pro-max
-WHAT: Locks design direction (style + palette + fonts + stack) before anything is built. Step 1 of the design pipeline.
-TRIGGERS: new design, redesign, design this, design a page, design a component, from scratch, what style, pick a style, choose a palette, font pairing, pick fonts, choose a stack, design direction, make this look like, style exploration, new page, new section
+### design
+WHAT: The whole design pipeline, any stack. Detect stack, reference-lock against real shipped UI, lock direction as tokens, source components, assemble, assets, motion, blind audit. Opens a run ledger and arms a Stop hook so no step is silently skipped.
+TRIGGERS: new design, redesign, design this, design a page, design a component, from scratch, build the UI, implement the design, restyle, polish the interface, new page, new section, make this look better, style exploration, make this look like
 BLOCKS: nothing
-PRIORITY: 9 - lock direction (style + palette + fonts + stack) before anything is built; chain into 21st.dev
-EXAMPLE: "redesign the landing page - help me pick a style, palette, and font pairing first"
+PRIORITY: 10 - the entry point for all UI work; it invokes the others in order
+EXAMPLE: "redesign the landing page"
+
+### brand-system
+WHAT: A client's brand system as a contract-validated HTML board - the binding source /design transcribes. Ledger-gated; emit closes only when the schema checker passes.
+TRIGGERS: brand system, brand guidelines, visual identity, style guide, brand board, client brand, new client brand, brand direction
+BLOCKS: nothing
+PRIORITY: 10 - runs BEFORE /design on any client build
+EXAMPLE: "build the brand system for Acme Roofing"
+
+### assets
+WHAT: Imagery, icons, shapes, background removal. Triages each asset to generate/fetch/code - most should never touch an image model.
+TRIGGERS: need an image, hero image, illustration, icons, mascot, product shot, logo, svg, background, remove the background, cut out, stock photo, og image, favicon
+BLOCKS: nothing
+PRIORITY: 7 - step 7 of /design, or standalone
+EXAMPLE: "remove the background from these product photos"
+
+### design-gate
+WHAT: Blind audit of a built surface - AI-tell checklist, token portability, a11y, contrast, responsive, motion, perf. Writes the report the Stop hook requires.
+TRIGGERS: audit the design, review the UI, check accessibility, is this accessible, design review, check contrast
+BLOCKS: nothing
+PRIORITY: 6 - invoked by /design; also standalone
+EXAMPLE: "audit the pricing page before I ship it"
+
+### ui-ux-pro-max
+WHAT: Raw options database (styles, palettes, pairings, charts). A CANDIDATE SOURCE for /design step 3, never the decision process.
+TRIGGERS: what style, pick a style, style catalogue, chart type
+BLOCKS: use /design instead for anything that builds or changes a surface
+PRIORITY: 3 - last resort for direction; /design uses fontsearch.py and build-ramp.mjs first
+EXAMPLE: "what chart type suits a distribution?"
 
 ### 21st.dev
-WHAT: Sources real shadcn/Tailwind components via the magic MCP (/ui) instead of hand-rolling. Step 2 of the pipeline.
+WHAT: Component sourcing. The shadcn MCP is primary (free, keyless, any registry); 21st/magic is optional inspiration, React+Tailwind only. Step 5 of /design.
 TRIGGERS: build the UI, build this, scaffold, implement the design, need a navbar, need a hero, need a pricing section, need a table, need a modal, need a card, need a component, find a component, real component, production component, shadcn, block, registry, find a real
 BLOCKS: stack is not React/Next + Tailwind + shadcn/Radix
-PRIORITY: 8 - chain after ui-ux-pro-max; source real components via /ui (magic MCP) instead of hand-rolling
+PRIORITY: 8 - chain after /design's direction and token steps; shadcn MCP first
 EXAMPLE: "build the pricing section - find a real shadcn component for it"
 
 ### impeccable (audit)

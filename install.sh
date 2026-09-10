@@ -80,6 +80,12 @@ else
     || { echo "  guard hook SELF-CHECK FAILED - do not rely on it" >&2; exit 1; }
   python3 "$REPO/scripts/gen-agent-index.py" --check >/dev/null \
     && note "agent index: matches agents/" || note "agent index: DRIFTED (regenerate)"
+  bash "$REPO/skills/design/scripts/test-ledger.sh" >/dev/null 2>&1 \
+    && note "design ledger + Stop hook: 37 assertions pass" \
+    || { echo "  DESIGN LEDGER SELF-CHECK FAILED - the Stop hook may block or leak" >&2; exit 1; }
+  node "$REPO/skills/design/scripts/build-ramp.mjs" --check >/dev/null 2>&1 \
+    && note "colour ramp: solver targets and emitted pairs meet AA" \
+    || { echo "  RAMP SELF-CHECK FAILED - generated palettes may ship below AA" >&2; exit 1; }
   missing=0
   while read -r imp; do
     real="${imp/#@\~/$HOME}"
