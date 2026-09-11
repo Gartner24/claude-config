@@ -210,4 +210,23 @@ sys.exit(0 if d['steps']['detect'].get('evidence')=='work worth keeping' else 1)
   && ok "adopt preserved the existing rows" || no "adopt preserved the existing rows"
 CLAUDE_CODE_SESSION_ID=ad-3 bash $LED adopt "$TAD" >/dev/null 2>&1; chk "cannot adopt a live owner's ledger" "$?" "1"
 rm -f "$HOME/.claude/.design-active-ad-"* "$HOME/.claude/.design-last-ad-"*
+
+# ---------------------------------------------------------------------------
+# token-leak applicability. The check proves a CSS custom-property token layer is
+# not bypassed. On a stack whose tokens live in a JS object it printed a count
+# anyway - "319 lines across 387 files" on a styled-components repo - which is
+# neither a finding nor a pass. A gate that answers a question it cannot evaluate
+# is worse than one that declines to.
+TL=/home/santiago/.claude/skills/design-gate/scripts/token-leak.sh
+TT=$(mktemp -d)
+echo
+echo "T: token-leak knows when it does not apply"
+mkdir -p "$TT/js"; printf 'export const t={c:"#ff0000",d:"200ms"}\n' > "$TT/js/theme.js"
+bash $TL "$TT/js" >/dev/null 2>&1; chk "no tokens.css -> NOT APPLICABLE" "$?" "2"
+bash $TL "$TT/js" 2>&1 | grep -q "NOT APPLICABLE" && ok "and says so plainly" || no "and says so plainly"
+mkdir -p "$TT/css"; printf ':root{--brand:oklch(62%% .19 27)}\n' > "$TT/css/tokens.css"
+printf '.a{color:var(--brand)}\n' > "$TT/css/ok.css"
+bash $TL "$TT/css" >/dev/null 2>&1; chk "tokens.css present, clean -> pass" "$?" "0"
+printf '.b{color:#ff0000}\n' > "$TT/css/bad.css"
+bash $TL "$TT/css" >/dev/null 2>&1; chk "tokens.css present, leaky -> fail" "$?" "1"
 echo; echo "TOTAL pass=$PASS fail=$FAIL"; [ $FAIL -eq 0 ] || exit 1

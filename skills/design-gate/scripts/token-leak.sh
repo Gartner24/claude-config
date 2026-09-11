@@ -34,6 +34,22 @@ if [ "${SCANNED:-0}" -eq 0 ]; then
   exit 2
 fi
 
+# The premise of this check is "every literal resolves through a token in tokens.css".
+# On a stack whose token layer is NOT CSS - styled-components with a theme.js object,
+# Panda, vanilla-extract, a WordPress theme.json - that premise does not hold, and the
+# count it prints is meaningless. It reported "319 lines across 387 files" on a
+# styled-components repo whose audit covered one styles file: not a finding, not a pass,
+# just a grep reading files it was never designed to judge.
+TOKENS_CSS=$(grep -rl --include='tokens.css' '' "$@" 2>/dev/null | grep -v '/node_modules/' | head -1)
+if [ -z "$TOKENS_CSS" ]; then
+  echo "token leak: NOT APPLICABLE - no tokens.css under: $*" >&2
+  echo "  This check proves a CSS custom-property token layer is not bypassed. Point it at" >&2
+  echo "  the directory holding tokens.css, or - if this stack keeps tokens elsewhere" >&2
+  echo "  (theme.js, Panda, vanilla-extract, theme.json) - close the gate row with the" >&2
+  echo "  check that actually fits that layer and say which. Do not record this as clean." >&2
+  exit 2
+fi
+
 # NOTE: no comment filter. The previous version dropped any line matching ': #', which is
 # the shape of `color: #ff0000` - the single most common form of the leak this counts. It
 # reported 2 for a file holding 3 hex literals. A literal inside a comment is worth

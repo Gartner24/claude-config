@@ -88,6 +88,13 @@ bash ~/.claude/skills/design-gate/scripts/token-leak.sh <component dirs>
 
 Report the number. Non-zero fails, and you list the offending files.
 
+**Exit 2 means NOT APPLICABLE, not clean.** This check only proves a CSS custom-property
+token layer is not bypassed. On a stack whose tokens live elsewhere - styled-components with
+a `theme.js` object, Panda, vanilla-extract, a WordPress `theme.json` - it exits 2 and says
+so. Do not record that as a pass. Close the row with the check that fits that layer instead,
+and name it: for a JS theme object, grep the component tree for literals that bypass
+`theme.*` rather than ones that bypass `tokens.css`.
+
 **2. The AI-tell checklist.** All 36 items in
 `~/.claude/skills/design/references/craft.md` -> "The AI-tell audit checklist". Each is
 phrased to pass or fail against a diff or a rendered page. Report the fail count and name
