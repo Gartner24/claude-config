@@ -246,16 +246,30 @@ Invoke `/assets`. It reads `.design/direction.json` and writes
 coded - most of it should be coded or fetched. Skip only when the surface genuinely needs
 no imagery, or the user supplied it.
 
-## 8. motion - only where it earns its place
+## 8. motion - only where it earns its place, and built by the motion skills
 
-`animate` is the specialist. Kowalski restraint, no motion slop. Durations and easings
-come from `--duration-*` and `--ease-*`, never literals.
+**Invoke the skill, do not freehand the animation.** The first real run shipped a
+scroll-driven isotipo reveal while invoking zero motion skills - the routing below existed
+only as prose and nothing checked it. The ledger now refuses `set motion RAN` unless the
+evidence names the skill that built it as `skill=<name>`:
 
-- Plain CSS transitions - dropdown, modal, accordion, tabs, skeleton, icon swap -> `transitions-dev`. Do not reach for a library.
-- Scroll-driven, pinned, timeline-choreographed -> `gsap-scrolltrigger` / `gsap-timeline` (`gsap-react` in React).
+```bash
+bash ~/.claude/skills/design/scripts/ledger.sh set motion RAN "skill=animate; one scroll-driven isotipo reveal, reduced-motion fallback"
+```
+
+Pick by kind. Durations and easings come from `--duration-*` and `--ease-*`, never literals:
+
+- General, or unsure -> `animate` (Emil Kowalski's own skill: whether to animate at all, purpose, tool, properties, curve, interruption, exit).
+- Plain CSS transitions - dropdown, modal, accordion, tabs, skeleton, icon swap -> `transitions-dev`; tune existing motion against its token scale with `transitions-polish`.
+- Scroll-driven, pinned, timeline-choreographed -> `gsap-scrolltrigger` / `gsap-timeline` (`gsap-react` in React). Native `animation-timeline: view()` is fine too - still route the decision through `animate`.
 - Gesture, spring, drag/swipe/sheet, anything that must feel physical and interruptible -> `apple-design`.
-- Don't know what the effect is called -> `animation-vocabulary`.
+- Don't know what the effect is called -> `animation-vocabulary`, then one of the above.
+- Motion craft reference while building -> `design-motion-principles` (Create mode) or `emil-design-eng`.
 - 3D / WebGL -> the `threejs-*` set.
+
+Legal skips stay `no-motion-warranted` and `reduced-motion-only`. The audit half lives in
+`design-gate` lens 5, which reads `review-animations`' standards directly - that skill is
+user-only (`disable-model-invocation: true`) and cannot be called from here.
 
 ## 9. gate - audit before presenting. This one has no escape.
 

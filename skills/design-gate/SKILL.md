@@ -137,9 +137,36 @@ interaction, a help affordance, or a login. Say which applied and which you chec
 Check that wide content - tables, code blocks, diagrams - scrolls inside its own container
 rather than pushing the page. Confirm fluid type still reaches 200% zoom (WCAG 1.4.4).
 
-**5. Motion.** `prefers-reduced-motion` present and per-component, not a blanket
-`animation: none` on `*`. No duration over 300ms on UI transitions (drawers and modals may
-reach 500ms). No `ease-in` on an entrance. Every duration and easing resolves to a token.
+**5. Motion - every animation in scope, not only what this pass added.** A prior run shipped
+a scroll-driven isotipo reveal and a later pass reported `motion: clean - this round added
+zero animation`. That line is an absent answer rendered as a definite one: the motion existed
+and nobody audited it.
+
+First find it all:
+
+```bash
+grep -rlnE "@keyframes|animation(-timeline|-name)?\s*:|transition\s*:|@starting-style|gsap\.|motion\.|useSpring|view\(\)" <component and style dirs>
+```
+
+Zero hits: write `motion: none in scope` and move on. Otherwise audit every hit against the
+standards files directly. **`review-animations` cannot be invoked** - it is
+`disable-model-invocation: true`, user-only - so read its standards instead:
+
+- `~/.claude/skills/review-animations/SKILL.md` - the ten non-negotiable standards and the escalation triggers
+- `~/.claude/skills/review-animations/STANDARDS.md` - exact curves, duration tables, springs, a11y values
+- `~/.claude/skills/design-motion-principles/references/anti-checklist.md` - AI-slop motion patterns
+- `~/.claude/skills/design-motion-principles/references/accessibility.md` - reduced-motion done properly
+
+Floor checks that apply regardless: `prefers-reduced-motion` handled per component (gentler, not
+a blanket `animation: none` on `*`); no UI duration over 300ms without a reason (drawers and
+modals up to 500ms); no `ease-in` on an entrance; hover motion gated behind
+`@media (hover: hover) and (pointer: fine)`; only `transform`/`opacity` animated; every
+duration and easing resolves to a token.
+
+Report it as `motion: <n> findings against review-animations standards (<files>)`. The ledger
+refuses a design run whose motion step RAN unless the report's motion line cites
+`review-animations`. For a whole existing app rather than one surface, recommend the user run
+`/improve-animations` (read-only planner) or `/review-animations` themselves.
 
 **6. Performance.** A real measurement needs a real browser. **The `chrome-devtools` MCP is
 installed user-scoped** (driving Brave with an isolated throwaway profile), so measure with
@@ -182,7 +209,7 @@ a11y: <n> critical, <n> serious   | or: static only (page not served)
 wcag22: target-size <n> failures  | or: not run (page not served)
 contrast failures: <n> (light) / <n> (dark)
 responsive: <widths that overflow, or "clean 320-1920">
-motion: <findings or "clean">
+motion: <n> findings against review-animations standards (<files>) | or: none in scope
 perf: LCP <n>s, total image weight <n>KB   | or: NOT MEASURED (no browser available)
 
 ## Must fix
