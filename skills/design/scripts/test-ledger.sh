@@ -62,7 +62,8 @@ bash $LED set source SKIPPED no-component-need >/dev/null 2>&1;   chk "legal ski
 bash $LED set nonsense RAN x >/dev/null 2>&1;                     chk "unknown step rejected" "$?" "1"
 
 echo "T: close the rest"
-for s in detect reference direction tokens assemble assets motion conversion; do bash $LED set $s RAN "ev-$s" >/dev/null 2>&1; done
+for s in detect reference direction tokens assemble assets conversion; do bash $LED set $s RAN "ev-$s" >/dev/null 2>&1; done
+bash $LED set motion RAN "skill=animate; ev-motion" >/dev/null 2>&1
 bash $LED set gate RAN ".design/audit-report.md" >/dev/null 2>&1
 bash $LED check >/dev/null 2>&1; chk "check still fails - no audit report on disk" "$?" "1"
 
@@ -71,7 +72,7 @@ echo "T: empty report does not satisfy the gate"
 bash $LED check >/dev/null 2>&1; chk "empty report rejected" "$?" "1"
 
 echo "T: real report passes"
-printf '# Audit\nscore: 8/10\nfindings: 0 critical\n' > "$T/.design/audit-report.md"
+printf '# Audit\nscore: 8/10\nmotion: 0 findings against review-animations standards\nfindings: 0 critical\n' > "$T/.design/audit-report.md"
 bash $LED check >/dev/null 2>&1; chk "check passes with a real report" "$?" "0"
 
 echo "T: staleness - editing after the audit re-opens the gate"
@@ -80,7 +81,7 @@ bash $LED check >/dev/null 2>&1; chk "edit after audit fails the check" "$?" "1"
 printf '{"session_id":"%s"}' "$CLAUDE_CODE_SESSION_ID" | bash $GATE >/dev/null 2>&1; chk "gate blocks on stale audit" "$?" "2"
 
 echo "T: gate releases a clean run and clears the pointer"
-sleep 1.1; printf '# Audit\nscore: 8/10\n' > "$T/.design/audit-report.md"
+sleep 1.1; printf '# Audit\nscore: 8/10\nmotion: 0 findings against review-animations standards\n' > "$T/.design/audit-report.md"
 printf '{"session_id":"%s"}' "$CLAUDE_CODE_SESSION_ID" | bash $GATE >/dev/null 2>&1; chk "gate exits 0 when clean" "$?" "0"
 [ -f "$POINTER" ] && no "pointer cleared after pass" || ok "pointer cleared after pass"
 
@@ -156,7 +157,7 @@ for s in detect reference direction tokens source assemble; do CLAUDE_CODE_SESSI
 CLAUDE_CODE_SESSION_ID=iso-A bash $LED set assets SKIPPED no-imagery-needed >/dev/null 2>&1
 CLAUDE_CODE_SESSION_ID=iso-A bash $LED set motion SKIPPED no-motion-warranted >/dev/null 2>&1
 CLAUDE_CODE_SESSION_ID=iso-A bash $LED set conversion SKIPPED not-marketing-surface >/dev/null 2>&1
-mkdir -p "$TA/.design"; printf '# Audit\nscore 9/10\n' > "$TA/.design/audit-report.md"
+mkdir -p "$TA/.design"; printf '# Audit\nscore 9/10\nmotion: none in scope\n' > "$TA/.design/audit-report.md"
 CLAUDE_CODE_SESSION_ID=iso-A bash $LED set gate RAN .design/audit-report.md >/dev/null 2>&1
 printf '{"session_id":"iso-A"}' | bash $GATE >/dev/null 2>&1; chk "session A releases when A is done" "$?" "0"
 printf '{"session_id":"iso-B"}' | bash $GATE >/dev/null 2>&1; chk "session B still blocks - unaffected by A" "$?" "2"
@@ -229,4 +230,31 @@ printf '.a{color:var(--brand)}\n' > "$TT/css/ok.css"
 bash $TL "$TT/css" >/dev/null 2>&1; chk "tokens.css present, clean -> pass" "$?" "0"
 printf '.b{color:#ff0000}\n' > "$TT/css/bad.css"
 bash $TL "$TT/css" >/dev/null 2>&1; chk "tokens.css present, leaky -> fail" "$?" "1"
+
+# ---------------------------------------------------------------------------
+# motion. The first real run built a scroll-driven animation while invoking zero motion
+# skills, and its gate reported "motion: clean - this round added zero animation" over
+# animation that existed. Routing was prose; nothing checked either half.
+TM=$(mktemp -d)
+echo
+echo "T: motion must be built by a skill and audited against review-animations"
+export CLAUDE_CODE_SESSION_ID=mot-1
+bash $LED init "$TM" >/dev/null 2>&1
+bash $LED set motion RAN "isotipo reveal via animation-timeline" >/dev/null 2>&1; chk "motion RAN without a skill is refused" "$?" "1"
+bash $LED set motion RAN "we animate the logo" >/dev/null 2>&1;              chk "a bare 'animate' in prose does not count" "$?" "1"
+bash $LED set motion RAN "skill=animate; isotipo reveal" >/dev/null 2>&1;    chk "motion RAN with skill=animate accepted" "$?" "0"
+for s in detect reference direction tokens source assemble; do bash $LED set $s RAN ev >/dev/null 2>&1; done
+bash $LED set assets SKIPPED no-imagery-needed >/dev/null 2>&1
+bash $LED set conversion SKIPPED not-marketing-surface >/dev/null 2>&1
+mkdir -p "$TM/.design"
+printf '# Audit\nscore 9/10\n' > "$TM/.design/audit-report.md"
+bash $LED set gate RAN .design/audit-report.md >/dev/null 2>&1
+bash $LED check "$TM" 2>&1 | grep -q "no 'motion:' line" && ok "report without a motion line blocks" || no "report without a motion line blocks"
+printf '# Audit\nscore 9/10\nmotion: clean - this round added zero animation\n' > "$TM/.design/audit-report.md"
+bash $LED set gate RAN .design/audit-report.md >/dev/null 2>&1
+bash $LED check "$TM" >/dev/null 2>&1; chk "motion RAN + 'clean, added zero' blocks" "$?" "1"
+printf '# Audit\nscore 9/10\nmotion: 2 findings against review-animations standards (src/styles/motion.css)\n' > "$TM/.design/audit-report.md"
+bash $LED set gate RAN .design/audit-report.md >/dev/null 2>&1
+bash $LED check "$TM" >/dev/null 2>&1; chk "motion RAN + cited review-animations passes" "$?" "0"
+rm -f "$HOME/.claude/.design-active-mot-"* "$HOME/.claude/.design-last-mot-"*
 echo; echo "TOTAL pass=$PASS fail=$FAIL"; [ $FAIL -eq 0 ] || exit 1

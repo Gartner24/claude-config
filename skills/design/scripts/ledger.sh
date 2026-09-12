@@ -261,6 +261,18 @@ elif cmd == "set":
             die(f"step '{step}' may never be skipped. Run it.")
         if val not in allowed:
             die(f"'{val}' is not a legal skip reason for '{step}'. legal: {', '.join(allowed)}")
+    # Motion must be built by a motion skill, not freehanded. The first real run shipped a
+    # scroll-driven animation while invoking zero motion skills; the routing was prose only.
+    # A named skill in the evidence is a floor, not proof of invocation - same contract as
+    # the closed skip vocabulary.
+    if step == "motion" and status == "RAN" and doc.get("pipeline", "design") == "design":
+        if not re.search(r"skill=(animate|transitions-dev|transitions-polish|gsap-[a-z]+|"
+                         r"apple-design|design-motion-principles|emil-design-eng|threejs-[a-z]+)\b", val):
+            die("motion RAN needs the skill that built it, as skill=<name>, e.g.\n"
+                "  ledger.sh set motion RAN \"skill=animate; <what animates and why>\"\n"
+                "Known: animate, transitions-dev, transitions-polish, gsap-*, apple-design,\n"
+                "design-motion-principles, emil-design-eng, threejs-*. If nothing earned motion,\n"
+                "skip it as no-motion-warranted.")
     # Count re-runs of a step. An audit that keeps re-opening is the failure mode this
     # pipeline hit on its first real use: nine design-gate passes over one file in ninety
     # minutes, each triggered by the last one's findings. Prose budgets did not stop it.
@@ -333,6 +345,18 @@ elif cmd in ("show", "check"):
                             head = [l for l in (r.stdout + r.stderr).splitlines() if l.strip()][:6]
                             failures.append("brand board does not conform to the output contract:\n      "
                                             + "\n      ".join(head))
+            if doc.get("pipeline", "design") == "design":
+                # The report must say what it concluded about motion. A run that built motion
+                # must have that motion audited against review-animations' standards - "this
+                # round added zero animation" is not an audit of the animation that exists.
+                rtext = art.read_text(errors="replace")
+                mline = next((l for l in rtext.splitlines() if l.strip().lower().startswith("motion:")), None)
+                mrow = doc["steps"].get("motion", {})
+                if mline is None:
+                    failures.append("audit report has no 'motion:' line - motion was not reported on")
+                elif mrow.get("status") == "RAN" and "review-animations" not in mline:
+                    failures.append("motion step RAN but the report's motion line does not cite "
+                                    "review-animations standards:\n      " + mline.strip()[:120])
             if G.get("staleness"):
                 stale = stale_files(target, art)
                 if stale:
