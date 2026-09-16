@@ -56,7 +56,7 @@ target, never by habit:
   confidence gate, ending in APPROVE / CAUTION / REJECT. Hard budgets: 60 min, 4 agents,
   10 findings. Idempotent on purpose: same code in, same verdict out, and a re-review
   reports only regressions and new P0/P1. `--deep` forces recall-max. Report lands in
-  `{repo}/jjstack/`. **This is the default before landing.**
+  `{repo}/jjstack/`. **The default before landing - except in work-org repos (below).**
 - `/jj-security-review` - jjstack's security pass. **Renamed from `/security-review` in
   jjstack 0.40.2 (pulled 2026-09-09)** specifically so Claude Code's own built-in
   `/security-review` stays reachable - the built-in has no other name. So: `/security-review`
@@ -70,12 +70,19 @@ target, never by habit:
   (measured USD 5-19 a run). It never launches `ultra` - that is billed and yours to type.
 
 ### Which one, and never two at once
-- **Default before landing: `/review`.** Budgeted, converges, cheap enough to re-run.
+- **work-org repos - origin under `github.com:work-org/` - run NO local `/review`
+  and NO `/review-stack`.** Every PR there goes to the team's PR bot (`team-pr-bot`),
+  which runs jjstack's `/review` and re-reviews each push. A local run is the same reviewer
+  twice, which the last rule below forbids. Fix what the bot raises on the PR and let it
+  re-review; `/code-review` before opening the PR is optional. These repos carry no
+  review-stack pre-push hook. Decide by `git remote get-url origin`, not the folder name.
+- **Everything else - my own and freelance repos - default before landing: `/review`.**
+  Budgeted, converges, cheap enough to re-run.
 - `/code-review` alone is enough when ALL hold: under ~200 lines and ~10 files, nothing
   touching auth/payments/migrations/deletion/permissions/crypto/config, no contract change
   (exported signature, API field, DB column, enum, env var, CLI flag), no test deleted or
   skipped, and it is your own change. Any one fails -> escalate.
-- `/review-stack` when you distrust your own framing, not merely when the diff is large:
+- `/review-stack` (not in work-org repos) when you distrust your own framing, not merely when the diff is large:
   someone else's PR, anything on a risk path, or a change where "it was intentional" is
   carrying too much weight. A three-line permission change is exactly what a size
   threshold waves through. Add `sealed` when the answer has to survive your own memory.
