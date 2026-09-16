@@ -63,6 +63,21 @@ they cannot be skipped for any reason.
 | `gate` | never |
 | `conversion` | `not-marketing-surface` |
 
+**Every skill a step names is INVOKED with the Skill tool, not read.** Opening its SKILL.md,
+or writing its name in the evidence, is not a run. The ledger reads this session's transcript
+and refuses a RAN row whose skills never appear there since `init` - a subagent's call counts,
+and so does the user typing the slash command. The first real run logged "lens=minimalist-ui",
+built motion, and lost impeccable's critique and audit, invoking none of them.
+
+| a RAN row for | needs these invoked this run |
+|---|---|
+| `direction` | a register lens (`high-end-visual-design` / `minimalist-ui` / `industrial-brutalist-ui`), plus `design-dna` or `ui-ux-pro-max` unless a `brand-system.html` exists or the evidence names `saved=<path>` |
+| `assemble` | `frontend-design` and `impeccable` |
+| `assets` | `assets` |
+| `motion` | a motion skill from step 8 |
+| `gate` | `design-gate`, `impeccable` with args `critique ...`, `impeccable` with args `audit ...`, and `review-animations` when motion RAN (once that skill is model-invocable on this machine) |
+| `conversion` | `cro` |
+
 ## 1. detect - what stack is this actually
 
 Run the cascade in `references/stacks.md` section 1. Print exactly this block and do not
@@ -113,7 +128,8 @@ Precedence, highest first:
 4. Nothing - `ui-ux-pro-max` for style + palette + font pairing, propose 2 and wait. If
    this is a client build, stop and run `/brand-system` instead.
 
-Then layer the register lens over every visual decision from here on:
+Then invoke the register lens and layer it over every visual decision from here on - even
+under a signed board, which fixes the values but not the composition:
 premium/calm -> `high-end-visual-design`; editorial/minimal -> `minimalist-ui`;
 raw/bold -> `industrial-brutalist-ui`.
 
@@ -226,7 +242,8 @@ Close the row as `SKIPPED magic-mcp-unavailable` only if it was the sole source 
 
 ## 6. assemble - build it
 
-`frontend-design` + `impeccable`. Every color, duration and easing in component source
+Invoke `frontend-design` and `impeccable` before the first line of component code - both are
+checked. Every color, duration and easing in component source
 comes from a token. No literal hex, no literal `300ms`, no `ease-in-out` outside
 `tokens.css`. The gate greps for exactly this.
 
@@ -267,15 +284,25 @@ Pick by kind. Durations and easings come from `--duration-*` and `--ease-*`, nev
 - Motion craft reference while building -> `design-motion-principles` (Create mode) or `emil-design-eng`.
 - 3D / WebGL -> the `threejs-*` set.
 
-Legal skips stay `no-motion-warranted` and `reduced-motion-only`. The audit half lives in
-`design-gate` lens 5, which reads `review-animations`' standards directly - that skill is
-user-only (`disable-model-invocation: true`) and cannot be called from here.
+Legal skips stay `no-motion-warranted` and `reduced-motion-only`. The audit half is step 9:
+`review-animations` is invoked there on every run whose motion step RAN, and `design-gate`
+lens 5 audits all motion in scope against the same standards.
 
 ## 9. gate - audit before presenting. This one has no escape.
 
-Invoke `design-gate`. It runs forked and blind - it reads the built files, not the
-reasoning that produced them, which is the point: an auditor that remembers arguing for a
-choice cannot grade it honestly. It writes `.design/audit-report.md`.
+Three audits, in this order. The blind one goes last, because editing after it re-opens it.
+
+1. **`impeccable` with args `critique <surface>`** - UX review, heuristic scoring. Then
+   **`impeccable` with args `audit <surface>`** - a11y, perf, responsive, theming. Two
+   separate Skill calls; the ledger checks for both modes.
+2. **`review-animations`** over every file that animates, whenever the motion step RAN.
+   Whole existing app: add `improve-animations`. Timing off the token scale:
+   `transitions-polish`. Want the HTML report with looping demos: `design-motion-principles`
+   in Audit mode.
+3. Fix what those found. Then invoke **`design-gate`**. It runs forked and blind - it reads
+   the built files, not the reasoning that produced them, which is the point: an auditor
+   that remembers arguing for a choice cannot grade it honestly. It writes
+   `.design/audit-report.md`.
 
 Then fix what it found and re-run it. The Stop hook checks that the report exists, is
 non-empty, and that **no file under the target is newer than the report** - so editing
@@ -290,9 +317,10 @@ after the audit re-opens the gate. That is deliberate.
 
 ## 10. conversion - marketing surfaces only
 
-Landing, pricing, signup, or paywall: run `cro`, plus `pricing` / `signup` / `paywalls` /
-`popups` for the surface and `marketing-psychology` for the framing. Internal tools and
-app UI: `SKIPPED not-marketing-surface`.
+Landing, pricing, signup, or paywall - **and any public site whose job is to bring in clients**
+(a firm, a studio, a clinic): invoke `cro`, plus `pricing` / `signup` / `paywalls` / `popups`
+for the surface and `marketing-psychology` for the framing. `SKIPPED not-marketing-surface`
+is for internal tools and app UI only; a client's public website is not that.
 
 ## 11. close - print the table, do not write it
 

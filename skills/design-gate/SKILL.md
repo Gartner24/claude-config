@@ -149,8 +149,9 @@ grep -rlnE "@keyframes|animation(-timeline|-name)?\s*:|transition\s*:|@starting-
 ```
 
 Zero hits: write `motion: none in scope` and move on. Otherwise audit every hit against the
-standards files directly. **`review-animations` cannot be invoked** - it is
-`disable-model-invocation: true`, user-only - so read its standards instead:
+standards files directly. This fork has no Skill tool, so it cannot invoke `review-animations`
+itself - `/design` step 9 invokes it before this gate runs, and the ledger checks that. Here,
+read its standards blind:
 
 - `~/.claude/skills/review-animations/SKILL.md` - the ten non-negotiable standards and the escalation triggers
 - `~/.claude/skills/review-animations/STANDARDS.md` - exact curves, duration tables, springs, a11y values
@@ -165,8 +166,8 @@ duration and easing resolves to a token.
 
 Report it as `motion: <n> findings against review-animations standards (<files>)`. The ledger
 refuses a design run whose motion step RAN unless the report's motion line cites
-`review-animations`. For a whole existing app rather than one surface, recommend the user run
-`/improve-animations` (read-only planner) or `/review-animations` themselves.
+`review-animations`. For a whole existing app rather than one surface, say so in the report -
+`improve-animations` is the read-only planner for that, invoked from `/design` step 9.
 
 **6. Performance.** A real measurement needs a real browser. **The `chrome-devtools` MCP is
 installed user-scoped** (driving Brave with an isolated throwaway profile), so measure with

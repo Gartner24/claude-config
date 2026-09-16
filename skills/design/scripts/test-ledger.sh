@@ -24,12 +24,29 @@ ok(){ PASS=$((PASS+1)); printf "  ok   %s\n" "$1"; }
 no(){ FAIL=$((FAIL+1)); printf "  FAIL %s\n" "$1"; }
 chk(){ if [ "$2" = "$3" ]; then ok "$1"; else no "$1 (got '$2', want '$3')"; fi; }
 
+# Skill calls are verified against the session transcript, so the suite writes one, shaped
+# like Claude Code's own: an assistant record holding a Skill tool_use. Millisecond stamps,
+# because init records a float start time and a whole-second stamp can land before it.
+PROJ="$HOME/.claude/projects/p"; mkdir -p "$PROJ"
+invoke(){  # invoke <session[/subagents/x]> <skill> [args] [iso-timestamp]
+  printf '{"type":"assistant","timestamp":"%s","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"%s","args":"%s"}}]}}\n' \
+    "${4:-$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)}" "$2" "${3:-}" >> "$PROJ/$1.jsonl"
+}
+invoke_all(){
+  for s in minimalist-ui ui-ux-pro-max frontend-design impeccable assets animate design-gate review-animations cro; do invoke "$1" $s; done
+  invoke "$1" impeccable "critique src"; invoke "$1" impeccable "audit src"
+}
+# review-animations is only required once it is model-invocable; model that state explicitly.
+mkdir -p "$HOME/.claude/skills/review-animations"
+printf -- '---\nname: review-animations\n---\n' > "$HOME/.claude/skills/review-animations/SKILL.md"
+
 echo "T: no active run -> gate must not interfere"
 printf '{"session_id":"%s"}' "$CLAUDE_CODE_SESSION_ID" | bash $GATE >/dev/null 2>&1; chk "gate exits 0 with no pointer" "$?" "0"
 
 echo "T: init"
 mkdir -p "$T/src"; echo "body{}" > "$T/src/a.css"
 bash $LED init "$T" >/dev/null 2>&1; chk "init exit" "$?" "0"
+invoke_all "$CLAUDE_CODE_SESSION_ID"
 [ -f "$T/.design/run.json" ] && ok "run.json written" || no "run.json written"
 [ -f "$POINTER" ] && ok "pointer written" || no "pointer written"
 
@@ -150,6 +167,7 @@ echo
 echo "T: two sessions do not share a pointer"
 CLAUDE_CODE_SESSION_ID=iso-A bash $LED init "$TA" >/dev/null 2>&1
 CLAUDE_CODE_SESSION_ID=iso-B bash $LED init "$TB" >/dev/null 2>&1
+invoke_all iso-A
 a=$(cat "$HOME/.claude/.design-active-iso-A" 2>/dev/null)
 b=$(cat "$HOME/.claude/.design-active-iso-B" 2>/dev/null)
 [ -n "$a" ] && [ -n "$b" ] && [ "$a" != "$b" ] && ok "each session has its own pointer" || no "each session has its own pointer"
@@ -240,6 +258,7 @@ echo
 echo "T: motion must be built by a skill and audited against review-animations"
 export CLAUDE_CODE_SESSION_ID=mot-1
 bash $LED init "$TM" >/dev/null 2>&1
+invoke_all mot-1
 bash $LED set motion RAN "isotipo reveal via animation-timeline" >/dev/null 2>&1; chk "motion RAN without a skill is refused" "$?" "1"
 bash $LED set motion RAN "we animate the logo" >/dev/null 2>&1;              chk "a bare 'animate' in prose does not count" "$?" "1"
 bash $LED set motion RAN "skill=animate; isotipo reveal" >/dev/null 2>&1;    chk "motion RAN with skill=animate accepted" "$?" "0"
@@ -257,4 +276,66 @@ printf '# Audit\nscore 9/10\nmotion: 2 findings against review-animations standa
 bash $LED set gate RAN .design/audit-report.md >/dev/null 2>&1
 bash $LED check "$TM" >/dev/null 2>&1; chk "motion RAN + cited review-animations passes" "$?" "0"
 rm -f "$HOME/.claude/.design-active-mot-"* "$HOME/.claude/.design-last-mot-"*
+
+# ---------------------------------------------------------------------------
+# invocation. Evidence text is self-report: the first real client run logged "lens=minimalist-ui" and
+# shipped motion invoking neither, and the refactor silently dropped impeccable's critique
+# and audit. The ledger now reads the session transcript.
+TS=$(mktemp -d)
+echo
+echo "T: a RAN row needs its skills in the transcript, not in the evidence"
+export CLAUDE_CODE_SESSION_ID=inv-1
+invoke inv-1 cro "" "2020-01-01T00:00:00.000Z"      # from an earlier run - must not count
+bash $LED init "$TS" >/dev/null 2>&1
+bash $LED set assemble RAN "skill=impeccable; skill=frontend-design" 2>&1 | grep -q "never invoked" \
+  && ok "naming skills in the evidence is refused" || no "naming skills in the evidence is refused"
+invoke inv-1 impeccable
+bash $LED set assemble RAN ev 2>&1 | grep -q '`frontend-design`' \
+  && ok "half the required skills still refused, naming the missing one" || no "half the required skills still refused, naming the missing one"
+invoke inv-1 frontend-design:frontend-design
+bash $LED set assemble RAN ev >/dev/null 2>&1;   chk "plugin-namespaced invocation counts" "$?" "0"
+bash $LED set conversion RAN ev >/dev/null 2>&1; chk "an invocation from before init does not count" "$?" "1"
+printf '{"type":"user","timestamp":"%s","message":{"content":"<command-name>/cro</command-name>\\n<command-args></command-args>"}}\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)" >> "$PROJ/inv-1.jsonl"
+bash $LED set conversion RAN ev >/dev/null 2>&1; chk "the user typing the slash command counts" "$?" "0"
+invoke inv-1 minimalist-ui
+bash $LED set direction RAN ev 2>&1 | grep -q '`design-dna`' \
+  && ok "no board: direction also needs design-dna or ui-ux-pro-max" || no "no board: direction also needs design-dna or ui-ux-pro-max"
+mkdir -p "$TS/brand"; echo "<html></html>" > "$TS/brand/brand-system.html"
+bash $LED set direction RAN ev >/dev/null 2>&1;  chk "a signed board waives the catalogue skill" "$?" "0"
+
+echo "T: the gate needs both impeccable modes, and review-animations when motion shipped"
+printf '# Audit\nmotion: 1 findings against review-animations standards (src/a.css)\n' > "$TS/.design/audit-report.md"
+invoke inv-1 animate; bash $LED set motion RAN "skill=animate; x" >/dev/null 2>&1
+invoke inv-1 design-gate; invoke inv-1 impeccable "critique src"
+bash $LED set gate RAN .design/audit-report.md 2>&1 | grep -q '`impeccable audit`' \
+  && ok "critique alone does not satisfy the audit mode" || no "critique alone does not satisfy the audit mode"
+invoke inv-1 impeccable "audit src"
+bash $LED set gate RAN .design/audit-report.md 2>&1 | grep -q '`review-animations`' \
+  && ok "motion RAN: gate refused until review-animations is invoked" || no "motion RAN: gate refused until review-animations is invoked"
+mkdir -p "$PROJ/inv-1/subagents"; invoke inv-1/subagents/agent-x review-animations
+bash $LED set gate RAN .design/audit-report.md >/dev/null 2>&1; chk "an invocation inside a subagent counts" "$?" "0"
+
+echo "T: a user-only review-animations is not demanded - that would trap every unattended run"
+printf -- '---\nname: review-animations\ndisable-model-invocation: true\n---\n' > "$HOME/.claude/skills/review-animations/SKILL.md"
+TU=$(mktemp -d); export CLAUDE_CODE_SESSION_ID=inv-u
+bash $LED init "$TU" >/dev/null 2>&1
+for s in animate design-gate; do invoke inv-u $s; done; invoke inv-u impeccable "critique x"; invoke inv-u impeccable "audit x"
+bash $LED set motion RAN "skill=animate; x" >/dev/null 2>&1
+bash $LED set gate RAN .design/audit-report.md >/dev/null 2>&1; chk "flag present: gate not blocked on an uncallable skill" "$?" "0"
+printf -- '---\nname: review-animations\n---\n' > "$HOME/.claude/skills/review-animations/SKILL.md"
+rm -f "$HOME/.claude/.design-active-inv-u"
+
+echo "T: check re-verifies, and adopt keeps the previous owner's calls"
+export CLAUDE_CODE_SESSION_ID=inv-1
+python3 -c "
+import json; p='$TS/.design/run.json'; d=json.load(open(p))
+d['steps']['assets']={'status':'RAN','evidence':'hand-edited'}; json.dump(d,open(p,'w'),indent=2)"
+bash $LED check "$TS" 2>&1 | grep -q "step 'assets' RAN but" \
+  && ok "check catches a hand-closed row with no invocation" || no "check catches a hand-closed row with no invocation"
+rm -f "$HOME/.claude/.design-active-inv-1"
+CLAUDE_CODE_SESSION_ID=inv-2 bash $LED adopt "$TS" >/dev/null 2>&1
+CLAUDE_CODE_SESSION_ID=inv-2 bash $LED set assemble RAN "re-closed after adopt" >/dev/null 2>&1
+chk "adopted run still sees the first session's invocations" "$?" "0"
+rm -f "$HOME/.claude/.design-active-inv-"* "$HOME/.claude/.design-last-inv-"*
 echo; echo "TOTAL pass=$PASS fail=$FAIL"; [ $FAIL -eq 0 ] || exit 1

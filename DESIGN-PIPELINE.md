@@ -90,10 +90,15 @@ tokens     the direction becomes tokens.css - this is what makes it stack-agnost
 source     shadcn MCP, then the per-stack matrix
 assemble   frontend-design + impeccable
 assets     /assets
-motion     animate, only where it earns its place
-gate       design-gate, blind. Cannot be skipped.
+motion     animate (or the motion skill for the kind), only where it earns its place
+gate       impeccable critique + impeccable audit, review-animations if motion shipped,
+           then design-gate, blind. Cannot be skipped.
 conversion cro/pricing/signup/paywalls, marketing surfaces only
 ```
+
+Every skill in that list is **invoked**, and the ledger proves it: a RAN row is refused unless
+its skills appear as calls in the session transcript (the user typing the slash command counts,
+so does a subagent). Naming a skill in the evidence, or reading its SKILL.md, does not.
 
 Each step closes a row in `<project>/.design/run.json` with evidence, or a skip reason from a
 closed vocabulary. A Stop hook refuses to end the turn while a row is open. The closing table

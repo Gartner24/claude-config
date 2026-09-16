@@ -82,6 +82,107 @@ PIPELINES = {
     },
 }
 
+# Skills each design step must actually INVOKE - through the Skill tool, or the user typing
+# the slash command - read back from the session transcript. Each tuple is "any one of";
+# "name mode" also requires the args to start with that mode; "prefix-*" matches a family.
+#
+# Self-reported evidence was the whole failure. The first real client run logged
+# "lens=minimalist-ui" and closed a motion step while invoking neither, and the refactor
+# silently dropped impeccable's critique and audit from the gate. A skill named in prose is
+# not a skill that ran, and reading its SKILL.md with the Read tool is not a run either.
+from datetime import datetime
+
+MOTION_SKILLS = ("animate", "transitions-dev", "transitions-polish", "gsap-*", "apple-design",
+                 "design-motion-principles", "emil-design-eng", "threejs-*")
+REQUIRED = {
+    "direction":  [("high-end-visual-design", "minimalist-ui", "industrial-brutalist-ui")],
+    "assemble":   [("frontend-design",), ("impeccable",)],
+    "assets":     [("assets",)],
+    "motion":     [MOTION_SKILLS],
+    "gate":       [("design-gate",), ("impeccable critique",), ("impeccable audit",)],
+    "conversion": [("cro",)],
+}
+
+def required(doc, step, evidence=""):
+    groups = list(REQUIRED.get(step, []))
+    target = pathlib.Path(doc["target"])
+    if step == "direction":
+        # Precedence 1 (a signed board) and 3 (a saved direction) need no catalogue skill.
+        m = re.search(r"saved=(\S+)", evidence)
+        saved = bool(m) and ((target / m.group(1)).exists() or pathlib.Path(m.group(1)).exists())
+        if not (saved or find_artifact(target, "brand-system.html")):
+            groups.append(("design-dna", "ui-ux-pro-max"))
+    if step == "gate" and doc["steps"].get("motion", {}).get("status") == "RAN" and model_invocable("review-animations"):
+        groups.append(("review-animations",))
+    return groups
+
+def model_invocable(skill):
+    # review-animations ships user-only upstream. Requiring a call the model cannot make
+    # would trap every unattended run that ships motion, so the requirement switches on only
+    # once the local override removing the flag is in place. Until then the gate still
+    # demands the report's motion line cite its standards (see check).
+    f = _CDIR / "skills" / skill / "SKILL.md"
+    try:
+        return not re.search(r"^disable-model-invocation:\s*true", f.read_text(errors="replace"), re.M)
+    except OSError:
+        return False
+
+def invoked(doc):
+    """Every (skill, args) this run's sessions invoked since the run started."""
+    try:
+        since = doc.get("started_epoch") or time.mktime(time.strptime(doc["started"], "%Y-%m-%dT%H:%M:%S"))
+    except (KeyError, ValueError):
+        since = 0
+    proj, files = _CDIR / "projects", []
+    for sid in {doc.get("session"), *doc.get("sessions", [])} - {None, "global"}:
+        files += [*proj.glob(f"*/{sid}.jsonl"), *proj.glob(f"*/{sid}/subagents/*.jsonl")]
+    out = []
+    for f in files:
+        with open(f, errors="replace") as fh:
+            for line in fh:
+                if '"Skill"' not in line and "<command-name>" not in line:
+                    continue
+                try:
+                    d = json.loads(line)
+                    t = datetime.fromisoformat(d["timestamp"].replace("Z", "+00:00")).timestamp()
+                except (ValueError, KeyError, TypeError, AttributeError):
+                    continue
+                m = d.get("message")
+                if t < since or not isinstance(m, dict):
+                    continue
+                c = m.get("content")
+                blocks = c if isinstance(c, list) else [{"type": "text", "text": c}] if isinstance(c, str) else []
+                for b in blocks:
+                    if not isinstance(b, dict):
+                        continue
+                    if b.get("type") == "tool_use" and b.get("name") == "Skill":
+                        i = b.get("input") or {}
+                        out.append((str(i.get("skill", "")).split(":")[-1], str(i.get("args") or "")))
+                    elif d.get("type") == "user" and b.get("type") == "text":
+                        n = re.search(r"<command-name>/?([\w:.-]+)</command-name>", b.get("text") or "")
+                        if n:
+                            a = re.search(r"<command-args>(.*?)</command-args>", b["text"], re.S)
+                            out.append((n.group(1).split(":")[-1], a.group(1) if a else ""))
+    return out
+
+def _hit(token, calls):
+    name, _, mode = token.partition(" ")
+    return any((n == name or (name.endswith("*") and n.startswith(name[:-1])))
+               and (not mode or a.strip().lower().startswith(mode)) for n, a in calls)
+
+def missing(doc, step, evidence="", calls=None):
+    if doc.get("pipeline", "design") != "design":
+        return []
+    calls = invoked(doc) if calls is None else calls
+    return [g for g in required(doc, step, evidence) if not any(_hit(t, calls) for t in g)]
+
+def say_missing(step, groups):
+    return (f"step '{step}' RAN but these skills were never invoked this run: "
+            + "; ".join(" or ".join(f"`{t}`" for t in g) for g in groups)
+            + "\n      Invoke each with the Skill tool (a mode goes in args, e.g. skill impeccable,"
+            + " args \"critique <surface>\").\n      Reading a SKILL.md or naming it in the evidence"
+            + " does not count - this reads the session transcript.")
+
 def die(msg, code=1):
     print(msg, file=sys.stderr); sys.exit(code)
 
@@ -227,8 +328,10 @@ if cmd == "init":
     doc = {
         "pipeline": pipeline,
         "session": SESSION,
+        "sessions": [SESSION],   # every session that owned this run; adopt appends
         "target": str(target),
         "started": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "started_epoch": time.time(),   # skill calls before this belong to another run
         "steps": {k: {"status": "PENDING"} for k in PIPELINES[pipeline]["steps"]},
         "blocks": 0,
         "escaped": False,
@@ -273,6 +376,10 @@ elif cmd == "set":
                 "Known: animate, transitions-dev, transitions-polish, gsap-*, apple-design,\n"
                 "design-motion-principles, emil-design-eng, threejs-*. If nothing earned motion,\n"
                 "skip it as no-motion-warranted.")
+    if status == "RAN":
+        gaps = missing(doc, step, val)
+        if gaps:
+            die(say_missing(step, gaps))
     # Count re-runs of a step. An audit that keeps re-opening is the failure mode this
     # pipeline hit on its first real use: nine design-gate passes over one file in ninety
     # minutes, each triggered by the last one's findings. Prose budgets did not stop it.
@@ -305,11 +412,17 @@ elif cmd in ("show", "check"):
     STEPS = steps_of(doc)
     G = PIPELINES[doc.get("pipeline", "design")]["gate"]
     rows, failures = [], []
+    calls = invoked(doc) if cmd == "check" and doc.get("pipeline", "design") == "design" else []
     for step in STEPS:
         s = doc["steps"].get(step, {"status": "PENDING"})
         rows.append((step, s["status"], s.get("evidence") or s.get("reason") or ""))
         if s["status"] == "PENDING":
             failures.append(f"step '{step}' is still PENDING")
+        elif s["status"] == "RAN" and cmd == "check":
+            # Re-verified here, not only at `set`: a hand-edited row never went through set.
+            gaps = missing(doc, step, s.get("evidence", ""), calls)
+            if gaps:
+                failures.append(say_missing(step, gaps))
         elif s["status"] == "SKIPPED" and s.get("reason") not in STEPS[step]:
             failures.append(f"step '{step}' skipped with illegal reason '{s.get('reason')}'")
 
@@ -391,6 +504,8 @@ elif cmd == "adopt":
         optr = _CDIR / f".design-active-{owner}"
         if optr.exists() and (time.time() - optr.stat().st_mtime) < 86400:
             die(f"session {owner} still owns this ledger. Stop that run first, or delete {optr}.")
+    # Keep the previous owners: skills they invoked for this run are still in THEIR transcript.
+    doc["sessions"] = sorted({*doc.get("sessions", []), *([owner] if owner else []), SESSION})
     doc["session"] = SESSION
     save(run, doc)
     POINTER.parent.mkdir(parents=True, exist_ok=True)
