@@ -1,5 +1,7 @@
 ---
 name: design-gate
+model: opus
+effort: high
 description: Audits a built UI surface blind - the AI-tell checklist, token portability, accessibility, contrast, responsive behaviour, motion discipline and performance - and writes .design/audit-report.md. Use before presenting any design work, and whenever asked to audit, review, or check an interface.
 argument-hint: "[path to the surface] [url if it can be served]"
 context: fork

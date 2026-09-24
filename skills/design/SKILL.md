@@ -1,5 +1,7 @@
 ---
 name: design
+model: opus
+effort: high
 description: Runs the design pipeline end to end - detect the stack, ground the direction in real shipped UI, lock it as portable tokens, source real components, assemble, add imagery and motion, then audit before presenting. Use whenever the user asks to design, redesign, restyle, build a page, build a UI surface, or polish an interface, even if they do not say the word "design".
 argument-hint: "[what to design] [where]"
 allowed-tools:

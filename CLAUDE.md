@@ -1,6 +1,4 @@
 ## Approach
-- Think before acting. Read existing files before writing code.
-- Be concise in output but thorough in reasoning.
 - Prefer editing over rewriting whole files.
 - Do not re-read files you have already read unless the file may have changed.
 - Test your code before declaring done.
@@ -56,7 +54,7 @@ target, never by habit:
   confidence gate, ending in APPROVE / CAUTION / REJECT. Hard budgets: 60 min, 4 agents,
   10 findings. Idempotent on purpose: same code in, same verdict out, and a re-review
   reports only regressions and new P0/P1. `--deep` forces recall-max. Report lands in
-  `{repo}/jjstack/`. **The default before landing - except in work-org repos (below).**
+  `{repo}/jjstack/`. **The default before landing - except in bot-reviewed repos (below).**
 - `/jj-security-review` - jjstack's security pass. **Renamed from `/security-review` in
   jjstack 0.40.2 (pulled 2026-09-09)** specifically so Claude Code's own built-in
   `/security-review` stays reachable - the built-in has no other name. So: `/security-review`
@@ -70,19 +68,22 @@ target, never by habit:
   (measured USD 5-19 a run). It never launches `ultra` - that is billed and yours to type.
 
 ### Which one, and never two at once
-- **work-org repos - origin under `github.com:work-org/` - run NO local `/review`
-  and NO `/review-stack`.** Every PR there goes to the team's PR bot (`team-pr-bot`),
-  which runs jjstack's `/review` and re-reviews each push. A local run is the same reviewer
-  twice, which the last rule below forbids. Fix what the bot raises on the PR and let it
-  re-review; `/code-review` before opening the PR is optional. These repos carry no
-  review-stack pre-push hook. Decide by `git remote get-url origin`, not the folder name.
+- **Bot-reviewed repos - origin under `github.com:work-org/` or
+  `github.com:tools-org/` - run NO local `/review`.** Every PR there goes to the
+  team's PR bot (`team-pr-bot`), which runs jjstack's `/review` on the PR and re-reviews
+  each push, so a local `/review` is the same reviewer twice. Fix what the bot raises on the
+  PR and let it re-review; `/code-review` before opening the PR is optional. `/review-stack`
+  only when I ask for it: it is a different reviewer set (the agents below plus a blind
+  lane), an extra lane rather than a duplicate of the bot, and never run proactively. No
+  review-stack pre-push hook in these repos. Decide by `git remote get-url origin`, not the
+  folder name.
 - **Everything else - my own and freelance repos - default before landing: `/review`.**
   Budgeted, converges, cheap enough to re-run.
 - `/code-review` alone is enough when ALL hold: under ~200 lines and ~10 files, nothing
   touching auth/payments/migrations/deletion/permissions/crypto/config, no contract change
   (exported signature, API field, DB column, enum, env var, CLI flag), no test deleted or
   skipped, and it is your own change. Any one fails -> escalate.
-- `/review-stack` (not in work-org repos) when you distrust your own framing, not merely when the diff is large:
+- `/review-stack` (in bot-reviewed repos: only when I ask) when you distrust your own framing, not merely when the diff is large:
   someone else's PR, anything on a risk path, or a change where "it was intentional" is
   carrying too much weight. A three-line permission change is exactly what a size
   threshold waves through. Add `sealed` when the answer has to survive your own memory.
@@ -117,10 +118,6 @@ Cut it and say how many you cut.
 - If a step fails: state what failed, why, and what was attempted. Stop.
 
 ## Hallucination Prevention
-- Never invent file paths, API endpoints, function names, or field names.
-- If a value is unknown: return null or "UNKNOWN". Never guess.
-- If a file or resource was not read: do not reference its contents.
-- Downstream systems break on hallucinated values. Accuracy over completeness.
 - Grep for a symbol before writing code or a test against it. A helper that reads plausibly may not exist.
 
 ## Shell Discipline
@@ -129,15 +126,10 @@ Cut it and say how many you cut.
 - $(...) and backticks do NOT expand inside a quoted heredoc (<<'EOF'). Either hardcode the value or leave the delimiter unquoted on purpose.
 - Read back anything sent outward - a PR comment, an issue body, a posted message - before moving on. An unexpanded placeholder is public the moment it posts.
 
-## Token Efficiency
-- Pipeline calls compound. Every token saved per call multiplies across runs.
-- No explanatory text in agent output unless a human will read it.
-- Return the minimum viable output that satisfies the task spec.
-
 ## Language Rules
-ECC rules are at ~/.claude/rules/ecc/ (common + typescript, python, golang, rust, java, web).
-To activate for a project, add to that project's CLAUDE.md:
-@~/.claude/rules/ecc/<language>/index.md
+ECC rules live in ~/.claude/rules/ecc/ but are excluded from loading (claudeMdExcludes in
+settings.json) - most restate default practice. Read one on demand if a task needs it.
+The kept, project-specific lessons are in ~/.claude/rules/lessons.md (always loaded).
 
 ## UI / design work - pipeline rule
 Any UI build, redesign, restyle or interface polish, in **any** stack: run the `design`
@@ -158,3 +150,7 @@ than the primary component source.
 # graphify
 - **graphify** (`~/.claude/skills/graphify/SKILL.md`) - any input to knowledge graph. Trigger: `/graphify`
 When the user types `/graphify`, use the installed graphify skill or instructions before doing anything else.
+
+## Superpowers
+- Ignore the "1% chance -> must invoke" rule. Invoke a skill only when it clearly matches the task.
+- For review, planning, QA and done-checks use jjstack (/review, /jj-plan, /qa, verify-before-done); use superpowers for systematic-debugging, subagent-driven-development and dispatching-parallel-agents.
