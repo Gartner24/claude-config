@@ -158,16 +158,31 @@ read its standards blind:
 - `~/.claude/skills/design-motion-principles/references/anti-checklist.md` - AI-slop motion patterns
 - `~/.claude/skills/design-motion-principles/references/accessibility.md` - reduced-motion done properly
 
-Floor checks that apply regardless: `prefers-reduced-motion` handled per component (gentler, not
-a blanket `animation: none` on `*`); no UI duration over 300ms without a reason (drawers and
+**Two registers, two bars.** Read the register from the motion row of `.design/run.json`.
+
+*Product-UI motion* - menus, dialogs, drawers, toggles, tabs, toasts, hover and focus states,
+on any site. Floor checks: `prefers-reduced-motion` handled per component (gentler, not a
+blanket `animation: none` on `*`); no UI duration over 300ms without a reason (drawers and
 modals up to 500ms); no `ease-in` on an entrance; hover motion gated behind
 `@media (hover: hover) and (pointer: fine)`; only `transform`/`opacity` animated; every
 duration and easing resolves to a token.
 
-Report it as `motion: <n> findings against review-animations standards (<files>)`. The ledger
-refuses a design run whose motion step RAN unless the report's motion line cites
-`review-animations`. For a whole existing app rather than one surface, say so in the report -
-`improve-animations` is the read-only planner for that, invoked from `/design` step 9.
+*Marketing motion* (`register=marketing`) - scroll-driven reveals, parallax, pinned sequences,
+smooth scroll, section transitions. **The 300ms cap and "when unsure, delete it" do not apply
+here**; applying them is how a client's named scroll reference got rebuilt at an eighth of its
+strength and read as no motion at all. Audit against `.design/motion-reference.md` instead:
+for every effect it lists, measure ours in the browser - scrub it, sample the transform,
+clip-path or opacity at several scroll positions - and compare with the reference value in the
+table. **An effect below 70% of the reference's magnitude is a finding**, unless the table
+records the owner asking for less of that specific property ("faster" shortens a range or a
+duration; it never shrinks a distance). Still required on marketing motion: reduced-motion
+fallback, no layout shift while scrolling, no long task over 50ms, native keys still scroll.
+
+Report it as `motion: <n> findings against review-animations standards (<files>)`, and for a
+marketing run add `motion-reference: <k> effects below reference (<effect names>)`. The ledger
+refuses a run whose motion step RAN unless the motion line cites `review-animations`, and a
+marketing run unless `motion-reference:` reads 0. For a whole existing app rather than one
+surface, say so in the report - `improve-animations` is the read-only planner for that.
 
 **6. Performance.** A real measurement needs a real browser. **The `chrome-devtools` MCP is
 installed user-scoped** (driving Brave with an isolated throwaway profile), so measure with
@@ -193,9 +208,18 @@ Counting bytes is not a Core Web Vitals measurement. Reporting an LCP number you
 measure is worse than reporting nothing, because the user cannot tell the difference and
 will believe the page was graded.
 
-**7. Reference drift.** If `.design/reference-lock.md` exists, screenshot the built UI and
-put it beside the primary reference. Name the drift concretely - "the reference uses a
-7fr/5fr split, this is 1fr/1fr" - not "feels different".
+**7. Reference - section by section, and you have to pick a side.** If
+`.design/reference-lock.md` exists, open the primary reference in the browser too. For every
+section of the surface, screenshot ours and the reference's equivalent at 1440 and 390 and
+judge each pair **better / on par / worse**, with one concrete reason: "the reference's hero
+headline fills 60% of the fold with a live video behind it; ours is a 40% column beside a stock
+photo" - never "feels different". A section with no equivalent is compared against the
+reference's closest section of the same job. **Any section worse than the reference makes the
+verdict FAIL**, whatever the other lenses say: a surface can pass every a11y and token check and
+still be the weaker page, and that is the failure this lens exists to catch.
+
+Report it as `reference: <n> sections compared against <primary>, <m> worse`, and list each
+worse section under Must fix with its screenshot pair.
 
 ## Report format
 
@@ -211,6 +235,8 @@ wcag22: target-size <n> failures  | or: not run (page not served)
 contrast failures: <n> (light) / <n> (dark)
 responsive: <widths that overflow, or "clean 320-1920">
 motion: <n> findings against review-animations standards (<files>) | or: none in scope
+motion-reference: <k> effects below reference (<effect names>)   (marketing register only)
+reference: <n> sections compared against <primary>, <m> worse   (when reference-lock.md exists)
 perf: LCP <n>s, total image weight <n>KB   | or: NOT MEASURED (no browser available)
 
 ## Must fix

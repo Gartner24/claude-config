@@ -60,8 +60,22 @@ they cannot be skipped for any reason.
 | `assemble` | never |
 | `assets` | `no-imagery-needed`, `assets-supplied` |
 | `motion` | `no-motion-warranted`, `reduced-motion-only` |
+| `preview` | `not-client-facing` |
 | `gate` | never |
 | `conversion` | `not-marketing-surface` |
+
+**The ledger grades the result, not only the process.** Every rule below exists because a
+client redesign closed every row, passed `design-gate`, and still looked bad: impeccable had
+scored the shell 25/40, the owner's scroll reference was rebuilt at a fraction of its strength,
+and a paid hero video sat unused while the page kept an old photograph. So the gate now blocks on:
+
+| check | what blocks |
+|---|---|
+| critique bar | the newest `impeccable critique` report per target this run below **32/40** (read from `.impeccable/critique/`, not from what you say it scored) |
+| reference | a `reference-lock.md` exists and the audit report does not put each section beside the primary, or judges any section worse |
+| motion strength | `register=marketing` without `.design/motion-reference.md`, or the report finds effects built below the reference's magnitude |
+| assets used | a generated or fetched asset in the manifest with no shipped `files`, or a file nothing on the site references |
+| owner preview | `assemble`, `assets` or `motion` closed before the owner saw the first section (step 8b) |
 
 **Every skill a step names is INVOKED with the Skill tool, not read.** Opening its SKILL.md,
 or writing its name in the evidence, is not a run. The ledger reads this session's transcript
@@ -263,7 +277,11 @@ Invoke `/assets`. It reads `.design/direction.json` and writes
 coded - most of it should be coded or fetched. Skip only when the surface genuinely needs
 no imagery, or the user supplied it.
 
-## 8. motion - only where it earns its place, and built by the motion skills
+**An asset that was made is an asset that ships.** Every generated or fetched entry records its
+shipped paths in `"files"` or its reason in `"unused"`, and the gate greps the site for each
+file. Wire the asset into the page in the same step that produced it.
+
+## 8. motion - built by the motion skills, at the strength the brief asked for
 
 **Invoke the skill, do not freehand the animation.** The first real run shipped a
 scroll-driven isotipo reveal while invoking zero motion skills - the routing below existed
@@ -271,7 +289,7 @@ only as prose and nothing checked it. The ledger now refuses `set motion RAN` un
 evidence names the skill that built it as `skill=<name>`:
 
 ```bash
-bash ~/.claude/skills/design/scripts/ledger.sh set motion RAN "skill=animate; one scroll-driven isotipo reveal, reduced-motion fallback"
+bash ~/.claude/skills/design/scripts/ledger.sh set motion RAN "skill=animate; register=marketing; hero parallax at 45% of the reference's 50%, curtain reveal, reduced-motion fallback"
 ```
 
 Pick by kind. Durations and easings come from `--duration-*` and `--ease-*`, never literals:
@@ -284,9 +302,61 @@ Pick by kind. Durations and easings come from `--duration-*` and `--ease-*`, nev
 - Motion craft reference while building -> `design-motion-principles` (Create mode) or `emil-design-eng`.
 - 3D / WebGL -> the `threejs-*` set.
 
-Legal skips stay `no-motion-warranted` and `reduced-motion-only`. The audit half is step 9:
-`review-animations` is invoked there on every run whose motion step RAN, and `design-gate`
-lens 5 audits all motion in scope against the same standards.
+**Pick the register, because it decides the bar.** The evidence names it:
+`register=product-ui` or `register=marketing`.
+
+- **product-ui** - menus, dialogs, drawers, toggles, tabs, toasts, hover and focus. Emil
+  Kowalski's rules apply as written: under 300ms, frequency-appropriate, and when unsure,
+  delete it. Audited against `review-animations`.
+- **marketing** - scroll reveals, parallax, curtains, pinned sequences, smooth scroll, section
+  transitions on a site whose job is to impress a visitor. **The 300ms cap and "delete it" do
+  not apply.** When the owner names a motion reference, the job is to reach it, not to find the
+  smallest defensible version of it. Before building, write `.design/motion-reference.md`: one
+  row per effect the owner pointed at, measured on the live reference (distance or percentage
+  moved, scroll range or duration, easing, whether scroll is smoothed, how long a pin holds),
+  with a column for ours. Ours stays at 70% or more of the reference's magnitude unless the
+  owner asked for less of that specific property: "faster" shortens a range or a duration, it
+  never shrinks a distance. The ledger refuses `register=marketing` without that file.
+  - **Use the tool the effect needs.** If the reference uses GSAP ScrollTrigger or a smoothing
+    layer like Lenis and native CSS cannot reach the same feel, use them (lazy-loaded, reduced
+    motion honoured). A project JS budget or a "native only" rule written earlier in the project
+    does not silently veto the owner's reference: surface the conflict to the owner as a
+    question, with the byte cost, and let them decide.
+  - Keep what is non-negotiable in both registers: reduced-motion fallback, no layout shift while
+    scrolling, native keys still scroll, content never stuck invisible.
+
+Legal skips stay `no-motion-warranted` and `reduced-motion-only`. The audit half is step 9.
+
+## 8b. preview - the owner sees the first section before the rest is built
+
+Build **one** section completely first - the one that carries the direction hardest, usually the
+hero - with its real assets and its real motion. Then stop:
+
+```bash
+bash ~/.claude/skills/design/scripts/ledger.sh await "hero at 1440 and 390, light and dark, motion clip"
+```
+
+Show the owner screenshots at 1440 and 390 (both themes if there are two), a short screen
+recording or a scrub of the motion, and the primary reference beside it. Ask one question:
+build the rest this way, or change what? **Then end the turn.** In a `/loop`, do not schedule a
+wakeup - the owner's reply resumes the run. The Stop hook lets the turn end while the ledger is
+awaiting.
+
+When they answer, record their words:
+
+```bash
+bash ~/.claude/skills/design/scripts/ledger.sh set preview RAN "<what they approved or changed>"
+```
+
+The ledger reads the transcript for a message they actually typed after `await`; a repeated
+loop prompt does not count. `assemble`, `assets` and `motion` cannot close before this row does.
+
+**Any other decision only the owner can make mid-run** - pick between pattern candidates, approve
+a budget - uses the same pause: `ledger.sh await "<the question>"`, show the options, end the
+turn. Never try to stop with open rows and no `await`: the Stop hook blocks three times, then
+releases the run marked unaudited and stops guarding it. If that happened, re-arm it with
+`ledger.sh adopt <target>`; a later full pass of the gate clears the unaudited mark.
+Skip only as `not-client-facing` - internal tools nobody outside the team will judge.
 
 ## 9. gate - audit before presenting. This one has no escape.
 
@@ -294,7 +364,10 @@ Three audits, in this order. The blind one goes last, because editing after it r
 
 1. **`impeccable` with args `critique <surface>`** - UX review, heuristic scoring. Then
    **`impeccable` with args `audit <surface>`** - a11y, perf, responsive, theming. Two
-   separate Skill calls; the ledger checks for both modes.
+   separate Skill calls; the ledger checks for both modes. **The critique must reach 32/40.**
+   The ledger reads the score impeccable saves in `.impeccable/critique/`; below the bar the
+   run does not close. Fixing the P1 list is not reaching the bar - a 25/40 page with its P1s
+   fixed is still a 25/40 page. Redesign what the critique scored low and critique again.
 2. **`review-animations`** over every file that animates, whenever the motion step RAN.
    Whole existing app: add `improve-animations`. Timing off the token scale:
    `transitions-polish`. Want the HTML report with looping demos: `design-motion-principles`

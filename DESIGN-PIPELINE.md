@@ -90,9 +90,12 @@ tokens     the direction becomes tokens.css - this is what makes it stack-agnost
 source     shadcn MCP, then the per-stack matrix
 assemble   frontend-design + impeccable
 assets     /assets
-motion     animate (or the motion skill for the kind), only where it earns its place
-gate       impeccable critique + impeccable audit, review-animations if motion shipped,
-           then design-gate, blind. Cannot be skipped.
+motion     animate (or the motion skill for the kind); register=marketing is measured
+           against the reference's effects, product-ui against review-animations
+preview    the owner sees the first finished section before the rest is built
+gate       impeccable critique (>= 32/40) + impeccable audit, review-animations if motion
+           shipped, then design-gate, blind, with each section beside the primary reference.
+           Generated assets must be used. Cannot be skipped.
 conversion cro/pricing/signup/paywalls, marketing surfaces only
 ```
 

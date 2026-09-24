@@ -35,6 +35,9 @@ print(json.load(open(sys.argv[1])).get("pipeline","design"))' "$RUN" 2>/dev/null
 
 FAILURES="$(bash "$LEDGER" check 2>&1)"; STATUS=$?
 if [ $STATUS -eq 0 ]; then rm -f "$POINTER"; exit 0; fi
+# 3 = paused on the owner's preview. The turn has to end so they can answer; keep the pointer,
+# because check stops returning 3 the moment they reply and the gate re-engages.
+[ $STATUS -eq 3 ] && exit 0
 
 BLOCKS="$(python3 -c 'import json,sys
 p=sys.argv[1]; d=json.load(open(p)); d["blocks"]=d.get("blocks",0)+1

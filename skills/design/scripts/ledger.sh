@@ -5,7 +5,9 @@
 #   ledger.sh set <step> RAN <evidence>      close a row with a path or a quoted token
 #   ledger.sh set <step> SKIPPED <reason>    close a row with a reason from the closed set
 #   ledger.sh show [path]                    render the table (this is the closing report)
-#   ledger.sh check [path]                   gate check; prints failures, exit 1 if not clean
+#   ledger.sh check [path]                   gate check; prints failures, exit 1 if not clean,
+#                                            exit 3 while paused on the owner's preview
+#   ledger.sh await "<what they see>"        pause for the owner's preview (design step 8b)
 #   ledger.sh done                           clear the active pointer
 #
 # State: <target>/.design/run.json. Active pointer: ~/.claude/.design-active
@@ -50,6 +52,7 @@ PIPELINES = {
             "assemble":   (),
             "assets":     ("no-imagery-needed", "assets-supplied"),
             "motion":     ("no-motion-warranted", "reduced-motion-only"),
+            "preview":    ("not-client-facing",),
             "gate":       (),
             "conversion": ("not-marketing-surface",),
         },
@@ -183,6 +186,149 @@ def say_missing(step, groups):
             + " args \"critique <surface>\").\n      Reading a SKILL.md or naming it in the evidence"
             + " does not count - this reads the session transcript.")
 
+# Quality gates. Everything above proves the pipeline RAN; none of it proved the result was
+# any good. The first client redesign under full enforcement closed every row, passed
+# design-gate, and shipped a shell impeccable critique had scored 25/40, scroll motion shrunk
+# to a fraction of the owner's named reference, and a paid hero video nothing used.
+CRITIQUE_MIN = 0.8   # 32/40 on impeccable's heuristic table
+HARNESS_PREFIXES = ("Stop hook feedback", "Another Claude session sent a message",
+                    "This session is being continued", "(Re-invocation", "Base directory for this skill",
+                    "[Image", "Caveat:", "[Request interrupted")
+TEXT_EXT = {".astro", ".html", ".htm", ".css", ".scss", ".sass", ".less", ".js", ".mjs", ".cjs", ".ts",
+            ".tsx", ".jsx", ".vue", ".svelte", ".json", ".md", ".mdx", ".php", ".erb", ".liquid",
+            ".twig", ".njk", ".heex", ".templ", ".yml", ".yaml", ".toml"}
+
+def run_since(doc):
+    try:
+        return doc.get("started_epoch") or time.mktime(time.strptime(doc["started"], "%Y-%m-%dT%H:%M:%S"))
+    except (KeyError, ValueError):
+        return 0
+
+def owner_reply(doc, since):
+    """The first thing a person typed after `since`, or None.
+
+    Main transcripts only: a subagent's user records are its parent's prompts.
+    ponytail: a heuristic, not authentication. A /loop wakeup re-injects its prompt as a user
+    record, so text already seen before `since` does not count, and harness records are dropped
+    by prefix. A new harness message shape would slip through - add its prefix here."""
+    msgs = []
+    for sid in {doc.get("session"), *doc.get("sessions", [])} - {None, "global"}:
+        for f in (_CDIR / "projects").glob(f"*/{sid}.jsonl"):
+            with open(f, errors="replace") as fh:
+                for line in fh:
+                    if '"user"' not in line:
+                        continue
+                    try:
+                        d = json.loads(line)
+                        t = datetime.fromisoformat(d["timestamp"].replace("Z", "+00:00")).timestamp()
+                    except (ValueError, KeyError, TypeError, AttributeError):
+                        continue
+                    m = d.get("message")
+                    if d.get("type") != "user" or d.get("isSidechain") or not isinstance(m, dict):
+                        continue
+                    c = m.get("content")
+                    texts = [c] if isinstance(c, str) else [b.get("text", "") for b in c
+                             if isinstance(b, dict) and b.get("type") == "text"] if isinstance(c, list) else []
+                    for x in (s.strip() for s in texts):
+                        if x and not x.startswith("<") and not x.startswith(HARNESS_PREFIXES):
+                            msgs.append((t, x))
+    before = {x for t, x in msgs if t < since}
+    after = sorted((t, x) for t, x in msgs if t >= since and x not in before)
+    return after[0][1] if after else None
+
+def critique_failures(doc, target):
+    """impeccable saves each critique to .impeccable/critique/<stamp>__<slug>.md with its score
+    in the front matter. The newest report per slug since init must clear the bar."""
+    since, newest = run_since(doc), {}
+    for f in (target / ".impeccable" / "critique").glob("*__*.md"):
+        if f.stat().st_mtime < since:
+            continue
+        slug = f.name.split("__", 1)[1]
+        if slug not in newest or f.stat().st_mtime > newest[slug].stat().st_mtime:
+            newest[slug] = f
+    if not newest:
+        return ["no impeccable critique report saved this run (.impeccable/critique/) - the gate "
+                "grades its score, so the critique has to run on this surface"]
+    out = []
+    for slug, f in sorted(newest.items()):
+        head = f.read_text(errors="replace")[:2000]
+        tot = re.search(r"^total_score:\s*(\d+(?:\.\d+)?)", head, re.M)
+        mx = re.search(r"^max_score:\s*(\d+(?:\.\d+)?)", head, re.M)
+        if not (tot and mx and float(mx.group(1)) > 0):
+            out.append(f"critique report has no total_score / max_score: {f.name}")
+        elif float(tot.group(1)) / float(mx.group(1)) < CRITIQUE_MIN:
+            out.append(f"impeccable critique scored {tot.group(1)}/{mx.group(1)} on {slug[:-3]}; the bar is "
+                       f"{round(CRITIQUE_MIN * float(mx.group(1)))}. Improve the design and critique it again - "
+                       "fixing its P1 list is not the same as reaching the bar")
+    return out
+
+def report_line(rtext, key):
+    return next((l.strip() for l in rtext.splitlines() if l.strip().lower().startswith(key + ":")), None)
+
+def reference_failures(target, rtext):
+    if not (target / ".design" / "reference-lock.md").exists():
+        return []
+    line = report_line(rtext, "reference")
+    m = line and re.search(r"(\d+)\s+sections?\s+compared.*?(\d+)\s+worse", line, re.I)
+    if not m:
+        return ["a reference lock exists but the report has no 'reference: <n> sections compared against "
+                "<primary>, <m> worse' line - the build was never put beside what it had to match"]
+    if int(m.group(1)) == 0:
+        return ["the report compared 0 sections against the reference"]
+    if int(m.group(2)) > 0:
+        return [f"{m.group(2)} section(s) judged worse than the reference - {line[:140]}"]
+    return []
+
+def motion_reference_failures(doc, target, rtext):
+    row = doc["steps"].get("motion", {})
+    if row.get("status") != "RAN" or "register=marketing" not in row.get("evidence", ""):
+        return []
+    out = []
+    mr = target / ".design" / "motion-reference.md"
+    if not mr.exists() or mr.stat().st_size == 0:
+        out.append("register=marketing but .design/motion-reference.md is missing - the reference's effects were never measured")
+    line = report_line(rtext, "motion-reference")
+    m = line and re.search(r"(\d+)\s+(?:effects?\s+)?below", line, re.I)
+    if not m:
+        out.append("marketing motion but the report has no 'motion-reference: <k> effects below reference' line")
+    elif int(m.group(1)) > 0:
+        out.append(f"{m.group(1)} effect(s) built below the reference's magnitude - {line[:140]}")
+    return out
+
+def asset_failures(target):
+    """A generated or fetched asset must ship, or say why it does not."""
+    mf = target / ".design" / "assets-manifest.json"
+    if not mf.exists():
+        return ["assets RAN but .design/assets-manifest.json does not exist"]
+    try:
+        data = json.loads(mf.read_text())
+    except ValueError as e:
+        return [f"assets manifest is not valid JSON: {e}"]
+    items = data.get("assets", []) if isinstance(data, dict) else data
+    skip = {".design", ".git", "node_modules", "dist", "build", ".next", ".venv", "assets-src", ".impeccable"}
+    parts = []
+    for root, dirs, files in os.walk(target):
+        dirs[:] = [x for x in dirs if x not in skip]
+        for f in files:
+            if os.path.splitext(f)[1] in TEXT_EXT:
+                try:
+                    with open(os.path.join(root, f), errors="replace") as fh:
+                        parts.append(fh.read())
+                except OSError:
+                    pass
+    blob, out = "\n".join(parts), []
+    for a in items if isinstance(items, list) else []:
+        if not isinstance(a, dict) or "unused" in a or re.search(r"reference|rejected|superseded", str(a.get("status", "")), re.I):
+            continue
+        files = a.get("files") or []
+        if not files and (a.get("model") or a.get("source")):
+            out.append(f"asset '{a.get('id')}' was generated or fetched but records no shipped files - "
+                       "add \"files\": [...] or \"unused\": \"<reason>\"")
+        for f in files:
+            if pathlib.Path(f).name not in blob:
+                out.append(f"asset '{a.get('id')}': {f} is not referenced anywhere in the site")
+    return out
+
 def die(msg, code=1):
     print(msg, file=sys.stderr); sys.exit(code)
 
@@ -237,7 +383,8 @@ def stale_files(target, report):
         return [str(f) for f in covered if f.stat().st_mtime > rmt + 1]
 
     # Nothing citable in the report - fall back to the tree walk.
-    skip = {".design", ".git", "node_modules", "dist", "build", ".next", ".venv", "coverage"}
+    # .impeccable holds critique reports written after the audit - not audited files.
+    skip = {".design", ".git", "node_modules", "dist", "build", ".next", ".venv", "coverage", ".impeccable"}
     out = []
     for root, dirs, files in os.walk(target):
         dirs[:] = [x for x in dirs if x not in skip]
@@ -376,6 +523,33 @@ elif cmd == "set":
                 "Known: animate, transitions-dev, transitions-polish, gsap-*, apple-design,\n"
                 "design-motion-principles, emil-design-eng, threejs-*. If nothing earned motion,\n"
                 "skip it as no-motion-warranted.")
+        # Product-UI motion standards (300ms, restraint) applied to a marketing site's scroll
+        # motion is how the owner's named reference got rebuilt too faint to notice.
+        reg = re.search(r"register=(product-ui|marketing)\b", val)
+        if not reg:
+            die("motion RAN needs its register: register=product-ui (menus, dialogs, hover, toasts) or\n"
+                "register=marketing (scroll reveals, parallax, pinned sequences, smooth scroll).")
+        mr = pathlib.Path(doc["target"]) / ".design" / "motion-reference.md"
+        if reg.group(1) == "marketing" and (not mr.exists() or mr.stat().st_size == 0):
+            die("register=marketing needs .design/motion-reference.md first: every effect of the motion\n"
+                "reference measured (distance, scroll range or duration, easing, smooth scroll, pin length)\n"
+                "beside what we built. See /design step 8.")
+    design = doc.get("pipeline", "design") == "design"
+    if design and status == "RAN" and step in ("assemble", "assets", "motion") \
+            and doc["steps"].get("preview", {}).get("status") == "PENDING":
+        die(f"'{step}' closes when the whole surface is built, and the rest of the surface is built only\n"
+            "after the owner has seen the first finished section. Build that one section, then:\n"
+            "  ledger.sh await \"<what they are looking at>\"   (step 8b)")
+    if design and step == "preview" and status == "RAN":
+        aw = doc.get("awaiting")
+        if not aw:
+            die("preview RAN needs the owner to have seen it. Run ledger.sh await \"<what they are looking\n"
+                "at>\", show the screenshots, end the turn, and close this row after they reply.")
+        said = owner_reply(doc, aw["since"])
+        if said is None:
+            die("the owner has not replied since the preview was posted. End the turn and wait.")
+        val = f"{val} | owner: {said[:160]}"
+        doc.pop("awaiting", None)
     if status == "RAN":
         gaps = missing(doc, step, val)
         if gaps:
@@ -411,6 +585,12 @@ elif cmd in ("show", "check"):
     doc = json.loads(p.read_text())
     STEPS = steps_of(doc)
     G = PIPELINES[doc.get("pipeline", "design")]["gate"]
+    # Paused on the owner's preview: exit 3 lets the Stop hook end the turn. The moment they
+    # reply this stops applying, so a session that stops again without closing the row is blocked.
+    aw = doc.get("awaiting")
+    if cmd == "check" and aw and owner_reply(doc, aw["since"]) is None:
+        print(f"AWAITING OWNER since {time.strftime('%H:%M', time.localtime(aw['since']))}: {aw.get('what', '')}")
+        sys.exit(3)
     rows, failures = [], []
     calls = invoked(doc) if cmd == "check" and doc.get("pipeline", "design") == "design" else []
     for step in STEPS:
@@ -425,6 +605,9 @@ elif cmd in ("show", "check"):
                 failures.append(say_missing(step, gaps))
         elif s["status"] == "SKIPPED" and s.get("reason") not in STEPS[step]:
             failures.append(f"step '{step}' skipped with illegal reason '{s.get('reason')}'")
+    if cmd == "check" and doc.get("pipeline", "design") == "design" \
+            and doc["steps"].get("assets", {}).get("status") == "RAN":
+        failures += asset_failures(pathlib.Path(doc["target"]))
 
     gate = doc["steps"].get(G["step"], {})
     target = pathlib.Path(doc["target"])
@@ -470,6 +653,9 @@ elif cmd in ("show", "check"):
                 elif mrow.get("status") == "RAN" and "review-animations" not in mline:
                     failures.append("motion step RAN but the report's motion line does not cite "
                                     "review-animations standards:\n      " + mline.strip()[:120])
+                failures += critique_failures(doc, target)
+                failures += reference_failures(target, rtext)
+                failures += motion_reference_failures(doc, target, rtext)
             if G.get("staleness"):
                 stale = stale_files(target, art)
                 if stale:
@@ -485,8 +671,15 @@ elif cmd in ("show", "check"):
             print(f"{step.ljust(w)}  {status.ljust(7)}  {detail}")
         if doc.get("escaped"):
             print("\nNOTE: this run was released by the gate escape hatch. It was NOT fully audited.")
+        elif doc.get("escape_cleared"):
+            print(f"\nNOTE: this run was released by the escape hatch once, then passed the full gate at {doc['escape_cleared']}.")
     else:
         for f in failures: print(f"BLOCKED: {f}")
+        if not failures and doc.get("escaped"):
+            # The mark says "not audited". A later full pass makes that false; keep the history.
+            doc["escaped"] = False
+            doc["escape_cleared"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+            save(p, doc)
         sys.exit(1 if failures else 0)
 
 elif cmd == "adopt":
@@ -507,6 +700,9 @@ elif cmd == "adopt":
     # Keep the previous owners: skills they invoked for this run are still in THEIR transcript.
     doc["sessions"] = sorted({*doc.get("sessions", []), *([owner] if owner else []), SESSION})
     doc["session"] = SESSION
+    # Re-arming a run the escape hatch released: gate.sh counts blocks on the ledger, so a count
+    # left at 3 would release it again on the very next stop and the re-armed gate would never block.
+    doc["blocks"] = 0
     save(run, doc)
     POINTER.parent.mkdir(parents=True, exist_ok=True)
     POINTER.write_text(str(run) + "\n")
@@ -515,6 +711,20 @@ elif cmd == "adopt":
     print(f"adopted {doc.get('pipeline','design')} run at {run}")
     print(f"  session: {SESSION}")
     print(f"  open rows: {', '.join(op) if op else 'none'}")
+
+elif cmd == "await":
+    # Pause for the owner: the preview (step 8b), or any other decision only they can make mid-run.
+    # check returns 3 until they reply, so the Stop hook lets the turn end instead of spending its
+    # three blocks on a question only a person can answer. This used to work for the preview row
+    # alone; a second question (pick a pattern: A, B or C) exhausted the blocks and released the
+    # run as unaudited.
+    if len(argv) < 2: die('usage: ledger.sh await "<what the owner is looking at>"')
+    p = ledger_path(); doc = json.loads(p.read_text())
+    doc["awaiting"] = {"since": time.time(), "what": " ".join(argv[1:])}
+    save(p, doc)
+    print("Waiting for the owner. Show the screenshots, the motion and the reference beside them, ask\n"
+          "one question, then END THE TURN. Do not build the rest of the surface. In a /loop do not\n"
+          "schedule a wakeup - their reply resumes the run. Then: ledger.sh set preview RAN \"<their words>\"")
 
 elif cmd == "done":
     if POINTER.exists(): POINTER.unlink()

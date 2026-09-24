@@ -19,6 +19,12 @@ Runs standalone, or as step 7 of `/design`. When `.design/direction.json` or
 `.design/tokens.css` exists, every asset is bound to those tokens. Write
 `.design/assets-manifest.json` when running inside a design run.
 
+**Every manifest entry that was generated or fetched records where it ships**, as `"files":
+["<repo-relative path>", ...]`, or says why it does not, as `"unused": "<reason>"`. The design
+gate blocks on an entry with neither, and on any listed file that nothing in the site
+references - a redesign once paid for a Veo hero loop, marked it approved, and kept the old
+photograph on the page. Entries whose `status` is a reference or rejected are exempt.
+
 ## Triage first. Most assets should never touch an image model.
 
 Classify every asset before doing anything. This table is the anti-slop policy - five of
