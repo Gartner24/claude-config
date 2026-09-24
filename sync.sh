@@ -26,16 +26,6 @@ cp "$LIVE/hooks/block-destructive.sh"     "$REPO/hooks/"
 cp "$LIVE/hooks/review-stack-pre-push" "$REPO/hooks/"
 cp "$LIVE/scripts/chroma-reaper.sh"   "$REPO/scripts/"
 
-# Local tweak to jjstack's hook, kept as a patch so it survives a jjstack upgrade.
-# Only overwrite when there is actually a diff: redirecting straight into the file
-# truncated it to 0 bytes whenever jjstack was absent or had been reset to stock,
-# silently deleting the tracked tweak this line exists to preserve.
-if _patch=$(git -C "$LIVE/skills/jjstack" diff -- hooks/auto-approve-safe.sh 2>/dev/null) \
-   && [ -n "$_patch" ]; then
-  printf '%s\n' "$_patch" > "$REPO/hooks/jjstack-auto-approve-safe.patch"
-else
-  echo "  note: no jjstack hook diff (absent or reset to stock) - kept the tracked patch"
-fi
 
 # cp -a never deletes, and the header's claim that stale files show up in `git status`
 # is only true for MODIFIED files. A file deleted from ~/.claude stays committed here

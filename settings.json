@@ -3,18 +3,36 @@
   "includeCoAuthoredBy": false,
   "permissions": {
     "deny": [
-      "Read(**/.env.production)",
-      "Read(**/.env.production.local)",
-      "Read(**/.env.prod)",
-      "Read(**/*.pem)",
+      "Bash(fdisk *)",
+      "Bash(halt *)",
+      "Bash(mkfs*)",
+      "Bash(parted *)",
+      "Bash(poweroff *)",
+      "Bash(reboot *)",
+      "Bash(shutdown *)",
+      "Bash(sudo dd *)",
+      "Bash(sudo mkfs*)",
+      "Bash(sudo rm *)",
+      "Edit(//home/santiago/.bash_profile)",
+      "Edit(//home/santiago/.bashrc)",
+      "Edit(//home/santiago/.profile)",
       "Read(**/*.key)",
       "Read(**/*.p12)",
+      "Read(**/*.pem)",
       "Read(**/*.pfx)",
-      "Read(**/id_rsa)",
-      "Read(**/id_ed25519)",
-      "Read(**/.ssh/id_*)",
       "Read(**/.aws/credentials)",
-      "Read(**/.pgpass)"
+      "Read(**/.env.prod)",
+      "Read(**/.env.production)",
+      "Read(**/.env.production.local)",
+      "Read(**/.pgpass)",
+      "Read(**/.ssh/id_*)",
+      "Read(**/id_ed25519)",
+      "Read(**/id_rsa)",
+      "Read(**/secrets/**)",
+      "Read(//home/santiago/.aws/**)",
+      "Read(//home/santiago/.claude/.credentials.json)",
+      "Read(//home/santiago/.claude/anthropic_api_key)",
+      "Read(//home/santiago/.ssh/**)"
     ],
     "defaultMode": "auto"
   },
@@ -131,6 +149,15 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/injection-guard.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/permission-floor.py"
           }
         ]
       }

@@ -68,10 +68,8 @@ paths, and gbrain is not installed on this machine. Left unpatched on purpose - 
 diff inside the jjstack checkout is a maintenance cost for a dead code path. Re-check after any
 jjstack upgrade, and before ever running `/setup-gbrain`.
 
-**Local modification:** `hooks/auto-approve-safe.sh` is tuned so the Haiku safety rater only
-returns HIGH for genuinely destructive commands, and MEDIUM auto-approves alongside LOW. The
-diff is kept at `hooks/jjstack-auto-approve-safe.patch` in this repo so it survives an
-upgrade - `git stash` before fast-forwarding jjstack, then `git stash pop`.
+**Permission gate:** jjstack's `permission-floor.py` plus the deny rules from
+`hooks/permissions.policy.json` (see HOOKS.md). No local jjstack diff is kept any more.
 
 **What gstack adds (auto-installed):** The task management layer - `/autoplan`, `/investigate`, `/qa`, `/ship`, `/review`, `/office-hours`, `/retro`, and the browser automation system. NOT the gsd-* skills.
 
