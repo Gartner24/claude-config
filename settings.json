@@ -13,9 +13,16 @@
       "Bash(sudo dd *)",
       "Bash(sudo mkfs*)",
       "Bash(sudo rm *)",
+      "Edit(//home/santiago/.aws/**)",
       "Edit(//home/santiago/.bash_profile)",
       "Edit(//home/santiago/.bashrc)",
+      "Edit(//home/santiago/private-tool/settings.json)",
+      "Edit(//home/santiago/.config/private-tool/keys)",
+      "Edit(//home/santiago/.config/private-tool/key)",
       "Edit(//home/santiago/.profile)",
+      "Edit(//home/santiago/.ssh/**)",
+      "Edit(//home/santiago/.zprofile)",
+      "Edit(//home/santiago/.zshenv)",
       "Read(**/*.key)",
       "Read(**/*.p12)",
       "Read(**/*.pem)",
@@ -30,234 +37,25 @@
       "Read(**/id_rsa)",
       "Read(**/secrets/**)",
       "Read(//home/santiago/.aws/**)",
+      "Read(//home/santiago/private-tool/settings.json)",
       "Read(//home/santiago/.claude/.credentials.json)",
       "Read(//home/santiago/.claude/anthropic_api_key)",
-      "Read(//home/santiago/.ssh/**)"
+      "Read(//home/santiago/.config/private-tool/keys)",
+      "Read(//home/santiago/.config/private-tool/key)",
+      "Read(//home/santiago/.ssh/**)",
+      "Write(//home/santiago/.aws/**)",
+      "Write(//home/santiago/.bash_profile)",
+      "Write(//home/santiago/.bashrc)",
+      "Write(//home/santiago/private-tool/settings.json)",
+      "Write(//home/santiago/.config/private-tool/keys)",
+      "Write(//home/santiago/.config/private-tool/key)",
+      "Write(//home/santiago/.profile)",
+      "Write(//home/santiago/.ssh/**)",
+      "Write(//home/santiago/.zprofile)",
+      "Write(//home/santiago/.zshenv)"
     ],
     "defaultMode": "auto"
   },
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash /home/santiago/.claude/hooks/claude-mem-install.sh"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"/home/santiago/.claude/hooks/gsd-check-update.js\""
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash /home/santiago/.claude/hooks/gsd-session-state.sh"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "setsid nohup bash /home/santiago/.claude/scripts/chroma-reaper.sh >/dev/null 2>&1 < /dev/null &"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Bash|Edit|Write|MultiEdit|Agent|Task",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"/home/santiago/.claude/hooks/gsd-context-monitor.js\"",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash /home/santiago/.claude/hooks/gsd-phase-boundary.sh",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/error-detector.sh"
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash /home/santiago/.claude/hooks/block-destructive.sh",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"/home/santiago/.claude/hooks/gsd-prompt-guard.js\"",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"/home/santiago/.claude/hooks/gsd-workflow-guard.js\"",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash /home/santiago/.claude/hooks/gsd-validate-commit.sh",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/injection-guard.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/permission-floor.py"
-          }
-        ]
-      }
-    ],
-    "PermissionRequest": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/auto-approve-safe.sh"
-          }
-        ]
-      }
-    ],
-    "PostToolUseFailure": [
-      {
-        "matcher": "mcp__",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/santiago/.claude/skills/jjstack/hooks/mcp-reconnect.sh"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/santiago/.claude/skills/gstack/hosts/claude/hooks/timeline-stop-hook",
-            "timeout": 5
-          }
-        ]
-      }
-    ]
-  },
-  "statusLine": {
-    "type": "command",
-    "command": "bash /home/santiago/.claude/skills/jjstack/bin/statusline.sh"
-  },
-  "enabledPlugins": {
-    "claude-mem@thedotmack": true,
-    "superpowers@claude-plugins-official": true,
-    "clangd-lsp@claude-plugins-official": true,
-    "frontend-design@claude-plugins-official": true,
-    "code-review@claude-plugins-official": true,
-    "code-simplifier@claude-plugins-official": true,
-    "feature-dev@claude-plugins-official": true,
-    "ralph-loop@claude-plugins-official": true,
-    "ponytail@ponytail": true,
-    "security-guidance@claude-plugins-official": true,
-    "claude-seo@agricidaniel-claude-seo": false
-  },
-  "extraKnownMarketplaces": {
-    "thedotmack": {
-      "source": {
-        "source": "github",
-        "repo": "thedotmack/claude-mem"
-      }
-    },
-    "ponytail": {
-      "source": {
-        "source": "github",
-        "repo": "DietrichGebert/ponytail"
-      }
-    },
-    "agricidaniel-claude-seo": {
-      "source": {
-        "source": "github",
-        "repo": "AgriciDaniel/claude-seo"
-      }
-    }
-  },
-  "spinnerTipsEnabled": false,
-  "alwaysThinkingEnabled": true,
-  "modelSettings": {
-    "claude-opus-5": {
-      "effortLevel": "medium"
-    },
-    "claude-opus-4-8": {
-      "effortLevel": "medium"
-    },
-    "claude-sonnet-5": {
-      "effortLevel": "medium"
-    },
-    "claude-opus-5-5": {
-      "effortLevel": "medium"
-    }
-  },
-  "tui": "fullscreen",
-  "theme": "dark-daltonized",
-  "agentPushNotifEnabled": false,
-  "skipAutoPermissionPrompt": true,
-  "voiceEnabled": false,
-  "claudeMdExcludes": [
-    "/home/santiago/.claude/rules/ecc/**"
-  ],
-  "autoCompactWindow": 700000,
   "skillOverrides": {
     "figma-code-connect": "name-only",
     "figma-create-new-file": "name-only",
@@ -468,5 +266,237 @@
     "worktrees": "name-only",
     "wrangler": "name-only",
     "writing-skills": "name-only"
-  }
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /home/santiago/.claude/hooks/claude-mem-install.sh"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/home/santiago/.claude/hooks/gsd-check-update.js\""
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /home/santiago/.claude/hooks/gsd-session-state.sh"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "setsid nohup bash /home/santiago/.claude/scripts/chroma-reaper.sh >/dev/null 2>&1 < /dev/null &"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|Edit|Write|MultiEdit|Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/home/santiago/.claude/hooks/gsd-context-monitor.js\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /home/santiago/.claude/hooks/gsd-phase-boundary.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/error-detector.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /home/santiago/.claude/hooks/block-destructive.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/home/santiago/.claude/hooks/gsd-prompt-guard.js\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/home/santiago/.claude/hooks/gsd-workflow-guard.js\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /home/santiago/.claude/hooks/gsd-validate-commit.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/injection-guard.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/permission-floor.py"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/auto-approve-safe.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "mcp__",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/santiago/.claude/skills/jjstack/hooks/mcp-reconnect.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/santiago/.claude/skills/gstack/hosts/claude/hooks/timeline-stop-hook",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/santiago/.local/share/hookgate-stop.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash /home/santiago/.claude/skills/jjstack/bin/statusline.sh"
+  },
+  "enabledPlugins": {
+    "claude-mem@thedotmack": true,
+    "superpowers@claude-plugins-official": true,
+    "clangd-lsp@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true,
+    "ralph-loop@claude-plugins-official": true,
+    "ponytail@ponytail": true,
+    "security-guidance@claude-plugins-official": true,
+    "claude-seo@agricidaniel-claude-seo": false
+  },
+  "extraKnownMarketplaces": {
+    "thedotmack": {
+      "source": {
+        "source": "github",
+        "repo": "thedotmack/claude-mem"
+      }
+    },
+    "ponytail": {
+      "source": {
+        "source": "github",
+        "repo": "DietrichGebert/ponytail"
+      }
+    },
+    "agricidaniel-claude-seo": {
+      "source": {
+        "source": "github",
+        "repo": "AgriciDaniel/claude-seo"
+      }
+    }
+  },
+  "spinnerTipsEnabled": false,
+  "alwaysThinkingEnabled": true,
+  "modelSettings": {
+    "claude-opus-5": {
+      "effortLevel": "medium"
+    },
+    "claude-opus-4-8": {
+      "effortLevel": "medium"
+    },
+    "claude-sonnet-5": {
+      "effortLevel": "medium"
+    },
+    "claude-opus-5-5": {
+      "effortLevel": "medium"
+    }
+  },
+  "autoCompactWindow": 700000,
+  "tui": "fullscreen",
+  "claudeMdExcludes": [
+    "/home/santiago/.claude/rules/ecc/**"
+  ],
+  "theme": "dark-daltonized",
+  "agentPushNotifEnabled": false,
+  "skipAutoPermissionPrompt": true,
+  "voiceEnabled": false,
+  "inputNeededNotifEnabled": true
 }
