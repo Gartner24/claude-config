@@ -434,6 +434,17 @@
           }
         ]
       }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "paplay /usr/share/sounds/ocean/stereo/outcome-success.oga",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   },
   "statusLine": {
@@ -495,8 +506,8 @@
     "/home/santiago/.claude/rules/ecc/**"
   ],
   "theme": "dark-daltonized",
+  "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": false,
   "skipAutoPermissionPrompt": true,
-  "voiceEnabled": false,
-  "inputNeededNotifEnabled": true
+  "voiceEnabled": false
 }
