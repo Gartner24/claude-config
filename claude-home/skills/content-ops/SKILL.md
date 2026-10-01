@@ -33,11 +33,26 @@ Sell "getting found," not "writing blogs." Per MONTHLY-OPS-GUIDE sec. 2:
 2. **Get the expertise.** Interview the client (prompt: *"ask me anything you'd need to write a truly
    helpful, unique answer - my experience, examples, opinions; 10 questions, one at a time"*). Makes it
    theirs, not generic.
-3. **Draft** with voice-dna + anti-ai-writing. Genuinely helpful, answer-first, specific.
-4. **Optimize** per SEO-GUIDE: Article/BlogPosting JSON-LD, `dateModified`, real image + alt (use the
+3. **Draft** with voice-dna + anti-ai-writing. Genuinely helpful, answer-first, specific. Anything that
+   needs a real number, story, price or credential the interview did not supply becomes an inline
+   `[EXPERTISE GAP: <specific question for the client>]` - never invented. The client fills every gap
+   before publish.
+   - **List format?** Only if the query wants one (top results are lists); otherwise the guide or
+     comparison shape. Each item: a descriptive H2 that states the point + a self-contained first line
+     that can be lifted alone. Cut shallow items. One honest list, never "best X for Y" variants.
+4. **Review the draft before optimizing.**
+   - Information gain: tag each major point CONSENSUS (on every page for the query), PARTIAL (common point,
+     one specific detail) or ORIGINAL (first-hand, own data, expert take). Compress consensus, expand
+     partials with the client's specifics, and front-load the original value. Mostly consensus with no
+     first-hand input = go back to step 2, do not rewrite the words.
+   - Pre-publish warning signs (any one present = fix first): made mainly for search engines; off the
+     site's focus or outside the client's expertise; mostly summarising others; chasing a trend outside the
+     audience; leaves the reader needing to search again; written to a word count; promises an answer that
+     does not exist; dates changed or content shuffled only to look fresh.
+5. **Optimize** per SEO-GUIDE: Article/BlogPosting JSON-LD, `dateModified`, real image + alt (use the
    `nano-banana` skill for imagery).
-5. **Internal links:** 3 from the new post to money/service pages, 1-2 from existing pages into it.
-6. **Publish -> ping IndexNow -> confirm rendered in HTML** (not JS-only).
+6. **Internal links:** 3 from the new post to money/service pages, 1-2 from existing pages into it.
+7. **Publish -> ping IndexNow -> confirm rendered in HTML** (not JS-only).
 
 ## Tools
 - **voice-dna** (skill) - build a `voice-dna.md` per client from ~20 of their samples. If none, capture
