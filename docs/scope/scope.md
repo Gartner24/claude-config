@@ -22,7 +22,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 1 | Runner stack and layout | Foundation | done |
 | 2 | Scope contract for the runner | Foundation | in-progress |
 | 3 | `next <repo>` | Release 1 | done |
-| 4 | Headless step loop | Release 2 | planned |
+| 4 | Headless step loop | Release 2 | in-progress |
 | 5 | Decision parking and phone pings | Release 2 | planned |
 | 6 | Standing answers | Release 2 | planned |
 | 7 | Headless verify and test | Release 2 | planned |
@@ -66,7 +66,7 @@ The fields the runner reads: the hub `Repos` column (replaces `**Repo:**`), `**S
 - [ ] Build it: `/develop scope contract for the runner`
    - [x] Rule file `scope-contract.md`, synced, in `NOTICE.md` (AC-4 to AC-9)
    - [x] Header check in `wf.py` with warnings on every path, fixtures and tests (AC-1, AC-2, AC-3, AC-5, AC-7)
-   - [ ] Manual `/scope` replan, headless `/scope`, `/architect` queue check (AC-10)
+   - [ ] Manual `/scope` replan, headless `/scope`, `/architect` queue check (AC-10); replan, headless and the `· auto` write pass; the no tag half waits on the next `/architect` capture done without a queue request
 - [ ] Verify it: `/check verify scope contract for the runner`
 - [ ] Test it: `/test scope contract for the runner`
 Spec [0003](../specs/0003-scope-contract/index.md) · code in `rules/scope-contract.md`, `runner/wf.py`, `runner/tests/`
@@ -89,10 +89,19 @@ Spec [0002](../specs/0002-next-repo-command/index.md) · code in `runner/wf.py`,
 
 ## Release 2: one feature unattended
 
-### 4. Headless step loop · needs a decision
+### 4. Headless step loop · in-progress · auto
 Run each box as a fresh `claude -p` call inside the repo, recompute the next box from the files after each one, and stop after `/sync`. Per call budget, wall clock and run caps, a lock per repo, `nosleep` on for the run, a clean stop on SIGINT.
 **Done when:** one feature runs from `/develop` to `/sync` with no typing, a second run on the same repo is refused, and the caps stop a runaway run.
-- [ ] Design it (spec): `/architect headless step loop`
+- [x] Design it (spec): `/architect headless step loop`
+- [ ] Build it: `/develop headless step loop`
+   - [ ] `wf run` loop: resolve, start checks, confirm, call, classify, `/sync`, output, exit codes (AC-1 to AC-7, AC-11, AC-14)
+   - [ ] Lock and run record (AC-9, AC-10)
+   - [ ] Caps and call timeout (AC-8)
+   - [ ] Signals, inhibitor, branch drift, cleanup on every path (AC-12, AC-13)
+   - [ ] Manual real claude checks in `verify.md` (AC-15)
+- [ ] Verify it: `/check verify headless step loop`
+- [ ] Test it: `/test headless step loop`
+Spec [0004](../specs/0004-headless-step-loop/index.md)
 
 ### 5. Decision parking and phone pings · needs a decision
 A hook on `AskUserQuestion` answers safe panels with the recommended option and parks real decisions; you get the question on your phone and the session resumes with your reply.
