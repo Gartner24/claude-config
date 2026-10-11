@@ -33,8 +33,10 @@ Located in `~/.claude/agents/`:
 | python-reviewer | Expert Python code reviewer specializing in PEP 8 compliance, Pythonic idioms, type hints, security, and... |
 | refactor-cleaner | Dead code cleanup and consolidation specialist |
 | regression-hunter | Hunt for regressions in a diff - behavior that worked before this change and stops working after it |
+| researcher | Read-only web and registry lookup |
 | rust-build-resolver | Rust build, compilation, and dependency error resolution specialist |
 | rust-reviewer | Expert Rust code reviewer specializing in ownership, lifetimes, error handling, unsafe usage, and... |
+| scout | Read-only code exploration and repo scanning |
 | security-reviewer | Security vulnerability detection and remediation specialist |
 | silent-failure-hunter | Review code for silent failures, swallowed errors, bad fallbacks, and missing error propagation |
 | tdd-guide | Test-Driven Development specialist enforcing write-tests-first methodology |

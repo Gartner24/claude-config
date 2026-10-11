@@ -34,6 +34,55 @@
 - Partial delivery presented as complete is the failure this prevents. It has cost
   real money.
 
+## Workflow (JSM skills + ours)
+State lives in repo files, never only in chat: `AGENTS.md`, `docs/scope/`, `docs/specs/`,
+`design.md`, `docs/reviews/`. In bot-reviewed team repos the same tree lives under a
+gitignored `.workflow/`. Full guide: ~/Documents/workflow-research/05-new-workflow.md.
+
+### Route by situation
+- Session start in a repo: run `/scope` with no argument and state where things stand.
+- Repo has no `AGENTS.md`: `/audit` first. No `docs/scope/`: `/scope` before feature work.
+- A load-bearing choice is unmade (stack, data model, provider, page design, feature
+  behavior): `/architect`. Never decide it inside a build.
+- Build a feature or fix scoped in the plan: `/develop`.
+- After `/develop`, follow the project tier from the scope header:
+  Prototype stop; Alpha `/check verify`; Beta + `/test`; GA + review + `/document`.
+  Run the chain yourself without asking, then `/sync`. Stop only on a failure, an owed
+  decision, or a step that pushes, merges, posts, or bills (`/review-stack`, `ultra`).
+  When the feature closes, run `/save-and-clear` and tell the user to type `/clear`.
+- UI changed: `/check verify` plus `design-gate`. New design or restyle: `design` pipeline.
+- Review: `## Review Rules` below decide the reviewer. Never `/check review`.
+- PR text: `/document pr`. Other prose: `/write`.
+- Bug, failing test, wrong behavior: `/debug`.
+- Feature closed: `/sync`, then stop and say: "Feature closed. Run /save-and-clear, then
+  start the next session with `<next command from /scope>`."
+
+### Decision gate (defines "clearly defined")
+A task is clearly defined only if every value it produces, computes or displays has a
+named source in a spec, `AGENTS.md`, or the request. Any value without one is an owed
+decision: stop and route to `/architect`, or record an `Assumed` spec if told to build
+anyway. Surface every `Assumed` spec before starting new work.
+
+### Todos
+- Repo work lives only in that repo's `docs/scope/`. No TODO.md, STATE.md or progress
+  files in repos; skills own the status lines.
+- Cross-repo work: hub scope at `~/projects/<area>/docs/scope/` (freelance, work).
+- Personal, non-code: `~/projects/docs/scope/scope.md`.
+- When the user lists todos in chat, put each one in the right scope with `/scope <item>`
+  instead of answering with a list.
+- Every scope row names its Source (GitHub issue, spec, review report, or the user's
+  message). When the source is an issue, link it, read it before planning or building, and
+  take the row's intent and Done when from what the issue actually asks, not a summary.
+
+### Context
+- Clear at boundaries (feature closed), not by token count.
+- Past ~150k tokens: finish the current step and suggest `/save-and-clear`.
+- Long single feature: suggest `/compact` mid build. Autocompact (700k) is a last resort.
+
+### Never in a repo
+`.gstack/`, `jjstack/`, `.superpowers/`, `.claude/settings.local.json`, `.design/run*.json`,
+review worktrees. If a tool creates one, it is globally ignored; do not commit it.
+
 ## Review Rules
 - State the bug. Show the fix. Stop.
 - No suggestions beyond the scope of the review.
@@ -54,7 +103,7 @@ target, never by habit:
   confidence gate, ending in APPROVE / CAUTION / REJECT. Hard budgets: 60 min, 4 agents,
   10 findings. Idempotent on purpose: same code in, same verdict out, and a re-review
   reports only regressions and new P0/P1. `--deep` forces recall-max. Report lands in
-  `{repo}/jjstack/`. **The default before landing - except in bot-reviewed repos (below).**
+  `~/.gstack/projects/<slug>/` (scratch stays out of the repo); copy only the final `review-YYYY-MM-DD.md` into `docs/reviews/`. **The default before landing - except in bot-reviewed repos (below).**
 - `/jj-security-review` - jjstack's security pass. **Renamed from `/security-review` in
   jjstack 0.40.2 (pulled 2026-09-09)** specifically so Claude Code's own built-in
   `/security-review` stays reachable - the built-in has no other name. So: `/security-review`
@@ -78,7 +127,9 @@ target, never by habit:
   review-stack pre-push hook in these repos. Decide by `git remote get-url origin`, not the
   folder name.
 - **Everything else - my own and freelance repos - default before landing: `/review`.**
-  Budgeted, converges, cheap enough to re-run.
+  Budgeted, converges, cheap enough to re-run. When it finishes, copy its final
+  `review-YYYY-MM-DD.md` into `docs/reviews/`; no
+  other jjstack file enters a repo.
 - `/code-review` alone is enough when ALL hold: under ~200 lines and ~10 files, nothing
   touching auth/payments/migrations/deletion/permissions/crypto/config, no contract change
   (exported signature, API field, DB column, enum, env var, CLI flag), no test deleted or
@@ -153,4 +204,4 @@ When the user types `/graphify`, use the installed graphify skill or instruction
 
 ## Superpowers
 - Ignore the "1% chance -> must invoke" rule. Invoke a skill only when it clearly matches the task.
-- For review, planning, QA and done-checks use jjstack (/review, /jj-plan, /qa, verify-before-done); use superpowers for systematic-debugging, subagent-driven-development and dispatching-parallel-agents.
+- Use superpowers only for subagent-driven-development and dispatching-parallel-agents. Planning, building, verifying and debugging follow `## Workflow` above.

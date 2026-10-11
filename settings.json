@@ -56,6 +56,7 @@
     ],
     "defaultMode": "auto"
   },
+  "model": "opus[1m]",
   "skillOverrides": {
     "figma-code-connect": "name-only",
     "figma-create-new-file": "name-only",
@@ -294,6 +295,16 @@
         ]
       },
       {
+        "matcher": "startup|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /home/santiago/.claude/hooks/workflow-start.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
         "hooks": [
           {
             "type": "command",
@@ -452,7 +463,7 @@
     "command": "bash /home/santiago/.claude/skills/jjstack/bin/statusline.sh"
   },
   "enabledPlugins": {
-    "claude-mem@thedotmack": true,
+    "claude-mem@thedotmack": false,
     "superpowers@claude-plugins-official": true,
     "clangd-lsp@claude-plugins-official": true,
     "frontend-design@claude-plugins-official": true,
@@ -462,7 +473,8 @@
     "ralph-loop@claude-plugins-official": true,
     "ponytail@ponytail": true,
     "security-guidance@claude-plugins-official": true,
-    "claude-seo@agricidaniel-claude-seo": false
+    "claude-seo@agricidaniel-claude-seo": false,
+    "watch@claude-video": true
   },
   "extraKnownMarketplaces": {
     "thedotmack": {
@@ -482,10 +494,26 @@
         "source": "github",
         "repo": "AgriciDaniel/claude-seo"
       }
+    },
+    "claude-video": {
+      "source": {
+        "source": "github",
+        "repo": "bradautomates/claude-video"
+      }
     }
   },
   "spinnerTipsEnabled": false,
   "alwaysThinkingEnabled": true,
+  "autoCompactWindow": 700000,
+  "tui": "fullscreen",
+  "claudeMdExcludes": [
+    "/home/santiago/.claude/rules/ecc/**"
+  ],
+  "theme": "dark-daltonized",
+  "inputNeededNotifEnabled": true,
+  "agentPushNotifEnabled": false,
+  "skipAutoPermissionPrompt": true,
+  "voiceEnabled": false,
   "modelSettings": {
     "claude-opus-5": {
       "effortLevel": "medium"
@@ -499,15 +527,5 @@
     "claude-opus-5-5": {
       "effortLevel": "medium"
     }
-  },
-  "autoCompactWindow": 700000,
-  "tui": "fullscreen",
-  "claudeMdExcludes": [
-    "/home/santiago/.claude/rules/ecc/**"
-  ],
-  "theme": "dark-daltonized",
-  "inputNeededNotifEnabled": true,
-  "agentPushNotifEnabled": false,
-  "skipAutoPermissionPrompt": true,
-  "voiceEnabled": false
+  }
 }

@@ -38,7 +38,7 @@ None yet. When they exist: `docs/specs/NNNN-title.md`.
 - Two kinds of file. `skills/` and `commands/` are symlinked into `~/.claude`, so editing here is live. `CLAUDE.md`, `settings*.json`, `agents/`, `rules/`, `hooks/block-destructive.sh`, `hooks/review-stack-pre-push`, `scripts/chroma-reaper.sh` are copies: edit the live file in `~/.claude`, then `./sync.sh`. An edit made here is overwritten on the next sync.
 - `runner/` is a third kind: `wf`, the workflow runner (spec 0001). `install.sh` symlinks `runner/wf.py` to `~/.local/bin/wf`, so edit it here. Python 3 stdlib only, tests are `unittest`, external commands go through `subprocess` with argument lists, never a shell string.
 - This repo is public. No client or employer names, repo names, domains, or env-file names. `sync.sh` strips `autoMode` from settings.json; client skills are gitignored.
-- Do not edit vendored trees: `agents/` (27 of 29 from ECC), `rules/ecc/` (except the 7 `index.md` and the local additions in `common/code-review.md`, `common/testing.md`), `skills/anti-ai-writing/`. Provenance lives in `NOTICE.md`; update it when adding an authored or redistributed path.
+- Do not edit vendored trees: `agents/` (27 of 31 from ECC), `rules/ecc/` (except the 7 `index.md` and the local additions in `common/code-review.md`, `common/testing.md`), `skills/anti-ai-writing/`. Provenance lives in `NOTICE.md`; update it when adding an authored or redistributed path.
 - ASCII only in repo-owned markdown: no em dashes, smart quotes, Unicode bullets.
 - Conventional Commits (`feat(scope):`, `fix(scope):`, `chore:`, `docs:`); a gsd hook enforces the format.
 - Comments explain why, usually naming the past failure ("this used to..."). Keep that style when fixing a script.
