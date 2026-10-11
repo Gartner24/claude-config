@@ -93,15 +93,15 @@ Spec [0002](../specs/0002-next-repo-command/index.md) · code in `runner/wf.py`,
 Run each box as a fresh `claude -p` call inside the repo, recompute the next box from the files after each one, and stop after `/sync`. Per call budget, wall clock and run caps, a lock per repo, `nosleep` on for the run, a clean stop on SIGINT.
 **Done when:** one feature runs from `/develop` to `/sync` with no typing, a second run on the same repo is refused, and the caps stop a runaway run.
 - [x] Design it (spec): `/architect headless step loop`
-- [ ] Build it: `/develop headless step loop`
-   - [ ] `wf run` loop: resolve, start checks, confirm, call, classify, `/sync`, output, exit codes (AC-1 to AC-7, AC-11, AC-14)
-   - [ ] Lock and run record (AC-9, AC-10)
-   - [ ] Caps and call timeout (AC-8)
-   - [ ] Signals, inhibitor, branch drift, cleanup on every path (AC-12, AC-13)
-   - [ ] Manual real claude checks in `verify.md` (AC-15)
-- [ ] Verify it: `/check verify headless step loop`
+- [x] Build it: `/develop headless step loop`
+   - [x] `wf run` loop: resolve, start checks, confirm, call, classify, `/sync`, output, exit codes (AC-1 to AC-7, AC-11, AC-14)
+   - [x] Lock and run record (AC-9, AC-10)
+   - [x] Caps and call timeout (AC-8)
+   - [x] Signals, inhibitor, branch drift, cleanup on every path (AC-12, AC-13)
+   - [x] Manual real claude checks in `verify.md` (AC-15)
+- [x] Verify it: `/check verify headless step loop`
 - [ ] Test it: `/test headless step loop`
-Spec [0004](../specs/0004-headless-step-loop/index.md)
+Spec [0004](../specs/0004-headless-step-loop/index.md) · code in `runner/run.py`, `runner/wf.py`, `runner/tests/test_run.py`
 
 ### 5. Decision parking and phone pings · needs a decision
 A hook on `AskUserQuestion` answers safe panels with the recommended option and parks real decisions; you get the question on your phone and the session resumes with your reply.

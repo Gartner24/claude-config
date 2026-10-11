@@ -2,6 +2,7 @@
 # The workflow runner (spec 0001). Stdlib only, so a fresh clone works with no
 # install step. Subcommands land per release: `next` in Release 1, `run` later.
 import argparse
+import math
 import os
 import re
 import shlex
@@ -63,6 +64,16 @@ def uncomment(text):
 
 
 def header_warnings(text):
+    return read_header(text)[1]
+
+
+def header_values(text):
+    """{"source of truth": value, "autopilot": value}, defaults filled in."""
+    return read_header(text)[0]
+
+
+def read_header(text):
+    values = {k: f[2] for k, f in HEADER_FIELDS.items()}
     seen, warnings, fence = set(), [], None
     for line in uncomment(text).splitlines():
         s = line.strip()
@@ -88,9 +99,11 @@ def header_warnings(text):
             continue
         seen.add(key)
         value = (m.group(2).split() or [""])[0].strip(".,;:!?()[]*_\"'").lower()
-        if value not in valid:
+        if value in valid:
+            values[key] = value
+        else:
             warnings.append(f"unknown {name} value '{clean(value)}', using {default}")
-    return warnings
+    return values, warnings
 
 
 def parse_text(text):
@@ -246,41 +259,46 @@ def find_scope(path):
     return found[0], warnings
 
 
+def epics(folder, text, warnings):
+    real_folder, seen = os.path.realpath(folder), []
+    for link in LINK.findall(text):
+        target = link.split("#", 1)[0]
+        if not target or "://" in target or target.startswith("mailto:") or not target.endswith(".md"):
+            continue
+        f = os.path.realpath(os.path.join(folder, target))
+        if not f.startswith(real_folder + os.sep) or f in seen:
+            continue
+        seen.append(f)
+        if os.path.isfile(f):
+            yield f
+        else:
+            warnings.append(f"missing epic file {clean(target)}")
+
+
+def load_scope(folder, warnings):
+    """(top file text, boxes). Raises StopIteration or OSError when the scope is gone."""
+    main = next(os.path.join(folder, f) for f in SCOPE_FILES if os.path.isfile(os.path.join(folder, f)))
+    text = read(main)
+    if not main.endswith("index.md"):
+        return text, parse_text(text)
+    boxes = []
+    for f in epics(folder, text, warnings):
+        boxes += parse_text(read(f))
+    return text, boxes
+
+
 class Candidate:
     def __init__(self, path, scope_dir, warnings):
         self.path, self.scope_dir, self.warnings = path, scope_dir, warnings
         self.name = clean(os.path.basename(path))
         self.label = worktree_label(path)
-        folder = os.path.join(path, scope_dir)
-        main = next(os.path.join(folder, f) for f in SCOPE_FILES if os.path.isfile(os.path.join(folder, f)))
-        self.text = read(main)
+        self.text, boxes = load_scope(os.path.join(path, scope_dir), self.warnings)
         first = next((l for l in self.text.splitlines() if l.startswith("#")), "")
         self.title = first[len("# Scope:"):].strip() if first.startswith("# Scope:") else None
-        if main.endswith("index.md"):
-            boxes = []
-            for f in self.epics(folder):
-                boxes += parse_text(read(f))
-        else:
-            boxes = parse_text(self.text)
         self.is_hub = not boxes
         if not self.is_hub:
             self.warnings += header_warnings(self.text)
         self.next = pick_next(boxes)
-
-    def epics(self, folder):
-        real_folder, seen = os.path.realpath(folder), []
-        for link in LINK.findall(self.text):
-            target = link.split("#", 1)[0]
-            if not target or "://" in target or target.startswith("mailto:") or not target.endswith(".md"):
-                continue
-            f = os.path.realpath(os.path.join(folder, target))
-            if not f.startswith(real_folder + os.sep) or f in seen:
-                continue
-            seen.append(f)
-            if os.path.isfile(f):
-                yield f
-            else:
-                self.warnings.append(f"missing epic file {clean(target)}")
 
     def display_name(self):
         return f"{self.name} ({self.label})" if self.label else self.name
@@ -390,21 +408,28 @@ def open_sessions(path, proc="/proc"):
     return count
 
 
-def launch(c, yes):
+def no_start(c):
+    """Exit code when there is nothing to start (spec 0002 AC-6, AC-7), else None."""
     nb = c.next
     if nb is None:
         print(f"nothing to run in {c.name}")
         if c.is_hub:
             for row in open_rows(c.text):
                 print(f"  {row}")
-        for w in c.warnings:
-            print(f"warning: {w}")
-        return 0
-    if not nb.command:
+    elif not nb.command:
         print(f"no command in this box, run it yourself: {nb.box_text}")
-        for w in c.warnings:
-            print(f"warning: {w}")
-        return 3
+    else:
+        return None
+    for w in c.warnings:
+        print(f"warning: {w}")
+    return 0 if nb is None else 3
+
+
+def launch(c, yes):
+    nb = c.next
+    rc = no_start(c)
+    if rc is not None:
+        return rc
     if not shutil.which("claude"):
         print("claude not found on PATH", file=sys.stderr)
         return 1
@@ -445,32 +470,41 @@ def launch(c, yes):
     os.execvp("claude", ["claude", nb.command])
 
 
+def resolve(args):
+    """(candidate, None), or (None, exit code)."""
+    if args.target:
+        p = os.path.expanduser(args.target)
+        c = make_candidate(p) if os.path.isdir(p) else None
+        if c is not None:
+            return c, None
+        matches = match(discover(), args.target)
+        if not matches:
+            print(f"no scope matches '{args.target}'", file=sys.stderr)
+            return None, 1
+        return (matches[0], None) if len(matches) == 1 else pick(matches)
+    c = from_cwd()
+    return (c, None) if c else pick(discover())
+
+
 def cmd_next(args):
     if args.list:
         for c in sorted(discover(), key=lambda c: (c.name.lower(), c.label)):
             print("\t".join(c.columns()))
         return 0
-    c = None
-    if args.target:
-        p = os.path.expanduser(args.target)
-        c = make_candidate(p) if os.path.isdir(p) else None
-        if c is None:
-            matches = match(discover(), args.target)
-            if not matches:
-                print(f"no scope matches '{args.target}'", file=sys.stderr)
-                return 1
-            c = matches[0] if len(matches) == 1 else None
-            if c is None:
-                c, rc = pick(matches)
-                if c is None:
-                    return rc
-    else:
-        c = from_cwd()
-        if c is None:
-            c, rc = pick(discover())
-            if c is None:
-                return rc
-    return launch(c, args.yes)
+    c, rc = resolve(args)
+    return rc if c is None else launch(c, args.yes)
+
+
+def positive(kind):
+    def parse(s):
+        try:
+            v = kind(s)
+        except ValueError:
+            raise argparse.ArgumentTypeError(f"not a number: {s}")
+        if not math.isfinite(v) or v <= 0:
+            raise argparse.ArgumentTypeError(f"must be a positive finite number: {s}")
+        return v
+    return parse
 
 
 def build_parser():
@@ -480,6 +514,13 @@ def build_parser():
     nxt.add_argument("target", nargs="?", help="a path, folder name or scope title")
     nxt.add_argument("-y", "--yes", action="store_true", help="launch without the confirm prompt")
     nxt.add_argument("--list", action="store_true", help="print every repo's next step and exit")
+    run = sub.add_parser("run", help="build one feature unattended, a fresh claude -p call per box")
+    run.add_argument("target", nargs="?", help="a path, folder name or scope title")
+    run.add_argument("-y", "--yes", action="store_true", help="start without the confirm prompt")
+    run.add_argument("--budget", type=positive(float), default=20, help="USD per call (default 20)")
+    run.add_argument("--call-timeout", type=positive(float), default=60, help="minutes per call (default 60)")
+    run.add_argument("--max-calls", type=positive(int), default=20, help="calls per run (default 20)")
+    run.add_argument("--max-hours", type=positive(float), default=8, help="hours per run (default 8)")
     return parser, nxt
 
 
@@ -494,6 +535,9 @@ def main(argv=None):
     if args.command is None:
         parser.print_help(sys.stderr)
         return 2
+    if args.command == "run":
+        import run
+        return run.cmd_run(args)
     if args.list and (args.target or args.yes):
         nxt.error("--list takes no argument and no -y")
     return cmd_next(args)
