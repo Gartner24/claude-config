@@ -1,25 +1,11 @@
 # 0002. `next <repo>`: start a repo's next scope step in one command
 
 **Date**: 2026-10-11
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 
 `next <name>` finds a repo by a path, its folder name or its scope title, reads the first unticked box in its scope, and shows you one line: repo, branch, uncommitted files, feature and the exact command. Press Enter and it opens an interactive Claude session inside that repo, already running the command. With no name it uses the repo you are in, or offers a picker (fzf) of every repo with its next step. `wf next --list` prints that list without launching anything. It removes the `/clear`, the retyping and the wrong folder, which were the main hand steps in the research.
-
-## Context
-
-Every workflow step today ends with you typing `/clear`, then retyping the next command with its arguments. You also have to start the session in the right folder. The research counted 33 human touches to start one build, and its friction all had one cause. Sessions started in `~/.claude` while the work lived in `~/dotfiles`. Skills resolve `docs/scope`, `docs/specs` and `AGENTS.md` from the folder they start in, and nothing said which folder that was (section 1 of `~/Documents/workflow-research/09-autonomous-runner-research.md`).
-
-The next step is already written down: each scope's first unticked box is a command (`/architect x`, `/develop x`, `/check verify x`). Reading it is mechanical, but the real scopes have rough edges:
-- Status tags are written two ways (`· done` in claude-config, `(existing)` in dotfiles).
-- Milestones sit under an unticked `Build it` box, and some carry wait notes ("after its branch is merged").
-- Team repos keep the scope in `.workflow/scope/` instead of `docs/scope/`.
-- Hub scopes (`~/projects`, `~/projects/freelance`, `~/projects/work`) have rows but no command boxes.
-
-A scan found 25 scopes on disk, the deepest at ~/projects/freelance/<client>/<site> (three levels below ~/projects), under `~`, `~/projects/personal`, `~/projects/freelance` and `~/projects/work`.
-
-The runner stack is decided in [spec 0001](0001-runner-stack-and-layout.md): `runner/wf.py`, stdlib Python, `next` as a shortcut for `wf next`. Feature 2 (the scope contract) will later add `Repo`, `Source of truth` and `Autopilot` header fields. This spec does not need them; it reads the scopes as they are written today.
 
 ## Requirements
 
@@ -33,7 +19,7 @@ The runner stack is decided in [spec 0001](0001-runner-stack-and-layout.md): `ru
 - **AC-3**: The argument is a path when it names an existing folder that holds a scope (`next .`, `next ~/x`). That folder is used directly, even outside the roots. Otherwise it is a name, matched case insensitively against each candidate's folder name and its scope title (the text after `# Scope:` on the first heading). Exact matches win over substring matches. One match is used directly. Several matches open fzf over just those. No match prints `no scope matches '<name>'` and exits 1.
 - **AC-4**: `next` with no argument looks at the current folder, then each parent in turn, and uses the first one that is a candidate and not a hub. Finding none, it opens fzf over all candidates. Cancelling fzf, here or in AC-3, exits 0 and launches nothing.
 - **AC-5**: Boxes are lines matching `^\s*[-*+]\s+\[([ xX])\]`. A space inside the brackets means open, `x` or `X` means ticked. The next box is the first open box in file order. These are never read: HTML comments (which may span lines), fenced code blocks, and everything from a `## Deferred` heading to the next `##` heading. A box also counts as gone when its feature is done, existing or dropped. Its feature is the nearest `###` heading above it. Any heading of level 1, 2 or 3 starts a new feature context, so a `##` heading clears the previous `###`. A feature is done, existing or dropped when its heading carries that word as a whole tag: case insensitive, either inside parentheses (`(done)`) or as a `·` segment (`· done`, ending at the next `·` or the line end). `(done criteria)` is not a tag. For an `index.md`, its own boxes are ignored. The epic files are its relative `.md` links that resolve inside the scope folder, read once each in first link order. URLs, anchors and links outside the folder are ignored. A linked epic file that is missing adds a warning, and reading goes on.
-- **AC-6**: The command is the first backticked span in the box matching `^/[a-z][\w:-]*(\s|$)`. So `/etc/keyd` is not a command and `/develop x` is. A milestone is an open box with more leading whitespace (tabs and spaces both count) than the nearest box above it. Its parent is the nearest box above it with less leading whitespace. An open milestone runs its parent's command and shows its own text as the note. When the chosen box is a parent with open milestones under it, the first open milestone becomes the note. A note containing `after` or `waits on` as a word is marked `waiting:`. A top level box with no command prints `no command in this box, run it yourself` and exits 3 with no session, `-y` or not.
+- **AC-6**: The command is the first backticked span in the box matching `^/[a-z][\w:-]*(\s|$)`. So `/etc/keyd` is not a command and `/develop x` is. A milestone is an open box that has a parent. Parents come from a stack of the boxes read so far: before a box is pushed, every box on the stack with the same or more leading whitespace (tabs and spaces both count) is popped, and the box left on top is its parent. Any heading of level 1, 2 or 3 empties the stack. So sibling milestones at the same indent share one parent, even though the box just above a later sibling is not less indented. An open milestone runs its parent's command and shows its own text as the note. When the chosen box is a parent with open milestones under it, the first open milestone becomes the note. A note containing `after` or `waits on` as a word is marked `waiting:`. A top level box with no command prints `no command in this box, run it yourself` and exits 3 with no session, `-y` or not.
 - **AC-7**: A scope with no open box prints `nothing to run in <name>` and exits 0 with no session. This includes a brownfield scope that only has `existing` rows. A hub is a scope with no box lines at all. For a hub it also prints its At a glance rows that are still open: the last table cell, lowercased, whose first word is not done, dropped or existing.
 - **AC-8**: Before launching, one line shows:
   - the name and label, and the git branch (`detached <short sha>`, `no commits`, or `no git` when there is no branch to show)
@@ -50,46 +36,11 @@ The runner stack is decided in [spec 0001](0001-runner-stack-and-layout.md): `ru
 - **AC-15**: A manual check against the real `claude` binary confirms that `claude "/develop x"` opens an interactive session with that slash command running. It is recorded in the verify step, since every automated test uses a fake `claude`.
 - **AC-16**: Launch mode. When `$TMUX` is set, `next` does not exec. It runs `tmux new-window -c <candidate path> -n <name> claude <command>` as an argument list (tmux runs a multi argument command directly, with no shell), prints `opened tmux window <name>`, and exits 0, so the calling shell or Claude session stays where it is. When `$TMUX` is unset and stdin is a terminal, it execs as in AC-9. When `$TMUX` is unset and stdin is not a terminal, it launches nothing, prints `cd <candidate path> && claude <command>` with the command shell quoted, and exits 4. In every mode, when stdin is not a terminal the confirm line (AC-8) is printed and `-y` is required to launch; without `-y` it exits 130.
 
-## Options considered
-
-### Option 1: Discover scopes by scanning, fzf for choices (chosen)
-Scan fixed roots for scope folders, match by folder name or title, read the box with a lenient parser, confirm on one line.
-
-**Pros**:
-- Nothing to maintain; a new repo shows up on its own.
-- Works with scopes as written today, both tag styles and both bases.
-
-**Cons**:
-- A repo outside the roots is invisible until `WF_ROOTS` is set.
-- The lenient parser can misread a scope written in an unusual style.
-
-### Option 2: A registry file of name to path
-`~/.config/wf/repos` maps each name to a folder.
-
-**Pros**:
-- Exact and fast; no scan or guessing.
-
-**Cons**:
-- Every new repo needs a hand edit, and a forgotten one fails silently as "no match".
-
-### Option 3: Paths in the hub scopes
-Add a path column to the hub tables and read repos from there.
-
-**Pros**:
-- One place lists all work, which the later queue features want.
-
-**Cons**:
-- Depends on the scope contract (feature 2), which is not designed yet, and hubs today list repos by name only.
-
 ## Decision
 
 **Chosen option**: Option 1: Discover scopes by scanning, fzf for choices
 
 `wf next` scans the roots, matches a name to a scope, finds the first unticked box, shows one confirm line, and runs `claude <command>` inside the repo.
-
-## Rationale
-
-The research's main friction was the wrong folder, and every fix that needs you to keep a list is the same failure in a new place. Scanning removes the list (basis: research section 1, the wrong folder friction). It is cheap at this size: about 25 scopes, three levels deep, read in milliseconds. Reading the first unticked box in file order is exactly the documented rule ("Next step = the first unticked box", `scope-template.md`), so `next` agrees with what `/scope` and `/develop` already say. The confirm line (basis: confirm before an action that starts paid work) costs one key press and catches the two expensive mistakes: a wrong match, and a dirty tree or wrong branch before a session starts work. Hubs are included because you asked for it. Their rows are shown rather than run, since hub rows are not commands.
 
 ## Feature design
 
@@ -186,21 +137,4 @@ Skateboard: the first milestone is already usable on its own (`next <exact name>
 
 - [ ] Feature 2 (scope contract): decide whether hubs get paths, whether `/scope` should write status tags in one style so the parser can drop the second regex branch, and the syntax for a skipped box (the template mentions "skipped" boxes but defines no marker, so `next` treats them as open today).
 
-## References
-
-**Project sources**:
-- [Spec 0001](0001-runner-stack-and-layout.md) (stack, layout, `next` shortcut)
-- `~/Documents/workflow-research/09-autonomous-runner-research.md` sections 0, 1, 2 (stage 1, the wrong folder friction, next step = first unticked box)
-- `~/.claude/skills/scope/scope-template.md` (next step rule, heading tags)
-- `~/dotfiles/docs/scope/scope.md` (the `(existing)` tag style and milestone wait note)
-- `docs/scope/scope.md` row 3
-
-**Practices & standards**:
-- Confirm before an action that starts paid work
-- Pass external commands as argument lists, never through a shell
-
-**Links**:
-- Claude Code CLI reference (`claude "query"` starts an interactive session with an initial prompt): https://code.claude.com/docs/en/cli-reference
-- git worktree (`list --porcelain` record format, the `.git` pointer in a linked worktree): https://git-scm.com/docs/git-worktree
-- fzf man page (reads stdin, prints the pick; exit 130 on Ctrl C or Esc, 1 on no match): https://raw.githubusercontent.com/junegunn/fzf/master/man/man1/fzf.1
-- `/proc/<pid>/cwd` (the proc_pid_cwd(5) man page): found by search but not fetched, so cited by name only
+Decision record (context, options, rationale, references): [rationale.md](rationale.md). Verify steps: [verify.md](verify.md).

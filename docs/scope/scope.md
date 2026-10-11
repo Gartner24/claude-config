@@ -69,14 +69,14 @@ From any folder, name a repo (a path, its folder name or its scope title, found 
 **Done when:** `next dotfiles` from `~/.claude` opens a session in `~/dotfiles` running its next box, and a repo with nothing left says so instead of starting a session.
 - [x] Design it (spec): `/architect next repo command`
 - [ ] Build it: `/develop next repo command`
-   - [ ] `wf next` and the `next` shortcut on the row 1 scaffold, missing tool checks (AC-13, AC-14)
-   - [ ] Discovery, path argument and name matching (AC-1, AC-3, AC-11)
-   - [ ] Box parser: tags, milestones, hubs, epics (AC-5, AC-6, AC-7)
-   - [ ] Confirm line and exec launch, session warning (AC-8, AC-9, AC-10, AC-16)
+   - [x] `wf next` and the `next` shortcut on the row 1 scaffold, missing tool checks (AC-13, AC-14)
+   - [x] Discovery, path argument and name matching (AC-1, AC-3, AC-11)
+   - [x] Box parser: tags, milestones, hubs, epics (AC-5, AC-6, AC-7)
+   - [x] Confirm line and exec launch, session warning (AC-8, AC-9, AC-10, AC-16)
    - [ ] fzf picker, worktrees, `--list`, manual real claude check (AC-2, AC-4, AC-12, AC-15)
 - [ ] Verify it: `/check verify next repo command`
 - [ ] Test it: `/test next repo command`
-Spec [0002](../specs/0002-next-repo-command.md)
+Spec [0002](../specs/0002-next-repo-command/index.md) · code in `runner/wf.py`, `runner/tests/`
 
 ## Release 2: one feature unattended
 

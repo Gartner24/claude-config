@@ -1,9 +1,27 @@
+import importlib.util
+import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 WF = Path(__file__).resolve().parent.parent / "wf.py"
+FIX = Path(__file__).resolve().parent / "fixtures"
+
+spec = importlib.util.spec_from_file_location("wf", WF)
+wf = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(wf)
+
+FAKE_CLAUDE = '#!/bin/sh\n{ pwd; for a in "$@"; do printf "%s\\n" "$a"; done; } > "$FAKE_OUT"\n'
+FAKE_TMUX = '#!/bin/sh\nfor a in "$@"; do printf "%s\\n" "$a"; done > "$FAKE_OUT"\n'
+FAKE_FZF = """#!/bin/sh
+first=""
+while IFS= read -r l; do printf '%s\\n' "$l" >> "$FZF_IN"; [ -z "$first" ] && first="$l"; done
+[ -n "$FZF_CANCEL" ] && exit 130
+printf '%s\\n' "$first"
+"""
 
 
 def run(*args):
@@ -23,6 +41,343 @@ class TestEntry(unittest.TestCase):
 
     def test_unknown_command_fails(self):
         self.assertNotEqual(run("bogus").returncode, 0)
+
+
+def parse(text):
+    return wf.pick_next(wf.parse_text(text))
+
+
+class TestParser(unittest.TestCase):
+    def test_open_parent_takes_first_open_milestone_as_waiting_note(self):
+        nb = parse((FIX / "dotfiles.md").read_text())
+        self.assertEqual(nb.command, "/develop repo layout and linking method")
+        self.assertEqual(nb.feature, "1. Repo layout and linking method")
+        self.assertIn("claude-config as a submodule", nb.note)
+        self.assertTrue(nb.waiting)
+
+    def test_milestone_under_ticked_parent_runs_parent_command(self):
+        nb = parse((FIX / "claude-config.md").read_text())
+        self.assertEqual(nb.command, "/develop next repo command")
+        self.assertEqual(nb.feature, "3. `next <repo>`")
+        self.assertIn("fzf picker", nb.note)
+        self.assertFalse(nb.waiting)
+
+    def test_status_tags_comments_fences_and_deferred(self):
+        text = """# Scope: x
+### 1. A · done
+- [ ] `/develop a`
+### 2. B (existing)
+- [ ] `/develop b`
+### 3. C (DROPPED)
+- [ ] `/develop c`
+### 4. D · done · GA
+- [ ] `/develop d`
+## Section
+- [ ] `/develop after-reset`
+"""
+        self.assertEqual(parse(text).command, "/develop after-reset")
+        self.assertIsNone(parse(text).feature)
+        text = """### 1. A (done criteria)
+- [ ] `/develop a`
+"""
+        self.assertEqual(parse(text).command, "/develop a")
+        text = """<!-- a comment
+- [ ] `/develop in-comment`
+-->
+```
+- [ ] `/develop in-fence`
+```
+## Deferred
+- [ ] `/develop deferred`
+## Next
+* [X] `/develop ticked`
++ [ ] `/develop real`
+"""
+        self.assertEqual(parse(text).command, "/develop real")
+        text = "## Deferred\n# Title\n### 1. A\n- [ ] `/develop still-deferred`\n## Next\n- [ ] `/develop real`\n"
+        self.assertEqual(parse(text).command, "/develop real")
+
+    def test_command_skips_paths_and_missing_command(self):
+        self.assertEqual(parse("- [ ] fix `/etc/keyd` then `/develop x`\n").command, "/develop x")
+        self.assertIsNone(parse("- [ ] call the vendor\n").command)
+        self.assertIsNone(parse("### 1. A\n- [x] `/develop a`\n### 2. B\n  - [ ] indented\n").command)
+
+    def test_tab_indented_milestone(self):
+        nb = parse("- [x] `/develop p`\n\t- [ ] waits on the merge\n")
+        self.assertEqual(nb.command, "/develop p")
+        self.assertTrue(nb.waiting)
+
+    def test_hub_rows(self):
+        rows = wf.open_rows((FIX / "hub.md").read_text())
+        self.assertEqual(len(rows), 2)
+        self.assertTrue(rows[0].startswith("1 | Decide"))
+        self.assertTrue(rows[1].startswith("3 | File"))
+
+
+class TestSessions(unittest.TestCase):
+    def test_counts_claude_in_and_below_repo_only(self):
+        with tempfile.TemporaryDirectory() as t:
+            repo = Path(t, "repo")
+            (repo / "sub").mkdir(parents=True)
+            proc = Path(t, "proc")
+            for pid, comm, cmd, cwd in [
+                ("1", "claude", b"claude\0", repo),
+                ("2", "claude", b"claude\0-c\0", repo / "sub"),
+                ("3", "claude", b"claude\0--chrome-native-host\0", repo),
+                ("4", "zsh", b"zsh\0", repo),
+                ("5", "claude", b"claude\0", Path(t)),
+            ]:
+                d = proc / pid
+                d.mkdir(parents=True)
+                (d / "comm").write_text(comm + "\n")
+                (d / "cmdline").write_bytes(cmd)
+                os.symlink(cwd, d / "cwd")
+            (proc / "self").mkdir()
+            self.assertEqual(wf.open_sessions(str(repo.resolve()), str(proc)), 2)
+
+
+class CliCase(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, self.tmp)
+        self.root = self.tmp / "root"
+        self.root.mkdir()
+        self.bin = self.tmp / "bin"
+        self.bin.mkdir()
+        self.out = self.tmp / "out"
+        self.fzf_in = self.tmp / "fzf_in"
+        self.fake("claude", FAKE_CLAUDE)
+        self.env = {
+            "HOME": str(self.tmp),
+            "WF_ROOTS": str(self.root),
+            "PATH": f"{self.bin}:/usr/bin:/bin",
+            "FAKE_OUT": str(self.out),
+            "FZF_IN": str(self.fzf_in),
+        }
+
+    def fake(self, name, body):
+        p = self.bin / name
+        p.write_text(body)
+        p.chmod(0o755)
+
+    def repo(self, rel, fixture, base="docs/scope", fname="scope.md"):
+        d = self.root / rel / base
+        d.mkdir(parents=True, exist_ok=True)
+        shutil.copy(FIX / fixture, d / fname)
+        return self.root / rel
+
+    def wf(self, *args, tty=False, stdin="", cwd=None, prog=WF, **env):
+        e = {**self.env, **env}
+        cmd = [sys.executable, str(prog), *args]
+        if not tty:
+            return subprocess.run(cmd, input=stdin, capture_output=True, text=True, env=e, cwd=cwd)
+        master, slave = os.openpty()
+        p = subprocess.Popen(cmd, stdin=slave, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=e, cwd=cwd)
+        os.close(slave)
+        os.write(master, stdin.encode())
+        out, err = p.communicate(timeout=20)
+        os.close(master)
+        return subprocess.CompletedProcess(cmd, p.returncode, out, err)
+
+    def launched(self):
+        return self.out.read_text().splitlines() if self.out.exists() else None
+
+
+class TestNext(CliCase):
+    def test_happy_path_execs_claude_in_repo(self):
+        repo = self.repo("dotfiles", "dotfiles.md")
+        r = self.wf("next", "dotfiles", "-y", tty=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("waiting: claude-config as a submodule", r.stdout)
+        self.assertIn("no git", r.stdout)
+        self.assertEqual(self.launched(), [str(repo), "/develop repo layout and linking method"])
+
+    def test_no_command_box_exits_3_even_with_y(self):
+        d = self.root / "x" / "docs" / "scope"
+        d.mkdir(parents=True)
+        (d / "scope.md").write_text("# Scope: x\n- [ ] call the vendor\n")
+        r = self.wf("next", "x", "-y", tty=True)
+        self.assertEqual(r.returncode, 3)
+        self.assertIn("no command in this box, run it yourself", r.stdout)
+        self.assertIsNone(self.launched())
+
+    def test_index_epics_in_link_order_with_missing_warning(self):
+        d = self.root / "big" / "docs" / "scope"
+        d.mkdir(parents=True)
+        (d / "index.md").write_text(
+            "# Scope: big\n- [ ] `/develop ignored`\n"
+            "[out](../out.md) [one](one.md) [web](https://x.test/a.md) [gone](gone.md) [two](two.md#top)\n")
+        (d / "one.md").write_text("### 1. One · done\n- [ ] `/develop one`\n")
+        (d / "two.md").write_text("### 2. Two\n- [ ] `/develop two`\n")
+        (self.root / "big" / "docs" / "out.md").write_text("- [ ] `/develop out`\n")
+        r = self.wf("next", "big", "-y")
+        self.assertEqual(r.returncode, 4, r.stderr)
+        self.assertEqual(r.stdout.count("missing epic file gone.md"), 1)
+        self.assertIn("cd ", r.stdout)
+        self.assertTrue(r.stdout.rstrip().endswith("claude '/develop two'"))
+
+    def test_hub_and_brownfield_have_nothing_to_run(self):
+        self.repo("projects", "hub.md")
+        d = self.root / "old" / "docs" / "scope"
+        d.mkdir(parents=True)
+        (d / "scope.md").write_text("# Scope: old\n### A. Thing (existing)\n- [ ] `/develop thing`\n")
+        r = self.wf("next", "personal")
+        self.assertEqual(r.returncode, 0)
+        self.assertIn("nothing to run in projects", r.stdout)
+        self.assertIn("1 | Decide the plugin", r.stdout)
+        self.assertNotIn("Finish the workflow", r.stdout)
+        r = self.wf("next", "old", "-y", tty=True)
+        self.assertEqual(r.returncode, 0)
+        self.assertIn("nothing to run in old", r.stdout)
+        self.assertIsNone(self.launched())
+
+    def test_discovery_depth_and_symlink_dedupe(self):
+        self.repo("a/b/three", "team.md")
+        self.repo("a/b/c/four", "team.md")
+        self.repo("two", "team.md")
+        os.symlink(self.root / "two", self.root / "alias")
+        hidden = self.repo(".hidden/x", "team.md")
+        names = [l.split("\t")[0] for l in self.wf("next", "--list").stdout.splitlines()]
+        self.assertEqual(names, ["three", "two"])
+        self.assertTrue(hidden.exists())
+
+    def test_path_argument_outside_roots(self):
+        d = self.tmp / "elsewhere" / "docs" / "scope"
+        d.mkdir(parents=True)
+        shutil.copy(FIX / "team.md", d / "scope.md")
+        r = self.wf("next", str(self.tmp / "elsewhere"))
+        self.assertEqual(r.returncode, 130)
+        self.assertIn("/develop return 401", r.stdout)
+
+    def test_exact_name_beats_substring_and_no_match(self):
+        self.repo("work", "team.md")
+        self.repo("workflow-automation", "dotfiles.md")
+        r = self.wf("next", "WORK")
+        self.assertIn("/develop return 401", r.stdout)
+        r = self.wf("next", "zzz")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("no scope matches 'zzz'", r.stderr)
+
+    def test_several_matches_go_to_fzf_and_cancel_exits_0(self):
+        self.fake("fzf", FAKE_FZF)
+        self.repo("api-one", "team.md")
+        self.repo("api-two", "dotfiles.md")
+        r = self.wf("next", "api", FZF_CANCEL="1")
+        self.assertEqual(r.returncode, 0)
+        self.assertEqual(len(self.fzf_in.read_text().splitlines()), 2)
+        r = self.wf("next", "api")
+        self.assertEqual(r.returncode, 130)
+        self.assertIn("api-one", r.stdout)
+
+    def test_no_argument_uses_cwd_repo(self):
+        repo = self.repo("dotfiles", "dotfiles.md")
+        (repo / "deep").mkdir()
+        r = self.wf("next", "-y", cwd=repo / "deep")
+        self.assertEqual(r.returncode, 4)
+        self.assertIn(f"cd {repo} && claude", r.stdout)
+
+    def test_no_argument_below_hub_opens_picker_over_all(self):
+        self.fake("fzf", FAKE_FZF)
+        hub = self.repo("projects", "hub.md")
+        self.repo("projects/dotfiles", "dotfiles.md")
+        (hub / "plain").mkdir()
+        r = self.wf("next", cwd=hub / "plain", FZF_CANCEL="1")
+        self.assertEqual(r.returncode, 0)
+        self.assertEqual(len(self.fzf_in.read_text().splitlines()), 2)
+
+    def test_confirm_line_inputs(self):
+        repo = self.repo("dotfiles", "dotfiles.md")
+        self.assertEqual(self.wf("next", "dotfiles", tty=True, stdin="n\n").returncode, 130)
+        self.assertEqual(self.wf("next", "dotfiles", tty=True, stdin="\x04").returncode, 130)
+        self.assertIsNone(self.launched())
+        r = self.wf("next", "dotfiles", tty=True, stdin="\n")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(self.launched()[0], str(repo))
+
+    def test_both_bases_docs_wins(self):
+        self.repo("both", "dotfiles.md")
+        self.repo("both", "team.md", base=".workflow/scope")
+        r = self.wf("next", "both")
+        self.assertIn("/develop repo layout", r.stdout)
+        self.assertIn("warning: both docs/scope and .workflow/scope exist", r.stdout)
+
+    def test_workflow_base_alone(self):
+        self.repo("team", "team.md", base=".workflow/scope")
+        self.assertIn("/develop return 401", self.wf("next", "team").stdout)
+
+    def test_worktrees_listed_with_labels(self):
+        main = self.repo("main", "team.md")
+        git = lambda *a: subprocess.run(["git", "-C", str(main), *a], check=True, capture_output=True,
+                                        env={**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+                                             "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"})
+        git("init", "-q", "-b", "main")
+        git("add", ".")
+        git("commit", "-qm", "init")
+        git("worktree", "add", "-q", str(self.tmp / "wt-branch"), "-b", "feat/x")
+        git("worktree", "add", "-q", "--detach", str(self.tmp / "wt-detached"))
+        lines = [l.split("\t") for l in self.wf("next", "--list").stdout.splitlines()]
+        got = sorted((l[0], l[1], l[4]) for l in lines)
+        self.assertEqual(got[0], ("main", "", "main"))
+        self.assertEqual(got[1], ("wt-branch", "worktree feat/x", "feat/x"))
+        self.assertEqual(got[2][:2], ("wt-detached", "worktree (detached)"))
+        self.assertTrue(got[2][2].startswith("detached "))
+
+    def test_list_sorted_and_usage_errors(self):
+        self.repo("zeta", "team.md")
+        self.repo("alpha", "dotfiles.md")
+        self.repo("projects", "hub.md")
+        r = self.wf("next", "--list")
+        self.assertEqual(r.returncode, 0)
+        lines = [l.split("\t") for l in r.stdout.splitlines()]
+        self.assertEqual([l[0] for l in lines], ["alpha", "projects", "zeta"])
+        self.assertEqual(len(lines[0]), 6)
+        self.assertEqual(lines[1][3], "nothing to run")
+        self.assertEqual(self.wf("next", "--list", "x").returncode, 2)
+        self.assertEqual(self.wf("next", "--list", "-y").returncode, 2)
+
+    def test_next_shortcut_equals_wf_next(self):
+        self.repo("dotfiles", "dotfiles.md")
+        link = self.bin / "next"
+        os.symlink(WF, link)
+        self.assertEqual(self.wf("--list", prog=link).stdout, self.wf("next", "--list").stdout)
+
+    def test_missing_claude_fzf_and_git(self):
+        self.repo("api-one", "team.md")
+        self.repo("api-two", "team.md")
+        (self.bin / "claude").unlink()
+        r = self.wf("next", "api-one", PATH=str(self.bin))
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("claude not found", r.stderr)
+        self.assertNotIn("|", r.stdout)
+        r = self.wf("next", "api", PATH=str(self.bin))
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("fzf not found", r.stderr)
+        self.fake("claude", FAKE_CLAUDE)
+        r = self.wf("next", "api-one", PATH=str(self.bin))
+        self.assertIn("| no git | - |", r.stdout)
+
+    def test_launch_modes(self):
+        repo = self.repo("dotfiles", "dotfiles.md")
+        self.fake("tmux", FAKE_TMUX)
+        r = self.wf("next", "dotfiles", "-y", TMUX="/tmp/fake,1,0")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("opened tmux window dotfiles", r.stdout)
+        self.assertEqual(self.launched(), ["new-window", "-c", str(repo), "-n", "dotfiles", "claude",
+                                           "/develop repo layout and linking method"])
+        self.out.unlink()
+        r = self.wf("next", "dotfiles", "-y")
+        self.assertEqual(r.returncode, 4)
+        self.assertIn(f"cd {repo} && claude '/develop repo layout and linking method'", r.stdout)
+        r = self.wf("next", "dotfiles", stdin="\n", TMUX="/tmp/fake,1,0")
+        self.assertEqual(r.returncode, 130)
+        self.assertIsNone(self.launched())
+
+    def test_missing_tmux(self):
+        self.repo("dotfiles", "dotfiles.md")
+        r = self.wf("next", "dotfiles", "-y", PATH=str(self.bin), TMUX="/tmp/fake,1,0")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("tmux not found", r.stderr)
+        self.assertIsNone(self.launched())
 
 
 if __name__ == "__main__":

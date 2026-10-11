@@ -57,12 +57,15 @@ done
 echo "runner:"
 BIN="$HOME/.local/bin"
 run mkdir -p "$BIN"
-if [ -e "$BIN/wf" ] && ! [ -L "$BIN/wf" ]; then
-  note "SKIP wf (a real file is already at $BIN/wf)"
-else
-  note "wf -> runner/wf.py"
-  run ln -sfn "$REPO/runner/wf.py" "$BIN/wf"
-fi
+# `next` is the same file; called by that name it acts as `wf next`.
+for name in wf next; do
+  if [ -e "$BIN/$name" ] && ! [ -L "$BIN/$name" ]; then
+    note "SKIP $name (a real file is already at $BIN/$name)"
+  else
+    note "$name -> runner/wf.py"
+    run ln -sfn "$REPO/runner/wf.py" "$BIN/$name"
+  fi
+done
 
 # settings.json hardcodes absolute paths to hook scripts. Substituting $HOME is
 # what makes this repo installable by anyone, not just its author.
