@@ -27,6 +27,7 @@ bash hooks/block-destructive.sh --test          # guard hook self-checks
 bash skills/design/scripts/test-ledger.sh       # design ledger + Stop hook assertions
 node skills/design/scripts/build-ramp.mjs --check
 python3 -m unittest discover -s runner/tests    # wf runner self checks (install.sh runs these)
+wf run <repo>                                   # one feature unattended (spec 0004); locks and run records in $XDG_STATE_HOME/wf, else ~/.local/state/wf
 ```
 
 ## Specs

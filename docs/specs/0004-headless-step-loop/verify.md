@@ -11,7 +11,7 @@ Scratch repos built by a throwaway script: Python `app.py`, `**Autopilot:** allo
 - [x] Check 4, push: inside `wf run push -y` the step refused to push on the unattended prompt alone and asked a `DECISION NEEDED:`, so the deny list was not reached. Then two direct `claude -p` calls with the same `--disallowedTools` and no prompt, each asked to push: `git push -u origin work` and `git -C . push origin work` both came back in `permission_denials`, denied. `git for-each-ref` on the bare remote is empty. → AC-4, AC-15
 
 ## Commands
-- [x] `python3 -m unittest discover -s runner/tests` → all green (83 tests, about 17 s) → AC-1 to AC-14
+- [x] `python3 -m unittest discover -s runner/tests` → all green (86 tests, about 17 s) → AC-1 to AC-14
 - [x] `wf run claude-config` in this repo → `refused: waiting: ...` (feature 2's waiting milestone is first), exit 5, no call → AC-2
 - [x] `wf run --help` through the installed `~/.local/bin/wf` symlink → shows `--budget`, `--call-timeout`, `--max-calls`, `--max-hours` (the lazy `import run` resolves through the symlink) → AC-1, AC-8
 - [x] `wf run <repo> --max-calls 1.5` and `--budget nan` → usage error, exit 2 → AC-8
@@ -31,4 +31,4 @@ Scratch repos built by a throwaway script: Python `app.py`, `**Autopilot:** allo
 - [x] State folder: `XDG_STATE_HOME` moves it; an unwritable one refuses `state_unwritable` → AC-9
 
 ## Acceptance criteria coverage
-- AC-1, AC-2: `test_run.TestStart`, `TestHappyPath` · AC-3: `TestStart.test_confirm_cancels`, `TestConfirmLine` · AC-4, AC-5: `TestHappyPath.test_argv`, check 4 · AC-6: `TestClassify`, checks 1 and 2 · AC-7: `TestHappyPath`, `TestClassify.test_sync_stops`, check 3 · AC-8: `TestCaps`, `TestStart.test_bad_caps`, check 3 · AC-9: `TestStart.test_lock`, `test_second_run_refused`, check 3 · AC-10: `TestHappyPath`, `TestRecordAndSignals.test_internal_error` · AC-11: `TestHappyPath`, `test_minutes` · AC-12: `TestRecordAndSignals`, `TestSpawnRace` · AC-13: `TestRecordAndSignals.test_inhibitor*` · AC-14: exit codes asserted across all classes · AC-15: the four checks above
+- AC-1, AC-2: `test_run.TestStart` (incl. `test_allow_list`), `TestHappyPath` · AC-3: `TestStart.test_confirm_cancels`, `TestConfirmLine` · AC-4, AC-5: `TestHappyPath.test_argv`, `TestClassify.test_spawn_error`, check 4 · AC-6: `TestClassify`, checks 1 and 2 · AC-7: `TestHappyPath`, `TestClassify.test_sync_stops`, check 3 · AC-8: `TestCaps`, `TestStart.test_bad_caps`, check 3 · AC-9: `TestStart.test_lock`, `test_second_run_refused`, `test_state_fallback`, check 3 · AC-10: `TestHappyPath`, `TestRecordAndSignals.test_internal_error` · AC-11: `TestHappyPath`, `test_minutes` · AC-12: `TestRecordAndSignals`, `TestSpawnRace` · AC-13: `TestRecordAndSignals.test_inhibitor*` · AC-14: exit codes asserted across all classes · AC-15: the four checks above

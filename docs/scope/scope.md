@@ -22,7 +22,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 1 | Runner stack and layout | Foundation | done |
 | 2 | Scope contract for the runner | Foundation | in-progress |
 | 3 | `next <repo>` | Release 1 | done |
-| 4 | Headless step loop | Release 2 | in-progress |
+| 4 | Headless step loop | Release 2 | done |
 | 5 | Decision parking and phone pings | Release 2 | planned |
 | 6 | Standing answers | Release 2 | planned |
 | 7 | Headless verify and test | Release 2 | planned |
@@ -89,7 +89,7 @@ Spec [0002](../specs/0002-next-repo-command/index.md) · code in `runner/wf.py`,
 
 ## Release 2: one feature unattended
 
-### 4. Headless step loop · in-progress · auto
+### 4. Headless step loop · done · auto
 Run each box as a fresh `claude -p` call inside the repo, recompute the next box from the files after each one, and stop after `/sync`. Per call budget, wall clock and run caps, a lock per repo, `nosleep` on for the run, a clean stop on SIGINT.
 **Done when:** one feature runs from `/develop` to `/sync` with no typing, a second run on the same repo is refused, and the caps stop a runaway run.
 - [x] Design it (spec): `/architect headless step loop`
@@ -100,7 +100,7 @@ Run each box as a fresh `claude -p` call inside the repo, recompute the next box
    - [x] Signals, inhibitor, branch drift, cleanup on every path (AC-12, AC-13)
    - [x] Manual real claude checks in `verify.md` (AC-15)
 - [x] Verify it: `/check verify headless step loop`
-- [ ] Test it: `/test headless step loop`
+- [x] Test it: `/test headless step loop`
 Spec [0004](../specs/0004-headless-step-loop/index.md) · code in `runner/run.py`, `runner/wf.py`, `runner/tests/test_run.py`
 
 ### 5. Decision parking and phone pings · needs a decision

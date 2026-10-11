@@ -297,6 +297,38 @@ class TestStart(RunCase):
                 self.refused(r, "branch")
                 self.assertIn(f"refused: branch: {shown}", r.stdout)
 
+    # covers: AC-2 check 4 (every allow listed first word starts; the match is on the whole first word)
+    def test_allow_list(self):
+        allowed = "# Scope: x\n**Autopilot:** allowed\n### 1. A\n- [ ] `%s`\n"
+        for name, command in [("chk", "/check verify a"), ("dbg", "/debug a"), ("doc", "/document a")]:
+            with self.subTest(command):
+                shutil.rmtree(self.state, ignore_errors=True)
+                self.make_repo(name, allowed % command)
+                r = self.wf(name, "-y", "--max-calls", "1")
+                self.assertIn(f"[1/1] {command} -> success", r.stdout)
+        for name, command in [("dev2", "/developer a"), ("sync", "/sync"), ("tst2", "/tests a")]:
+            with self.subTest(command):
+                self.make_repo(name, allowed % command)
+                r = self.wf(name, "-y")
+                self.assertEqual(r.returncode, 5)
+                self.assertIn(f"refused: manual_box: {command} runs only with you", r.stdout)
+
+    # covers: AC-9 (no XDG_STATE_HOME, or an empty one, puts the state under ~/.local/state/wf)
+    def test_state_fallback(self):
+        for value in (None, ""):
+            with self.subTest(repr(value)):
+                fallback = self.tmp / ".local" / "state" / "wf"
+                shutil.rmtree(fallback, ignore_errors=True)
+                if value is None:
+                    self.env.pop("XDG_STATE_HOME", None)
+                else:
+                    self.env["XDG_STATE_HOME"] = value
+                r = self.wf("demo", "-y", "--max-calls", "1")
+                self.assertIn(f"run folder: {fallback}/runs/demo-", r.stdout)
+                self.assertEqual(len(list((fallback / "runs").iterdir())), 1)
+                self.assertEqual(len(list((fallback / "locks").iterdir())), 1)
+                self.assertFalse(self.state.exists())
+
     # covers: AC-2 (warnings print on refusal paths)
     def test_header_warning_on_refusal(self):
         self.make_repo("warn", "# Scope: x\n**Autopilot:** on\n### 1. A\n- [ ] `/develop a`\n")
@@ -432,6 +464,15 @@ class TestClassify(RunCase):
         self.assertIn("-> call_error", r.stdout)
         self.assertIn("b / c / d / e / last [31mline", rec["detail"])
         self.assertNotIn("\x1b", r.stdout)
+
+    # covers: AC-4 (claude is on PATH but cannot be started: call_error, no further call)
+    def test_spawn_error(self):
+        self.fake("claude", "#!/nonexistent/interpreter\n")
+        r = self.wf("demo", "-y")
+        rec = self.assert_stopped(r, "call_error", calls=1)
+        self.assertIn("could not start claude: ", rec["detail"])
+        self.assertIsNone(rec["calls"][0]["exit_code"])
+        self.assertIn("[1/20] /develop loop -> call_error, - USD", r.stdout)
 
     # covers: AC-6 rule 3 (an array ending in a result element reads as success)
     def test_array(self):

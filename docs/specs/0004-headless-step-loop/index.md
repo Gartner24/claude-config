@@ -1,7 +1,7 @@
 # 0004. Headless step loop: `wf run` builds one feature unattended
 
 **Date**: 2026-10-11
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 
