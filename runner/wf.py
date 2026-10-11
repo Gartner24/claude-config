@@ -21,7 +21,9 @@ WAITING = re.compile(r"\b(after|waits on)\b", re.I)
 LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)")
 # C0 and C1 control characters. Scope text and folder names come from repos you
 # may have cloned; an ESC or CR in them used to reach the terminal and fzf as is.
-CONTROL = re.compile(r"[\x00-\x1f\x80-\x9f]")
+# Lone surrogates are undecodable bytes in a folder name; printing one used to
+# crash with UnicodeEncodeError under a UTF-8 locale.
+CONTROL = re.compile(r"[\x00-\x1f\x80-\x9f\udc80-\udcff]")
 # A planted core.fsmonitor or hook in a scanned repo used to run on `git status`.
 GIT_SAFE = ("-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null")
 
@@ -132,9 +134,26 @@ def read(path):
 
 def git(path, *args):
     try:
-        return subprocess.run(["git", *GIT_SAFE, "-C", path, *args], capture_output=True, text=True)
+        return subprocess.run(["git", *GIT_SAFE, "-C", path, *args], capture_output=True, text=True, errors="replace")
     except FileNotFoundError:
         return None
+
+
+def head_branch(path):
+    # `git status` runs a repo's own filter drivers, so --list and the picker
+    # read HEAD from the files and never run git in a scanned repo.
+    dot = os.path.join(path, ".git")
+    try:
+        if os.path.isfile(dot):
+            dot = os.path.join(path, read(dot).strip().removeprefix("gitdir:").strip())
+        head = read(os.path.join(dot, "HEAD")).strip()
+    except OSError:
+        return "no git"
+    if head.startswith("ref: refs/heads/"):
+        name = head[len("ref: refs/heads/"):]
+        # reftable repos keep the real HEAD elsewhere and write this placeholder
+        return "-" if name == ".invalid" else clean(name)
+    return "detached " + clean(head[:7])
 
 
 def branch(path):
@@ -227,7 +246,7 @@ class Candidate:
         nb = self.next
         cmd = "nothing to run" if nb is None else nb.command or "no command"
         feature = nb.feature if nb and nb.feature else ""
-        return [self.name, self.label, feature, cmd, branch(self.path), changes(self.path)]
+        return [self.name, self.label, feature, cmd, head_branch(self.path), "-"]
 
 
 def make_candidate(path):

@@ -540,6 +540,44 @@ class TestHostileFolders(CliCase):
         self.assertIn("bad[2J", outs[3])
         self.assertIn("call [2Jthe vendor", outs[4])
 
+    # git status runs a repo's own filter drivers; --list and the picker used to run it in every scanned repo
+    def test_list_and_picker_never_run_git_status(self):
+        self.fake("fzf", FAKE_FZF)
+        repo = scope(self.root / "planted", "# Scope: p\n- [ ] `/develop x`\n")
+        env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+        git = lambda *a: subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True, env=env)
+        git("init", "-q", "-b", "main")
+        (repo / ".gitattributes").write_text("* filter=evil\n")
+        git("add", ".")
+        git("commit", "-qm", "init")
+        marker = self.tmp / "PWNED"
+        git("config", "filter.evil.clean", f"touch {marker}; cat")
+        os.utime(repo / "docs" / "scope" / "scope.md", (0, 0))
+        r = self.wf("next", "--list")
+        self.assertEqual(r.stdout, "planted\t\t\t/develop x\tmain\t-\n")
+        self.wf("next", cwd=self.tmp, FZF_CANCEL="1")
+        self.assertIn("\tmain\t-\n", self.fzf_in.read_text())
+        self.assertFalse(marker.exists())
+        self.assertIn("planted | main | 0 changes |", self.wf("next", "planted").stdout)
+
+    def test_undecodable_folder_and_branch_names(self):
+        self.assertEqual(wf.clean("a\udc80b\udcff\x1bc"), "abc")
+        env = {**self.env, "LC_ALL": "C.UTF-8"}
+        folder = os.fsencode(self.root) + b"/bad\xff"
+        os.mkdir(folder)
+        scope(Path(os.fsdecode(folder)), "# Scope: b\n- [ ] `/develop b`\n")
+        r = subprocess.run([sys.executable, str(WF), "next", "--list"], capture_output=True, env=env)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stdout.decode(), "bad\t\t\t/develop b\tno git\t-\n")
+        repo = scope(self.root / "branchy", "# Scope: g\n- [ ] `/develop g`\n")
+        subprocess.run([b"git", b"-C", os.fsencode(repo), b"init", b"-q", b"-b", b"m\xff"], check=True)
+        r = subprocess.run([sys.executable, str(WF), "next", "branchy"], capture_output=True, env=env)
+        self.assertEqual(r.returncode, 130, r.stderr)
+        self.assertIn("branchy | no commits |", r.stdout.decode())
+        r = subprocess.run([sys.executable, str(WF), "next", "--list"], capture_output=True, env=env)
+        self.assertIn("branchy\t\t\t/develop g\tm\ufffd\t-\n", r.stdout.decode())
+
     # a scope planted above $HOME (/tmp, /home) is never picked by the parent walk
     def test_parent_walk_stops_at_home(self):
         self.fake("fzf", FAKE_FZF)

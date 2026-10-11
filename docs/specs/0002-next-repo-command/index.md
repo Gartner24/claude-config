@@ -30,7 +30,7 @@
 - **AC-9**: Unless AC-16 applies, launching changes into the candidate folder and replaces the `next` process with `claude <command>` (`os.execvp`). The command is passed as one argument, with no shell. Ctrl C and the exit code are then claude's own.
 - **AC-10**: The launch line warns `N session(s) already open here` when running processes match. A match has `comm` equal to `claude`, a command line without `--chrome-native-host`, and a working folder equal to the candidate or inside it. It still launches on Enter.
 - **AC-11**: When both `docs/scope/` and `.workflow/scope/` exist, `docs/scope/` is used, with a warning that names both.
-- **AC-12**: `wf next --list` prints one line per candidate, sorted by name, in tab separated columns: name, label, feature, command (or `nothing to run`), branch, changes. It takes no argument and no `-y` (either is a usage error, exit 2). It launches nothing and exits 0. The fzf picker shows the same columns.
+- **AC-12**: `wf next --list` prints one line per candidate, sorted by name, in tab separated columns: name, label, feature, command (or `nothing to run`), branch, changes. It takes no argument and no `-y` (either is a usage error, exit 2). It launches nothing and exits 0. The fzf picker shows the same columns. Neither runs git in a scanned repo for these columns: branch is read from `.git/HEAD` directly and changes always show `-` (`git status` runs a repo's own filter drivers, so it runs only for the one repo on the confirm line).
 - **AC-13**: Calling the program as `next` behaves exactly as `wf next` with the same arguments.
 - **AC-14**: A missing `claude` is checked before the confirm line is shown, and a missing `fzf` when a picker is needed. Either prints which one is missing and exits 1. `--list` and a single match never need fzf. A missing `git` is not an error: branch shows `no git` and changes show `-`.
 - **AC-15**: A manual check against the real `claude` binary confirms that `claude "/develop x"` opens an interactive session with that slash command running. It is recorded in the verify step, since every automated test uses a fake `claude`.
@@ -71,7 +71,9 @@
 | next box | command | first backticked span matching `^/[a-z][\w:-]*(\s\|$)` (AC-6) |
 | next box | parent, note, waiting | leading whitespace comparison (AC-6); `waiting` when the note matches `\b(after\|waits on)\b`, case insensitive |
 | launch line | branch | `git -C <path> rev-parse --abbrev-ref HEAD`; `HEAD` means detached, shown as `detached` plus `git rev-parse --short HEAD`; failure inside a repo with no commits shows `no commits`; no repo or no git binary shows `no git` |
-| launch line | changes | line count of `git -C <path> status --porcelain`; `-` with no repo or no git binary |
+| launch line | changes | line count of `git -C <path> status --porcelain`; `-` with no repo or no git binary. Only the one repo on the confirm line, the repo claude is about to start in, ever runs `git status`: it runs the repo's own filter drivers |
+| list, picker | branch | read from the files, never by running git: `<path>/.git/HEAD`, or for a worktree the `HEAD` in the folder its `.git` file's `gitdir:` names. `ref: refs/heads/<x>` shows `<x>` (`-` for reftable's `.invalid` placeholder); anything else shows `detached` plus its first 7 characters; no readable `HEAD` shows `no git`. No `no commits` state here |
+| list, picker | changes | always `-` |
 | launch line | open sessions | for each `/proc/<pid>`: `comm` equal to `claude`, `cmdline` without `--chrome-native-host`, `cwd` real path equal to or under the candidate path; unreadable entries skipped |
 | launch line | worktree label | the `branch refs/heads/<x>` line of that worktree's porcelain record, else `(detached)` |
 | launch | launch mode | `$TMUX` set, then `os.isatty(0)` (AC-16) |
