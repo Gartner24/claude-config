@@ -1,7 +1,7 @@
 # 0002. `next <repo>`: start a repo's next scope step in one command
 
 **Date**: 2026-10-11
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 

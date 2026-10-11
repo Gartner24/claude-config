@@ -372,6 +372,93 @@ class TestNext(CliCase):
         self.assertEqual(r.returncode, 130)
         self.assertIsNone(self.launched())
 
+    # covers: AC-1 (default roots: direct children of ~, and ~/projects plus three levels)
+    def test_default_roots_without_wf_roots(self):
+        home = self.tmp
+        for rel, fixture in [("alpha", "team.md"), ("alpha/inner", "team.md"), ("projects", "hub.md"),
+                             ("projects/x/y/deep3", "team.md"), ("projects/x/y/z/deep4", "team.md"),
+                             ("projects/node_modules/pkg", "team.md"), (".hidden", "team.md")]:
+            d = home / rel / "docs" / "scope"
+            d.mkdir(parents=True)
+            shutil.copy(FIX / fixture, d / "scope.md")
+        r = self.wf("next", "--list", WF_ROOTS="")
+        self.assertEqual([l.split("\t")[0] for l in r.stdout.splitlines()], ["alpha", "deep3", "projects"])
+
+    # covers: AC-1 (WF_ROOTS is a colon separated list)
+    def test_several_wf_roots(self):
+        other = self.tmp / "other"
+        d = other / "beta" / "docs" / "scope"
+        d.mkdir(parents=True)
+        shutil.copy(FIX / "team.md", d / "scope.md")
+        self.repo("alpha", "team.md")
+        r = self.wf("next", "--list", WF_ROOTS=f"{self.root}:{other}")
+        self.assertEqual([l.split("\t")[0] for l in r.stdout.splitlines()], ["alpha", "beta"])
+
+    # covers: AC-3 (one substring match, by folder name or by title, is used directly)
+    def test_single_substring_match_needs_no_picker(self):
+        self.repo("workflow-automation", "team.md")
+        for name in ("flow", "BACKEND"):
+            r = self.wf("next", name, PATH=str(self.bin))
+            self.assertEqual(r.returncode, 130, r.stderr)
+            self.assertIn("workflow-automation |", r.stdout)
+
+    # covers: AC-3 (`next .` is a path)
+    def test_dot_is_a_path(self):
+        repo = self.repo("team", "team.md")
+        r = self.wf("next", ".", "-y", cwd=repo)
+        self.assertEqual(r.returncode, 4)
+        self.assertIn(f"cd {repo} && claude '/develop return 401 for a rejected token'", r.stdout)
+
+    # covers: AC-8 (branch, change count and detached state on the confirm line)
+    def test_confirm_line_shows_git_state(self):
+        repo = self.repo("team", "team.md")
+        env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+        git = lambda *a: subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True,
+                                        text=True, env=env).stdout.strip()
+        git("init", "-q", "-b", "trunk")
+        r = self.wf("next", "team")
+        self.assertIn("team | no commits | 1 changes | 1. Return 401 for a rejected token |", r.stdout)
+        git("add", ".")
+        git("commit", "-qm", "init")
+        (repo / "a.txt").write_text("a")
+        (repo / "b.txt").write_text("b")
+        self.assertIn("team | trunk | 2 changes |", self.wf("next", "team").stdout)
+        git("checkout", "-q", "--detach")
+        sha = git("rev-parse", "--short", "HEAD")
+        self.assertIn(f"team | detached {sha} | 2 changes |", self.wf("next", "team").stdout)
+
+    # covers: AC-12, AC-14 (--list needs neither fzf nor git, and shows boxes without a command)
+    def test_list_without_fzf_or_git_and_no_command_column(self):
+        d = self.root / "manual" / "docs" / "scope"
+        d.mkdir(parents=True)
+        (d / "scope.md").write_text("# Scope: manual\n### 1. Call\n- [ ] call the vendor\n")
+        r = self.wf("next", "--list", PATH=str(self.bin))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stdout, "manual\t\t1. Call\tno command\tno git\t-\n")
+
+    # covers: AC-9, AC-16 and the key invariant: scope text never reaches a shell
+    def test_command_with_shell_characters_stays_one_argument(self):
+        d = self.root / "evil" / "docs" / "scope"
+        d.mkdir(parents=True)
+        (d / "scope.md").write_text("# Scope: evil\n- [ ] `/develop x; touch PWNED $(touch PWNED2)` \n")
+        cmd = "/develop x; touch PWNED $(touch PWNED2)"
+        r = self.wf("next", "evil", "-y", tty=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(self.launched(), [str(self.root / "evil"), cmd])
+        r = self.wf("next", "evil", "-y")
+        self.assertEqual(r.returncode, 4)
+        self.assertIn(f"claude '{cmd}'", r.stdout)
+        self.assertEqual(list(self.root.rglob("PWNED*")) + list(self.tmp.glob("PWNED*")), [])
+
+    # covers: AC-16 (a failing tmux passes its exit code back)
+    def test_tmux_failure_exit_code_is_returned(self):
+        self.repo("dotfiles", "dotfiles.md")
+        self.fake("tmux", "#!/bin/sh\nexit 3\n")
+        r = self.wf("next", "dotfiles", "-y", TMUX="/tmp/fake,1,0")
+        self.assertEqual(r.returncode, 3)
+        self.assertNotIn("opened tmux window", r.stdout)
+
     def test_missing_tmux(self):
         self.repo("dotfiles", "dotfiles.md")
         r = self.wf("next", "dotfiles", "-y", PATH=str(self.bin), TMUX="/tmp/fake,1,0")

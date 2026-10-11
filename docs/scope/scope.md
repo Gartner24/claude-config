@@ -19,7 +19,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | D | Skill routing | Existing | existing |
 | 1 | Runner stack and layout | Foundation | done |
 | 2 | Scope contract for the runner | Foundation | planned |
-| 3 | `next <repo>` | Release 1 | in-progress |
+| 3 | `next <repo>` | Release 1 | done |
 | 4 | Headless step loop | Release 2 | planned |
 | 5 | Decision parking and phone pings | Release 2 | planned |
 | 6 | Standing answers | Release 2 | planned |
@@ -64,7 +64,7 @@ The fields the runner reads: `**Repo:**`, `**Source of truth:**`, `**Autopilot:*
 
 ## Release 1: next step in one command
 
-### 3. `next <repo>` · in-progress
+### 3. `next <repo>` · done
 From any folder, name a repo (a path, its folder name or its scope title, found by scanning your project folders); it reads the first unticked box, goes into that repo, and opens an interactive session already running that command. Removes the `/clear`, the retyping, and the wrong folder.
 **Done when:** `next dotfiles` from `~/.claude` opens a session in `~/dotfiles` running its next box, and a repo with nothing left says so instead of starting a session.
 - [x] Design it (spec): `/architect next repo command`
@@ -75,7 +75,7 @@ From any folder, name a repo (a path, its folder name or its scope title, found 
    - [x] Confirm line and exec launch, session warning (AC-8, AC-9, AC-10, AC-16)
    - [x] fzf picker, worktrees, `--list`, manual real claude check (AC-2, AC-4, AC-12, AC-15)
 - [x] Verify it: `/check verify next repo command`
-- [ ] Test it: `/test next repo command`
+- [x] Test it: `/test next repo command`
 Spec [0002](../specs/0002-next-repo-command/index.md) · code in `runner/wf.py`, `runner/tests/`
 
 ## Release 2: one feature unattended
