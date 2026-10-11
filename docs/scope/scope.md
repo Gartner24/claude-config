@@ -22,6 +22,9 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 1 | Runner stack and layout | Foundation | done |
 | 2 | Scope contract for the runner | Foundation | in-progress |
 | 3 | `next <repo>` | Release 1 | done |
+| 17 | Worktree discovery without git | Release 1 | planned |
+| 18 | fzf failure is not a cancel | Release 1 | planned |
+| 19 | Singular change count | Release 1 | planned |
 | 4 | Headless step loop | Release 2 | done |
 | 5 | Decision parking and phone pings | Release 2 | planned |
 | 6 | Standing answers | Release 2 | planned |
@@ -86,6 +89,21 @@ From any folder, name a repo (a path, its folder name or its scope title, found 
 - [x] Verify it: `/check verify next repo command`
 - [x] Test it: `/test next repo command`
 Spec [0002](../specs/0002-next-repo-command/index.md) · code in `runner/wf.py`, `runner/tests/`
+
+### 17. Worktree discovery without git · needs a decision
+Discovery still runs `git worktree list --porcelain` in every scanned main checkout. Decide whether to read `.git/worktrees/*/gitdir` instead, so no git runs in a repo that is only scanned (the rule since `c26dc8a`). Changing it rewords spec 0002 AC-2 and its worktree label row.
+**Done when:** spec 0002 records the decision, and if it changes, worktrees are still found and labelled with no git call in scanned repos.
+- [ ] Design it (spec): `/architect worktree discovery without git`
+
+### 18. fzf failure is not a cancel · needs a decision
+When fzf cannot open a terminal it prints `inappropriate ioctl for device` and `next` exits 0, the same as a cancelled pick (AC-4). Spec 0002 has no exit code or message for a picker that fails, so that is the decision.
+**Done when:** a picker that fails to start prints why and exits with the code the spec names, and a real cancel still exits 0.
+- [ ] Design it (spec): `/architect fzf failure is not a cancel`
+
+### 19. Singular change count
+The confirm line reads `1 changes` for one change. It should read `1 change`; spec 0002 AC-8 writes `N changes`, so its wording gets the singular too.
+**Done when:** one uncommitted file shows `1 change`, others still show `N changes`, with a test for each.
+- [ ] Build it: `/develop singular change count`
 
 ## Release 2: one feature unattended
 
