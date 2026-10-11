@@ -703,7 +703,7 @@ for skill in coding-standards backend-patterns frontend-patterns api-design \
   prisma-patterns vite-patterns nextjs-turbopack nestjs-patterns \
   hexagonal-architecture architecture-decision-records error-handling git-workflow \
   codebase-onboarding production-audit autonomous-loops iterative-retrieval \
-  deep-research mcp-server-patterns article-writing github-ops benchmark \
+  mcp-server-patterns article-writing github-ops benchmark \
   api-connector-builder search-first; do
   cp -r /tmp/ecc/skills/$skill ~/.claude/skills/
 done
