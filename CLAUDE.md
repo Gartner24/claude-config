@@ -49,7 +49,8 @@ gitignored `.workflow/`. Full guide: ~/Documents/workflow-research/05-new-workfl
   Prototype stop; Alpha `/check verify`; Beta + `/test`; GA + review + `/document`.
   Run the chain yourself without asking, then `/sync`. Stop only on a failure, an owed
   decision, or a step that pushes, merges, posts, or bills (`/review-stack`, `ultra`).
-  When the feature closes, run `/save-and-clear` and tell the user to type `/clear`.
+  When the feature closes, run `/save-and-clear` and tell the user to type `/clear`
+  (mid feature: `/rollover`, see `### Context`).
 - UI changed: `/check verify` plus `design-gate`. New design or restyle: `design` pipeline.
 - Review: `## Review Rules` below decide the reviewer. Never `/check review`.
 - PR text: `/document pr`. Other prose: `/write`.
@@ -76,7 +77,17 @@ anyway. Surface every `Assumed` spec before starting new work.
 
 ### Context
 - Clear at boundaries (feature closed), not by token count.
-- Past ~150k tokens: finish the current step and suggest `/save-and-clear`.
+- Past ~150k tokens: finish the current step and suggest `/rollover` mid feature,
+  `/save-and-clear` at a boundary.
+- Brief before every handoff (any `/clear`, `/rollover`, `/save-and-clear`, or a command
+  given for another session): decisions agreed in chat but not yet in a spec, scope row or
+  `AGENTS.md` go first into a brief under a top section "Agreed so far, do not ask again".
+  Use the file the scope row's `Source:` names, else `docs/briefs/<feature-slug>.md`
+  (`.workflow/briefs/` in bot-reviewed repos), and point the row's `Source:` at it.
+  `/scope` and `/architect` read that brief and list anything they drop or weaken.
+- Which handoff: feature still open (boxes unticked, uncommitted work, a step half done)
+  -> `/rollover`, then `/clear`, then `/resume-from-clear`. Feature closed or switching
+  task -> `/save-and-clear`, then `/clear`.
 - Long single feature: suggest `/compact` mid build. Autocompact (700k) is a last resort.
 
 ### Never in a repo
