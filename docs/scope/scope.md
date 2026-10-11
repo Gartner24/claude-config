@@ -62,12 +62,12 @@ The fields the runner reads: `**Repo:**`, `**Source of truth:**`, `**Autopilot:*
 **Done when:** a spec defines the fields and the next box rule, and `/scope` and `/architect` write them.
 - [x] Design it (spec): `/architect scope contract for the runner`
 - [ ] Build it: `/develop scope contract for the runner`
-   - [ ] Rule file `scope-contract.md`, synced, in `NOTICE.md` (AC-4 to AC-9)
-   - [ ] Header check in `wf.py` with warnings on every path, fixtures and tests (AC-1, AC-2, AC-3, AC-5, AC-7)
+   - [x] Rule file `scope-contract.md`, synced, in `NOTICE.md` (AC-4 to AC-9)
+   - [x] Header check in `wf.py` with warnings on every path, fixtures and tests (AC-1, AC-2, AC-3, AC-5, AC-7)
    - [ ] Manual `/scope` replan, headless `/scope`, `/architect` queue check (AC-10)
 - [ ] Verify it: `/check verify scope contract for the runner`
 - [ ] Test it: `/test scope contract for the runner`
-Spec [0003](../specs/0003-scope-contract.md)
+Spec [0003](../specs/0003-scope-contract/index.md) · code in `rules/scope-contract.md`, `runner/wf.py`, `runner/tests/`
 
 ## Release 1: next step in one command
 

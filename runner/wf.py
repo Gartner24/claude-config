@@ -19,6 +19,12 @@ DISPLAY_TAG = re.compile(r"\s*\u00b7[^\u00b7]*|\s*\(\s*(done|existing|dropped|pl
 COMMAND = re.compile(r"^/[a-z][\w:-]*(\s|$)")
 WAITING = re.compile(r"\b(after|waits on)\b", re.I)
 LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)")
+# Scope header contract (spec 0003): field -> (display name, valid values, default).
+HEADER_LINE = re.compile(r"^\*\*(Source of truth|Autopilot):\*\*\s*(.*)$", re.I)
+HEADER_FIELDS = {"source of truth": ("Source of truth", ("scope", "issues", "mixed"), "scope"),
+                 "autopilot": ("Autopilot", ("allowed", "off"), "off")}
+# No reader until Release 2 queues features; pinned now so the skills' output is tested.
+AUTO_TAG = re.compile(r"·\s*auto\s*(?=·|$)", re.I)
 # C0 and C1 control characters. Scope text and folder names come from repos you
 # may have cloned; an ESC or CR in them used to reach the terminal and fzf as is.
 # Lone surrogates are undecodable bytes in a folder name; printing one used to
@@ -51,9 +57,44 @@ class NextBox:
         self.waiting = bool(note and WAITING.search(note))
 
 
-def parse_text(text):
+def uncomment(text):
     # Comments go first, keeping their newlines so later lines stay in place.
-    text = re.sub(r"<!--.*?-->", lambda m: "\n" * m.group().count("\n"), text, flags=re.S)
+    return re.sub(r"<!--.*?-->", lambda m: "\n" * m.group().count("\n"), text, flags=re.S)
+
+
+def header_warnings(text):
+    seen, warnings, fence = set(), [], None
+    for line in uncomment(text).splitlines():
+        s = line.strip()
+        if fence:
+            if s.startswith(fence):
+                fence = None
+            continue
+        if s.startswith("```") or s.startswith("~~~"):
+            fence = s[:3]
+            continue
+        h = HEADING.match(line)
+        if (h and len(h.group(1)) in (2, 3)) or BOX.match(line):
+            break
+        m = HEADER_LINE.match(line)
+        if not m:
+            continue
+        key = m.group(1).lower()
+        name, valid, default = HEADER_FIELDS[key]
+        if key in seen:
+            msg = f"{name} set twice, using the first"
+            if msg not in warnings:
+                warnings.append(msg)
+            continue
+        seen.add(key)
+        value = (m.group(2).split() or [""])[0].strip(".,;:!?()[]*_\"'").lower()
+        if value not in valid:
+            warnings.append(f"unknown {name} value '{clean(value)}', using {default}")
+    return warnings
+
+
+def parse_text(text):
+    text = uncomment(text)
     boxes, stack = [], []
     feature, gone, deferred, fence = None, False, False, None
     for line in text.splitlines():
@@ -222,6 +263,8 @@ class Candidate:
         else:
             boxes = parse_text(self.text)
         self.is_hub = not boxes
+        if not self.is_hub:
+            self.warnings += header_warnings(self.text)
         self.next = pick_next(boxes)
 
     def epics(self, folder):
@@ -354,9 +397,13 @@ def launch(c, yes):
         if c.is_hub:
             for row in open_rows(c.text):
                 print(f"  {row}")
+        for w in c.warnings:
+            print(f"warning: {w}")
         return 0
     if not nb.command:
         print(f"no command in this box, run it yourself: {nb.box_text}")
+        for w in c.warnings:
+            print(f"warning: {w}")
         return 3
     if not shutil.which("claude"):
         print("claude not found on PATH", file=sys.stderr)

@@ -14,6 +14,7 @@ because the LICENSE covers only the parts authored here.
 | `scripts/check-routing.py`, `scripts/asciify.py` | Repo tooling |
 | `hooks/block-destructive.sh` | Destructive-command guard |
 | `runner/` | `wf`, the workflow runner (spec 0001) |
+| `rules/scope-contract.md` | The scope format the runner reads and the skills write (spec 0003) |
 | `rules/ecc/*/index.md` (7 files) | Per-language rule indexes - authored here, not upstream. They only `@import` the files below. |
 | `sync.sh`, `CLAUDE.md`, `rules/ecc/common/{code-review,testing}.md` additions | Setup and the hand-earned rules |
 

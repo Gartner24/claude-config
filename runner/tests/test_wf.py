@@ -467,6 +467,66 @@ class TestNext(CliCase):
         self.assertIsNone(self.launched())
 
 
+def header(*lines, body="### 1. A\n- [ ] `/develop a`\n"):
+    return wf.header_warnings("# Scope: x\n\n" + "".join(l + "\n" for l in lines) + "\n" + body)
+
+
+UNKNOWN_AUTO = "unknown Autopilot value '{}', using off"
+
+
+class TestHeaderContract(unittest.TestCase):
+    # covers: AC-1 (first token, ends stripped, lowercased, exact compare)
+    def test_valid_values_give_no_warning(self):
+        self.assertEqual(header("**Autopilot:** Allowed (client signed off)", "**Source of truth:** ISSUES."), [])
+        self.assertEqual(header("**autopilot:** **allowed**", "**SOURCE OF TRUTH:** mixed"), [])
+        self.assertEqual(header("**Autopilot:** off", "**Source of truth:** scope"), [])
+
+    # covers: AC-1 (never reads as allowed: suffixes, empty, colon outside the bold, indented)
+    def test_malformed_values(self):
+        self.assertEqual(header("**Autopilot:** allowed-ish"), [UNKNOWN_AUTO.format("allowed-ish")])
+        self.assertEqual(header("**Autopilot:**"), [UNKNOWN_AUTO.format("")])
+        self.assertEqual(header("**Autopilot:**   "), [UNKNOWN_AUTO.format("")])
+        self.assertEqual(header("**Autopilot**: on"), [])
+        self.assertEqual(header(" **Autopilot:** on"), [])
+
+    # covers: AC-1 (comments and fences are removed before reading the header)
+    def test_comments_and_fences_ignored(self):
+        self.assertEqual(header("<!-- **Autopilot:** on -->", "```", "**Autopilot:** on", "```"), [])
+        self.assertEqual(header("<!--", "**Autopilot:** on", "-->", "**Autopilot:** off"), [])
+
+    # covers: AC-1 (header ends at the first level 2 or 3 heading or box line)
+    def test_header_ends_at_heading_or_box(self):
+        self.assertEqual(header(body="### 1. A\n**Autopilot:** on\n- [ ] `/develop a`\n"), [])
+        self.assertEqual(header(body="## Section\n**Autopilot:** on\n"), [])
+        self.assertEqual(header(body="- [ ] `/develop a`\n**Autopilot:** on\n"), [])
+        self.assertEqual(header(body="#### Note\n**Autopilot:** on\n"), [UNKNOWN_AUTO.format("on")])
+
+    # covers: AC-2 (missing means defaults; first line wins; one warning per problem)
+    def test_defaults_and_duplicates(self):
+        self.assertEqual(header(), [])
+        self.assertEqual(header("**Autopilot:** on"), [UNKNOWN_AUTO.format("on")])
+        self.assertEqual(header("**Autopilot:** on", "**Autopilot:** allowed"),
+                         [UNKNOWN_AUTO.format("on"), "Autopilot set twice, using the first"])
+        self.assertEqual(header("**Source of truth:** github", "**Source of truth:** scope", "**Source of truth:** scope"),
+                         ["unknown Source of truth value 'github', using scope",
+                          "Source of truth set twice, using the first"])
+
+    # covers: AC-5 (whole segment only) and AC-7 (ticked skipped boxes are done), next box unchanged
+    def test_auto_tag_and_skipped_boxes(self):
+        text = (FIX / "contract.md").read_text()
+        self.assertEqual(wf.header_warnings(text), [])
+        nb = parse(text)
+        self.assertEqual(nb.feature, "4. Headless step loop")
+        self.assertEqual(nb.command, "/develop headless step loop")
+        self.assertEqual(nb.note, "Budget caps (AC-4)")
+        without = parse(text.replace(" · auto", ""))
+        self.assertEqual((nb.feature, nb.command, nb.note), (without.feature, without.command, without.note))
+        self.assertTrue(wf.AUTO_TAG.search("4. Loop · in-progress · AUTO "))
+        self.assertTrue(wf.AUTO_TAG.search("4. Loop · auto · GA"))
+        self.assertFalse(wf.AUTO_TAG.search("4. Loop · auto-merge"))
+        self.assertFalse(wf.AUTO_TAG.search("4. Autopilot offer"))
+
+
 def scope(folder, text):
     d = folder / "docs" / "scope"
     d.mkdir(parents=True)
@@ -595,6 +655,45 @@ class TestHostileFolders(CliCase):
         scope(home, "# Scope: mine\n- [ ] `/develop mine`\n")
         r = self.wf("next", "-y", cwd=home / "sub", HOME=str(home))
         self.assertIn(f"cd {home} && claude '/develop mine'", r.stdout)
+
+
+class TestHeaderWarnings(CliCase):
+    # covers: AC-3 (warning on the confirm line and both early paths; --list unchanged)
+    def test_warning_on_every_path(self):
+        scope(self.root / "run", "# Scope: r\n**Autopilot:** on\n- [ ] `/develop r`\n")
+        scope(self.root / "empty", "# Scope: e\n**Autopilot:** on\n- [x] `/develop e`\n")
+        scope(self.root / "manual", "# Scope: m\n**Autopilot:** on\n- [ ] call the vendor\n")
+        r = self.wf("next", "run")
+        self.assertIn("| /develop r | warning: unknown Autopilot value 'on', using off", r.stdout)
+        r = self.wf("next", "empty")
+        self.assertEqual(r.returncode, 0)
+        self.assertEqual(r.stdout, "nothing to run in empty\nwarning: unknown Autopilot value 'on', using off\n")
+        r = self.wf("next", "manual", "-y", tty=True)
+        self.assertEqual(r.returncode, 3)
+        self.assertTrue(r.stdout.endswith("call the vendor\nwarning: unknown Autopilot value 'on', using off\n"))
+        self.assertEqual(self.wf("next", "--list").stdout,
+                         "empty\t\t\tnothing to run\tno git\t-\n"
+                         "manual\t\t\tno command\tno git\t-\n"
+                         "run\t\t\t/develop r\tno git\t-\n")
+
+    # covers: AC-3 (hubs are skipped)
+    def test_hub_header_not_checked(self):
+        hub = self.repo("projects", "hub.md")
+        f = hub / "docs" / "scope" / "scope.md"
+        f.write_text(f.read_text().replace("\n", "\n**Autopilot:** on\n", 1))
+        r = self.wf("next", "projects")
+        self.assertIn("nothing to run in projects", r.stdout)
+        self.assertNotIn("warning", r.stdout)
+
+    # covers: AC-1 (an epic split reads its header from index.md only)
+    def test_epic_split_reads_index_only(self):
+        d = self.root / "big" / "docs" / "scope"
+        d.mkdir(parents=True)
+        (d / "index.md").write_text("# Scope: big\n**Autopilot:** maybe\n\n[one](one.md)\n")
+        (d / "one.md").write_text("**Source of truth:** github\n### 1. One\n- [ ] `/develop one`\n")
+        r = self.wf("next", "big")
+        self.assertIn("warning: unknown Autopilot value 'maybe', using off", r.stdout)
+        self.assertNotIn("Source of truth", r.stdout)
 
 
 if __name__ == "__main__":
