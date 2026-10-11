@@ -1,7 +1,7 @@
 # 0001. Runner stack and layout: one stdlib Python CLI in runner/
 
 **Date**: 2026-10-11
-**Status**: Proposed
+**Status**: Accepted
 
 ## Summary
 

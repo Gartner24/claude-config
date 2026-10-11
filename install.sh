@@ -53,6 +53,17 @@ for d in commands skills; do
   done
 done
 
+# The runner goes on PATH by symlink too, so repo edits are live (spec 0001).
+echo "runner:"
+BIN="$HOME/.local/bin"
+run mkdir -p "$BIN"
+if [ -e "$BIN/wf" ] && ! [ -L "$BIN/wf" ]; then
+  note "SKIP wf (a real file is already at $BIN/wf)"
+else
+  note "wf -> runner/wf.py"
+  run ln -sfn "$REPO/runner/wf.py" "$BIN/wf"
+fi
+
 # settings.json hardcodes absolute paths to hook scripts. Substituting $HOME is
 # what makes this repo installable by anyone, not just its author.
 echo "settings.json:"
@@ -86,6 +97,9 @@ else
   node "$REPO/skills/design/scripts/build-ramp.mjs" --check >/dev/null 2>&1 \
     && note "colour ramp: solver targets and emitted pairs meet AA" \
     || { echo "  RAMP SELF-CHECK FAILED - generated palettes may ship below AA" >&2; exit 1; }
+  python3 -m unittest discover -s "$REPO/runner/tests" >/dev/null 2>&1 \
+    && note "runner: unittest suite passes" \
+    || { echo "  RUNNER SELF-CHECK FAILED - run: python3 -m unittest discover -s runner/tests" >&2; exit 1; }
   missing=0
   while read -r imp; do
     real="${imp/#@\~/$HOME}"

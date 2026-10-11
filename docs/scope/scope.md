@@ -17,7 +17,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | B | Design pipeline and gate | Existing | existing |
 | C | Review stack | Existing | existing |
 | D | Skill routing | Existing | existing |
-| 1 | Runner stack and layout | Foundation | in-progress |
+| 1 | Runner stack and layout | Foundation | done |
 | 2 | Scope contract for the runner | Foundation | planned |
 | 3 | `next <repo>` | Release 1 | in-progress |
 | 4 | Headless step loop | Release 2 | planned |
@@ -50,12 +50,12 @@ Multi agent pre ship review with a blind lane and a pre push receipt hook. code 
 
 ## Foundations
 
-### 1. Runner stack and layout · in-progress
+### 1. Runner stack and layout · done
 Pick the language, the entry point, how it installs onto your PATH, and how it is tested. Code lives in `~/claude-config` (decided).
 **Done when:** a spec records the choice, and an empty runner installs through `install.sh` and passes its own self check.
 - [x] Design it (spec): `/architect runner stack and layout`
-- [ ] Scaffold from the decision: `/develop runner stack and layout`
-Spec [0001](../specs/0001-runner-stack-and-layout.md)
+- [x] Scaffold from the decision: `/develop runner stack and layout`
+Spec [0001](../specs/0001-runner-stack-and-layout.md) · code in `runner/`
 
 ### 2. Scope contract for the runner · needs a decision
 The fields the runner reads: `**Repo:**`, `**Source of truth:**`, `**Autopilot:**`, the `auto` tag, and how the next box is found (first unticked box, `docs/` or `.workflow/` base, milestone sub items). The skills that write the scope have to agree with it.

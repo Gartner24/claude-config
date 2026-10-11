@@ -13,6 +13,7 @@ because the LICENSE covers only the parts authored here.
 | `skills/intent-router/`, `USAGE.md` | Prompt-to-skill routing table and its scorer |
 | `scripts/check-routing.py`, `scripts/asciify.py` | Repo tooling |
 | `hooks/block-destructive.sh` | Destructive-command guard |
+| `runner/` | `wf`, the workflow runner (spec 0001) |
 | `rules/ecc/*/index.md` (7 files) | Per-language rule indexes - authored here, not upstream. They only `@import` the files below. |
 | `sync.sh`, `CLAUDE.md`, `rules/ecc/common/{code-review,testing}.md` additions | Setup and the hand-earned rules |
 
