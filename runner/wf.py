@@ -19,6 +19,15 @@ DISPLAY_TAG = re.compile(r"\s*\u00b7[^\u00b7]*|\s*\(\s*(done|existing|dropped|pl
 COMMAND = re.compile(r"^/[a-z][\w:-]*(\s|$)")
 WAITING = re.compile(r"\b(after|waits on)\b", re.I)
 LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)")
+# C0 and C1 control characters. Scope text and folder names come from repos you
+# may have cloned; an ESC or CR in them used to reach the terminal and fzf as is.
+CONTROL = re.compile(r"[\x00-\x1f\x80-\x9f]")
+# A planted core.fsmonitor or hook in a scanned repo used to run on `git status`.
+GIT_SAFE = ("-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null")
+
+
+def clean(text):
+    return CONTROL.sub("", text)
 
 
 class Box:
@@ -56,7 +65,7 @@ def parse_text(text):
             continue
         h = HEADING.match(line)
         if h and len(h.group(1)) <= 3:
-            level, heading = len(h.group(1)), h.group(2)
+            level, heading = len(h.group(1)), clean(h.group(2))
             stack = []
             feature = heading if level == 3 else None
             gone = bool(feature and GONE_TAG.search(feature))
@@ -69,7 +78,7 @@ def parse_text(text):
         indent = len(b.group(1))
         while stack and stack[-1].indent >= indent:
             stack.pop()
-        box = Box(indent, b.group(2) == " ", b.group(3).strip(), feature, stack[-1] if stack else None, gone or deferred)
+        box = Box(indent, b.group(2) == " ", clean(b.group(3)).strip(), feature, stack[-1] if stack else None, gone or deferred)
         stack.append(box)
         boxes.append(box)
     return boxes
@@ -112,7 +121,7 @@ def open_rows(text):
         words = cells[-1].lower().split()
         if words and words[0] in ("done", "dropped", "existing"):
             continue
-        rows.append(" | ".join(cells))
+        rows.append(clean(" | ".join(cells)))
     return rows
 
 
@@ -123,7 +132,7 @@ def read(path):
 
 def git(path, *args):
     try:
-        return subprocess.run(["git", "-C", path, *args], capture_output=True, text=True)
+        return subprocess.run(["git", *GIT_SAFE, "-C", path, *args], capture_output=True, text=True)
     except FileNotFoundError:
         return None
 
@@ -135,7 +144,7 @@ def branch(path):
     if r.returncode == 0:
         name = r.stdout.strip()
         if name != "HEAD":
-            return name
+            return clean(name)
         return "detached " + git(path, "rev-parse", "--short", "HEAD").stdout.strip()
     return "no commits" if git(path, "rev-parse", "--git-dir").returncode == 0 else "no git"
 
@@ -165,7 +174,7 @@ def worktree_label(path):
         return ""
     for wt, br in worktrees(path)[1:]:
         if wt == path:
-            return f"worktree {br}" if br else "worktree (detached)"
+            return f"worktree {clean(br)}" if br else "worktree (detached)"
     return ""
 
 
@@ -180,7 +189,7 @@ def find_scope(path):
 class Candidate:
     def __init__(self, path, scope_dir, warnings):
         self.path, self.scope_dir, self.warnings = path, scope_dir, warnings
-        self.name = os.path.basename(path)
+        self.name = clean(os.path.basename(path))
         self.label = worktree_label(path)
         folder = os.path.join(path, scope_dir)
         main = next(os.path.join(folder, f) for f in SCOPE_FILES if os.path.isfile(os.path.join(folder, f)))
@@ -209,7 +218,7 @@ class Candidate:
             if os.path.isfile(f):
                 yield f
             else:
-                self.warnings.append(f"missing epic file {target}")
+                self.warnings.append(f"missing epic file {clean(target)}")
 
     def display_name(self):
         return f"{self.name} ({self.label})" if self.label else self.name
@@ -272,12 +281,15 @@ def match(cands, name):
 
 def from_cwd():
     d = os.path.realpath(os.getcwd())
+    home = os.path.realpath(os.path.expanduser("~"))
     while True:
         c = make_candidate(d)
         if c and not c.is_hub:
             return c
         parent = os.path.dirname(d)
-        if parent == d:
+        # Stop at $HOME: a folder above it (/tmp, /home, /) can hold a scope
+        # someone else planted. Outside $HOME only the cwd itself is checked.
+        if d == home or not (parent + os.sep).startswith(home + os.sep):
             return None
         d = parent
 
@@ -350,7 +362,10 @@ def launch(c, yes):
             return 130
     if os.environ.get("TMUX"):
         try:
-            r = subprocess.run(["tmux", "new-window", "-c", c.path, "-n", c.name, "claude", nb.command])
+            # tmux expands #{...} formats in -c and -n, so a folder named
+            # `#{...}` used to be evaluated; ## is tmux's literal #.
+            r = subprocess.run(["tmux", "new-window", "-c", c.path.replace("#", "##"),
+                                "-n", c.name.replace("#", "##"), "claude", nb.command])
         except FileNotFoundError:
             print("tmux not found", file=sys.stderr)
             return 1
@@ -358,7 +373,7 @@ def launch(c, yes):
             print(f"opened tmux window {c.name}")
         return r.returncode
     if not tty:
-        print(f"cd {shlex.quote(c.path)} && claude {shlex.quote(nb.command)}")
+        print(f"cd {shlex.quote(clean(c.path))} && claude {shlex.quote(nb.command)}")
         return 4
     os.chdir(c.path)
     os.execvp("claude", ["claude", nb.command])

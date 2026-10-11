@@ -467,5 +467,97 @@ class TestNext(CliCase):
         self.assertIsNone(self.launched())
 
 
+def scope(folder, text):
+    d = folder / "docs" / "scope"
+    d.mkdir(parents=True)
+    (d / "scope.md").write_text(text)
+    return folder
+
+
+class TestHostileFolders(CliCase):
+    def assert_no_control(self, text):
+        bad = sorted({hex(ord(ch)) for ch in text if ch not in "\t\n" and wf.CONTROL.match(ch)})
+        self.assertEqual(bad, [], repr(text))
+
+    # tmux expands #{...} in -c and -n; a folder name must reach it as literal text
+    def test_tmux_escapes_hash(self):
+        repo = scope(self.root / "a#{pane_pid}", "# Scope: a\n- [ ] `/develop x`\n")
+        self.fake("tmux", FAKE_TMUX)
+        r = self.wf("next", str(repo), "-y", TMUX="/tmp/fake,1,0")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(self.launched()[:5], ["new-window", "-c", str(self.root / "a##{pane_pid}"),
+                                               "-n", "a##{pane_pid}"])
+
+    # a planted core.fsmonitor used to run on `git status` for every scanned repo
+    def test_git_never_runs_repo_fsmonitor_or_hooks(self):
+        repo = scope(self.root / "planted", "# Scope: p\n- [ ] `/develop x`\n")
+        env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+        git = lambda *a: subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True, env=env)
+        git("init", "-q", "-b", "main")
+        git("add", ".")
+        git("commit", "-qm", "init")
+        marker = self.tmp / "PWNED"
+        hook = self.tmp / "monitor.sh"
+        hook.write_text(f"#!/bin/sh\ntouch {marker}\n")
+        hook.chmod(0o755)
+        git("config", "core.fsmonitor", str(hook))
+        self.wf("next", "--list")
+        self.wf("next", "planted")
+        self.assertFalse(marker.exists())
+        self.fake("git", '#!/bin/sh\nprintf "%s " "$@" >> "$FAKE_OUT"; echo >> "$FAKE_OUT"; exit 1\n')
+        self.wf("next", "--list")
+        self.wf("next", "planted")
+        calls = self.out.read_text().splitlines()
+        self.assertTrue(calls)
+        for call in calls:
+            self.assertTrue(call.startswith("-c core.fsmonitor=false -c core.hooksPath=/dev/null -C "), call)
+
+    def test_control_characters_never_reach_terminal_or_fzf(self):
+        self.fake("fzf", FAKE_FZF)
+        scope(self.root / "evil\x1b]0;x\x07",
+              "# Scope: t\u009bitle\n### 1. F\x1b[2J\n- [x] `/develop f\x1b[31m`\n  - [ ] note \x1b[31mred\x00\n")
+        scope(self.root / "hub", "# Scope: h\n## At a glance\n| # | Work | Status |\n|---|---|---|\n"
+                                 "| 1 | bad\x1b[2J | planned |\n")
+        manual = scope(self.root / "manual", "# Scope: m\n- [ ] call \x1b[2Jthe vendor\n")
+        env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+        git = lambda *a: subprocess.run(["git", "-C", str(manual), *a], check=True, capture_output=True, env=env)
+        git("init", "-q", "-b", "m\u009b2J")
+        git("add", ".")
+        git("commit", "-qm", "init")
+        git("worktree", "add", "-q", str(self.root / "wt"), "-b", "w\u009b2J")
+        outs = [self.wf("next", "--list").stdout,
+                self.wf("next", "evil", "-y").stdout,
+                self.wf("next", "evil").stdout,
+                self.wf("next", "hub").stdout,
+                self.wf("next", "manual").stdout]
+        self.wf("next", cwd=self.tmp, FZF_CANCEL="1")
+        outs.append(self.fzf_in.read_text())
+        for out in outs:
+            self.assert_no_control(out)
+        self.assertIn("evil]0;x | no git | - | 1. F[2J | /develop f[31m | note: note [31mred", outs[2])
+        self.assertIn("bad[2J", outs[3])
+        self.assertIn("call [2Jthe vendor", outs[4])
+
+    # a scope planted above $HOME (/tmp, /home) is never picked by the parent walk
+    def test_parent_walk_stops_at_home(self):
+        self.fake("fzf", FAKE_FZF)
+        home = self.tmp / "home"
+        (home / "sub").mkdir(parents=True)
+        scope(self.tmp, "# Scope: planted\n- [ ] `/develop planted`\n")
+        r = self.wf("next", "-y", cwd=home / "sub", HOME=str(home), FZF_CANCEL="1")
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertNotIn("planted", r.stdout)
+        (self.tmp / "out" / "sub").mkdir(parents=True)
+        scope(self.tmp / "out", "# Scope: out\n- [ ] `/develop out`\n")
+        r = self.wf("next", "-y", cwd=self.tmp / "out" / "sub", HOME=str(home), FZF_CANCEL="1")
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertNotIn("/develop out", r.stdout)
+        scope(home, "# Scope: mine\n- [ ] `/develop mine`\n")
+        r = self.wf("next", "-y", cwd=home / "sub", HOME=str(home))
+        self.assertIn(f"cd {home} && claude '/develop mine'", r.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()
