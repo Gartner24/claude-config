@@ -4,6 +4,8 @@ Your Claude Code setup, published. The current build is the autonomous workflow 
 
 **Build approach:** Skateboard (each stage is usable on its own, and each next stage grows the same tool).
 **Workflow:** Beta (after `/develop`: `/check verify`, then `/test`). It runs unattended on your machine, so it gets tests. `/architect` is the recommended first stop for a feature with a real decision, but skippable when you already know the build. Any feature can carry its own tag (e.g. `· GA`) to do more or less.
+**Source of truth:** scope
+**Autopilot:** off
 
 _These are recommendations to keep your build orderly, not requirements. Skip anything that does not fit: if you already know how to build a feature, use `/develop` and skip `/architect`. You decide when a feature is `done`._
 
@@ -58,7 +60,7 @@ Pick the language, the entry point, how it installs onto your PATH, and how it i
 Spec [0001](../specs/0001-runner-stack-and-layout.md) · code in `runner/`
 
 ### 2. Scope contract for the runner · in-progress
-The fields the runner reads: `**Repo:**`, `**Source of truth:**`, `**Autopilot:**`, the `auto` tag, and how the next box is found (first unticked box, `docs/` or `.workflow/` base, milestone sub items). The skills that write the scope have to agree with it.
+The fields the runner reads: the hub `Repos` column (replaces `**Repo:**`), `**Source of truth:**`, `**Autopilot:**`, the `auto` tag, and how the next box is found (first unticked box, `docs/` or `.workflow/` base, milestone sub items). The skills that write the scope have to agree with it.
 **Done when:** a spec defines the fields and the next box rule, and `/scope` and `/architect` write them.
 - [x] Design it (spec): `/architect scope contract for the runner`
 - [ ] Build it: `/develop scope contract for the runner`
@@ -108,7 +110,7 @@ Answers you always give the same way (tier, cross check, `/test` runs the suite,
 - [ ] Design it (spec): `/architect headless verify and test`
 
 ### 8. Failure and park policy · needs a decision
-What parks a feature instead of looping: 2 `/debug` attempts after a FAIL, BLOCKED, sudo, logins, hook denials (logged with the reason), and paid steps that never run unattended.
+What parks a feature instead of looping: 2 `/debug` attempts after a FAIL, BLOCKED, sudo, logins, hook denials (logged with the reason), and paid steps that never run unattended. Also refuses a repo whose `**Autopilot:** allowed` you did not set yourself, such as a cloned third party scope (spec 0003 follow up).
 **Done when:** each of those cases parks the feature with a reason you can read, and no paid step runs.
 - [ ] Design it (spec): `/architect failure and park policy`
 
