@@ -128,7 +128,18 @@ def scrub(text, limit):
     text = wf.clean(str(text or "").split("\n")[0])
     text = re.sub(r"`[^`]*`", " ", text)
     text = " ".join(t for t in text.split() if not SECRET.search(t))
-    return text[:limit].strip()
+    return cut(text, limit)
+
+
+def cut(text, limit):
+    """AC-7: at most limit characters, ending at a word boundary with `...` when cut.
+    A hard cut mid word used to read on the phone as redacted text."""
+    if len(text) <= limit:
+        return text
+    head = text[:limit - 3]
+    if " " in head:
+        head = head[:head.rindex(" ")]
+    return head.rstrip() + "..."
 
 
 def blocked(cfg, text):
@@ -195,13 +206,13 @@ class Topic:
             question = "question waiting, see terminal"
         lines, actions = [f"{d['id']}: {question}"], []
         for n, label in enumerate(d["options"], 1):
-            label = scrub(label, 40)
+            label = scrub(label, 100)
             # A label that was all paths or code used to send a blank button.
             if not label or blocked(self.cfg, label):
                 label = f"option {n}"
             lines.append(f"{n} {label}")
             if n <= 3:
-                actions.append({"action": "http", "label": f"{n} {label}", "url": f"{self.cfg['server']}/{self.cfg['topic']}",
+                actions.append({"action": "http", "label": f"{n} {cut(label, 40)}", "url": f"{self.cfg['server']}/{self.cfg['topic']}",
                                 "method": "POST", "body": f"{d['id']} {n}", "clear": True})
         lines.append(f"reply {d['id']} <n>" if d["kind"] == "panel" else f"reply {d['id']} <code> <text>")
         d["sent"] = "\n".join(lines)

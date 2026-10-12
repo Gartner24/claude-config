@@ -168,7 +168,20 @@ class TestScrub(NtfyCase):
     def test_scrub(self):
         q = "Use `src/db.py` or ~/x, mail a@b.co, see https://x.io and C:\\temp now?\x1b[31m\nsecond line"
         self.assertEqual(ntfy.scrub(q, 140), "Use or mail see and now?[31m")
-        self.assertEqual(len(ntfy.scrub("word " * 60, 140)), 139)
+        long = ntfy.scrub("word " * 60, 140)
+        self.assertEqual(long, "word " * 26 + "word...")
+        self.assertLessEqual(len(long), 140)
+        self.assertEqual(ntfy.cut("x" * 50, 40), "x" * 37 + "...")
+        self.assertEqual(ntfy.cut("short", 40), "short")
+
+    # covers: AC-7 (a long label is whole in the body, cut at a word with ... on its button)
+    def test_long_label(self):
+        t = ntfy.Topic(self.cfg(), "home", "x")
+        label = "SQLite (recommended): stdlib sqlite3, one local file, no server"
+        d = self.decision(options=[label, "Postgres"])
+        t.ping(d, lambda: False)
+        self.assertIn("\n1 " + label + "\n", d["sent"])
+        self.assertEqual(self.fake.posts[0]["actions"][0]["label"], "1 SQLite (recommended): stdlib...")
 
     # covers: AC-7 (alias, hashed label, block list replacements)
     def test_labels_and_block(self):
