@@ -1,6 +1,8 @@
 """Spec 0009: headless verify and test for `wf run`."""
 import json
 import os
+import re
+import shlex
 import shutil
 import signal
 import socket
@@ -388,6 +390,158 @@ class TestDebugOrder(AppCase):
         self.assertFalse((self.repo / "tests" / "generated_x.py").exists())
         _, rec = self.run_record()
         self.assertEqual(rec["calls"][1]["touched"], [])
+
+
+ATTACH = ("--browserUrl", "--browser-url", "-u", "--wsEndpoint", "--ws-endpoint", "-w", "--autoConnect",
+          "--auto-connect", "--userDataDir", "--user-data-dir", "--channel")
+CHROME_ARGS = ["--chromeArg=--webrtc-ip-handling-policy=disable_non_proxied_udp", "--chromeArg=--disable-quic"]
+
+
+def check_mcp(text, cache):
+    """AC-5 on an MCP config as a call receives it; raises AssertionError on any way it could attach or leak."""
+    server = json.loads(text)["mcpServers"]["chrome-devtools"]
+    args = server["args"]
+    assert all(a in args for a in ("--isolated", "--headless", "--proxyServer")), args
+    assert len([a for a in args if re.fullmatch(r"chrome-devtools-mcp@\d+\.\d+\.\d+", a)]) == 1, args
+    assert all(a in CHROME_ARGS for a in args if a.startswith("--chromeArg")), args
+    assert server["env"] == {"npm_config_cache": cache}, server["env"]
+    assert not any(a.split("=")[0] in ATTACH or "@latest" in a for a in args), args
+
+
+class TestBrowserArgv(AppCase):
+    # covers: AC-4, AC-5, AC-6, AC-7 (which calls get the browser and exactly what they get), AC-8 (prompt)
+    def test_argv(self):
+        (self.repo / "docs/scope/scope.md").write_text(
+            "# Scope: x\n**Autopilot:** allowed\n### 1. A · in-progress\n- [ ] `/develop a`\n- [ ] `/check verify a`\n"
+            "- [ ] `/test a`\n")
+        self.steps([{}, {"tick": False, "json": {"result": "VERIFY FAIL: debug"}}, {"tick": False}, {}, {},
+                    {"tick": False}])
+        r = self.wf("demo", "-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        folder, rec = self.run_record()
+        self.assertEqual([c["kind"] for c in rec["calls"]], ["box", "box", "debug", "box", "box", "sync"])
+        shots = folder / "shots"
+        self.assertTrue(shots.is_dir())
+        npx, brave = os.path.realpath(self.bin / "npx"), os.path.realpath(self.bin / "brave")
+        cache = str(self.state / "wf" / "npm")
+        mcp = run.mcp_browser(npx, brave, cache)
+        self.assertEqual(json.loads(mcp), {"mcpServers": {"chrome-devtools": {
+            "type": "stdio", "command": npx,
+            "args": ["-y", "chrome-devtools-mcp@1.10.1", "--isolated", "--headless", "--executablePath", brave,
+                     "--proxyServer", "127.0.0.1:9", *CHROME_ARGS, "--no-usage-statistics", "--no-performance-crux"],
+            "env": {"npm_config_cache": cache}}}})
+        plain = self.argv(1)["argv"]
+        for n in (1, 2, 3, 4, 5, 6):
+            argv = self.argv(n)["argv"]
+            opt = lambda k: argv[argv.index(k) + 1]
+            browser = n in (2, 3, 4)
+            with self.subTest(n=n):
+                self.assertEqual(opt("--mcp-config"), mcp if browser else run.MCP_ALLOW)
+                denied = opt("--disallowedTools").split(",")
+                hooks = json.loads(opt("--settings"))["hooks"]["PreToolUse"]
+                prompt = opt("--append-system-prompt")
+                if not browser:
+                    self.assertNotIn("--allowedTools", argv)
+                    self.assertEqual((opt("--settings"), opt("--disallowedTools")),
+                                     (plain[plain.index("--settings") + 1], plain[plain.index("--disallowedTools") + 1]))
+                    self.assertNotIn("chrome-devtools", prompt)
+                    continue
+                check_mcp(opt("--mcp-config"), cache)
+                self.assertEqual(opt("--allowedTools").split(","), ["mcp__chrome-devtools__" + t for t in run.BROWSER_TOOLS])
+                self.assertEqual(denied[-6:], ["mcp__chrome-devtools__" + t for t in (
+                    "upload_file", "take_heapsnapshot", "performance_start_trace", "performance_stop_trace",
+                    "performance_analyze_insight", "lighthouse_audit")])
+                self.assertEqual(",".join(denied[:-6]), plain[plain.index("--disallowedTools") + 1])
+                self.assertEqual(hooks[0], json.loads(plain[plain.index("--settings") + 1])["hooks"]["PreToolUse"][0])
+                self.assertEqual(hooks[1], {"matcher": "mcp__chrome-devtools__.*", "hooks": [{
+                    "type": "command", "timeout": 10,
+                    "command": f"{shlex.quote(os.path.realpath(sys.executable))} -c {shlex.quote(run.BROWSER_GUARD)} "
+                               f"{shlex.quote(self.url)} {shlex.quote(str(shots))} || exit 2"}]})
+                self.assertTrue(prompt.endswith(
+                    f" wf started the app at {self.url} and stops it after this step; do not start, stop or restart it. "
+                    "Drive it with the chrome-devtools tools; the browser can reach only that address. Save any file a "
+                    f"browser tool writes under {shots}, or leave its path out. Anything you start from Bash runs in a "
+                    "separate sandbox the browser cannot reach. If no chrome-devtools tool is available, end with "
+                    "BLOCKED: browser tools unavailable. Otherwise end with BLOCKED only for a login, captcha, 2FA or "
+                    "hardware."), prompt)
+
+    def test_no_keys(self):
+        (self.repo / "AGENTS.md").unlink()
+        self.steps([{}, {"tick": False}])
+        r = self.wf("demo", "-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        argv = self.argv(1)["argv"]
+        self.assertEqual(argv[argv.index("--mcp-config") + 1], run.MCP_ALLOW)
+        self.assertEqual(argv[argv.index("--append-system-prompt") + 1], run.UNATTENDED_PROMPT)
+        self.assertNotIn("--allowedTools", argv)
+
+    # covers: AC-5 (the check rejects every way to attach, persist or leak)
+    def test_check_rejects(self):
+        cache = "/s/wf/npm"
+        good = json.loads(run.mcp_browser("/bin/npx", "/bin/brave", cache))
+        check_mcp(json.dumps(good), cache)
+        args = good["mcpServers"]["chrome-devtools"]["args"]
+        bad = {
+            "browserUrl": {"args": [*args, "--browserUrl", "http://127.0.0.1:9222"]},
+            "user data dir": {"args": [*args, "--user-data-dir=/home/x/.config/BraveSoftware"]},
+            "third chromeArg": {"args": [*args, "--chromeArg=--no-sandbox"]},
+            "latest": {"args": [a.replace("@1.10.1", "@latest") for a in args]},
+            "old spelling": {"args": [a.replace("--webrtc", "--force-webrtc") for a in args]},
+            "extra env": {"env": {"npm_config_cache": cache, "NODE_OPTIONS": "--require x"}},
+            "home npm": {"env": {"npm_config_cache": os.path.expanduser("~/.npm")}},
+            "no proxy": {"args": [a for a in args if a not in ("--proxyServer", "127.0.0.1:9")]},
+        }
+        for name, change in bad.items():
+            with self.subTest(name):
+                copy = json.loads(json.dumps(good))
+                copy["mcpServers"]["chrome-devtools"].update(change)
+                with self.assertRaises(AssertionError):
+                    check_mcp(json.dumps(copy), cache)
+
+
+class TestBrowserGuard(unittest.TestCase):
+    # covers: AC-7 (BROWSER_GUARD run directly, fails closed)
+    def test_guard(self):
+        with tempfile.TemporaryDirectory() as d:
+            shots = Path(d, "shots")
+            shots.mkdir()
+            (shots / "esc").symlink_to(d)
+            app = "http://localhost:3000"
+            nav = lambda **i: json.dumps({"tool_name": "mcp__chrome-devtools__navigate_page", "tool_input": i})
+            shot = lambda p: json.dumps({"tool_name": "mcp__chrome-devtools__take_screenshot", "tool_input": {"filePath": p}})
+            cases = [
+                ("app origin", nav(url="http://localhost:3000/x"), 0),
+                ("upper case host", nav(url="HTTP://LOCALHOST:3000/"), 0),
+                ("new_page", json.dumps({"tool_name": "mcp__chrome-devtools__new_page",
+                                         "tool_input": {"url": "http://localhost:3000"}}), 0),
+                ("evil suffix", nav(url="http://localhost:3000.evil.example/"), 2),
+                ("other port", nav(url="http://localhost:3001/"), 2),
+                ("file", nav(url="file:///etc/passwd"), 2),
+                ("chrome", nav(url="chrome://settings"), 2),
+                ("reload", nav(type="reload"), 0),
+                ("back", nav(type="back"), 2),
+                ("url type no url", nav(type="url"), 2),
+                ("path inside", shot(str(shots / "a.png")), 0),
+                ("path outside", shot(os.path.join(d, "a.png")), 2),
+                ("dot dot", shot(str(shots / ".." / "a.png")), 2),
+                ("symlink", shot(str(shots / "esc" / "a.png")), 2),
+                ("path not a string", json.dumps({"tool_name": "mcp__chrome-devtools__take_snapshot",
+                                                  "tool_input": {"filePath": 1}}), 2),
+                ("other tool", json.dumps({"tool_name": "Bash", "tool_input": {}}), 2),
+                ("malformed", "{nope", 2),
+                ("empty", "", 2),
+            ]
+            for name, stdin, code in cases:
+                with self.subTest(name):
+                    r = subprocess.run([sys.executable, "-c", run.BROWSER_GUARD, app, str(shots)], input=stdin,
+                                       capture_output=True, text=True)
+                    self.assertEqual(r.returncode, code, r.stderr)
+                    if code:
+                        self.assertIn("wf run: browser tool call refused", r.stderr)
+            # The default port form matches an app url that names it.
+            r = subprocess.run([sys.executable, "-c", run.BROWSER_GUARD, "http://localhost:80", str(shots)],
+                               input=nav(url="http://localhost/"), capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr)
 
 
 if __name__ == "__main__":

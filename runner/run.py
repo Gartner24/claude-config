@@ -59,6 +59,13 @@ MCP_PACKAGE = "chrome-devtools-mcp@1.10.1"
 DEAD_PROXY = "127.0.0.1:9"
 APP_READY = 120
 APP_POLL = 0.5
+# P3's 1.10.1 tool list; the AC-6 six below are never offered to a call.
+BROWSER_TOOLS = ("click", "close_page", "drag", "emulate", "evaluate_script", "fill", "fill_form", "get_console_message",
+                 "get_css_styles", "get_network_request", "handle_dialog", "hover", "list_console_messages",
+                 "list_network_requests", "list_pages", "navigate_page", "new_page", "press_key", "resize_page",
+                 "select_page", "take_screenshot", "take_snapshot", "type_text", "wait_for")
+BROWSER_DENIED = ("upload_file", "take_heapsnapshot", "performance_start_trace", "performance_stop_trace",
+                  "performance_analyze_insight", "lighthouse_audit")
 # Fails closed: anything but a parsed local Agent input exits 2, a crash included.
 AGENT_GUARD = """import json, sys
 try:
@@ -127,6 +134,11 @@ ANSWERS_INTRO = " Standing answers for this repo, use them instead of asking:"
 RUN_SUITE_YES = " Run tests?, Yes, run and fix to green."
 DONE_YES = (" When /test or /check verify offers to mark the feature done after its last open box passed: "
             "Yes, mark it done.")
+BROWSER_PROMPT = (" wf started the app at {} and stops it after this step; do not start, stop or restart it. Drive it with "
+                  "the chrome-devtools tools; the browser can reach only that address. Save any file a browser tool writes "
+                  "under {}, or leave its path out. Anything you start from Bash runs in a separate sandbox the browser "
+                  "cannot reach. If no chrome-devtools tool is available, end with BLOCKED: browser tools unavailable. "
+                  "Otherwise end with BLOCKED only for a login, captcha, 2FA or hardware.")
 TEST_BASE = (" For /test, the feature's changes are the files in git diff --name-only --diff-filter=ACMR {} plus the "
              "untracked files from git ls-files --others --exclude-standard; use that list as the changed files "
              "instead of uncommitted files only.")
@@ -338,6 +350,7 @@ class Run:
             return self.refuse("no_browser", f"mcp: {problem}")
         self.browser = {"start": self.answers["app start"], "url": self.answers["app url"],
                         "npx": found["npx"], "brave": found["brave"], "cache": cache, "shots": None}
+        self.mcp_browser = mcp_browser(found["npx"], found["brave"], cache)
         return None
 
     def freeze_guard(self):
@@ -385,14 +398,15 @@ class Run:
         self.record["guard"] = {"hosts": hosts, "write_paths": write, "deny_paths": deny, "binaries": binaries,
                                 "guarded_files": {p: file_hash(p) for p in dict.fromkeys(files)}}
         hook = f"{shlex.quote(binaries['python3'])} -c {shlex.quote(AGENT_GUARD)} || exit 2"
-        self.settings = json.dumps({
+        self.guard_settings = {
             "sandbox": {"enabled": True, "failIfUnavailable": True, "autoAllowBashIfSandboxed": True,
                         "allowUnsandboxedCommands": False,
                         "network": {"allowedDomains": ["*"], "deniedDomains": hosts, "strictAllowlist": True},
                         "filesystem": {"allowWrite": write,
                                        "denyWrite": [p for p in deny if p != common] + [os.path.join(common, "config"), hooks_dir],
                                        "denyRead": [os.path.expanduser(p) for p in CREDENTIAL_PATHS]}},
-            "hooks": {"PreToolUse": [{"matcher": "Agent", "hooks": [{"type": "command", "timeout": 10, "command": hook}]}]}})
+            "hooks": {"PreToolUse": [{"matcher": "Agent", "hooks": [{"type": "command", "timeout": 10, "command": hook}]}]}}
+        self.settings = json.dumps(self.guard_settings)
         self.denied = ",".join([DENIED, GUARD_DENIED,
                                 *(r for p in CREDENTIAL_PATHS for r in path_rules("Read", os.path.expanduser(p))),
                                 *(r for p in deny for r in path_rules("Edit", p))])
@@ -588,15 +602,24 @@ class Run:
 
     # -- one call ------------------------------------------------------------
 
-    def call(self, seq, command, resume=None, last_box=False, sha=None):
+    def call(self, seq, command, resume=None, last_box=False, sha=None, browser=False):
         """Run one claude call, or with resume=(session id, prompt) continue that session.
         Returns (call record, parsed JSON or None, timed out, stderr tail, spawn error)."""
         a = self.args
+        prompt = unattended_prompt(self.answers, last_box, sha)
+        if browser:
+            # Spec 0009 AC-4 to AC-8: the pinned MCP, its tools minus the AC-6 six, the hook and the prompt sentence.
+            prompt += BROWSER_PROMPT.format(self.browser["url"], self.browser["shots"])
+            mcp, settings = self.mcp_browser, self.browser_settings
+            denied = ",".join([self.denied, *("mcp__chrome-devtools__" + t for t in BROWSER_DENIED)])
+            allowed = ["--allowedTools", ",".join("mcp__chrome-devtools__" + t for t in BROWSER_TOOLS)]
+        else:
+            mcp, settings, denied, allowed = MCP_ALLOW, self.settings, self.denied, []
         argv = [self.claude, "-p", resume[1] if resume else command,
                 *(["--resume", resume[0]] if resume else []), "--output-format", "json", "--permission-mode", "auto",
                 "--permission-prompts", "none", "--max-budget-usd", "%g" % a.budget,
-                "--disallowedTools", self.denied, "--append-system-prompt", unattended_prompt(self.answers, last_box, sha),
-                "--settings", self.settings, "--strict-mcp-config", "--mcp-config", MCP_ALLOW]
+                "--disallowedTools", denied, *allowed, "--append-system-prompt", prompt,
+                "--settings", settings, "--strict-mcp-config", "--mcp-config", mcp]
         base = os.path.join(self.folder, f"call-{seq:02d}")
         rec = {"seq": seq, "kind": None, "command": command, "box_text": None, "started": now(), "duration_s": None,
                "exit_code": None, "session_id": None, "subtype": None, "is_error": None,
@@ -831,7 +854,8 @@ class Run:
             elif resume:
                 restarts += 1
                 self.start_app(app, f"app-{app_seq:02d}-r{restarts}.log")
-            rec, data, timed_out, tail, spawn_error = self.call(seq, command, resume and resume[:2], last, base)
+            rec, data, timed_out, tail, spawn_error = self.call(seq, command, resume and resume[:2], last, base,
+                                                                app is not None)
             rec.update(kind=kind, box_text=box.box_text if kind == "box" else None,
                        resumes=resume[2] if resume else [], retry_of=retry_of, app=app)
             calls.append(rec)
@@ -940,6 +964,11 @@ class Run:
             self.run_id = f"{self.c.name}-{stamp}-{os.getpid()}"
             self.folder = os.path.join(state_dir(), "runs", self.run_id)
             os.makedirs(self.folder, mode=0o700)
+            if self.browser:
+                self.browser["shots"] = os.path.join(self.folder, "shots")
+                os.makedirs(self.browser["shots"])
+                self.browser_settings = browser_settings(self.guard_settings, self.record["guard"]["binaries"]["python3"],
+                                                         self.browser["url"], self.browser["shots"])
             self.save()
             self.start_inhibitor()
             self.loop()
@@ -1061,6 +1090,24 @@ def http_status(url):
         return e.code
     except (OSError, ValueError, http.client.HTTPException):
         return None
+
+
+def mcp_browser(npx, brave, cache):
+    """Spec 0009 AC-4: the one MCP a browser call gets, a fresh headless Brave behind a dead proxy."""
+    return json.dumps({"mcpServers": {"chrome-devtools": {
+        "type": "stdio", "command": npx,
+        "args": ["-y", MCP_PACKAGE, "--isolated", "--headless", "--executablePath", brave, "--proxyServer", DEAD_PROXY,
+                 # --force-webrtc-ip-handling-policy reached Brave and leaked the public IP anyway (P5, 2026-10-12).
+                 "--chromeArg=--webrtc-ip-handling-policy=disable_non_proxied_udp", "--chromeArg=--disable-quic",
+                 "--no-usage-statistics", "--no-performance-crux"],
+        "env": {"npm_config_cache": cache}}}})
+
+
+def browser_settings(guard, python3, url, shots):
+    """Spec 0009 AC-7: the guard settings plus BROWSER_GUARD on every chrome-devtools tool."""
+    hook = f"{shlex.quote(python3)} -c {shlex.quote(BROWSER_GUARD)} {shlex.quote(url)} {shlex.quote(shots)} || exit 2"
+    entry = {"matcher": "mcp__chrome-devtools__.*", "hooks": [{"type": "command", "timeout": 10, "command": hook}]}
+    return json.dumps({**guard, "hooks": {"PreToolUse": [*guard["hooks"]["PreToolUse"], entry]}})
 
 
 def log_tail(path):
