@@ -174,6 +174,11 @@ class TestScrub(NtfyCase):
         self.assertEqual(ntfy.cut("x" * 50, 40), "x" * 37 + "...")
         self.assertEqual(ntfy.cut("short", 40), "short")
 
+    # covers: AC-7 (a long feature is cut to 40 at a word with ... in the title)
+    def test_long_feature(self):
+        t = ntfy.Topic(self.cfg(), "home", "12. Decision parking and phone pings for every run")
+        self.assertEqual(t.title, "wf home: 12. Decision parking and phone pings...")
+
     # covers: AC-7 (a long label is whole in the body, cut at a word with ... on its button)
     def test_long_label(self):
         t = ntfy.Topic(self.cfg(), "home", "x")
