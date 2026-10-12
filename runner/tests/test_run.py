@@ -1088,6 +1088,23 @@ class TestGuard(RunCase):
                 self.assertEqual(rec["detail"], f"{self.repo}/{path} changed during the run; "
                                                 "inspect or delete it before opening a session in this repo")
 
+    # covers: spec 0007 AC-7 (an absent guarded file the sandbox leaves as an empty placeholder is
+    # unchanged; the first real run stopped on .git/config.worktree; any content still trips)
+    def test_guard_empty_placeholder(self):
+        path = self.repo / ".git" / "config.worktree"
+        self.steps([{"write_file": [[".git/config.worktree", ""]]}, {}, {"tick": False}])
+        r = self.wf("demo", "-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        _, rec = self.run_record()
+        self.assertEqual(rec["guard"]["guarded_files"][str(path)], "absent")
+        self.assertEqual(len(rec["calls"]), 3)
+        path.unlink()
+        self.fresh()
+        self.steps([{"write_file": [[".git/config.worktree", "[core]\n"]]}, {}])
+        r = self.wf("demo", "-y")
+        rec = self.assert_stopped(r, "guard_changed", calls=1)
+        self.assertTrue(rec["detail"].startswith(f"{path} changed"))
+
     # covers: spec 0007 AC-7 (the same check runs before a resume)
     def test_guard_changed_before_resume(self):
         self.ntfy = FakeNtfy()

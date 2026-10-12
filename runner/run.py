@@ -252,7 +252,12 @@ class Run:
     def files_changed(self):
         """AC-7: the first guarded file whose hash moved since start, as a stop detail, else None."""
         for path, h in self.record["guard"]["guarded_files"].items():
-            if file_hash(path) != h:
+            now = file_hash(path)
+            # The sandbox's denyWrite used to stop the first real run here: it creates an empty
+            # placeholder for an absent denied path (.git/config.worktree). Any content still trips.
+            if h == "absent" and now == EMPTY_SHA256 and not os.path.islink(path):
+                continue
+            if now != h:
                 return f"{path} changed during the run; inspect or delete it before opening a session in this repo"
         return None
 
@@ -600,6 +605,9 @@ def user_exclusions():
         except (ValueError, AttributeError):
             return f"{path} does not parse as a settings object"
     return None
+
+
+EMPTY_SHA256 = hashlib.sha256(b"").hexdigest()
 
 
 def file_hash(path):
