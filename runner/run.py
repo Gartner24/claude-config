@@ -6,6 +6,7 @@ import difflib
 import fcntl
 import glob
 import hashlib
+import http.client
 import json
 import os
 import re
@@ -16,6 +17,8 @@ import subprocess
 import sys
 import time
 import traceback
+import urllib.error
+import urllib.request
 import zoneinfo
 
 import ntfy
@@ -45,10 +48,17 @@ KEPT_ENV = ("CLAUDE_CODE_OAUTH_TOKEN",)
 FORGES = ("github.com", "*.github.com", "*.githubusercontent.com", "gitlab.com", "*.gitlab.com",
           "bitbucket.org", "*.bitbucket.org", "codeberg.org", "*.sr.ht")
 CACHE_DIRS = ("~/.npm", "~/.cache", "~/.local/share/pnpm")
+# Spec 0009 AC-3: what the app jail hides, the credential list above plus agent keys and the real browser profile.
+JAIL_HIDDEN = (*CREDENTIAL_PATHS, "~/.gnupg", "~/.claude/.credentials.json", "~/.config/BraveSoftware")
 DOTFILES = ("~/.gitconfig", "~/.config/git", "~/.config/gh", "~/.bashrc", "~/.bash_profile", "~/.profile",
             "~/.zshrc", "~/.zshenv", "~/.zprofile")
 SANDBOX_TOOLS = ("bwrap", "socat", "git", "claude", "python3")
 MCP_ALLOW = '{"mcpServers": {}}'
+# Spec 0009. Raising the version reruns probes P2 to P7 and updates BROWSER_TOOLS.
+MCP_PACKAGE = "chrome-devtools-mcp@1.10.1"
+DEAD_PROXY = "127.0.0.1:9"
+APP_READY = 120
+APP_POLL = 0.5
 # Fails closed: anything but a parsed local Agent input exits 2, a crash included.
 AGENT_GUARD = """import json, sys
 try:
@@ -107,9 +117,12 @@ UNATTENDED_PROMPT = (
     "Never run anything that bills: paid APIs, image generation, paid services.")
 # Spec 0006: the standing answers section, in the AGENTS.md mapped from the exact scope base.
 ANSWERS_FILE = {"docs/scope": "AGENTS.md", ".workflow/scope": ".workflow/AGENTS.md"}
-ANSWER_KEYS = {"run suite": ("yes", "ask"), "done": ("yes", "ask")}
-ANSWER_ENTRY = re.compile(r"^\s*[-*]\s+([^:]+?)\s*:\s*(\S+)\s*$")
-ANSWERS_HINT = " (expected: - run suite: yes|ask, - done: yes|ask)"
+# Spec 0009 AC-1: the app keys take any value, kept as written; app url is checked by APP_URL.
+ANSWER_KEYS = {"run suite": ("yes", "ask"), "done": ("yes", "ask"), "app start": None, "app url": None}
+ANSWER_ENTRY = re.compile(r"^\s*[-*]\s+([^:]+?)\s*:\s*(\S.*?)\s*$")
+ANSWERS_HINT = (" (expected: - run suite: yes|ask, - done: yes|ask, - app start: <command>, "
+                "- app url: http://localhost:<port>)")
+APP_URL = re.compile(r"https?://(localhost|127\.0\.0\.1|\[::1\]):(\d{1,5})(/\S*)?")
 ANSWERS_INTRO = " Standing answers for this repo, use them instead of asking:"
 RUN_SUITE_YES = " Run tests?, Yes, run and fix to green."
 DONE_YES = (" When /test or /check verify offers to mark the feature done after its last open box passed: "
@@ -161,6 +174,11 @@ def state_dir():
     return os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "wf")
 
 
+def mcp_cache():
+    """Spec 0009 AC-4: the browser MCP's npm cache, in wf's state dir, never ~/.npm."""
+    return os.path.join(state_dir(), "npm")
+
+
 def box_refusal(nb):
     """AC-2 checks 2 to 5 on a box: (reason, detail), or None."""
     # Spec 0012 AC-5: a box only you can close wins over every other check.
@@ -206,6 +224,11 @@ class Run:
         self.limit_rerun = False
         # Spec 0006 AC-4: start_checks() overwrites these once; a Run built without it has no answers.
         self.answers = {}
+        # Spec 0009: set by browser_checks() when the repo names its app; None means no browser call ever.
+        self.browser = None
+        self.app = self.app_rec = self.app_term_at = None
+        # WF_RUN for every process the run starts (spec 0009 AC-3 step 6); set by run().
+        self.run_id = None
         self.record["caps"]["max_wait_h"] = args.max_wait
         self.topic = None
         # Set by freeze_guard(); a call that somehow starts without them fails to spawn, never runs unguarded.
@@ -261,6 +284,10 @@ class Run:
         if problem:
             return self.refuse("bad_answers", problem + ANSWERS_HINT)
         self.answers, self.record["answers"] = answers, dict(answers)
+        if "app url" in answers:
+            rc = self.browser_checks()
+            if rc is not None:
+                return rc
         missing = [t for t in SANDBOX_TOOLS if not shutil.which(t)]
         if missing:
             return self.refuse("no_sandbox", "not found on PATH: " + ", ".join(missing))
@@ -279,6 +306,39 @@ class Run:
         if len(self.ntfy["codes"]) < 5:
             c.warnings.append(f"{len(self.ntfy['codes'])} one time codes left, run wf ntfy codes")
         return self.take_lock()
+
+    def browser_checks(self):
+        """Spec 0009 AC-2: npx, brave and the pinned MCP package, else refuse no_browser."""
+        found = {}
+        for b in ("npx", "brave"):
+            p = shutil.which(b)
+            if not p:
+                return self.refuse("no_browser", b)
+            found[b] = os.path.realpath(p)
+        # AC-4: the MCP runs outside every sandbox, so its npm cache must be a folder no call or app can write.
+        cache = mcp_cache()
+        r = wf.git(self.c.path, "rev-parse", "--path-format=absolute", "--git-common-dir")
+        writable = [self.c.path, *([r.stdout.strip()] if r and r.returncode == 0 else []),
+                    *(os.path.expanduser(p) for p in CACHE_DIRS)]
+        if under(os.path.realpath(cache), [os.path.realpath(p) for p in writable]):
+            return self.refuse("no_browser", "state dir is writable by calls")
+        try:
+            os.makedirs(cache, mode=0o700, exist_ok=True)
+        except OSError as e:
+            return self.refuse("no_browser", f"{cache}: {e.strerror or e}")
+        try:
+            r = subprocess.run([found["npx"], "-y", MCP_PACKAGE, "--version"], env={**call_env(), "npm_config_cache": cache},
+                               stdin=subprocess.DEVNULL, capture_output=True, text=True, errors="replace", timeout=120)
+            problem = (flat(r.stderr.strip().split("\n")[0]) or f"exit {r.returncode}") if r.returncode else None
+        except subprocess.TimeoutExpired:
+            problem = "timed out after 120 s"
+        except OSError as e:
+            problem = str(e)
+        if problem:
+            return self.refuse("no_browser", f"mcp: {problem}")
+        self.browser = {"start": self.answers["app start"], "url": self.answers["app url"],
+                        "npx": found["npx"], "brave": found["brave"], "cache": cache, "shots": None}
+        return None
 
     def freeze_guard(self):
         """Spec 0007: build each call's guard once, from what is on disk at start. Exit code on refusal, else None."""
@@ -337,7 +397,93 @@ class Run:
                                 *(r for p in CREDENTIAL_PATHS for r in path_rules("Read", os.path.expanduser(p))),
                                 *(r for p in deny for r in path_rules("Edit", p))])
         self.claude = binaries["claude"]
+        self.common, self.bwrap = common, os.path.realpath(shutil.which("bwrap"))
         return None
+
+    # -- the app (spec 0009) -------------------------------------------------
+
+    def jail_argv(self):
+        """AC-3 step 3: the bwrap argv that runs `app start` with only the repo and the caches writable."""
+        repo, home = self.c.path, os.path.expanduser("~")
+        a = [self.bwrap, "--die-with-parent", "--unshare-pid", "--ro-bind", "/", "/", "--dev", "/dev",
+             "--proc", "/proc", "--tmpfs", "/tmp", "--tmpfs", "/run"]
+        for p in (repo, *(os.path.join(home, p[2:]) for p in CACHE_DIRS)):
+            if os.path.exists(p):
+                a += ["--bind", p, p]
+        for p in (os.path.join(repo, ".claude"), os.path.join(self.common, "config"), os.path.join(self.common, "hooks")):
+            if os.path.exists(p):
+                a += ["--ro-bind", p, p]
+        for p in (os.path.join(home, p[2:]) for p in JAIL_HIDDEN):
+            if os.path.isdir(p):
+                a += ["--tmpfs", p]
+            elif os.path.exists(p):
+                a += ["--ro-bind", "/dev/null", p]
+        return a + ["--chdir", repo, "/bin/sh", "-c", self.browser["start"]]
+
+    def start_app(self, app, name):
+        """AC-3 steps 2 to 4: check the port, start the jailed app, wait until it answers below 500.
+        Raises Stop app_port_busy or app_failed; the app is stopped before an app_failed."""
+        url = app["url"]
+        if http_status(url) is not None:
+            raise Stop("app_port_busy", f"something already answers at {url}")
+        log = os.path.join(self.folder, name)
+        app["logs"].append(name)
+        t0 = time.monotonic()
+        with open(log, "wb") as out:
+            self.app = subprocess.Popen(self.jail_argv(), cwd=self.c.path, env=call_env(self.run_id),
+                                        stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT,
+                                        start_new_session=True)
+        self.app_rec, last = app, None
+        while True:
+            if self.app.poll() is not None:
+                code = self.stop_app()
+                raise Stop("app_failed", f"app exited {code}: {log_tail(log)}")
+            status = http_status(url)
+            if status is not None:
+                last = status
+                if status < 500:
+                    break
+            if self.interrupted:
+                raise Stop("interrupted", "Ctrl C or a stop signal")
+            if time.monotonic() - t0 >= APP_READY:
+                self.stop_app()
+                raise Stop("app_failed", f"not ready at {url} after {APP_READY:g} s (last status {last or 'none'}): "
+                                         f"{log_tail(log)}")
+            time.sleep(APP_POLL)
+        if app["ready_s"] is None:
+            app["ready_s"] = round(time.monotonic() - t0, 1)
+
+    def term_app(self):
+        """SIGTERM the app's group once; the GRACE clock starts here, shared with a call stopped at the same time."""
+        if self.app is not None and self.app_term_at is None:
+            self.app_term_at = time.monotonic()
+            self.signal_app(signal.SIGTERM)
+
+    def stop_app(self):
+        """AC-3 step 6: SIGTERM the app's group, SIGKILL once GRACE has passed. Records and returns its exit code."""
+        p = self.app
+        if p is None:
+            return None
+        if p.poll() is None:
+            self.term_app()
+            try:
+                p.wait(timeout=max(GRACE - (time.monotonic() - self.app_term_at), 0))
+            except subprocess.TimeoutExpired:
+                self.signal_app(signal.SIGKILL)
+                p.wait()
+        # The group may outlive its leader; nothing of the app survives its stop.
+        self.signal_app(signal.SIGKILL)
+        self.app = self.app_term_at = None
+        self.app_rec["exit"] = p.returncode
+        return p.returncode
+
+    def signal_app(self, sig):
+        if self.app is None:
+            return
+        try:
+            os.killpg(self.app.pid, sig)
+        except ProcessLookupError:
+            pass
 
     def files_changed(self):
         """AC-7: the first guarded file whose hash moved since start, as a stop detail, else None."""
@@ -382,6 +528,11 @@ class Run:
         if first:
             self.sigint_at = time.monotonic()
         self.signal_call(signal.SIGINT if first else signal.SIGKILL)
+        # Spec 0009 AC-3 step 6: the app goes down with the call, on the same GRACE.
+        if first:
+            self.term_app()
+        else:
+            self.signal_app(signal.SIGKILL)
 
     def signal_call(self, sig):
         if self.proc is None or self.proc.returncode is not None:
@@ -411,6 +562,9 @@ class Run:
         if self.proc and self.proc.poll() is None:
             self.signal_call(signal.SIGKILL)
             self.proc.wait()
+        self.stop_app()
+        if self.run_id:
+            sweep(self.run_id)
         if self.inhibitor:
             try:
                 os.killpg(self.inhibitor.pid, signal.SIGTERM)
@@ -448,12 +602,12 @@ class Run:
                "exit_code": None, "session_id": None, "subtype": None, "is_error": None,
                "cost_usd": None, "num_turns": None, "next_after": None, "decision": None,
                "resumes": [], "last_box": last_box, "denials": [], "marker": None, "limited": False,
-               "retry_of": None, "touched": None, "test_base": sha}
+               "retry_of": None, "touched": None, "app": None, "test_base": sha}
         t0 = time.monotonic()
         timed_out = False
         with open(base + ".json", "wb") as out, open(base + ".stderr", "wb") as err:
             try:
-                self.proc = subprocess.Popen(argv, cwd=self.c.path, env=call_env(), stdin=subprocess.DEVNULL,
+                self.proc = subprocess.Popen(argv, cwd=self.c.path, env=call_env(self.run_id), stdin=subprocess.DEVNULL,
                                              stdout=out, stderr=err, start_new_session=True)
             except OSError as e:
                 rec["duration_s"] = round(time.monotonic() - t0, 1)
@@ -522,6 +676,8 @@ class Run:
         if refusal:
             return ("end", *refusal)
         if kind == "debug":
+            # Spec 0009 AC-3 step 5: what the app wrote while running is not the call's doing until it stops.
+            self.stop_app()
             rec["touched"] = touched(snapshot, self.snapshot())
             if rec["touched"]:
                 return "end", "debug_touched", ", ".join(rec["touched"])
@@ -665,11 +821,24 @@ class Run:
             if self.limit_rerun:
                 self.record["limit_wait"]["resumed"] = now()
                 self.limit_rerun = False
+            # Spec 0009 AC-3: a browser call starts the app after the debug snapshot; a retry and a limit
+            # rerun keep it running, a resume restarts it (a decision wait stopped it).
+            if not (self.browser and (kind == "debug" or command.split()[:2] == ["/check", "verify"])):
+                app = None
+            elif fresh:
+                app, app_seq, restarts = {"url": self.browser["url"], "logs": [], "ready_s": None, "exit": None}, seq, 0
+                self.start_app(app, f"app-{app_seq:02d}.log")
+            elif resume:
+                restarts += 1
+                self.start_app(app, f"app-{app_seq:02d}-r{restarts}.log")
             rec, data, timed_out, tail, spawn_error = self.call(seq, command, resume and resume[:2], last, base)
             rec.update(kind=kind, box_text=box.box_text if kind == "box" else None,
-                       resumes=resume[2] if resume else [], retry_of=retry_of)
+                       resumes=resume[2] if resume else [], retry_of=retry_of, app=app)
             calls.append(rec)
             act = self.classify(rec, data, timed_out, tail, spawn_error, kind, box, snapshot)
+            if app and act[0] not in ("retry", "limit"):
+                self.stop_app()
+                sweep(self.run_id)
             pending = self.new_decision(seq, act[1]) if act[0] == "decide" else None
             self.save()
             reason = act[1] if act[0] == "end" else None
@@ -768,7 +937,8 @@ class Run:
         reason, detail = "internal_error", None
         try:
             stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-            self.folder = os.path.join(state_dir(), "runs", f"{self.c.name}-{stamp}-{os.getpid()}")
+            self.run_id = f"{self.c.name}-{stamp}-{os.getpid()}"
+            self.folder = os.path.join(state_dir(), "runs", self.run_id)
             os.makedirs(self.folder, mode=0o700)
             self.save()
             self.start_inhibitor()
@@ -820,14 +990,22 @@ def read_answers(c):
         m = ANSWER_ENTRY.match(line)
         if not m:
             return None, f"{rel}:{i}: not a - key: value entry"
-        key, value = " ".join(m.group(1).casefold().split()), m.group(2).casefold()
+        key, value = " ".join(m.group(1).casefold().split()), m.group(2)
         if key not in ANSWER_KEYS:
             return None, f"{rel}:{i}: unknown key {key}"
-        if value not in ANSWER_KEYS[key]:
-            return None, f"{rel}:{i}: {value} is not allowed for {key}"
+        if ANSWER_KEYS[key] is not None:
+            value = value.casefold()
+            if value not in ANSWER_KEYS[key]:
+                return None, f"{rel}:{i}: {value} is not allowed for {key}"
+        if key == "app url":
+            u = APP_URL.fullmatch(value)
+            if not u or not 1 <= int(u.group(2)) <= 65535:
+                return None, f"{rel}:{i}: app url must be http(s)://localhost|127.0.0.1|[::1]:<port 1-65535>"
         if key in found:
             return None, f"{rel}:{i}: {key} set twice"
         found[key] = value
+    if ("app start" in found) != ("app url" in found):
+        return None, f"{rel}: app start and app url go together"
     return {k: found[k] for k in ANSWER_KEYS if k in found}, None
 
 
@@ -863,11 +1041,49 @@ def paid(name):
     return up not in KEPT_ENV and (up.endswith(PAID_SUFFIXES) or "SECRET" in up or up in PAID_ENV)
 
 
-def call_env():
-    """AC-1: wf's env with no credential a push could use, and (spec 0008 AC-7) none a call could bill."""
+def call_env(run_id=None):
+    """AC-1: wf's env with no credential a push could use, and (spec 0008 AC-7) none a call could bill.
+    Spec 0009 AC-3 step 6: WF_RUN marks every process a run starts, so the sweep can find leftovers."""
     env = {k: v for k, v in os.environ.items() if k not in CREDENTIAL_ENV and not paid(k)}
     env["ENABLE_CLAUDEAI_MCP_SERVERS"] = "false"
+    if run_id:
+        env["WF_RUN"] = run_id
     return env
+
+
+def http_status(url):
+    """Spec 0009 AC-3: the HTTP status at url (2 s timeout, no proxy), or None when nothing answers."""
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with opener.open(url, timeout=2) as r:
+            return r.status
+    except urllib.error.HTTPError as e:
+        return e.code
+    except (OSError, ValueError, http.client.HTTPException):
+        return None
+
+
+def log_tail(path):
+    """Spec 0009 AC-3 step 4: the app log's last 20 lines, cleaned, first 1000 characters."""
+    lines = read_bytes(path).decode(errors="replace").splitlines()[-20:]
+    return " / ".join(flat(l) for l in lines)[:1000]
+
+
+def sweep(run_id):
+    """Spec 0009 AC-3 step 6: SIGKILL every process of this user carrying WF_RUN=<run_id>. Returns the pids."""
+    mark, uid, killed = f"WF_RUN={run_id}".encode(), os.getuid(), []
+    for d in glob.glob("/proc/[0-9]*"):
+        try:
+            if os.stat(d).st_uid != uid:
+                continue
+            with open(d + "/environ", "rb") as f:
+                if mark not in f.read().split(b"\0"):
+                    continue
+            os.kill(int(d[6:]), signal.SIGKILL)
+            killed.append(int(d[6:]))
+        except (OSError, ValueError):
+            pass
+    return killed
 
 
 def allowed_path():

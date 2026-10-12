@@ -224,13 +224,13 @@ Follow-up: the usage limit probe (spec 0008 `verify.md` Follow-up, check 3) wait
 - [ ] Build it: `/develop headless verify and test`
    - [x] Probe gate P2 to P7 first; any failure stops the build and goes back to `/architect` (AC-11)
    - [x] `/test` base from the merge base with `main` (AC-9, AC-10)
-   - [ ] App keys, `no_browser` start checks, app jail lifecycle, `app_failed` and `app_port_busy` (AC-1 to AC-3, AC-10)
+   - [x] App keys, `no_browser` start checks, app jail lifecycle, `app_failed` and `app_port_busy` (AC-1 to AC-3, AC-10)
    - [ ] Browser calls: pinned MCP, allowed and denied tools, browser hook, prompt (AC-4 to AC-8)
    - [ ] P8 and P9 through `wf run` (AC-11)
 - [ ] Verify it: `/check verify headless verify and test`
 - [ ] Test it: `/test headless verify and test`
 Spec [0009](../specs/0009-headless-verify-test/index.md) · code in `runner/run.py`, `runner/tests/test_browser.py`
-Unblocked 2026-10-12: P5 failed on the WebRTC switch spelling Brave ignores; spec 0009 amended (AC-4 `--webrtc-ip-handling-policy`, `MCP_CACHE`) and P2 to P7 now pass. The build resumes at step 3. Code written before the gate for AC-1, AC-2 and part of AC-3 is held out of the repo as `~/.local/share/claude-config-wip/0009-steps-2-to-4-full.patch` (full `run.py` in `run.py.full` beside it); reapply it, then add the `MCP_CACHE` checks it predates.
+Unblocked 2026-10-12: P5 failed on the WebRTC switch spelling Brave ignores; spec 0009 amended (AC-4 `--webrtc-ip-handling-policy`, `MCP_CACHE`) and P2 to P7 now pass. Steps 3 and 4 built 2026-10-12 (the held patch reapplied plus the `MCP_CACHE` checks); the build resumes at step 5, browser calls.
 
 ### 9. Design enforcement unattended · in-progress
 Frontend work in a headless run is audited by `design-gate`, never skipped: UI with no locked design parks `blocked`, calls cannot invoke `design` or `brand-system`, and before `/sync` the runner parks `design_gate` when a frontend file changed on the branch has no passing report newer than it. The headless Stop hook in the first wording was dropped at design: `design` never runs unattended, and the 0007 sandbox cannot write its pointer (spec 0010).

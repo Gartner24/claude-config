@@ -1361,14 +1361,15 @@ class TestStandingAnswers(RunCase):
 
     # covers: spec 0006 AC-1, AC-2, AC-3 (each refusal, its line, exit 5, no call, no run folder, first problem wins)
     def test_refusals(self):
-        hint = " (expected: - run suite: yes|ask, - done: yes|ask)"
+        hint = (" (expected: - run suite: yes|ask, - done: yes|ask, - app start: <command>, "
+                "- app url: http://localhost:<port>)")
         cases = [
             ("form", "## Standing answers\n- run suite yes\n", "AGENTS.md:2: not a - key: value entry"),
             ("unknown", "## Standing answers\n- cross check: yes\n", "AGENTS.md:2: unknown key cross check"),
             ("value", "## Standing answers\n\n- done: no\n", "AGENTS.md:3: no is not allowed for done"),
-            # A two word value fails the AC-2 form before its key is looked at; either way it refuses.
+            # Spec 0009 AC-1 widened the entry to any value, so a two word value reaches the key check too.
             ("note", "## Standing answers\n- Note: slow\n", "AGENTS.md:2: unknown key note"),
-            ("long note", "## Standing answers\n- Note: slow suite\n", "AGENTS.md:2: not a - key: value entry"),
+            ("long note", "## Standing answers\n- Note: slow suite\n", "AGENTS.md:2: unknown key note"),
             ("repeat", "## Standing answers\n- done: yes\n- run suite: yes\n- DONE: ask\n", "AGENTS.md:4: done set twice"),
             ("twice", "## Standing answers\n- done: yes\n# Other\n## Standing answers\n",
              "AGENTS.md:4: ## Standing answers appears twice"),
