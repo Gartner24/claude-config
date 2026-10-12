@@ -28,7 +28,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 4 | Headless step loop | Release 2 | done |
 | 5 | Decision parking and phone pings | Release 2 | done |
 | 6 | Standing answers | Release 2 | done |
-| 22 | Waiting boxes owed to you | Release 2 | in-progress |
+| 22 | Waiting boxes owed to you | Release 2 | done |
 | 20 | Push guard outside the model | Release 2 | done |
 | 8 | Failure and park policy | Release 2 | in-progress |
 | 7 | Headless verify and test | Release 2 | in-progress |
@@ -171,7 +171,7 @@ Answers you always give the same way (`/test` runs the suite, who marks done) li
 - [x] Test it: `/test standing answers`
 Spec [0006](../specs/0006-standing-answers/index.md) · code in `runner/run.py`, `runner/tests/test_run.py`
 
-### 22. Waiting boxes owed to you · in-progress
+### 22. Waiting boxes owed to you · done
 A box only you can close (a manual check on the real claude or your phone, like spec 0006 AC-9) gets a marker in the scope contract (spec 0003), and `next` and `wf run` treat it as waiting: refused with a reason, never built. The last `wf run` looped `/develop` on feature 6 because its open AC-9 milestone was owed to you.
 **Done when:** `wf run` on a feature whose next box carries the marker refuses with a waiting reason and makes no call, `next` says the box waits on you, and `/scope` and `/architect` know how to write the marker.
 - [x] Design it (spec): `/architect waiting boxes owed to you`
@@ -182,7 +182,7 @@ A box only you can close (a manual check on the real claude or your phone, like 
    - [x] Rule file line live (AC-7; architecture sentence and the repo copy are in): `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` · waits on you
    - [x] Headless `/scope` probe (AC-8; the `wf run` refusal passed, see spec 0012 `verify.md`) · waits on you
 - [x] Verify it: `/check verify waiting boxes owed to you`
-- [ ] Test it: `/test waiting boxes owed to you`
+- [x] Test it: `/test waiting boxes owed to you`
 Spec [0012](../specs/0012-waiting-boxes-owed-to-you/index.md) · code in `runner/wf.py`, `runner/run.py`, `runner/tests/`, `rules/scope-contract.md`
 Source: your message of 2026-10-12, after the feature 6 `wf run` loop.
 

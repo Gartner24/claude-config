@@ -1,7 +1,7 @@
 # 0012. Waiting boxes owed to you
 
 **Date**: 2026-10-12
-**Status**: In Progress
+**Status**: Accepted
 **Amends**: [0002](../0002-next-repo-command/index.md) AC-6 (what makes a box waiting) and [0003](../0003-scope-contract/index.md) (a new box segment, rule file line).
 
 ## Summary

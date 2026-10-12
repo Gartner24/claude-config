@@ -306,6 +306,13 @@ class TestNext(CliCase):
                 self.assertEqual(r.stdout.splitlines()[0], f"waits on you: {owed}")
                 self.assertNotIn("no command in this box", r.stdout)
                 self.assertIsNone(self.launched())
+        d = self.root / "warn" / "docs" / "scope"
+        d.mkdir(parents=True)
+        (d / "scope.md").write_text("# Scope: x\n**Autopilot:** maybe\n### 1. A\n- [ ] phone check · waits on you\n")
+        r = self.wf("next", "warn", "-y", tty=True)
+        self.assertEqual(r.returncode, 3)
+        self.assertEqual(r.stdout.splitlines(), ["waits on you: phone check",
+                                                 "warning: unknown Autopilot value 'maybe', using off"])
         d = self.root / "near" / "docs" / "scope"
         d.mkdir(parents=True)
         (d / "scope.md").write_text("# Scope: x\n### 1. A\n- [ ] phone check · waits on you.\n")
