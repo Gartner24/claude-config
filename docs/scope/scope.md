@@ -35,6 +35,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 9 | Design enforcement unattended | Release 2 | in-progress |
 | 10 | Build queue and decision queue | Release 3 | in-progress |
 | 21 | Work names out of the public repo | Deferred | planned |
+| 23 | Questions that teach | Deferred | planned |
 | 15 | Cheap worker tier | Deferred | planned |
 | 16 | Issues and mixed source of truth | Deferred | planned |
 | 11 | Autopilot offer and batch design | Deferred | planned |
@@ -267,6 +268,14 @@ Work org and tool names sit in public files on main (`CLAUDE.md`, `HOOKS.md`, `S
 **Done when:** no tracked file on the branch or main names a work org or tool, a fresh `install.sh` plus the local file gives the same behavior as today, `sync.sh` cannot put a name back, and the history decision is recorded (and carried out if the answer is rewrite).
 - [ ] Design it (spec): `/architect work names out of the public repo`
 Source: your message of 2026-10-12 (`/scope` request after the runner branch review).
+
+### 23. Questions that teach · needs a decision
+Deferred 2026-10-12: do it after the runner features are built.
+Every question panel, in every session, explains the ideas it asks about in plain words and offers a way to learn the idea before you answer. It grows `rules/plain-questions.md`, which already asks for plain wording and a from zero explanation when you say you do not follow. Research comes first, so the design rests on how good teaching inside a question is actually done.
+**Done when:** a question panel in a fresh session explains each idea it asks about in plain words and offers a "learn this first" path, the rule reaches skills that are vendored and overwritten on pull, and the research behind it is recorded in the spec's `rationale.md`.
+- [ ] Research it: `/deep-research how to teach a concept inside a decision question: plain explanations, an option to learn more, without slowing down people who already know it`
+- [ ] Design it (spec): `/architect questions that teach`
+Source: your message of 2026-10-12 (`/scope` request).
 
 ### 15. Cheap worker tier · needs a decision
 Deferred 2026-10-12 (architecture pass): a cost saving, the goal does not need it.
