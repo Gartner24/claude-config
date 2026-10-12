@@ -493,6 +493,11 @@ class TestHeaderContract(unittest.TestCase):
     def test_comments_and_fences_ignored(self):
         self.assertEqual(header("<!-- **Autopilot:** on -->", "```", "**Autopilot:** on", "```"), [])
         self.assertEqual(header("<!--", "**Autopilot:** on", "-->", "**Autopilot:** off"), [])
+        self.assertEqual(header("~~~", "**Autopilot:** on", "~~~", "**Autopilot:** off"), [])
+
+    # covers: AC-1 (a value from a cloned scope reaches the terminal only through clean())
+    def test_control_characters_cleaned_in_warning(self):
+        self.assertEqual(header("**Autopilot:** on\x1b[2J"), [UNKNOWN_AUTO.format("on[2j")])
 
     # covers: AC-1 (header ends at the first level 2 or 3 heading or box line)
     def test_header_ends_at_heading_or_box(self):
