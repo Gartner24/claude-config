@@ -168,7 +168,7 @@ Skateboard: each step leaves `wf run` usable and stricter than before. Spec 0007
 
 ## Follow-up
 
-- [ ] Run the limit probe in `verify.md` at the next real usage limit; if the shape differs, `/architect failure and park policy` again.
+- [ ] Run the limit probe in `verify.md` (Follow-up, check 3) at the next real usage limit; if the shape differs, `/architect failure and park policy` again. · waits on you
 - [ ] Feature 10 moves on after a park (`parked: true`) and ends the run on a stop.
 - [ ] Spec 0003 follow up (cloned scope writing `allowed`) and spec 0006 follow up (cloned scope with standing answers) close when AC-9 ships.
 - [ ] `/test` has no parseable verdict, so a red suite parks `no_progress`; give it the two debug attempts only if that turns out to be common.
