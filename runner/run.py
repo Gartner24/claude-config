@@ -3,14 +3,15 @@
 # constants here, never on wf: a `wf.py` run as a script is a second module.
 import datetime
 import fcntl
+import glob
 import hashlib
 import json
 import os
 import re
+import shlex
 import shutil
 import signal
 import subprocess
-import sys
 import time
 import traceback
 
@@ -26,6 +27,31 @@ BAD_BRANCHES = ("main", "master", "no git", "-")
 DENIED = ("AskUserQuestion,Bash(git push*),Bash(git * push*),"
           "Bash(gh pr create*),Bash(gh pr merge*),Bash(gh pr ready*),"
           "Bash(gh * pr create*),Bash(gh * pr merge*),Bash(gh * pr ready*)")
+# Spec 0007. The prefix list above let `env git push` and `gh api` through (review 2026-10-12),
+# so the guard now sits below the model: no credential in a call, a jailed Bash, frozen files.
+GUARD_DENIED = "Artifact,ArtifactData,ArtifactComments,RemoteTrigger,CronCreate,CronDelete,SendMessage,Skill(schedule)"
+CREDENTIAL_ENV = ("GH_TOKEN", "GITHUB_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_ENTERPRISE_TOKEN",
+                  "SSH_AUTH_SOCK", "SSH_ASKPASS", "GIT_ASKPASS", "GIT_SSH", "GIT_SSH_COMMAND")
+CREDENTIAL_PATHS = ("~/.config/gh", "~/.ssh", "~/.git-credentials", "~/.netrc")
+FORGES = ("github.com", "*.github.com", "*.githubusercontent.com", "gitlab.com", "*.gitlab.com",
+          "bitbucket.org", "*.bitbucket.org", "codeberg.org", "*.sr.ht")
+CACHE_DIRS = ("~/.npm", "~/.cache", "~/.local/share/pnpm")
+DOTFILES = ("~/.gitconfig", "~/.config/git", "~/.config/gh", "~/.bashrc", "~/.bash_profile", "~/.profile",
+            "~/.zshrc", "~/.zshenv", "~/.zprofile")
+SANDBOX_TOOLS = ("bwrap", "socat", "git", "claude", "python3")
+MCP_ALLOW = '{"mcpServers": {}}'
+# Fails closed: anything but a parsed local Agent input exits 2, a crash included.
+AGENT_GUARD = """import json, sys
+try:
+    d = json.load(sys.stdin)
+    i = d["tool_input"]
+    ok = d["tool_name"] == "Agent" and isinstance(i, dict) and i.get("isolation") in (None, "worktree")
+except Exception:
+    ok = False
+if not ok:
+    print("wf run: remote agents are refused", file=sys.stderr)
+    sys.exit(2)
+"""
 UNATTENDED_PROMPT = (
     "You are running unattended inside wf run, and AskUserQuestion is not available. "
     "Decide these panels yourself with the fixed answer: Doc type, the option marked (recommended); "
@@ -101,6 +127,8 @@ class Run:
         }
         self.record["caps"]["max_wait_h"] = args.max_wait
         self.topic = None
+        # Set by freeze_guard(); a call that somehow starts without them fails to spawn, never runs unguarded.
+        self.claude = self.settings = self.denied = None
 
     # -- start ---------------------------------------------------------------
 
@@ -143,11 +171,17 @@ class Run:
         autopilot = wf.header_values(c.text)["autopilot"]
         if autopilot != "allowed":
             return self.refuse("autopilot_off", f"Autopilot is {autopilot}, the scope header needs **Autopilot:** allowed")
+        missing = [t for t in SANDBOX_TOOLS if not shutil.which(t)]
+        if missing:
+            return self.refuse("no_sandbox", "not found on PATH: " + ", ".join(missing))
+        excluded = user_exclusions()
+        if excluded:
+            return self.refuse("no_sandbox", excluded)
         if self.branch in BAD_BRANCHES or self.branch.startswith("detached"):
             return self.refuse("branch", f"{self.branch}, switch to a work branch first")
-        if not shutil.which("claude"):
-            print("claude not found on PATH", file=sys.stderr)
-            return 1
+        rc = self.freeze_guard()
+        if rc is not None:
+            return rc
         try:
             self.ntfy = ntfy.load()
         except ntfy.Invalid as e:
@@ -156,12 +190,67 @@ class Run:
             c.warnings.append(f"{len(self.ntfy['codes'])} one time codes left, run wf ntfy codes")
         return self.take_lock()
 
+    def freeze_guard(self):
+        """Spec 0007: build each call's guard once, from what is on disk at start. Exit code on refusal, else None."""
+        repo, home = self.c.path, os.path.expanduser("~")
+        binaries = {t: os.path.realpath(shutil.which(t)) for t in ("git", "claude", "python3")}
+        wf.GIT = binaries["git"]
+        r = wf.git(repo, "rev-parse", "--path-format=absolute", "--git-common-dir")
+        if r.returncode:
+            return self.refuse("no_sandbox", "git rev-parse --git-common-dir failed: " + flat(r.stderr))
+        common = r.stdout.strip()
+        settings_files = [os.path.join(repo, ".claude", "settings.json"), os.path.join(repo, ".claude", "settings.local.json"),
+                          os.path.join(home, ".claude", "settings.json"), os.path.join(home, ".claude", "settings.local.json")]
+        settings = []
+        for p in settings_files:
+            try:
+                settings.append(read_json(p))
+            except ValueError:
+                pass
+        tokens = hook_tokens(settings, repo)
+        hooks_dir = os.path.join(common, "hooks")
+        try:
+            hooks = [os.path.join(hooks_dir, n) for n in sorted(os.listdir(hooks_dir))]
+        except OSError:
+            hooks = []
+        files = [*settings_files,
+                 *sorted(glob.glob(os.path.join(home, ".claude", "plugins", "cache", "**", "hooks.json"), recursive=True)),
+                 os.path.join(common, "config"), *(p for p in hooks if os.path.isfile(p)), *tokens]
+        deny = deny_paths(repo, common, tokens)
+        hosts = remote_hosts(wf.git(repo, "remote", "-v").stdout)
+        write = sorted({repo, common, *(os.path.expanduser(p) for p in CACHE_DIRS)})
+        self.record["guard"] = {"hosts": hosts, "write_paths": write, "deny_paths": deny, "binaries": binaries,
+                                "guarded_files": {p: file_hash(p) for p in dict.fromkeys(files)}}
+        hook = f"{shlex.quote(binaries['python3'])} -c {shlex.quote(AGENT_GUARD)} || exit 2"
+        self.settings = json.dumps({
+            "sandbox": {"enabled": True, "failIfUnavailable": True, "autoAllowBashIfSandboxed": True,
+                        "allowUnsandboxedCommands": False,
+                        "network": {"allowedDomains": ["*"], "deniedDomains": hosts, "strictAllowlist": True},
+                        "filesystem": {"allowWrite": write,
+                                       "denyWrite": [p for p in deny if p != common] + [os.path.join(common, "config"), hooks_dir],
+                                       "denyRead": [os.path.expanduser(p) for p in CREDENTIAL_PATHS]}},
+            "hooks": {"PreToolUse": [{"matcher": "Agent", "hooks": [{"type": "command", "timeout": 10, "command": hook}]}]}})
+        self.denied = ",".join([DENIED, GUARD_DENIED,
+                                *(r for p in CREDENTIAL_PATHS for r in path_rules("Read", os.path.expanduser(p))),
+                                *(r for p in deny for r in path_rules("Edit", p))])
+        self.claude = binaries["claude"]
+        return None
+
+    def files_changed(self):
+        """AC-7: the first guarded file whose hash moved since start, as a stop detail, else None."""
+        for path, h in self.record["guard"]["guarded_files"].items():
+            if file_hash(path) != h:
+                return f"{path} changed during the run; inspect or delete it before opening a session in this repo"
+        return None
+
     def confirm(self):
         c, nb, a = self.c, self.c.next, self.args
         parts = [c.display_name(), self.branch, wf.changes(c.path), nb.feature, nb.command]
         if nb.note:
             parts.append("note: " + nb.note)
         parts.append(f"caps: {a.budget:g} USD/call, {a.call_timeout:g}m/call, {a.max_calls} calls, {a.max_hours:g}h")
+        g = self.record["guard"]
+        parts.append(f"guard: {len(g['hosts'])} hosts, {len(g['guarded_files'])} files")
         sessions = wf.open_sessions(c.path)
         warnings = c.warnings + ([f"{sessions} session(s) already open here"] if sessions else [])
         parts += [f"warning: {w}" for w in warnings]
@@ -240,10 +329,11 @@ class Run:
         """Run one claude call, or with resume=(session id, prompt) continue that session.
         Returns (call record, parsed JSON or None, timed out, stderr tail, spawn error)."""
         a = self.args
-        argv = ["claude", "-p", resume[1] if resume else command,
+        argv = [self.claude, "-p", resume[1] if resume else command,
                 *(["--resume", resume[0]] if resume else []), "--output-format", "json", "--permission-mode", "auto",
                 "--permission-prompts", "none", "--max-budget-usd", "%g" % a.budget,
-                "--disallowedTools", DENIED, "--append-system-prompt", UNATTENDED_PROMPT]
+                "--disallowedTools", self.denied, "--append-system-prompt", UNATTENDED_PROMPT,
+                "--settings", self.settings, "--strict-mcp-config", "--mcp-config", MCP_ALLOW]
         base = os.path.join(self.folder, f"call-{n:02d}")
         rec = {"n": n, "command": command, "box_text": None, "started": now(), "duration_s": None,
                "exit_code": None, "session_id": None, "subtype": None, "is_error": None,
@@ -253,7 +343,7 @@ class Run:
         timed_out = False
         with open(base + ".json", "wb") as out, open(base + ".stderr", "wb") as err:
             try:
-                self.proc = subprocess.Popen(argv, cwd=self.c.path, stdin=subprocess.DEVNULL,
+                self.proc = subprocess.Popen(argv, cwd=self.c.path, env=call_env(), stdin=subprocess.DEVNULL,
                                              stdout=out, stderr=err, start_new_session=True)
             except OSError as e:
                 rec["duration_s"] = round(time.monotonic() - t0, 1)
@@ -400,6 +490,9 @@ class Run:
             # Time spent waiting on you does not count toward --max-hours (AC-9).
             if ntfy.boottime() - t0 - self.record["waited_s"] >= a.max_hours * 3600:
                 raise Stop("run_limit", f"{a.max_hours:g}h passed")
+            changed = self.files_changed()
+            if changed:
+                raise Stop("guard_changed", changed)
             rec, data, timed_out, tail, spawn_error = self.call(n, command, resume and resume[:2])
             rec["box_text"] = box.box_text if box else None
             rec["resumes"] = resume[2] if resume else []
@@ -466,6 +559,120 @@ def read_bytes(path):
             return f.read()
     except OSError:
         return b""
+
+
+def call_env():
+    """AC-1: wf's env with no credential a push could use."""
+    env = {k: v for k, v in os.environ.items() if k not in CREDENTIAL_ENV}
+    env["ENABLE_CLAUDEAI_MCP_SERVERS"] = "false"
+    return env
+
+
+def read_json(path):
+    """A settings file's value, {} when absent. Raises ValueError when it does not parse."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+
+def user_exclusions():
+    """AC-8: why a user settings file defeats the sandbox, else None. User exclusions still apply under --settings."""
+    for name in ("settings.json", "settings.local.json"):
+        path = os.path.join(os.path.expanduser("~/.claude"), name)
+        try:
+            if (read_json(path).get("sandbox") or {}).get("excludedCommands"):
+                return f"{path} sets sandbox.excludedCommands"
+        except (ValueError, AttributeError):
+            return f"{path} does not parse as a settings object"
+    return None
+
+
+def file_hash(path):
+    try:
+        with open(path, "rb") as f:
+            return hashlib.sha256(f.read()).hexdigest()
+    except (FileNotFoundError, NotADirectoryError):
+        return "absent"
+
+
+def url_host(url):
+    """AC-3: the host of one remote URL, None for a local path or file://."""
+    if "://" in url:
+        scheme, rest = url.split("://", 1)
+        if scheme == "file":
+            return None
+        return rest.split("/", 1)[0].rsplit("@", 1)[-1].split(":", 1)[0] or None
+    # scp form: a colon before any slash, as git reads it.
+    m = re.match(r"(?:[^@/]+@)?([^/:]+):", url)
+    return m.group(1) if m else None
+
+
+def remote_hosts(remotes):
+    """AC-3: the fixed forges plus every host in `git remote -v` output, sorted."""
+    hosts = set(FORGES)
+    for line in remotes.splitlines():
+        words = line.split()
+        if len(words) >= 2:
+            hosts.add(url_host(words[1]))
+    hosts.discard(None)
+    return sorted(hosts)
+
+
+def hook_tokens(settings, repo):
+    """AC-7: script files named by `type: command` hooks, link path then real path, in order."""
+    out = []
+    for s in settings:
+        events = s.get("hooks") if isinstance(s, dict) else None
+        for groups in events.values() if isinstance(events, dict) else ():
+            for g in groups if isinstance(groups, list) else ():
+                for h in g.get("hooks") or () if isinstance(g, dict) else ():
+                    if not isinstance(h, dict) or h.get("type") != "command" or not isinstance(h.get("command"), str):
+                        continue
+                    try:
+                        words = shlex.split(h["command"])
+                    except ValueError:
+                        words = h["command"].split()
+                    for w in words:
+                        if ("/" not in w and not w.startswith("~")) or "$" in w:
+                            continue
+                        p = os.path.join(repo, os.path.expanduser(w))
+                        if os.path.isfile(p):
+                            for q in (os.path.abspath(p), os.path.realpath(p)):
+                                if q not in out:
+                                    out.append(q)
+    return out
+
+
+def under(path, dirs):
+    return any(path == d or path.startswith(d.rstrip("/") + "/") for d in dirs)
+
+
+def deny_paths(repo, common, tokens):
+    """AC-5: what no call may write or edit, sorted."""
+    home = os.path.expanduser("~")
+    claude = os.path.join(home, ".claude")
+    try:
+        # `projects` stays writable so memory writes keep working.
+        entries = [os.path.join(claude, n) for n in os.listdir(claude) if n != "projects"]
+    except FileNotFoundError:
+        entries = []
+    deny = [*entries, claude + ".json", os.path.join(repo, ".claude"), common,
+            *(os.path.expanduser(p) for p in DOTFILES), os.path.join(home, ".local", "share", "claude")]
+    deny += [os.path.abspath(d) for d in os.environ.get("PATH", "").split(os.pathsep) if d and os.access(d, os.W_OK)]
+    for t in tokens:
+        if not under(t, deny):
+            deny.append(os.path.dirname(t))
+    return sorted(set(deny))
+
+
+def path_rules(tool, path):
+    # `//` marks an absolute path in a permission rule. A path absent at start gets both forms:
+    # a file rule alone would let a call create the repo's missing `.claude/` and write in it.
+    if os.path.isdir(path):
+        return [f"{tool}(/{path}/**)"]
+    return [f"{tool}(/{path})"] + ([] if os.path.exists(path) else [f"{tool}(/{path}/**)"])
 
 
 def read_decision(result):

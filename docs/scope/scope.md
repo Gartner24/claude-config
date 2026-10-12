@@ -174,11 +174,11 @@ A guard outside anything the model controls keeps every `wf run` call from pushi
 **Done when:** during a `wf run`, any push, PR or merge attempt from inside a call fails whatever its spelling or tool, and nothing changes for your pushes outside a run.
 - [x] Design it (spec): `/architect push guard outside the model`
 - [ ] Build it: `/develop push guard outside the model`
-   - [ ] Probe gate with a hand built argv (AC-10)
-   - [ ] No credentials in a call, absolute `git`, `claude`, `python3` (AC-1, AC-6)
-   - [ ] Sandbox settings, hosts, MCP, tool denies, remote agent hook (AC-2 to AC-5b)
-   - [ ] Guarded files, `no_sandbox` start checks, `run.json` `guard` (AC-7 to AC-9, AC-11)
-   - [ ] Probes again through `wf run` (AC-10)
+   - [x] Probe gate with a hand built argv (AC-10)
+   - [x] No credentials in a call, absolute `git`, `claude`, `python3` (AC-1, AC-6)
+   - [x] Sandbox settings, hosts, MCP, tool denies, remote agent hook (AC-2 to AC-5b)
+   - [x] Guarded files, `no_sandbox` start checks, `run.json` `guard` (AC-7 to AC-9, AC-11)
+   - [ ] Probes again through `wf run` (AC-10): run `python3 docs/specs/0007-push-guard/probes/run-wf-probe.py`, record in `verify.md`
 - [ ] Verify it: `/check verify push guard outside the model`
 - [ ] Test it: `/test push guard outside the model`
 Spec [0007](../specs/0007-push-guard/index.md)

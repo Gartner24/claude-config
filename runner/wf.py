@@ -36,6 +36,8 @@ CONTROL = re.compile(r"[\x00-\x1f\x80-\x9f\udc80-\udcff]")
 COMMIT_HASH = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
 # A planted core.fsmonitor or hook in a scanned repo used to run on `git status`.
 GIT_SAFE = ("-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null")
+# `wf run` swaps in the absolute path it resolved at start (spec 0007 AC-6).
+GIT = "git"
 
 
 def clean(text):
@@ -191,7 +193,7 @@ def read(path):
 
 def git(path, *args):
     try:
-        return subprocess.run(["git", *GIT_SAFE, "-C", path, *args], capture_output=True, text=True, errors="replace")
+        return subprocess.run([GIT, *GIT_SAFE, "-C", path, *args], capture_output=True, text=True, errors="replace")
     except FileNotFoundError:
         return None
 

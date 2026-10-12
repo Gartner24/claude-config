@@ -3,6 +3,7 @@ import hashlib
 import io
 import json
 import os
+import shlex
 import shutil
 import signal
 import subprocess
@@ -36,9 +37,16 @@ def on_int(s, f):
     if not step.get("ignore_int") and not step.get("finish_on_int"):
         sys.exit(130)
 signal.signal(signal.SIGINT, on_int)
-json.dump({{"argv": sys.argv[1:], "cwd": os.getcwd(), "tty": os.isatty(0), "pid": os.getpid(),
-           "pgid": os.getpgid(0), "env_run_dir": "WF_RUN_DIR" in os.environ}},
+json.dump({{"argv": sys.argv[1:], "exe": sys.argv[0], "cwd": os.getcwd(), "tty": os.isatty(0), "pid": os.getpid(),
+           "pgid": os.getpgid(0), "env_run_dir": "WF_RUN_DIR" in os.environ, "env": dict(os.environ)}},
           open(os.path.join(d, f"argv-{{n + 1}}.json"), "w"))
+for path, text in step.get("write_file", []):
+    path = os.path.join(os.getcwd(), path)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    open(path, "w").write(text)
+for link, target in step.get("symlink", []):
+    os.remove(link)
+    os.symlink(target, link)
 end = time.monotonic() + step.get("sleep", 0)
 while time.monotonic() < end:
     time.sleep(0.05)
@@ -110,6 +118,42 @@ sys.exit(wf.main(sys.argv[4:]))
 """
 
 
+FORGE_HOSTS = ["*.bitbucket.org", "*.github.com", "*.githubusercontent.com", "*.gitlab.com", "*.sr.ht",
+               "bitbucket.org", "codeberg.org", "github.com", "gitlab.com"]
+
+
+def guard_deny(t, r, bin):
+    """The spec 0007 AC-5 deny list for the demo repo in a fake home with no ~/.claude."""
+    return sorted([f"{t}/.claude.json", f"{r}/.claude", f"{r}/.git", str(bin),
+                   *(f"{t}/{p}" for p in (".gitconfig", ".config/git", ".config/gh", ".bashrc", ".bash_profile",
+                                          ".profile", ".zshrc", ".zshenv", ".zprofile", ".local/share/claude"))])
+
+
+def guard_settings(t, r, bin):
+    deny = guard_deny(t, r, bin)
+    hook = f"{shlex.quote(os.path.realpath(sys.executable))} -c {shlex.quote(run.AGENT_GUARD)} || exit 2"
+    return {"sandbox": {"enabled": True, "failIfUnavailable": True, "autoAllowBashIfSandboxed": True,
+                        "allowUnsandboxedCommands": False,
+                        "network": {"allowedDomains": ["*"], "deniedDomains": FORGE_HOSTS, "strictAllowlist": True},
+                        "filesystem": {
+                            "allowWrite": sorted([str(r), f"{r}/.git", f"{t}/.npm", f"{t}/.cache", f"{t}/.local/share/pnpm"]),
+                            "denyWrite": [p for p in deny if p != f"{r}/.git"] + [f"{r}/.git/config", f"{r}/.git/hooks"],
+                            "denyRead": [f"{t}/.config/gh", f"{t}/.ssh", f"{t}/.git-credentials", f"{t}/.netrc"]}},
+            "hooks": {"PreToolUse": [{"matcher": "Agent", "hooks": [{"type": "command", "timeout": 10, "command": hook}]}]}}
+
+
+def guard_denied(t, r, bin):
+    both = lambda tool, p: [f"{tool}(/{p})", f"{tool}(/{p}/**)"]
+    rules = ["AskUserQuestion,Bash(git push*),Bash(git * push*),Bash(gh pr create*),Bash(gh pr merge*),"
+             "Bash(gh pr ready*),Bash(gh * pr create*),Bash(gh * pr merge*),Bash(gh * pr ready*)",
+             "Artifact,ArtifactData,ArtifactComments,RemoteTrigger,CronCreate,CronDelete,SendMessage,Skill(schedule)"]
+    rules += [x for p in (".config/gh", ".ssh", ".git-credentials", ".netrc") for x in both("Read", f"{t}/{p}")]
+    for p in guard_deny(t, r, bin):
+        # Only bin and .git exist at start: the absent paths get both forms.
+        rules += [f"Edit(/{p}/**)"] if p in (str(bin), f"{r}/.git") else both("Edit", p)
+    return ",".join(rules)
+
+
 def alive(pid):
     try:
         os.kill(pid, 0)
@@ -134,7 +178,10 @@ class RunCase(unittest.TestCase):
         self.fake("claude", FAKE_CLAUDE)
         self.fake("systemd-inhibit", FAKE_INHIBIT)
         self.fake("kde-inhibit", "#!/bin/sh\n")
+        self.fake("bwrap", "#!/bin/sh\n")
+        self.fake("socat", "#!/bin/sh\n")
         (self.bin / "python3").symlink_to(sys.executable)
+        (self.bin / "git").symlink_to(shutil.which("git"))
         self.repo = self.make_repo("demo", SCOPE)
         self.steps([{}])
         self.addCleanup(self.reap)
@@ -161,7 +208,8 @@ class RunCase(unittest.TestCase):
         (repo / "docs" / "scope").mkdir(parents=True)
         (repo / "docs" / "scope" / "scope.md").write_text(text)
         if head is not None:
-            (repo / ".git").mkdir()
+            # A real repo: wf run asks git for the common dir and the remotes (spec 0007).
+            subprocess.run(["git", "init", "-q", "--template=", str(repo)], check=True, env={"HOME": str(self.tmp), "PATH": os.environ["PATH"]})
             (repo / ".git" / "HEAD").write_text(head)
         return repo
 
@@ -226,7 +274,8 @@ class TestHappyPath(RunCase):
         r = self.wf("demo", "-y")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         lines = r.stdout.splitlines()
-        self.assertEqual(lines[0], "demo | work | - | 1. Loop | /develop loop | caps: 20 USD/call, 60m/call, 20 calls, 8h")
+        self.assertEqual(lines[0], "demo | work | 1 change | 1. Loop | /develop loop | "
+                                   "caps: 20 USD/call, 60m/call, 20 calls, 8h | guard: 9 hosts, 5 files")
         self.assertIn("[1/20] /develop loop -> success, 0.50 USD, 0.0m, next: /test loop", r.stdout)
         self.assertIn("[2/20] /test loop -> success, 0.50 USD, 0.0m, next: /sync", r.stdout)
         self.assertIn("[3/20] /sync -> success, 0.50 USD, 0.0m, next: -", r.stdout)
@@ -254,12 +303,15 @@ class TestHappyPath(RunCase):
     def test_argv(self):
         r = self.wf("demo", "-y", "--budget", "2.5", "--max-calls", "1")
         a = self.argv(1)
-        self.assertEqual(a["argv"], [
+        self.assertEqual(a["argv"][:11] + a["argv"][12:15] + a["argv"][16:], [
             "-p", "/develop loop", "--output-format", "json", "--permission-mode", "auto",
             "--permission-prompts", "none", "--max-budget-usd", "2.5", "--disallowedTools",
-            "AskUserQuestion,Bash(git push*),Bash(git * push*),Bash(gh pr create*),Bash(gh pr merge*),"
-            "Bash(gh pr ready*),Bash(gh * pr create*),Bash(gh * pr merge*),Bash(gh * pr ready*)",
-            "--append-system-prompt", run.UNATTENDED_PROMPT])
+            "--append-system-prompt", run.UNATTENDED_PROMPT,
+            "--settings", "--strict-mcp-config", "--mcp-config", '{"mcpServers": {}}'])
+        self.assertEqual(a["argv"][11], guard_denied(self.tmp, self.repo, self.bin))
+        # Compared as text, so the AC-2 key order counts too.
+        self.assertEqual(a["argv"][15], json.dumps(guard_settings(self.tmp, self.repo, self.bin)))
+        self.assertEqual(a["exe"], str(self.bin / "claude"))
         self.assertEqual(run.UNATTENDED_PROMPT, (
             "You are running unattended inside wf run, and AskUserQuestion is not available. Decide these panels "
             "yourself with the fixed answer: Doc type, the option marked (recommended); Save verify steps?, Save to "
@@ -368,12 +420,12 @@ class TestStart(RunCase):
         self.refused(r, "autopilot_off")
         self.assertIn("warning: unknown Autopilot value 'on', using off", r.stdout)
 
-    # covers: AC-2 check 8, AC-14
+    # covers: AC-2 check 8, AC-14, spec 0007 AC-8 (a missing claude is now a no_sandbox refusal)
     def test_claude_missing(self):
         (self.bin / "claude").unlink()
         r = self.wf("demo", "-y")
-        self.refused(r, None, 1)
-        self.assertIn("claude not found on PATH", r.stderr)
+        self.refused(r, "no_sandbox")
+        self.assertIn("refused: no_sandbox: not found on PATH: claude", r.stdout)
 
     # covers: spec 0005 AC-2, AC-13 (no_ntfy refuses before the lock, no call, no run folder; few codes warn)
     def test_no_ntfy(self):
@@ -467,12 +519,14 @@ class TestConfirmLine(unittest.TestCase):
                 mock.patch.object(wf, "changes", return_value="2 changes"), \
                 mock.patch.object(wf, "open_sessions", return_value=1):
             r = run.Run(c, args)
+            r.record["guard"] = {"hosts": ["a", "b"], "guarded_files": {"/x": "absent", "/y": "absent", "/z": "absent"}}
             buf = io.StringIO()
             with redirect_stdout(buf):
                 self.assertTrue(r.confirm())
         self.assertEqual(buf.getvalue().strip(),
                          "demo (worktree x) | work | 2 changes | 1. Loop | /develop loop | "
-                         "caps: 2.5 USD/call, 30m/call, 4 calls, 1.5h | warning: w1 | warning: 1 session(s) already open here")
+                         "caps: 2.5 USD/call, 30m/call, 4 calls, 1.5h | guard: 2 hosts, 3 files | "
+                         "warning: w1 | warning: 1 session(s) already open here")
 
 
 class TestSpawnRace(unittest.TestCase):
@@ -661,6 +715,8 @@ class TestParking(RunCase):
         self.assertEqual(a["argv"][:4],
                          ["-p", "The user answered your DECISION NEEDED question: SQLite", "--resume", "s-1"])
         self.assertEqual(a["argv"][4:], self.argv(1)["argv"][2:])
+        # spec 0007: a resume gets the same guard argv as the call above, and the same stripped env.
+        self.assertEqual((a["exe"], a["env"]["ENABLE_CLAUDEAI_MCP_SERVERS"]), (str(self.bin / "claude"), "false"))
         self.assertEqual(rec["calls"][0]["decision"], "Which storage engine?")
         self.assertNotIn("deferred", rec["calls"][0])
         self.assertEqual([c["resumes"] for c in rec["calls"]], [[], [i], [], []])
@@ -921,6 +977,198 @@ class TestRecordAndSignals(RunCase):
         r = self.wf("fresh", "-y")
         self.assertEqual(r.returncode, 0)
         self.assertIn("warning: systemd-inhibit not found, the machine may sleep", r.stdout)
+
+
+class TestGuard(RunCase):
+    """Spec 0007: the push guard each call carries, and what stops a run."""
+
+    def fresh(self):
+        shutil.rmtree(self.state, ignore_errors=True)
+        (self.fakes / "count").unlink(missing_ok=True)
+
+    # covers: spec 0007 AC-1 (no credential env reaches a call, the rest does)
+    def test_env(self):
+        for k in run.CREDENTIAL_ENV:
+            self.env[k] = "secret"
+        self.env["KEEP_ME"] = "1"
+        self.wf("demo", "-y", "--max-calls", "1")
+        env = self.argv(1)["env"]
+        self.assertEqual([k for k in env if k in run.CREDENTIAL_ENV], [])
+        self.assertEqual((env["KEEP_ME"], env["ENABLE_CLAUDEAI_MCP_SERVERS"]), ("1", "false"))
+        self.assertEqual(len(run.CREDENTIAL_ENV), 9)
+
+    # covers: spec 0007 AC-3 (https with user and port, ssh, scp, file://, local paths)
+    def test_hosts(self):
+        remotes = "\n".join([
+            "origin\thttps://user:pw@git.example.com:8443/a/b.git (fetch)",
+            "origin\tssh://git@ssh.example.org:2222/a.git (push)",
+            "up\tgit@scp.example.net:a/b.git (fetch)",
+            "up\tbare.example.io:a.git (push)",
+            "loc\tfile:///srv/a.git (fetch)",
+            "loc\t/srv/a.git (push)",
+            "rel\t../a.git (fetch)",
+            "dup\thttps://github.com/x/y (fetch)"])
+        self.assertEqual(run.remote_hosts(remotes), sorted(FORGE_HOSTS + [
+            "git.example.com", "ssh.example.org", "scp.example.net", "bare.example.io"]))
+        self.assertEqual(run.remote_hosts(""), FORGE_HOSTS)
+
+    # covers: spec 0007 AC-7 (hook tokens: quotes, redirects, bare words, $ tokens, links, junk settings)
+    def test_hook_tokens(self):
+        d = str(self.tmp)
+        for name in ("my hook.sh", "h2.sh", "real.sh", "$v.sh"):
+            (self.tmp / name).write_text("#!/bin/sh\n")
+        (self.tmp / "link.sh").symlink_to(self.tmp / "real.sh")
+        cmd = lambda c, t="command": {"type": t, "command": c}
+        settings = [
+            {"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [
+                cmd(f"bash '{d}/my hook.sh' --say \"it's 'quoted'\" >/dev/null 2>&1"),
+                cmd("$HOME/h2.sh"), cmd(f"{d}/$v.sh"), cmd("python3 ~/h2.sh"), cmd(f"{d}/real.sh", "prompt"),
+                cmd(f"{d}/link.sh 'unbalanced"), cmd(f"{d}/missing.sh")]}]},
+             "statusLine": cmd(f"{d}/real.sh")},
+            {"hooks": "junk"}, {"hooks": {"Stop": "junk"}}, {"hooks": {"Stop": ["junk", {"hooks": "x"}]}}, [], "x"]
+        with mock.patch.dict(os.environ, {"HOME": d}):
+            self.assertEqual(run.hook_tokens(settings, str(self.repo)),
+                             [f"{d}/my hook.sh", f"{d}/h2.sh", f"{d}/link.sh", f"{d}/real.sh"])
+
+    # covers: spec 0007 AC-5 (no projects, writable PATH dirs only, a hook's link and real parents)
+    def test_deny_paths(self):
+        h = self.tmp
+        for p in ("projects", "hooks"):
+            (h / ".claude" / p).mkdir(parents=True)
+        (h / ".claude" / "settings.json").write_text("{}")
+        (h / "rw").mkdir()
+        (h / "ro").mkdir(mode=0o555)
+        (h / "real").mkdir()
+        (h / "real" / "hook.sh").write_text("")
+        (h / "scripts").mkdir()
+        (h / "scripts" / "link.sh").symlink_to(h / "real" / "hook.sh")
+        (h / ".claude" / "hooks" / "own.sh").write_text("")
+        tokens = [f"{h}/scripts/link.sh", f"{h}/real/hook.sh", f"{h}/.claude/hooks/own.sh"]
+        with mock.patch.dict(os.environ, {"HOME": str(h), "PATH": f"{h}/rw:{h}/ro::{h}/nowhere"}):
+            got = run.deny_paths(str(self.repo), f"{self.repo}/.git", tokens)
+        self.assertEqual(got, sorted([
+            f"{h}/.claude/hooks", f"{h}/.claude/settings.json", f"{h}/.claude.json", f"{self.repo}/.claude",
+            f"{self.repo}/.git", *(f"{h}/{p}" for p in (".gitconfig", ".config/git", ".config/gh", ".bashrc",
+                                                        ".bash_profile", ".profile", ".zshrc", ".zshenv", ".zprofile",
+                                                        ".local/share/claude", "rw", "scripts", "real"))]))
+
+    # covers: spec 0007 AC-6 (claude and git run by the absolute path resolved at start)
+    def test_binaries(self):
+        (self.bin / "claude").rename(self.fakes / "claude-a")
+        (self.bin / "claude").symlink_to(self.fakes / "claude-a")
+        (self.fakes / "claude-b").write_text(f"#!/bin/sh\ntouch {self.fakes}/b-ran\n")
+        (self.fakes / "claude-b").chmod(0o755)
+        # $0 is the path git was started by: the link name through PATH, the real file when absolute.
+        (self.bin / "git").unlink()
+        (self.fakes / "git-wrap").write_text(f'#!/bin/sh\necho "$0" >> {self.fakes}/git-log\nexec {shutil.which("git")} "$@"\n')
+        (self.fakes / "git-wrap").chmod(0o755)
+        (self.bin / "git").symlink_to(self.fakes / "git-wrap")
+        self.steps([{"symlink": [[str(self.bin / "claude"), str(self.fakes / "claude-b")]]}, {}])
+        self.wf("demo", "-y", "--max-calls", "2")
+        self.assertEqual([self.argv(n)["exe"] for n in (1, 2)], [str(self.fakes / "claude-a")] * 2)
+        self.assertFalse((self.fakes / "b-ran").exists())
+        # rev-parse, remote -v, and status for the confirm line.
+        self.assertEqual((self.fakes / "git-log").read_text().splitlines(), [str(self.fakes / "git-wrap")] * 3)
+        _, rec = self.run_record()
+        self.assertEqual(rec["guard"]["binaries"], {"git": str(self.fakes / "git-wrap"),
+                                                    "claude": str(self.fakes / "claude-a"),
+                                                    "python3": os.path.realpath(sys.executable)})
+
+    # covers: spec 0007 AC-7 (a guarded file changed in a call stops the run before the next call)
+    def test_guard_changed(self):
+        (self.repo / ".git" / "hooks").mkdir()
+        (self.repo / ".git" / "hooks" / "pre-commit").write_text("#!/bin/sh\n")
+        for path in (".claude/settings.json", ".git/hooks/pre-commit", ".git/config"):
+            with self.subTest(path):
+                self.fresh()
+                self.steps([{"write_file": [[path, "{}"]]}, {}])
+                r = self.wf("demo", "-y")
+                rec = self.assert_stopped(r, "guard_changed", calls=1)
+                self.assertEqual(rec["detail"], f"{self.repo}/{path} changed during the run; "
+                                                "inspect or delete it before opening a session in this repo")
+
+    # covers: spec 0007 AC-7 (the same check runs before a resume)
+    def test_guard_changed_before_resume(self):
+        self.ntfy = FakeNtfy()
+        self.addCleanup(self.ntfy.close)
+        write_config(self.tmp / "config", self.ntfy.url, codes=[f"code{i:04d}" for i in range(5)])
+        self.ntfy.replies = ["{id} 1"]
+        self.steps([ask(write_file=[[".claude/settings.local.json", "{}"]]), {}])
+        r = self.wf("demo", "-y", mode="fast")
+        rec = self.assert_stopped(r, "guard_changed", calls=1)
+        self.assertTrue(rec["detail"].startswith(f"{self.repo}/.claude/settings.local.json changed"))
+        self.assertEqual(rec["decisions"][0]["answer"], "Postgres (recommended)")
+
+    # covers: spec 0007 AC-8 (each missing tool or user exclusion refuses: exit 5, no lock, no run folder)
+    def test_no_sandbox(self):
+        user = self.tmp / ".claude"
+        user.mkdir()
+        cases = [("bwrap", None, "not found on PATH: bwrap"), ("socat", None, "not found on PATH: socat"),
+                 ("git", None, "not found on PATH: git"), ("python3", None, "not found on PATH: python3"),
+                 (None, ("settings.json", '{"sandbox": {"excludedCommands": ["gh"]}}'),
+                  f"{user}/settings.json sets sandbox.excludedCommands"),
+                 (None, ("settings.local.json", '{"sandbox": {"excludedCommands": ["docker"]}}'),
+                  f"{user}/settings.local.json sets sandbox.excludedCommands"),
+                 (None, ("settings.json", "{not json"), f"{user}/settings.json does not parse as a settings object"),
+                 (None, ("settings.json", "[]"), f"{user}/settings.json does not parse as a settings object")]
+        for tool, settings, msg in cases:
+            with self.subTest(msg):
+                for f in user.iterdir():
+                    f.unlink()
+                if tool:
+                    (self.bin / tool).rename(self.fakes / tool)
+                else:
+                    (user / settings[0]).write_text(settings[1])
+                try:
+                    r = self.wf("demo", "-y")
+                finally:
+                    if tool:
+                        (self.fakes / tool).rename(self.bin / tool)
+                self.assertEqual(r.returncode, 5, r.stdout + r.stderr)
+                self.assertIn(f"refused: no_sandbox: {msg}", r.stdout)
+                self.assertEqual(self.calls(), [])
+                self.assertFalse((self.state / "wf").exists())
+        (user / "settings.json").write_text('{"sandbox": {"excludedCommands": []}, "hooks": {}}')
+        self.assertEqual(self.wf("demo", "-y", "--max-calls", "1").returncode, 6)
+
+    # covers: spec 0007 AC-9, AC-11 (run.json guard, confirm line part, nothing written outside the run)
+    def test_record(self):
+        subprocess.run(["git", "-C", str(self.repo), "remote", "add", "origin", "git@code.example.com:x/y.git"], check=True)
+        (self.repo / ".git" / "hooks").mkdir()
+        (self.repo / ".git" / "hooks" / "pre-push").write_text("#!/bin/sh\n")
+        r = self.wf("demo", "-y", "--max-calls", "1")
+        self.assertIn(" | guard: 10 hosts, 6 files", r.stdout.splitlines()[0])
+        _, rec = self.run_record()
+        g = rec["guard"]
+        self.assertEqual(list(g), ["hosts", "write_paths", "deny_paths", "binaries", "guarded_files"])
+        self.assertEqual(g["hosts"], sorted(FORGE_HOSTS + ["code.example.com"]))
+        self.assertEqual(g["deny_paths"], guard_deny(self.tmp, self.repo, self.bin))
+        self.assertEqual(g["write_paths"], guard_settings(self.tmp, self.repo, self.bin)["sandbox"]["filesystem"]["allowWrite"])
+        config = (self.repo / ".git" / "config").read_bytes()
+        self.assertEqual(g["guarded_files"], {
+            f"{self.repo}/.claude/settings.json": "absent", f"{self.repo}/.claude/settings.local.json": "absent",
+            f"{self.tmp}/.claude/settings.json": "absent", f"{self.tmp}/.claude/settings.local.json": "absent",
+            f"{self.repo}/.git/config": hashlib.sha256(config).hexdigest(),
+            f"{self.repo}/.git/hooks/pre-push": hashlib.sha256(b"#!/bin/sh\n").hexdigest()})
+        self.assertIn('"deniedDomains": ' + json.dumps(g["hosts"]), self.argv(1)["argv"][15])
+        for p in (".gitconfig", ".claude", ".claude.json", ".config/git"):
+            self.assertFalse((self.tmp / p).exists(), p)
+
+    # covers: spec 0007 AC-5b (the hook from a real call's argv: malformed, empty, remote, local, no interpreter)
+    def test_agent_guard(self):
+        self.wf("demo", "-y", "--max-calls", "1")
+        hook = json.loads(self.argv(1)["argv"][15])["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+        broken = f"/nonexistent/python3 -c {shlex.quote(run.AGENT_GUARD)} || exit 2"
+        cases = [(hook, "not json"), (hook, ""),
+                 (hook, '{"tool_name": "Agent", "tool_input": {"isolation": "remote", "prompt": "x"}}'),
+                 (hook, '{"tool_name": "Agent", "tool_input": {"prompt": "x"}}'),
+                 (hook, '{"tool_name": "Agent", "tool_input": {"isolation": "worktree"}}'),
+                 (hook, '{"tool_name": "Bash", "tool_input": {}}'),
+                 (broken, '{"tool_name": "Agent", "tool_input": {}}')]
+        codes = [subprocess.run(["bash", "-c", c], input=i, capture_output=True, text=True).returncode for c, i in cases]
+        self.assertEqual(codes, [2, 2, 2, 0, 0, 2, 2])
+        r = subprocess.run(["bash", "-c", hook], input="", capture_output=True, text=True)
+        self.assertEqual(r.stderr, "wf run: remote agents are refused\n")
 
 
 if __name__ == "__main__":
