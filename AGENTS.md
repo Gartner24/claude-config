@@ -28,6 +28,7 @@ bash skills/design/scripts/test-ledger.sh       # design ledger + Stop hook asse
 node skills/design/scripts/build-ramp.mjs --check
 python3 -m unittest discover -s runner/tests    # wf runner self checks (install.sh runs these)
 wf run <repo>                                   # one feature unattended (spec 0004); locks and run records in $XDG_STATE_HOME/wf, else ~/.local/state/wf
+wf allow <repo>                                 # trust list (spec 0008); wf run refuses `untrusted` (exit 5) for a repo not in $XDG_CONFIG_HOME/wf/allowed.json, else ~/.config/wf/allowed.json
 wf ntfy init|codes|test                         # phone pings for wf run decisions (spec 0005); config ~/.config/wf/ntfy.json (0600), wf run refuses without it
 ```
 
