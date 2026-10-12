@@ -30,7 +30,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 6 | Standing answers | Release 2 | done |
 | 22 | Waiting boxes owed to you | Release 2 | done |
 | 20 | Push guard outside the model | Release 2 | done |
-| 8 | Failure and park policy | Release 2 | in-progress |
+| 8 | Failure and park policy | Release 2 | done |
 | 7 | Headless verify and test | Release 2 | in-progress |
 | 9 | Design enforcement unattended | Release 2 | in-progress |
 | 10 | Build queue and decision queue | Release 3 | in-progress |
@@ -202,7 +202,7 @@ A guard outside anything the model controls keeps every `wf run` call from pushi
 Spec [0007](../specs/0007-push-guard/index.md)
 Source: your message of 2026-10-12, after the `/review` of the runner branch ([report](../reviews/review-2026-10-12.md), Guardrails).
 
-### 8. Failure and park policy · in-progress
+### 8. Failure and park policy · done
 What parks a feature instead of looping: 2 `/debug` attempts after a FAIL, BLOCKED, sudo, logins, hook denials (logged with the reason), and paid steps that never run unattended. A usage limit error pauses the run until the limit resets, then resumes, instead of ending the night (moved here from feature 12 on 2026-10-12). Also refuses a repo whose `**Autopilot:** allowed` you did not set yourself, such as a cloned third party scope (spec 0003 follow up).
 **Done when:** each of those cases parks the feature with a reason you can read, no paid step runs, and a run that hits the usage limit picks up again after the reset.
 - [x] Design it (spec): `/architect failure and park policy`
@@ -213,7 +213,7 @@ What parks a feature instead of looping: 2 `/debug` attempts after a FAIL, BLOCK
    - [x] Paid key strip on the spec 0007 lists, usage limit wait (AC-7, AC-8); needs feature 20 built
    - [x] Manual checks 4 to 6 in `verify.md` (AC-11): all passed 2026-10-12 through real `wf run`s on scratch repos
 - [x] Verify it: `/check verify failure and park policy`
-- [ ] Test it: `/test failure and park policy`
+- [x] Test it: `/test failure and park policy`
 Spec [0008](../specs/0008-failure-park-policy/index.md) · code in `runner/run.py`, `runner/tests/test_park.py`
 Follow-up: the usage limit probe (spec 0008 `verify.md` Follow-up, check 3) waits on you at the next real limit; it does not hold this feature open.
 
