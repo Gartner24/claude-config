@@ -414,6 +414,16 @@ class Run:
                                        "denyWrite": [p for p in deny if p != common] + [os.path.join(common, "config"), hooks_dir],
                                        "denyRead": [os.path.expanduser(p) for p in CREDENTIAL_PATHS]}},
             "hooks": {"PreToolUse": [{"matcher": "Agent", "hooks": [{"type": "command", "timeout": 10, "command": hook}]}]}}
+        # AC-3 step 5: the jail cannot bind an absent path, so an app could plant .git/hooks/post-commit in a
+        # repo that had no hooks folder and it ran at your next commit (finding 9). Only paths a write bind
+        # can reach; everything else is read only in the jail.
+        guarded, binds = self.record["guard"]["guarded_files"], [os.path.realpath(b) for b in write_binds(repo)]
+        absent = []
+        for p in self.guard_settings["sandbox"]["filesystem"]["denyWrite"]:
+            r = os.path.realpath(p)
+            if not os.path.exists(r) and under(r, binds) and r not in guarded and p not in guarded:
+                absent.append(r)
+        self.record["guard"]["absent_denied"] = list(dict.fromkeys(absent))
         self.settings = json.dumps(self.guard_settings)
         self.denied = ",".join([DENIED, GUARD_DENIED,
                                 *(r for p in CREDENTIAL_PATHS for r in path_rules("Read", os.path.expanduser(p))),
@@ -429,12 +439,14 @@ class Run:
         repo, home = self.c.path, os.path.expanduser("~")
         a = [self.bwrap, "--die-with-parent", "--unshare-pid", "--ro-bind", "/", "/", "--dev", "/dev",
              "--proc", "/proc", "--tmpfs", "/tmp", "--tmpfs", "/run"]
-        for p in (repo, *(os.path.join(home, p[2:]) for p in CACHE_DIRS)):
+        # Every bind at its real path, each once: bwrap refuses a destination that is a symlink, and a
+        # symlinked ~/.gitconfig used to fail every app start (P2, finding 8). A missing path is skipped.
+        for p in dict.fromkeys(os.path.realpath(p) for p in write_binds(repo)):
             if os.path.exists(p):
                 a += ["--bind", p, p]
         # The calls' frozen denyWrite list, as listed: three hand picked paths used to leave a linked worktree's
         # .git pointer and the hook token scripts writable for the app (review finding 1).
-        for p in self.guard_settings["sandbox"]["filesystem"]["denyWrite"]:
+        for p in dict.fromkeys(os.path.realpath(p) for p in self.guard_settings["sandbox"]["filesystem"]["denyWrite"]):
             if os.path.exists(p):
                 a += ["--ro-bind", p, p]
         for p in (*(os.path.join(home, p[2:]) for p in JAIL_HIDDEN), *self.browser["wf_dirs"]):
@@ -448,6 +460,12 @@ class Run:
         """AC-3 steps 2 to 4: check the port, start the jailed app, wait until it answers below 500.
         Raises Stop app_port_busy or app_failed; the app is stopped before an app_failed."""
         url = app["url"]
+        # A symlink inside a write bind is writable in the jail: the app could re-point it past the read only
+        # bind of its target. Checked on every start, a resume's too, since a call may have made one.
+        for p in self.guard_settings["sandbox"]["filesystem"]["denyWrite"]:
+            link = symlink_in_bind(p, write_binds(self.c.path))
+            if link:
+                raise Stop("app_failed", f"{link} is a symlink inside a writable folder")
         if http_status(url) is not None:
             raise Stop("app_port_busy", f"something already answers at {url}")
         log = os.path.join(self.folder, name)
@@ -529,6 +547,11 @@ class Run:
                 continue
             if now != h:
                 return f"{path} changed during the run; inspect or delete it before opening a session in this repo"
+        for path in self.record["guard"]["absent_denied"]:
+            if not os.path.lexists(path) or (not os.path.islink(path) and (
+                    (os.path.isfile(path) and os.path.getsize(path) == 0) or (os.path.isdir(path) and not os.listdir(path)))):
+                continue
+            return f"{path} appeared during the run; inspect or delete it before opening a session in this repo"
         return None
 
     def confirm(self):
@@ -1353,6 +1376,9 @@ def file_hash(path):
             return hashlib.sha256(f.read()).hexdigest()
     except (FileNotFoundError, NotADirectoryError):
         return "absent"
+    except IsADirectoryError:
+        # An app could turn a guarded file into a folder, and this used to crash the check.
+        return "directory"
 
 
 def url_host(url):
@@ -1436,6 +1462,27 @@ def include_targets(configs):
 
 def under(path, dirs):
     return any(path == d or path.startswith(d.rstrip("/") + "/") for d in dirs)
+
+
+def write_binds(repo):
+    """AC-3 step 3: the folders the app may write, as configured (not resolved)."""
+    return [repo, *(os.path.expanduser(p) for p in CACHE_DIRS)]
+
+
+def symlink_in_bind(entry, binds):
+    """AC-3 step 3: the first symlink between a write bind and entry, else None. A symlink above the bind
+    (a repo reached through a symlinked ~/projects) does not count. The bind is matched as written and at
+    its real path, since git names the common dir by its real path."""
+    for b in binds:
+        for base in dict.fromkeys((b, os.path.realpath(b))):
+            if not under(entry, [base]):
+                continue
+            p = base
+            for part in entry[len(base.rstrip("/")):].split("/")[1:]:
+                p = os.path.join(p, part)
+                if os.path.islink(p):
+                    return p
+    return None
 
 
 def deny_paths(repo, common, tokens, git_files=()):

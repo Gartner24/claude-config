@@ -29,12 +29,15 @@ common = r.guard_settings["sandbox"]["filesystem"]["denyWrite"][-1].rsplit("/", 
 ssh = sorted(os.listdir(os.path.expanduser("~/.ssh")) or ["none"])[0]
 runtime = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
 cfg, state = os.path.dirname(ntfy.path()), run.state_dir()
+# Finding 8: ~/.gitconfig is a symlink on this machine; its real file must be read only for the app.
+gitreal = os.path.realpath(os.path.expanduser("~/.gitconfig"))
 checks = f"""
 cat ~/.ssh/{shlex.quote(ssh)} >/dev/null 2>&1 && echo 'ssh read: OPEN' || echo 'ssh read: refused'
 touch ~/probe-wf 2>/dev/null && echo 'home write: OPEN' || echo 'home write: refused'
 touch {wt}/probe 2>/dev/null && echo 'repo write: ok' || echo 'repo write: FAILED'
 touch {common}/hooks/probe 2>/dev/null && echo 'git hooks write: OPEN' || echo 'git hooks write: refused'
 echo x > {wt}/.claude/settings.json 2>/dev/null && echo '.claude write: OPEN' || echo '.claude write: refused'
+printf '' >> {shlex.quote(gitreal)} 2>/dev/null && echo 'real ~/.gitconfig write: OPEN' || echo 'real ~/.gitconfig write: refused'
 echo 'gitdir: /tmp/x' > {wt}/.git 2>/dev/null && echo 'worktree .git pointer write: OPEN' || echo 'worktree .git pointer write: refused'
 for s in {runtime}/gnupg/S.gpg-agent {runtime}/gnupg/S.gpg-agent.ssh ${{SSH_AUTH_SOCK:-/nonexistent}}; do
   python3 -c 'import socket,sys; s=socket.socket(socket.AF_UNIX); s.connect(sys.argv[1])' $s 2>/dev/null \\
@@ -62,4 +65,20 @@ print(f"after: ~/probe-wf {'exists' if os.path.exists(os.path.expanduser('~/prob
       f"{wt}/probe {'exists' if os.path.exists(wt + '/probe') else 'absent'}")
 jail = r.jail_argv()
 print("ro binds:", [a for i, a in enumerate(jail) if i and jail[i - 1] == "--ro-bind" and a not in ("/", "/dev/null")])
+
+# Finding 9: a checkout with no .git/hooks; the app plants a hook, and the stop right after it must catch it.
+plain = os.path.join(root, "plain")
+subprocess.run(["git", "init", "-q", "--template=", plain], check=True)
+r.c, r.record = SimpleNamespace(path=plain), {}
+assert r.freeze_guard() is None
+print("absent_denied:", r.record["guard"]["absent_denied"])
+r.browser["start"] = f"mkdir -p .git/hooks && printf '#!/bin/sh\\n' > .git/hooks/post-commit && echo planted; exec python3 -m http.server {PORT} --bind 127.0.0.1"
+app = {"url": r.browser["url"], "logs": [], "ready_s": None, "exit": None}
+r.start_app(app, "plain.log")
+try:
+    r.stop_app()
+    print("hook planted: NOT CAUGHT")
+except run.Stop as e:
+    print(f"hook planted: {e.reason}: {e.detail}")
+print("plain app log:", open(os.path.join(root, "plain.log")).read().split("Serving HTTP")[0].strip())
 shutil.rmtree(root, ignore_errors=True)

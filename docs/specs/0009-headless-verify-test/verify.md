@@ -122,8 +122,35 @@ built MCP, real HOME: new_page 'Error: net::ERR_ABORTED at http://127.0.0.1:4085
 - **P6: PASS.** The six AC-6 tools do not exist for the call. P6b: snapshot and screenshot to `~` refused (`filePath must be a plain path under <shots>`), into the shots dir written.
 - **P7: PASS.** `2 2 2 2 0 2 2 2`: the five original cases, then the amended three (`http://localhost:22\@localhost:<port>/`, a path through a symlink into the shots dir, a `..` path ending in the shots dir).
 
+## Step 9: P2 through the built code after findings 8 and 9 (run 2026-10-12): PASS
+
+**P2: PASS.** Command: `python3 -B docs/specs/0009-headless-verify-test/probes/p2-built.py`. Same scratch linked worktree as step 8, now with the real path binds. The probe gained two checks: appending to the real file behind `~/.gitconfig` from inside the jail, and a second scratch checkout made with `git init --template=` (no `.git/hooks`) whose app plants `.git/hooks/post-commit`, then `Run.stop_app()` with its guard check. On this machine `~/.gitconfig` and `~/.zshrc` are symlinks into `~/dotfiles`.
+
+```
+app from host: 200 (ready after 0.5 s)
+ssh read: refused
+home write: refused
+repo write: ok
+git hooks write: refused
+.claude write: refused
+real ~/.gitconfig write: refused        (/home/santiago/dotfiles/home/git/.gitconfig: Read-only file system)
+worktree .git pointer write: refused
+socket /run/user/1000/gnupg/S.gpg-agent: refused
+socket /run/user/1000/gnupg/S.gpg-agent.ssh: refused
+socket /nonexistent: refused
+oauth token in env: absent
+wf config folder entries: 0
+wf state dir entries: 0
+after: ~/probe-wf absent; <wt>/probe exists
+ro binds: [... '/home/santiago/dotfiles/home/git/.gitconfig', ... '/home/santiago/dotfiles/home/zsh/.zshrc', ...]
+absent_denied: ['<tmp>/plain/.claude', '<tmp>/plain/.git/hooks']
+hook planted: guard_changed: <tmp>/plain/.git/hooks appeared during the run; inspect or delete it before opening a session in this repo
+```
+
+The read only binds name the real dotfiles, never the links, and the app starts. Every P2 item from step 8 still holds.
+
 ## P8 and P9
 
-Not run: they come after the review fixes (build steps 7 and 8).
+Not run: they come after build step 9 (build step 10).
 
 Tool facts read on 2026-10-12 (`npx -y chrome-devtools-mcp@latest --help`, `--version`): version 1.10.1; flags `--isolated`, `--headless`, `--executablePath`, `--proxyServer`, `--chromeArg`, `--browserUrl` (`-u`), `--wsEndpoint` (`-w`), `--autoConnect`, `--userDataDir`, `--allowedUrlPattern` (Chrome 149+). Brave installed: 154.1.96.60.

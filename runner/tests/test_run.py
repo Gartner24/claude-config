@@ -1216,7 +1216,9 @@ class TestGuard(RunCase):
         self.assertIn(" | guard: 10 hosts, 7 files", r.stdout.splitlines()[0])
         _, rec = self.run_record()
         g = rec["guard"]
-        self.assertEqual(list(g), ["hosts", "write_paths", "deny_paths", "binaries", "guarded_files"])
+        self.assertEqual(list(g), ["hosts", "write_paths", "deny_paths", "binaries", "guarded_files", "absent_denied"])
+        # Spec 0009 AC-3 step 5: the repo has no .claude; config.worktree is a guarded file, so left out.
+        self.assertEqual(g["absent_denied"], [f"{self.repo}/.claude"])
         self.assertEqual(g["hosts"], sorted(FORGE_HOSTS + ["code.example.com"]))
         self.assertEqual(g["deny_paths"], guard_deny(self.tmp, self.repo, self.bin))
         self.assertEqual(g["write_paths"], guard_settings(self.tmp, self.repo, self.bin)["sandbox"]["filesystem"]["allowWrite"])
