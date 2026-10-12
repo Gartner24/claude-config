@@ -556,6 +556,12 @@ def build_parser():
     run.add_argument("--call-timeout", type=positive(float), default=60, help="minutes per call (default 60)")
     run.add_argument("--max-calls", type=positive(int), default=20, help="calls per run (default 20)")
     run.add_argument("--max-hours", type=positive(float), default=8, help="hours per run (default 8)")
+    ntfy = sub.add_parser("ntfy", help="set up and test phone pings for wf run")
+    nsub = ntfy.add_subparsers(dest="action", metavar="<action>", required=True)
+    init = nsub.add_parser("init", help="create the topic and one time codes")
+    init.add_argument("--rotate", action="store_true", help="replace the topic and codes of an existing config")
+    nsub.add_parser("codes", help="replace the one time codes")
+    nsub.add_parser("test", help="send one ping and wait up to 5 minutes for the reply")
     return parser, nxt
 
 
@@ -573,6 +579,11 @@ def main(argv=None):
     if args.command == "run":
         import run
         return run.cmd_run(args)
+    if args.command == "ntfy":
+        import ntfy
+        if args.action == "init":
+            return ntfy.cmd_init(args.rotate)
+        return ntfy.cmd_codes() if args.action == "codes" else ntfy.cmd_test()
     if args.list and (args.target or args.yes):
         nxt.error("--list takes no argument and no -y")
     return cmd_next(args)

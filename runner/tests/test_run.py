@@ -20,6 +20,7 @@ WF = RUNNER / "wf.py"
 sys.path.insert(0, str(RUNNER))
 import run  # noqa: E402
 import wf  # noqa: E402
+from test_ntfy import FakeNtfy, write_config  # noqa: E402,F401
 
 # Scriptable claude: steps.json holds one step per call (the last repeats).
 FAKE_CLAUDE = f"""#!{sys.executable}
@@ -147,7 +148,9 @@ class RunCase(unittest.TestCase):
         self.steps([{}])
         self.addCleanup(self.reap)
         self.env = {"HOME": str(self.tmp), "WF_ROOTS": str(self.tmp / "root"), "PATH": str(self.bin),
-                    "XDG_STATE_HOME": str(self.state), "FAKE_DIR": str(self.fakes)}
+                    "XDG_STATE_HOME": str(self.state), "FAKE_DIR": str(self.fakes),
+                    "XDG_CONFIG_HOME": str(self.tmp / "config")}
+        self.ntfy_config = write_config(self.tmp / "config", "http://127.0.0.1:9", codes=[f"code{i:04d}" for i in range(5)])
 
     def fake(self, name, body):
         p = self.bin / name
@@ -375,6 +378,19 @@ class TestStart(RunCase):
         r = self.wf("demo", "-y")
         self.refused(r, None, 1)
         self.assertIn("claude not found on PATH", r.stderr)
+
+    # covers: spec 0005 AC-2, AC-13 (no_ntfy refuses before the lock, no call, no run folder; few codes warn)
+    def test_no_ntfy(self):
+        self.ntfy_config.chmod(0o644)
+        r = self.wf("demo", "-y")
+        self.refused(r, "no_ntfy")
+        self.assertIn("readable or writable by others", r.stdout)
+        self.assertFalse((self.state / "wf" / "locks").exists())
+        self.ntfy_config.unlink()
+        self.assertIn("is missing, run wf ntfy init", self.wf("demo", "-y").stdout)
+        write_config(self.tmp / "config", "http://127.0.0.1:9", codes=["a1234567"] * 4)
+        r = self.wf("demo", "-y", "--max-calls", "1")
+        self.assertIn("warning: 4 one time codes left, run wf ntfy codes", r.stdout.splitlines()[0])
 
     # covers: AC-1 (no match exits 1, shared resolve)
     def test_no_match(self):

@@ -7,7 +7,6 @@ import hashlib
 import json
 import os
 import re
-import secrets
 import shlex
 import shutil
 import signal
@@ -16,6 +15,7 @@ import sys
 import time
 import traceback
 
+import ntfy
 import wf
 
 ALLOWED = ("/develop", "/check", "/test", "/debug", "/document")
@@ -32,7 +32,6 @@ UNATTENDED_PROMPT = (
 HOOK = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "hook.py"))
 SETTINGS = json.dumps({"hooks": {"PreToolUse": [{"matcher": "AskUserQuestion", "hooks": [
     {"type": "command", "command": "python3 " + shlex.quote(HOOK)}]}]}}, separators=(",", ":"))
-ID_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789"
 DECISION = re.compile(r"^DECISION NEEDED:\s*(.+)$", re.M)
 GRACE = 30
 POLL = 0.2
@@ -137,6 +136,12 @@ class Run:
         if not shutil.which("claude"):
             print("claude not found on PATH", file=sys.stderr)
             return 1
+        try:
+            self.ntfy = ntfy.load()
+        except ntfy.Invalid as e:
+            return self.refuse("no_ntfy", e)
+        if len(self.ntfy["codes"]) < 5:
+            c.warnings.append(f"{len(self.ntfy['codes'])} one time codes left, run wf ntfy codes")
         return self.take_lock()
 
     def confirm(self):
@@ -322,11 +327,7 @@ class Run:
         return None, None, nb
 
     def new_id(self):
-        taken = {d["id"] for d in self.record["decisions"]}
-        while True:
-            i = "".join(secrets.choice(ID_CHARS) for _ in range(4))
-            if i not in taken:
-                return i
+        return ntfy.new_id({d["id"] for d in self.record["decisions"]})
 
     def read_auto(self, n):
         """AC-12: hook lines in auto.jsonl not yet recorded become `auto` decisions. Returns them."""
