@@ -105,3 +105,22 @@ Command: a scratch script, run 2026-10-12 by Claude in a `mktemp` dir with `HOME
 | what a commit in the worktree writes there | `logs/HEAD` changed, `COMMIT_EDITMSG` created (and `index` on a real change), so only `commondir`, `gitdir`, `config.worktree` can be frozen |
 | `config.worktree` path | main checkout `<common>/config.worktree`; linked worktree `<common>/worktrees/wt/config.worktree` (`rev-parse --git-path config.worktree`) |
 | `git config --file <config> --get-regexp '^include(if\..*)?\.path$'` | `include.path inc1`, `includeif.gitdir:/nowhere/.path ~/inc2`: both listed, the false condition too, values raw (relative, `~` unexpanded) |
+
+## /check verify (2026-10-12, after the amendment)
+
+Command: a scratch driver ran the real `wf run` CLI (`python3 -B runner/wf.py run <path> -y`) on a main checkout and a linked worktree, with real `git`, `bwrap`, `socat`, `python3` and a fake `HOME`; only `claude` was a stand in that recorded its argv and env and made one scripted write in call 1.
+
+| Check | AC | Result |
+|---|---|---|
+| env of the call with `GH_TOKEN`, `GITHUB_TOKEN`, `SSH_AUTH_SOCK`, `GIT_SSH_COMMAND` set in `wf`'s env | AC-1 | pass: none left, `KEEP=1` kept, `ENABLE_CLAUDEAI_MCP_SERVERS=false` |
+| `--settings` key order, hosts with an scp `origin` and an https `mirror` with user and port | AC-2, AC-3 | pass: keys in AC-2 order, `deniedDomains` = the 9 forges plus `code.example.com` |
+| MCP flags | AC-4 | pass: `--strict-mcp-config --mcp-config {"mcpServers": {}}` |
+| deny list | AC-5 | pass: prefix list, `Artifact`, `RemoteTrigger`, `SendMessage`, `Skill(schedule)`, `CronCreate`, `Read(//.../.config/gh)` and `/**` |
+| agent hook from the real argv: malformed, empty, remote, local | AC-5b | pass: `2 2 2 0` |
+| binaries | AC-6 | pass: `/usr/bin/git`, the absolute `claude`, `/usr/bin/python3.14` |
+| linked worktree: call 1 rewrites `wt/.git` (still valid) | AC-7 amendment | pass: `stopped: guard_changed: <wt>/.git changed during the run`, 1 call; `commondir`, `gitdir`, `config.worktree` guarded; `HEAD`, `index`, `logs` neither guarded nor denied |
+| main checkout: call 1 edits `~/nested.conf`, included by `~/inc.conf` through an `[includeIf]` with a false condition | AC-7 amendment | pass: `stopped: guard_changed: <home>/nested.conf changed`, 1 call; both targets in `deny_paths` |
+| no `bwrap` on PATH; user `excludedCommands`; a broken include | AC-8 | pass: exit 5 `refused: no_sandbox: not found on PATH: bwrap`; exit 5 `... sets sandbox.excludedCommands`; exit 5 `... git rev-parse --git-common-dir failed: fatal: bad config line 1 in file .git/broken.conf`; no new lock |
+| `run.json` `guard` and confirm line | AC-9 | pass: keys `hosts, write_paths, deny_paths, binaries, guarded_files`; `guard: 10 hosts, 22 files` (25 in the worktree) |
+| nothing written outside a run | AC-11 | pass: `install.sh --dry-run` writes no hook or git config; the fake `HOME` got no `.gitconfig` |
+| real `claude` with the amended argv | AC-10 | blocked: run 4 predates the amendment; rerun `run-wf-probe.py` |
