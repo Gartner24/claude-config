@@ -326,7 +326,8 @@ class TestStart(RunCase):
                 self.make_repo(name, allowed % command)
                 r = self.wf(name, "-y", "--max-calls", "1")
                 self.assertIn(f"[1/1] {command} -> success", r.stdout)
-        for name, command in [("dev2", "/developer a"), ("sync", "/sync"), ("tst2", "/tests a")]:
+        for name, command in [("dev2", "/developer a"), ("sync", "/sync"), ("tst2", "/tests a"),
+                              ("rev", "/check review a"), ("bare", "/check"), ("vrf2", "/check verifyx a")]:
             with self.subTest(command):
                 self.make_repo(name, allowed % command)
                 r = self.wf(name, "-y")

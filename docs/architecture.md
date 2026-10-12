@@ -57,19 +57,19 @@ A call never tells `wf` that it finished a box: `wf` only believes the files. Ev
 
 ## Skills and commands under `wf run`
 
-`wf run` decides by the first word of the box command (allow list in `runner/run.py`). Anything not listed as `runs` is refused `manual_box` before any call, or stops the run as `manual_box` when it is the next box.
+`wf run` decides by the first word of the box command, or the first two for `/check verify` (allow list in `runner/run.py`). Anything not listed as `runs` is refused `manual_box` before any call, or stops the run as `manual_box` when it is the next box.
 
 | Command | `wf run` | Pings you for |
 |---|---|---|
 | `/develop` | runs | an owed decision (route to `/architect`, or build on an `Assumed` spec); any panel not fixed |
-| `/check verify`, `/check review` | runs (`/check` is allowed as a word) | the done offer, unless `done: yes` applies |
+| `/check verify` | runs | the done offer, unless `done: yes` applies |
 | `/test` | runs | `Run tests?` unless `run suite: yes`; the done offer unless `done: yes` applies |
 | `/debug` | runs | a fix choice it cannot make |
 | `/document` | runs | nothing for `Doc type` (fixed answer); other panels |
 | `/sync` | runs, only as the final call, never as a box | any panel it shows |
 | `/architect`, `/scope`, `/audit` | refuses | |
 | `design`, `design-gate`, `brand-system`, `assets` as a box | refuses | |
-| `/review`, `/code-review`, `/review-stack`, `/jj-security-review` | refuses | |
+| `/check review`, `/check` with any other second word, `/review`, `/code-review`, `/review-stack`, `/jj-security-review` | refuses | |
 | `/ship`, `/pr`, `/land-and-deploy`, `/document-release`, deploys | refuses | |
 | `/rollover`, `/save-and-clear`, `/resume-from-clear`, `/clear` | refuses (each call is already a fresh session) | |
 | any other command | refuses | |

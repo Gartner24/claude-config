@@ -2,15 +2,15 @@
 
 **Date**: 2026-10-11
 **Status**: Accepted
-**Amended by**: [0005](../0005-decision-parking-phone-pings/index.md) - AC-5 prompt, AC-6 rule 6 (`DECISION NEEDED:` parks, `decision_needed` leaves the `stop_reason` enum), and the "nothing is resumed" invariant (a resume call continues the asking session). Review 2026-10-12: AC-6 rules 7 and 8 (`branch_changed`, `autopilot_off`, with `scope_unreadable`) now run before rule 6 and again after each wait, so a parked call never pings and a resume never starts off Autopilot or off the run's branch; the push and PR deny patterns match any flags between the program and the subcommand; elapsed time is on `CLOCK_BOOTTIME`, the `waited_s` clock. Architecture pass 2026-10-12 ([architecture](../../architecture.md)): the body now states those amendments in place (Summary, AC-2 note, AC-5, AC-6 order, AC-7, AC-8, stop reasons, invariants, follow ups), with no behavior change.
+**Amended by**: [0005](../0005-decision-parking-phone-pings/index.md) - AC-5 prompt, AC-6 rule 6 (`DECISION NEEDED:` parks, `decision_needed` leaves the `stop_reason` enum), and the "nothing is resumed" invariant (a resume call continues the asking session). Review 2026-10-12: AC-6 rules 7 and 8 (`branch_changed`, `autopilot_off`, with `scope_unreadable`) now run before rule 6 and again after each wait, so a parked call never pings and a resume never starts off Autopilot or off the run's branch; the push and PR deny patterns match any flags between the program and the subcommand; elapsed time is on `CLOCK_BOOTTIME`, the `waited_s` clock. Architecture pass 2026-10-12 ([architecture](../../architecture.md)): the body now states those amendments in place (Summary, AC-2 note, AC-5, AC-6 order, AC-7, AC-8, stop reasons, invariants, follow ups), with no behavior change. Allow list 2026-10-12: `/check` runs only as `/check verify`, matched on the first two words; `/check review` is refused `manual_box`.
 
 ## Summary
 
-`wf run <repo>` builds one feature with nobody at the keyboard. It runs each open box of that feature as a fresh `claude -p` call inside the repo (a fresh call is the same as a `/clear`), rereads the scope after every call to find the next box, and ends with one `/sync` call. It refuses repos whose scope header is not `**Autopilot:** allowed`, refuses `main`, `master` and a detached checkout, runs only build, check, test, debug and document boxes, holds a lock so two runs never share a repo, keeps the laptop awake even with the lid closed, caps each call and the whole run, stops cleanly on Ctrl C or a closed terminal, and writes a record of every call. A step that needs your decision parks it, pings your phone and resumes with your answer (spec 0005).
+`wf run <repo>` builds one feature with nobody at the keyboard. It runs each open box of that feature as a fresh `claude -p` call inside the repo (a fresh call is the same as a `/clear`), rereads the scope after every call to find the next box, and ends with one `/sync` call. It refuses repos whose scope header is not `**Autopilot:** allowed`, refuses `main`, `master` and a detached checkout, runs only build, verify, test, debug and document boxes, holds a lock so two runs never share a repo, keeps the laptop awake even with the lid closed, caps each call and the whole run, stops cleanly on Ctrl C or a closed terminal, and writes a record of every call. A step that needs your decision parks it, pings your phone and resumes with your answer (spec 0005).
 
 ## What you're agreeing to
 
-- Nothing new: the 2026-10-12 amendment rewrites this spec's text to match what `wf run` already does after specs 0005 and 0006.
+- One change: a `/check review` box is now refused like every other review; only `/check verify` runs unattended. Everything else in the 2026-10-12 amendment rewrites this spec to match what `wf run` already does after specs 0005 and 0006.
 - A question from a step now waits for your phone instead of ending the run.
 - After every call and every wait, the run checks Autopilot, the branch and the scope before it does anything else.
 - Time spent waiting for you does not count toward the hour cap.
@@ -27,7 +27,7 @@
   1. no open box: `nothing to run in <name>`, with hub rows and warnings, exit 0 (spec 0002 AC-7 output, moved out of `launch` into a shared helper);
   2. a box with no command: spec 0002 AC-6 message, exit 3 (same shared helper);
   3. the box has no feature (`NextBox.feature` is `None`): refused, `no_feature`;
-  4. the box command's first word is not one of `/develop`, `/check`, `/test`, `/debug`, `/document`: refused, `manual_box` (design, scope, audit, ship, PR, deploy and review stack boxes stay with you);
+  4. the box command's first word is not one of `/develop`, `/test`, `/debug`, `/document`, and its first two words are not `/check verify`: refused, `manual_box` (design, scope, audit, ship, PR, deploy, `/check review` and review stack boxes stay with you);
   5. the box is waiting (spec 0002 AC-6 `waiting`): refused, `waiting`;
   6. the scope's Autopilot value (spec 0003 AC-1 and AC-2, missing means `off`, read by a new `header_values(text)`; `header_warnings` keeps its return type) is not `allowed`: refused, `autopilot_off`;
   7. the branch read from the files (`head_branch`, spec 0002 AC-12) is `main`, `master`, `no git`, `-`, or starts with `detached`: refused, `branch`;
@@ -118,7 +118,7 @@ Raw output sits beside it: `call-NN.json` (stdout), `call-NN.stderr`. The lock f
 | resolve | repo, name, label, scope | spec 0002 discovery and matching, reused (`make_candidate`, `match`, `from_cwd`, `pick`) |
 | resolve | run feature | `NextBox.feature` of the first open box at start |
 | start checks | feature present | `NextBox.feature` is not `None` |
-| start checks | manual box | first word of `NextBox.command` not in the allow list `/develop`, `/check`, `/test`, `/debug`, `/document` (fixed in `run.py`) |
+| start checks | manual box | first word of `NextBox.command` not in the allow list `/develop`, `/test`, `/debug`, `/document`, and first two words not `/check verify` (fixed in `run.py`) |
 | start checks | waiting | `NextBox.waiting` (spec 0002 AC-6) |
 | start checks | Autopilot value | the scope top file header, read per spec 0003 AC-1 and AC-2 (`header_warnings` grows to return the values too) |
 | start checks | branch | `head_branch(path)`, files only, no git run |
@@ -199,7 +199,7 @@ Skateboard: milestone 1 is already a usable loop on your own repo (you watch it,
 - If `/develop` already chained `/sync` inside its own call, `/sync` runs twice. It is surgical, so the cost is one call.
 - The prompt can only ask a step to end with `DECISION NEEDED:`; a step that ignores it ends as `no_progress`, still a stop, with a less useful reason.
 - The lid switch is inhibited for the run, unlike your `nosleep`, which leaves it alone so a laptop in a bag cannot overheat. A run with the lid closed in a bag keeps working and keeps heating.
-- The allow list stops a run at any box whose command is not `/develop`, `/check`, `/test`, `/debug` or `/document`, even a harmless one; widening it is a spec change.
+- The allow list stops a run at any box whose command is not `/develop`, `/check verify`, `/test`, `/debug` or `/document`, even a harmless one; widening it is a spec change.
 - The deny list catches the common ways to push and open, merge or ready a PR, not every spelling.
 - Two boxes in a row with identical feature, text and note give a false `no_progress` after a real tick. A heading renamed mid run makes the feature look finished, so `/sync` runs early. Both are safe stops.
 - `--permission-mode auto` may not be available on every plan or model; if not, every call fails with `call_error` (AC-15 check 3 shows it).

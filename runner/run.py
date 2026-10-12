@@ -17,7 +17,8 @@ import traceback
 import ntfy
 import wf
 
-ALLOWED = ("/develop", "/check", "/test", "/debug", "/document")
+# Matched on the first two words: a first word alone used to let `/check review` run unattended.
+ALLOWED = ("/develop", "/check verify", "/test", "/debug", "/document")
 BAD_BRANCHES = ("main", "master", "no git", "-")
 # AskUserQuestion is never offered in `claude -p` 2.1.296 (spec 0005 verify.md check 1);
 # denied anyway so a later CLI that offers it cannot hang a run on an unseen panel.
@@ -69,7 +70,8 @@ def box_refusal(nb):
         return "no_command", nb.box_text
     if nb.feature is None:
         return "no_feature", f"the box is outside any ### feature: {nb.box_text}"
-    if nb.command.split()[0] not in ALLOWED:
+    words = nb.command.split()
+    if words[0] not in ALLOWED and " ".join(words[:2]) not in ALLOWED:
         return "manual_box", f"{nb.command} runs only with you"
     if nb.waiting:
         return "waiting", nb.note
