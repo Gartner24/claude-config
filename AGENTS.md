@@ -33,7 +33,7 @@ wf ntfy init|codes|test                         # phone pings for wf run decisio
 
 ## Specs
 
-None yet. When they exist: `docs/specs/NNNN-title.md`.
+`docs/specs/NNNN-title.md` (folder form `NNNN-title/index.md` for split specs): 0001 runner stack, 0002 `next`, 0003 scope contract, 0004 `wf run`, 0005 decision parking and phone pings.
 
 ## Rules
 

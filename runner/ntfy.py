@@ -8,6 +8,7 @@ import os
 import re
 import secrets
 import time
+import urllib.parse
 import urllib.request
 
 import wf
@@ -68,7 +69,10 @@ def load(need_codes=True):
     server, codes = cfg.get("server"), cfg.get("codes")
     if not isinstance(cfg.get("topic"), str) or not TOPIC.match(cfg["topic"]):
         raise Invalid("topic must be 32 to 64 characters of A-Z a-z 0-9 _ -")
-    if not isinstance(server, str) or not server.startswith(("https://", "http://127.0.0.1", "http://localhost")):
+    # Parsed, not a prefix: http://localhost.example.com used to pass as local plain http.
+    url = urllib.parse.urlsplit(server) if isinstance(server, str) else None
+    if not url or not url.hostname or not (url.scheme == "https" or
+                                          (url.scheme == "http" and url.hostname in ("127.0.0.1", "localhost"))):
         raise Invalid("server must start with https://")
     if not isinstance(codes, list) or not all(isinstance(c, str) and HEX64.match(c) for c in codes) \
             or (need_codes and not codes):

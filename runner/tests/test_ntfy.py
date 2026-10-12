@@ -156,6 +156,12 @@ class TestConfig(NtfyCase):
                     ntfy.load()
         p.chmod(0o600)
         self.assertEqual(ntfy.load()["topic"], TOPIC)
+        for server in ("http://localhost.example.com", "http://127.0.0.1.example.com", "http://localhost@example.com",
+                       "https://"):
+            with self.subTest(server):
+                p.write_text(json.dumps({**good, "server": server}))
+                with self.assertRaisesRegex(ntfy.Invalid, "server"):
+                    ntfy.load()
         for server in ("http://127.0.0.1:8080", "http://localhost:1"):
             p.write_text(json.dumps({**good, "server": server}))
             self.assertEqual(ntfy.load()["server"], server)
@@ -332,6 +338,15 @@ class TestReplies(NtfyCase):
         end, _ = self.wait(t, [p], ["zz99 goodcode yes", "{id} goodcode run rm"], max_wait=0.3)
         self.assertEqual((end, p["answer"]), ("timeout", None))
         self.assertEqual(json.loads((self.config / "wf" / "ntfy.json").read_text())["codes"], [])
+        # Messages that are not reply shaped burn too: a bare code, a mistyped id.
+        for first in ("goodcode", "ab1 goodcode x"):
+            with self.subTest(first):
+                cfg = self.cfg(codes=("goodcode",))
+                t = ntfy.Topic(cfg, "demo", "f")
+                p = self.decision(kind="prose", options=())
+                end, _ = self.wait(t, [p], [first, "{id} goodcode run rm"], max_wait=0.3)
+                self.assertEqual((end, p["answer"]), ("timeout", None))
+                self.assertEqual(json.loads((self.config / "wf" / "ntfy.json").read_text())["codes"], [])
 
     # covers: AC-9 (a poll failure warns once and keeps polling)
     def test_poll_failure(self):

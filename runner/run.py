@@ -21,8 +21,10 @@ ALLOWED = ("/develop", "/check", "/test", "/debug", "/document")
 BAD_BRANCHES = ("main", "master", "no git", "-")
 # AskUserQuestion is never offered in `claude -p` 2.1.296 (spec 0005 verify.md check 1);
 # denied anyway so a later CLI that offers it cannot hang a run on an unseen panel.
-DENIED = ("AskUserQuestion,Bash(git push*),Bash(git -C * push*),"
-          "Bash(gh pr create*),Bash(gh pr merge*),Bash(gh pr ready*)")
+# `git * push*`, not `git -C * push*`: `git -c k=v push` and `git --no-pager push` used to pass.
+DENIED = ("AskUserQuestion,Bash(git push*),Bash(git * push*),"
+          "Bash(gh pr create*),Bash(gh pr merge*),Bash(gh pr ready*),"
+          "Bash(gh * pr create*),Bash(gh * pr merge*),Bash(gh * pr ready*)")
 UNATTENDED_PROMPT = (
     "You are running unattended inside wf run, and AskUserQuestion is not available. "
     "Decide these panels yourself with the fixed answer: Doc type, the option marked (recommended); "
@@ -305,16 +307,12 @@ class Run:
             return "budget", flat(subtype), None
         if data.get("is_error") is True or subtype != "success" or rec["exit_code"] != 0:
             return "call_error", error_detail or f"exit code {rec['exit_code']}", None
+        refusal = self.guard(scope)
+        if refusal:
+            return (*refusal, None)
         if asked:
             return PARK, asked, None
-        if scope is None:
-            return "scope_unreadable", f"{self.c.scope_dir} is gone or unreadable", None
-        nb, autopilot = scope
-        branch = wf.head_branch(self.c.path)
-        if branch != self.branch:
-            return "branch_changed", f"{self.branch} -> {branch}", None
-        if autopilot != "allowed":
-            return "autopilot_off", f"Autopilot is now {autopilot}", None
+        nb = scope[0]
         if box is None:
             return "feature_done", None, None
         if progress_key(nb) == progress_key(box):
@@ -325,6 +323,18 @@ class Run:
         if refusal:
             return refusal[0], refusal[1], None
         return None, None, nb
+
+    def guard(self, scope):
+        """(reason, detail) when the next call may not start, else None. Runs after every call and
+        after every wait: a resume used to start with Autopilot off or on another branch."""
+        if scope is None:
+            return "scope_unreadable", f"{self.c.scope_dir} is gone or unreadable"
+        branch = wf.head_branch(self.c.path)
+        if branch != self.branch:
+            return "branch_changed", f"{self.branch} -> {branch}"
+        if scope[1] != "allowed":
+            return "autopilot_off", f"Autopilot is now {scope[1]}"
+        return None
 
     def new_id(self):
         return ntfy.new_id({d["id"] for d in self.record["decisions"]})
@@ -376,7 +386,8 @@ class Run:
 
     def loop(self):
         a, box, resume = self.args, self.c.next, None
-        t0 = time.monotonic()
+        # The boot clock, like waited_s: a suspend during a wait used to make the subtraction negative.
+        t0 = ntfy.boottime()
         while True:
             command = box.command if box else "/sync"
             n = len(self.record["calls"]) + 1
@@ -385,7 +396,7 @@ class Run:
             if n > a.max_calls:
                 raise Stop("max_calls", f"{a.max_calls} calls made")
             # Time spent waiting on you does not count toward --max-hours (AC-9).
-            if time.monotonic() - t0 - self.record["waited_s"] >= a.max_hours * 3600:
+            if ntfy.boottime() - t0 - self.record["waited_s"] >= a.max_hours * 3600:
                 raise Stop("run_limit", f"{a.max_hours:g}h passed")
             rec, data, timed_out, tail, spawn_error = self.call(n, command, resume and resume[:2])
             rec["box_text"] = box.box_text if box else None
@@ -401,10 +412,16 @@ class Run:
             print(f"[{n}/{a.max_calls}] {label} -> {wf.clean(str(shown))}, {cost} USD, "
                   f"{rec['duration_s'] / 60:.1f}m, next: {after}", flush=True)
             if parked:
+                # The resume is a call too (spec 0005 AC-10); with none left, a ping only wakes you for nothing.
+                if n >= a.max_calls:
+                    raise Stop("max_calls", f"{a.max_calls} calls made, none left to resume {parked['id']}")
                 print(f"waiting: {parked['id']} {flat(parked['question'])}", flush=True)
                 for i, o in enumerate(parked["options"], 1):
                     print(f"  {i} {flat(o)}", flush=True)
                 resume = (*self.wait(rec, parked), [parked["id"]])
+                refusal = self.guard(self.reread())
+                if refusal:
+                    raise Stop(*refusal)
                 continue
             if reason:
                 raise Stop(reason, detail)

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # The workflow runner (spec 0001). Stdlib only, so a fresh clone works with no
-# install step. Subcommands land per release: `next` in Release 1, `run` later.
+# install step. Subcommands: `list`/`next` (spec 0002), `run` (0004, in run.py),
+# `ntfy` (0005, in ntfy.py).
 import argparse
 import math
 import os
@@ -24,7 +25,7 @@ LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)")
 HEADER_LINE = re.compile(r"^\*\*(Source of truth|Autopilot):\*\*\s*(.*)$", re.I)
 HEADER_FIELDS = {"source of truth": ("Source of truth", ("scope", "issues", "mixed"), "scope"),
                  "autopilot": ("Autopilot", ("allowed", "off"), "off")}
-# No reader until Release 2 queues features; pinned now so the skills' output is tested.
+# No production reader yet (the queue that consumes `· auto` is not built); pinned so the skills' output is tested.
 AUTO_TAG = re.compile(r"·\s*auto\s*(?=·|$)", re.I)
 # C0 and C1 control characters. Scope text and folder names come from repos you
 # may have cloned; an ESC or CR in them used to reach the terminal and fzf as is.

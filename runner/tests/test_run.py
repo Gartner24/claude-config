@@ -257,8 +257,8 @@ class TestHappyPath(RunCase):
         self.assertEqual(a["argv"], [
             "-p", "/develop loop", "--output-format", "json", "--permission-mode", "auto",
             "--permission-prompts", "none", "--max-budget-usd", "2.5", "--disallowedTools",
-            "AskUserQuestion,Bash(git push*),Bash(git -C * push*),Bash(gh pr create*),Bash(gh pr merge*),"
-            "Bash(gh pr ready*)",
+            "AskUserQuestion,Bash(git push*),Bash(git * push*),Bash(gh pr create*),Bash(gh pr merge*),"
+            "Bash(gh pr ready*),Bash(gh * pr create*),Bash(gh * pr merge*),Bash(gh * pr ready*)",
             "--append-system-prompt", run.UNATTENDED_PROMPT])
         self.assertEqual(run.UNATTENDED_PROMPT, (
             "You are running unattended inside wf run, and AskUserQuestion is not available. Decide these panels "
@@ -722,6 +722,40 @@ class TestParking(RunCase):
         self.assertEqual((d["answer"], d["source"]), (None, None))
         self.assertGreater(rec["waited_s"], 0.3)
 
+    # covers: spec 0005 AC-10 with spec 0004 AC-8 (the last allowed call parks: no ping, no wait)
+    def test_last_call_does_not_ping(self):
+        self.fake_ntfy()
+        self.steps([ask()])
+        rec = self.assert_stopped(self.wf("demo", "-y", "--max-calls", "1", mode="fast"), "max_calls", calls=1)
+        self.assertEqual(self.ntfy.posts, [])
+        self.assertEqual(len(rec["decisions"]), 1)
+
+    # covers: spec 0004 invariant (an asking call that turned Autopilot off stops before the ping)
+    def test_autopilot_off_before_ping(self):
+        self.fake_ntfy()
+        self.steps([ask(edit=[["**Autopilot:** allowed", "**Autopilot:** off"]])])
+        self.assert_stopped(self.wf("demo", "-y", mode="fast"), "autopilot_off", calls=1)
+        self.assertEqual(self.ntfy.posts, [])
+
+    # covers: spec 0005 AC-10 (the resume gets the cap checks: Autopilot off during the wait, no resume call)
+    def test_autopilot_off_during_wait(self):
+        self.fake_ntfy()
+        self.ntfy.hold_polls = 40
+        self.ntfy.replies = ["{id} 1"]
+        self.steps([ask(), {}])
+        p = self.start("demo", "-y", mode="fast")
+        end = time.monotonic() + 20
+        while not self.ntfy.posts:
+            self.assertLess(time.monotonic(), end)
+            time.sleep(0.05)
+        scope = self.repo / "docs/scope/scope.md"
+        scope.write_text(scope.read_text().replace("**Autopilot:** allowed", "**Autopilot:** off"))
+        out, err = p.communicate(timeout=20)
+        self.assertEqual(p.returncode, 6, out + err)
+        _, rec = self.run_record()
+        self.assertEqual((rec["stop_reason"], len(rec["calls"]), rec["decisions"][0]["answer"]),
+                         ("autopilot_off", 1, "Postgres (recommended)"))
+
     # covers: spec 0005 AC-9, AC-12 (a wait longer than --max-hours does not stop the run; waited_s recorded)
     def test_wait_not_counted(self):
         self.fake_ntfy()
@@ -765,6 +799,14 @@ class TestCaps(RunCase):
         self.repo = self.make_repo("demo2", SCOPE)
         rec = self.assert_stopped(self.wf("demo2", "-y", "--max-calls", "2"), "max_calls", calls=2)
         self.assertNotIn("/sync", [c["command"] for c in rec["calls"]])
+
+    # covers: AC-6 rule 9 (a ticked milestone is progress though the parent box text is unchanged)
+    def test_milestone_is_progress(self):
+        self.make_repo("ms", "# Scope: x\n**Autopilot:** allowed\n### 1. A\n- [ ] `/develop a`\n"
+                             "  - [ ] m1\n  - [ ] m2\n")
+        self.steps([{"tick": False, "edit": [["- [ ] m1", "- [x] m1"]]},
+                    {"tick": False, "edit": [["- [ ] m2", "- [x] m2"]]}])
+        self.assert_stopped(self.wf("ms", "-y", "--max-calls", "2"), "max_calls", calls=2)
 
     # covers: AC-8 (run limit checked before the second call, never cutting a call short)
     def test_run_limit(self):
