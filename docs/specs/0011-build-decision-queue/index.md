@@ -1,7 +1,7 @@
 # 0011. Build queue and decision queue: `wf run` moves on after a park
 
 **Date**: 2026-10-12
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 

@@ -33,7 +33,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 8 | Failure and park policy | Release 2 | done |
 | 7 | Headless verify and test | Release 2 | done |
 | 9 | Design enforcement unattended | Release 2 | done |
-| 10 | Build queue and decision queue | Release 3 | in-progress |
+| 10 | Build queue and decision queue | Release 3 | done |
 | 21 | Work names out of the public repo | Deferred | planned |
 | 23 | Questions that teach | Deferred | planned |
 | 15 | Cheap worker tier | Deferred | planned |
@@ -257,7 +257,7 @@ Steps 1 to 3 built 2026-10-12 inside a `wf run` call. P2 to P4 passed 2026-10-12
 
 ## Release 3: queues
 
-### 10. Build queue and decision queue · in-progress
+### 10. Build queue and decision queue · done
 A parked feature no longer stops the run: the runner moves to the next queued feature or repo. The queue is the scope files themselves (accepted spec, unticked build boxes, `auto` tag), one feature at a time per repo.
 **Done when:** with two queued features where the first parks, the second still builds, and the parked question waits for you.
 - [x] Design it (spec): `/architect build queue and decision queue`
@@ -268,7 +268,7 @@ A parked feature no longer stops the run: the runner moves to the next queued fe
    - [x] `wf queue` and `wf unpark` (AC-20, AC-21)
    - [x] Manual checks on the real claude and phone (AC-22) · waits on you
 - [x] Verify it: `/check verify build queue and decision queue`
-- [ ] Test it: `/test build queue and decision queue`
+- [x] Test it: `/test build queue and decision queue`
 Spec [0011](../specs/0011-build-decision-queue/index.md) · code in `runner/run.py`, `runner/wf.py`, `runner/tests/test_queue.py`
 AC-22 manual checks passed 2026-10-12 through real `wf run` and phone taps (`verify.md`).
 
