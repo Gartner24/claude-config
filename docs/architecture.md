@@ -1,6 +1,6 @@
 # Runner architecture
 
-One page view of the workflow runner: what the parts are, how data moves between them, and the rules that hold everywhere. `/architect` reads this first (rule `spec-gate.md`) and updates it in the same commit when a decision changes an invariant. Specs: [0001](specs/0001-runner-stack-and-layout.md) stack, [0002](specs/0002-next-repo-command/index.md) `next`, [0003](specs/0003-scope-contract/index.md) scope contract, [0004](specs/0004-headless-step-loop/index.md) `wf run`, [0005](specs/0005-decision-parking-phone-pings/index.md) pings, [0006](specs/0006-standing-answers/index.md) standing answers, [0007](specs/0007-push-guard/index.md) push guard, [0008](specs/0008-failure-park-policy/index.md) failure and park policy, [0009](specs/0009-headless-verify-test/index.md) headless verify and test.
+One page view of the workflow runner: what the parts are, how data moves between them, and the rules that hold everywhere. `/architect` reads this first (rule `spec-gate.md`) and updates it in the same commit when a decision changes an invariant. Specs: [0001](specs/0001-runner-stack-and-layout.md) stack, [0002](specs/0002-next-repo-command/index.md) `next`, [0003](specs/0003-scope-contract/index.md) scope contract, [0004](specs/0004-headless-step-loop/index.md) `wf run`, [0005](specs/0005-decision-parking-phone-pings/index.md) pings, [0006](specs/0006-standing-answers/index.md) standing answers, [0007](specs/0007-push-guard/index.md) push guard, [0008](specs/0008-failure-park-policy/index.md) failure and park policy, [0009](specs/0009-headless-verify-test/index.md) headless verify and test, [0010](specs/0010-design-enforcement-unattended/index.md) design enforcement.
 
 The goal: `wf` builds your scoped features overnight, pings you only for real decisions, and never pushes or designs on its own.
 
@@ -48,7 +48,7 @@ A call never tells `wf` that it finished a box: `wf` only believes the files. Ev
 ## Invariants (hold everywhere)
 
 1. **Never pushes, merges or marks a PR ready.** `wf` itself runs no git write command. Every call gets the prompt line and a deny list for the common spellings. Today that is a backstop only: `env git push` and `gh api` get past it (review 2026-10-12). Feature 20 ([spec 0007](specs/0007-push-guard/index.md)) makes it hold outside the model: no credential in a call as the main guard, then the Bash sandbox, tool denies and hashed hook and config files. Threat model: an accidental or prompt injected push, not a model actively working to escape; the residual risks are listed once in spec 0007. The same threat model covers the app and browser a run starts (spec 0009): an accidental or prompt injected leak, not a model working to escape, and no further hardening rounds on either feature.
-2. **Never decides design or accepts a spec unattended.** `wf run` refuses any box whose command is not on the allow list, so `/architect`, `/scope`, `/audit` and `design` boxes stay with you. Accepting a spec has no standing answer and never will (spec 0006). Inside an allowed step, any panel other than the three fixed ones and your standing answers becomes a ping. Open gap: a `/develop` step can still change UI without a locked design (feature 9).
+2. **Never decides design or accepts a spec unattended.** `wf run` refuses any box whose command is not on the allow list, so `/architect`, `/scope`, `/audit` and `design` boxes stay with you. Accepting a spec has no standing answer and never will (spec 0006). Inside an allowed step, any panel other than the three fixed ones and your standing answers becomes a ping. UI with no locked design parks `blocked`, calls can never invoke `design` or `brand-system`, and a feature whose branch changed frontend files closes only with a passing `design-gate` report newer than each of them, else it parks `design_gate` before `/sync` ([spec 0010](specs/0010-design-enforcement-unattended/index.md)).
 3. **Paid steps never run unattended.** Billed commands (`/code-review ultra`, `/review-stack sealed`, `/ship`, deploys) are never on the allow list. Feature 8 ([spec 0008](specs/0008-failure-park-policy/index.md)) closes the gap inside allowed steps: no API key, token, secret or cloud credential reaches a call.
 4. **What pings you:** a `DECISION NEEDED:` line at the end of a call, and nothing else, plus the short `accepted, resuming` ack after your reply and the `wf ntfy test` you start yourself. No ping for start, finish or failure.
 5. **Never automatic:** setting `**Autopilot:** allowed`, adding `· auto`, accepting a spec, choosing a tier, starting a run (Enter or `-y`), pushing or opening a PR, design direction, and marking a feature `done` except through `done: yes` on the box `wf` itself computed as the last one (spec 0006).
@@ -63,13 +63,13 @@ A call never tells `wf` that it finished a box: `wf` only believes the files. Ev
 | Command | `wf run` | Pings you for |
 |---|---|---|
 | `/develop` | runs | an owed decision (route to `/architect`, or build on an `Assumed` spec); any panel not fixed |
-| `/check verify` | runs; drives the app in the browser when the repo names one (spec 0009) | the done offer, unless `done: yes` applies |
+| `/check verify` | runs; drives the app in the browser when the repo names one (spec 0009); runs `design-gate` when the branch changed frontend files (spec 0010) | the done offer, unless `done: yes` applies |
 | `/test` | runs | `Run tests?` unless `run suite: yes`; the done offer unless `done: yes` applies |
 | `/debug` | runs | a fix choice it cannot make |
 | `/document` | runs | nothing for `Doc type` (fixed answer); other panels |
 | `/sync` | runs, only as the final call, never as a box | any panel it shows |
 | `/architect`, `/scope`, `/audit` | refuses | |
-| `design`, `design-gate`, `brand-system`, `assets` as a box | refuses | |
+| `design`, `design-gate`, `brand-system`, `assets` as a box | refuses (inside a call, `design` and `brand-system` are denied, `design-gate` runs, spec 0010) | |
 | `/check review`, `/check` with any other second word, `/review`, `/code-review`, `/review-stack`, `/jj-security-review` | refuses | |
 | `/ship`, `/pr`, `/land-and-deploy`, `/document-release`, deploys | refuses | |
 | `/rollover`, `/save-and-clear`, `/resume-from-clear`, `/clear` | refuses (each call is already a fresh session) | |

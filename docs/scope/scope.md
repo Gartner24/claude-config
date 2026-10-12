@@ -31,7 +31,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 20 | Push guard outside the model | Release 2 | in-progress |
 | 8 | Failure and park policy | Release 2 | in-progress |
 | 7 | Headless verify and test | Release 2 | in-progress |
-| 9 | Design enforcement unattended | Release 2 | planned |
+| 9 | Design enforcement unattended | Release 2 | in-progress |
 | 10 | Build queue and decision queue | Release 3 | planned |
 | 21 | Work names out of the public repo | Deferred | planned |
 | 15 | Cheap worker tier | Deferred | planned |
@@ -212,11 +212,18 @@ Spec [0008](../specs/0008-failure-park-policy/index.md)
 - [ ] Test it: `/test headless verify and test`
 Spec [0009](../specs/0009-headless-verify-test/index.md)
 
-### 9. Design enforcement unattended · needs a decision
-Frontend work in a headless run goes through `design` and `design-gate`, never skipped: the Stop hook runs headless, and the runner fails a step that changed frontend files without a newer gate report.
-**Done when:** a headless UI step with no fresh `design-gate` report fails, and one with a passing report goes through.
-For the interview: [architecture](../architecture.md) invariant 2 says a run never picks a design direction, so settle whether a UI step with no locked design parks instead of running `design`.
-- [ ] Design it (spec): `/architect design enforcement unattended`
+### 9. Design enforcement unattended · in-progress
+Frontend work in a headless run is audited by `design-gate`, never skipped: UI with no locked design parks `blocked`, calls cannot invoke `design` or `brand-system`, and before `/sync` the runner parks `design_gate` when a frontend file changed on the branch has no passing report newer than it. The headless Stop hook in the first wording was dropped at design: `design` never runs unattended, and the 0007 sandbox cannot write its pointer (spec 0010).
+**Done when:** a headless run whose branch changed frontend files with no fresh passing `design-gate` report parks `design_gate` before `/sync`, one with a passing report goes through, and UI with no locked design parks `blocked`.
+- [x] Design it (spec): `/architect design enforcement unattended`
+- [ ] Build it: `/develop design enforcement unattended`
+   - [ ] Frontend rule, changed files from the merge base, report candidates and verdict (AC-1, AC-2, AC-4)
+   - [ ] Rule 14a check before `/sync`, park `design_gate`, `run.json` `design` (AC-3, AC-7, AC-8)
+   - [ ] Prompt lines and `Skill(design)`, `Skill(brand-system)` denies (AC-5, AC-6)
+   - [ ] P2 to P4 through `wf run` in `verify.md` (AC-9)
+- [ ] Verify it: `/check verify design enforcement unattended`
+- [ ] Test it: `/test design enforcement unattended`
+Spec [0010](../specs/0010-design-enforcement-unattended/index.md)
 
 ## Release 3: queues
 
