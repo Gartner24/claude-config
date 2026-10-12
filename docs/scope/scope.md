@@ -28,7 +28,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 4 | Headless step loop | Release 2 | done |
 | 5 | Decision parking and phone pings | Release 2 | done |
 | 6 | Standing answers | Release 2 | in-progress |
-| 20 | Push guard outside the model | Release 2 | planned |
+| 20 | Push guard outside the model | Release 2 | in-progress |
 | 8 | Failure and park policy | Release 2 | planned |
 | 7 | Headless verify and test | Release 2 | planned |
 | 9 | Design enforcement unattended | Release 2 | planned |
@@ -169,10 +169,19 @@ Answers you always give the same way (`/test` runs the suite, who marks done) li
 - [ ] Test it: `/test standing answers`
 Spec [0006](../specs/0006-standing-answers/index.md)
 
-### 20. Push guard outside the model · needs a decision
-A git pre-push guard, outside anything the model controls, refuses `git push` in a repo while `wf run` holds that repo's lock. The `--disallowedTools` deny list only matches prefixes, so `env git push`, `gh api` and other spellings still get through (review 2026-10-12).
-**Done when:** during a `wf run`, any push from inside the run is refused whatever its spelling, and the same push works again once the run has released the lock.
-- [ ] Design it (spec): `/architect push guard outside the model`
+### 20. Push guard outside the model · in-progress
+A guard outside anything the model controls keeps every `wf run` call from pushing, opening or merging a PR, or starting a cloud agent: no credential in the call, the Bash sandbox blocks GitHub and the repo's remotes, and settings, hooks and git config cannot change mid run. The `--disallowedTools` deny list only matches prefixes, so `env git push`, `gh api` and other spellings still get through (review 2026-10-12). The pre-push hook and lock in the first wording were dropped at design: `--no-verify` and `gh api` skip a hook (spec 0007).
+**Done when:** during a `wf run`, any push, PR or merge attempt from inside a call fails whatever its spelling or tool, and nothing changes for your pushes outside a run.
+- [x] Design it (spec): `/architect push guard outside the model`
+- [ ] Build it: `/develop push guard outside the model`
+   - [ ] Probe gate with a hand built argv (AC-10)
+   - [ ] No credentials in a call, absolute `git`, `claude`, `python3` (AC-1, AC-6)
+   - [ ] Sandbox settings, hosts, MCP, tool denies, remote agent hook (AC-2 to AC-5b)
+   - [ ] Guarded files, `no_sandbox` start checks, `run.json` `guard` (AC-7 to AC-9, AC-11)
+   - [ ] Probes again through `wf run` (AC-10)
+- [ ] Verify it: `/check verify push guard outside the model`
+- [ ] Test it: `/test push guard outside the model`
+Spec [0007](../specs/0007-push-guard/index.md)
 Source: your message of 2026-10-12, after the `/review` of the runner branch ([report](../reviews/review-2026-10-12.md), Guardrails).
 
 ### 8. Failure and park policy · needs a decision
