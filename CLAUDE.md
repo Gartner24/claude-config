@@ -45,18 +45,21 @@ gitignored `.workflow/`. Full guide: ~/Documents/workflow-research/05-new-workfl
 - A load-bearing choice is unmade (stack, data model, provider, page design, feature
   behavior): `/architect`. Never decide it inside a build.
 - Build a feature or fix scoped in the plan: `/develop`.
-- After `/develop`, follow the project tier from the scope header:
+- After `/develop`, or any chain step the user typed (`/check verify`, `/test`), follow
+  the project tier from the scope header:
   Prototype stop; Alpha `/check verify`; Beta + `/test`; GA + review + `/document`.
-  Run the chain yourself without asking, then `/sync`. Stop only on a failure, an owed
-  decision, or a step that pushes, merges, posts, or bills (`/review-stack`, `ultra`).
-  When the feature closes, run `/save-and-clear` and tell the user to type `/clear`
-  (mid feature: `/rollover`, see `### Context`).
+  Run the rest of the chain yourself without asking, then `/sync`. Stop only on a failure,
+  an owed decision, or a step that pushes, merges, posts, or bills (`/review-stack`, `ultra`).
+  The user only answers questions and types `/clear`; every other handoff step is yours.
+  When the feature closes, invoke `/save-and-clear` yourself and tell the user to type
+  `/clear`, then the next command. Mid feature (after `/architect`, or past ~150k tokens):
+  invoke `/rollover` yourself and tell the user to type `/clear`, then `/resume-from-clear`.
 - UI changed: `/check verify` plus `design-gate`. New design or restyle: `design` pipeline.
 - Review: `## Review Rules` below decide the reviewer. Never `/check review`.
 - PR text: `/document pr`. Other prose: `/write`.
 - Bug, failing test, wrong behavior: `/debug`.
-- Feature closed: `/sync`, then stop and say: "Feature closed. Run /save-and-clear, then
-  start the next session with `<next command from /scope>`."
+- Feature closed: `/sync`, invoke `/save-and-clear`, then stop and say: "Feature closed.
+  Type /clear, then `<next command from /scope>`."
 
 ### Decision gate (defines "clearly defined")
 A task is clearly defined only if every value it produces, computes or displays has a
