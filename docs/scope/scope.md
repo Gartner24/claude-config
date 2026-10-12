@@ -221,7 +221,7 @@ Follow-up: the usage limit probe (spec 0008 `verify.md` Follow-up, check 3) wait
 `/check verify` drives the app through the chrome-devtools MCP (isolated Brave) instead of reporting BLOCKED, and `/test` sees the feature's changes even after checkpoint commits.
 **Done when:** a Beta feature passes `/check verify` and `/test` in a headless run, and only real walls (login, captcha, 2FA, hardware) report BLOCKED.
 - [x] Design it (spec): `/architect headless verify and test`
-- [ ] Build it: `/develop headless verify and test`
+- [x] Build it: `/develop headless verify and test`
    - [x] Probe gate P2 to P7 first; any failure stops the build and goes back to `/architect` (AC-11)
    - [x] `/test` base from the merge base with `main` (AC-9, AC-10)
    - [x] App keys, `no_browser` start checks, app jail lifecycle, `app_failed` and `app_port_busy` (AC-1 to AC-3, AC-10)
@@ -229,7 +229,8 @@ Follow-up: the usage limit probe (spec 0008 `verify.md` Follow-up, check 3) wait
    - [x] Review fixes: jail binds from the frozen deny list and the guarded file check after app stops, app env and hidden wf folders, npx from the state dir, the two hook checks and the prompt wording (AC-2 to AC-5, AC-7, AC-8)
    - [x] Rerun P2 to P7, P10 and P11 against the built code; any failure goes back to `/architect` (AC-11)
    - [x] Findings 8 and 9: binds at the real path, symlink inside a write bind parks, `absent_denied` check, `file_hash()` on a directory, then rerun P2 through the built code (AC-3, AC-11)
-   - [ ] P8 and P9 through `wf run` (AC-11)
+   - [x] Findings 10 and 13: empty folder trees pass, absent guarded symlinks and unreadable files trip, 11 and 12 residual (AC-3)
+   - [x] P8 and P9 through `wf run`, with P2 rerun (AC-11)
 - [ ] Verify it: `/check verify headless verify and test`
 - [ ] Test it: `/test headless verify and test`
 Spec [0009](../specs/0009-headless-verify-test/index.md) · code in `runner/run.py`, `runner/tests/test_browser.py`
