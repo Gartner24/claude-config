@@ -22,7 +22,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 1 | Runner stack and layout | Foundation | done |
 | 2 | Scope contract for the runner | Foundation | done |
 | 3 | `next <repo>` | Release 1 | done |
-| 17 | Worktree discovery without git | Release 1 | in-progress |
+| 17 | Worktree discovery without git | Release 1 | done |
 | 18 | fzf failure is not a cancel | Release 1 | planned |
 | 19 | Singular change count | Release 1 | planned |
 | 4 | Headless step loop | Release 2 | done |
@@ -90,15 +90,15 @@ From any folder, name a repo (a path, its folder name or its scope title, found 
 - [x] Test it: `/test next repo command`
 Spec [0002](../specs/0002-next-repo-command/index.md) · code in `runner/wf.py`, `runner/tests/`
 
-### 17. Worktree discovery without git · in-progress
+### 17. Worktree discovery without git · done
 Discovery still runs `git worktree list --porcelain` in every scanned main checkout. Decide whether to read `.git/worktrees/*/gitdir` instead, so no git runs in a repo that is only scanned (the rule since `c26dc8a`). Changing it rewords spec 0002 AC-2 and its worktree label row.
 **Done when:** spec 0002 records the decision, and if it changes, worktrees are still found and labelled with no git call in scanned repos.
 - [x] Design it (spec): `/architect worktree discovery without git`
-- [ ] Build it: `/develop worktree discovery without git`
-   - [ ] File reads of `gitdir`, `commondir` and `HEAD` replace `worktrees()` and `worktree_label()`, one shared `.git` file resolver (AC-2, build step 6)
-   - [ ] "Worktree without git" test: zero git calls, relative, prunable, reused, empty and placeholder cases, no git on PATH (AC-2)
-- [ ] Verify it: `/check verify worktree discovery without git`
-- [ ] Test it: `/test worktree discovery without git`
+- [x] Build it: `/develop worktree discovery without git`
+   - [x] File reads of `gitdir`, `commondir` and `HEAD` replace `worktrees()` and `worktree_label()`, one shared `.git` file resolver (AC-2, build step 6)
+   - [x] "Worktree without git" test: zero git calls, relative, prunable, reused, empty and placeholder cases, no git on PATH (AC-2)
+- [x] Verify it: `/check verify worktree discovery without git`
+- [x] Test it: `/test worktree discovery without git`
 Spec [0002](../specs/0002-next-repo-command/index.md) (amended AC-2) · code in `runner/wf.py`, `runner/tests/`
 
 ### 18. fzf failure is not a cancel · needs a decision

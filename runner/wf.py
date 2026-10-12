@@ -193,14 +193,19 @@ def git(path, *args):
         return None
 
 
+def dot_git(path):
+    """The git folder of a checkout: its .git folder, or the one its .git file names. Raises OSError."""
+    dot = os.path.join(path, ".git")
+    if os.path.isfile(dot):
+        dot = os.path.join(path, read(dot).strip().removeprefix("gitdir:").strip())
+    return dot
+
+
 def head_branch(path):
     # `git status` runs a repo's own filter drivers, so --list and the picker
     # read HEAD from the files and never run git in a scanned repo.
-    dot = os.path.join(path, ".git")
     try:
-        if os.path.isfile(dot):
-            dot = os.path.join(path, read(dot).strip().removeprefix("gitdir:").strip())
-        head = read(os.path.join(dot, "HEAD")).strip()
+        head = read(os.path.join(dot_git(path), "HEAD")).strip()
     except OSError:
         return "no git"
     if head.startswith("ref: refs/heads/"):
@@ -229,26 +234,47 @@ def changes(path):
     return f"{len(r.stdout.splitlines())} changes"
 
 
-def worktrees(path):
-    """(real path, branch or None) per worktree, main checkout first."""
-    r = git(path, "worktree", "list", "--porcelain")
-    if r is None or r.returncode:
+def worktrees(main):
+    """Real paths of a main checkout's linked worktrees, read from git's files (AC-2)."""
+    # This used to run `git worktree list`, which runs git in every scanned repo.
+    base = os.path.join(main, ".git", "worktrees")
+    try:
+        ids = sorted(os.listdir(base))
+    except OSError:
         return []
     out = []
-    for record in r.stdout.strip().split("\n\n"):
-        fields = dict((line.split(" ", 1) + [""])[:2] for line in record.splitlines())
-        if "worktree" in fields and "bare" not in fields:
-            out.append((os.path.realpath(fields["worktree"]), fields.get("branch", "").removeprefix("refs/heads/") or None))
+    for i in ids:
+        entry = os.path.join(base, i)
+        try:
+            # <id>/gitdir is relative to <id>, unlike a .git file's path
+            wt = os.path.dirname(os.path.join(entry, read(os.path.join(entry, "gitdir")).strip()))
+            # skips prunable entries, and a folder reused after its worktree was deleted
+            if os.path.realpath(dot_git(wt)) == os.path.realpath(entry):
+                out.append(os.path.realpath(wt))
+        except OSError:
+            continue
     return out
 
 
 def worktree_label(path):
     if not os.path.isfile(os.path.join(path, ".git")):
         return ""
-    for wt, br in worktrees(path)[1:]:
-        if wt == path:
-            return f"worktree {clean(br)}" if br else "worktree (detached)"
-    return ""
+    try:
+        gd = dot_git(path)
+    except OSError:
+        return ""
+    # a submodule's git folder has no commondir
+    if not os.path.isfile(os.path.join(gd, "commondir")):
+        return ""
+    try:
+        head = read(os.path.join(gd, "HEAD")).strip()
+    except OSError:
+        head = ""
+    if head.startswith("ref: refs/heads/") and head != "ref: refs/heads/.invalid":
+        return f"worktree {clean(head[len('ref: refs/heads/'):])}"
+    if re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", head):
+        return "worktree (detached)"
+    return "worktree (branch unknown)"
 
 
 def find_scope(path):
@@ -346,7 +372,7 @@ def discover():
             if real not in found:
                 found[real] = make_candidate(real)
     for c in [c for c in found.values() if c and os.path.isdir(os.path.join(c.path, ".git"))]:
-        for wt, _ in worktrees(c.path)[1:]:
+        for wt in worktrees(c.path):
             if wt not in found:
                 found[wt] = make_candidate(wt)
     return [c for c in found.values() if c]

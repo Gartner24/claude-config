@@ -136,6 +136,59 @@ class TestSessions(unittest.TestCase):
             self.assertEqual(wf.open_sessions(str(repo.resolve()), str(proc)), 2)
 
 
+class TestWorktreeFiles(unittest.TestCase):
+    # covers: AC-2 (layouts written by hand, so cases real git rarely makes are pinned too)
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, self.tmp)
+        self.meta = self.tmp / "main/.git/worktrees"
+
+    def add(self, name, head="ref: refs/heads/x\n", gitdir=None):
+        entry, wt = self.meta / name, self.tmp / name
+        entry.mkdir(parents=True)
+        wt.mkdir()
+        (entry / "commondir").write_text("../..\n")
+        (entry / "HEAD").write_text(head)
+        (entry / "gitdir").write_text(f"{wt}/.git\n" if gitdir is None else gitdir)
+        (wt / ".git").write_text(f"gitdir: {entry}\n")
+        return wt
+
+    def test_labels_from_head(self):
+        cases = {"ref: refs/heads/feat/x\n": "worktree feat/x", "a" * 40: "worktree (detached)",
+                 "b" * 64 + "\n": "worktree (detached)", "ref: refs/heads/.invalid": "worktree (branch unknown)",
+                 "": "worktree (branch unknown)", "c" * 41: "worktree (branch unknown)",
+                 "ref: refs/tags/v1": "worktree (branch unknown)", "garbage": "worktree (branch unknown)"}
+        for i, (head, label) in enumerate(cases.items()):
+            self.assertEqual(wf.worktree_label(str(self.add(f"w{i}", head))), label, repr(head))
+
+    def test_unreadable_head_and_non_worktrees(self):
+        wt = self.add("nohead")
+        (self.meta / "nohead/HEAD").unlink()
+        self.assertEqual(wf.worktree_label(str(wt)), "worktree (branch unknown)")
+        sub = self.add("sub")
+        (self.meta / "sub/commondir").unlink()
+        self.assertEqual(wf.worktree_label(str(sub)), "")
+        (self.tmp / "main/.git/HEAD").write_text("ref: refs/heads/main\n")
+        self.assertEqual(wf.worktree_label(str(self.tmp / "main")), "")
+        self.assertEqual(wf.worktree_label(str(self.tmp)), "")
+
+    def test_entries_kept_only_when_they_point_back(self):
+        self.assertEqual(wf.worktrees(str(self.tmp / "main")), [])
+        good = self.add("good")
+        rel = self.add("rel", gitdir="../../../../rel/.git")
+        self.add("nogitdir")
+        (self.meta / "nogitdir/gitdir").unlink()
+        self.add("empty", gitdir="")
+        gone = self.add("gone")
+        shutil.rmtree(gone)
+        other = self.add("other")
+        (other / ".git").write_text("gitdir: /elsewhere\n")
+        folder = self.add("folder")
+        (folder / ".git").unlink()
+        (folder / ".git").mkdir()
+        self.assertEqual(wf.worktrees(str(self.tmp / "main")), [str(good), str(rel)])
+
+
 class CliCase(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp()).resolve()
@@ -321,6 +374,56 @@ class TestNext(CliCase):
         self.assertEqual(got[1], ("wt-branch", "worktree feat/x", "feat/x"))
         self.assertEqual(got[2][:2], ("wt-detached", "worktree (detached)"))
         self.assertTrue(got[2][2].startswith("detached "))
+
+    # covers: AC-2 (worktrees read from git's files, no git runs in a scanned repo)
+    def test_worktree_without_git(self):
+        env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+        git = lambda d, *a: subprocess.run(["git", "-C", str(d), *a], check=True, capture_output=True, env=env)
+        src = self.tmp / "subsrc"
+        (src / "docs/scope").mkdir(parents=True)
+        shutil.copy(FIX / "dotfiles.md", src / "docs/scope/scope.md")
+        git(src, "init", "-q", "-b", "main")
+        git(src, "add", ".")
+        git(src, "commit", "-qm", "init")
+        main = self.repo("main", "team.md")
+        git(main, "init", "-q", "-b", "main")
+        git(main, "add", ".")
+        git(main, "commit", "-qm", "init")
+        git(main, "-c", "protocol.file.allow=always", "submodule", "add", "-q", str(src), "sub")
+        git(main, "commit", "-qm", "sub")
+        git(main, "worktree", "add", "-q", str(self.tmp / "wt-branch"), "-b", "feat/x")
+        git(main, "worktree", "add", "-q", "--detach", str(self.tmp / "wt-detached"))
+        git(main, "-c", "worktree.useRelativePaths=true", "worktree", "add", "-q", str(self.tmp / "wt-rel"), "-b", "feat/rel")
+        git(main, "worktree", "add", "-q", str(self.tmp / "wt-invalid"), "-b", "feat/inv")
+        git(main, "worktree", "add", "-q", str(self.tmp / "wt-empty"), "-b", "feat/empty")
+        git(main, "worktree", "add", "-q", str(self.tmp / "wt-pruned"), "-b", "feat/pruned")
+        git(main, "worktree", "add", "-q", str(self.root / "wt-reused"), "-b", "feat/reused")
+        git(main, "worktree", "add", "-q", str(self.tmp / "wt-reused-out"), "-b", "feat/reused-out")
+        git(main, "worktree", "add", "-q", str(self.tmp / "wt-nogitdir"), "-b", "feat/nogitdir")
+        meta = main / ".git/worktrees"
+        self.assertNotIn(str(self.tmp), (meta / "wt-rel/gitdir").read_text())
+        (meta / "wt-invalid/HEAD").write_text("ref: refs/heads/.invalid\n")
+        (meta / "wt-empty/HEAD").write_text("")
+        (meta / "wt-nogitdir/gitdir").write_text("")
+        shutil.rmtree(self.tmp / "wt-pruned")
+        shutil.rmtree(self.root / "wt-reused")
+        self.repo("wt-reused", "dotfiles.md")
+        # outside the scan, a reused folder would show only if the entry were trusted
+        shutil.rmtree(self.tmp / "wt-reused-out")
+        (self.tmp / "wt-reused-out/docs/scope").mkdir(parents=True)
+        shutil.copy(FIX / "dotfiles.md", self.tmp / "wt-reused-out/docs/scope/scope.md")
+        want = [("main", ""), ("sub", ""), ("wt-branch", "worktree feat/x"), ("wt-detached", "worktree (detached)"),
+                ("wt-empty", "worktree (branch unknown)"), ("wt-invalid", "worktree (branch unknown)"),
+                ("wt-rel", "worktree feat/rel"), ("wt-reused", "")]
+        calls = self.tmp / "git_calls"
+        self.fake("git", '#!/bin/sh\necho "$@" >> "$GIT_CALLS"\nexec /usr/bin/git "$@"\n')
+        r = self.wf("next", "--list", GIT_CALLS=str(calls))
+        self.assertEqual(sorted(tuple(l.split("\t")[:2]) for l in r.stdout.splitlines()), want, r.stderr)
+        self.assertFalse(calls.exists(), calls.read_text() if calls.exists() else "")
+        (self.bin / "git").unlink()
+        r = self.wf("next", "--list", PATH=str(self.bin))
+        self.assertEqual(sorted(tuple(l.split("\t")[:2]) for l in r.stdout.splitlines()), want, r.stderr)
 
     def test_list_sorted_and_usage_errors(self):
         self.repo("zeta", "team.md")
