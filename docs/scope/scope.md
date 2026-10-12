@@ -148,7 +148,7 @@ The unattended prompt fixes the safe panel answers and asks real decisions as `D
    - [x] Deferred classification, wait loop, `answers.json`, resume call, prose decisions (AC-6, AC-9, AC-10, AC-11, AC-12)
    - [x] Text path: `OPTION:` lines become a panel decision, new prompt and resume sentence, delete `hook.py`, `answers.json`, `auto.jsonl` and the deferred rule (spec 0005 build plan 6; AC-3 to AC-6, AC-10 to AC-12)
    - [x] Manual checks in `verify.md` (AC-14): all six on claude -p 2.1.296 and the phone; label cuts and browser replies fixed from check 5
-- [ ] Verify it: `/check verify decision parking and phone pings`
+- [x] Verify it: `/check verify decision parking and phone pings`
 - [ ] Test it: `/test decision parking and phone pings`
 Spec [0005](../specs/0005-decision-parking-phone-pings/index.md) · code in `runner/ntfy.py`, `runner/run.py`, `runner/wf.py`, `runner/tests/`
 

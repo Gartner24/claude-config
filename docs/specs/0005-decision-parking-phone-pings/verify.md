@@ -10,17 +10,17 @@ _Steps derived from spec 0005 acceptance criteria. `/check verify` runs these; `
 - [x] Check 6: a subagent's decision reaches the main agent's final message -> AC-14.6
 
 ## Commands
-- [ ] `python3 -m unittest discover -s runner/tests` -> all pass (fake claude, fake ntfy) -> AC-1 to AC-13
+- [x] `python3 -m unittest discover -s runner/tests` -> all pass (fake claude, fake ntfy) -> AC-1 to AC-13
 - [x] `wf ntfy init`, subscribe the phone, `wf ntfy test`, tap `1 yes` -> `accepted: yes` -> AC-1
 
 ## Value sourcing (one step per row that milestone 6 changed)
-- [ ] Question: a result with two `DECISION NEEDED:` lines and a bare one after them -> the last non empty one is the question (`TestReadDecision`) -> AC-4
-- [ ] Options: bold, bullet and indented `OPTION:` lines, a blank line before the first, 11 options -> labels without `*`, cut to 9 (`TestReadDecision`) -> AC-4
-- [ ] Safe panel answer: `run.UNATTENDED_PROMPT` names `Doc type`, `Save to verify.md`, `Not now, later` exactly as the skills spell them (`test_argv`, plus manual check 3) -> AC-3, AC-5
-- [ ] Resume prompt: a tapped `2` resumes with `The user answered your DECISION NEEDED question: SQLite`; a coded reply resumes with its text (`test_happy_path`, `test_panel_free_text`) -> AC-10, AC-11
-- [ ] Session id: an asking call with no `session_id` stops `call_error` with no POST (`test_no_session`) -> AC-10
-- [ ] Label scrub: an option `/tmp/x` pings as `option 1`, never a blank button (`test_empty_label`) -> AC-7
-- [ ] Deny list: `AskUserQuestion` is first in `--disallowedTools`, no `--settings`, no `WF_RUN_DIR` (`test_argv`) -> AC-3
+- [x] Question: a result with two `DECISION NEEDED:` lines and a bare one after them -> the last non empty one is the question (`TestReadDecision`) -> AC-4
+- [x] Options: bold, bullet and indented `OPTION:` lines, a blank line before the first, 11 options -> labels without `*`, cut to 9 (`TestReadDecision`) -> AC-4
+- [x] Safe panel answer: `run.UNATTENDED_PROMPT` names `Doc type`, `Save to verify.md`, `Not now, later` exactly as the skills spell them (`test_argv`, plus manual check 3) -> AC-3, AC-5
+- [x] Resume prompt: a tapped `2` resumes with `The user answered your DECISION NEEDED question: SQLite`; a coded reply resumes with its text (`test_happy_path`, `test_panel_free_text`) -> AC-10, AC-11
+- [x] Session id: an asking call with no `session_id` stops `call_error` with no POST (`test_no_session`) -> AC-10
+- [x] Label scrub: an option `/tmp/x` pings as `option 1`, never a blank button (`test_empty_label`) -> AC-7
+- [x] Deny list: `AskUserQuestion` is first in `--disallowedTools`, no `--settings`, no `WF_RUN_DIR` (`test_argv`) -> AC-3
 
 ## Findings
 
@@ -55,4 +55,17 @@ Driven with `wf run <scratch repo> -y --max-calls 4 --budget 3 --max-wait 1`, on
 - Check 5 finding 1, fixed in this session: labels were cut hard at 40 characters mid word ("no datab") and read as redacted. AC-3 and AC-7 now ask for labels under 40 characters, keep body labels to 100, cut buttons to 40, and end every cut at a word with `...`. Run B's ping read cleanly.
 - Check 5 finding 2, resolved: the Android ntfy app cannot type into a topic, but the topic's web page in the phone browser can. `wf ntfy init` now prints `type replies: open that URL in your phone's browser and use the message box`.
 - Check 5, typed replies (run C, browser): `g8ya maybe` was ignored (`ignored` 1); `g8ya <code> build now the SQLite, one table named history` was accepted, burned the code (20 -> 19 left) and resumed the same session with that text; the run then built the feature, ran `/sync` and ended `feature_done`, exit 0. The 140 character question of run B ended `saved...` at a word boundary.
-- Check 5, reused code: not sent from the phone (the `wf ntfy test` ping was answered by a tap before the reused code message, per the topic log). Covered only by `test_ntfy.TestReplies.test_code` (the same code twice, the second ignored).
+- Check 5, reused code: not sent from the phone (the `wf ntfy test` ping was answered by a tap before the reused code message, per the topic log). Exercised live in `/check verify` below instead.
+
+### /check verify, 2026-10-12: PASS
+Real `wf` CLI. The AC-1 and AC-2 runs used copies of your config in the scratchpad (your real file kept its 19 codes). The AC-8, AC-9 and AC-11 runs used a stub `claude` that asks one prose question, against your real ntfy.sh topic.
+
+| AC | Ran | Observed |
+|---|---|---|
+| AC-1 | `wf ntfy init` on an empty config dir, again, then `wf ntfy codes` on a copy | 20 codes, subscribe and `type replies:` lines, folder 700, file 600, topic 32 chars, exit 0; second init exit 2; codes 19 -> 20, topic kept, mode 600 |
+| AC-2 | `wf run` with a missing config, then a 644 config | `refused: no_ntfy: ... is missing` and `... readable or writable by others`, exit 5, no run folder |
+| AC-3 to AC-8, AC-10, AC-12 | runs A, B, C (real claude, phone) | see checks 2 and 5 above |
+| AC-9, AC-13 | stub prose run, `--max-wait 0.001` | `stopped: decision_timeout: no reply for g5ap`, exit 6, `waited_s` 4.0 |
+| AC-9 | stub prose run, SIGINT 3 s into the wait | `stopped: interrupted`, exit 130 within 0.21 s, no inhibitor left |
+| AC-11 | the same two prose pings, read back from the topic | `g5ap`, `8swq`: 0 actions, body ends `reply <id> <code> <text>`; the `l3d1` panel ping had 2 |
+| AC-8 | stub run, posted `eab2 p6str8k5 hi` (a burned code) to the topic, waited 40 s | `answer` None, `ignored` 1, codes unchanged at 19 |
