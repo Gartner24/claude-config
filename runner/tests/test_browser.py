@@ -552,7 +552,7 @@ class TestLifecycle(AppCase):
         self.assertEqual([(c["kind"], c["app"] and c["app"]["logs"]) for c in rec["calls"]],
                          [("box", ["app-01.log"]), ("debug", ["app-02.log"]), ("box", ["app-03.log"]), ("sync", None)])
 
-    # covers: AC-3 step 5 (a decision wait stops the app, the resume restarts it with an -r1 log)
+    # covers: AC-3 step 5 (a question stops the app; spec 0011 AC-13: the resume starts a new one with its own log)
     def test_decision_restarts(self):
         fake = FakeNtfy()
         self.addCleanup(fake.close)
@@ -563,8 +563,7 @@ class TestLifecycle(AppCase):
         r = self.wf("demo", "-y", mode="fast")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         _, rec = self.run_record()
-        self.assertEqual(rec["calls"][0]["app"]["logs"], ["app-01.log", "app-01-r1.log"])
-        self.assertEqual(rec["calls"][0]["app"], rec["calls"][1]["app"])
+        self.assertEqual([c["app"] and c["app"]["logs"] for c in rec["calls"]], [["app-01.log"], ["app-02.log"], None])
         self.assertEqual(len(list(self.fakes.glob("bwrap-*.json"))), 2)
 
     # covers: AC-3 step 6 (Ctrl C stops a call and a stubborn app within one shared GRACE)

@@ -17,6 +17,7 @@ import subprocess
 import sys
 import time
 import traceback
+import types
 import urllib.error
 import urllib.request
 import zoneinfo
@@ -171,7 +172,7 @@ TEST_BASE = (" For /test, the feature's changes are the files in git diff --name
 # Spec 0011 AC-9 (replacing spec 0008 AC-1's two sets): a park ends its feature and the queue goes on,
 # a repo stop ends that repo, a run stop ends the run. app_failed and app_port_busy come from spec 0009.
 PARKS = frozenset(("verify_failed", "blocked", "denied", "debug_touched", "no_progress", "call_error", "call_timeout",
-                   "budget", "max_calls", "decision_timeout", "manual_box", "waiting", "no_command", "no_feature",
+                   "budget", "max_calls", "manual_box", "waiting", "no_command", "no_feature",
                    "app_failed", "design_gate"))
 REPO_STOPS = frozenset(("branch_changed", "autopilot_off", "scope_unreadable"))
 RUN_STOPS = frozenset(("interrupted", "run_limit", "usage_limit", "spawn_failed", "guard_changed", "ping_failed",
@@ -185,6 +186,9 @@ CAPPED = ("budget", "max_calls", "call_timeout")
 SKIPPED = re.compile(r"·\s*skipped\s*$", re.I)
 QUEUE_ID = re.compile(r"[a-z0-9]{4}")
 HEX64 = re.compile(r"[0-9a-f]{64}")
+ANSWERED = "The user answered your DECISION NEEDED question: "
+# AC-18: the spec 0005 fields a run.json decision entry copies from its Decision record.
+ENTRY_FIELDS = ("kind", "question", "options", "multi", "sent", "answer", "source", "asked", "answered", "ignored")
 OPT_STR, NUM = (str, type(None)), (int, float, type(None))
 # AC-17, the data model: field -> allowed types.
 PARK_FIELDS = {"repo": (str,), "feature": (str,), "section_sha": (str,), "reason": (str,), "detail": OPT_STR,
@@ -327,6 +331,14 @@ def repo_features(path, scope_dir):
     return text, [Feature(*s) for t in texts for s in wf.sections(t)]
 
 
+def asked_at(d):
+    """A Decision's asked time as unix seconds; 0 for a value that is not ISO."""
+    try:
+        return datetime.datetime.fromisoformat(d["asked"]).timestamp()
+    except ValueError:
+        return 0.0
+
+
 def dirty(path):
     """AC-7: a failed git status reads dirty, never clean."""
     r = wf.git(path, "status", "--porcelain")
@@ -403,7 +415,12 @@ class Run:
         # WF_RUN for every process the run starts (spec 0009 AC-3 step 6); set by run().
         self.run_id = None
         self.record["caps"]["max_wait_h"] = args.max_wait
-        self.topic = None
+        # Spec 0011 AC-12: the poll cursor, this run's first ping id and publish ids, the once only warning.
+        self.cursor = self.first_ping = None
+        self.polled = self.poll_failed = False
+        self.own = set()
+        # AC-15: end wait seconds of this run, all waits added.
+        self.end_waited = 0.0
         # Set by freeze_guard(); a call that somehow starts without them fails to spawn, never runs unguarded.
         self.claude = self.settings = self.denied = None
 
@@ -743,7 +760,8 @@ class Run:
             if f.queued:
                 names[f.name] = names.get(f.name, 0) + 1
         live = {p["feature"]: p for p in q["parks"] if p["repo"] == repo and self.applies(p, feats)}
-        decided = {d["feature"] for d in q["decisions"] if d["repo"] == repo}
+        # A stale Decision leaves its feature queued fresh (AC-13).
+        decided = {d["feature"] for d in q["decisions"] if d["repo"] == repo and not self.stale(d, feats)}
         ran = {e["feature"] for e in self.record["features"] if e["repo"] == repo}
         out = []
         for f in feats:
@@ -765,8 +783,23 @@ class Run:
             out.append((None, line))
         return out
 
+    def stale(self, d, feats):
+        """AC-13: an answered Decision whose branch moved or whose heading left the scope is never resumed."""
+        return d["answer"] is not None and (d["branch"] != self.branch or not any(f.name == d["feature"] for f in feats))
+
+    def decision_lines(self, q, feats):
+        """AC-6: (may resume, plan line) for this repo's Decisions, oldest asked first."""
+        out = []
+        for d in sorted((d for d in q["decisions"] if d["repo"] == self.c.path), key=asked_at):
+            if self.stale(d, feats):
+                out.append((False, f"stale: {d['id']} {d['feature']}"))
+            else:
+                out.append((True, f"{'open' if d['answer'] is None else 'resume'}: {d['id']} {d['feature']}: {d['question']}"))
+        return out
+
     def pick(self):
-        """AC-7 for this repo: the next Feature to start, or None. Deletes Park records that no longer apply."""
+        """AC-7 for this repo: (Feature, the answered Decision to resume or None), or None. Deletes Park records
+        that no longer apply and answered Decisions gone stale."""
         if self.repo["ended"]:
             return None
         try:
@@ -778,14 +811,25 @@ class Run:
             self.end_repo(*refusal)
             return None
         dirty_tree = dirty(self.c.path)
+        dropped = []
 
         def clear(q):
             keep = [p for p in q["parks"] if p["repo"] != self.c.path or self.applies(p, feats)]
-            changed = len(keep) != len(q["parks"])
+            dropped[:] = [d for d in q["decisions"] if d["repo"] == self.c.path and self.stale(d, feats)]
+            changed = len(keep) != len(q["parks"]) or bool(dropped)
             q["parks"] = keep
+            q["decisions"] = [d for d in q["decisions"] if d not in dropped]
             return changed
 
-        return next((f for f, _ in self.survey(feats, self.queue(clear), dirty_tree) if f), None)
+        q = self.queue(clear)
+        for d in dropped:
+            print(flat(f"stale: {d['id']} {d['feature']}"), flush=True)
+        # AC-7 (1): an answered Decision first, oldest asked first; a dirty tree does not hold it back.
+        answered = sorted((d for d in q["decisions"] if d["repo"] == self.c.path and d["answer"] is not None), key=asked_at)
+        if answered:
+            return next(f for f in feats if f.name == answered[0]["feature"]), answered[0]
+        f = next((f for f, _ in self.survey(feats, q, dirty_tree) if f), None)
+        return f and (f, None)
 
     def end_repo(self, reason, detail):
         """AC-9 repo stop: no more calls in this repo this run, its lock kept."""
@@ -825,11 +869,12 @@ class Run:
             return self.refuse("scope_unreadable", e)
         except QueueError as e:
             return self.refuse("queue_unreadable", e)
+        decisions = self.decision_lines(q, feats)
         items = self.survey(feats, q, dirty(c.path))
         print(flat(f"{c.display_name()} on {self.branch}, {wf.changes(c.path)}"))
-        for _, line in items:
+        for _, line in decisions + items:
             print("  " + flat(line))
-        if not items:
+        if not decisions + items:
             print("  nothing to run")
         print(f"caps: {a.budget:g} USD/call, {a.call_timeout:g}m/call, {a.max_calls} calls/feature, "
               f"{a.max_hours:g}h, wait {a.max_wait:g}h")
@@ -837,7 +882,8 @@ class Run:
         for w in c.warnings + ([f"{sessions} session(s) already open here"] if sessions else []):
             print(f"warning: {flat(w)}")
         sys.stdout.flush()
-        if not any(f for f, _ in items):
+        # An open Decision counts too: the run re-pings it and its end wait takes the reply (AC-14, AC-15).
+        if not any(f for f, _ in items) and not any(ok for ok, _ in decisions):
             print("nothing to run", flush=True)
             return self.exit_code("queue_done")
         return None
@@ -1109,43 +1155,157 @@ class Run:
             return "autopilot_off", f"Autopilot is now {scope[1]}"
         return None
 
-    def new_id(self):
-        return ntfy.new_id({d["id"] for d in self.record["decisions"]})
+    # -- the decision queue (spec 0011 AC-11 to AC-15) -------------------------
 
-    def new_decision(self, seq, asked):
-        """A Decision (spec 0005 data model) for the call's (question, options)."""
-        question, options = asked
-        d = {"id": self.new_id(), "call": seq, "kind": "panel" if options else "prose",
-             "question": question, "options": options, "multi": False,
-             "sent": None, "answer": None, "source": None,
-             "asked": now(), "answered": None, "ignored": 0}
-        self.record["decisions"].append(d)
-        return d
+    def entry_for(self, d, call=None):
+        """AC-18: the run.json entry of Decision d, added (call null when opened in an earlier run) if missing."""
+        entry = next((x for x in self.record["decisions"] if x["id"] == d["id"]), None)
+        if entry is None:
+            entry = {"id": d["id"], "call": call, **{k: d[k] for k in ENTRY_FIELDS}, "resumed_in": None}
+            self.record["decisions"].append(entry)
+        return entry
 
-    def wait(self, rec, d):
-        """Ping the decision, wait for the reply. Returns the resume (session id, prompt); raises Stop otherwise."""
+    def asked_call(self, d):
+        """The call record that asked Decision d, from this run or the run.json in the record's run folder, else None.
+        Its last_box and test_base carry over to the resume (spec 0006 AC-6, spec 0009 AC-9)."""
+        rec = self.record
+        if d["run"] != self.folder:
+            try:
+                with open(os.path.join(d["run"], "run.json"), encoding="utf-8") as f:
+                    rec = json.load(f)
+            except (OSError, ValueError):
+                return None
+        n = next((x.get("call") for x in rec.get("decisions", []) if x.get("id") == d["id"]), None)
+        return next((c for c in rec.get("calls", []) if n and c.get("seq") == n), None)
+
+    def topic(self, d):
+        return ntfy.Topic(self.ntfy, ntfy.repo_label(self.ntfy, d["repo"]), d["feature"])
+
+    def open_decision(self, rec, kind, box, command, asked):
+        """AC-11: keep the question in queue.json, ping it, and end the feature decision_open. Always raises Stop."""
+        if self.entry["counted"] >= self.args.max_calls:
+            # The resume is a call too (spec 0005 AC-10); with none left, a ping only wakes you for nothing.
+            raise Stop("max_calls", f"{self.args.max_calls} calls made, none left to resume")
         if not rec["session_id"]:
             raise Stop("call_error", "no session_id to resume")
-        if self.topic is None:
-            self.topic = ntfy.Topic(self.ntfy, ntfy.repo_label(self.ntfy, self.c.path), self.feature)
-        stopped = lambda: self.interrupted
-        t0 = ntfy.boottime()
+        question, options = asked
+        d = {"id": None, "repo": self.c.path, "feature": self.feature, "branch": self.branch,
+             "session_id": rec["session_id"], "call_kind": kind, "command": command,
+             "box_text": box.box_text if kind == "box" else None, "question": question, "options": options,
+             "kind": "panel" if options else "prose", "multi": False, "sent": None, "pings": [], "acks": [],
+             "asked": now(), "answer": None, "source": None, "answered": None, "ignored": 0, "run": self.folder}
+
+        def add(q):
+            # Drawn under the lock: unique in the file and in this run.
+            d["id"] = ntfy.new_id({x["id"] for x in q["decisions"] + self.record["decisions"]})
+            q["decisions"].append(d)
+            return True
+
+        self.queue(add)
+        entry = self.entry_for(d, rec["seq"])
+        self.save()
+        print(f"waiting: {d['id']} {flat(question)}", flush=True)
+        for i, o in enumerate(options, 1):
+            print(f"  {i} {flat(o)}", flush=True)
         try:
-            first = self.topic.ping(d, stopped)
-            end = "interrupted" if first is None else self.topic.wait(
-                [d], first, self.args.max_wait * 3600, stopped,
-                lambda d: print(f"answered: {d['id']} {flat(d['answer'])} (phone)", flush=True),
-                lambda w: print(f"warning: {w}", flush=True))
+            # ping() fills d["sent"]; the record gets it only once the ping went out.
+            mid = self.topic(d).ping(d, lambda: self.interrupted)
         except ntfy.PingFailed as e:
             raise Stop("ping_failed", str(e))
-        finally:
-            self.record["waited_s"] = round(self.record["waited_s"] + ntfy.boottime() - t0, 1)
-            self.save()
-        if end == "interrupted":
+        if mid is None:
             raise Stop("interrupted", "Ctrl C or a stop signal")
-        if end == "timeout":
-            raise Stop("decision_timeout", "no reply for " + d["id"])
-        return rec["session_id"], "The user answered your DECISION NEEDED question: " + d["answer"]
+        self.own.add(mid)
+        self.first_ping = self.first_ping or mid
+        entry["sent"] = d["sent"]
+        self.update(d["id"], lambda r: (r.update(sent=d["sent"]), r["pings"].append(mid)))
+        raise Stop("decision_open", d["id"])
+
+    def update(self, did, change):
+        """Apply change to the Decision record with id did, when it is still in queue.json."""
+        def write(q):
+            r = next((x for x in q["decisions"] if x["id"] == did), None)
+            if r:
+                change(r)
+            return bool(r)
+
+        self.queue(write)
+
+    def poll(self):
+        """AC-12: read the topic once and store accepted replies on any unanswered Decision in queue.json.
+        True when a reply answered one."""
+        if self.cursor is None and not self.polled:
+            waiting = [d for d in self.queue()["decisions"] if d["answer"] is None]
+            if waiting:
+                self.cursor = str(int(min(map(asked_at, waiting))))
+        self.polled = True
+        self.cursor = self.cursor or self.first_ping
+        if self.cursor is None:
+            return False
+        reader = ntfy.Topic(self.ntfy, "", "")
+        try:
+            msgs = reader.poll(self.cursor)
+        except Exception as e:
+            if not self.poll_failed:
+                print(f"warning: ntfy poll failed: {flat(e)}", flush=True)
+                self.poll_failed = True
+            return False
+        got = False
+        for msg in msgs:
+            self.cursor = msg.get("id", self.cursor)
+            if msg.get("event") != "message" or msg.get("id") in self.own:
+                continue
+            text, hit = str(msg.get("message") or ""), []
+
+            def take(q):
+                if msg.get("id") in {i for d in q["decisions"] for i in d["pings"] + d["acks"]}:
+                    return False
+                d = reader.take(text, [d for d in q["decisions"] if d["answer"] is None])
+                m = ntfy.REPLY.match(text)
+                late = m and next((x for x in q["decisions"] if x["id"] == m.group(1).lower()
+                                   and x["answer"] is not None and x is not d), None)
+                if late:
+                    late["ignored"] += 1
+                if d:
+                    hit.append(dict(d))
+                return True
+
+            self.queue(take)
+            for d in hit:
+                got = True
+                print(f"answered: {d['id']} {flat(d['answer'])} (phone)", flush=True)
+                entry = next((x for x in self.record["decisions"] if x["id"] == d["id"]), None)
+                if entry:
+                    entry.update({k: d[k] for k in ("answer", "source", "answered", "ignored")})
+                    self.save()
+                try:
+                    mid = self.topic(d).publish(f"{d['id']} accepted", 2, stopped=lambda: self.interrupted)
+                except ntfy.PingFailed:
+                    mid = None
+                if mid:
+                    self.own.add(mid)
+                    self.update(d["id"], lambda r: r["acks"].append(mid))
+        return got
+
+    def end_wait(self):
+        """AC-15: wait for a reply while this repo holds an unanswered Decision and --max-wait lasts.
+        True when a reply came (pick again), False when the run is done."""
+        t0 = ntfy.boottime()
+        try:
+            while True:
+                if self.interrupted:
+                    raise Stop("interrupted", "Ctrl C or a stop signal")
+                left = self.args.max_wait * 3600 - self.end_waited - (ntfy.boottime() - t0)
+                if self.repo["ended"] or left <= 0 or not any(
+                        d["repo"] == self.c.path and d["answer"] is None for d in self.queue()["decisions"]):
+                    return False
+                if self.poll():
+                    return True
+                self.nap(min(ntfy.POLL_EVERY, left))
+        finally:
+            spent = ntfy.boottime() - t0
+            self.end_waited += spent
+            self.record["waited_s"] = round(self.record["waited_s"] + spent, 1)
+            self.save()
 
     def reread(self):
         """(this feature's Feature, None when its heading is gone; Autopilot value) from the files only,
@@ -1170,14 +1330,26 @@ class Run:
 
     # -- the loop ------------------------------------------------------------
 
-    def run_feature(self, f):
-        """Spec 0011 AC-8: one feature's calls until it is done, parks or its repo stops. A run stop propagates."""
-        e = self.entry = {"n": len(self.record["features"]) + 1, "repo": self.c.path, "feature": f.name,
-                          "outcome": None, "detail": None, "calls": [], "counted": 0, "debug_attempts": 0}
-        self.record["features"].append(e)
-        self.feature, self.retried, self.topic = f.name, False, None
+    def run_feature(self, f, d=None):
+        """Spec 0011 AC-8: one feature's calls until it is done, parks, opens a decision or its repo stops, starting
+        with the resume of the answered Decision d when given (AC-13). A run stop propagates."""
+        # AC-18: a resumed feature reuses its entry from this run, and its counts (AC-16).
+        e = next((x for x in self.record["features"] if d and (x["repo"], x["feature"]) == (self.c.path, f.name)), None)
+        if e is None:
+            e = {"n": len(self.record["features"]) + 1, "repo": self.c.path, "feature": f.name,
+                 "outcome": None, "detail": None, "calls": [], "counted": 0, "debug_attempts": 0}
+            self.record["features"].append(e)
+        e.update(outcome=None, detail=None)
+        self.entry, self.feature, self.retried = e, f.name, False
         try:
-            if f.next is None:
+            if d:
+                box = None
+                if d["call_kind"] == "box":
+                    # The record's box text decides progress; the live box only when it is still that box.
+                    box = f.next if f.next and f.next.box_text == d["box_text"] else types.SimpleNamespace(
+                        feature=f.name, box_text=d["box_text"], command=d["command"], note=None)
+                self.loop(d["call_kind"], box, d["command"], d)
+            elif f.next is None:
                 # A /sync owed from an earlier run passes the same design check as one reached here (spec 0010).
                 problem = self.design_check()
                 if problem:
@@ -1192,6 +1364,8 @@ class Run:
         self.save()
         if e["outcome"] == "feature_done":
             print(f"done: {f.name}", flush=True)
+        elif e["outcome"] == "decision_open":
+            print(f"open: {e['detail']} {f.name}", flush=True)
         elif e["outcome"] in PARKS:
             self.park(e["outcome"], e["detail"])
             print(f"parked: {f.name}: {e['outcome']}: {flat(e['detail'])}", flush=True)
@@ -1203,9 +1377,10 @@ class Run:
             sweep(self.run_id)
         self.save()
 
-    def loop(self, kind, box, command):
+    def loop(self, kind, box, command, resume=None):
+        """The feature's calls from (kind, box, command); resume is the answered Decision the first call resumes."""
         a, calls, e = self.args, self.record["calls"], self.entry
-        resume, retry_of, snapshot = None, None, None
+        retry_of, snapshot = None, None
         while True:
             seq = len(calls) + 1
             # Spec 0008 AC-8: a limited call is not counted; seq still numbers every call file.
@@ -1221,38 +1396,41 @@ class Run:
             changed = self.files_changed()
             if changed:
                 raise Stop("guard_changed", changed)
-            fresh = not resume and retry_of is None and not self.limit_rerun
-            # A resume, retry or limit rerun keeps the value of the call it repeats; /sync is never a last box call.
-            if fresh:
+            # A resume, retry or limit rerun keeps the values of the call it repeats; /sync is never a last box call.
+            first = retry_of is None and not self.limit_rerun
+            if first and resume:
+                asked = self.asked_call(resume) or {"last_box": False, "test_base": None}
+                last, base = asked["last_box"], asked["test_base"]
+            elif first:
                 last = kind == "box" and self.last_box()
                 base = test_base(self.c.path) if kind == "box" and command.split()[0] == "/test" else None
+            if first:
                 if kind == "debug":
+                    # AC-13: a debug resume takes a fresh snapshot, but it is not another attempt.
                     snapshot = self.snapshot()
-                    e["debug_attempts"] += 1
+                    e["debug_attempts"] += not resume
             if self.limit_rerun:
                 self.record["limit_wait"]["resumed"] = now()
                 self.limit_rerun = False
-            # Spec 0009 AC-3: a browser call starts the app after the debug snapshot; a retry and a limit
-            # rerun keep it running, a resume restarts it (a decision wait stopped it).
+            # Spec 0009 AC-3: a browser call starts the app after the debug snapshot, a resume too (the feature
+            # stopped it when it asked); a retry and a limit rerun keep it running.
             if not (self.browser and (kind == "debug" or command.split()[:2] == ["/check", "verify"])):
                 app = None
-            elif fresh:
-                app, app_seq, restarts = {"url": self.browser["url"], "logs": [], "ready_s": None, "exit": None}, seq, 0
-                self.start_app(app, f"app-{app_seq:02d}.log")
-            elif resume:
-                restarts += 1
-                self.start_app(app, f"app-{app_seq:02d}-r{restarts}.log")
-            rec, data, timed_out, tail, spawn_error = self.call(seq, command, resume and resume[:2], last, base,
-                                                                app is not None)
+            elif first:
+                app = {"url": self.browser["url"], "logs": [], "ready_s": None, "exit": None}
+                self.start_app(app, f"app-{seq:02d}.log")
+            rec, data, timed_out, tail, spawn_error = self.call(
+                seq, command, resume and (resume["session_id"], ANSWERED + resume["answer"]), last, base, app is not None)
             rec.update(kind=kind, box_text=box.box_text if kind == "box" else None,
-                       resumes=resume[2] if resume else [], retry_of=retry_of, app=app, feature=e["n"])
+                       resumes=[resume["id"]] if resume else [], retry_of=retry_of, app=app, feature=e["n"])
             calls.append(rec)
             e["calls"].append(seq)
+            if resume:
+                self.entry_for(resume)["resumed_in"] = seq
             act = self.classify(rec, data, timed_out, tail, spawn_error, kind, box, snapshot)
             if app and act[0] not in ("retry", "limit"):
                 self.stop_app()
                 sweep(self.run_id)
-            pending = self.new_decision(seq, act[1]) if act[0] == "decide" else None
             e["counted"] += not rec["limited"]
             self.save()
             reason = act[1] if act[0] == "end" else None
@@ -1260,9 +1438,17 @@ class Run:
             cost = "-" if rec["cost_usd"] is None else f"{rec['cost_usd']:.2f}"
             after = {"decide": "waiting", "retry": "retry", "limit": "limit wait", "end": "-"}.get(act[0]) or act[3].split("\n")[0]
             # A debug command carries the verify failure on its later lines; the terminal shows the first.
-            label = command.split("\n")[0] + (f" (resume {', '.join(resume[2])})" if resume else "")
+            label = command.split("\n")[0] + (f" (resume {resume['id']})" if resume else "")
             print(f"[{count}/{a.max_calls}] {self.c.name}: {wf.clean(label)} -> {wf.clean(str(shown))}, {cost} USD, "
                   f"{rec['duration_s'] / 60:.1f}m, next: {wf.clean(after)}", flush=True)
+            self.poll()
+            # AC-13: the record leaves only once the resume, its retry included, is classified; a run stop keeps it.
+            if resume and act[0] not in ("retry", "limit") and not (act[0] == "end" and act[1] in RUN_STOPS):
+                self.queue(lambda q: q.update(decisions=[x for x in q["decisions"] if x["id"] != resume["id"]]) or True)
+                if act[0] == "end" and act[1] == "call_error":
+                    # Unrecorded, so the next run starts the feature fresh.
+                    print(flat(f"stale: {resume['id']} {resume['feature']}"), flush=True)
+                resume = None
             if act[0] == "end":
                 raise Stop(act[1], act[2])
             if act[0] == "retry":
@@ -1272,20 +1458,9 @@ class Run:
             if act[0] == "limit":
                 self.limit_wait(act[1], act[2])
                 continue
-            if pending:
-                # The resume is a call too (spec 0005 AC-10); with none left, a ping only wakes you for nothing.
-                if count >= a.max_calls:
-                    raise Stop("max_calls", f"{a.max_calls} calls made, none left to resume {pending['id']}")
-                print(f"waiting: {pending['id']} {flat(pending['question'])}", flush=True)
-                for i, o in enumerate(pending["options"], 1):
-                    print(f"  {i} {flat(o)}", flush=True)
-                resume = (*self.wait(rec, pending), [pending["id"]])
-                refusal = self.guard(self.reread())
-                if refusal:
-                    raise Stop(*refusal)
-                continue
+            if act[0] == "decide":
+                self.open_decision(rec, kind, box, command, act[1])
             _, kind, box, command = act
-            resume = None
 
     def limit_wait(self, text, detail):
         """Spec 0008 AC-8: sleep through one usage limit reset per run, else raise Stop."""
@@ -1365,13 +1540,15 @@ class Run:
             self.start_inhibitor()
             # The boot clock, like waited_s: a suspend during a wait used to make the subtraction negative.
             self.t0 = ntfy.boottime()
+            self.poll()
             while True:
                 if self.interrupted:
                     raise Stop("interrupted", "Ctrl C or a stop signal")
-                f = self.pick()
-                if f is None:
+                picked = self.pick()
+                if picked:
+                    self.run_feature(*picked)
+                elif not self.end_wait():
                     break
-                self.run_feature(f)
             reason = "queue_done"
         except Stop as s:
             reason, detail = s.reason, s.detail

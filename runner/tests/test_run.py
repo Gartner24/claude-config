@@ -297,6 +297,8 @@ class RunCase(unittest.TestCase):
             self.assertEqual(last["outcome"], reason)
             if reason in run.PARKS:
                 self.assertIn(f"parked: {last['feature']}: {reason}", r.stdout)
+            elif reason == "decision_open":
+                self.assertIn(f"open: {last['detail']} {last['feature']}", r.stdout)
             else:
                 self.assertIn(f"stopped repo {rec['repos'][0]['name']}: {reason}", r.stdout)
                 self.assertEqual(rec["repos"][0]["ended"], reason)
@@ -798,15 +800,17 @@ class TestParking(RunCase):
         folder, rec = self.run_record()
         d = rec["decisions"][0]
         self.assertEqual(sorted(d), ["answer", "answered", "asked", "call", "id", "ignored", "kind", "multi",
-                                     "options", "question", "sent", "source"])
-        self.assertEqual((d["kind"], d["options"], d["multi"], d["answer"], d["source"], d["call"]),
-                         ("panel", ["Postgres (recommended)", "SQLite"], False, "SQLite", "phone", 1))
+                                     "options", "question", "resumed_in", "sent", "source"])
+        self.assertEqual((d["kind"], d["options"], d["multi"], d["answer"], d["source"], d["call"], d["resumed_in"]),
+                         ("panel", ["Postgres (recommended)", "SQLite"], False, "SQLite", "phone", 1, 2))
         i = d["id"]
-        self.assertEqual(self.lines(r)[3:9], [
+        # Spec 0011: the question ends the feature, the end wait takes the reply, the resume reuses its entry.
+        self.assertEqual(self.lines(r)[3:10], [
             "[1/20] demo: /develop loop -> success, 0.50 USD, 0.0m, next: waiting",
             f"waiting: {i} Which storage engine?", "  1 Postgres (recommended)", "  2 SQLite",
-            f"answered: {i} SQLite (phone)",
+            f"open: {i} 1. Loop", f"answered: {i} SQLite (phone)",
             f"[2/20] demo: /develop loop (resume {i}) -> success, 0.50 USD, 0.0m, next: /test loop"])
+        self.assertEqual([(e["n"], e["outcome"], e["calls"]) for e in rec["features"]], [(1, "feature_done", [1, 2, 3, 4])])
         a = self.argv(2)
         self.assertEqual(a["argv"][:4],
                          ["-p", "The user answered your DECISION NEEDED question: SQLite", "--resume", "s-1"])
@@ -821,7 +825,7 @@ class TestParking(RunCase):
         self.assertEqual(self.ntfy.posts[0]["title"], f"wf {label}: 1. Loop")
         self.assertEqual([x["body"] for x in self.ntfy.posts[0]["actions"]], [f"{i} 1", f"{i} 2"])
         self.assertEqual(d["sent"], self.ntfy.posts[0]["message"])
-        self.assertEqual(self.ntfy.posts[1]["message"], f"{i} accepted, resuming")
+        self.assertEqual(self.ntfy.posts[1]["message"], f"{i} accepted")
         self.assertFalse(any(p.name in ("answers.json", "auto.jsonl") for p in folder.iterdir()))
 
     # covers: spec 0005 AC-11 (a coded free text reply overrides the options)
@@ -865,23 +869,30 @@ class TestParking(RunCase):
         self.assertIn("500", rec["detail"])
         self.assertEqual(len(self.ntfy.posts), 3)
 
-    # covers: spec 0005 AC-9, AC-13 (no reply within --max-wait stops decision_timeout naming the id)
+    # covers: spec 0011 AC-15 (no reply within --max-wait ends the run queue_done, the question kept, exit 6)
     def test_decision_timeout(self):
         self.fake_ntfy()
         self.steps([ask()])
-        rec = self.assert_stopped(self.wf("demo", "-y", "--max-wait", "0.0001", mode="fast"), "decision_timeout", calls=1)
+        r = self.wf("demo", "-y", "--max-wait", "0.0001", mode="fast")
+        rec = self.assert_stopped(r, "decision_open", calls=1)
         d = rec["decisions"][0]
-        self.assertEqual(rec["detail"], "no reply for " + d["id"])
+        self.assertEqual(rec["detail"], d["id"])
         self.assertEqual((d["answer"], d["source"]), (None, None))
         self.assertGreater(rec["waited_s"], 0.3)
+        self.assertEqual(self.lines(r)[-1], "queue done: 0 done, 0 parked, 1 open")
+        q = json.loads((self.state / "wf" / "queue.json").read_text())
+        self.assertEqual([(x["id"], x["answer"]) for x in q["decisions"]], [(d["id"], None)])
 
-    # covers: spec 0005 AC-10 with spec 0004 AC-8 (the last allowed call parks: no ping, no wait)
+    # covers: spec 0011 AC-11, AC-16 (the last allowed call parks max_calls: no id, no ping, no record)
     def test_last_call_does_not_ping(self):
         self.fake_ntfy()
         self.steps([ask()])
         rec = self.assert_stopped(self.wf("demo", "-y", "--max-calls", "1", mode="fast"), "max_calls", calls=1)
         self.assertEqual(self.ntfy.posts, [])
-        self.assertEqual(len(rec["decisions"]), 1)
+        self.assertEqual(rec["decisions"], [])
+        self.assertEqual(rec["detail"], "1 calls made, none left to resume")
+        q = json.loads((self.state / "wf" / "queue.json").read_text())
+        self.assertEqual(([p["reason"] for p in q["parks"]], q["decisions"]), (["max_calls"], []))
 
     # covers: spec 0004 invariant (an asking call that turned Autopilot off stops before the ping)
     def test_autopilot_off_before_ping(self):
@@ -906,8 +917,10 @@ class TestParking(RunCase):
         out, err = p.communicate(timeout=20)
         self.assertEqual(p.returncode, 6, out + err)
         _, rec = self.run_record()
-        self.assertEqual((rec["repos"][0]["ended"], len(rec["calls"]), rec["decisions"][0]["answer"]),
-                         ("autopilot_off", 1, "Postgres (recommended)"))
+        # Spec 0011 AC-15: the repo ends at the next pick, whether the reply came first or not; the record stays.
+        self.assertEqual((rec["repos"][0]["ended"], len(rec["calls"])), ("autopilot_off", 1))
+        q = json.loads((self.state / "wf" / "queue.json").read_text())
+        self.assertEqual([d["id"] for d in q["decisions"]], [rec["decisions"][0]["id"]])
 
     # covers: spec 0005 AC-9, AC-12 (a wait longer than --max-hours does not stop the run; waited_s recorded)
     def test_wait_not_counted(self):

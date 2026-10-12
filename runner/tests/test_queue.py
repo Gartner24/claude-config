@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import run  # noqa: E402
 import wf  # noqa: E402
 from test_park import GIT_ID  # noqa: E402
-from test_run import RunCase  # noqa: E402
+from test_run import FakeNtfy, RunCase, ask, write_config  # noqa: E402
 
 TWO = """# Scope: x
 **Autopilot:** allowed
@@ -324,6 +324,167 @@ class TestStateFile(QueueCase):
         _, rec = self.run_record()
         self.assertEqual((rec["stop_reason"], len(rec["calls"])), ("internal_error", 1))
         self.assertFalse((self.state / "wf" / "queue.json").exists())
+
+
+ONE = "# Scope: x\n**Autopilot:** allowed\n\n### 1. A · auto\n- [x] (spec)\n- [ ] `/develop a`\n"
+
+
+class DecisionCase(QueueCase):
+    def setUp(self):
+        super().setUp()
+        self.ntfy = FakeNtfy()
+        self.addCleanup(self.ntfy.close)
+        write_config(self.tmp / "config", self.ntfy.url, codes=[f"code{i:04d}" for i in range(5)])
+
+    def keep_queue(self, name):
+        """A fake call step that copies queue.json to the fakes folder as it is during that call."""
+        src, dst = self.state / "wf" / "queue.json", self.fakes / name
+        return [sys.executable, "-c", f"import shutil; shutil.copy({str(src)!r}, {str(dst)!r})"]
+
+    def set_decision(self, **fields):
+        p = self.state / "wf" / "queue.json"
+        q = json.loads(p.read_text())
+        q["decisions"][0].update(fields)
+        p.write_text(json.dumps(q))
+        return q["decisions"][0]
+
+    def open_one(self, repo_name):
+        """A first run whose only feature asks and whose end wait runs out: the Decision stays open."""
+        self.steps([ask()])
+        r = self.wf(repo_name, "-y", "--max-wait", "0.0001", mode="fast")
+        self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
+        self.again()
+        return self.queue()["decisions"][0]
+
+
+class TestDecisionMoveOn(DecisionCase):
+    # covers: AC-7, AC-11, AC-12, AC-13 (feature 1 asks and the run moves on; the reply comes during feature 2;
+    # feature 1 resumes after it with its own session; the record leaves only after the resume is classified)
+    def test_move_on(self):
+        repo = self.make_repo("two", TWO)
+        self.commit(repo)
+        self.ntfy.replies = ["{id} 1"]
+        self.steps([ask(), TICK_B, DONE_B, {**TICK_A, "run": [self.keep_queue("during-resume.json")]}, DONE_A])
+        r = self.wf("two", "-y", mode="fast")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        folder, rec = self.run_record()
+        d = rec["decisions"][0]
+        i = d["id"]
+        lines = r.stdout.splitlines()
+        self.assertEqual(lines[lines.index(f"open: {i} 1. A") + 1:][:3], [
+            "[1/20] two: /develop b -> success, 0.50 USD, 0.0m, next: /sync", f"answered: {i} Postgres (recommended) (phone)",
+            "[2/20] two: /sync -> success, 0.50 USD, 0.0m, next: -"])
+        self.assertIn(f"[2/20] two: /develop a (resume {i}) -> success, 0.50 USD, 0.0m, next: /sync", lines)
+        self.assertEqual(lines[-2], "queue done: 2 done, 0 parked, 0 open")
+        self.assertEqual(self.argv(4)["argv"][:4], ["-p", run.ANSWERED + "Postgres (recommended)", "--resume", "s-1"])
+        self.assertEqual(self.argv(4)["argv"][4:], self.argv(1)["argv"][2:])
+        self.assertEqual([(e["feature"], e["outcome"], e["calls"], e["counted"]) for e in rec["features"]],
+                         [("1. A", "feature_done", [1, 4, 5], 3), ("2. B", "feature_done", [2, 3], 2)])
+        self.assertEqual((d["call"], d["resumed_in"], d["source"], d["sent"]), (1, 4, "phone", self.ntfy.posts[0]["message"]))
+        self.assertEqual([c["resumes"] for c in rec["calls"]], [[], [], [], [i], []])
+        during = json.loads((self.fakes / "during-resume.json").read_text())["decisions"]
+        self.assertEqual(len(during), 1)
+        self.assertEqual({k: during[0][k] for k in ("id", "repo", "feature", "branch", "session_id", "call_kind", "command",
+                                                     "box_text", "kind", "answer", "source", "run")},
+                         {"id": i, "repo": str(repo), "feature": "1. A", "branch": "work", "session_id": "s-1",
+                          "call_kind": "box", "command": "/develop a", "box_text": "`/develop a`", "kind": "panel",
+                          "answer": "Postgres (recommended)", "source": "phone", "run": str(folder)})
+        self.assertEqual(len(during[0]["pings"]), 1)
+        self.assertEqual(len(during[0]["acks"]), 1)
+        self.assertEqual(self.ntfy.posts[1]["message"], f"{i} accepted")
+        self.assertEqual(self.queue()["decisions"], [])
+
+    # covers: AC-11 (a first ping failing three times stops the run ping_failed; the record stays with sent null)
+    def test_ping_failed(self):
+        self.make_repo("pf", ONE)
+        self.ntfy.fail_posts = 3
+        self.steps([ask()])
+        r = self.wf("pf", "-y", mode="fast")
+        self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
+        self.assertIn("stopped: ping_failed: ", r.stdout)
+        d = self.queue()["decisions"][0]
+        self.assertEqual((d["sent"], d["pings"], d["feature"]), (None, [], "1. A"))
+
+
+class TestAcrossRuns(DecisionCase):
+    # covers: AC-12, AC-13, AC-15 (an open Decision outlives its run; the next run's poll from its asked time
+    # takes the reply, keeps the first of two, skips the ids in pings and acks, warns once on failed polls)
+    def test_reply_next_run(self):
+        repo = self.make_repo("later", ONE)
+        self.commit(repo)
+        d = self.open_one("later")
+        i = d["id"]
+        # A message listed in acks would be a rejected reply; it must not count.
+        mid = self.ntfy.add(f"{i} 9")
+        self.set_decision(acks=[mid])
+        self.ntfy.replies = ["{id} 2", "{id} 1"]
+        self.ntfy.fail_polls = 2
+        self.steps([TICK_A, DONE_A])
+        n = len(self.ntfy.polls)
+        r = self.wf("later", "-y", mode="fast")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn(f"  open: {i} 1. A: Which storage engine?\n", r.stdout)
+        self.assertEqual(r.stdout.count("warning: ntfy poll failed"), 1)
+        self.assertTrue(self.ntfy.polls[n].endswith(f"since={int(run.asked_at(d))}"), self.ntfy.polls[n])
+        self.assertEqual(self.argv(1)["argv"][:4], ["-p", run.ANSWERED + "SQLite", "--resume", "s-1"])
+        _, rec = self.run_record()
+        e = rec["decisions"][0]
+        self.assertEqual((e["id"], e["call"], e["resumed_in"], e["answer"], e["ignored"]), (i, None, 1, "SQLite", 1))
+        self.assertEqual(self.queue()["decisions"], [])
+
+    # covers: AC-13 (an answered Decision on another branch is dropped stale and the feature starts fresh)
+    def test_stale_branch(self):
+        repo = self.make_repo("st", ONE)
+        self.commit(repo)
+        i = self.open_one("st")["id"]
+        self.set_decision(answer="x", source="phone", answered="t", branch="old")
+        self.steps([TICK_A, DONE_A])
+        r = self.wf("st", "-y", mode="fast")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(r.stdout.splitlines()[1:3], [f"  stale: {i} 1. A", "  queued: 1. A"])
+        self.assertIn(f"\nstale: {i} 1. A\n", r.stdout)
+        self.assertNotIn("--resume", self.argv(1)["argv"])
+        self.assertEqual(self.queue()["decisions"], [])
+
+    # covers: AC-13 (a resume still failing after its retry is dropped stale and parks call_error, unrecorded)
+    def test_resume_fails(self):
+        repo = self.make_repo("rf", ONE)
+        self.commit(repo)
+        i = self.open_one("rf")["id"]
+        self.set_decision(answer="Postgres", source="phone", answered="t")
+        self.steps([{"tick": False, "rc": 1}])
+        r = self.wf("rf", "-y", mode="fast")
+        self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
+        self.assertEqual(len(self.calls()), 2)
+        self.assertIn("--resume", self.argv(2)["argv"])
+        self.assertIn(f"\nstale: {i} 1. A\nparked: 1. A: call_error: ", r.stdout)
+        self.assertEqual(self.queue(), {"version": 1, "parks": [], "decisions": []})
+
+    # covers: AC-13 (Ctrl C during a resume keeps the record for the next run)
+    def test_interrupt_keeps(self):
+        repo = self.make_repo("ik", ONE)
+        self.commit(repo)
+        i = self.open_one("ik")["id"]
+        self.set_decision(answer="Postgres", source="phone", answered="t")
+        self.steps([{"tick": False, "sleep": 60}])
+        p = self.start("ik", "-y", mode="fast")
+        self.wait_for(self.fakes / "argv-1.json")
+        p.send_signal(subprocess.signal.SIGINT)
+        out, err = p.communicate(timeout=30)
+        self.assertEqual(p.returncode, 130, out + err)
+        self.assertEqual([(d["id"], d["answer"]) for d in self.queue()["decisions"]], [(i, "Postgres")])
+
+    # covers: AC-15 (the end wait polls until the reply comes, then resumes)
+    def test_end_wait_polls(self):
+        self.make_repo("ew", ONE)
+        self.ntfy.hold_polls = 3
+        self.ntfy.replies = ["{id} 1"]
+        self.steps([ask(), TICK_A, DONE_A])
+        r = self.wf("ew", "-y", mode="fast")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertGreaterEqual(len(self.ntfy.polls), 4)
+        _, rec = self.run_record()
+        self.assertEqual([c["resumes"] != [] for c in rec["calls"]], [False, True, False])
 
 
 class TestExit(QueueCase):
