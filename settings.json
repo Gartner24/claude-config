@@ -42,17 +42,7 @@
       "Read(//home/santiago/.claude/anthropic_api_key)",
       "Read(//home/santiago/.config/private-tool/keys)",
       "Read(//home/santiago/.config/private-tool/key)",
-      "Read(//home/santiago/.ssh/**)",
-      "Write(//home/santiago/.aws/**)",
-      "Write(//home/santiago/.bash_profile)",
-      "Write(//home/santiago/.bashrc)",
-      "Write(//home/santiago/private-tool/settings.json)",
-      "Write(//home/santiago/.config/private-tool/keys)",
-      "Write(//home/santiago/.config/private-tool/key)",
-      "Write(//home/santiago/.profile)",
-      "Write(//home/santiago/.ssh/**)",
-      "Write(//home/santiago/.zprofile)",
-      "Write(//home/santiago/.zshenv)"
+      "Read(//home/santiago/.ssh/**)"
     ],
     "defaultMode": "auto"
   },
