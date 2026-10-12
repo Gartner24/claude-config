@@ -161,4 +161,31 @@ p9: stopped: guard_changed: <scratch>/p9/.claude appeared during the run; inspec
 
 Both repos had no `.claude` at start. After the first call, `<repo>/.claude/.cc-writes/` exists, an empty folder Claude Code made inside a new `.claude`. `.claude` is in `absent_denied` and is not an empty folder, so the step 9 check trips. P9 passed the start checks (real `npx`, `brave`, `MCP_CACHE`) and stopped right after its `/check verify` call. Goes to `/architect` (brief finding 10).
 
+## Step 11: P2, P8 and P9 after findings 10 and 13 (run 2026-10-12): PASS
+
+Built in `cababf1`: `only_dirs()` (a tree of real folders passes, any file, symlink or unreadable folder trips), an absent guarded file that is now a symlink trips, `file_hash()` returns `unreadable` on `OSError`. Six mutants (each guard removed alone), all red; full runner suite 223 tests OK.
+
+**P2: PASS.** Command: `python3 -B docs/specs/0009-headless-verify-test/probes/p2-built.py`. Same items as step 9, all hold: app answers from the host in 0.5 s, ssh read, home write, git hooks, `.claude`, the real `~/.gitconfig` and the worktree `.git` pointer writes refused, agent sockets refused, no OAuth token, wf config and state folders empty, and in the checkout with no `.git/hooks` the planted hook stops `guard_changed: <scratch>/plain/.git/hooks appeared during the run`.
+
+**P8: PASS.** Fresh scratch repos from the step 10 setup (no `.claude` at start), same flags. Output:
+
+```
+[1/6] /test calc helpers -> success, 0.70 USD, 1.0m, next: /sync
+[2/6] /sync -> success, 0.53 USD, 0.5m, next: -
+done: 1. Calc helpers
+```
+
+`test_base` `0b97be9`, `/test` wrote `tests/test_calc.py` for the committed `calc.py` with no `No changes` question. `<repo>/.claude/.cc-writes/` exists afterwards and no longer trips.
+
+**P9: PASS.** Output:
+
+```
+[1/8] /check verify greeter page -> success, 0.71 USD, 0.9m, next: /test greeter page
+[2/8] /test greeter page -> success, 0.74 USD, 1.4m, next: /sync
+[3/8] /sync -> success, 0.47 USD, 0.4m, next: -
+done: 1. Greeter page
+```
+
+The verify call reported `PASS`, all four ACs, driven in the headless browser, screenshot cited (`shots/ac2-ada.png`, present in the run folder). Its call record: `app {"url": "http://127.0.0.1:8793", "logs": ["app-01.log"], "ready_s": 0.5, "exit": -15}`. After the run, no process carries `WF_RUN=<run id>` (`grep -sl` over `/proc/*/environ`, no match), and no `server.py 8793` or headless Brave runs. The only chrome-devtools processes left are your own sessions' `@latest` MCPs (not pinned, not headless, started before the run).
+
 Tool facts read on 2026-10-12 (`npx -y chrome-devtools-mcp@latest --help`, `--version`): version 1.10.1; flags `--isolated`, `--headless`, `--executablePath`, `--proxyServer`, `--chromeArg`, `--browserUrl` (`-u`), `--wsEndpoint` (`-w`), `--autoConnect`, `--userDataDir`, `--allowedUrlPattern` (Chrome 149+). Brave installed: 154.1.96.60.
