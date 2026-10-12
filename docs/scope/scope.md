@@ -164,7 +164,7 @@ Answers you always give the same way (`/test` runs the suite, who marks done) li
    - [x] Read and check the section, refusals, defaults (AC-1 to AC-4)
    - [x] Prompt per call, last box check, fake claude `write_file` (AC-4 to AC-6, AC-8)
    - [x] Confirm line, `run.json` `answers` and `last_box` (AC-7)
-   - [ ] Manual checks on the real claude (AC-9)
+   - [ ] Manual checks on the real claude (AC-9): you run these interactively (verify.md UI steps 1 and 2); a `wf run` call has no claude login (spec 0007), agreed 2026-10-12
 - [ ] Verify it: `/check verify standing answers`
 - [ ] Test it: `/test standing answers`
 Spec [0006](../specs/0006-standing-answers/index.md) · code in `runner/run.py`, `runner/tests/test_run.py`
