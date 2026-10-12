@@ -28,6 +28,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 4 | Headless step loop | Release 2 | done |
 | 5 | Decision parking and phone pings | Release 2 | done |
 | 6 | Standing answers | Release 2 | in-progress |
+| 22 | Waiting boxes owed to you | Release 2 | planned |
 | 20 | Push guard outside the model | Release 2 | done |
 | 8 | Failure and park policy | Release 2 | in-progress |
 | 7 | Headless verify and test | Release 2 | in-progress |
@@ -41,7 +42,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 13 | Morning report | Deferred | planned |
 | 14 | Draft PR per spec | Deferred | planned |
 
-Build order follows the table: 6, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
+Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
 ## Existing
 
@@ -160,14 +161,20 @@ Spec [0005](../specs/0005-decision-parking-phone-pings/index.md) · code in `run
 Answers you always give the same way (`/test` runs the suite, who marks done) live once in each repo's `AGENTS.md` (`.workflow/AGENTS.md` in team repos), and `wf run` adds them to the unattended prompt instead of pinging you. Tier stays on the scope header, accepting a spec stays with you. The cross check key was dropped on 2026-10-12 (spec 0006 amended).
 **Done when:** a headless `wf run` gets through `/test`'s run suite question and the done decision without a single question.
 - [x] Design it (spec): `/architect standing answers`
-- [ ] Build it: `/develop standing answers`
+- [x] Build it: `/develop standing answers`
    - [x] Read and check the section, refusals, defaults (AC-1 to AC-4)
    - [x] Prompt per call, last box check, fake claude `write_file` (AC-4 to AC-6, AC-8)
    - [x] Confirm line, `run.json` `answers` and `last_box` (AC-7)
-   - [ ] Manual checks on the real claude (AC-9): you run these interactively (verify.md UI steps 1 and 2); a `wf run` call has no claude login (spec 0007), agreed 2026-10-12
+   - [x] Manual checks on the real claude (AC-9): verify.md UI steps 1 and 2, both passed 2026-10-12 through a real `wf run` on scratch repos
 - [ ] Verify it: `/check verify standing answers`
 - [ ] Test it: `/test standing answers`
 Spec [0006](../specs/0006-standing-answers/index.md) · code in `runner/run.py`, `runner/tests/test_run.py`
+
+### 22. Waiting boxes owed to you · needs a decision
+A box only you can close (a manual check on the real claude or your phone, like spec 0006 AC-9) gets a marker in the scope contract (spec 0003), and `next` and `wf run` treat it as waiting: refused with a reason, never built. The last `wf run` looped `/develop` on feature 6 because its open AC-9 milestone was owed to you.
+**Done when:** `wf run` on a feature whose next box carries the marker refuses with a waiting reason and makes no call, `next` says the box waits on you, and `/scope` and `/architect` know how to write the marker.
+- [ ] Design it (spec): `/architect waiting boxes owed to you`
+Source: your message of 2026-10-12, after the feature 6 `wf run` loop.
 
 ### 20. Push guard outside the model · done
 A guard outside anything the model controls keeps every `wf run` call from pushing, opening or merging a PR, or starting a cloud agent: no credential in the call, the Bash sandbox blocks GitHub and the repo's remotes, and settings, hooks and git config cannot change mid run. The `--disallowedTools` deny list only matches prefixes, so `env git push`, `gh api` and other spellings still get through (review 2026-10-12). The pre-push hook and lock in the first wording were dropped at design: `--no-verify` and `gh api` skip a hook (spec 0007).
