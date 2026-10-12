@@ -102,7 +102,7 @@ Hub At a glance:
 - No skill overwrites an existing header value.
 
 **Security model**:
-- Autopilot is opt in per repo. "Only you set `allowed`" holds only for repos you wrote: a cloned third party scope can write `allowed` itself, and nothing stops that until the Release 2 run guard exists (feature 4 or 8).
+- Autopilot is opt in per repo. "Only you set `allowed`" holds only for repos you wrote: a cloned third party scope can write `allowed` itself, and nothing stops that until the Release 2 run guard exists (feature 8).
 
 **Critical test scenarios** (fixtures in `runner/tests/fixtures/`; tests call the header check in `wf.py`, never a copy of it):
 - Valid values, including `Allowed (client signed off)`, `**allowed**` and `ISSUES.`, give no warning, verifies **AC-1**.
@@ -146,7 +146,7 @@ Skateboard: the rule file alone already makes the skills write the contract; the
 ## Follow-up
 
 - [ ] Research doc section 0 still says each repo scope carries `**Repo:** <path>`; note there that spec 0003 replaced it with the hub `Repos` column.
-- [ ] Spec 0002 Follow-up item (hubs, tag style, skipped marker) is answered by this spec; tick it there.
-- [ ] Feature 4 or 8: guard against a third party scope that writes `**Autopilot:** allowed` itself.
+- [x] Spec 0002 Follow-up item (hubs, tag style, skipped marker) is answered by this spec; tick it there.
+- [ ] Feature 8: guard against a third party scope that writes `**Autopilot:** allowed` itself (feature 4 shipped without it).
 
 Decision record (context, options, rationale): [rationale.md](rationale.md). Verify steps: [verify.md](verify.md).

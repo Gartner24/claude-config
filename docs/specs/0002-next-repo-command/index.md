@@ -148,6 +148,6 @@ Skateboard: the first milestone is already usable on its own (`next <exact name>
 
 ## Follow-up
 
-- [ ] Feature 2 (scope contract): decide whether hubs get paths, whether `/scope` should write status tags in one style so the parser can drop the second regex branch, and the syntax for a skipped box (the template mentions "skipped" boxes but defines no marker, so `next` treats them as open today).
+- [x] (answered by spec 0003) Feature 2 (scope contract): decide whether hubs get paths, whether `/scope` should write status tags in one style so the parser can drop the second regex branch, and the syntax for a skipped box (the template mentions "skipped" boxes but defines no marker, so `next` treats them as open today).
 
 Decision record (context, options, rationale, references): [rationale.md](rationale.md). Verify steps: [verify.md](verify.md).

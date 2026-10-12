@@ -2,6 +2,12 @@
 
 **Date**: 2026-10-11
 **Status**: Accepted
+**Amended**: 2026-10-12, architecture pass ([architecture](../architecture.md)): the Release 2 split is flat modules beside `wf.py` (`run.py`, `ntfy.py`), not a `runner/wf/` package. No behavior change.
+
+## What you're agreeing to
+
+- Nothing new: the amendment records how the runner was actually split when `wf run` landed.
+- `wf.py` keeps the shared scope parsing and `next`; `run.py` holds `wf run`; `ntfy.py` holds the phone pings.
 
 ## Summary
 
@@ -72,7 +78,7 @@ The deciding force is Release 2, not Release 1. The unattended loop needs proces
 | Language | Python 3.11 or newer, standard library only | Covers parsing, subprocess, JSON, signals and locks for every release with nothing to install. |
 | CLI | `argparse` with subcommands, one entry `wf` | One place for shared scope parsing; `wf next` now, `wf run`, `wf queue`, `wf report` later. |
 | Shortcut | `next` symlink to the same file; when called as `next`, it behaves as `wf next` | Lets you type `next <repo>` as asked, with no second program. |
-| Layout | `runner/wf.py` (executable, `#!/usr/bin/env python3`), `runner/tests/test_*.py`, `runner/tests/fixtures/` | One file until Release 2; split into a `runner/wf/` package only when that release needs modules. |
+| Layout | `runner/wf.py` (executable, `#!/usr/bin/env python3`), `runner/tests/test_*.py`, `runner/tests/fixtures/` | One file until Release 2, then flat modules beside it: `runner/run.py` (`wf run`) and `runner/ntfy.py` (pings), imported lazily by `wf.py` (amended 2026-10-12). |
 | Install | `install.sh` symlinks `runner/wf.py` to `~/.local/bin/wf` and `~/.local/bin/next` | Same symlink pattern as skills and commands; `~/.local/bin` is already on your PATH (claude lives there). |
 | Tests | `python3 -m unittest discover -s runner/tests`, wired into the `install.sh` verify step | Stdlib, and it fails the install loudly like the other self checks. |
 | Fixtures | Trimmed copies of real scopes (dotfiles, claude-config, a hub, a `.workflow/` scope) | Tests run against the shapes that exist, not invented ones. |
@@ -85,7 +91,7 @@ The deciding force is Release 2, not Release 1. The unattended loop needs proces
 - Later releases add subcommands to the same program instead of new scripts.
 
 **Negative / tradeoffs**:
-- `wf.py` will grow; the Release 2 build has to split it into modules, a planned refactor.
+- `wf.py` grew; the Release 2 build split `wf run` and the pings into `run.py` and `ntfy.py` (amended 2026-10-12).
 - `next` is a generic command name. Nothing on your PATH uses it today, but a future package could; the symlink would then need renaming.
 - Python start time (about 30 ms) on each call, fine for a launcher, noticeable only if called in a tight loop.
 
@@ -94,8 +100,8 @@ The deciding force is Release 2, not Release 1. The unattended loop needs proces
 
 ## Follow-up
 
-- [ ] Root `AGENTS.md`: add `runner/` (symlinked to `~/.local/bin`, edit here) to the Rules and the test command to Commands; `/sync` owns this.
-- [ ] `NOTICE.md`: list `runner/` as authored here.
+- [x] Root `AGENTS.md`: add `runner/` (symlinked to `~/.local/bin`, edit here) to the Rules and the test command to Commands; `/sync` owns this.
+- [x] `NOTICE.md`: list `runner/` as authored here.
 
 ## References
 

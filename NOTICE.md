@@ -15,6 +15,7 @@ because the LICENSE covers only the parts authored here.
 | `hooks/block-destructive.sh` | Destructive-command guard |
 | `runner/` | `wf`, the workflow runner (spec 0001) |
 | `rules/scope-contract.md` | The scope format the runner reads and the skills write (spec 0003) |
+| `rules/spec-gate.md` | Spec gate: the agreeing section, probe before accept, small change fast path, `docs/architecture.md` |
 | `rules/handoff.md` | Handoff override: replaces the skills' bare "/clear" line with `/rollover` or `/save-and-clear` |
 | `rules/ecc/*/index.md` (7 files) | Per-language rule indexes - authored here, not upstream. They only `@import` the files below. |
 | `sync.sh`, `CLAUDE.md`, `rules/ecc/common/{code-review,testing}.md` additions | Setup and the hand-earned rules |
