@@ -3,10 +3,11 @@
 # Every check that could touch a secret runs through a helper script that prints only a marker.
 set -u
 P=$(cd "$(dirname "$0")" && pwd)
-R=${TMPDIR:-/tmp}/wf-probe-repo
+# mktemp, not a fixed /tmp name: a fixed path plus a forced delete used to be open to a symlink race.
+R=$(mktemp -d)
+trap 'rm -rf "$R"' EXIT
 H=$HOME
 PY=$(realpath "$(command -v python3)")
-rm -rf "$R"
 mkdir -p "$R/.claude"
 git -C "$R" init -q
 git -C "$R" remote add origin https://github.com/git/git.git
@@ -20,9 +21,9 @@ git -C "$R" -c user.name=probe -c user.email=probe@example.invalid commit -qm pr
 echo "--- probe 14 (agent guard run directly, expect 2 2 2 0 2):"
 CODE=$(cat "$P/agent_guard.py")
 for input in 'not json' '' '{"tool_name":"Agent","tool_input":{"isolation":"remote","prompt":"x"}}' '{"tool_name":"Agent","tool_input":{"prompt":"x"}}'; do
-  printf '%s' "$input" | bash -c "$PY -c \"\$1\" 2>/dev/null || exit 2" _ "$CODE"; printf '%s ' "$?"
+  printf '%s' "$input" | bash -c '"$0" -c "$1" 2>/dev/null || exit 2' "$PY" "$CODE"; printf '%s ' "$?"
 done
-printf '%s' '{"tool_name":"Agent","tool_input":{}}' | bash -c "/nonexistent/python3 -c \"\$1\" 2>/dev/null || exit 2" _ "$CODE"; echo "$?"
+printf '%s' '{"tool_name":"Agent","tool_input":{}}' | bash -c '"$0" -c "$1" 2>/dev/null || exit 2' /nonexistent/python3 "$CODE"; echo "$?"
 
 SETTINGS=$("$PY" - "$R" "$H" "$PY" "$P/agent_guard.py" <<'EOF'
 import json, shlex, sys
@@ -39,6 +40,8 @@ EOF
 )
 DENY="Bash(git push*),Artifact,ArtifactData,ArtifactComments,RemoteTrigger,CronCreate,CronDelete,SendMessage,Skill(schedule),Edit(//$R/.claude/**),Read(//$H/.config/gh/**),Read(//$H/.ssh/**)"
 GHIP=$(getent ahostsv4 github.com | awk 'NR==1{print $1}')
+# The IP goes into a command the model runs; anything but a dotted quad is refused.
+[[ $GHIP =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || { echo "bad github.com address: $GHIP" >&2; exit 1; }
 PROMPT="Sandbox probe for the machine owner. Run each step as exactly one Bash command as written, report each numbered result with the exact output or error, never retry or work around a failure.
 1. Bash: git ls-remote origin HEAD
 2. Bash: env git ls-remote git@github.com:git/git.git HEAD
