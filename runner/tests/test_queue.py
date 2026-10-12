@@ -487,6 +487,183 @@ class TestAcrossRuns(DecisionCase):
         self.assertEqual([c["resumes"] != [] for c in rec["calls"]], [False, True, False])
 
 
+class TestReping(DecisionCase):
+    # covers: AC-14 (every unanswered Decision is pinged again right after the confirm with its same id and body;
+    # a failed re-ping warns and the run goes on, a null sent gets the body; the reply then resumes it)
+    def test_reping(self):
+        repo = self.make_repo("rp", ONE)
+        self.commit(repo)
+        d = self.open_one("rp")
+        first = self.ntfy.posts[0]
+        r = self.wf("rp", "-y", "--max-wait", "0.0001", mode="fast")
+        self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
+        self.assertEqual(self.calls(), [])
+        self.assertEqual(self.ntfy.posts[-1], first)
+        q = self.queue()["decisions"][0]
+        self.assertEqual((q["id"], len(q["pings"]), q["sent"]), (d["id"], 2, d["sent"]))
+        self.again()
+        self.set_decision(sent=None)
+        self.ntfy.fail_posts = 3
+        r = self.wf("rp", "-y", "--max-wait", "0.0001", mode="fast")
+        self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
+        self.assertIn(f"warning: re-ping {d['id']} failed: ", r.stdout)
+        self.assertIn("queue done: 0 done, 0 parked, 0 open", r.stdout)
+        q = self.queue()["decisions"][0]
+        self.assertEqual((len(q["pings"]), q["sent"]), (2, d["sent"]))
+        self.again()
+        self.ntfy.replies = ["{id} 1"]
+        self.steps([TICK_A, DONE_A])
+        r = self.wf("rp", "-y", mode="fast")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.argv(1)["argv"][:4], ["-p", run.ANSWERED + "Postgres (recommended)", "--resume", "s-1"])
+        self.assertEqual(self.queue()["decisions"], [])
+
+
+class TestAcrossRepos(QueueCase):
+    def trust(self, *paths):
+        (self.tmp / "config" / "wf" / "allowed.json").write_text(json.dumps([str(p) for p in paths]))
+
+    def lock(self, repo):
+        return self.state / "wf" / "locks" / (run.hashlib.sha1(str(repo).encode()).hexdigest() + ".lock")
+
+    # covers: AC-1, AC-4, AC-6 (bare wf run takes the trust list in file order, once per real path; missing, hub and
+    # unreadable scopes are skips; a missing or broken trust file refuses untrusted)
+    def test_trust_list(self):
+        a = self.make_repo("alpha", ONE)
+        self.commit(a)
+        hub = self.make_repo("hubrepo", "# Scope: hub\n\n| a | b |\n")
+        bad = self.make_repo("bad", ONE)
+        (bad / "docs" / "scope" / "scope.md").chmod(0)
+        (self.tmp / "alias").symlink_to(a)
+        self.trust(self.tmp / "gone", hub, bad, a, self.tmp / "alias")
+        self.steps([TICK_A, DONE_A])
+        r = self.wf("-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        lines = r.stdout.splitlines()
+        self.assertEqual(lines[:2], [f"{self.tmp}/gone", "  skip: missing: no folder or no scope"])
+        self.assertTrue(lines[2].startswith("hubrepo on work, "), lines[2])
+        self.assertEqual(lines[3], "  skip: hub: hubrepo is a hub scope with no boxes of its own")
+        self.assertEqual(lines[4:8], [str(bad), f"  skip: scope_unreadable: [Errno 13] Permission denied: "
+                                                f"'{bad}/docs/scope/scope.md'", "alpha on work, 0 changes", "  queued: 1. A"])
+        self.assertTrue(lines[8].startswith("caps: "))
+        _, rec = self.run_record()
+        self.assertEqual([(e["repo"], e["skip"] and e["skip"].split(":")[0]) for e in rec["repos"]],
+                         [(f"{self.tmp}/gone", "missing"), (str(hub), "hub"), (str(bad), "scope_unreadable"), (str(a), None)])
+        self.assertEqual([c["command"] for c in rec["calls"]], ["/develop a", "/sync"])
+        self.assertIn("run folder: " + str(self.state / "wf" / "runs" / "queue-"), r.stdout)
+        for text in (None, "{not json"):
+            with self.subTest(text):
+                p = self.tmp / "config" / "wf" / "allowed.json"
+                if text is None:
+                    p.unlink()
+                else:
+                    p.write_text(text)
+                r = self.wf("-y")
+                self.assertEqual(r.returncode, 5, r.stdout + r.stderr)
+                self.assertIn("refused: untrusted: ", r.stdout)
+
+    # covers: AC-4, AC-5, AC-6 (in bare form a repo on main, one with Autopilot off and one locked show skip lines
+    # and the fourth runs; every repo skipped by a refusal exits 5 with nothing to run; skips that are not refusals
+    # exit per AC-19)
+    def test_repo_checks(self):
+        main = self.make_repo("onmain", ONE, head="ref: refs/heads/main\n")
+        off = self.make_repo("apoff", ONE.replace("allowed", "off"))
+        held = self.make_repo("held", ONE)
+        good = self.make_repo("good", ONE)
+        self.commit(good)
+        self.lock(held).parent.mkdir(parents=True, mode=0o700)
+        fd = os.open(self.lock(held), os.O_RDWR | os.O_CREAT, 0o600)
+        self.addCleanup(os.close, fd)
+        run.fcntl.flock(fd, run.fcntl.LOCK_EX)
+        os.write(fd, b"4242 2026-10-11T09:00:00+02:00\n")
+        self.trust(main, off, held, good)
+        self.steps([TICK_A, DONE_A])
+        r = self.wf("-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(r.stdout.splitlines()[:8], [
+            "onmain on main, 1 change", "  skip: branch: main, switch to a work branch first",
+            "apoff on work, 1 change", "  skip: autopilot_off: Autopilot is off, the scope header needs **Autopilot:** allowed",
+            "held on work, 1 change", "  skip: locked: 4242 2026-10-11T09:00:00+02:00",
+            "good on work, 0 changes", "  queued: 1. A"])
+        self.assertIn("done: 1. A", r.stdout)
+        self.again()
+        self.trust(main, off)
+        r = self.wf("-y")
+        self.assertEqual((r.returncode, r.stdout.splitlines()[-1]), (5, "nothing to run"), r.stdout + r.stderr)
+        self.assertEqual(self.calls(), [])
+        self.assertFalse((self.state / "wf" / "runs").exists())
+        self.trust(self.tmp / "gone", self.make_repo("hubrepo", "# Scope: hub\n\n| a | b |\n"))
+        r = self.wf("-y")
+        self.assertEqual((r.returncode, r.stdout.splitlines()[-1]), (0, "nothing to run"), r.stdout + r.stderr)
+
+    # covers: AC-5, AC-9 (Autopilot turned off in repo A ends A only, its lock kept while repo B runs to done)
+    def test_repo_stop(self):
+        a, b = self.make_repo("ra", ONE), self.make_repo("rb", ONE)
+        self.trust(a, b)
+        out = self.fakes / "lock-a"
+        probe = (f"import fcntl, os\nfd = os.open({str(self.lock(a))!r}, os.O_RDWR)\ntry:\n"
+                 f"    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)\n    r = 'free'\nexcept BlockingIOError:\n"
+                 f"    r = 'held'\nopen({str(out)!r}, 'w').write(r)\n")
+        self.steps([{"edit": [["**Autopilot:** allowed", "**Autopilot:** off"]]},
+                    {**TICK_A, "run": [[sys.executable, "-c", probe]]}, DONE_A])
+        r = self.wf("-y")
+        self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
+        self.assertIn("\nstopped repo ra: autopilot_off: Autopilot is now off\n", r.stdout)
+        self.assertEqual(r.stdout.splitlines()[-2], "queue done: 1 done, 0 parked, 0 open")
+        self.assertEqual(out.read_text(), "held")
+        _, rec = self.run_record()
+        self.assertEqual([(e["name"], e["ended"]) for e in rec["repos"]], [("ra", "autopilot_off"), ("rb", None)])
+        self.assertEqual([(e["repo"], e["outcome"]) for e in rec["features"]],
+                         [(str(a), "autopilot_off"), (str(b), "feature_done")])
+        self.assertEqual([c["feature"] for c in rec["calls"]], [1, 2, 2])
+
+    # covers: AC-9 (guard_changed scope: a repo's own settings end that repo, whether it is the one running or
+    # another; ~/.claude settings and a git config two held worktrees share stop the run)
+    def test_guard_scope(self):
+        detail = " changed during the run; inspect or delete it before opening a session in this repo"
+        with self.subTest("own file of the running repo"):
+            a, b = self.make_repo("oa", ONE), self.make_repo("ob", ONE)
+            self.trust(a, b)
+            self.steps([{"write_file": [[".claude/settings.json", "{}"]]}, TICK_A, DONE_A])
+            r = self.wf("-y")
+            self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
+            self.assertIn(f"\nstopped repo oa: guard_changed: {a}/.claude/settings.json{detail}\n", r.stdout)
+            self.assertIn("done: 1. A", r.stdout)
+            self.assertEqual(self.run_record()[1]["stop_reason"], "queue_done")
+        with self.subTest("own file of another held repo"):
+            self.again()
+            a, b = self.make_repo("pa", ONE), self.make_repo("pb", ONE)
+            self.trust(a, b)
+            self.steps([{"write_file": [[f"{b}/.claude/settings.local.json", "{}"]]}, DONE_A])
+            r = self.wf("-y")
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertIn(f"\nstopped repo pb: guard_changed: {b}/.claude/settings.local.json{detail}\n", r.stdout)
+            _, rec = self.run_record()
+            self.assertEqual([(e["name"], e["ended"]) for e in rec["repos"]], [("pa", None), ("pb", "guard_changed")])
+            self.assertEqual([(e["repo"], e["outcome"]) for e in rec["features"]], [(str(a), "feature_done")])
+        with self.subTest("shared git common dir"):
+            self.again()
+            a = self.make_repo("wa", ONE)
+            self.commit(a)
+            w = self.tmp / "root" / "wb"
+            subprocess.run(["git", *GIT_ID, "-C", str(a), "worktree", "add", "-q", "-b", "wtb", str(w)],
+                           check=True, capture_output=True)
+            self.trust(a, w)
+            self.steps([{"write_file": [[".git/config", "{}"]]}, {}])
+            r = self.wf("-y")
+            self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
+            self.assertIn(f"\nstopped: guard_changed: {a}/.git/config{detail}\n", r.stdout)
+        with self.subTest("user settings"):
+            self.again()
+            a, b = self.make_repo("ua", ONE), self.make_repo("ub", ONE)
+            self.trust(a, b)
+            self.steps([{"write_file": [[f"{self.tmp}/.claude/settings.json", "{}"]]}, {}])
+            r = self.wf("-y")
+            self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
+            self.assertIn(f"\nstopped: guard_changed: {self.tmp}/.claude/settings.json{detail}\n", r.stdout)
+            self.assertEqual(len(self.run_record()[1]["calls"]), 1)
+
+
 class TestExit(QueueCase):
     # covers: AC-19 (nothing to run with no record exits 0; with an old park 6; a park left after the run 6)
     def test_codes(self):

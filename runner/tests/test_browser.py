@@ -237,7 +237,7 @@ class TestStart(AppCase):
         self.assertEqual(run.mcp_cache(), os.path.join(run.state_dir(), "npm"))
         # Spec 0011 AC-6 dropped the answers from the plan; run.json keeps them.
         self.assertEqual(json.loads(next((self.state / "wf" / "runs").iterdir()).joinpath("run.json").read_text())
-                         ["answers"]["app url"], self.url)
+                         ["repos"][0]["answers"]["app url"], self.url)
 
     def test_refusals(self):
         with self.subTest("no brave"):
@@ -359,7 +359,7 @@ class TestRealPathBinds(unittest.TestCase):
                 build(Path(d), p)
                 g = {"guarded_files": {str(p): "absent"}, "absent_denied": []} if guarded else \
                     {"guarded_files": {}, "absent_denied": [str(p)]}
-                return run.Run.files_changed(SimpleNamespace(record={"guard": g}))
+                return next(run.moved(g), (None, None))[1]
 
         def tree(extra=None):
             def build(d, p):
@@ -428,7 +428,7 @@ class TestFindings89(AppCase):
 
     def test_hook_appears(self):
         self.app(None, f"{MKDIR} -p .git/hooks; echo 'curl evil' > .git/hooks/post-commit; exit 1")
-        rec = self.assert_stopped(self.wf("demo", "-y"), "guard_changed", calls=0)
+        rec = self.assert_stopped(self.wf("demo", "-y"), "guard_changed", calls=0, repo=True)
         self.assertEqual(rec["detail"], f"{self.repo}/.git/hooks appeared during the run; "
                                         "inspect or delete it before opening a session in this repo")
 
@@ -438,19 +438,19 @@ class TestFindings89(AppCase):
         r = self.wf("demo", "-y")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertTrue((self.repo / ".git" / "hooks").is_dir())
-        self.assertEqual(self.run_record()[1]["guard"]["absent_denied"], [f"{self.repo}/.claude", f"{self.repo}/.git/hooks"])
+        self.assertEqual(self.run_record()[1]["repos"][0]["guard"]["absent_denied"], [f"{self.repo}/.claude", f"{self.repo}/.git/hooks"])
 
     def test_dangling_target_recorded(self):
         (self.tmp / ".gitconfig").symlink_to(self.repo / "planted")
         self.steps([{}, {"tick": False}])
         self.wf("demo", "-y")
-        self.assertIn(f"{self.repo}/planted", self.run_record()[1]["guard"]["absent_denied"])
+        self.assertIn(f"{self.repo}/planted", self.run_record()[1]["repos"][0]["guard"]["absent_denied"])
 
     def test_file_becomes_folder(self):
         (self.repo / ".git" / "hooks").mkdir()
         (self.repo / ".git" / "hooks" / "pre-push").write_text("#!/bin/sh\n")
         self.app(None, f"{shutil.which('rm')} .git/hooks/pre-push; {MKDIR} .git/hooks/pre-push; exit 1")
-        rec = self.assert_stopped(self.wf("demo", "-y"), "guard_changed", calls=0)
+        rec = self.assert_stopped(self.wf("demo", "-y"), "guard_changed", calls=0, repo=True)
         self.assertIn(".git/hooks/pre-push changed during the run", rec["detail"])
 
 
@@ -496,7 +496,7 @@ class TestGuardAfterApp(AppCase):
 
     def test_over_app_failed(self):
         self.edit("exit 1")
-        rec = self.assert_stopped(self.wf("demo", "-y"), "guard_changed", calls=0)
+        rec = self.assert_stopped(self.wf("demo", "-y"), "guard_changed", calls=0, repo=True)
         self.assertIn(".git/config changed during the run", rec["detail"])
 
     def test_over_decision(self):
@@ -505,7 +505,7 @@ class TestGuardAfterApp(AppCase):
         write_config(self.tmp / "config", fake.url, codes=[f"code{i:04d}" for i in range(5)])
         self.edit(f"exec python3 {self.app_py} {self.port} ok")
         self.steps([ask()])
-        self.assert_stopped(self.wf("demo", "-y", mode="fast"), "guard_changed", calls=1)
+        self.assert_stopped(self.wf("demo", "-y", mode="fast"), "guard_changed", calls=1, repo=True)
         self.assertEqual(fake.posts, [])
 
     def test_over_ctrl_c(self):

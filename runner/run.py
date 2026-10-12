@@ -224,8 +224,9 @@ DESIGN_REPORT = os.path.join(".design", "audit-report.md")
 
 
 class Stop(Exception):
-    def __init__(self, reason, detail):
-        self.reason, self.detail = reason, detail
+    # repo: a guard_changed that ends only the repo being run (spec 0011 AC-9), not the run.
+    def __init__(self, reason, detail, repo=False):
+        self.reason, self.detail, self.repo = reason, detail, repo
 
 
 class QueueError(Exception):
@@ -385,32 +386,31 @@ def progress_key(nb):
 
 class Run:
     def __init__(self, c, args):
-        self.c, self.args = c, args
+        """c: the one target repo, or None for bare `wf run` (spec 0011 AC-1), whose repos come through add()."""
+        self.args, self.target = args, c is not None
         # Spec 0011: the feature being run (display heading) and its FeatureEntry; None between features.
         self.feature = self.entry = None
-        self.branch = wf.head_branch(c.path)
         self.interrupted = False
         self.sigint_at = None
         self.proc = None
         self.inhibitor = None
         self.folder = None
-        self.repo = {"repo": c.path, "name": c.name, "branch": self.branch, "skip": None, "ended": None}
+        # AC-5: the repos this run holds (locked), each a dict of the REPO_ATTRS that use() puts on self.
+        self.held, self.added = [], []
+        self.warnings = []
+        self.c = self.repo = None
         self.record = {
-            "repos": [self.repo], "features": [],
+            "repos": [], "features": [],
             "started": None, "ended": None, "stop_reason": None, "detail": None,
             "caps": {"budget_usd": args.budget, "call_timeout_min": args.call_timeout,
                      "max_calls": args.max_calls, "max_hours": args.max_hours},
-            "answers": {}, "calls": [], "decisions": [], "waited_s": 0,
+            "calls": [], "decisions": [], "waited_s": 0,
             "limit_wait": None, "limit_waited_s": 0, "design": None,
         }
         # Spec 0008 AC-6: set by a retryable failure, cleared by any call that does not fail.
         self.retried = False
         # Set after a usage limit sleep: the next call repeats the limited one.
         self.limit_rerun = False
-        # Spec 0006 AC-4: start_checks() overwrites these once; a Run built without it has no answers.
-        self.answers = {}
-        # Spec 0009: set by browser_checks() when the repo names its app; None means no browser call ever.
-        self.browser = None
         self.app = self.app_rec = self.app_term_at = None
         # WF_RUN for every process the run starts (spec 0009 AC-3 step 6); set by run().
         self.run_id = None
@@ -421,19 +421,51 @@ class Run:
         self.own = set()
         # AC-15: end wait seconds of this run, all waits added.
         self.end_waited = 0.0
+        if c is not None:
+            self.add(c)
+
+    # -- repos (spec 0011 AC-1, AC-5) ------------------------------------------
+
+    REPO_ATTRS = ("c", "branch", "repo", "answers", "browser", "mcp_browser", "browser_settings", "guard_settings",
+                  "settings", "denied", "claude", "bwrap", "lock_fd", "common")
+
+    def add(self, c, path=None):
+        """A RepoEntry in run order for candidate c (None: path had no candidate), made the repo in use.
+        Returns its held dict, already in self.held for a candidate; a failed check takes it out."""
+        self.c = c
+        self.branch = wf.head_branch(c.path) if c else None
+        self.repo = {"repo": c.path if c else path, "name": c.name if c else os.path.basename(path),
+                     "branch": self.branch, "skip": None, "ended": None}
+        self.record["repos"].append(self.repo)
+        # Spec 0006 AC-4: repo_checks() overwrites answers; a Run built without it has none.
+        # Spec 0009: browser stays None when the repo names no app, so no browser call ever.
+        self.answers, self.browser = {}, None
         # Set by freeze_guard(); a call that somehow starts without them fails to spawn, never runs unguarded.
-        self.claude = self.settings = self.denied = None
+        self.claude = self.settings = self.denied = self.guard_settings = None
+        self.mcp_browser = self.browser_settings = self.bwrap = self.lock_fd = self.common = None
+        h = self.keep()
+        self.added.append(h)
+        if c:
+            self.held.append(h)
+        return h
+
+    def keep(self):
+        return {k: getattr(self, k) for k in self.REPO_ATTRS}
+
+    def use(self, h):
+        for k, v in h.items():
+            setattr(self, k, v)
 
     # -- start ---------------------------------------------------------------
 
     def refuse(self, reason, detail):
         print(f"refused: {reason}: {wf.clean(str(detail))}", flush=True)
-        for w in self.c.warnings:
+        for w in (self.c.warnings if self.c else []) + self.warnings:
             print(f"warning: {w}", flush=True)
         return 5
 
     def take_lock(self):
-        """AC-9. Returns an exit code on refusal, else None."""
+        """AC-9. (reason, detail) on refusal, else None."""
         state = state_dir()
         locks = os.path.join(state, "locks")
         try:
@@ -445,19 +477,25 @@ class Run:
             # No O_TRUNC: a losing opener used to wipe the holder's pid line.
             self.lock_fd = os.open(os.path.join(locks, name), os.O_RDWR | os.O_CREAT, 0o600)
         except OSError as e:
-            return self.refuse("state_unwritable", f"{state}: {e.strerror or e}")
+            return "state_unwritable", f"{state}: {e.strerror or e}"
         try:
             fcntl.flock(self.lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
-            holder = os.pread(self.lock_fd, 200, 0).decode(errors="replace").split()
-            who = f"pid {holder[0]} since {holder[1]}" if len(holder) >= 2 else "unknown"
-            return self.refuse("locked", f"another wf run holds this repo: {who}")
+            who = holder(self.lock_fd)
+            os.close(self.lock_fd)
+            self.lock_fd = None
+            # Spec 0011 AC-5: a skip line names the holder bare; the target refusal keeps spec 0004's sentence.
+            if not self.target:
+                return "locked", who
+            pid_start = who.split()
+            return "locked", "another wf run holds this repo: " + (
+                f"pid {pid_start[0]} since {pid_start[1]}" if len(pid_start) == 2 else who)
         return None
 
-    def start_checks(self):
-        c, state = self.c, state_dir()
-        # Spec 0011 AC-4: the state folder first, then queue.json, before any repo check. Nothing is created
-        # yet: spec 0009 refuses a state folder a call could write, and that check comes later.
+    def global_checks(self):
+        """Spec 0011 AC-4: the checks that end the command whatever the repo. An exit code, else None."""
+        state = state_dir()
+        # Nothing is created yet: spec 0009 refuses a state folder a call could write, and that check comes later.
         p = state
         while not os.path.lexists(p):
             p = os.path.dirname(p)
@@ -468,48 +506,98 @@ class Run:
                 queue_transact()
         except QueueError as e:
             return self.refuse("queue_unreadable", e)
-        if c.is_hub:
-            return self.refuse("hub", f"{c.name} is a hub scope with no boxes of its own")
-        autopilot = wf.header_values(c.text)["autopilot"]
-        if autopilot != "allowed":
-            return self.refuse("autopilot_off", f"Autopilot is {autopilot}, the scope header needs **Autopilot:** allowed")
-        problem = untrusted(c.path)
-        if problem:
-            return self.refuse("untrusted", problem)
-        answers, problem = read_answers(c)
-        if problem:
-            return self.refuse("bad_answers", problem + ANSWERS_HINT)
-        self.answers, self.record["answers"] = answers, dict(answers)
-        if "app url" in answers:
-            rc = self.browser_checks()
-            if rc is not None:
-                return rc
+        if not shutil.which("claude"):
+            print("claude not found on PATH", file=sys.stderr)
+            return 1
+        try:
+            self.ntfy = ntfy.load()
+        except ntfy.Invalid as e:
+            return self.refuse("no_ntfy", e)
+        if len(self.ntfy["codes"]) < 5:
+            self.warnings.append(f"{len(self.ntfy['codes'])} one time codes left, run wf ntfy codes")
         missing = [t for t in SANDBOX_TOOLS if not shutil.which(t)]
         if missing:
             return self.refuse("no_sandbox", "not found on PATH: " + ", ".join(missing))
         excluded = user_exclusions()
         if excluded:
             return self.refuse("no_sandbox", excluded)
-        if self.branch in BAD_BRANCHES or self.branch.startswith("detached"):
-            return self.refuse("branch", f"{self.branch}, switch to a work branch first")
-        rc = self.freeze_guard()
+        return None
+
+    def start_checks(self):
+        """Target form: the global checks, then the repo checks, the first failure refusing. Exit code or None."""
+        rc = self.global_checks()
         if rc is not None:
             return rc
-        try:
-            self.ntfy = ntfy.load()
-        except ntfy.Invalid as e:
-            return self.refuse("no_ntfy", e)
-        if len(self.ntfy["codes"]) < 5:
-            c.warnings.append(f"{len(self.ntfy['codes'])} one time codes left, run wf ntfy codes")
-        return self.take_lock()
+        problem = self.repo_checks()
+        if problem:
+            return self.refuse(*problem)
+        self.held[0].update(self.keep())
+        return None
+
+    def bare_checks(self):
+        """Spec 0011 AC-1, AC-4: every path of the trust list in file order, once per real path; a repo failing
+        a check is listed as a skip and the others go on. Exit code or None."""
+        rc = self.global_checks()
+        if rc is not None:
+            return rc
+        paths, problem = read_allowed()
+        if problem:
+            return self.refuse("untrusted", problem)
+        for path in dict.fromkeys(os.path.realpath(p) for p in paths):
+            try:
+                c = wf.make_candidate(path) if os.path.isdir(path) else None
+            except (OSError, StopIteration) as e:
+                self.add(None, path)["repo"]["skip"] = flat(f"scope_unreadable: {e}")
+                continue
+            if c is None:
+                self.add(None, path)["repo"]["skip"] = "missing: no folder or no scope"
+                continue
+            h = self.add(c)
+            problem = self.repo_checks()
+            if problem and problem[0] == "state_unwritable":
+                return self.refuse(*problem)
+            if problem:
+                self.held.remove(h)
+                self.repo["skip"] = flat(f"{problem[0]}: {problem[1]}")
+            else:
+                h.update(self.keep())
+        if self.held:
+            self.use(self.held[0])
+        return None
+
+    def repo_checks(self):
+        """Spec 0011 AC-4 per repo, in order, on the repo in use: (reason, detail) for the first failure, else None.
+        A repo passing them all ends locked (AC-5)."""
+        c = self.c
+        if c.is_hub:
+            return "hub", f"{c.name} is a hub scope with no boxes of its own"
+        autopilot = wf.header_values(c.text)["autopilot"]
+        if autopilot != "allowed":
+            return "autopilot_off", f"Autopilot is {autopilot}, the scope header needs **Autopilot:** allowed"
+        # Bare form: the repo came from the trust list itself.
+        problem = self.target and untrusted(c.path)
+        if problem:
+            return "untrusted", problem
+        answers, problem = read_answers(c)
+        if problem:
+            return "bad_answers", problem + ANSWERS_HINT
+        self.answers = answers
+        self.repo["answers"] = dict(answers)
+        if self.branch in BAD_BRANCHES or self.branch.startswith("detached"):
+            return "branch", f"{self.branch}, switch to a work branch first"
+        if "app url" in answers:
+            problem = self.browser_checks()
+            if problem:
+                return problem
+        return self.freeze_guard() or self.take_lock()
 
     def browser_checks(self):
-        """Spec 0009 AC-2: npx, brave and the pinned MCP package, else refuse no_browser."""
+        """Spec 0009 AC-2: npx, brave and the pinned MCP package, else (no_browser, detail)."""
         found = {}
         for b in ("npx", "brave", "env"):
             p = shutil.which(b)
             if not p:
-                return self.refuse("no_browser", b)
+                return "no_browser", b
             found[b] = os.path.realpath(p)
         # AC-4: the MCP runs outside every sandbox, so its npm cache must be a folder no call or app can write.
         cache = mcp_cache()
@@ -517,11 +605,11 @@ class Run:
         writable = [self.c.path, *([r.stdout.strip()] if r and r.returncode == 0 else []),
                     *(os.path.expanduser(p) for p in CACHE_DIRS)]
         if under(os.path.realpath(cache), [os.path.realpath(p) for p in writable]):
-            return self.refuse("no_browser", "state dir is writable by calls")
+            return "no_browser", "state dir is writable by calls"
         try:
             os.makedirs(cache, mode=0o700, exist_ok=True)
         except OSError as e:
-            return self.refuse("no_browser", f"{cache}: {e.strerror or e}")
+            return "no_browser", f"{cache}: {e.strerror or e}"
         try:
             # cwd: npx runs a matching package from the cwd's node_modules before the cache (P10).
             r = subprocess.run([found["npx"], "-y", MCP_PACKAGE, "--version"], env={**call_env(), "npm_config_cache": cache},
@@ -533,7 +621,7 @@ class Run:
         except OSError as e:
             problem = str(e)
         if problem:
-            return self.refuse("no_browser", f"mcp: {problem}")
+            return "no_browser", f"mcp: {problem}"
         self.browser = {"start": self.answers["app start"], "url": self.answers["app url"],
                         "npx": found["npx"], "brave": found["brave"], "cache": cache, "shots": None,
                         # AC-3 step 3: wf's own folders, hidden from the app like the credentials.
@@ -543,13 +631,13 @@ class Run:
         return None
 
     def freeze_guard(self):
-        """Spec 0007: build each call's guard once, from what is on disk at start. Exit code on refusal, else None."""
+        """Spec 0007: build each call's guard once, from what is on disk at start. (no_sandbox, detail), else None."""
         repo, home = self.c.path, os.path.expanduser("~")
         binaries = {t: os.path.realpath(shutil.which(t)) for t in ("git", "claude", "python3")}
         wf.GIT = binaries["git"]
         r = wf.git(repo, "rev-parse", "--path-format=absolute", "--git-common-dir", "--git-dir")
         if r.returncode:
-            return self.refuse("no_sandbox", "git rev-parse --git-common-dir failed: " + flat(r.stderr))
+            return "no_sandbox", "git rev-parse --git-common-dir failed: " + flat(r.stderr)
         common, git_dir = r.stdout.splitlines()
         # A linked worktree's pointers and config.worktree: a call that rewrote them used to reach your
         # next unsandboxed git (security review 2026-10-12). HEAD, index and logs stay writable for commits.
@@ -561,7 +649,7 @@ class Run:
         try:
             git_files += include_targets([os.path.join(common, "config"), os.path.join(git_dir, "config.worktree")])
         except ValueError as e:
-            return self.refuse("no_sandbox", e)
+            return "no_sandbox", e
         git_files = list(dict.fromkeys(git_files))
         settings_files = [os.path.join(repo, ".claude", "settings.json"), os.path.join(repo, ".claude", "settings.local.json"),
                           os.path.join(home, ".claude", "settings.json"), os.path.join(home, ".claude", "settings.local.json")]
@@ -584,8 +672,9 @@ class Run:
         deny = deny_paths(repo, common, tokens, git_files)
         hosts = remote_hosts(wf.git(repo, "remote", "-v").stdout)
         write = sorted({repo, common, *(os.path.expanduser(p) for p in CACHE_DIRS)})
-        self.record["guard"] = {"hosts": hosts, "write_paths": write, "deny_paths": deny, "binaries": binaries,
-                                "guarded_files": {p: file_hash(p) for p in dict.fromkeys(files)}}
+        self.common = common
+        self.repo["guard"] = {"hosts": hosts, "write_paths": write, "deny_paths": deny, "binaries": binaries,
+                              "guarded_files": {p: file_hash(p) for p in dict.fromkeys(files)}}
         hook = f"{shlex.quote(binaries['python3'])} -c {shlex.quote(AGENT_GUARD)} || exit 2"
         self.guard_settings = {
             "sandbox": {"enabled": True, "failIfUnavailable": True, "autoAllowBashIfSandboxed": True,
@@ -598,13 +687,13 @@ class Run:
         # AC-3 step 5: the jail cannot bind an absent path, so an app could plant .git/hooks/post-commit in a
         # repo that had no hooks folder and it ran at your next commit (finding 9). Only paths a write bind
         # can reach; everything else is read only in the jail.
-        guarded, binds = self.record["guard"]["guarded_files"], [os.path.realpath(b) for b in write_binds(repo)]
+        guarded, binds = self.repo["guard"]["guarded_files"], [os.path.realpath(b) for b in write_binds(repo)]
         absent = []
         for p in self.guard_settings["sandbox"]["filesystem"]["denyWrite"]:
             r = os.path.realpath(p)
             if not os.path.exists(r) and under(r, binds) and r not in guarded and p not in guarded:
                 absent.append(r)
-        self.record["guard"]["absent_denied"] = list(dict.fromkeys(absent))
+        self.repo["guard"]["absent_denied"] = list(dict.fromkeys(absent))
         self.settings = json.dumps(self.guard_settings)
         self.denied = ",".join([DENIED, GUARD_DENIED, DESIGN_DENIED,
                                 *(r for p in CREDENTIAL_PATHS for r in path_rules("Read", os.path.expanduser(p))),
@@ -719,22 +808,35 @@ class Run:
             pass
 
     def files_changed(self):
-        """AC-7: the first guarded file whose hash moved since start, as a stop detail, else None."""
-        for path, h in self.record["guard"]["guarded_files"].items():
-            now = file_hash(path)
-            # The sandbox's denyWrite used to stop the first real run here: it creates an empty
-            # placeholder for an absent denied path (.git/config.worktree). Any content still trips.
-            if h == "absent" and now == EMPTY_SHA256 and not os.path.islink(path):
-                continue
-            # A dangling symlink still hashes "absent", and the app could fill its target later (finding 13).
-            if now != h or (h == "absent" and os.path.islink(path)):
-                return f"{path} changed during the run; inspect or delete it before opening a session in this repo"
-        for path in self.record["guard"]["absent_denied"]:
-            if not os.path.lexists(path) or (not os.path.islink(path) and (
-                    (os.path.isfile(path) and os.path.getsize(path) == 0) or (os.path.isdir(path) and only_dirs(path)))):
-                continue
-            return f"{path} appeared during the run; inspect or delete it before opening a session in this repo"
+        """AC-7, spec 0011 AC-9: over every held repo not ended, the first guarded file whose hash moved since the
+        confirm, as a run stop detail, else None. A change to one repo's own files ends only that repo: another
+        repo is ended here, the repo in use by raising Stop guard_changed for it alone."""
+        hits = [(h, path, detail) for h in self.held if h["repo"].get("guard") and not h["repo"]["ended"]
+                for path, detail in moved(h["repo"]["guard"])]
+        for h, path, detail in hits:
+            if not self.own_file(h, path):
+                return detail
+        mine = None
+        for h, path, detail in hits:
+            if h["repo"] is self.repo:
+                mine = mine or detail
+            elif not h["repo"]["ended"]:
+                self.end_repo("guard_changed", detail, h)
+        if mine:
+            raise Stop("guard_changed", mine, repo=True)
         return None
+
+    def own_file(self, h, path):
+        """AC-9: a file only held repo h's calls read: its own .claude settings, or a file under a git common dir
+        no other held repo shares. Every other guarded file runs in every repo's calls."""
+        repo = h["c"].path
+        # The folder too: a repo with no .claude at start shows its new settings file as that folder appearing.
+        if path in (os.path.join(repo, ".claude", "settings.json"), os.path.join(repo, ".claude", "settings.local.json"),
+                    os.path.join(repo, ".claude")):
+            return True
+        common = os.path.realpath(h["common"])
+        return under(os.path.realpath(path), [common]) and not any(
+            os.path.realpath(o["common"]) == common for o in self.held if o is not h)
 
     # -- the queue (spec 0011) -------------------------------------------------
 
@@ -798,43 +900,56 @@ class Run:
         return out
 
     def pick(self):
-        """AC-7 for this repo: (Feature, the answered Decision to resume or None), or None. Deletes Park records
-        that no longer apply and answered Decisions gone stale."""
-        if self.repo["ended"]:
-            return None
-        try:
-            text, feats = repo_features(self.c.path, self.c.scope_dir)
-        except (OSError, StopIteration):
-            text = feats = None
-        refusal = self.guard(None if feats is None else (None, wf.header_values(text)["autopilot"]))
-        if refusal:
-            self.end_repo(*refusal)
-            return None
-        dirty_tree = dirty(self.c.path)
-        dropped = []
+        """AC-7 over the held repos: (Feature, the answered Decision to resume or None) with its repo put in use,
+        or None. Deletes Park records that no longer apply and answered Decisions gone stale."""
+        live, q = [], None
+        for h in self.held:
+            self.use(h)
+            if self.repo["ended"]:
+                continue
+            try:
+                text, feats = repo_features(self.c.path, self.c.scope_dir)
+            except (OSError, StopIteration):
+                text = feats = None
+            refusal = self.guard(None if feats is None else (None, wf.header_values(text)["autopilot"]))
+            if refusal:
+                self.end_repo(*refusal)
+                continue
+            dirty_tree = dirty(self.c.path)
+            dropped = []
 
-        def clear(q):
-            keep = [p for p in q["parks"] if p["repo"] != self.c.path or self.applies(p, feats)]
-            dropped[:] = [d for d in q["decisions"] if d["repo"] == self.c.path and self.stale(d, feats)]
-            changed = len(keep) != len(q["parks"]) or bool(dropped)
-            q["parks"] = keep
-            q["decisions"] = [d for d in q["decisions"] if d not in dropped]
-            return changed
+            def clear(q):
+                keep = [p for p in q["parks"] if p["repo"] != self.c.path or self.applies(p, feats)]
+                dropped[:] = [d for d in q["decisions"] if d["repo"] == self.c.path and self.stale(d, feats)]
+                changed = len(keep) != len(q["parks"]) or bool(dropped)
+                q["parks"] = keep
+                q["decisions"] = [d for d in q["decisions"] if d not in dropped]
+                return changed
 
-        q = self.queue(clear)
-        for d in dropped:
-            print(flat(f"stale: {d['id']} {d['feature']}"), flush=True)
-        # AC-7 (1): an answered Decision first, oldest asked first; a dirty tree does not hold it back.
-        answered = sorted((d for d in q["decisions"] if d["repo"] == self.c.path and d["answer"] is not None), key=asked_at)
+            q = self.queue(clear)
+            for d in dropped:
+                print(flat(f"stale: {d['id']} {d['feature']}"), flush=True)
+            live.append((h, feats, dirty_tree))
+        # AC-7 (1): an answered Decision first, oldest asked first, in any held repo; a dirty tree does not hold it back.
+        repos = {h["c"].path: (h, feats) for h, feats, _ in live}
+        answered = sorted((d for d in (q or {"decisions": []})["decisions"]
+                           if d["repo"] in repos and d["answer"] is not None), key=asked_at)
         if answered:
+            h, feats = repos[answered[0]["repo"]]
+            self.use(h)
             return next(f for f in feats if f.name == answered[0]["feature"]), answered[0]
-        f = next((f for f, _ in self.survey(feats, q, dirty_tree) if f), None)
-        return f and (f, None)
+        for h, feats, dirty_tree in live:
+            self.use(h)
+            f = next((f for f, _ in self.survey(feats, q, dirty_tree) if f), None)
+            if f:
+                return f, None
+        return None
 
-    def end_repo(self, reason, detail):
-        """AC-9 repo stop: no more calls in this repo this run, its lock kept."""
-        self.repo["ended"] = reason
-        print(f"stopped repo {self.c.name}: {reason}: {flat(detail)}", flush=True)
+    def end_repo(self, reason, detail, h=None):
+        """AC-9 repo stop: no more calls in that repo (the one in use, or held repo h) this run, its lock kept."""
+        repo, name = (h["repo"], h["c"].name) if h else (self.repo, self.c.name)
+        repo["ended"] = reason
+        print(f"stopped repo {name}: {reason}: {flat(detail)}", flush=True)
 
     def park(self, reason, detail):
         """AC-10: write or replace the feature's Park record, unless the reason is never recorded."""
@@ -860,36 +975,59 @@ class Run:
         self.queue(write)
 
     def plan(self):
-        """AC-6: print the plan. Returns the exit code when there is nothing to run, else None."""
-        c, a = self.c, self.args
+        """AC-6: print the plan, one block per repo in run order. Returns the exit code when there is nothing
+        to run, else None."""
+        a = self.args
         try:
-            _, feats = repo_features(c.path, c.scope_dir)
             q = queue_transact()
-        except (OSError, StopIteration) as e:
-            return self.refuse("scope_unreadable", e)
         except QueueError as e:
             return self.refuse("queue_unreadable", e)
-        decisions = self.decision_lines(q, feats)
-        items = self.survey(feats, q, dirty(c.path))
-        print(flat(f"{c.display_name()} on {self.branch}, {wf.changes(c.path)}"))
-        for _, line in decisions + items:
-            print("  " + flat(line))
-        if not decisions + items:
-            print("  nothing to run")
+        runnable, warnings = False, []
+        for h in list(self.added):
+            self.use(h)
+            c, entry = self.c, self.repo
+            head = flat(f"{c.display_name()} on {self.branch}, {wf.changes(c.path)}" if c else entry["repo"])
+            if h not in self.held:
+                print(head)
+                print("  skip: " + flat(entry["skip"]))
+                continue
+            try:
+                _, feats = repo_features(c.path, c.scope_dir)
+            except (OSError, StopIteration) as e:
+                if self.target:
+                    return self.refuse("scope_unreadable", e)
+                self.held.remove(h)
+                entry["skip"] = flat(f"scope_unreadable: {e}")
+                print(head)
+                print("  skip: " + entry["skip"])
+                continue
+            decisions = self.decision_lines(q, feats)
+            items = self.survey(feats, q, dirty(c.path))
+            print(head)
+            for _, line in decisions + items:
+                print("  " + flat(line))
+            if not decisions + items:
+                print("  nothing to run")
+            # An open Decision counts too: the run re-pings it and its end wait takes the reply (AC-14, AC-15).
+            runnable = runnable or any(f for f, _ in items) or any(ok for ok, _ in decisions)
+            sessions = wf.open_sessions(c.path)
+            pre = "" if self.target else f"{c.name}: "
+            warnings += [pre + w for w in c.warnings + ([f"{sessions} session(s) already open here"] if sessions else [])]
         print(f"caps: {a.budget:g} USD/call, {a.call_timeout:g}m/call, {a.max_calls} calls/feature, "
               f"{a.max_hours:g}h, wait {a.max_wait:g}h")
-        sessions = wf.open_sessions(c.path)
-        for w in c.warnings + ([f"{sessions} session(s) already open here"] if sessions else []):
+        for w in warnings + self.warnings:
             print(f"warning: {flat(w)}")
         sys.stdout.flush()
-        # An open Decision counts too: the run re-pings it and its end wait takes the reply (AC-14, AC-15).
-        if not any(f for f, _ in items) and not any(ok for ok, _ in decisions):
+        if self.held:
+            self.use(self.held[0])
+        if not runnable:
             print("nothing to run", flush=True)
-            return self.exit_code("queue_done")
+            refused = any(e["skip"] and e["skip"].split(":")[0] not in ("missing", "hub") for e in self.record["repos"])
+            return 5 if refused else self.exit_code("queue_done")
         return None
 
     def exit_code(self, reason):
-        """AC-19: 0 only when nothing is left waiting for you."""
+        """AC-19: 0 only when nothing is left waiting for you in any held repo."""
         if reason == "interrupted":
             return 130
         if reason != "queue_done":
@@ -898,7 +1036,8 @@ class Run:
             q = queue_transact()
         except QueueError:
             return 6
-        left = any(r["repo"] == self.c.path for r in q["parks"] + q["decisions"])
+        held = {h["c"].path for h in self.held}
+        left = any(r["repo"] in held for r in q["parks"] + q["decisions"])
         return 0 if not left and all(e["outcome"] == "feature_done" for e in self.record["features"]) else 6
 
     def confirm(self):
@@ -946,7 +1085,7 @@ class Run:
             print("warning: kde-inhibit not found, the screen may still blank", flush=True)
         self.inhibitor = subprocess.Popen(
             ["systemd-inhibit", "--what=idle:sleep:handle-lid-switch", "--who=wf",
-             f"--why=wf run {self.c.name}", *hold],
+             "--why=wf run " + ", ".join(h["c"].name for h in self.held), *hold],
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             start_new_session=True)
 
@@ -958,7 +1097,11 @@ class Run:
         changed = None
         if self.app is not None:
             self.stop_app(check=False)
-            changed = self.files_changed()
+            # The run is ending anyway, so a change to the repo's own files stops it like any other.
+            try:
+                changed = self.files_changed()
+            except Stop as s:
+                changed = s.detail
         if self.run_id:
             sweep(self.run_id)
         if self.inhibitor:
@@ -1286,17 +1429,35 @@ class Run:
                     self.update(d["id"], lambda r: r["acks"].append(mid))
         return got
 
+    def reping(self):
+        """AC-14: ping every unanswered Decision of a held repo once more, same id, body and buttons."""
+        held = {h["c"].path for h in self.held}
+        for d in [d for d in self.queue()["decisions"] if d["answer"] is None and d["repo"] in held]:
+            sent = dict(d)
+            try:
+                mid = self.topic(d).ping(sent, lambda: self.interrupted)
+            except ntfy.PingFailed as e:
+                print(f"warning: re-ping {d['id']} failed: {flat(e)}", flush=True)
+                mid = False
+            if mid is None:
+                raise Stop("interrupted", "Ctrl C or a stop signal")
+            if mid:
+                self.own.add(mid)
+                self.first_ping = self.first_ping or mid
+            self.update(d["id"], lambda r: (r.update(sent=r["sent"] or sent["sent"]), mid and r["pings"].append(mid)))
+
     def end_wait(self):
-        """AC-15: wait for a reply while this repo holds an unanswered Decision and --max-wait lasts.
+        """AC-15: wait for a reply while a held, not ended repo holds an unanswered Decision and --max-wait lasts.
         True when a reply came (pick again), False when the run is done."""
         t0 = ntfy.boottime()
         try:
             while True:
                 if self.interrupted:
                     raise Stop("interrupted", "Ctrl C or a stop signal")
+                waiting = {h["c"].path for h in self.held if not h["repo"]["ended"]}
                 left = self.args.max_wait * 3600 - self.end_waited - (ntfy.boottime() - t0)
-                if self.repo["ended"] or left <= 0 or not any(
-                        d["repo"] == self.c.path and d["answer"] is None for d in self.queue()["decisions"]):
+                if left <= 0 or not any(
+                        d["repo"] in waiting and d["answer"] is None for d in self.queue()["decisions"]):
                     return False
                 if self.poll():
                     return True
@@ -1358,7 +1519,7 @@ class Run:
             else:
                 self.loop("box", f.next, f.next.command)
         except Stop as s:
-            if s.reason in RUN_STOPS:
+            if s.reason in RUN_STOPS and not s.repo:
                 raise
             e.update(outcome=s.reason, detail=None if s.detail is None else str(s.detail))
         self.save()
@@ -1521,25 +1682,35 @@ class Run:
             signal.signal(sig, self.on_signal)
         started = now()
         self.record["started"] = started
-        os.ftruncate(self.lock_fd, 0)
-        os.pwrite(self.lock_fd, f"{os.getpid()} {started}\n".encode(), 0)
+        for h in self.held:
+            # Spec 0011 AC-5, AC-9: every lock gets the holder line, every guarded file its baseline at the confirm.
+            os.ftruncate(h["lock_fd"], 0)
+            os.pwrite(h["lock_fd"], f"{os.getpid()} {started}\n".encode(), 0)
+            g = h["repo"]["guard"]
+            g["guarded_files"] = {p: file_hash(p) for p in g["guarded_files"]}
         reason, detail = "internal_error", None
         try:
             stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-            self.run_id = f"{self.c.name}-{stamp}-{os.getpid()}"
+            self.run_id = f"{self.c.name if self.target else 'queue'}-{stamp}-{os.getpid()}"
             self.folder = os.path.join(state_dir(), "runs", self.run_id)
             os.makedirs(self.folder, mode=0o700)
-            if self.browser:
-                os.makedirs(os.path.join(self.folder, "shots"))
+            for h in self.held:
+                self.use(h)
+                if not self.browser:
+                    continue
+                shots = os.path.join(self.folder, "shots")
+                os.makedirs(shots, exist_ok=True)
                 # The hook compares paths to their realpath, so the prompt and the hook name the real one;
                 # a state dir behind a symlink would otherwise refuse every write.
-                self.browser["shots"] = os.path.realpath(os.path.join(self.folder, "shots"))
-                self.browser_settings = browser_settings(self.guard_settings, self.record["guard"]["binaries"]["python3"],
+                self.browser["shots"] = os.path.realpath(shots)
+                h["browser_settings"] = browser_settings(self.guard_settings, self.repo["guard"]["binaries"]["python3"],
                                                          self.browser["url"], self.browser["shots"])
+            self.use(self.held[0])
             self.save()
             self.start_inhibitor()
             # The boot clock, like waited_s: a suspend during a wait used to make the subtraction negative.
             self.t0 = ntfy.boottime()
+            self.reping()
             self.poll()
             while True:
                 if self.interrupted:
@@ -1967,6 +2138,30 @@ def user_exclusions():
 EMPTY_SHA256 = hashlib.sha256(b"").hexdigest()
 
 
+def moved(guard):
+    """Spec 0007 AC-7: (path, stop detail) for each guarded file of one repo's guard record that moved."""
+    for path, h in guard["guarded_files"].items():
+        now = file_hash(path)
+        # The sandbox's denyWrite used to stop the first real run here: it creates an empty
+        # placeholder for an absent denied path (.git/config.worktree). Any content still trips.
+        if h == "absent" and now == EMPTY_SHA256 and not os.path.islink(path):
+            continue
+        # A dangling symlink still hashes "absent", and the app could fill its target later (finding 13).
+        if now != h or (h == "absent" and os.path.islink(path)):
+            yield path, f"{path} changed during the run; inspect or delete it before opening a session in this repo"
+    for path in guard["absent_denied"]:
+        if not os.path.lexists(path) or (not os.path.islink(path) and (
+                (os.path.isfile(path) and os.path.getsize(path) == 0) or (os.path.isdir(path) and only_dirs(path)))):
+            continue
+        yield path, f"{path} appeared during the run; inspect or delete it before opening a session in this repo"
+
+
+def holder(fd):
+    """Spec 0004 AC-9: the lock holder line's `<pid> <start>`, else "unknown"."""
+    words = os.pread(fd, 200, 0).decode(errors="replace").split()
+    return f"{words[0]} {words[1]}" if len(words) >= 2 else "unknown"
+
+
 def file_hash(path):
     try:
         with open(path, "rb") as f:
@@ -2160,11 +2355,16 @@ def parse_result(raw):
 
 def cmd_run(args):
     try:
-        c, rc = wf.resolve(args)
-        if c is None:
-            return rc
-        r = Run(c, args)
-        rc = r.start_checks()
+        # Spec 0011 AC-1: bare `wf run` takes the trust list, never the current folder or the picker.
+        if args.target:
+            c, rc = wf.resolve(args)
+            if c is None:
+                return rc
+            r = Run(c, args)
+            rc = r.start_checks()
+        else:
+            r = Run(None, args)
+            rc = r.bare_checks()
         if rc is None:
             rc = r.plan()
         if rc is not None:

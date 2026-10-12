@@ -224,7 +224,7 @@ class TestCheck(RunCase):
     # covers: AC-3 (a guarded git config changed by the last box call stops the run before wf's git reads it)
     def test_guard_before_check(self):
         self.steps([{"write_file": [["a.tsx", "x"]]}, {"write_file": [[".git/config", "{}"]]}, {"tick": False}])
-        rec = self.assert_stopped(self.wf("ui", "-y"), "guard_changed", calls=2)
+        rec = self.assert_stopped(self.wf("ui", "-y"), "guard_changed", calls=2, repo=True)
         self.assertIsNone(rec["design"])
 
 

@@ -282,14 +282,15 @@ class RunCase(unittest.TestCase):
         self.assertEqual(len(runs), 1)
         return runs[0], json.loads((runs[0] / "run.json").read_text())
 
-    def assert_stopped(self, r, reason, code=6, calls=None):
+    def assert_stopped(self, r, reason, code=6, calls=None, repo=False):
         """Spec 0011 AC-9: a park ends its feature and the queue goes on, a repo stop ends the repo, a run stop the
-        run. Returns run.json with `detail` set to the last feature's detail for a park or a repo stop."""
+        run; repo=True for a guard_changed on the repo's own files. Returns run.json with `detail` set to the last
+        feature's detail for a park or a repo stop."""
         self.assertEqual(r.returncode, code, r.stdout + r.stderr)
         folder, rec = self.run_record()
         self.assertIsNotNone(rec["ended"])
         last = rec["features"][-1] if rec["features"] else None
-        if reason in run.RUN_STOPS:
+        if reason in run.RUN_STOPS and not repo:
             self.assertIn(f"stopped: {reason}", r.stdout)
             self.assertEqual(rec["stop_reason"], reason)
         else:
@@ -333,7 +334,10 @@ class TestHappyPath(RunCase):
         self.assertEqual(rec["calls"][0]["session_id"], "s-1")
         self.assertEqual(rec["calls"][0]["exit_code"], 0)
         self.assertEqual(rec["calls"][0]["next_after"], "/test loop")
-        self.assertEqual(rec["repos"], [{"repo": str(self.repo), "name": "demo", "branch": "work", "skip": None, "ended": None}])
+        self.assertEqual(rec["repos"][0].pop("guard")["binaries"]["claude"], str(self.bin / "claude"))
+        self.assertEqual(rec["repos"], [{"repo": str(self.repo), "name": "demo", "branch": "work", "skip": None, "ended": None,
+                                         "answers": {}}])
+        self.assertNotIn("answers", rec)
         self.assertNotIn("parked", rec)
         self.assertEqual(rec["caps"], {"budget_usd": 20, "call_timeout_min": 60, "max_calls": 20, "max_hours": 8,
                                        "max_wait_h": 12})
@@ -507,12 +511,14 @@ class TestStart(RunCase):
         self.refused(r, "autopilot_off")
         self.assertIn("warning: unknown Autopilot value 'on', using off", r.stdout)
 
-    # covers: AC-2 check 8, AC-14, spec 0007 AC-8 (a missing claude is now a no_sandbox refusal)
+    # covers: spec 0011 AC-4 (a missing claude is a global check, exit 1, before ntfy and every repo check)
     def test_claude_missing(self):
         (self.bin / "claude").unlink()
+        self.ntfy_config.unlink()
         r = self.wf("demo", "-y")
-        self.refused(r, "no_sandbox")
-        self.assertIn("refused: no_sandbox: not found on PATH: claude", r.stdout)
+        self.refused(r, None, 1)
+        self.assertEqual(r.stderr, "claude not found on PATH\n")
+        self.assertEqual(self.wf("-y").returncode, 1)
 
     # covers: spec 0005 AC-2, AC-13 (no_ntfy refuses before the lock, no call, no run folder; few codes warn)
     def test_no_ntfy(self):
@@ -1183,11 +1189,11 @@ class TestGuard(RunCase):
         # AC-1) those lookups and ls-files again for the design check, and status for the pick after the park.
         self.assertEqual((self.fakes / "git-log").read_text().splitlines(), [str(self.fakes / "git-wrap")] * 12)
         _, rec = self.run_record()
-        self.assertEqual(rec["guard"]["binaries"], {"git": str(self.fakes / "git-wrap"),
+        self.assertEqual(rec["repos"][0]["guard"]["binaries"], {"git": str(self.fakes / "git-wrap"),
                                                     "claude": str(self.fakes / "claude-a"),
                                                     "python3": os.path.realpath(sys.executable)})
 
-    # covers: spec 0007 AC-7 (a guarded file changed in a call stops the run before the next call)
+    # covers: spec 0007 AC-7, spec 0011 AC-9 (a change to the repo's own guarded file in a call ends that repo before its next call)
     def test_guard_changed(self):
         (self.repo / ".git" / "hooks").mkdir()
         (self.repo / ".git" / "hooks" / "pre-commit").write_text("#!/bin/sh\n")
@@ -1196,7 +1202,7 @@ class TestGuard(RunCase):
                 self.fresh()
                 self.steps([{"write_file": [[path, "{}"]]}, {}])
                 r = self.wf("demo", "-y")
-                rec = self.assert_stopped(r, "guard_changed", calls=1)
+                rec = self.assert_stopped(r, "guard_changed", calls=1, repo=True)
                 self.assertEqual(rec["detail"], f"{self.repo}/{path} changed during the run; "
                                                 "inspect or delete it before opening a session in this repo")
 
@@ -1208,13 +1214,13 @@ class TestGuard(RunCase):
         r = self.wf("demo", "-y")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         _, rec = self.run_record()
-        self.assertEqual(rec["guard"]["guarded_files"][str(path)], "absent")
+        self.assertEqual(rec["repos"][0]["guard"]["guarded_files"][str(path)], "absent")
         self.assertEqual(len(rec["calls"]), 3)
         path.unlink()
         self.fresh()
         self.steps([{"write_file": [[".git/config.worktree", "[core]\n"]]}, {}])
         r = self.wf("demo", "-y")
-        rec = self.assert_stopped(r, "guard_changed", calls=1)
+        rec = self.assert_stopped(r, "guard_changed", calls=1, repo=True)
         self.assertTrue(rec["detail"].startswith(f"{path} changed"))
 
     # covers: spec 0007 AC-7 (the same check runs before a resume)
@@ -1225,7 +1231,7 @@ class TestGuard(RunCase):
         self.ntfy.replies = ["{id} 1"]
         self.steps([ask(write_file=[[".claude/settings.local.json", "{}"]]), {}])
         r = self.wf("demo", "-y", mode="fast")
-        rec = self.assert_stopped(r, "guard_changed", calls=1)
+        rec = self.assert_stopped(r, "guard_changed", calls=1, repo=True)
         self.assertTrue(rec["detail"].startswith(f"{self.repo}/.claude/settings.local.json changed"))
         self.assertEqual(rec["decisions"][0]["answer"], "Postgres (recommended)")
 
@@ -1270,7 +1276,7 @@ class TestGuard(RunCase):
         (self.repo / ".git" / "hooks" / "pre-push").write_text("#!/bin/sh\n")
         self.wf("demo", "-y", "--max-calls", "1")
         _, rec = self.run_record()
-        g = rec["guard"]
+        g = rec["repos"][0]["guard"]
         self.assertEqual(list(g), ["hosts", "write_paths", "deny_paths", "binaries", "guarded_files", "absent_denied"])
         # Spec 0009 AC-3 step 5: the repo has no .claude; config.worktree is a guarded file, so left out.
         self.assertEqual(g["absent_denied"], [f"{self.repo}/.claude"])
@@ -1309,7 +1315,7 @@ class TestGuard(RunCase):
         rec = self.assert_stopped(r, "guard_changed", calls=1)
         self.assertEqual(rec["detail"], f"{wt}/.git changed during the run; "
                                         "inspect or delete it before opening a session in this repo")
-        g = rec["guard"]
+        g = rec["repos"][0]["guard"]
         self.assertEqual(list(g["guarded_files"])[4:9], [f"{self.repo}/.git/config", *guarded])
         self.assertEqual(g["guarded_files"][str(gd / "config.worktree")], "absent")
         for p in guarded:
@@ -1347,7 +1353,7 @@ class TestGuard(RunCase):
         r = self.wf("demo", "-y")
         rec = self.assert_stopped(r, "guard_changed", calls=1)
         self.assertTrue(rec["detail"].startswith(f"{h}/inc/c.conf changed"))
-        g = rec["guard"]
+        g = rec["repos"][0]["guard"]
         self.assertEqual(g["guarded_files"][f"{self.repo}/.git/rel/missing.conf"], "absent")
         for p in (f"{h}/inc/a.conf", f"{h}/inc/c.conf", f"{h}/link.conf", f"{h}/real.conf"):
             self.assertIn(p, g["deny_paths"])
@@ -1465,7 +1471,7 @@ class TestStandingAnswers(RunCase):
 
         with mock.patch.object(run.subprocess, "Popen", spawn):
             rec = r.call(1, "/test a", last_box=True)[0]
-        self.assertEqual((r.answers, r.record["answers"], rec["last_box"]), ({}, {}, True))
+        self.assertEqual((r.answers, r.repo.get("answers", {}), rec["last_box"]), ({}, {}, True))
         self.assertEqual(seen[0][seen[0].index("--append-system-prompt") + 1], run.UNATTENDED_PROMPT)
 
     # covers: spec 0006 AC-4 (a call that breaks the section mid run changes nothing for the later calls)
@@ -1475,7 +1481,7 @@ class TestStandingAnswers(RunCase):
         r = self.wf("demo", "-y")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual([self.prompt(n) for n in (1, 2, 3)], [SUITE] * 3)
-        self.assertEqual(self.run_record()[1]["answers"], {"run suite": "yes"})
+        self.assertEqual(self.run_record()[1]["repos"][0]["answers"], {"run suite": "yes"})
 
     # covers: spec 0006 AC-5, AC-6, AC-7 (sentences in order, done only on the last box, run.json and confirm line)
     def test_prompt_and_record(self):
@@ -1489,7 +1495,7 @@ class TestStandingAnswers(RunCase):
             "When /test or /check verify offers to mark the feature done after its last open box passed: "
             "Yes, mark it done."))
         _, rec = self.run_record()
-        self.assertEqual(rec["answers"], {"run suite": "yes", "done": "yes"})
+        self.assertEqual(rec["repos"][0]["answers"], {"run suite": "yes", "done": "yes"})
         self.assertEqual([c["last_box"] for c in rec["calls"]], [False, True, False])
 
     # covers: spec 0006 AC-5 (no section and all ask give UNATTENDED_PROMPT exactly)
