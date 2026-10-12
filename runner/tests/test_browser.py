@@ -333,6 +333,48 @@ class TestRealPathBinds(unittest.TestCase):
     def test_file_hash_directory(self):
         with tempfile.TemporaryDirectory() as d:
             self.assertEqual(run.file_hash(d), "directory")
+            Path(d, "loop").symlink_to(Path(d, "loop"))
+            self.assertEqual(run.file_hash(str(Path(d, "loop"))), "unreadable")
+
+    # covers: AC-3 step 5, findings 10 and 13 (a tree of folders passes, any file or symlink in it trips;
+    # an absent guarded file that is now a symlink trips, dangling or not)
+    def test_findings_10_13(self):
+        def changed(build, guarded=False):
+            with tempfile.TemporaryDirectory() as d:
+                p = Path(d, "x")
+                build(Path(d), p)
+                g = {"guarded_files": {str(p): "absent"}, "absent_denied": []} if guarded else \
+                    {"guarded_files": {}, "absent_denied": [str(p)]}
+                return run.Run.files_changed(SimpleNamespace(record={"guard": g}))
+
+        def tree(extra=None):
+            def build(d, p):
+                (p / ".cc-writes" / "a").mkdir(parents=True)
+                (d / "out").mkdir()
+                (d / "out" / "f").write_text("")
+                if extra:
+                    extra(d, p / ".cc-writes" / "a")
+            return build
+
+        self.assertIsNone(changed(tree()))
+        self.assertIsNone(changed(lambda d, p: p.write_text("")))
+        self.assertIsNone(changed(lambda d, p: p.write_text(""), guarded=True))
+        for name, extra in (("file deep", lambda d, a: (a / "post-commit").write_text("")),
+                            ("link to file", lambda d, a: (a / "l").symlink_to(d / "out" / "f")),
+                            ("link to folder", lambda d, a: (a / "l").symlink_to(d / "out"))):
+            with self.subTest(name):
+                self.assertIn("appeared during the run", changed(tree(extra)))
+        with self.subTest("unreadable folder"):
+            self.assertIn("appeared during the run", changed(tree(lambda d, a: a.chmod(0))))
+        with self.subTest("link to empty folder"):
+            self.assertIn("appeared during the run", changed(lambda d, p: (d / "e").mkdir() or p.symlink_to(d / "e")))
+        with self.subTest("non empty file"):
+            self.assertIn("appeared during the run", changed(lambda d, p: p.write_text("x")))
+        for name, build in (("dangling", lambda d, p: p.symlink_to(d / "nowhere")),
+                            ("loop", lambda d, p: p.symlink_to(p)),
+                            ("link to empty file", lambda d, p: (d / "e").write_text("") or p.symlink_to(d / "e"))):
+            with self.subTest(name):
+                self.assertIn("changed during the run", changed(build, guarded=True))
 
 
 # The fake PATH holds only the fakes.

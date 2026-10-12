@@ -545,11 +545,12 @@ class Run:
             # placeholder for an absent denied path (.git/config.worktree). Any content still trips.
             if h == "absent" and now == EMPTY_SHA256 and not os.path.islink(path):
                 continue
-            if now != h:
+            # A dangling symlink still hashes "absent", and the app could fill its target later (finding 13).
+            if now != h or (h == "absent" and os.path.islink(path)):
                 return f"{path} changed during the run; inspect or delete it before opening a session in this repo"
         for path in self.record["guard"]["absent_denied"]:
             if not os.path.lexists(path) or (not os.path.islink(path) and (
-                    (os.path.isfile(path) and os.path.getsize(path) == 0) or (os.path.isdir(path) and not os.listdir(path)))):
+                    (os.path.isfile(path) and os.path.getsize(path) == 0) or (os.path.isdir(path) and only_dirs(path)))):
                 continue
             return f"{path} appeared during the run; inspect or delete it before opening a session in this repo"
         return None
@@ -1379,6 +1380,20 @@ def file_hash(path):
     except IsADirectoryError:
         # An app could turn a guarded file into a folder, and this used to crash the check.
         return "directory"
+    except OSError:
+        # A symlink loop or an unreadable file used to crash the check instead of stopping the run.
+        return "unreadable"
+
+
+def only_dirs(path):
+    # Claude Code makes an empty <repo>/.claude/.cc-writes/ on its own, and a bare emptiness check
+    # stopped every first call in a repo with no .claude (finding 10). A tree of folders runs nothing.
+    errors = []
+    for root, dirs, files in os.walk(path, onerror=errors.append):
+        if files or any(os.path.islink(os.path.join(root, d)) for d in dirs):
+            return False
+    # An unreadable folder could hide a file, so it is not a placeholder.
+    return not errors
 
 
 def url_host(url):
