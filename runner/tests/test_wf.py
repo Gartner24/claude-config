@@ -555,7 +555,7 @@ class TestNext(CliCase):
         self.assertEqual(r.returncode, 4)
         self.assertIn(f"cd {repo} && claude '/develop return 401 for a rejected token'", r.stdout)
 
-    # covers: AC-8 (branch, change count and detached state on the confirm line)
+    # covers: AC-8 (branch, change count 0/1/2 and detached state on the confirm line)
     def test_confirm_line_shows_git_state(self):
         repo = self.repo("team", "team.md")
         env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
@@ -564,9 +564,10 @@ class TestNext(CliCase):
                                         text=True, env=env).stdout.strip()
         git("init", "-q", "-b", "trunk")
         r = self.wf("next", "team")
-        self.assertIn("team | no commits | 1 changes | 1. Return 401 for a rejected token |", r.stdout)
+        self.assertIn("team | no commits | 1 change | 1. Return 401 for a rejected token |", r.stdout)
         git("add", ".")
         git("commit", "-qm", "init")
+        self.assertIn("team | trunk | 0 changes |", self.wf("next", "team").stdout)
         (repo / "a.txt").write_text("a")
         (repo / "b.txt").write_text("b")
         self.assertIn("team | trunk | 2 changes |", self.wf("next", "team").stdout)

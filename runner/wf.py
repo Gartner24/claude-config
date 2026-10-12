@@ -234,7 +234,8 @@ def changes(path):
     r = git(path, "status", "--porcelain")
     if r is None or r.returncode:
         return "-"
-    return f"{len(r.stdout.splitlines())} changes"
+    n = len(r.stdout.splitlines())
+    return "1 change" if n == 1 else f"{n} changes"
 
 
 def worktrees(main):

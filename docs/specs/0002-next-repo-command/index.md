@@ -127,7 +127,7 @@ Skateboard: the first milestone is already usable on its own (`next <exact name>
 5. No argument and several matches via fzf, linked worktrees, `--list`, then the manual real claude check, satisfies **AC-2**, **AC-4**, **AC-12**, **AC-15**
 6. (Feature 17, built) Replace `worktrees()` and `worktree_label()` with file reads of `gitdir`, `commondir` and `HEAD`, so `discover()` runs no git. One helper resolves a `.git` file to its gitdir folder (joined to the worktree) and is shared by the label and `head_branch()`; the `<id>/gitdir` path is joined to `<id>` instead, a different base. Add the "worktree without git" test, satisfies **AC-2**
 7. (Feature 18, built) In `pick()`, tell a cancel (fzf 130 or 1) from a failure (any other code, or 0 with no line) and return exit 1 with the message for a failure; `wf run` gets it through the shared `resolve()`. Move the inline hash regex in the worktree label (`re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", head)`) to one module level pattern, and use it in `head_branch()` too: `detached` only for a commit hash, `-` for an empty branch name and for anything else. Add the picker failure and empty `HEAD` tests, and mutation check each new guard on its own (the 130 or 1 cancel, the empty output failure, the hash test), satisfies **AC-4**, **AC-12**
-8. (Feature 19) In `changes()`, return `1 change` when the count is 1 and `N changes` otherwise. Add the change count test (0, 1 and 2 files) and mutation check the singular branch, satisfies **AC-8**
+8. (Feature 19, built) In `changes()`, return `1 change` when the count is 1 and `N changes` otherwise. Add the change count test (0, 1 and 2 files) and mutation check the singular branch, satisfies **AC-8**
 
 ## Consequences
 

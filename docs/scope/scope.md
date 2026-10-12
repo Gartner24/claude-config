@@ -24,7 +24,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 3 | `next <repo>` | Release 1 | done |
 | 17 | Worktree discovery without git | Release 1 | done |
 | 18 | fzf failure is not a cancel | Release 1 | done |
-| 19 | Singular change count | Release 1 | planned |
+| 19 | Singular change count | Release 1 | in-progress |
 | 4 | Headless step loop | Release 2 | done |
 | 5 | Decision parking and phone pings | Release 2 | planned |
 | 6 | Standing answers | Release 2 | planned |
@@ -112,12 +112,12 @@ When fzf cannot open a terminal it prints `inappropriate ioctl for device` and `
 - [x] Test it: `/test fzf failure is not a cancel`
 Spec [0002](../specs/0002-next-repo-command/index.md) (amended AC-4, AC-12) · code in `runner/wf.py`, `runner/tests/test_wf.py`, `runner/tests/test_run.py`
 
-### 19. Singular change count
+### 19. Singular change count · in-progress
 The confirm line reads `1 changes` for one change. It should read `1 change`; spec 0002 AC-8 writes `N changes`, so its wording gets the singular too.
 **Done when:** one uncommitted file shows `1 change`, others still show `N changes`, with a test for each.
 - [x] Design it (spec): `/architect singular change count`
-- [ ] Build it: `/develop singular change count`
-   - [ ] `changes()` returns `1 change` for one, `N changes` otherwise, test for 0, 1 and 2 (AC-8, build step 8)
+- [x] Build it: `/develop singular change count`
+   - [x] `changes()` returns `1 change` for one, `N changes` otherwise, test for 0, 1 and 2 (AC-8, build step 8)
 - [ ] Verify it: `/check verify singular change count`
 - [ ] Test it: `/test singular change count`
 Spec [0002](../specs/0002-next-repo-command/index.md) (amended AC-8) · code in `runner/wf.py`, `runner/tests/test_wf.py`
