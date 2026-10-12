@@ -124,7 +124,7 @@ FORGE_HOSTS = ["*.bitbucket.org", "*.github.com", "*.githubusercontent.com", "*.
 
 def guard_deny(t, r, bin):
     """The spec 0007 AC-5 deny list for the demo repo in a fake home with no ~/.claude."""
-    return sorted([f"{t}/.claude.json", f"{r}/.claude", f"{r}/.git", str(bin),
+    return sorted([f"{t}/.claude.json", f"{r}/.claude", f"{r}/.git", f"{r}/.git/config.worktree", str(bin),
                    *(f"{t}/{p}" for p in (".gitconfig", ".config/git", ".config/gh", ".bashrc", ".bash_profile",
                                           ".profile", ".zshrc", ".zshenv", ".zprofile", ".local/share/claude"))])
 
@@ -275,7 +275,7 @@ class TestHappyPath(RunCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         lines = r.stdout.splitlines()
         self.assertEqual(lines[0], "demo | work | 1 change | 1. Loop | /develop loop | "
-                                   "caps: 20 USD/call, 60m/call, 20 calls, 8h | guard: 9 hosts, 5 files")
+                                   "caps: 20 USD/call, 60m/call, 20 calls, 8h | guard: 9 hosts, 6 files")
         self.assertIn("[1/20] /develop loop -> success, 0.50 USD, 0.0m, next: /test loop", r.stdout)
         self.assertIn("[2/20] /test loop -> success, 0.50 USD, 0.0m, next: /sync", r.stdout)
         self.assertIn("[3/20] /sync -> success, 0.50 USD, 0.0m, next: -", r.stdout)
@@ -1067,8 +1067,8 @@ class TestGuard(RunCase):
         self.wf("demo", "-y", "--max-calls", "2")
         self.assertEqual([self.argv(n)["exe"] for n in (1, 2)], [str(self.fakes / "claude-a")] * 2)
         self.assertFalse((self.fakes / "b-ran").exists())
-        # rev-parse, remote -v, and status for the confirm line.
-        self.assertEqual((self.fakes / "git-log").read_text().splitlines(), [str(self.fakes / "git-wrap")] * 3)
+        # rev-parse, the include read of .git/config, remote -v, and status for the confirm line.
+        self.assertEqual((self.fakes / "git-log").read_text().splitlines(), [str(self.fakes / "git-wrap")] * 4)
         _, rec = self.run_record()
         self.assertEqual(rec["guard"]["binaries"], {"git": str(self.fakes / "git-wrap"),
                                                     "claude": str(self.fakes / "claude-a"),
@@ -1137,7 +1137,7 @@ class TestGuard(RunCase):
         (self.repo / ".git" / "hooks").mkdir()
         (self.repo / ".git" / "hooks" / "pre-push").write_text("#!/bin/sh\n")
         r = self.wf("demo", "-y", "--max-calls", "1")
-        self.assertIn(" | guard: 10 hosts, 6 files", r.stdout.splitlines()[0])
+        self.assertIn(" | guard: 10 hosts, 7 files", r.stdout.splitlines()[0])
         _, rec = self.run_record()
         g = rec["guard"]
         self.assertEqual(list(g), ["hosts", "write_paths", "deny_paths", "binaries", "guarded_files"])
@@ -1149,10 +1149,82 @@ class TestGuard(RunCase):
             f"{self.repo}/.claude/settings.json": "absent", f"{self.repo}/.claude/settings.local.json": "absent",
             f"{self.tmp}/.claude/settings.json": "absent", f"{self.tmp}/.claude/settings.local.json": "absent",
             f"{self.repo}/.git/config": hashlib.sha256(config).hexdigest(),
+            f"{self.repo}/.git/config.worktree": "absent",
             f"{self.repo}/.git/hooks/pre-push": hashlib.sha256(b"#!/bin/sh\n").hexdigest()})
+        # AC-7 order decides which path a guard_changed stop names.
+        self.assertEqual(list(g["guarded_files"])[4:], [f"{self.repo}/.git/config", f"{self.repo}/.git/config.worktree",
+                                                        f"{self.repo}/.git/hooks/pre-push"])
         self.assertIn('"deniedDomains": ' + json.dumps(g["hosts"]), self.argv(1)["argv"][15])
         for p in (".gitconfig", ".claude", ".claude.json", ".config/git"):
             self.assertFalse((self.tmp / p).exists(), p)
+
+    def git(self, *args, cwd=None):
+        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid", *args], check=True,
+                       cwd=cwd or self.repo, capture_output=True, env={"HOME": str(self.tmp), "PATH": os.environ["PATH"]})
+
+    # covers: spec 0007 AC-5, AC-7 amendment (a linked worktree's pointers and config.worktree, not HEAD or index)
+    def test_worktree(self):
+        self.git("add", "-A")
+        self.git("commit", "-qm", "scope")
+        self.git("worktree", "add", "-q", "-b", "wtb", str(self.tmp / "root" / "wt"))
+        wt, gd = self.tmp / "root" / "wt", self.repo / ".git" / "worktrees" / "wt"
+        guarded = [str(wt / ".git"), str(gd / "commondir"), str(gd / "gitdir"), str(gd / "config.worktree")]
+        # Still a valid pointer: a broken one is caught earlier as branch_changed.
+        self.steps([{"write_file": [[".git", f"gitdir: {gd}\n\n"]]}, {}])
+        r = self.wf("wt", "-y")
+        rec = self.assert_stopped(r, "guard_changed", calls=1)
+        self.assertEqual(rec["detail"], f"{wt}/.git changed during the run; "
+                                        "inspect or delete it before opening a session in this repo")
+        g = rec["guard"]
+        self.assertEqual(list(g["guarded_files"])[4:9], [f"{self.repo}/.git/config", *guarded])
+        self.assertEqual(g["guarded_files"][str(gd / "config.worktree")], "absent")
+        for p in guarded:
+            self.assertIn(p, g["deny_paths"])
+        for p in ("HEAD", "index", "logs/HEAD", "COMMIT_EDITMSG"):
+            self.assertFalse(any(x.startswith(str(gd / p)) for x in [*g["guarded_files"], *g["deny_paths"]]), p)
+        settings = json.loads(self.argv(1)["argv"][15])["sandbox"]["filesystem"]
+        self.assertTrue(set(guarded) <= set(settings["denyWrite"]))
+        self.assertNotIn(str(self.repo / ".git"), settings["denyWrite"])
+
+    # covers: spec 0007 AC-7 amendment (include, includeIf, nested, ~, %(prefix), links, folders, order)
+    def test_include_targets(self):
+        h = self.tmp
+        (h / "inc").mkdir()
+        (h / "inc" / "a.conf").write_text("[include]\n\tpath = c.conf\n")
+        (h / "inc" / "c.conf").write_text("[include]\n\tpath = ../root/demo/.git/config\n")
+        (h / "real.conf").write_text("")
+        (h / "link.conf").symlink_to(h / "real.conf")
+        (h / "adir").mkdir()
+        config = self.repo / ".git" / "config"
+        base = config.read_text() + (f'[include]\n\tpath = {h}/inc/a.conf\n[includeIf "gitdir:/no where/"]\n'
+                                     f'\tpath = ~/link.conf\n[include]\n\tpath = %(prefix)/etc/x\n'
+                                     f'[include]\n\tpath = rel/missing.conf\n')
+        config.write_text(base + f"[include]\n\tpath = {h}/adir\n")
+        with mock.patch.dict(os.environ, {"HOME": str(h)}):
+            got = run.include_targets([str(config), f"{self.repo}/.git/config.worktree"])
+        # c.conf includes the config back: read once, no loop.
+        self.assertEqual(got, [f"{h}/inc/a.conf", f"{h}/inc/c.conf", str(config), f"{h}/link.conf", f"{h}/real.conf",
+                               f"{self.repo}/.git/rel/missing.conf", f"{h}/adir"])
+        # A circular include or a folder target fails git in the repo itself (wf then refuses at rev-parse),
+        # so the run below goes without both.
+        (h / "inc" / "c.conf").write_text("")
+        config.write_text(base)
+        self.steps([{"write_file": [[f"{h}/inc/c.conf", "[core]\n\thooksPath = /tmp\n"]]}, {}])
+        r = self.wf("demo", "-y")
+        rec = self.assert_stopped(r, "guard_changed", calls=1)
+        self.assertTrue(rec["detail"].startswith(f"{h}/inc/c.conf changed"))
+        g = rec["guard"]
+        self.assertEqual(g["guarded_files"][f"{self.repo}/.git/rel/missing.conf"], "absent")
+        for p in (f"{h}/inc/a.conf", f"{h}/inc/c.conf", f"{h}/link.conf", f"{h}/real.conf"):
+            self.assertIn(p, g["deny_paths"])
+        # Absent at start: both Edit forms.
+        self.assertIn(f"Edit(/{self.repo}/.git/rel/missing.conf/**)", self.argv(1)["argv"][11])
+        # A config git cannot read leaves the targets unknown: refuse, never run unguarded.
+        self.fresh()
+        (self.repo / ".git" / "config.worktree").write_text("[broken\n")
+        r = self.wf("demo", "-y")
+        self.assertEqual(r.returncode, 5, r.stdout + r.stderr)
+        self.assertIn(f"refused: no_sandbox: git cannot read {self.repo}/.git/config.worktree: ", r.stdout)
 
     # covers: spec 0007 AC-5b (the hook from a real call's argv: malformed, empty, remote, local, no interpreter)
     def test_agent_guard(self):

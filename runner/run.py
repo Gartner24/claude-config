@@ -195,10 +195,22 @@ class Run:
         repo, home = self.c.path, os.path.expanduser("~")
         binaries = {t: os.path.realpath(shutil.which(t)) for t in ("git", "claude", "python3")}
         wf.GIT = binaries["git"]
-        r = wf.git(repo, "rev-parse", "--path-format=absolute", "--git-common-dir")
+        r = wf.git(repo, "rev-parse", "--path-format=absolute", "--git-common-dir", "--git-dir")
         if r.returncode:
             return self.refuse("no_sandbox", "git rev-parse --git-common-dir failed: " + flat(r.stderr))
-        common = r.stdout.strip()
+        common, git_dir = r.stdout.splitlines()
+        # A linked worktree's pointers and config.worktree: a call that rewrote them used to reach your
+        # next unsandboxed git (security review 2026-10-12). HEAD, index and logs stay writable for commits.
+        git_files = []
+        if git_dir != common:
+            pointer = os.path.join(repo, ".git")
+            git_files += [pointer, os.path.realpath(pointer), os.path.join(git_dir, "commondir"), os.path.join(git_dir, "gitdir")]
+        git_files.append(os.path.join(git_dir, "config.worktree"))
+        try:
+            git_files += include_targets([os.path.join(common, "config"), os.path.join(git_dir, "config.worktree")])
+        except ValueError as e:
+            return self.refuse("no_sandbox", e)
+        git_files = list(dict.fromkeys(git_files))
         settings_files = [os.path.join(repo, ".claude", "settings.json"), os.path.join(repo, ".claude", "settings.local.json"),
                           os.path.join(home, ".claude", "settings.json"), os.path.join(home, ".claude", "settings.local.json")]
         settings = []
@@ -215,8 +227,9 @@ class Run:
             hooks = []
         files = [*settings_files,
                  *sorted(glob.glob(os.path.join(home, ".claude", "plugins", "cache", "**", "hooks.json"), recursive=True)),
-                 os.path.join(common, "config"), *(p for p in hooks if os.path.isfile(p)), *tokens]
-        deny = deny_paths(repo, common, tokens)
+                 os.path.join(common, "config"), *(p for p in git_files if not os.path.isdir(p)),
+                 *(p for p in hooks if os.path.isfile(p)), *tokens]
+        deny = deny_paths(repo, common, tokens, git_files)
         hosts = remote_hosts(wf.git(repo, "remote", "-v").stdout)
         write = sorted({repo, common, *(os.path.expanduser(p) for p in CACHE_DIRS)})
         self.record["guard"] = {"hosts": hosts, "write_paths": write, "deny_paths": deny, "binaries": binaries,
@@ -645,12 +658,44 @@ def hook_tokens(settings, repo):
     return out
 
 
+def include_targets(configs):
+    """AC-7 amendment: every include and includeIf target of these git configs and of the targets in turn,
+    whatever the condition, depth first in file order, link path then real path."""
+    out, seen = [], set()
+
+    def walk(f):
+        if f in seen or not os.path.isfile(f):
+            return
+        seen.add(f)
+        # -z: a key and its value split on a newline, so an includeIf condition with a space parses.
+        # -C /, not the repo: git loads the repo's own config, includes and all, before any command, and a
+        # circular include there failed every read. --file alone does not follow includes; the walk does.
+        r = wf.git("/", "config", "--file", f, "-z", "--get-regexp", r"^include(if\..*)?\.path$")
+        # 1 is "no match"; anything else means the targets are unknown, so fail closed.
+        if r.returncode not in (0, 1):
+            raise ValueError(f"git cannot read {f}: {flat(r.stderr)}")
+        for entry in r.stdout.split("\0"):
+            value = entry.partition("\n")[2]
+            if not value or value.startswith("%(prefix)/"):
+                continue
+            p = os.path.join(os.path.dirname(f), os.path.expanduser(value))
+            for q in (os.path.abspath(p), os.path.realpath(p)):
+                if q not in out:
+                    out.append(q)
+            walk(os.path.realpath(p))
+
+    for c in configs:
+        walk(c)
+    return out
+
+
 def under(path, dirs):
     return any(path == d or path.startswith(d.rstrip("/") + "/") for d in dirs)
 
 
-def deny_paths(repo, common, tokens):
-    """AC-5: what no call may write or edit, sorted."""
+def deny_paths(repo, common, tokens, git_files=()):
+    """AC-5: what no call may write or edit, sorted. git_files stay listed even under the common dir:
+    the write denies drop only the common dir itself."""
     home = os.path.expanduser("~")
     claude = os.path.join(home, ".claude")
     try:
@@ -661,6 +706,7 @@ def deny_paths(repo, common, tokens):
     deny = [*entries, claude + ".json", os.path.join(repo, ".claude"), common,
             *(os.path.expanduser(p) for p in DOTFILES), os.path.join(home, ".local", "share", "claude")]
     deny += [os.path.abspath(d) for d in os.environ.get("PATH", "").split(os.pathsep) if d and os.access(d, os.W_OK)]
+    deny += git_files
     for t in tokens:
         if not under(t, deny):
             deny.append(os.path.dirname(t))
