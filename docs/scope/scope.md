@@ -27,8 +27,8 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 19 | Singular change count | Release 1 | done |
 | 4 | Headless step loop | Release 2 | done |
 | 5 | Decision parking and phone pings | Release 2 | done |
-| 6 | Standing answers | Release 2 | in-progress |
-| 22 | Waiting boxes owed to you | Release 2 | planned |
+| 6 | Standing answers | Release 2 | done |
+| 22 | Waiting boxes owed to you | Release 2 | in-progress |
 | 20 | Push guard outside the model | Release 2 | done |
 | 8 | Failure and park policy | Release 2 | in-progress |
 | 7 | Headless verify and test | Release 2 | in-progress |
@@ -157,7 +157,7 @@ The unattended prompt fixes the safe panel answers and asks real decisions as `D
 - [x] Test it: `/test decision parking and phone pings`
 Spec [0005](../specs/0005-decision-parking-phone-pings/index.md) · code in `runner/ntfy.py`, `runner/run.py`, `runner/wf.py`, `runner/tests/`
 
-### 6. Standing answers · in-progress
+### 6. Standing answers · done
 Answers you always give the same way (`/test` runs the suite, who marks done) live once in each repo's `AGENTS.md` (`.workflow/AGENTS.md` in team repos), and `wf run` adds them to the unattended prompt instead of pinging you. Tier stays on the scope header, accepting a spec stays with you. The cross check key was dropped on 2026-10-12 (spec 0006 amended).
 **Done when:** a headless `wf run` gets through `/test`'s run suite question and the done decision without a single question.
 - [x] Design it (spec): `/architect standing answers`
@@ -167,13 +167,22 @@ Answers you always give the same way (`/test` runs the suite, who marks done) li
    - [x] Confirm line, `run.json` `answers` and `last_box` (AC-7)
    - [x] Manual checks on the real claude (AC-9): verify.md UI steps 1 and 2, both passed 2026-10-12 through a real `wf run` on scratch repos
 - [x] Verify it: `/check verify standing answers`
-- [ ] Test it: `/test standing answers`
+- [x] Test it: `/test standing answers`
 Spec [0006](../specs/0006-standing-answers/index.md) · code in `runner/run.py`, `runner/tests/test_run.py`
 
-### 22. Waiting boxes owed to you · needs a decision
+### 22. Waiting boxes owed to you · in-progress
 A box only you can close (a manual check on the real claude or your phone, like spec 0006 AC-9) gets a marker in the scope contract (spec 0003), and `next` and `wf run` treat it as waiting: refused with a reason, never built. The last `wf run` looped `/develop` on feature 6 because its open AC-9 milestone was owed to you.
 **Done when:** `wf run` on a feature whose next box carries the marker refuses with a waiting reason and makes no call, `next` says the box waits on you, and `/scope` and `/architect` know how to write the marker.
-- [ ] Design it (spec): `/architect waiting boxes owed to you`
+- [x] Design it (spec): `/architect waiting boxes owed to you`
+- [ ] Build it: `/develop waiting boxes owed to you`
+   - [ ] Marker, `NextBox.owed` and the near miss warning (AC-1, AC-2)
+   - [ ] `wf run` refuses or parks a marked box, ahead of every other box check (AC-5)
+   - [ ] `next` never launches a marked box (AC-3, AC-6)
+   - [ ] Rule file line and the `docs/architecture.md` sentence (AC-7)
+   - [ ] Headless `/scope` probe and a real `wf run` refusal (AC-8)
+- [ ] Verify it: `/check verify waiting boxes owed to you`
+- [ ] Test it: `/test waiting boxes owed to you`
+Spec [0012](../specs/0012-waiting-boxes-owed-to-you/index.md) · code in `runner/wf.py`, `runner/run.py`, `runner/tests/`, `rules/scope-contract.md`
 Source: your message of 2026-10-12, after the feature 6 `wf run` loop.
 
 ### 20. Push guard outside the model · done
