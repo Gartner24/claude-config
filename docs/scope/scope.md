@@ -26,7 +26,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 18 | fzf failure is not a cancel | Release 1 | done |
 | 19 | Singular change count | Release 1 | done |
 | 4 | Headless step loop | Release 2 | done |
-| 5 | Decision parking and phone pings | Release 2 | in-progress |
+| 5 | Decision parking and phone pings | Release 2 | done |
 | 6 | Standing answers | Release 2 | planned |
 | 7 | Headless verify and test | Release 2 | planned |
 | 8 | Failure and park policy | Release 2 | planned |
@@ -138,7 +138,7 @@ Run each box as a fresh `claude -p` call inside the repo, recompute the next box
 - [x] Test it: `/test headless step loop`
 Spec [0004](../specs/0004-headless-step-loop/index.md) · code in `runner/run.py`, `runner/wf.py`, `runner/tests/test_run.py`
 
-### 5. Decision parking and phone pings · in-progress
+### 5. Decision parking and phone pings · done
 The unattended prompt fixes the safe panel answers and asks real decisions as `DECISION NEEDED:` plus `OPTION:` lines; you get the question on your phone with buttons and the session resumes with your reply.
 **Done when:** a safe panel never reaches you, a real decision arrives on your phone, and your reply resumes the same session.
 - [x] Design it (spec): `/architect decision parking and phone pings`

@@ -1,7 +1,7 @@
 # 0005. Decision parking and phone pings: `wf run` asks you on your phone and resumes
 
 **Date**: 2026-10-11
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 
