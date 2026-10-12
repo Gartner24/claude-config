@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-11
 **Status**: Accepted
-**Amended**: 2026-10-11, AC-2 reads worktrees from the files instead of `git worktree list` (scope feature 17, build step 6, built in `aa313bc`); 2026-10-11, a picker that fails is not a cancel (AC-4), and a `HEAD` that is not a branch or a commit hash shows `-` in the list and picker branch column (AC-12) (scope feature 18, build step 7, not yet built)
+**Amended**: 2026-10-11, AC-2 reads worktrees from the files instead of `git worktree list` (scope feature 17, build step 6, built in `aa313bc`); 2026-10-11, a picker that fails is not a cancel (AC-4), and a `HEAD` that is not a branch or a commit hash shows `-` in the list and picker branch column (AC-12) (scope feature 18, build step 7, built in `9b0636e`); 2026-10-11, one uncommitted change reads `1 change` on the confirm line (AC-8) (scope feature 19, build step 8, not yet built)
 
 ## Summary
 
@@ -24,7 +24,7 @@
 - **AC-7**: A scope with no open box prints `nothing to run in <name>` and exits 0 with no session. This includes a brownfield scope that only has `existing` rows. A hub is a scope with no box lines at all. For a hub it also prints its At a glance rows that are still open: the last table cell, lowercased, whose first word is not done, dropped or existing.
 - **AC-8**: Before launching, one line shows:
   - the name and label, and the git branch (`detached <short sha>`, `no commits`, or `no git` when there is no branch to show)
-  - the uncommitted change count (lines of `git status --porcelain`, shown as `N changes`, or `-` with no git)
+  - the uncommitted change count (lines of `git status --porcelain`, shown as `1 change` when there is exactly one, `N changes` otherwise, `0 changes` included, or `-` with no git)
   - the feature (its heading with the number kept and the status and decision tags removed), and the command
   - the note and any warnings, when present
   An empty line (Enter) launches. Any other input, Ctrl C or end of input cancels with exit 130 and launches nothing. `-y` launches with no wait.
@@ -73,7 +73,7 @@
 | next box | command | first backticked span matching `^/[a-z][\w:-]*(\s\|$)` (AC-6) |
 | next box | parent, note, waiting | leading whitespace comparison (AC-6); `waiting` when the note matches `\b(after\|waits on)\b`, case insensitive |
 | launch line | branch | `git -C <path> rev-parse --abbrev-ref HEAD`; `HEAD` means detached, shown as `detached` plus `git rev-parse --short HEAD`; failure inside a repo with no commits shows `no commits`; no repo or no git binary shows `no git` |
-| launch line | changes | line count of `git -C <path> status --porcelain`; `-` with no repo or no git binary. Only the one repo on the confirm line, the repo claude is about to start in, ever runs `git status`: it runs the repo's own filter drivers |
+| launch line | changes | line count of `git -C <path> status --porcelain`, shown as `1 change` for one and `N changes` for any other count; `-` with no repo or no git binary. Only the one repo on the confirm line, the repo claude is about to start in, ever runs `git status`: it runs the repo's own filter drivers |
 | list, picker | branch | read from the files, never by running git: `<path>/.git/HEAD`, or for a worktree the `HEAD` in the folder its `.git` file's `gitdir:` names. `ref: refs/heads/<x>` shows `<x>` (`-` for reftable's `.invalid` placeholder and for an empty `<x>`); a commit hash (40 or 64 lowercase hex characters) shows `detached` plus its first 7 characters; anything else (empty, or other content) shows `-`; no readable `HEAD` shows `no git`. No `no commits` state here |
 | list, picker | changes | always `-` |
 | launch line | open sessions | for each `/proc/<pid>`: `comm` equal to `claude`, `cmdline` without `--chrome-native-host`, `cwd` real path equal to or under the candidate path; unreadable entries skipped |
@@ -105,6 +105,7 @@ Fixtures are trimmed copies of real scopes pinned in `runner/tests/fixtures/` (d
 - No argument: inside a repo uses it; inside a folder below a hub with no scope of its own does not pick the hub (fzf is stubbed and receives all candidates), verifies **AC-4**.
 - Picker failure: the fake fzf in `runner/tests/test_wf.py` gains an `FZF_EXIT` env var. `test_fzf_failure_exits_1`: exit 2 with a message on stderr makes `next` (several matches, and no argument) print `fzf failed (exit 2), nothing picked` and exit 1 with no exec; exit 0 with empty output does the same with `exit 0`. `test_fzf_exit_1_cancels`: exits 130 and 1 still exit 0 with no message. A `wf run` test in `runner/tests/test_run.py` reaches `resolve()` through `cmd_run` with `FZF_EXIT=2` and gets exit 1, verifies **AC-4**.
 - Confirm: input `n` and end of input both exit 130 with no exec; an empty line execs, verifies **AC-8**.
+- Change count: a temp repo with one uncommitted file shows `1 change` on the confirm line, with two it shows `2 changes`, with none `0 changes`, verifies **AC-8**.
 - Sessions: a stubbed `/proc` listing with one claude in the repo, one in a subfolder and one `--chrome-native-host` warns `2 session(s)`, verifies **AC-10**.
 - Both bases present: `docs/scope` wins with a warning, verifies **AC-11**.
 - Worktree: a temp repo with a linked worktree on a branch and one detached lists three candidates with the right labels, verifies **AC-2**.
@@ -125,7 +126,8 @@ Skateboard: the first milestone is already usable on its own (`next <exact name>
 4. Confirm line and exec: branch states, change count, open session warning, empty line or `-y`, satisfies **AC-8**, **AC-9**, **AC-10**, **AC-14**, **AC-16**
 5. No argument and several matches via fzf, linked worktrees, `--list`, then the manual real claude check, satisfies **AC-2**, **AC-4**, **AC-12**, **AC-15**
 6. (Feature 17, built) Replace `worktrees()` and `worktree_label()` with file reads of `gitdir`, `commondir` and `HEAD`, so `discover()` runs no git. One helper resolves a `.git` file to its gitdir folder (joined to the worktree) and is shared by the label and `head_branch()`; the `<id>/gitdir` path is joined to `<id>` instead, a different base. Add the "worktree without git" test, satisfies **AC-2**
-7. (Feature 18) In `pick()`, tell a cancel (fzf 130 or 1) from a failure (any other code, or 0 with no line) and return exit 1 with the message for a failure; `wf run` gets it through the shared `resolve()`. Move the inline hash regex in the worktree label (`re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", head)`) to one module level pattern, and use it in `head_branch()` too: `detached` only for a commit hash, `-` for an empty branch name and for anything else. Add the picker failure and empty `HEAD` tests, and mutation check each new guard on its own (the 130 or 1 cancel, the empty output failure, the hash test), satisfies **AC-4**, **AC-12**
+7. (Feature 18, built) In `pick()`, tell a cancel (fzf 130 or 1) from a failure (any other code, or 0 with no line) and return exit 1 with the message for a failure; `wf run` gets it through the shared `resolve()`. Move the inline hash regex in the worktree label (`re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", head)`) to one module level pattern, and use it in `head_branch()` too: `detached` only for a commit hash, `-` for an empty branch name and for anything else. Add the picker failure and empty `HEAD` tests, and mutation check each new guard on its own (the 130 or 1 cancel, the empty output failure, the hash test), satisfies **AC-4**, **AC-12**
+8. (Feature 19) In `changes()`, return `1 change` when the count is 1 and `N changes` otherwise. Add the change count test (0, 1 and 2 files) and mutation check the singular branch, satisfies **AC-8**
 
 ## Consequences
 

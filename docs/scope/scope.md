@@ -115,7 +115,12 @@ Spec [0002](../specs/0002-next-repo-command/index.md) (amended AC-4, AC-12) · c
 ### 19. Singular change count
 The confirm line reads `1 changes` for one change. It should read `1 change`; spec 0002 AC-8 writes `N changes`, so its wording gets the singular too.
 **Done when:** one uncommitted file shows `1 change`, others still show `N changes`, with a test for each.
+- [x] Design it (spec): `/architect singular change count`
 - [ ] Build it: `/develop singular change count`
+   - [ ] `changes()` returns `1 change` for one, `N changes` otherwise, test for 0, 1 and 2 (AC-8, build step 8)
+- [ ] Verify it: `/check verify singular change count`
+- [ ] Test it: `/test singular change count`
+Spec [0002](../specs/0002-next-repo-command/index.md) (amended AC-8) · code in `runner/wf.py`, `runner/tests/test_wf.py`
 
 ## Release 2: one feature unattended
 
