@@ -10,7 +10,7 @@ The goal: `wf` builds your scoped features overnight, pings you only for real de
 |---|---|---|---|
 | Scope files | `docs/scope/` (or `.workflow/scope/` in team repos). The plan and the queue: boxes, tags, header (`**Autopilot:**`, `**Source of truth:**`) | skills (`/scope`, `/architect`, `/develop`, `/check`, `/test`, `/sync`) | `next`, `wf run` |
 | Specs | `docs/specs/`. The decisions a build follows | `/architect` only (`/sync` and `/develop` touch status lines) | the skills inside each call |
-| `AGENTS.md` standing answers | an optional `## Standing answers` section per repo (spec 0006, being built) | you, by hand | `wf run`, once at start |
+| `AGENTS.md` standing answers | an optional `## Standing answers` section per repo (spec 0006) | you, by hand | `wf run`, once at start and shown in the plan; reread before each call only to stop the repo if a call changed them (spec 0011 AC-6) |
 | `next` (`wf next`) | interactive launcher: finds the repo, reads the first open box, opens `claude <command>` in that repo after your Enter | nothing | scope files, `.git` files |
 | `wf run` | unattended loop, one fresh `claude -p` call per box, then one `/sync` call per feature (`runner/run.py`). With spec 0011 it works through a queue: every `· auto` feature with a ticked `(spec)` box, in every repo on your `wf allow` list (or one named repo), one feature at a time per repo, moving on after a park or a question | run records, the locks, `queue.json` | scope files, standing answers, ntfy config, trust list, `queue.json` |
 | `wf queue`, `wf unpark` | read only plan of what `wf run` would do; clear a repo's or feature's parks and open questions (spec 0011) | `queue.json` (`wf unpark` only) | scope files, `queue.json`, locks |
