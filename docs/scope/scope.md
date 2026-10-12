@@ -180,7 +180,7 @@ A guard outside anything the model controls keeps every `wf run` call from pushi
    - [x] Guarded files, `no_sandbox` start checks, `run.json` `guard` (AC-7 to AC-9, AC-11)
    - [x] Probes again through `wf run` (AC-10): run `python3 docs/specs/0007-push-guard/probes/run-wf-probe.py`, record in `verify.md`
    - [x] Worktree pointer files, `config.worktree`, include targets hashed and denied (AC-5, AC-7, amendment of 2026-10-12)
-- [ ] Verify it: `/check verify push guard outside the model`
+- [x] Verify it: `/check verify push guard outside the model`
 - [ ] Test it: `/test push guard outside the model`
 Spec [0007](../specs/0007-push-guard/index.md)
 Source: your message of 2026-10-12, after the `/review` of the runner branch ([report](../reviews/review-2026-10-12.md), Guardrails).

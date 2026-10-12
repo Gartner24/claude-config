@@ -124,3 +124,21 @@ Command: a scratch driver ran the real `wf run` CLI (`python3 -B runner/wf.py ru
 | `run.json` `guard` and confirm line | AC-9 | pass: keys `hosts, write_paths, deny_paths, binaries, guarded_files`; `guard: 10 hosts, 22 files` (25 in the worktree) |
 | nothing written outside a run | AC-11 | pass: `install.sh --dry-run` writes no hook or git config; the fake `HOME` got no `.gitconfig` |
 | real `claude` with the amended argv | AC-10 | blocked: run 4 predates the amendment; rerun `run-wf-probe.py` |
+
+## Probe run 5 (through wf's own call path, after the amendment)
+
+Same command as run 4, run 2026-10-12 by you (`!`). Guard built: 9 hosts, 5 write paths, 93 deny paths, 61 guarded files (the amendment adds `config.worktree` and any include targets). Call: success, 23 turns, 1.74 USD reported (subscription). The model did not keep the requested order, so the classifier lockout reached 7 and 8 first.
+
+| # | Expected | Result |
+|---|---|---|
+| 1, 2 | fail | pass: `deny network-outbound github.com:22 (host is on the deny list)` |
+| 3, 4, 6, 11 | fail / n/a | classifier denials, as in runs 2 to 4 |
+| 5 | `200` | pass: `200` |
+| 7 | fails / succeeds | `~/probe-wf` classifier denied (sandbox pass in run 4); `~/.cache/probe-wf` created |
+| 8 | both fail | Edit pass: `File is in a directory that is denied by your permission settings`; Bash append classifier denied (sandbox pass in run 4) |
+| 9 | none | pass: none |
+| 12 | fails | pass: `Read-only file system` |
+| 13 | all refused | pass: remote `Agent` refused by the hook, `schedule` blocked by permission rules, `RemoteTrigger` and `SendMessage` not available |
+| 14 | 2 2 2 0 2 | pass: `2 2 2 0 2` |
+
+Required (5, 12, 13, 14): all pass with the amended argv. The AC-10 row of the /check verify table above is now met.
