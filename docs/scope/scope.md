@@ -108,8 +108,8 @@ When fzf cannot open a terminal it prints `inappropriate ioctl for device` and `
 - [x] Build it: `/develop fzf failure is not a cancel`
    - [x] `pick()` tells a cancel (130, 1) from a failure (exit 1 and message), tests for `next` and `wf run` (AC-4, build step 7)
    - [x] Shared hash pattern, `head_branch()` shows `-` for an empty or unknown `HEAD`, list tests (AC-12, build step 7)
-- [ ] Verify it: `/check verify fzf failure is not a cancel`
-- [ ] Test it: `/test fzf failure is not a cancel`
+- [x] Verify it: `/check verify fzf failure is not a cancel`
+- [x] Test it: `/test fzf failure is not a cancel`
 Spec [0002](../specs/0002-next-repo-command/index.md) (amended AC-4, AC-12) · code in `runner/wf.py`, `runner/tests/test_wf.py`, `runner/tests/test_run.py`
 
 ### 19. Singular change count

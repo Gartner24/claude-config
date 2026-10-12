@@ -335,6 +335,12 @@ class TestNext(CliCase):
                 self.assertIn(f"fzf failed (exit {code}), nothing picked", r.stderr)
                 self.assertIn("fzf: fake failure", r.stderr)
                 self.assertIsNone(self.launched())
+        # killed by a signal: Python reports a negative code
+        self.fake("fzf", "#!/bin/sh\nwhile read -r l; do :; done\nkill -9 $$\n")
+        r = self.wf("next", "api")
+        self.assertEqual(r.returncode, 1, r.stderr)
+        self.assertIn("fzf failed (exit -9), nothing picked", r.stderr)
+        self.assertIsNone(self.launched())
 
     # covers: AC-4 (Esc and Enter with no match are cancels)
     def test_fzf_exit_1_cancels(self):

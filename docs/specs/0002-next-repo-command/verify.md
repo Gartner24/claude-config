@@ -38,7 +38,7 @@ _Steps derived from spec 0002 acceptance criteria. `/check verify` runs these; `
 - AC-1 list + WF_ROOTS steps; test_discovery_depth_and_symlink_dedupe
 - AC-2 worktree step; test_worktrees_listed_with_labels
 - AC-3 name and path steps; test_exact_name_beats_substring_and_no_match, test_path_argument_outside_roots, test_several_matches_go_to_fzf_and_cancel_exits_0
-- AC-4 parent walk and hub picker steps; test_no_argument_uses_cwd_repo, test_no_argument_below_hub_opens_picker_over_all
+- AC-4 parent walk and hub picker steps; test_no_argument_uses_cwd_repo, test_no_argument_below_hub_opens_picker_over_all, test_fzf_failure_exits_1, test_fzf_exit_1_cancels, test_run test_fzf_failure_exits_1
 - AC-5 status tag and command steps; TestParser
 - AC-6 command and waiting steps; TestParser, test_no_command_box_exits_3_even_with_y
 - AC-7 hub step; test_hub_and_brownfield_have_nothing_to_run
@@ -46,7 +46,7 @@ _Steps derived from spec 0002 acceptance criteria. `/check verify` runs these; `
 - AC-9 real launch step; test_happy_path_execs_claude_in_repo
 - AC-10 session warning step; TestSessions
 - AC-11 both bases step; test_both_bases_docs_wins, test_workflow_base_alone
-- AC-12 list steps; test_list_sorted_and_usage_errors
+- AC-12 list steps; test_list_sorted_and_usage_errors, test_list_branch_column_for_odd_heads
 - AC-13 symlink step; test_next_shortcut_equals_wf_next
 - AC-14 missing claude step; test_missing_claude_fzf_and_git
 - AC-15 manual real claude step only (no automated test by design)
