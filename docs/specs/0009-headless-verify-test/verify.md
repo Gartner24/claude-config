@@ -87,6 +87,41 @@ XDG_CONFIG_HOME: new_page 'Error: net::ERR_ABORTED at http://127.0.0.1:41645/f' 
 
 The click is an `<a download>` clicked from `evaluate_script` on an app page (page 3). After 8 s, no `p11-probe*` file was found under the scratch root, under `/tmp`, or in your real `~/Downloads`. The probe ran from a sandboxed Bash call; the real MCP runs outside it, so step 8 reruns P11 from the built code.
 
+## Step 8: P2, P10, P11 through the built code (run 2026-10-12): P2 FAILS, build stopped
+
+The probes now use `runner/run.py`'s own builders instead of a hand built argv.
+
+**P2: FAIL.** Command: `python3 -B docs/specs/0009-headless-verify-test/probes/p2-built.py`. It freezes the guard of a scratch linked worktree with `Run.freeze_guard()`, then starts the app with `Run.start_app()`, which runs the real `jail_argv()` under bwrap with the app env. Result:
+
+```
+run.Stop: ('app_failed', "app exited 1: bwrap: Can't mount on symlink destination /home/santiago/.gitconfig")
+```
+
+The frozen `denyWrite` list holds `~/.gitconfig` and `~/.zshrc`, both symlinks into `~/dotfiles` on this machine. AC-3 step 3 binds each path as listed, and bwrap refuses a symlink as a bind destination. The jail checks inside the app (keys, home write, hooks, `.claude`, worktree pointer, sockets, login token, wf folders) did not run. Goes to `/architect` (brief finding 8).
+
+**P10: PASS.** Command: `python3 -B docs/specs/0009-headless-verify-test/probes/p10-npx-cwd.py ~/.local/state/wf/npm`. The new third case runs the MCP command exactly as `run.mcp_browser()` builds it (`env -C <state dir> <npx>`), from the repo holding the planted package:
+
+```
+cwd=repo: exit 0 out 'PLANTED' err ''
+env -C clean: exit 0 out '1.10.1' err ''
+built MCP command: exit 0 out '1.10.1' err ''
+```
+
+**P11: PASS.** Command: `python3 -B docs/specs/0009-headless-verify-test/probes/p11-download.py ~/.local/state/wf/npm 3`. The new third case starts the MCP exactly as `run.mcp_browser()` builds it, with `run.call_env()` plus its `env`, your real HOME, and a scratch repo as cwd. The search now also covers your real `~/Downloads`.
+
+```
+default: new_page 'Error: net::ERR_ABORTED at http://127.0.0.1:40857/f' click '... "clicked" ...' files []
+XDG_CONFIG_HOME: new_page 'Error: net::ERR_ABORTED at http://127.0.0.1:40857/f' click '... "clicked" ...' files []
+built MCP, real HOME: new_page 'Error: net::ERR_ABORTED at http://127.0.0.1:40857/f' click '... "clicked" ...' files []
+```
+
+**P3 to P7: PASS.** Command: `python3 -B docs/specs/0009-headless-verify-test/probes/p3-p7-browser.py`. The MCP JSON is `run.mcp_browser()` (`env -C <state dir> <npx> ...`, cache `MCP_CACHE`), the hook settings are `run.browser_settings()`, and `--allowedTools`/`--disallowedTools` come from `BROWSER_TOOLS` and `BROWSER_DENIED`. Cost 0.27 USD.
+- **P3: PASS.** The same 24 tools. `new_page` to the app and `take_snapshot` ran with no prompt. Brave ran as `--headless=new --webrtc-ip-handling-policy=disable_non_proxied_udp --disable-quic --proxy-server=127.0.0.1:9 --user-data-dir=/tmp/puppeteer_dev_chrome_profile-...`. `mcp from MCP_CACHE: True`, left over: none.
+- **P4: PASS.** `github.com`, `file:///etc/passwd`, `chrome://settings` and `localhost:8792.evil.example` refused by the hook; the app url and `reload` allowed.
+- **P5: PASS.** `fetch` failed, the link click landed on `chrome-error://chromewebdata/`, and `RTCPeerConnection` gathered `[]`.
+- **P6: PASS.** The six AC-6 tools do not exist for the call. P6b: snapshot and screenshot to `~` refused (`filePath must be a plain path under <shots>`), into the shots dir written.
+- **P7: PASS.** `2 2 2 2 0 2 2 2`: the five original cases, then the amended three (`http://localhost:22\@localhost:<port>/`, a path through a symlink into the shots dir, a `..` path ending in the shots dir).
+
 ## P8 and P9
 
 Not run: they come after the review fixes (build steps 7 and 8).

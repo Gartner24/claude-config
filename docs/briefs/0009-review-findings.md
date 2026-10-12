@@ -6,6 +6,7 @@
 - Spec 0009 Threat model: a door found after acceptance goes to a new `/architect` run, not into the build. So the three findings below were not patched in the build.
 - Settled by `/architect` 2026-10-12, now in spec 0009 (amendment "review findings 1 to 7"): fix 1, 2, 3, 5, 7; 4 accepted with the AC-8 prompt reworded; 6 accepted (P11: no download saved); app network stays open. No further hardening rounds. Build fixes, rerun P2 to P11, then P8 and P9.
 - Open build work: P8 and P9 through `wf run` (step 7). Hold them until `/architect` settles the findings, since a jail or MCP change reruns P2 to P9 anyway.
+- Build step 7 (review fixes) is built and committed with a test and a mutation check per fix (`fix(runner): spec 0009 review fixes ...`). Step 8 found findings 8 and 9 below; the build stops there, per the spec.
 
 ## Findings (background security review of `c4eec49`)
 
@@ -20,6 +21,13 @@
 6. Medium, unguarded file write. A click on a download link (or a Content-Disposition response) saves to Brave's default download folder (`~/Downloads`), outside the shots dir. No download policy is set in `MCP_BROWSER`. The reviewer's fix: point the download folder at the shots dir, or deny downloads (CDP `Browser.setDownloadBehavior`). Needs a probe of what chrome-devtools-mcp 1.10.1 and Brave honor.
 
 7. High, symlink swap after the check. `BROWSER_GUARD` checks `os.path.realpath(v)`, but the MCP (outside every sandbox) opens the original string later. A path through a repo symlink that points into shots passes the check. A sandboxed call or the jailed app can then swap the link to `.git/hooks` or a dotfile folder before the MCP writes. `take_snapshot` and `get_network_request` write content the app controls, so this is an unsandboxed arbitrary file write. The reviewer's fix: require each path to be absolute, already normalized (`os.path.normpath(v) == v`), lexically under shots, and equal to its own realpath (no symlink anywhere in it), since nothing but the MCP can write shots. Local to AC-7, testable without a probe.
+
+## Findings (build step 8 probes and the step 7 commit review, 2026-10-12)
+
+8. P2 FAILS through the built code. `p2-built.py` (`run.Run.freeze_guard`, `jail_argv`, `start_app` on a linked worktree) parks `app_failed`: `bwrap: Can't mount on symlink destination /home/santiago/.gitconfig`. AC-3 step 3 binds each frozen `denyWrite` path "as listed (not resolved through links)", and bwrap refuses a `--ro-bind` whose destination is a symlink. On this machine `~/.gitconfig` and `~/.zshrc` are symlinks into `~/dotfiles` (and a mise node `bin` on `PATH` sits under a symlinked parent, which bwrap accepts). So every browser call parks `app_failed` on any machine with symlinked dotfiles; the remaining P2 checks could not run. Options to weigh: bind the real path (`os.path.realpath`) of a symlinked entry (the link itself stays read only under `--ro-bind / /` unless it sits inside a write bind, the repo or a cache), or skip symlinked entries outside the write binds.
+9. Medium (confidence 0.55), background security review of the step 7 commit. The jail skips absent `denyWrite` paths (AC-3 says "each existing path"). Claude's sandbox makes a placeholder for an absent denied path; the jail leaves it writable when its parent is a write bind. Worst case: a checkout with no `.git/hooks`. The app creates `.git/hooks/post-commit`, and `files_changed()` never sees it, because it hashes only the hook files listed at start. The hook then runs unsandboxed at your next commit. Absent settings files and token scripts are guarded as `absent`, so those are caught. The reviewer's fix: create a placeholder before binding (an empty dir for the hooks dir, an empty file otherwise), or refuse to start the app when a denied dir is missing, and guard the hooks dir listing so a new hook file trips `files_changed()`.
+
+Step 8 results so far, through the built code: P10 PASS (`built MCP command: exit 0 out '1.10.1'` from a repo with a planted `node_modules`). P11 PASS (no download saved in any case, the built MCP with a call env and the real HOME included; `~/Downloads` and `/tmp` checked). P3 to P7 PASS (P7 with the amended three cases: `2 2 2 2 0 2 2 2`). Only P2 fails; after `/architect` settles 8 and 9, the build reruns P2 (and P3 to P7 if the MCP changes), then P8 and P9.
 
 ## For /architect
 

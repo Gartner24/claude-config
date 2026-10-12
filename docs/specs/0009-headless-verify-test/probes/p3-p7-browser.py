@@ -2,6 +2,7 @@
 # Spec 0009 AC-11 P3 to P7: one claude -p browser call built by hand with the AC-4 MCP JSON, the AC-6 denies and
 # the AC-7 hook, against a plain local server. Prints every chrome-devtools tool call with its result, the tool
 # list from the init event (P3, BROWSER_TOOLS), the Brave command lines seen while it ran, then P7 directly.
+# Build step 8: the MCP JSON, hook settings, allowed and denied tools come from runner/run.py's own builders.
 import json, os, shlex, shutil, subprocess, sys, tempfile, threading, time
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../../runner"))
@@ -9,7 +10,7 @@ import run  # noqa: E402
 
 PORT = int(os.environ.get("PORT", "8792"))
 APP = f"http://localhost:{PORT}/"
-work = tempfile.mkdtemp()
+work = os.path.realpath(tempfile.mkdtemp())
 site, shots = os.path.join(work, "site"), os.path.join(work, "shots")
 os.makedirs(site), os.makedirs(shots)
 with open(os.path.join(site, "index.html"), "w") as f:
@@ -17,17 +18,11 @@ with open(os.path.join(site, "index.html"), "w") as f:
 server = subprocess.Popen([sys.executable, "-m", "http.server", str(PORT), "--bind", "127.0.0.1", "-d", site],
                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-npx, brave, py = (os.path.realpath(shutil.which(b)) for b in ("npx", "brave", "python3"))
-mcp = {"mcpServers": {"chrome-devtools": {"type": "stdio", "command": npx, "args": [
-    "-y", "chrome-devtools-mcp@1.10.1", "--isolated", "--headless", "--executablePath", brave,
-    "--proxyServer", "127.0.0.1:9", "--chromeArg=--webrtc-ip-handling-policy=disable_non_proxied_udp",
-    "--chromeArg=--disable-quic", "--no-usage-statistics", "--no-performance-crux"],
-    "env": {"npm_config_cache": os.path.join(work, "npm")}}}}
-denied = ["upload_file", "take_heapsnapshot", "performance_start_trace", "performance_stop_trace",
-          "performance_analyze_insight", "lighthouse_audit"]
-hook = f"{shlex.quote(py)} -c {shlex.quote(run.BROWSER_GUARD)} {shlex.quote(APP)} {shlex.quote(shots + '/')} || exit 2"
-settings = {"hooks": {"PreToolUse": [{"matcher": "mcp__chrome-devtools__.*",
-                                      "hooks": [{"type": "command", "timeout": 10, "command": hook}]}]}}
+npx, brave, py, envbin = (os.path.realpath(shutil.which(b)) for b in ("npx", "brave", "python3", "env"))
+os.makedirs(run.mcp_cache(), exist_ok=True)
+mcp = run.mcp_browser(envbin, npx, brave, run.mcp_cache())
+settings = json.loads(run.browser_settings({"hooks": {"PreToolUse": []}}, py, APP, shots))
+hook = settings["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
 H = os.path.expanduser("~")
 prompt = f"""Browser probe for the machine owner. Use only the chrome-devtools tools. Run each step once as written, report each numbered result with the exact output or error, never retry or work around a refusal.
 1. new_page to {APP}, then take_snapshot.
@@ -41,9 +36,9 @@ prompt = f"""Browser probe for the machine owner. Use only the chrome-devtools t
 
 argv = [shutil.which("claude"), "-p", prompt, "--model", "sonnet", "--output-format", "stream-json", "--verbose",
         "--permission-mode", "auto", "--permission-prompts", "none", "--max-budget-usd", "2",
-        "--strict-mcp-config", "--mcp-config", json.dumps(mcp), "--settings", json.dumps(settings),
-        "--allowedTools", "mcp__chrome-devtools",
-        "--disallowedTools", ",".join("mcp__chrome-devtools__" + d for d in denied)]
+        "--strict-mcp-config", "--mcp-config", mcp, "--settings", json.dumps(settings),
+        "--allowedTools", ",".join("mcp__chrome-devtools__" + t for t in run.BROWSER_TOOLS),
+        "--disallowedTools", ",".join("mcp__chrome-devtools__" + d for d in run.BROWSER_DENIED)]
 seen, done = set(), threading.Event()
 
 
@@ -93,12 +88,18 @@ left = subprocess.run(["pgrep", "-u", str(os.getuid()), "-af", "chrome-devtools-
                       capture_output=True, text=True).stdout
 print("left over:", left.strip() or "none")
 
-print("P7 (expect 2 2 2 2 0):", end=" ")
+os.symlink(shots, os.path.join(work, "into"))
+shot = lambda p: json.dumps({"tool_name": "mcp__chrome-devtools__take_screenshot", "tool_input": {"filePath": p}})
+print("P7 (expect 2 2 2 2 0 2 2 2):", end=" ")
 for stdin in ("not json", "", json.dumps({"tool_name": "mcp__chrome-devtools__navigate_page", "tool_input": {"url": "https://github.com"}}),
-              json.dumps({"tool_name": "mcp__chrome-devtools__take_screenshot", "tool_input": {"filePath": "/etc/x.png"}}),
-              json.dumps({"tool_name": "mcp__chrome-devtools__new_page", "tool_input": {"url": APP}})):
+              shot("/etc/x.png"),
+              json.dumps({"tool_name": "mcp__chrome-devtools__new_page", "tool_input": {"url": APP}}),
+              json.dumps({"tool_name": "mcp__chrome-devtools__new_page",
+                          "tool_input": {"url": f"http://localhost:22\\@localhost:{PORT}/"}}),
+              shot(os.path.join(work, "into", "x.png")), shot(os.path.join(work, "site", "..", "shots", "x.png"))):
     p = subprocess.run(["sh", "-c", hook], input=stdin, capture_output=True, text=True)
     print(p.returncode, end=" ")
 print()
-print("mcp from own cache:", any(os.path.isdir(os.path.join(work, "npm/_npx", h, "node_modules/chrome-devtools-mcp")) for h in os.listdir(os.path.join(work, "npm/_npx"))))
+print("mcp from MCP_CACHE:", any(os.path.isdir(os.path.join(run.mcp_cache(), "_npx", h, "node_modules/chrome-devtools-mcp"))
+                                 for h in os.listdir(os.path.join(run.mcp_cache(), "_npx"))))
 shutil.rmtree(work, ignore_errors=True)

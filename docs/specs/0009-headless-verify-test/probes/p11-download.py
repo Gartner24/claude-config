@@ -4,6 +4,9 @@
 # argv: the npm cache to use. Each case gets a scratch HOME so nothing lands in your real ~/Downloads.
 import http.server, json, os, shutil, subprocess, sys, tempfile, threading, time
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../../runner"))
+import run  # noqa: E402
+
 npx, brave = (os.path.realpath(shutil.which(b)) for b in ("npx", "brave"))
 
 
@@ -34,7 +37,7 @@ threading.Thread(target=srv.serve_forever, daemon=True).start()
 url = f"http://127.0.0.1:{srv.server_address[1]}/f"
 
 
-def case(name, xdg):
+def case(name, xdg, built=False):
     root = tempfile.mkdtemp(prefix="p11-")
     home, shots = os.path.join(root, "home"), os.path.join(root, "shots")
     os.makedirs(home)
@@ -48,8 +51,15 @@ def case(name, xdg):
         env["XDG_CONFIG_HOME"] = cfg
     args = ["-y", "chrome-devtools-mcp@1.10.1", "--isolated", "--headless", "--executablePath", brave,
             "--proxyServer", "127.0.0.1:9", "--no-usage-statistics", "--no-performance-crux"]
-    p = subprocess.Popen([npx, *args], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                         text=True, env=env)
+    argv = [npx, *args]
+    if built:
+        # Build step 8: the MCP exactly as run.mcp_browser builds it, with a call's env and your real HOME,
+        # started from a scratch repo like Claude Code starts it.
+        server = json.loads(run.mcp_browser(os.path.realpath(shutil.which("env")), npx, brave, sys.argv[1]))
+        server = server["mcpServers"]["chrome-devtools"]
+        argv, env = [server["command"], *server["args"]], {**run.call_env(), **server["env"]}
+    p = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                         text=True, env=env, cwd=root)
     n = [0]
 
     def rpc(method, params=None, notify=False):
@@ -76,7 +86,7 @@ def case(name, xdg):
     click = " ".join(c.get("text", "") for c in r.get("result", {}).get("content", []))
     time.sleep(8)
     found = []
-    for top in (root, "/tmp"):
+    for top in (root, "/tmp", os.path.expanduser("~/Downloads")):
         for d, _, fs in os.walk(top, onerror=lambda e: None):
             found += [os.path.join(d, f) for f in fs if f.startswith("p11-probe")]
     print(f"{name}: new_page {text[:120]!r} click {click[-80:]!r} files {found}")
@@ -87,3 +97,4 @@ def case(name, xdg):
 
 case("default", False)
 case("XDG_CONFIG_HOME", True)
+case("built MCP, real HOME", False, built=True)
