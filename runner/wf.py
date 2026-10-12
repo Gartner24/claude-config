@@ -31,6 +31,8 @@ AUTO_TAG = re.compile(r"·\s*auto\s*(?=·|$)", re.I)
 # Lone surrogates are undecodable bytes in a folder name; printing one used to
 # crash with UnicodeEncodeError under a UTF-8 locale.
 CONTROL = re.compile(r"[\x00-\x1f\x80-\x9f\udc80-\udcff]")
+# A detached HEAD: SHA-1 or SHA-256.
+COMMIT_HASH = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
 # A planted core.fsmonitor or hook in a scanned repo used to run on `git status`.
 GIT_SAFE = ("-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null")
 
@@ -211,8 +213,9 @@ def head_branch(path):
     if head.startswith("ref: refs/heads/"):
         name = head[len("ref: refs/heads/"):]
         # reftable repos keep the real HEAD elsewhere and write this placeholder
-        return "-" if name == ".invalid" else clean(name)
-    return "detached " + clean(head[:7])
+        return "-" if name in ("", ".invalid") else clean(name)
+    # an empty or unknown HEAD used to show "detached " with no sha
+    return "detached " + head[:7] if COMMIT_HASH.fullmatch(head) else "-"
 
 
 def branch(path):
@@ -272,7 +275,7 @@ def worktree_label(path):
         head = ""
     if head.startswith("ref: refs/heads/") and head != "ref: refs/heads/.invalid":
         return f"worktree {clean(head[len('ref: refs/heads/'):])}"
-    if re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", head):
+    if COMMIT_HASH.fullmatch(head):
         return "worktree (detached)"
     return "worktree (branch unknown)"
 
@@ -409,8 +412,13 @@ def pick(cands):
     lines = "".join(f"{i}\t" + "\t".join(c.columns()) + "\n" for i, c in enumerate(cands))
     r = subprocess.run(["fzf", "--delimiter=\t", "--with-nth=2..", "--prompt=next> "],
                        input=lines, stdout=subprocess.PIPE, text=True)
-    if r.returncode != 0 or not r.stdout.strip():
+    if r.returncode in (1, 130):
         return None, 0
+    # this used to treat every non zero exit as a cancel, so fzf failing to
+    # open a terminal (exit 2) exited 0 like an Esc
+    if r.returncode != 0 or not r.stdout.strip():
+        print(f"fzf failed (exit {r.returncode}), nothing picked", file=sys.stderr)
+        return None, 1
     return cands[int(r.stdout.split("\t", 1)[0])], None
 
 

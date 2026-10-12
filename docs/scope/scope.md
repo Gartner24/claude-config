@@ -105,12 +105,12 @@ Spec [0002](../specs/0002-next-repo-command/index.md) (amended AC-2) · code in 
 When fzf cannot open a terminal it prints `inappropriate ioctl for device` and `next` exits 0, the same as a cancelled pick (AC-4). Spec 0002 now names it: a failure exits 1 with a message. Same amendment: an empty or unknown `HEAD` shows `-` in the list branch column, not `detached ` (AC-12).
 **Done when:** a picker that fails to start prints why and exits with the code the spec names, and a real cancel still exits 0.
 - [x] Design it (spec): `/architect fzf failure is not a cancel`
-- [ ] Build it: `/develop fzf failure is not a cancel`
-   - [ ] `pick()` tells a cancel (130, 1) from a failure (exit 1 and message), tests for `next` and `wf run` (AC-4, build step 7)
-   - [ ] Shared hash pattern, `head_branch()` shows `-` for an empty or unknown `HEAD`, list tests (AC-12, build step 7)
+- [x] Build it: `/develop fzf failure is not a cancel`
+   - [x] `pick()` tells a cancel (130, 1) from a failure (exit 1 and message), tests for `next` and `wf run` (AC-4, build step 7)
+   - [x] Shared hash pattern, `head_branch()` shows `-` for an empty or unknown `HEAD`, list tests (AC-12, build step 7)
 - [ ] Verify it: `/check verify fzf failure is not a cancel`
 - [ ] Test it: `/test fzf failure is not a cancel`
-Spec [0002](../specs/0002-next-repo-command/index.md) (amended AC-4, AC-12)
+Spec [0002](../specs/0002-next-repo-command/index.md) (amended AC-4, AC-12) · code in `runner/wf.py`, `runner/tests/test_wf.py`, `runner/tests/test_run.py`
 
 ### 19. Singular change count
 The confirm line reads `1 changes` for one change. It should read `1 change`; spec 0002 AC-8 writes `N changes`, so its wording gets the singular too.

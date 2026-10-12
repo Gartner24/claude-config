@@ -290,7 +290,8 @@ class TestStart(RunCase):
                 if msg:
                     self.assertIn(msg, r.stdout)
         for name, head, shown in [("main", "ref: refs/heads/main\n", "main"), ("master", "ref: refs/heads/master\n", "master"),
-                                  ("det", "0123456789abcdef\n", "detached 0123456"), ("nogit", None, "no git")]:
+                                  ("det", "0123456789abcdef" * 2 + "01234567\n", "detached 0123456"),
+                                  ("unknown", "0123456789abcdef\n", "-"), ("nogit", None, "no git")]:
             with self.subTest(name):
                 self.make_repo(name, SCOPE, head=head)
                 r = self.wf(name, "-y")
@@ -328,6 +329,17 @@ class TestStart(RunCase):
                 self.assertEqual(len(list((fallback / "runs").iterdir())), 1)
                 self.assertEqual(len(list((fallback / "locks").iterdir())), 1)
                 self.assertFalse(self.state.exists())
+
+    # covers: spec 0004 AC-1, AC-14, spec 0002 AC-4 (a failing picker exits 1, not 0)
+    def test_fzf_failure_exits_1(self):
+        self.fake("fzf", "#!/bin/sh\nwhile read -r l; do :; done\necho 'fzf: fake failure' >&2\nexit 2\n")
+        self.make_repo("demo-a", SCOPE)
+        self.make_repo("demo-b", SCOPE)
+        r = self.wf("demo-", "-y")
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertIn("fzf failed (exit 2), nothing picked", r.stderr)
+        self.assertIn("fzf: fake failure", r.stderr)
+        self.refused(r, None, code=1)
 
     # covers: AC-2 (warnings print on refusal paths)
     def test_header_warning_on_refusal(self):

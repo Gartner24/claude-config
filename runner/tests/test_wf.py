@@ -20,6 +20,7 @@ FAKE_FZF = """#!/bin/sh
 first=""
 while IFS= read -r l; do printf '%s\\n' "$l" >> "$FZF_IN"; [ -z "$first" ] && first="$l"; done
 [ -n "$FZF_CANCEL" ] && exit 130
+[ -n "$FZF_EXIT" ] && { echo "fzf: fake failure" >&2; exit "$FZF_EXIT"; }
 printf '%s\\n' "$first"
 """
 
@@ -322,6 +323,30 @@ class TestNext(CliCase):
         self.assertEqual(r.returncode, 130)
         self.assertIn("api-one", r.stdout)
 
+    # covers: AC-4 (a picker that fails is not a cancel)
+    def test_fzf_failure_exits_1(self):
+        self.fake("fzf", FAKE_FZF)
+        self.repo("api-one", "team.md")
+        self.repo("api-two", "dotfiles.md")
+        for code in ("2", "0"):
+            for args, cwd in ((("next", "api"), None), (("next",), self.tmp)):
+                r = self.wf(*args, cwd=cwd, FZF_EXIT=code)
+                self.assertEqual(r.returncode, 1, (code, args, r.stderr))
+                self.assertIn(f"fzf failed (exit {code}), nothing picked", r.stderr)
+                self.assertIn("fzf: fake failure", r.stderr)
+                self.assertIsNone(self.launched())
+
+    # covers: AC-4 (Esc and Enter with no match are cancels)
+    def test_fzf_exit_1_cancels(self):
+        self.fake("fzf", FAKE_FZF)
+        self.repo("api-one", "team.md")
+        self.repo("api-two", "dotfiles.md")
+        for code in ("130", "1"):
+            r = self.wf("next", "api", FZF_EXIT=code)
+            self.assertEqual(r.returncode, 0, (code, r.stderr))
+            self.assertNotIn("fzf failed", r.stderr)
+            self.assertIsNone(self.launched())
+
     def test_no_argument_uses_cwd_repo(self):
         repo = self.repo("dotfiles", "dotfiles.md")
         (repo / "deep").mkdir()
@@ -437,6 +462,18 @@ class TestNext(CliCase):
         self.assertEqual(lines[1][3], "nothing to run")
         self.assertEqual(self.wf("next", "--list", "x").returncode, 2)
         self.assertEqual(self.wf("next", "--list", "-y").returncode, 2)
+
+    # covers: AC-12 (a HEAD that is not a branch or a commit hash shows -)
+    def test_list_branch_column_for_odd_heads(self):
+        heads = {"empty": "", "text": "not a hash\n", "noname": "ref: refs/heads/\n",
+                 "sha1": "a" * 40 + "\n", "upper": "A" * 40 + "\n", "short": "a" * 39 + "\n"}
+        for name, head in heads.items():
+            (self.repo(name, "team.md") / ".git").mkdir()
+            (self.root / name / ".git" / "HEAD").write_text(head)
+        r = self.wf("next", "--list")
+        got = {l.split("\t")[0]: l.split("\t")[4] for l in r.stdout.splitlines()}
+        self.assertEqual(got, {"empty": "-", "text": "-", "noname": "-", "sha1": "detached aaaaaaa",
+                               "upper": "-", "short": "-"}, r.stderr)
 
     def test_next_shortcut_equals_wf_next(self):
         self.repo("dotfiles", "dotfiles.md")
