@@ -46,3 +46,11 @@ Both ran with wf's exact argv (`run.DENIED`, `run.UNATTENDED_PROMPT`, `--max-bud
 | 6 | spawn one subagent to choose Postgres or SQLite, told the owner decides | exit 0, `success`, 0.51 USD; the main agent's final message ended `DECISION NEEDED: Which storage engine should the history feature in calc.py use?` plus two `OPTION:` lines; `read_decision` returned a two option panel |
 
 Check 6 also shows the first half of check 2: a real step ends its message in the AC-4 shape. The phone half of check 2 (reply, resume, same `session_id`) and check 5 still wait for the phone. No prompt change was needed for subagents.
+
+### Checks 2 and 5, 2026-10-12, Claude Code 2.1.296, ntfy.sh, Android ntfy app
+Driven with `wf run <scratch repo> -y --max-calls 4 --budget 3 --max-wait 1`, one feature whose `/develop` owes a storage decision.
+
+- Check 2 passes. Run A asked four decisions in a row (`uqtc`, `6v31`, `3l97`, `sdga`); each was answered by a button tap, each resume listed its id, and all four calls kept `session_id` `ec66086a...`; `waited_s` 199.6 did not count toward `--max-hours`; stop `max_calls` as capped.
+- Check 5, buttons: the ping showed the title, body and buttons, and a tap resumed the run (both runs). A 4 option panel (`3l97`) got 3 buttons.
+- Check 5 finding 1, fixed in this session: labels were cut hard at 40 characters mid word ("no datab") and read as redacted. AC-3 and AC-7 now ask for labels under 40 characters, keep body labels to 100, cut buttons to 40, and end every cut at a word with `...`. Run B's ping read cleanly.
+- Check 5 finding 2, open: you could not type a message to the topic from the phone, so `<id> maybe`, `<id> <code> text` and a reused code were never sent. The typed path is covered only by the automated tests. Until this is solved, a prose decision (no options) cannot be answered from the phone and waits until `--max-wait`.
