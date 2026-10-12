@@ -31,6 +31,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 7 | Headless verify and test | Release 2 | planned |
 | 8 | Failure and park policy | Release 2 | planned |
 | 9 | Design enforcement unattended | Release 2 | planned |
+| 20 | Push guard outside the model | Release 2 | planned |
 | 10 | Build queue and decision queue | Release 3 | planned |
 | 15 | Cheap worker tier | Release 3 | planned |
 | 16 | Issues and mixed source of truth | Release 3 | planned |
@@ -171,6 +172,12 @@ What parks a feature instead of looping: 2 `/debug` attempts after a FAIL, BLOCK
 Frontend work in a headless run goes through `design` and `design-gate`, never skipped: the Stop hook runs headless, and the runner fails a step that changed frontend files without a newer gate report.
 **Done when:** a headless UI step with no fresh `design-gate` report fails, and one with a passing report goes through.
 - [ ] Design it (spec): `/architect design enforcement unattended`
+
+### 20. Push guard outside the model · needs a decision
+A git pre-push guard, outside anything the model controls, refuses `git push` in a repo while `wf run` holds that repo's lock. The `--disallowedTools` deny list only matches prefixes, so `env git push`, `gh api` and other spellings still get through (review 2026-10-12).
+**Done when:** during a `wf run`, any push from inside the run is refused whatever its spelling, and the same push works again once the run has released the lock.
+- [ ] Design it (spec): `/architect push guard outside the model`
+Source: your message of 2026-10-12, after the `/review` of the runner branch ([report](../reviews/review-2026-10-12.md), Guardrails).
 
 ## Release 3: queues
 
