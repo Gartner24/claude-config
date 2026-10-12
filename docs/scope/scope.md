@@ -267,7 +267,7 @@ A parked feature no longer stops the run: the runner moves to the next queued fe
    - [x] Across repos: trust list, skips, locks and guard baselines, plan, repo vs run stops, re-ping (AC-1, AC-4 to AC-6, AC-9, AC-14)
    - [x] `wf queue` and `wf unpark` (AC-20, AC-21)
    - [x] Manual checks on the real claude and phone (AC-22) · waits on you
-- [ ] Verify it: `/check verify build queue and decision queue`
+- [x] Verify it: `/check verify build queue and decision queue`
 - [ ] Test it: `/test build queue and decision queue`
 Spec [0011](../specs/0011-build-decision-queue/index.md) · code in `runner/run.py`, `runner/wf.py`, `runner/tests/test_queue.py`
 AC-22 manual checks passed 2026-10-12 through real `wf run` and phone taps (`verify.md`).
