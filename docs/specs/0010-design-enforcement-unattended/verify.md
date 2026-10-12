@@ -19,15 +19,29 @@ Result:
 - One `permission_denials` entry: the fork's first try was a `mkdir && printf && cat` chain, refused by your Bash shape hook; it retried in another form and wrote the file. The parent saw only `WRITTEN`, which is why `wf` reads the file, never the claim.
 - Not under the spec 0007 sandbox (not built yet). P2 repeats this through `wf run`.
 
-## P2 to P4
+## P2 to P4 (run 2026-10-12, real `wf run` from a normal Claude Code session)
 
-Not run yet. They need the real logged in `claude` under `wf run`. A `wf run` call cannot start one: its sandbox hides `~/.claude/.credentials.json`. So you run them from your own terminal. If P2 fails because the sandbox blocks the report write or the fork, or the `design-gate` half of P3 fails, the spec goes back to `/architect`.
+If P2 fails because the sandbox blocks the report write or the fork, or the `design-gate` half of P3 fails, the spec goes back to `/architect`. Nested `claude -p` was logged in from this session, so no `!` run was needed.
 
-Setup for each probe: a scratch git repo on a branch `work` off `main`. It needs `docs/scope/scope.md` with `**Autopilot:** allowed`, plus `wf allow <scratch>`. Use a separate `XDG_STATE_HOME`, and an `XDG_CONFIG_HOME` that holds a copy of your `ntfy.json` (see the `wf run` scratch recipe).
+Setup for each probe: a scratch git repo on a branch `work` off `main`. It needs `docs/scope/scope.md` with `**Autopilot:** allowed`, plus `wf allow <scratch>`. Use a separate `XDG_STATE_HOME`, and an `XDG_CONFIG_HOME` that holds a copy of your `ntfy.json` (see the `wf run` scratch recipe). Scope header `Alpha`; `design.md` (P2, P3) is a short locked direction: tokens plus a "Nav bar composition" section; a spec `0001-nav.md` names it.
 
-- [ ] P2: give the repo a `design.md`. Use one feature with `/develop` "write `src/components/Nav.tsx`, a nav bar per design.md" and a `Verify it: /check verify` box. Run `wf run <scratch> -y`. Expect `done:`, a `.design/audit-report.md` in the repo with a passing verdict, and in `run.json` a `design.problems` of `[]` and a last call of kind `sync`. -> AC-9, AC-3
-- [ ] P3: use one `/develop` box whose text asks the call to invoke the `design` skill, then the `design-gate` skill. Expect a `Skill(design)` denial in the first call's `denials`, and a `design-gate` run that leaves `.design/audit-report.md`. -> AC-9, AC-6
-- [ ] P4: use no `design.md`, no brand board and no `.design/`. One `/develop` box asks for a new pricing page. Expect `parked: blocked: no locked design for ...`, and no new `.tsx` or `.html` file in the repo. -> AC-9, AC-5
+```
+XDG_CONFIG_HOME=<root>/config XDG_STATE_HOME=<root>/state python3 -B runner/wf.py run <root>/<pN> -y \
+  --budget 5 --max-calls 6 --max-wait 0.25 --call-timeout 45    # P4: --call-timeout 20
+```
+
+- [x] P2: give the repo a `design.md`. Use one feature with `/develop` "write `src/components/Nav.tsx`, a nav bar per design.md" and a `Verify it: /check verify` box. Run `wf run <scratch> -y`. Expect `done:`, a `.design/audit-report.md` in the repo with a passing verdict, and in `run.json` a `design.problems` of `[]` and a last call of kind `sync`. -> AC-9, AC-3
+  - PASS. `/develop` 0.69 USD 1.0m, `/check verify` 1.80 USD 7.1m, `/sync` 0.46 USD 0.4m, `done: 1. Nav bar`, exit 0.
+  - The verify call ran `design-gate` on the lowest folder (AC-5 line 2): `src/components/.design/audit-report.md`, `verdict: PASS WITH FINDINGS` on line 3. So the forked skill creates `.design/` and writes inside the 0007 sandbox.
+  - `run.json` `design`: base the `main` sha, `changed` `["src/components/Nav.css", "src/components/Nav.tsx"]`, `reports` `{"src/components/.design/audit-report.md": "PASS WITH FINDINGS"}`, `problems` `[]`. Last call kind `sync`, `stop_reason` `feature_done`.
+- [x] P3: use one `/develop` box whose text asks the call to invoke the `design` skill, then the `design-gate` skill. Expect a `Skill(design)` denial in the first call's `denials`, and a `design-gate` run that leaves `.design/audit-report.md`. -> AC-9, AC-6
+  - `design-gate` half PASS under `wf run`: one call, 0.99 USD 1.9m, wrote `.design/audit-report.md` (verdict FAIL on a deliberately thin nav, pass 1 of 3). The run parked `denied` because the box stayed open (rule: no progress plus a denial; the denial was a Bash shape hook refusal), not because of the skill deny.
+  - `design` half not exercised by `wf run`: the call refused to try `design` at all, quoting AC-5 line 1 ("never invoke ... no exception for a test"). So under `wf run` the prompt line stops it before the deny list does, and `denials` has no `Skill` entry.
+  - The deny itself, probed directly with wf's exact skill denies (`DENIED`, `GUARD_DENIED`, `DESIGN_DENIED` from `runner/run.py`) and no prompt line, in a copy of the P3 repo:
+    `env -C <root>/p3d claude -p "<call Skill design on Nav.tsx, then Skill design-gate on the root>" --output-format json --permission-mode auto --max-budget-usd 5 --disallowedTools "<those three lists>"`
+    Result: `success`, 1.35 USD. `Skill` with `design` returned `Skill execution blocked by permission rules` and is in `permission_denials`; `design-gate` then ran forked and wrote `.design/audit-report.md`. The deny is not a prefix match. PASS.
+- [x] P4: use no `design.md`, no brand board and no `.design/`. One `/develop` box asks for a new pricing page. Expect `parked: blocked: no locked design for ...`, and no new `.tsx` or `.html` file in the repo. -> AC-9, AC-5
+  - PASS. One call, 0.40 USD 0.4m: `parked: blocked: no locked design for the pricing page (src/pages/Pricing.tsx), and no spec giving the three plans' names, prices and features`, exit 6. `git status --untracked-files=all` empty and no commit on `work`: no file written.
 
 # Verify: Design enforcement unattended · spec 0010 · updated 2026-10-12
 _Steps derived from spec 0010 acceptance criteria. `/check verify` runs these; `/test` locks the durable ones._
