@@ -30,7 +30,7 @@ class FakeNtfy:
 
     def __init__(self):
         self.messages, self.posts, self.polls = [], [], []
-        self.replies, self.fail_posts, self.fail_polls = [], 0, 0
+        self.replies, self.fail_posts, self.fail_polls, self.hold_polls = [], 0, 0, 0
         self.lock = threading.Lock()
         fake = self
 
@@ -65,7 +65,7 @@ class FakeNtfy:
                         fake.fail_polls -= 1
                         return self.send(500)
                     pings = [m for m in fake.messages if re.match(r"^[a-z0-9]{4}: ", m["message"])]
-                    if pings and fake.replies:
+                    if pings and fake.replies and len(fake.polls) > fake.hold_polls:
                         did = pings[-1]["message"][:4]
                         for r in fake.replies:
                             fake.add(r.format(id=did, ID=did.upper()))
@@ -286,6 +286,17 @@ class TestReplies(NtfyCase):
         q = self.decision(kind="prose", options=(), did="cd34")
         end, _ = self.wait(t, [q], ["{id} goodcode again"], max_wait=0.3)
         self.assertEqual((end, q["ignored"]), ("timeout", 1))
+
+    # covers: AC-8 (a code another run used after this one loaded the config is dead here too)
+    def test_code_used_elsewhere(self):
+        cfg = self.cfg(codes=("goodcode", "spare123"))
+        t = ntfy.Topic(cfg, "demo", "f")
+        other = ntfy.load()
+        self.assertEqual(ntfy.burn(other, {hashlib.sha256(b"goodcode").hexdigest()}),
+                         {hashlib.sha256(b"goodcode").hexdigest()})
+        p = self.decision(kind="prose", options=())
+        end, _ = self.wait(t, [p], ["{id} goodcode replayed"], max_wait=0.3)
+        self.assertEqual((end, p["answer"], p["ignored"]), ("timeout", None, 1))
 
     # covers: AC-8 (phishing: a code typed for an unknown id is burned anyway)
     def test_phishing(self):

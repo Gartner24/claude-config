@@ -23,6 +23,10 @@ def safe_answer(q):
     return want if want in labels else None
 
 
+def panel_key(questions):
+    return hashlib.sha1(json.dumps(questions, sort_keys=True).encode()).hexdigest()
+
+
 def out(decision, **extra):
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": decision, **extra}}))
 
@@ -33,7 +37,7 @@ def main():
         return
     try:
         questions = json.load(sys.stdin)["tool_input"]["questions"]
-        key = hashlib.sha1(json.dumps(questions, sort_keys=True).encode()).hexdigest()
+        key = panel_key(questions)
         path = os.path.join(run_dir, "answers.json")
         stored = json.load(open(path, encoding="utf-8")) if os.path.exists(path) else {}
         if key in stored:

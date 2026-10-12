@@ -15,6 +15,7 @@ import sys
 import time
 import traceback
 
+import hook
 import ntfy
 import wf
 
@@ -32,6 +33,7 @@ UNATTENDED_PROMPT = (
 HOOK = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "hook.py"))
 SETTINGS = json.dumps({"hooks": {"PreToolUse": [{"matcher": "AskUserQuestion", "hooks": [
     {"type": "command", "command": "python3 " + shlex.quote(HOOK)}]}]}}, separators=(",", ":"))
+PARK = "park"
 DECISION = re.compile(r"^DECISION NEEDED:\s*(.+)$", re.M)
 GRACE = 30
 POLL = 0.2
@@ -86,8 +88,10 @@ class Run:
             "started": None, "ended": None, "stop_reason": None, "detail": None,
             "caps": {"budget_usd": args.budget, "call_timeout_min": args.call_timeout,
                      "max_calls": args.max_calls, "max_hours": args.max_hours},
-            "calls": [], "decisions": [],
+            "calls": [], "decisions": [], "waited_s": 0,
         }
+        self.record["caps"]["max_wait_h"] = args.max_wait
+        self.topic = None
         self.auto_seen = 0
 
     # -- start ---------------------------------------------------------------
@@ -224,10 +228,12 @@ class Run:
 
     # -- one call ------------------------------------------------------------
 
-    def call(self, n, command):
-        """Run one claude call. Returns (call record, parsed JSON or None, timed out, stderr tail, spawn error)."""
+    def call(self, n, command, resume=None):
+        """Run one claude call, or with resume=(session id, prompt) continue that session.
+        Returns (call record, parsed JSON or None, timed out, stderr tail, spawn error)."""
         a = self.args
-        argv = ["claude", "-p", command, "--output-format", "json", "--permission-mode", "auto",
+        argv = ["claude", "-p", resume[1] if resume else command,
+                *(["--resume", resume[0]] if resume else []), "--output-format", "json", "--permission-mode", "auto",
                 "--permission-prompts", "none", "--max-budget-usd", "%g" % a.budget,
                 "--disallowedTools", DENIED, "--append-system-prompt", UNATTENDED_PROMPT,
                 "--settings", SETTINGS]
@@ -237,10 +243,11 @@ class Run:
                "cost_usd": None, "num_turns": None, "next_after": None, "decision": None,
                "deferred": False, "resumes": []}
         # A stored answer only ever reaches the session that asked it (AC-4).
-        try:
-            os.remove(os.path.join(self.folder, "answers.json"))
-        except FileNotFoundError:
-            pass
+        if not resume:
+            try:
+                os.remove(os.path.join(self.folder, "answers.json"))
+            except FileNotFoundError:
+                pass
         t0 = time.monotonic()
         timed_out = False
         with open(base + ".json", "wb") as out, open(base + ".stderr", "wb") as err:
@@ -301,12 +308,26 @@ class Run:
         if "budget" in str(subtype or ""):
             return "budget", flat(subtype), None
         if rec["deferred"]:
-            # ponytail: every defer stops until the ntfy wait (spec 0005 milestone 3) lands.
-            return "call_error", "deferred " + flat((data.get("deferred_tool_use") or {}).get("name")), None
+            use = data.get("deferred_tool_use") or {}
+            if use.get("name") != "AskUserQuestion":
+                return "call_error", "deferred " + flat(use.get("name")), None
+            questions = (use.get("input") or {}).get("questions")
+            if not isinstance(questions, list) or not questions:
+                return "call_error", "deferred AskUserQuestion without questions", None
+            key = hook.panel_key(questions)
+            try:
+                with open(os.path.join(self.folder, "answers.json"), encoding="utf-8") as f:
+                    stored = json.load(f)
+            except FileNotFoundError:
+                stored = {}
+            if key in stored:
+                ids = [d["id"] for d in self.record["decisions"] if d["key"] == key and d["source"] == "phone"]
+                return "call_error", "hook did not answer " + ", ".join(ids), None
+            return PARK, questions, None
         if data.get("is_error") is True or subtype != "success" or rec["exit_code"] != 0:
             return "call_error", error_detail or f"exit code {rec['exit_code']}", None
         if rec["decision"]:
-            return "decision_needed", rec["decision"], None
+            return PARK, rec["decision"], None
         if scope is None:
             return "scope_unreadable", f"{self.c.scope_dir} is gone or unreadable", None
         nb, autopilot = scope
@@ -329,6 +350,66 @@ class Run:
     def new_id(self):
         return ntfy.new_id({d["id"] for d in self.record["decisions"]})
 
+    def decision(self, n, key, q, answer=None):
+        """A Decision (spec 0005 data model). `answer` given means a safe question answered by the list."""
+        t = now()
+        d = {"id": self.new_id(), "call": n, "key": key, "kind": "panel" if key else "prose",
+             "header": q.get("header"), "question": q.get("question"),
+             "options": [o.get("label") for o in q.get("options") or []], "multi": bool(q.get("multiSelect")),
+             "sent": None, "answer": answer, "source": "auto" if answer else None,
+             "asked": t, "answered": t if answer else None, "ignored": 0}
+        self.record["decisions"].append(d)
+        return d
+
+    def park(self, n, what):
+        """Decisions for a deferred panel (`what` = its questions) or a prose question (`what` = the text).
+        Returns (key, every decision of it, the open ones)."""
+        if isinstance(what, str):
+            d = self.decision(n, None, {"question": what})
+            return None, [d], [d]
+        key = hook.panel_key(what)
+        ds = [self.decision(n, key, q, hook.safe_answer(q)) for q in what]
+        return key, ds, [d for d in ds if d["answer"] is None]
+
+    def wait(self, rec, key, ds, open_ds):
+        """Ping each open decision, wait for the replies, write answers.json.
+        Returns the resume (session id, prompt); raises Stop otherwise."""
+        if not rec["session_id"]:
+            raise Stop("call_error", "no session_id to resume")
+        if self.topic is None:
+            self.topic = ntfy.Topic(self.ntfy, ntfy.repo_label(self.ntfy, self.c.path), self.feature)
+        stopped = lambda: self.interrupted
+        t0 = ntfy.boottime()
+        end, first = "answered", None
+        try:
+            for d in open_ds:
+                mid = self.topic.ping(d, stopped)
+                if mid is None:
+                    end = "interrupted"
+                    break
+                first = first or mid
+            if open_ds and end == "answered":
+                end = self.topic.wait(
+                    open_ds, first, self.args.max_wait * 3600, stopped,
+                    lambda d: print(f"answered: {d['id']} {flat(d['answer'])} (phone)", flush=True),
+                    lambda w: print(f"warning: {w}", flush=True))
+        except ntfy.PingFailed as e:
+            raise Stop("ping_failed", str(e))
+        finally:
+            self.record["waited_s"] = round(self.record["waited_s"] + ntfy.boottime() - t0, 1)
+            self.save()
+        if end == "interrupted":
+            raise Stop("interrupted", "Ctrl C or a stop signal")
+        if end == "timeout":
+            raise Stop("decision_timeout", "no reply for " + ", ".join(d["id"] for d in open_ds if d["answer"] is None))
+        if key is None:
+            return rec["session_id"], "The user answered your DECISION NEEDED question: " + ds[0]["answer"]
+        path = os.path.join(self.folder, "answers.json")
+        with open(path + ".tmp", "w", encoding="utf-8") as f:
+            json.dump({key: {d["question"]: d["answer"] for d in ds}}, f)
+        os.replace(path + ".tmp", path)
+        return rec["session_id"], "continue"
+
     def read_auto(self, n):
         """AC-12: hook lines in auto.jsonl not yet recorded become `auto` decisions. Returns them."""
         lines = read_bytes(os.path.join(self.folder, "auto.jsonl")).decode(errors="replace").splitlines()
@@ -336,14 +417,7 @@ class Run:
         for line in lines[self.auto_seen:]:
             entry = json.loads(line)
             for q in entry["questions"]:
-                t = now()
-                d = {"id": self.new_id(), "call": n, "key": entry["key"], "kind": "panel",
-                     "header": q.get("header"), "question": q.get("question"),
-                     "options": [o.get("label") for o in q.get("options", [])], "multi": bool(q.get("multiSelect")),
-                     "sent": None, "answer": entry["answers"].get(q.get("question")), "source": "auto",
-                     "asked": t, "answered": t, "ignored": 0}
-                self.record["decisions"].append(d)
-                added.append(d)
+                added.append(self.decision(n, entry["key"], q, entry["answers"].get(q.get("question"))))
         self.auto_seen = len(lines)
         return added
 
@@ -358,7 +432,7 @@ class Run:
     # -- the loop ------------------------------------------------------------
 
     def loop(self):
-        a, box = self.args, self.c.next
+        a, box, resume = self.args, self.c.next, None
         t0 = time.monotonic()
         while True:
             command = box.command if box else "/sync"
@@ -367,24 +441,37 @@ class Run:
                 raise Stop("interrupted", "Ctrl C or a stop signal")
             if n > a.max_calls:
                 raise Stop("max_calls", f"{a.max_calls} calls made")
-            if time.monotonic() - t0 >= a.max_hours * 3600:
+            # Time spent waiting on you does not count toward --max-hours (AC-9).
+            if time.monotonic() - t0 - self.record["waited_s"] >= a.max_hours * 3600:
                 raise Stop("run_limit", f"{a.max_hours:g}h passed")
-            rec, data, timed_out, tail, spawn_error = self.call(n, command)
+            rec, data, timed_out, tail, spawn_error = self.call(n, command, resume and resume[:2])
             rec["box_text"] = box.box_text if box else None
+            rec["resumes"] = resume[2] if resume else []
             self.record["calls"].append(rec)
             reason, detail, nxt = self.classify(rec, data, timed_out, tail, spawn_error, box)
             auto = self.read_auto(n)
+            parked = self.park(n, detail) if reason == PARK else None
             self.save()
             shown = "deferred" if rec["deferred"] else rec["subtype"] or reason or "error"
             cost = "-" if rec["cost_usd"] is None else f"{rec['cost_usd']:.2f}"
-            after = "-" if reason else (nxt.command if nxt else "/sync")
-            print(f"[{n}/{a.max_calls}] {command} -> {wf.clean(str(shown))}, {cost} USD, "
+            after = "waiting" if parked else "-" if reason else (nxt.command if nxt else "/sync")
+            label = f"{command} (resume {', '.join(resume[2])})" if resume else command
+            print(f"[{n}/{a.max_calls}] {label} -> {wf.clean(str(shown))}, {cost} USD, "
                   f"{rec['duration_s'] / 60:.1f}m, next: {after}", flush=True)
-            for d in auto:
-                print(f"auto: {flat(d['header'])} -> {flat(d['answer'])}", flush=True)
+            for d in auto + (parked[1] if parked else []):
+                if d["source"] == "auto":
+                    print(f"auto: {flat(d['header'])} -> {flat(d['answer'])}", flush=True)
+            if parked:
+                key, ds, open_ds = parked
+                for d in open_ds:
+                    print(f"waiting: {d['id']} {flat(d['question'])}", flush=True)
+                    for i, o in enumerate(d["options"], 1):
+                        print(f"  {i} {flat(o)}", flush=True)
+                resume = (*self.wait(rec, key, ds, open_ds), [d["id"] for d in open_ds])
+                continue
             if reason:
                 raise Stop(reason, detail)
-            box = nxt
+            box, resume = nxt, None
 
     def run(self):
         for sig in (signal.SIGINT, signal.SIGHUP, signal.SIGTERM):

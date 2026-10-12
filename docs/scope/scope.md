@@ -145,7 +145,8 @@ A hook on `AskUserQuestion` answers safe panels with the recommended option and 
 - [ ] Build it: `/develop decision parking and phone pings`
    - [x] `hook.py` safe list and answer lookup, `--settings` argv, new prompt, auto answers recorded (AC-3, AC-4, AC-5, AC-12)
    - [x] `ntfy.py` and `wf ntfy init|codes|test`, `no_ntfy` start check, scrubbed JSON pings, reply rules and code burning (AC-1, AC-2, AC-7, AC-8, AC-13)
-   - [ ] Deferred classification, wait loop, `answers.json`, resume call, prose decisions (AC-6, AC-9, AC-10, AC-11, AC-12)
+   - [x] Deferred classification, wait loop, `answers.json`, resume call, prose decisions (AC-6, AC-9, AC-10, AC-11, AC-12)
+   - [ ] waits on `/architect decision parking and phone pings`: AskUserQuestion is not offered in `claude -p` 2.1.296, so the hook never fires (verify.md check 1)
    - [ ] Manual real claude and phone checks in `verify.md` (AC-14)
 - [ ] Verify it: `/check verify decision parking and phone pings`
 - [ ] Test it: `/test decision parking and phone pings`

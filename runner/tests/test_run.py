@@ -109,8 +109,9 @@ SCOPE = """# Scope: demo
 # Runs wf with constants patched on the run module (spec: tests patch run, never wf).
 WRAPPER = """import sys
 sys.path.insert(0, sys.argv[1])
-import run, wf
+import ntfy, run, wf
 run.GRACE = float(sys.argv[2])
+ntfy.RETRY_GAP = ntfy.POLL_EVERY = 0.05
 if sys.argv[3] == "boom":
     def boom(raw):
         raise RuntimeError("forced failure")
@@ -250,7 +251,9 @@ class TestHappyPath(RunCase):
         self.assertEqual(rec["calls"][0]["exit_code"], 0)
         self.assertEqual(rec["calls"][0]["next_after"], "/test loop")
         self.assertEqual((rec["repo"], rec["name"], rec["feature"], rec["branch"]), (str(self.repo), "demo", "1. Loop", "work"))
-        self.assertEqual(rec["caps"], {"budget_usd": 20, "call_timeout_min": 60, "max_calls": 20, "max_hours": 8})
+        self.assertEqual(rec["caps"], {"budget_usd": 20, "call_timeout_min": 60, "max_calls": 20, "max_hours": 8,
+                                       "max_wait_h": 12})
+        self.assertEqual((rec["decisions"], rec["waited_s"]), ([], 0))
         self.assertEqual(sorted(p.name for p in folder.iterdir()),
                          ["call-01.json", "call-01.stderr", "call-02.json", "call-02.stderr",
                           "call-03.json", "call-03.stderr", "run.json"])
@@ -453,7 +456,8 @@ class TestStart(RunCase):
     def test_bad_caps(self):
         for flag, value in [("--max-calls", "0"), ("--max-calls", "-1"), ("--max-calls", "nan"), ("--max-calls", "inf"),
                             ("--max-calls", "1.5"), ("--budget", "nan"), ("--budget", "inf"), ("--budget", "0"),
-                            ("--call-timeout", "-1"), ("--max-hours", "x")]:
+                            ("--call-timeout", "-1"), ("--max-hours", "x"),
+                            ("--max-wait", "0"), ("--max-wait", "nan")]:
             with self.subTest(flag=flag, value=value):
                 r = self.wf("demo", "-y", flag, value)
                 self.assertEqual(r.returncode, 2, r.stderr)
@@ -465,7 +469,7 @@ class TestConfirmLine(unittest.TestCase):
     def test_line(self):
         c = SimpleNamespace(path="/r", name="demo", warnings=["w1"], display_name=lambda: "demo (worktree x)",
                             next=SimpleNamespace(feature="1. Loop", command="/develop loop", note=None))
-        args = SimpleNamespace(budget=2.5, call_timeout=30, max_calls=4, max_hours=1.5, yes=True)
+        args = SimpleNamespace(budget=2.5, call_timeout=30, max_calls=4, max_hours=1.5, max_wait=12, yes=True)
         with mock.patch.object(wf, "head_branch", return_value="work"), \
                 mock.patch.object(wf, "changes", return_value="2 changes"), \
                 mock.patch.object(wf, "open_sessions", return_value=1):
@@ -484,7 +488,7 @@ class TestSpawnRace(unittest.TestCase):
         tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp)
         c = SimpleNamespace(path=tmp, name="x", warnings=[], next=SimpleNamespace(feature="1. A"))
-        args = SimpleNamespace(budget=1, call_timeout=60, max_calls=1, max_hours=1, yes=True)
+        args = SimpleNamespace(budget=1, call_timeout=60, max_calls=1, max_hours=1, max_wait=12, yes=True)
         with mock.patch.object(wf, "head_branch", return_value="work"):
             r = run.Run(c, args)
         r.folder = tmp
@@ -542,15 +546,16 @@ class TestClassify(RunCase):
                 self.steps([step])
                 self.assert_stopped(self.wf("demo", "-y"), "call_error", calls=1)
 
-    # covers: AC-6 rule 6 (\r\n endings, last line wins, control characters stripped), null result
+    # covers: AC-6 rule 6 (\r\n endings, last line wins, control characters stripped), null result;
+    # spec 0005 AC-11 (the line parks a prose decision instead of stopping; here the ping cannot be sent)
     def test_decision(self):
         result = "thinking\r\nDECISION NEEDED: first?\r\nmore\r\nDECISION NEEDED:  which \x1b]0;db\x07 provider?\r\n"
         self.steps([{"json": {"result": result}, "tick": False}])
-        r = self.wf("demo", "-y")
-        rec = self.assert_stopped(r, "decision_needed", calls=1)
-        self.assertEqual(rec["detail"], "which ]0;db provider?")
+        r = self.wf("demo", "-y", mode="fast")
+        rec = self.assert_stopped(r, "ping_failed", calls=1)
         self.assertEqual(rec["calls"][0]["decision"], "which ]0;db provider?")
-        self.assertIn("stopped: decision_needed: which ]0;db provider?", r.stdout)
+        self.assertEqual(rec["decisions"][0]["question"], "which ]0;db provider?")
+        self.assertIn("waiting: %s which ]0;db provider?" % rec["decisions"][0]["id"], r.stdout)
         shutil.rmtree(self.state)
         self.steps([{"json": {"result": None}}])
         self.assertEqual(self.wf("demo", "-y").returncode, 0)
@@ -592,8 +597,8 @@ class TestClassify(RunCase):
         (self.fakes / "count").unlink()
         self.make_repo("two", "# Scope: x\n**Autopilot:** allowed\n### 1. A\n- [ ] `/develop a`\n")
         self.steps([{}, {"tick": False, "json": {"result": "DECISION NEEDED: merge now?"}}])
-        rec = self.assert_stopped(self.wf("two", "-y"), "decision_needed", calls=2)
-        self.assertEqual(rec["detail"], "merge now?")
+        rec = self.assert_stopped(self.wf("two", "-y", mode="fast"), "ping_failed", calls=2)
+        self.assertEqual((rec["decisions"][0]["call"], rec["calls"][1]["command"]), (2, "/sync"))
 
 
 def panel(header, labels, question=None, multi=False):
@@ -606,6 +611,13 @@ VERIFY = panel("Save verify steps?", ["Save to verify.md", "Just show in summary
 SKILLS = panel(" Agent Skills ", ["Yes, find them for me", "Not now, later"])
 ENGINE = panel("Storage", ["Postgres (recommended)", "SQLite"], question="Which storage engine?")
 HOOK = RUNNER / "hook.py"
+
+
+def defer(questions):
+    """A call whose AskUserQuestion the hook deferred, as claude -p reports it."""
+    return {"ask": [questions], "tick": False,
+            "json": {"stop_reason": "tool_deferred",
+                     "deferred_tool_use": {"name": "AskUserQuestion", "input": {"questions": questions}}}}
 
 
 class TestHook(unittest.TestCase):
@@ -708,19 +720,144 @@ class TestParking(RunCase):
         self.assertEqual(self.wf("demo", "-y").returncode, 0)
         self.assertEqual([self.argv(n)["answers_file"] for n in (1, 2, 3)], [False, False, False])
 
-    # covers: spec 0005 AC-6, AC-12 (until the ntfy wait lands, a defer stops call_error, shown deferred)
-    def test_deferred_stops(self):
-        self.steps([{"ask": [[ENGINE]], "tick": False,
-                     "json": {"stop_reason": "tool_deferred", "result": "DECISION NEEDED: ignored?",
-                              "deferred_tool_use": {"name": "AskUserQuestion", "input": {"questions": [ENGINE]}}}}])
-        r = self.wf("demo", "-y")
-        rec = self.assert_stopped(r, "call_error", calls=1)
-        self.assertEqual(rec["detail"], "deferred AskUserQuestion")
-        self.assertTrue(rec["calls"][0]["deferred"])
-        self.assertIn("[1/20] /develop loop -> deferred, 0.50 USD", r.stdout)
-        self.assertEqual(json.loads(json.loads((self.fakes / "hook-1.json").read_text())[0])
-                         ["hookSpecificOutput"]["permissionDecision"], "defer")
-        self.assertEqual(rec["decisions"], [])
+    def fake_ntfy(self):
+        self.ntfy = FakeNtfy()
+        self.addCleanup(self.ntfy.close)
+        write_config(self.tmp / "config", self.ntfy.url, codes=[f"code{i:04d}" for i in range(5)])
+
+    def lines(self, r):
+        return [l for l in r.stdout.splitlines() if not l.startswith("run folder")]
+
+    # covers: spec 0005 AC-3, AC-6, AC-7, AC-8, AC-10, AC-12 (defer, ping, tap, resume the same session, done)
+    def test_happy_path(self):
+        self.fake_ntfy()
+        self.ntfy.replies = ["{id} 2"]
+        self.steps([defer([ENGINE]), {"ask": [[ENGINE]]}, {}, {"tick": False}])
+        r = self.wf("demo", "-y", mode="fast")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        _, rec = self.run_record()
+        d = rec["decisions"][0]
+        self.assertEqual((d["kind"], d["answer"], d["source"], d["call"]), ("panel", "SQLite", "phone", 1))
+        self.assertEqual(d["key"], hashlib.sha1(json.dumps([ENGINE], sort_keys=True).encode()).hexdigest())
+        i = d["id"]
+        self.assertEqual(self.lines(r)[1:7], [
+            "[1/20] /develop loop -> deferred, 0.50 USD, 0.0m, next: waiting",
+            f"waiting: {i} Which storage engine?", "  1 Postgres (recommended)", "  2 SQLite",
+            f"answered: {i} SQLite (phone)",
+            f"[2/20] /develop loop (resume {i}) -> success, 0.50 USD, 0.0m, next: /test loop"])
+        a = self.argv(2)
+        self.assertEqual(a["argv"][:4], ["-p", "continue", "--resume", "s-1"])
+        self.assertEqual(a["argv"][4:], self.argv(1)["argv"][2:])
+        self.assertTrue(a["answers_file"])
+        self.assertFalse(self.argv(3)["answers_file"])
+        out = json.loads(json.loads((self.fakes / "hook-2.json").read_text())[0])["hookSpecificOutput"]
+        self.assertEqual(out["updatedInput"]["answers"], {"Which storage engine?": "SQLite"})
+        self.assertEqual([c["deferred"] for c in rec["calls"]], [True, False, False, False])
+        self.assertEqual([c["resumes"] for c in rec["calls"]], [[], [i], [], []])
+        self.assertEqual([c["command"] for c in rec["calls"]], ["/develop loop", "/develop loop", "/test loop", "/sync"])
+        label = "repo-" + hashlib.sha1(str(self.repo).encode()).hexdigest()[:4]
+        self.assertEqual(self.ntfy.posts[0]["title"], f"wf {label}: 1. Loop")
+        self.assertEqual(d["sent"], self.ntfy.posts[0]["message"])
+        self.assertEqual(self.ntfy.posts[1]["message"], f"{i} accepted, resuming")
+
+    # covers: spec 0005 AC-5, AC-10, AC-12 (a mixed panel: one ping, the safe one auto, answers.json holds both)
+    def test_mixed_panel(self):
+        self.fake_ntfy()
+        self.ntfy.replies = ["{id} 1"]
+        self.steps([defer([VERIFY, ENGINE]), {"ask": [[VERIFY, ENGINE]]}, {}, {"tick": False}])
+        r = self.wf("demo", "-y", mode="fast")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("auto: Save verify steps? -> Save to verify.md", r.stdout)
+        self.assertEqual(len([p for p in self.ntfy.posts if p["priority"] == 4]), 1)
+        out = json.loads(json.loads((self.fakes / "hook-2.json").read_text())[0])["hookSpecificOutput"]
+        self.assertEqual(out["updatedInput"]["answers"],
+                         {VERIFY["question"]: "Save to verify.md", ENGINE["question"]: "Postgres (recommended)"})
+        _, rec = self.run_record()
+        self.assertEqual([(d["source"], d["answer"]) for d in rec["decisions"]],
+                         [("auto", "Save to verify.md"), ("phone", "Postgres (recommended)")])
+        self.assertEqual(rec["calls"][1]["resumes"], [rec["decisions"][1]["id"]])
+
+    # covers: spec 0005 AC-11 (prose: no buttons, a number is ignored, a code resumes with the sentence)
+    def test_prose(self):
+        self.fake_ntfy()
+        self.ntfy.replies = ["{id} 1", "{id} code0003 use postgres"]
+        self.steps([{"tick": False, "json": {"result": "DECISION NEEDED: which db?"}}, {}, {}, {"tick": False}])
+        r = self.wf("demo", "-y", mode="fast")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("actions", self.ntfy.posts[0])
+        self.assertEqual(self.argv(2)["argv"][:4],
+                         ["-p", "The user answered your DECISION NEEDED question: use postgres", "--resume", "s-1"])
+        _, rec = self.run_record()
+        d = rec["decisions"][0]
+        self.assertEqual((d["kind"], d["key"], d["options"], d["answer"], d["ignored"]),
+                         ("prose", None, [], "use postgres", 1))
+        self.assertEqual(len(json.loads(self.ntfy_config.read_text())["codes"]), 4)
+
+    # covers: spec 0005 AC-6 (a defer of another tool, and a repeat of an answered panel, stop call_error)
+    def test_deferred_errors(self):
+        self.fake_ntfy()
+        bash = defer([ENGINE])
+        bash["json"]["deferred_tool_use"]["name"] = "Bash"
+        self.steps([bash])
+        rec = self.assert_stopped(self.wf("demo", "-y", mode="fast"), "call_error", calls=1)
+        self.assertEqual(rec["detail"], "deferred Bash")
+        shutil.rmtree(self.state)
+        (self.fakes / "count").unlink()
+        self.ntfy.replies = ["{id} 1"]
+        self.steps([defer([ENGINE]), defer([ENGINE])])
+        rec = self.assert_stopped(self.wf("demo", "-y", mode="fast"), "call_error", calls=2)
+        self.assertEqual(rec["detail"], "hook did not answer " + rec["decisions"][0]["id"])
+
+    # covers: spec 0005 AC-7, AC-13 (three failed POSTs stop ping_failed, exit 6)
+    def test_ping_failed(self):
+        self.fake_ntfy()
+        self.ntfy.fail_posts = 3
+        self.steps([defer([ENGINE])])
+        rec = self.assert_stopped(self.wf("demo", "-y", mode="fast"), "ping_failed", calls=1)
+        self.assertIn("500", rec["detail"])
+        self.assertEqual(len(self.ntfy.posts), 3)
+
+    # covers: spec 0005 AC-9, AC-13 (no reply within --max-wait stops decision_timeout naming the id)
+    def test_decision_timeout(self):
+        self.fake_ntfy()
+        self.steps([defer([ENGINE])])
+        rec = self.assert_stopped(self.wf("demo", "-y", "--max-wait", "0.0001", mode="fast"), "decision_timeout", calls=1)
+        d = rec["decisions"][0]
+        self.assertEqual(rec["detail"], "no reply for " + d["id"])
+        self.assertEqual((d["answer"], d["source"]), (None, None))
+        self.assertGreater(rec["waited_s"], 0.3)
+
+    # covers: spec 0005 AC-9, AC-12 (a wait longer than --max-hours does not stop the run; waited_s recorded)
+    def test_wait_not_counted(self):
+        self.fake_ntfy()
+        self.ntfy.hold_polls = 60
+        self.ntfy.replies = ["{id} 1"]
+        self.steps([defer([ENGINE]), {"ask": [[ENGINE]]}, {}, {"tick": False}])
+        r = self.wf("demo", "-y", "--max-hours", "0.0005", mode="fast")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        _, rec = self.run_record()
+        self.assertGreater(rec["waited_s"], 1.8)
+
+    # covers: spec 0005 AC-9 (SIGINT during a wait: interrupted, exit 130, decision open, no inhibitor)
+    def test_sigint_during_wait(self):
+        self.fake_ntfy()
+        self.steps([defer([ENGINE])])
+        p = self.start("demo", "-y", mode="fast")
+        end = time.monotonic() + 20
+        while not self.ntfy.posts:
+            self.assertLess(time.monotonic(), end)
+            time.sleep(0.05)
+        time.sleep(0.2)
+        t = time.monotonic()
+        p.send_signal(signal.SIGINT)
+        out, err = p.communicate(timeout=20)
+        self.assertLess(time.monotonic() - t, 3)
+        self.assertEqual(p.returncode, 130, out + err)
+        _, rec = self.run_record()
+        self.assertEqual((rec["stop_reason"], rec["decisions"][0]["source"]), ("interrupted", None))
+        pid = json.loads((self.fakes / "inhibit.json").read_text())["pid"]
+        time.sleep(0.4)
+        self.assertFalse(alive(pid))
 
 
 class TestCaps(RunCase):

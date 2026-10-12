@@ -100,7 +100,8 @@ def new_codes():
 
 
 def burn(cfg, hashes):
-    """Remove used code hashes from the file under a lock, and from cfg."""
+    """Remove these code hashes from the file under a lock. Returns the ones that were still
+    there: the file decides, since another run may have used a code after this one loaded it."""
     p = path()
     while True:
         fd = os.open(p, os.O_RDWR)
@@ -112,11 +113,14 @@ def burn(cfg, hashes):
     try:
         with open(p, encoding="utf-8") as f:
             disk = json.load(f)
-        disk["codes"] = [c for c in disk.get("codes", []) if c not in hashes]
-        write(disk)
+        live = set(disk.get("codes", [])) & hashes
+        if live:
+            disk["codes"] = [c for c in disk["codes"] if c not in hashes]
+            write(disk)
     finally:
         os.close(fd)
-    cfg["codes"] = disk["codes"]
+    cfg["codes"] = disk.get("codes", [])
+    return live
 
 
 def scrub(text, limit):
@@ -209,9 +213,8 @@ class Topic:
 
     def take(self, text, ds):
         """AC-8 for one message. The decision it answered, or None."""
-        valid = {sha(t) for t in text.split() if len(t) == 8} & set(self.cfg["codes"])
-        if valid:
-            burn(self.cfg, valid)
+        tokens = {sha(t) for t in text.split() if len(t) == 8}
+        valid = burn(self.cfg, tokens) if tokens else set()
         m = REPLY.match(text)
         d = m and next((d for d in ds if d["id"] == m.group(1).lower() and d["answer"] is None), None)
         if not d:

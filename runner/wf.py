@@ -556,6 +556,7 @@ def build_parser():
     run.add_argument("--call-timeout", type=positive(float), default=60, help="minutes per call (default 60)")
     run.add_argument("--max-calls", type=positive(int), default=20, help="calls per run (default 20)")
     run.add_argument("--max-hours", type=positive(float), default=8, help="hours per run (default 8)")
+    run.add_argument("--max-wait", type=positive(float), default=12, help="hours to wait for each phone reply (default 12)")
     ntfy = sub.add_parser("ntfy", help="set up and test phone pings for wf run")
     nsub = ntfy.add_subparsers(dest="action", metavar="<action>", required=True)
     init = nsub.add_parser("init", help="create the topic and one time codes")
