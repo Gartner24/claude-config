@@ -196,7 +196,8 @@ class Topic:
         lines, actions = [f"{d['id']}: {question}"], []
         for n, label in enumerate(d["options"], 1):
             label = scrub(label, 40)
-            if blocked(self.cfg, label):
+            # A label that was all paths or code used to send a blank button.
+            if not label or blocked(self.cfg, label):
                 label = f"option {n}"
             lines.append(f"{n} {label}")
             if n <= 3:

@@ -184,6 +184,14 @@ class TestScrub(NtfyCase):
         t.ping(d, lambda: False)
         self.assertEqual(d["sent"], "ab12: question waiting, see terminal\n1 option 1\n2 Drop it\nreply ab12 <n>")
 
+    # covers: spec 0005 AC-7 (a label that scrubs to nothing is sent as option <n>, never a blank button)
+    def test_empty_label(self):
+        t = ntfy.Topic(self.cfg(), "home", "x")
+        d = self.decision(options=["/tmp/x", "`rm -rf`", "Keep"])
+        t.ping(d, lambda: False)
+        self.assertEqual(d["sent"], "ab12: Which storage engine?\n1 option 1\n2 option 2\n3 Keep\nreply ab12 <n>")
+        self.assertEqual([a["label"] for a in self.fake.posts[0]["actions"]], ["1 option 1", "2 option 2", "3 Keep"])
+
 
 class TestPublish(NtfyCase):
     # covers: AC-7 (JSON at the server root, actions for 3 options, commas and non ASCII intact)
