@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-11
 **Status**: Accepted
-**Amended**: 2026-10-11, AC-2 reads worktrees from the files instead of `git worktree list` (scope feature 17, build step 6, built in `aa313bc`); 2026-10-11, a picker that fails is not a cancel (AC-4), and a `HEAD` that is not a branch or a commit hash shows `-` in the list and picker branch column (AC-12) (scope feature 18, build step 7, built in `9b0636e`); 2026-10-11, one uncommitted change reads `1 change` on the confirm line (AC-8) (scope feature 19, build step 8, not yet built)
+**Amended**: 2026-10-11, AC-2 reads worktrees from the files instead of `git worktree list` (scope feature 17, build step 6, built in `aa313bc`); 2026-10-11, a picker that fails is not a cancel (AC-4), and a `HEAD` that is not a branch or a commit hash shows `-` in the list and picker branch column (AC-12) (scope feature 18, build step 7, built in `9b0636e`); 2026-10-11, one uncommitted change reads `1 change` on the confirm line (AC-8) (scope feature 19, build step 8, built in `b8402dc`)
 
 ## Summary
 
