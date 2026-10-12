@@ -299,7 +299,8 @@ class TestHappyPath(RunCase):
         # The other feature's box was never run.
         self.assertIn("- [ ] `/develop other`", (self.repo / "docs/scope/scope.md").read_text())
 
-    # covers: spec 0004 AC-4, AC-5, AC-8, spec 0005 AC-3, AC-5 (argv element for element, no hook, no WF_RUN_DIR)
+    # covers: spec 0004 AC-4, AC-5, AC-8, spec 0005 AC-3, AC-5 (argv element for element, no hook, no WF_RUN_DIR),
+    # spec 0007 AC-2, AC-4, AC-5 (inline settings in key order, strict empty MCP config, extended deny list)
     def test_argv(self):
         r = self.wf("demo", "-y", "--budget", "2.5", "--max-calls", "1")
         a = self.argv(1)
