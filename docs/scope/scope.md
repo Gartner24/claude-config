@@ -5,7 +5,7 @@ Your Claude Code setup, published. The current build is the autonomous workflow 
 **Build approach:** Skateboard (each stage is usable on its own, and each next stage grows the same tool).
 **Workflow:** Beta (after `/develop`: `/check verify`, then `/test`). It runs unattended on your machine, so it gets tests. `/architect` is the recommended first stop for a feature with a real decision, but skippable when you already know the build. Any feature can carry its own tag (e.g. `· GA`) to do more or less.
 **Source of truth:** scope
-**Autopilot:** off
+**Autopilot:** allowed
 
 _These are recommendations to keep your build orderly, not requirements. Skip anything that does not fit: if you already know how to build a feature, use `/develop` and skip `/architect`. You decide when a feature is `done`._
 
