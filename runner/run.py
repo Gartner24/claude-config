@@ -93,13 +93,16 @@ try:
     if tool in ("navigate_page", "new_page") and not (
             tool == "navigate_page" and "url" not in i and i.get("type") == "reload"):
         u = i.get("url")
-        if not isinstance(u, str) or origin(u) != origin(app):
+        # Checked before parsing: Chrome reads a backslash as a slash, urlsplit does not (review finding 5).
+        if not isinstance(u, str) or any(c in "\\\\@" or c.isspace() or c < " " or c == "\\x7f" for c in u) \\
+                or origin(u) != origin(app):
             raise ValueError(f"{tool} may only open {app}")
     for k, v in i.items():
         if k.endswith(("path", "Path")):
-            p = os.path.realpath(v) if isinstance(v, str) else ""
-            if p != shots and not p.startswith(shots + "/"):
-                raise ValueError(f"{k} must be under {shots}")
+            # The resolved path alone let a symlink be swapped between this check and the write (finding 7).
+            if not isinstance(v, str) or not os.path.isabs(v) or os.path.normpath(v) != v \\
+                    or os.path.realpath(v) != v or not v.startswith(shots + "/"):
+                raise ValueError(f"{k} must be a plain path under {shots}")
 except Exception as e:
     print("wf run: browser tool call refused:", e, file=sys.stderr)
     sys.exit(2)
@@ -135,8 +138,8 @@ RUN_SUITE_YES = " Run tests?, Yes, run and fix to green."
 DONE_YES = (" When /test or /check verify offers to mark the feature done after its last open box passed: "
             "Yes, mark it done.")
 BROWSER_PROMPT = (" wf started the app at {} and stops it after this step; do not start, stop or restart it. Drive it with "
-                  "the chrome-devtools tools; the browser can reach only that address. Save any file a browser tool writes "
-                  "under {}, or leave its path out. Anything you start from Bash runs in a separate sandbox the browser "
+                  "the chrome-devtools tools and open only that address; outside sites do not load. Save any file a "
+                  "browser tool writes under {}, or leave its path out. Anything you start from Bash runs in a separate sandbox the browser "
                   "cannot reach. If no chrome-devtools tool is available, end with BLOCKED: browser tools unavailable. "
                   "Otherwise end with BLOCKED only for a login, captcha, 2FA or hardware.")
 TEST_BASE = (" For /test, the feature's changes are the files in git diff --name-only --diff-filter=ACMR {} plus the "
@@ -322,7 +325,7 @@ class Run:
     def browser_checks(self):
         """Spec 0009 AC-2: npx, brave and the pinned MCP package, else refuse no_browser."""
         found = {}
-        for b in ("npx", "brave"):
+        for b in ("npx", "brave", "env"):
             p = shutil.which(b)
             if not p:
                 return self.refuse("no_browser", b)
@@ -339,8 +342,10 @@ class Run:
         except OSError as e:
             return self.refuse("no_browser", f"{cache}: {e.strerror or e}")
         try:
+            # cwd: npx runs a matching package from the cwd's node_modules before the cache (P10).
             r = subprocess.run([found["npx"], "-y", MCP_PACKAGE, "--version"], env={**call_env(), "npm_config_cache": cache},
-                               stdin=subprocess.DEVNULL, capture_output=True, text=True, errors="replace", timeout=120)
+                               cwd=state_dir(), stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                               errors="replace", timeout=120)
             problem = (flat(r.stderr.strip().split("\n")[0]) or f"exit {r.returncode}") if r.returncode else None
         except subprocess.TimeoutExpired:
             problem = "timed out after 120 s"
@@ -349,8 +354,11 @@ class Run:
         if problem:
             return self.refuse("no_browser", f"mcp: {problem}")
         self.browser = {"start": self.answers["app start"], "url": self.answers["app url"],
-                        "npx": found["npx"], "brave": found["brave"], "cache": cache, "shots": None}
-        self.mcp_browser = mcp_browser(found["npx"], found["brave"], cache)
+                        "npx": found["npx"], "brave": found["brave"], "cache": cache, "shots": None,
+                        # AC-3 step 3: wf's own folders, hidden from the app like the credentials.
+                        "wf_dirs": list(dict.fromkeys(os.path.realpath(p) for p in (
+                            os.path.dirname(ntfy.path()), os.path.dirname(allowed_path()), state_dir())))}
+        self.mcp_browser = mcp_browser(found["env"], found["npx"], found["brave"], cache)
         return None
 
     def freeze_guard(self):
@@ -411,7 +419,7 @@ class Run:
                                 *(r for p in CREDENTIAL_PATHS for r in path_rules("Read", os.path.expanduser(p))),
                                 *(r for p in deny for r in path_rules("Edit", p))])
         self.claude = binaries["claude"]
-        self.common, self.bwrap = common, os.path.realpath(shutil.which("bwrap"))
+        self.bwrap = os.path.realpath(shutil.which("bwrap"))
         return None
 
     # -- the app (spec 0009) -------------------------------------------------
@@ -424,10 +432,12 @@ class Run:
         for p in (repo, *(os.path.join(home, p[2:]) for p in CACHE_DIRS)):
             if os.path.exists(p):
                 a += ["--bind", p, p]
-        for p in (os.path.join(repo, ".claude"), os.path.join(self.common, "config"), os.path.join(self.common, "hooks")):
+        # The calls' frozen denyWrite list, as listed: three hand picked paths used to leave a linked worktree's
+        # .git pointer and the hook token scripts writable for the app (review finding 1).
+        for p in self.guard_settings["sandbox"]["filesystem"]["denyWrite"]:
             if os.path.exists(p):
                 a += ["--ro-bind", p, p]
-        for p in (os.path.join(home, p[2:]) for p in JAIL_HIDDEN):
+        for p in (*(os.path.join(home, p[2:]) for p in JAIL_HIDDEN), *self.browser["wf_dirs"]):
             if os.path.isdir(p):
                 a += ["--tmpfs", p]
             elif os.path.exists(p):
@@ -443,8 +453,12 @@ class Run:
         log = os.path.join(self.folder, name)
         app["logs"].append(name)
         t0 = time.monotonic()
+        # The app holds no Claude login (review finding 2); call_env() keeps it only for the calls.
+        env = call_env(self.run_id)
+        for k in KEPT_ENV:
+            env.pop(k, None)
         with open(log, "wb") as out:
-            self.app = subprocess.Popen(self.jail_argv(), cwd=self.c.path, env=call_env(self.run_id),
+            self.app = subprocess.Popen(self.jail_argv(), cwd=self.c.path, env=env,
                                         stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT,
                                         start_new_session=True)
         self.app_rec, last = app, None
@@ -473,8 +487,9 @@ class Run:
             self.app_term_at = time.monotonic()
             self.signal_app(signal.SIGTERM)
 
-    def stop_app(self):
-        """AC-3 step 6: SIGTERM the app's group, SIGKILL once GRACE has passed. Records and returns its exit code."""
+    def stop_app(self, check=True):
+        """AC-3 step 6: SIGTERM the app's group, SIGKILL once GRACE has passed. Records and returns its exit code.
+        AC-3 step 5: then the guarded file check, which raises guard_changed over any reason the caller has."""
         p = self.app
         if p is None:
             return None
@@ -489,6 +504,11 @@ class Run:
         self.signal_app(signal.SIGKILL)
         self.app = self.app_term_at = None
         self.app_rec["exit"] = p.returncode
+        # The app writes what a call may not, and the next check used to come only before the next call,
+        # after wf's own git commands had already read a moved config (review finding 1).
+        changed = check and self.files_changed()
+        if changed:
+            raise Stop("guard_changed", changed)
         return p.returncode
 
     def signal_app(self, sig):
@@ -573,10 +593,14 @@ class Run:
             start_new_session=True)
 
     def cleanup(self):
+        """Returns the guarded file change an app stopped here made, else None."""
         if self.proc and self.proc.poll() is None:
             self.signal_call(signal.SIGKILL)
             self.proc.wait()
-        self.stop_app()
+        changed = None
+        if self.app is not None:
+            self.stop_app(check=False)
+            changed = self.files_changed()
         if self.run_id:
             sweep(self.run_id)
         if self.inhibitor:
@@ -589,6 +613,7 @@ class Run:
             except subprocess.TimeoutExpired:
                 os.killpg(self.inhibitor.pid, signal.SIGKILL)
                 self.inhibitor.wait()
+        return changed
 
     # -- record --------------------------------------------------------------
 
@@ -965,8 +990,10 @@ class Run:
             self.folder = os.path.join(state_dir(), "runs", self.run_id)
             os.makedirs(self.folder, mode=0o700)
             if self.browser:
-                self.browser["shots"] = os.path.join(self.folder, "shots")
-                os.makedirs(self.browser["shots"])
+                os.makedirs(os.path.join(self.folder, "shots"))
+                # The hook compares paths to their realpath, so the prompt and the hook name the real one;
+                # a state dir behind a symlink would otherwise refuse every write.
+                self.browser["shots"] = os.path.realpath(os.path.join(self.folder, "shots"))
                 self.browser_settings = browser_settings(self.guard_settings, self.record["guard"]["binaries"]["python3"],
                                                          self.browser["url"], self.browser["shots"])
             self.save()
@@ -977,7 +1004,10 @@ class Run:
         except Exception as e:
             detail = flat(traceback.format_exception_only(e)[-1])
         finally:
-            self.cleanup()
+            # AC-3 step 5: a guarded file the app moved wins over the reason the run ended with, Ctrl C included.
+            changed = self.cleanup()
+            if changed:
+                reason, detail = "guard_changed", changed
             parked = None if reason == "feature_done" else reason in PARKS
             self.record.update(ended=now(), stop_reason=reason, detail=detail, parked=parked)
             self.save()
@@ -1092,11 +1122,13 @@ def http_status(url):
         return None
 
 
-def mcp_browser(npx, brave, cache):
+def mcp_browser(env, npx, brave, cache):
     """Spec 0009 AC-4: the one MCP a browser call gets, a fresh headless Brave behind a dead proxy."""
     return json.dumps({"mcpServers": {"chrome-devtools": {
-        "type": "stdio", "command": npx,
-        "args": ["-y", MCP_PACKAGE, "--isolated", "--headless", "--executablePath", brave, "--proxyServer", DEAD_PROXY,
+        # env -C: Claude Code starts the MCP in the repo, and npx ran a copy planted in its node_modules (P10).
+        "type": "stdio", "command": env,
+        "args": ["-C", state_dir(), npx, "-y", MCP_PACKAGE, "--isolated", "--headless", "--executablePath", brave,
+                 "--proxyServer", DEAD_PROXY,
                  # --force-webrtc-ip-handling-policy reached Brave and leaked the public IP anyway (P5, 2026-10-12).
                  "--chromeArg=--webrtc-ip-handling-policy=disable_non_proxied_udp", "--chromeArg=--disable-quic",
                  "--no-usage-statistics", "--no-performance-crux"],

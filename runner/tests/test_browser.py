@@ -122,7 +122,8 @@ class TestAppKeys(unittest.TestCase):
 FAKE_BWRAP = f"""#!{sys.executable}
 import glob, json, os, sys
 d = os.environ["FAKE_DIR"]
-json.dump(sys.argv[1:], open(os.path.join(d, "bwrap-%d.json" % (len(glob.glob(os.path.join(d, "bwrap-*.json"))) + 1)), "w"))
+json.dump({{"argv": sys.argv[1:], "env": dict(os.environ)}},
+          open(os.path.join(d, "bwrap-%d.json" % (len(glob.glob(os.path.join(d, "bwrap-*.json"))) + 1)), "w"))
 i = sys.argv.index("--chdir")
 os.chdir(sys.argv[i + 1])
 os.execv(sys.argv[i + 2], sys.argv[i + 2:])
@@ -130,7 +131,7 @@ os.execv(sys.argv[i + 2], sys.argv[i + 2:])
 FAKE_NPX = f"""#!{sys.executable}
 import json, os, sys
 d = os.environ["FAKE_DIR"]
-json.dump({{"argv": sys.argv[1:], "env": dict(os.environ)}}, open(os.path.join(d, "npx.json"), "w"))
+json.dump({{"argv": sys.argv[1:], "env": dict(os.environ), "cwd": os.getcwd()}}, open(os.path.join(d, "npx.json"), "w"))
 rc = int(open(os.path.join(d, "npx-rc")).read()) if os.path.exists(os.path.join(d, "npx-rc")) else 0
 sys.stderr.write("npm ERR! boom\\nmore\\n" if rc else "")
 sys.exit(rc)
@@ -178,6 +179,7 @@ class AppCase(RunCase):
         self.fake("bwrap", FAKE_BWRAP)
         self.fake("npx", FAKE_NPX)
         self.fake("brave", "#!/bin/sh\n")
+        (self.bin / "env").symlink_to(shutil.which("env"))
         self.app_py = self.tmp / "app.py"
         self.app_py.write_text(FIXTURE_APP)
         self.port = free_port()
@@ -217,6 +219,8 @@ class TestStart(AppCase):
         cache = self.state / "wf" / "npm"
         self.assertEqual(npx["argv"], ["-y", "chrome-devtools-mcp@1.10.1", "--version"])
         self.assertEqual(npx["env"]["npm_config_cache"], str(cache))
+        # P10: npx starts in the state dir, never the repo or wf's own cwd.
+        self.assertEqual(npx["cwd"], str(self.state / "wf"))
         self.assertTrue(cache.is_dir())
         self.assertEqual(run.mcp_cache(), os.path.join(run.state_dir(), "npm"))
         self.assertIn(f"answers: app start {self.start_cmd}, app url {self.url}", r.stdout.splitlines()[0])
@@ -252,27 +256,102 @@ class TestStart(AppCase):
 
 
 class TestJailArgv(unittest.TestCase):
-    # covers: AC-3 step 3 (order, tmpfs for dirs, /dev/null for files, read only binds, missing paths skipped)
+    # covers: AC-3 step 3 (order, tmpfs for dirs, /dev/null for files, read only binds from the frozen
+    # denyWrite list as listed, wf's folders hidden, missing paths skipped)
     def test_argv(self):
         with tempfile.TemporaryDirectory() as d:
-            home, repo = Path(d, "home"), Path(d, "repo")
-            for p in (home / ".ssh", home / ".gnupg", home / ".npm", repo / ".claude", repo / ".git" / "hooks"):
+            home, repo, state = Path(d, "home"), Path(d, "repo"), Path(d, "state", "wf")
+            for p in (home / ".ssh", home / ".gnupg", home / ".npm", repo / ".claude", repo / ".git" / "hooks", state):
                 p.mkdir(parents=True)
             (home / ".netrc").write_text("x")
             (repo / ".git" / "config").write_text("")
-            ns = SimpleNamespace(c=SimpleNamespace(path=str(repo)), bwrap="/bin/bwrap", common=str(repo / ".git"),
-                                 browser={"start": "npm run dev"})
-            with mock.patch.dict(os.environ, {"HOME": str(home)}):
-                argv = run.Run.jail_argv(ns)
+            (repo / "hooks").mkdir()
             r, h = str(repo), str(home)
+            # Unsorted on purpose: the jail keeps the list's order. A missing path is skipped.
+            deny = [f"{r}/.git/hooks", f"{r}/.claude", f"{r}/missing", f"{r}/hooks", f"{r}/.git/config"]
+            ns = SimpleNamespace(c=SimpleNamespace(path=r), bwrap="/bin/bwrap",
+                                 guard_settings={"sandbox": {"filesystem": {"denyWrite": deny}}},
+                                 browser={"start": "npm run dev", "wf_dirs": [f"{d}/config/wf", str(state)]})
+            with mock.patch.dict(os.environ, {"HOME": h}):
+                argv = run.Run.jail_argv(ns)
             self.assertEqual(argv, [
                 "/bin/bwrap", "--die-with-parent", "--unshare-pid", "--ro-bind", "/", "/", "--dev", "/dev",
                 "--proc", "/proc", "--tmpfs", "/tmp", "--tmpfs", "/run",
                 "--bind", r, r, "--bind", f"{h}/.npm", f"{h}/.npm",
-                "--ro-bind", f"{r}/.claude", f"{r}/.claude", "--ro-bind", f"{r}/.git/config", f"{r}/.git/config",
-                "--ro-bind", f"{r}/.git/hooks", f"{r}/.git/hooks",
+                "--ro-bind", f"{r}/.git/hooks", f"{r}/.git/hooks", "--ro-bind", f"{r}/.claude", f"{r}/.claude",
+                "--ro-bind", f"{r}/hooks", f"{r}/hooks", "--ro-bind", f"{r}/.git/config", f"{r}/.git/config",
                 "--tmpfs", f"{h}/.ssh", "--ro-bind", "/dev/null", f"{h}/.netrc", "--tmpfs", f"{h}/.gnupg",
+                "--tmpfs", str(state),
                 "--chdir", r, "/bin/sh", "-c", "npm run dev"])
+
+
+class TestJailRun(AppCase):
+    # covers: AC-3 step 3 through wf run (a linked worktree's pointer and a hook token script folder are read
+    # only for the app, wf's folders hidden, no Claude login in the app's env)
+    def test_worktree(self):
+        demo = self.repo
+        (demo / "scripts").mkdir()
+        (demo / "scripts" / "h.sh").write_text("#!/bin/sh\n")
+        (demo / ".claude").mkdir()
+        (demo / ".claude" / "settings.json").write_text(json.dumps({"hooks": {"Stop": [
+            {"hooks": [{"type": "command", "command": "./scripts/h.sh"}]}]}}))
+        git(demo, "add", "-A")
+        git(demo, "commit", "-qm", "base")
+        wt = self.tmp / "root" / "wt"
+        git(demo, "worktree", "add", "-q", "-b", "wt2", str(wt))
+        self.allow(wt)
+        self.env["CLAUDE_CODE_OAUTH_TOKEN"] = "secret-login"
+        self.steps([{}, {"tick": False}])
+        r = self.wf("wt", "-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        jail = json.loads((self.fakes / "bwrap-1.json").read_text())
+        argv = jail["argv"]
+        ro = [argv[i + 1] for i, a in enumerate(argv) if a == "--ro-bind" and argv[i + 1] not in ("/", "/dev/null")]
+        for p in (wt / ".git", Path(os.path.realpath(wt / ".git")), wt / "scripts", wt / ".claude",
+                  demo / ".git" / "config"):
+            self.assertIn(str(p), ro)
+        self.assertTrue(all(os.path.exists(p) for p in ro), ro)
+        tmpfs = [argv[i + 1] for i, a in enumerate(argv) if a == "--tmpfs"]
+        self.assertIn(str(self.tmp / "config" / "wf"), tmpfs)
+        self.assertIn(str(self.state / "wf"), tmpfs)
+        self.assertNotIn("CLAUDE_CODE_OAUTH_TOKEN", jail["env"])
+        self.assertEqual(jail["env"]["WF_RUN"], self.run_record()[0].name)
+        self.assertEqual(self.argv(1)["env"]["CLAUDE_CODE_OAUTH_TOKEN"], "secret-login")
+
+
+class TestGuardAfterApp(AppCase):
+    # covers: AC-3 step 5 (the guarded file check right after each app stop wins over app_failed, a pending
+    # decision and Ctrl C)
+    def edit(self, then, first=""):
+        self.app(None, f"{first}echo '# moved' >> {self.repo}/.git/config; {then}")
+
+    def test_over_app_failed(self):
+        self.edit("exit 1")
+        rec = self.assert_stopped(self.wf("demo", "-y"), "guard_changed", calls=0)
+        self.assertIn(".git/config changed during the run", rec["detail"])
+
+    def test_over_decision(self):
+        fake = FakeNtfy()
+        self.addCleanup(fake.close)
+        write_config(self.tmp / "config", fake.url, codes=[f"code{i:04d}" for i in range(5)])
+        self.edit(f"exec python3 {self.app_py} {self.port} ok")
+        self.steps([ask()])
+        self.assert_stopped(self.wf("demo", "-y", mode="fast"), "guard_changed", calls=1)
+        self.assertEqual(fake.posts, [])
+
+    def test_over_ctrl_c(self):
+        # Ctrl C while the app boots and ignores SIGTERM: only cleanup() stops it. An app that exits on the
+        # SIGTERM is stopped by start_app, a stop during a call by the loop.
+        # The trap comes before the edit the test waits on: a SIGTERM between the two used to end the shell.
+        self.edit(f"exec {shutil.which('sleep')} 600", first="trap '' TERM; ")
+        p = self.start("demo", "-y", grace=2)
+        end = time.monotonic() + 30
+        while "# moved" not in (self.repo / ".git" / "config").read_text():
+            self.assertLess(time.monotonic(), end)
+            time.sleep(0.05)
+        p.send_signal(signal.SIGINT)
+        out, err = p.communicate(timeout=30)
+        self.assertIn("stopped: guard_changed", out, out + err)
 
 
 class TestLifecycle(AppCase):
@@ -397,10 +476,12 @@ ATTACH = ("--browserUrl", "--browser-url", "-u", "--wsEndpoint", "--ws-endpoint"
 CHROME_ARGS = ["--chromeArg=--webrtc-ip-handling-policy=disable_non_proxied_udp", "--chromeArg=--disable-quic"]
 
 
-def check_mcp(text, cache):
+def check_mcp(text, cache, env, state, npx):
     """AC-5 on an MCP config as a call receives it; raises AssertionError on any way it could attach or leak."""
     server = json.loads(text)["mcpServers"]["chrome-devtools"]
     args = server["args"]
+    # P10: npx in the repo ran a planted node_modules copy; env -C moves it to the state dir first.
+    assert server["command"] == env and args[:3] == ["-C", state, npx], (server["command"], args[:3])
     assert all(a in args for a in ("--isolated", "--headless", "--proxyServer")), args
     assert len([a for a in args if re.fullmatch(r"chrome-devtools-mcp@\d+\.\d+\.\d+", a)]) == 1, args
     assert all(a in CHROME_ARGS for a in args if a.startswith("--chromeArg")), args
@@ -423,11 +504,13 @@ class TestBrowserArgv(AppCase):
         shots = folder / "shots"
         self.assertTrue(shots.is_dir())
         npx, brave = os.path.realpath(self.bin / "npx"), os.path.realpath(self.bin / "brave")
+        env, state = os.path.realpath(self.bin / "env"), str(self.state / "wf")
         cache = str(self.state / "wf" / "npm")
-        mcp = run.mcp_browser(npx, brave, cache)
+        with mock.patch.dict(os.environ, {"XDG_STATE_HOME": str(self.state)}):
+            mcp = run.mcp_browser(env, npx, brave, cache)
         self.assertEqual(json.loads(mcp), {"mcpServers": {"chrome-devtools": {
-            "type": "stdio", "command": npx,
-            "args": ["-y", "chrome-devtools-mcp@1.10.1", "--isolated", "--headless", "--executablePath", brave,
+            "type": "stdio", "command": env,
+            "args": ["-C", state, npx, "-y", "chrome-devtools-mcp@1.10.1", "--isolated", "--headless", "--executablePath", brave,
                      "--proxyServer", "127.0.0.1:9", *CHROME_ARGS, "--no-usage-statistics", "--no-performance-crux"],
             "env": {"npm_config_cache": cache}}}})
         plain = self.argv(1)["argv"]
@@ -446,7 +529,7 @@ class TestBrowserArgv(AppCase):
                                      (plain[plain.index("--settings") + 1], plain[plain.index("--disallowedTools") + 1]))
                     self.assertNotIn("chrome-devtools", prompt)
                     continue
-                check_mcp(opt("--mcp-config"), cache)
+                check_mcp(opt("--mcp-config"), cache, env, state, npx)
                 self.assertEqual(opt("--allowedTools").split(","), ["mcp__chrome-devtools__" + t for t in run.BROWSER_TOOLS])
                 self.assertEqual(denied[-6:], ["mcp__chrome-devtools__" + t for t in (
                     "upload_file", "take_heapsnapshot", "performance_start_trace", "performance_stop_trace",
@@ -459,11 +542,26 @@ class TestBrowserArgv(AppCase):
                                f"{shlex.quote(self.url)} {shlex.quote(str(shots))} || exit 2"}]})
                 self.assertTrue(prompt.endswith(
                     f" wf started the app at {self.url} and stops it after this step; do not start, stop or restart it. "
-                    "Drive it with the chrome-devtools tools; the browser can reach only that address. Save any file a "
-                    f"browser tool writes under {shots}, or leave its path out. Anything you start from Bash runs in a "
+                    "Drive it with the chrome-devtools tools and open only that address; outside sites do not load. "
+                    f"Save any file a browser tool writes under {shots}, or leave its path out. Anything you start from Bash runs in a "
                     "separate sandbox the browser cannot reach. If no chrome-devtools tool is available, end with "
                     "BLOCKED: browser tools unavailable. Otherwise end with BLOCKED only for a login, captcha, 2FA or "
                     "hardware."), prompt)
+
+    # covers: AC-7, AC-8 (a state dir behind a symlink: hook and prompt both name the real shots path)
+    def test_symlinked_state(self):
+        self.state.mkdir()
+        link = self.tmp / "statelink"
+        link.symlink_to(self.state)
+        self.env["XDG_STATE_HOME"] = str(link)
+        self.steps([{}, {"tick": False}])
+        r = self.wf("demo", "-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        shots = str(self.run_record()[0] / "shots")
+        argv = self.argv(1)["argv"]
+        hook = json.loads(argv[argv.index("--settings") + 1])["hooks"]["PreToolUse"][1]["hooks"][0]["command"]
+        self.assertEqual(shlex.split(hook)[-4], shots)
+        self.assertIn(f"under {shots}, or leave", argv[argv.index("--append-system-prompt") + 1])
 
     def test_no_keys(self):
         (self.repo / "AGENTS.md").unlink()
@@ -478,10 +576,15 @@ class TestBrowserArgv(AppCase):
     # covers: AC-5 (the check rejects every way to attach, persist or leak)
     def test_check_rejects(self):
         cache = "/s/wf/npm"
-        good = json.loads(run.mcp_browser("/bin/npx", "/bin/brave", cache))
-        check_mcp(json.dumps(good), cache)
+        with mock.patch.dict(os.environ, {"XDG_STATE_HOME": "/s"}):
+            good = json.loads(run.mcp_browser("/bin/env", "/bin/npx", "/bin/brave", cache))
+        check = lambda text: check_mcp(text, cache, "/bin/env", "/s/wf", "/bin/npx")
+        check(json.dumps(good))
         args = good["mcpServers"]["chrome-devtools"]["args"]
         bad = {
+            "npx in the repo": {"command": "/bin/npx", "args": args[3:]},
+            "no -C": {"args": args[2:]},
+            "other dir": {"args": ["-C", "/repo", *args[2:]]},
             "browserUrl": {"args": [*args, "--browserUrl", "http://127.0.0.1:9222"]},
             "user data dir": {"args": [*args, "--user-data-dir=/home/x/.config/BraveSoftware"]},
             "third chromeArg": {"args": [*args, "--chromeArg=--no-sandbox"]},
@@ -496,16 +599,20 @@ class TestBrowserArgv(AppCase):
                 copy = json.loads(json.dumps(good))
                 copy["mcpServers"]["chrome-devtools"].update(change)
                 with self.assertRaises(AssertionError):
-                    check_mcp(json.dumps(copy), cache)
+                    check(json.dumps(copy))
 
 
 class TestBrowserGuard(unittest.TestCase):
     # covers: AC-7 (BROWSER_GUARD run directly, fails closed)
     def test_guard(self):
         with tempfile.TemporaryDirectory() as d:
+            # Real paths: an allowed path must equal its own realpath.
+            d = os.path.realpath(d)
             shots = Path(d, "shots")
             shots.mkdir()
             (shots / "esc").symlink_to(d)
+            (shots / "sub").mkdir()
+            Path(d, "into").symlink_to(shots)
             app = "http://localhost:3000"
             nav = lambda **i: json.dumps({"tool_name": "mcp__chrome-devtools__navigate_page", "tool_input": i})
             shot = lambda p: json.dumps({"tool_name": "mcp__chrome-devtools__take_screenshot", "tool_input": {"filePath": p}})
@@ -515,16 +622,29 @@ class TestBrowserGuard(unittest.TestCase):
                 ("new_page", json.dumps({"tool_name": "mcp__chrome-devtools__new_page",
                                          "tool_input": {"url": "http://localhost:3000"}}), 0),
                 ("evil suffix", nav(url="http://localhost:3000.evil.example/"), 2),
+                ("backslash", nav(url="http://localhost:22\\@localhost:3000/"), 2),
+                ("userinfo", nav(url="http://x@localhost:3000/"), 2),
+                ("tab", nav(url="http://localhost:3000/\ta"), 2),
+                ("space", nav(url="http://localhost:3000/ a"), 2),
+                ("control", nav(url="http://localhost:3000/\x01"), 2),
+                ("del", nav(url="http://localhost:3000/\x7f"), 2),
                 ("other port", nav(url="http://localhost:3001/"), 2),
                 ("file", nav(url="file:///etc/passwd"), 2),
                 ("chrome", nav(url="chrome://settings"), 2),
                 ("reload", nav(type="reload"), 0),
                 ("back", nav(type="back"), 2),
+                ("forward", nav(type="forward"), 2),
                 ("url type no url", nav(type="url"), 2),
                 ("path inside", shot(str(shots / "a.png")), 0),
                 ("path outside", shot(os.path.join(d, "a.png")), 2),
                 ("dot dot", shot(str(shots / ".." / "a.png")), 2),
+                ("dot dot inside", shot(f"{shots}/sub/../a.png"), 2),
+                ("dot dot ending inside", shot(f"{d}/x/../shots/a.png"), 2),
+                ("relative", shot("shots/a.png"), 2),
+                ("the shots dir", shot(str(shots)), 2),
+                ("trailing slash", shot(f"{shots}/sub/"), 2),
                 ("symlink", shot(str(shots / "esc" / "a.png")), 2),
+                ("symlink into shots", shot(f"{d}/into/a.png"), 2),
                 ("path not a string", json.dumps({"tool_name": "mcp__chrome-devtools__take_snapshot",
                                                   "tool_input": {"filePath": 1}}), 2),
                 ("other tool", json.dumps({"tool_name": "Bash", "tool_input": {}}), 2),
