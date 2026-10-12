@@ -20,8 +20,9 @@ server = subprocess.Popen([sys.executable, "-m", "http.server", str(PORT), "--bi
 npx, brave, py = (os.path.realpath(shutil.which(b)) for b in ("npx", "brave", "python3"))
 mcp = {"mcpServers": {"chrome-devtools": {"type": "stdio", "command": npx, "args": [
     "-y", "chrome-devtools-mcp@1.10.1", "--isolated", "--headless", "--executablePath", brave,
-    "--proxyServer", "127.0.0.1:9", "--chromeArg=--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
-    "--chromeArg=--disable-quic", "--no-usage-statistics", "--no-performance-crux"]}}}
+    "--proxyServer", "127.0.0.1:9", "--chromeArg=--webrtc-ip-handling-policy=disable_non_proxied_udp",
+    "--chromeArg=--disable-quic", "--no-usage-statistics", "--no-performance-crux"],
+    "env": {"npm_config_cache": os.path.join(work, "npm")}}}}
 denied = ["upload_file", "take_heapsnapshot", "performance_start_trace", "performance_stop_trace",
           "performance_analyze_insight", "lighthouse_audit"]
 hook = f"{shlex.quote(py)} -c {shlex.quote(run.BROWSER_GUARD)} {shlex.quote(APP)} {shlex.quote(shots + '/')} || exit 2"
@@ -51,7 +52,7 @@ def watch():
         out = subprocess.run(["pgrep", "-u", str(os.getuid()), "-a", "brave"], capture_output=True, text=True).stdout
         for line in out.splitlines():
             if "--user-data-dir" in line and "--type=" not in line:
-                seen.add(" ".join(w for w in line.split()[1:] if w.startswith(("--user-data-dir", "--headless", "--proxy"))))
+                seen.add(" ".join(w for w in line.split()[1:] if w.startswith(("--user-data-dir", "--headless", "--proxy", "--webrtc", "--disable-quic"))))
         time.sleep(1)
 
 
@@ -99,4 +100,5 @@ for stdin in ("not json", "", json.dumps({"tool_name": "mcp__chrome-devtools__na
     p = subprocess.run(["sh", "-c", hook], input=stdin, capture_output=True, text=True)
     print(p.returncode, end=" ")
 print()
+print("mcp from own cache:", any(os.path.isdir(os.path.join(work, "npm/_npx", h, "node_modules/chrome-devtools-mcp")) for h in os.listdir(os.path.join(work, "npm/_npx"))))
 shutil.rmtree(work, ignore_errors=True)

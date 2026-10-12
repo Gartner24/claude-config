@@ -69,6 +69,12 @@ For `/test`, the merge base with `main` (else `master`) needs no stored state an
 
 A cross check on another model (2026-10-12) found doors the first draft left open: browser tools that write files to any path, the repo's settings and git hooks and the `/run` agent sockets inside the app jail, WebRTC and QUIC past the proxy, leftover Brave processes, and the app running through decision waits. All 15 items were applied. You then fixed the threat model (accidental or prompt injected leaks, not a model working to escape) and closed hardening on this feature, so a later door is a new decision rather than another round.
 
+## Amendment 2026-10-12: WebRTC flag and the MCP's own npm cache
+
+P5 failed: WebRTC gathered a `srflx` candidate (your public IP) through the dead proxy. A direct probe (`probes/p5-webrtc.py`, no `claude -p`) showed `--force-webrtc-ip-handling-policy` does reach Brave's command line, and Brave 154 ignores it. The switch spelled `--webrtc-ip-handling-policy` works: no candidate at all, for a hostname and a raw IP STUN server, while the control without it leaks both times. AC-4 now uses that spelling. No other option (a seeded profile, a network namespace for Brave) was needed.
+
+The same pass looked at the background security review of `p2-jail.sh`. The app jail writes `~/.npm`, `~/.cache` and `~/.local/share/pnpm`, so it could plant something a later unsandboxed session of yours runs. Calls already have that same write access (spec 0007 AC-2), so narrowing only the app would close nothing; you accepted it as a residual, named under Security model. One part was new, though: this spec has `npx` start the browser tool outside every sandbox, from `~/.npm`, which calls and the app can write. A planted package there would run with your keys readable on the next verify. So `wf` now gives the MCP and its start check their own npm cache under the state folder, which neither calls nor the app can write. The probe confirmed `npx` downloads into and runs from that folder.
+
 ## Probe evidence
 
 P1 (localhost isolation) is the one fact the design rests on. It is in `verify.md` with command and result. P2 to P7 are the build's first step and gate the rest.

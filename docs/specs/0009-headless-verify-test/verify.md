@@ -41,6 +41,32 @@ Command: `python3 -B docs/specs/0009-headless-verify-test/probes/p3-p7-browser.p
 
 Per AC-11 the build stops here and the spec goes back to `/architect`: the WebRTC lock in AC-4 does not hold.
 
+## P5 direct probe (run 2026-10-12, /architect): Brave ignores the `force-` switch
+
+Command: `python3 -I docs/specs/0009-headless-verify-test/probes/p5-webrtc.py <--chromeArg values>`. It drives `chrome-devtools-mcp@1.10.1` over stdio with no `claude -p` (same flags as AC-4 otherwise), opens a `data:` page, prints Brave's real command line from `pgrep -a`, and gathers ICE candidates for 5 seconds.
+
+| `--chromeArg` WebRTC value | Brave's command line has it | STUN server | Candidates |
+|---|---|---|---|
+| `--force-webrtc-ip-handling-policy=disable_non_proxied_udp` (old AC-4) | yes | `stun.l.google.com:19302` | `host`, `srflx` (your public IP) |
+| none (control) | n/a | `stun.l.google.com:19302` | `host`, `srflx` |
+| `--webrtc-ip-handling-policy=disable_non_proxied_udp` | yes | `stun.l.google.com:19302` | none (twice) |
+| `--webrtc-ip-handling-policy=disable_non_proxied_udp` | yes | `74.125.250.129:19302` (IP literal), `stun.cloudflare.com:3478` | none |
+| none (control) | n/a | same IP literal and cloudflare | `host`, `srflx` |
+
+So the flag reached Brave, and Brave 154 ignores that spelling. AC-4 amended to `--webrtc-ip-handling-policy`. The same script run with `npm_config_cache=<scratch>/npm` put and ran the package from `<scratch>/npm/_npx/.../chrome-devtools-mcp` (the `MCP_CACHE` amendment).
+
+## P3 to P7 rerun with the amended AC-4 (run 2026-10-12): PASS
+
+Command: `python3 -B docs/specs/0009-headless-verify-test/probes/p3-p7-browser.py`, now with `--webrtc-ip-handling-policy` and `"env": {"npm_config_cache": <work>/npm}`. Cost 0.26 USD.
+
+- **P3: PASS.** Same 24 tools as before. Brave ran as `--headless=new --webrtc-ip-handling-policy=disable_non_proxied_udp --disable-quic --proxy-server=127.0.0.1:9 --user-data-dir=/tmp/puppeteer_dev_chrome_profile-...`. The MCP ran from the probe's own npm cache (`mcp from own cache: True`). No leftover process.
+- **P4: PASS.** The four foreign navigations refused by the hook; the app url and `reload` allowed.
+- **P5: PASS.** `fetch` failed, the link click landed on `chrome-error://chromewebdata/`, and `RTCPeerConnection` gathered `[]`. That last one ran on the error page the click left behind; in the failing run it ran in the same place and still gathered `srflx`, and the direct probe above shows `[]` on an ordinary page.
+- **P6: PASS.** The six AC-6 tools do not exist for the call. P6b: snapshot and screenshot to `~` refused, into the shots dir written.
+- **P7: PASS.** `2 2 2 2 0`.
+
+P2 to P7 now all pass, so the build continues from step 3 (the step 2 `/test` base is already in `177110c`).
+
 ## P8 and P9
 
 Not run: they come after the build, which stopped at P5.
