@@ -166,7 +166,7 @@ Answers you always give the same way (`/test` runs the suite, who marks done) li
    - [x] Prompt per call, last box check, fake claude `write_file` (AC-4 to AC-6, AC-8)
    - [x] Confirm line, `run.json` `answers` and `last_box` (AC-7)
    - [x] Manual checks on the real claude (AC-9): verify.md UI steps 1 and 2, both passed 2026-10-12 through a real `wf run` on scratch repos
-- [ ] Verify it: `/check verify standing answers`
+- [x] Verify it: `/check verify standing answers`
 - [ ] Test it: `/test standing answers`
 Spec [0006](../specs/0006-standing-answers/index.md) · code in `runner/run.py`, `runner/tests/test_run.py`
 
