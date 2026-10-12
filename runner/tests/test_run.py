@@ -370,6 +370,19 @@ class TestStart(RunCase):
                 self.refused(r, "branch")
                 self.assertIn(f"refused: branch: {shown}", r.stdout)
 
+    # covers: spec 0012 AC-5 (a marked box is refused waiting ahead of every other check)
+    def test_owed_refused(self):
+        allowed = "# Scope: x\n**Autopilot:** allowed\n### 1. A\n"
+        for name, body, owed in [("odev", "- [ ] `/develop a` · waits on you\n", "`/develop a`"),
+                                 ("oarch", "- [ ] `/architect a` · waits on you\n", "`/architect a`"),
+                                 ("onocmd", "- [ ] phone check · waits on you\n", "phone check"),
+                                 ("oms", "- [x] `/develop a`\n   - [ ] phone check · waits on you\n", "phone check")]:
+            with self.subTest(name):
+                self.make_repo(name, allowed + body)
+                r = self.wf(name, "-y")
+                self.refused(r, "waiting")
+                self.assertIn(f"refused: waiting: waits on you: {owed}", r.stdout)
+
     # covers: AC-2 check 4 (every allow listed first word starts; the match is on the whole first word)
     def test_allow_list(self):
         allowed = "# Scope: x\n**Autopilot:** allowed\n### 1. A\n- [ ] `%s`\n"
@@ -633,12 +646,15 @@ class TestClassify(RunCase):
     # covers: AC-6 rule 11 (the next box inside the feature is waiting, manual or has no command)
     def test_next_box_inside_feature(self):
         for extra, reason in [("- [ ] `/test b`\n   - [ ] waits on the merge\n", "waiting"),
+                              ("- [ ] `/test b` · waits on you\n", "waiting"),
                               ("- [ ] `/architect more`\n", "manual_box"), ("- [ ] call the vendor\n", "no_command")]:
             with self.subTest(reason):
                 shutil.rmtree(self.tmp / "root")
                 shutil.rmtree(self.state, ignore_errors=True)
                 self.make_repo("demo", "# Scope: x\n**Autopilot:** allowed\n### 1. A\n- [ ] `/develop a`\n" + extra)
-                self.assert_stopped(self.wf("demo", "-y"), reason, calls=1)
+                rec = self.assert_stopped(self.wf("demo", "-y"), reason, calls=1)
+                if "waits on you" in extra:
+                    self.assertEqual(rec["detail"], "waits on you: `/test b`")
 
     # covers: AC-7 (/sync failure and /sync decision)
     def test_sync_stops(self):

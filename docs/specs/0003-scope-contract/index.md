@@ -2,6 +2,7 @@
 
 **Date**: 2026-10-11
 **Status**: Accepted
+**Amended by**: [0012](../0012-waiting-boxes-owed-to-you/index.md) - a new box segment ` · waits on you` for a box only you can close, and its rule file line under `## Tags and boxes`.
 
 ## Summary
 

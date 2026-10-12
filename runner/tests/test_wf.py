@@ -108,6 +108,42 @@ class TestParser(unittest.TestCase):
         self.assertEqual(nb.command, "/develop p")
         self.assertTrue(nb.waiting)
 
+    # covers: spec 0012 AC-1 (marker shapes)
+    def test_owed_marker_shapes(self):
+        for text in ("check it · waits on you", "check it · WAITS ON YOU", "check it ·waits on you · skipped"):
+            with self.subTest(text):
+                self.assertTrue(wf.OWED.search(text))
+        for text in ("check it · waits on you, phone", "check it · waits on your merge", "check it waits on you"):
+            with self.subTest(text):
+                self.assertFalse(wf.OWED.search(text))
+        self.assertEqual(parse("### 1. A\n- [ ] check it · waits on you\n").owed, "check it")
+        self.assertEqual(parse("### 1. A\n- [ ] check it · waits on you · GA\n").owed, "check it · GA")
+
+    # covers: spec 0012 AC-1 (near miss is a warning, not the marker)
+    def test_owed_near_miss(self):
+        nb = parse("### 1. A\n- [ ] `/develop a` · waits on you.\n")
+        self.assertIsNone(nb.owed)
+        self.assertFalse(nb.waiting)
+        self.assertEqual(nb.near_misses, ["`/develop a` · waits on you."])
+        nb = parse("### 1. A\n- [x] `/develop a`\n   - [ ] phone check, waits on you\n")
+        self.assertIsNone(nb.owed)
+        self.assertEqual(nb.near_misses, ["phone check, waits on you"])
+
+    # covers: spec 0012 AC-2 (which boxes count)
+    def test_owed_placement(self):
+        cases = [
+            ("- [ ] `/develop a` · waits on you\n", "/develop a", "`/develop a`"),
+            ("- [ ] phone check · waits on you\n", None, "phone check"),
+            ("- [x] `/develop a`\n   - [ ] phone check · waits on you\n", "/develop a", "phone check"),
+            ("- [ ] `/develop a`\n   - [ ] phone check · waits on you\n   - [ ] m2\n", "/develop a", "phone check"),
+        ]
+        for body, command, owed in cases:
+            with self.subTest(body):
+                nb = parse("### 1. A\n" + body)
+                self.assertEqual((nb.command, nb.owed, nb.waiting), (command, owed, True))
+        nb = parse("### 1. A\n- [ ] `/develop a` after the build\n")
+        self.assertEqual((nb.owed, nb.waiting), (None, False))
+
     def test_hub_rows(self):
         rows = wf.open_rows((FIX / "hub.md").read_text())
         self.assertEqual(len(rows), 2)
@@ -254,6 +290,30 @@ class TestNext(CliCase):
         self.assertEqual(r.returncode, 3)
         self.assertIn("no command in this box, run it yourself", r.stdout)
         self.assertIsNone(self.launched())
+
+    # covers: spec 0012 AC-3 (a marked box is never launched), AC-1 (near miss warning shows)
+    def test_owed_box_never_launches(self):
+        for name, body in [("cmd", "- [ ] `/develop a` · waits on you\n"),
+                           ("ms", "- [x] `/develop a`\n   - [ ] phone check · waits on you\n"),
+                           ("nocmd", "- [ ] phone check · waits on you\n")]:
+            with self.subTest(name):
+                d = self.root / name / "docs" / "scope"
+                d.mkdir(parents=True)
+                (d / "scope.md").write_text("# Scope: x\n### 1. A\n" + body)
+                r = self.wf("next", name, "-y", tty=True)
+                self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+                owed = "`/develop a`" if name == "cmd" else "phone check"
+                self.assertEqual(r.stdout.splitlines()[0], f"waits on you: {owed}")
+                self.assertNotIn("no command in this box", r.stdout)
+                self.assertIsNone(self.launched())
+        d = self.root / "near" / "docs" / "scope"
+        d.mkdir(parents=True)
+        (d / "scope.md").write_text("# Scope: x\n### 1. A\n- [ ] phone check · waits on you.\n")
+        r = self.wf("next", "near", "-y", tty=True)
+        self.assertEqual(r.returncode, 3)
+        self.assertIn("no command in this box", r.stdout)
+        self.assertIn('warning: "waits on you" is not the marker here, end the box with " · waits on you": '
+                      "phone check · waits on you.", r.stdout)
 
     def test_index_epics_in_link_order_with_missing_warning(self):
         d = self.root / "big" / "docs" / "scope"

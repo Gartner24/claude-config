@@ -27,6 +27,10 @@ HEADER_FIELDS = {"source of truth": ("Source of truth", ("scope", "issues", "mix
                  "autopilot": ("Autopilot", ("allowed", "off"), "off")}
 # No production reader yet (the queue that consumes `· auto` is not built); pinned so the skills' output is tested.
 AUTO_TAG = re.compile(r"·\s*auto\s*(?=·|$)", re.I)
+# A box only you can close (spec 0012). The `after` / `waits on` words missed a
+# manual check once and a wf run looped /develop on it.
+OWED = re.compile(r"·\s*waits on you\s*(?=·|$)", re.I)
+NEAR_OWED = re.compile(r"waits on you", re.I)
 # C0 and C1 control characters. Scope text and folder names come from repos you
 # may have cloned; an ESC or CR in them used to reach the terminal and fzf as is.
 # Lone surrogates are undecodable bytes in a folder name; printing one used to
@@ -56,11 +60,19 @@ class Box:
         return None
 
 
+def owed_text(box):
+    return OWED.sub("", box.text).strip() if box and OWED.search(box.text) else None
+
+
 class NextBox:
-    def __init__(self, box, command, note):
+    def __init__(self, box, command, note_box):
         self.feature = DISPLAY_TAG.sub("", box.feature).strip() if box.feature else None
+        note = note_box.text if note_box else None
         self.box_text, self.command, self.note = box.text, command, note
-        self.waiting = bool(note and WAITING.search(note))
+        self.owed = owed_text(box) or owed_text(note_box)
+        self.waiting = self.owed is not None or bool(note and WAITING.search(note))
+        texts = dict.fromkeys(b.text for b in (box, note_box) if b)
+        self.near_misses = [t for t in texts if NEAR_OWED.search(t) and not OWED.search(t)]
 
 
 def uncomment(text):
@@ -160,8 +172,8 @@ def pick_next(boxes):
     # ponytail: a milestone is any box with a less indented box above it, so a
     # later sibling milestone still runs the parent command (spec AC-6 intent).
     if first.parent:
-        return NextBox(first, first.parent.command(), first.text)
-    note = next((b.text for b in boxes if b.open and under(b, first)), None)
+        return NextBox(first, first.parent.command(), first)
+    note = next((b for b in boxes if b.open and under(b, first)), None)
     return NextBox(first, first.command(), note)
 
 
@@ -332,6 +344,8 @@ class Candidate:
         if not self.is_hub:
             self.warnings += header_warnings(self.text)
         self.next = pick_next(boxes)
+        for t in self.next.near_misses if self.next else []:
+            self.warnings.append(f'"waits on you" is not the marker here, end the box with " · waits on you": {t}')
 
     def display_name(self):
         return f"{self.name} ({self.label})" if self.label else self.name
@@ -454,6 +468,8 @@ def no_start(c):
         if c.is_hub:
             for row in open_rows(c.text):
                 print(f"  {row}")
+    elif nb.owed:
+        print(f"waits on you: {nb.owed}")
     elif not nb.command:
         print(f"no command in this box, run it yourself: {nb.box_text}")
     else:

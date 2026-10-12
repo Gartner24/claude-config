@@ -1,7 +1,7 @@
 # 0012. Waiting boxes owed to you
 
 **Date**: 2026-10-12
-**Status**: Proposed
+**Status**: In Progress
 **Amends**: [0002](../0002-next-repo-command/index.md) AC-6 (what makes a box waiting) and [0003](../0003-scope-contract/index.md) (a new box segment, rule file line).
 
 ## Summary
@@ -106,8 +106,8 @@ Skateboard: the parser change alone already makes `wf run` refuse marked milesto
 
 ## Follow-up
 
-- [ ] When building, add ` · waits on you` to any open box in this repo's `docs/scope/scope.md` that only you can close.
-- [ ] `/develop` notes the AC-6 amendment in spec 0002 and the new segment in spec 0003 (`**Amended by**` lines).
+- [x] When building, add ` · waits on you` to any open box in this repo's `docs/scope/scope.md` that only you can close.
+- [x] `/develop` notes the AC-6 amendment in spec 0002 and the new segment in spec 0003 (`**Amended by**` lines).
 
 ## Rationale
 

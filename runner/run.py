@@ -101,6 +101,9 @@ def state_dir():
 
 def box_refusal(nb):
     """AC-2 checks 2 to 5 on a box: (reason, detail), or None."""
+    # Spec 0012 AC-5: a box only you can close wins over every other check.
+    if nb.owed:
+        return "waiting", f"waits on you: {nb.owed}"
     if not nb.command:
         return "no_command", nb.box_text
     if nb.feature is None:
@@ -173,6 +176,8 @@ class Run:
 
     def start_checks(self):
         c = self.c
+        if c.next.owed:
+            return self.refuse(*box_refusal(c.next))
         rc = wf.no_start(c)
         if rc is not None:
             return rc

@@ -64,7 +64,7 @@ A call never tells `wf` that it finished a box: `wf` only believes the files. Ev
 
 ## Skills and commands under `wf run`
 
-`wf run` decides by the first word of the box command, or the first two for `/check verify` (allow list in `runner/run.py`). Anything not listed as `runs` is refused `manual_box` before any call, or stops the run as `manual_box` when it is the next box.
+`wf run` decides by the first word of the box command, or the first two for `/check verify` (allow list in `runner/run.py`). Anything not listed as `runs` is refused `manual_box` before any call, or stops the run as `manual_box` when it is the next box. A box ending ` · waits on you` (or whose first open milestone does) is refused `waiting` before the command check, whatever its command ([spec 0012](specs/0012-waiting-boxes-owed-to-you/index.md)).
 
 | Command | `wf run` | Pings you for |
 |---|---|---|

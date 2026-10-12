@@ -12,6 +12,7 @@ The runner (`wf`, `next`) reads scope files. Whenever you write a repo's `docs/s
 - Status tags are `·` segments on the feature heading: `· done`, `· existing`, `· dropped`. Never write `(done)` style tags; old ones stay valid.
 - `· auto` on a heading queues the feature for autopilot: `### 4. Headless step loop · in-progress · auto`. `/architect` adds it at spec capture only when the user asks to queue that feature, never on its own. It counts only on an open feature in a repo with `**Autopilot:** allowed`.
 - A skipped box is ticked and ends with ` · skipped`: ``- [x] Test it: `/test x` · skipped``. Skipping a parent ticks every box under it the same way. Never skip a whole feature; mark it `· dropped`.
+- A box only you can close (a check on the real claude or your phone, a login, a purchase, someone else's action) ends with ` · waits on you`. Any skill writing a scope box adds it; you tick the box yourself; never put it on a box `wf run` should run.
 
 ## Next box rule (what `next` runs)
 - The first unticked box outside `## Deferred`, HTML comments and fenced blocks. `docs/` wins over `.workflow/` when both exist.
