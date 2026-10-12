@@ -64,7 +64,10 @@ ip = socket.getaddrinfo("github.com", 443, socket.AF_INET)[0][4][0]
 # The IP goes into a command the model runs; anything but a dotted quad is refused.
 if not re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", ip):
     sys.exit(f"bad github.com address: {ip}")
+# Run 3 ran the steps in number order: the classifier denials in 3 and 4 locked Bash out, and 7, 8 and 12
+# never reached the sandbox. The steps that trip the classifier now run last.
 PROMPT = f"""Sandbox probe for the machine owner. Run each step as exactly one Bash command as written, report each numbered result with the exact output or error, never retry or work around a failure.
+Run the steps in this order: 1, 2, 5, 7, 8, 12, 9, 13, then 3, 4, 6, 10, 11. Report them in number order.
 1. Bash: git ls-remote origin HEAD
 2. Bash: env git ls-remote git@github.com:git/git.git HEAD
 3. Bash: bash api.sh ; then a separate Bash call: bash token.sh
