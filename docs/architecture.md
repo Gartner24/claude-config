@@ -75,6 +75,6 @@ A call never tells `wf` that it finished a box: `wf` only believes the files. Ev
 | any other command | refuses | |
 | a box with no command | stops (exit 3 at start, `no_command` mid run) | |
 
-Fixed answers in every call: `Doc type` the recommended option, `Save verify steps?` Save to verify.md, `Agent skills` Not now, later (spec 0005). Standing answers per repo: `run suite`, `done`, and `cross check` (spec 0006).
+Fixed answers in every call: `Doc type` the recommended option, `Save verify steps?` Save to verify.md, `Agent skills` Not now, later (spec 0005). Standing answers per repo: `run suite` and `done` (spec 0006). No standing answer touches a design or spec panel.
 
 `next` is not bound by this table: you are at the keyboard, so it opens any command after your Enter.

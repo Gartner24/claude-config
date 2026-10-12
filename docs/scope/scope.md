@@ -21,7 +21,6 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | D | Skill routing | Existing | existing |
 | 1 | Runner stack and layout | Foundation | done |
 | 2 | Scope contract for the runner | Foundation | done |
-| 21 | Work names out of the public repo | Foundation | planned |
 | 3 | `next <repo>` | Release 1 | done |
 | 17 | Worktree discovery without git | Release 1 | done |
 | 18 | fzf failure is not a cancel | Release 1 | done |
@@ -29,17 +28,20 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 4 | Headless step loop | Release 2 | done |
 | 5 | Decision parking and phone pings | Release 2 | done |
 | 6 | Standing answers | Release 2 | in-progress |
-| 7 | Headless verify and test | Release 2 | planned |
-| 8 | Failure and park policy | Release 2 | planned |
-| 9 | Design enforcement unattended | Release 2 | planned |
 | 20 | Push guard outside the model | Release 2 | planned |
+| 8 | Failure and park policy | Release 2 | planned |
+| 7 | Headless verify and test | Release 2 | planned |
+| 9 | Design enforcement unattended | Release 2 | planned |
 | 10 | Build queue and decision queue | Release 3 | planned |
-| 15 | Cheap worker tier | Release 3 | planned |
-| 16 | Issues and mixed source of truth | Release 3 | planned |
-| 11 | Autopilot offer and batch design | Release 4 | planned |
-| 12 | Usage limit planning | Release 4 | planned |
-| 13 | Morning report | Release 4 | planned |
-| 14 | Draft PR per spec | Release 4 | planned |
+| 21 | Work names out of the public repo | Deferred | planned |
+| 15 | Cheap worker tier | Deferred | planned |
+| 16 | Issues and mixed source of truth | Deferred | planned |
+| 11 | Autopilot offer and batch design | Deferred | planned |
+| 12 | Usage limit planning | Deferred | planned |
+| 13 | Morning report | Deferred | planned |
+| 14 | Draft PR per spec | Deferred | planned |
+
+Build order follows the table: 6, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
 ## Existing
 
@@ -75,12 +77,6 @@ The fields the runner reads: the hub `Repos` column (replaces `**Repo:**`), `**S
 - [x] Verify it: `/check verify scope contract for the runner`
 - [x] Test it: `/test scope contract for the runner`
 Spec [0003](../specs/0003-scope-contract/index.md) · code in `rules/scope-contract.md`, `runner/wf.py`, `runner/tests/`
-
-### 21. Work names out of the public repo · needs a decision
-Work org and tool names sit in public files on main (`CLAUDE.md`, `HOOKS.md`, `SKILLS.md`, `NOTICE.md`, `README.md`, `.gitignore`). They move to one local untracked file, and the public files refer to it instead of naming anything. Root `CLAUDE.md` is the synced copy of `~/.claude/CLAUDE.md`, so `sync.sh` and `install.sh` have to keep the split. Then you decide whether main's history is rewritten too.
-**Done when:** no tracked file on the branch or main names a work org or tool, a fresh `install.sh` plus the local file gives the same behavior as today, `sync.sh` cannot put a name back, and the history decision is recorded (and carried out if the answer is rewrite).
-- [ ] Design it (spec): `/architect work names out of the public repo`
-Source: your message of 2026-10-12 (`/scope` request after the runner branch review).
 
 ## Release 1: next step in one command
 
@@ -161,8 +157,8 @@ The unattended prompt fixes the safe panel answers and asks real decisions as `D
 Spec [0005](../specs/0005-decision-parking-phone-pings/index.md) · code in `runner/ntfy.py`, `runner/run.py`, `runner/wf.py`, `runner/tests/`
 
 ### 6. Standing answers · in-progress
-Answers you always give the same way (cross check, `/test` runs the suite, who marks done) live once in each repo's `AGENTS.md` (`.workflow/AGENTS.md` in team repos), and `wf run` adds them to the unattended prompt instead of pinging you. Tier stays on the scope header, accepting a spec stays with you.
-**Done when:** a headless `wf run` gets through `/test`'s run suite question and the done decision without a single question, and a direct `claude -p /architect` probe with wf's prompt gets past the cross check panel without asking (accept still asks).
+Answers you always give the same way (`/test` runs the suite, who marks done) live once in each repo's `AGENTS.md` (`.workflow/AGENTS.md` in team repos), and `wf run` adds them to the unattended prompt instead of pinging you. Tier stays on the scope header, accepting a spec stays with you. The cross check key was dropped on 2026-10-12 (spec 0006 amended).
+**Done when:** a headless `wf run` gets through `/test`'s run suite question and the done decision without a single question.
 - [x] Design it (spec): `/architect standing answers`
 - [ ] Build it: `/develop standing answers`
    - [ ] Read and check the section, refusals, defaults (AC-1 to AC-4)
@@ -173,26 +169,27 @@ Answers you always give the same way (cross check, `/test` runs the suite, who m
 - [ ] Test it: `/test standing answers`
 Spec [0006](../specs/0006-standing-answers/index.md)
 
-### 7. Headless verify and test · needs a decision
-`/check verify` drives the app through the chrome-devtools MCP (isolated Brave) instead of reporting BLOCKED, and `/test` sees the feature's changes even after checkpoint commits.
-**Done when:** a Beta feature passes `/check verify` and `/test` in a headless run, and only real walls (login, captcha, 2FA, hardware) report BLOCKED.
-- [ ] Design it (spec): `/architect headless verify and test`
-
-### 8. Failure and park policy · needs a decision
-What parks a feature instead of looping: 2 `/debug` attempts after a FAIL, BLOCKED, sudo, logins, hook denials (logged with the reason), and paid steps that never run unattended. Also refuses a repo whose `**Autopilot:** allowed` you did not set yourself, such as a cloned third party scope (spec 0003 follow up).
-**Done when:** each of those cases parks the feature with a reason you can read, and no paid step runs.
-- [ ] Design it (spec): `/architect failure and park policy`
-
-### 9. Design enforcement unattended · needs a decision
-Frontend work in a headless run goes through `design` and `design-gate`, never skipped: the Stop hook runs headless, and the runner fails a step that changed frontend files without a newer gate report.
-**Done when:** a headless UI step with no fresh `design-gate` report fails, and one with a passing report goes through.
-- [ ] Design it (spec): `/architect design enforcement unattended`
-
 ### 20. Push guard outside the model · needs a decision
 A git pre-push guard, outside anything the model controls, refuses `git push` in a repo while `wf run` holds that repo's lock. The `--disallowedTools` deny list only matches prefixes, so `env git push`, `gh api` and other spellings still get through (review 2026-10-12).
 **Done when:** during a `wf run`, any push from inside the run is refused whatever its spelling, and the same push works again once the run has released the lock.
 - [ ] Design it (spec): `/architect push guard outside the model`
 Source: your message of 2026-10-12, after the `/review` of the runner branch ([report](../reviews/review-2026-10-12.md), Guardrails).
+
+### 8. Failure and park policy · needs a decision
+What parks a feature instead of looping: 2 `/debug` attempts after a FAIL, BLOCKED, sudo, logins, hook denials (logged with the reason), and paid steps that never run unattended. A usage limit error pauses the run until the limit resets, then resumes, instead of ending the night (moved here from feature 12 on 2026-10-12). Also refuses a repo whose `**Autopilot:** allowed` you did not set yourself, such as a cloned third party scope (spec 0003 follow up).
+**Done when:** each of those cases parks the feature with a reason you can read, no paid step runs, and a run that hits the usage limit picks up again after the reset.
+- [ ] Design it (spec): `/architect failure and park policy`
+
+### 7. Headless verify and test · needs a decision
+`/check verify` drives the app through the chrome-devtools MCP (isolated Brave) instead of reporting BLOCKED, and `/test` sees the feature's changes even after checkpoint commits.
+**Done when:** a Beta feature passes `/check verify` and `/test` in a headless run, and only real walls (login, captcha, 2FA, hardware) report BLOCKED.
+- [ ] Design it (spec): `/architect headless verify and test`
+
+### 9. Design enforcement unattended · needs a decision
+Frontend work in a headless run goes through `design` and `design-gate`, never skipped: the Stop hook runs headless, and the runner fails a step that changed frontend files without a newer gate report.
+**Done when:** a headless UI step with no fresh `design-gate` report fails, and one with a passing report goes through.
+For the interview: [architecture](../architecture.md) invariant 2 says a run never picks a design direction, so settle whether a UI step with no locked design parks instead of running `design`.
+- [ ] Design it (spec): `/architect design enforcement unattended`
 
 ## Release 3: queues
 
@@ -201,41 +198,51 @@ A parked feature no longer stops the run: the runner moves to the next queued fe
 **Done when:** with two queued features where the first parks, the second still builds, and the parked question waits for you.
 - [ ] Design it (spec): `/architect build queue and decision queue`
 
+## Deferred
+Out of scope for the current build pass, kept so the plan stays honest.
+
+### 21. Work names out of the public repo · needs a decision
+Deferred 2026-10-12 (architecture pass): the public repo cleanup is not part of the runner goal; do it after the runner features are built.
+Work org and tool names sit in public files on main (`CLAUDE.md`, `HOOKS.md`, `SKILLS.md`, `NOTICE.md`, `README.md`, `.gitignore`). They move to one local untracked file, and the public files refer to it instead of naming anything. Root `CLAUDE.md` is the synced copy of `~/.claude/CLAUDE.md`, so `sync.sh` and `install.sh` have to keep the split. Then you decide whether main's history is rewritten too.
+**Done when:** no tracked file on the branch or main names a work org or tool, a fresh `install.sh` plus the local file gives the same behavior as today, `sync.sh` cannot put a name back, and the history decision is recorded (and carried out if the answer is rewrite).
+- [ ] Design it (spec): `/architect work names out of the public repo`
+Source: your message of 2026-10-12 (`/scope` request after the runner branch review).
+
 ### 15. Cheap worker tier · needs a decision
+Deferred 2026-10-12 (architecture pass): a cost saving, the goal does not need it.
 Low value work (summaries of long pages, transcripts and logs, first pass triage of search results, field extraction, classification, commit message drafts) goes to claude-fb's free models through an `fb-ask` helper, and the answer comes back to the Claude session as data. Never code edits, decisions, security review, or client code on fb-any.
 **Done when:** a runner step sends a summary job through `fb-ask`, Claude uses the answer, and a code or decision task can never be routed there.
 - [ ] Design it (spec): `/architect cheap worker tier`
 
 ### 16. Issues and mixed source of truth · needs a decision
+Deferred 2026-10-12 (architecture pass): your scopes are the source of truth; issues are not needed for the goal.
 Per repo `**Source of truth:** scope | issues | mixed`. With issues or mixed, the runner rereads the linked GitHub issue before every step; if it changed after the spec was written, the feature parks and you are asked. In mixed, the issue holds the requirement and the scope tracks the build, and the issue wins on conflict. Never tied to an org or repo name.
 **Done when:** an issue edited after its spec parks the feature with the diff shown, and a repo set to scope never calls GitHub.
 - [ ] Design it (spec): `/architect issues and mixed source of truth`
 
-## Release 4: overnight autopilot
-
 ### 11. Autopilot offer and batch design · needs a decision
+Deferred 2026-10-12 (architecture pass): you run `/architect` yourself in one sitting; batching it is a convenience.
 When a conversation ends with buildable features, one question: "Queue these for autopilot?". Then `/architect` runs for each one back to back, one question round per spec, until every spec is accepted and tagged `auto`.
 **Done when:** answering yes leaves every queued feature with an accepted spec and the `auto` tag, with all questions asked before the unattended run starts.
 - [ ] Design it (spec): `/architect autopilot offer and batch design`
 
 ### 12. Usage limit planning · needs a decision
+Deferred 2026-10-12 (architecture pass): estimates and refusals are not needed; the pause through a reset moved into feature 8.
 Estimate each step's usage from past sessions, compare it with the 5 hour window and the weekly limit, start right after a reset, sleep through a reset, and refuse a run the week cannot finish.
 **Done when:** a run that does not fit is refused before it starts, and one that hits the 5 hour limit pauses and resumes after the reset.
 - [ ] Design it (spec): `/architect usage limit planning`
 
 ### 13. Morning report · needs a decision
+Deferred 2026-10-12 (architecture pass): a report ping is not a real decision, and `run.json` already holds the report.
 What ran, what parked and why, what it cost: a short note on your phone, and the full report shown when your main session starts.
 **Done when:** after a run you get the phone note, and your next `~/.claude` session opens with the report.
 - [ ] Design it (spec): `/architect morning report`
 
 ### 14. Draft PR per spec · needs a decision
+Deferred 2026-10-12 (architecture pass): opening a PR needs a push, which the runner never does.
 Checkpoint commits on a work branch squash into one clean commit per feature, and the runner opens one draft PR per spec, never marked ready or merged. Waits on the branch and PR standard (personal scope item 11).
 **Done when:** a finished feature ends as one commit on its branch with a draft PR, and the runner has no path to merge or mark ready.
 - [ ] Design it (spec): `/architect draft PR per spec`
-
-## Deferred
-Out of scope for the current build pass, kept so the plan stays honest.
-- none for now
 
 ## Legend
 
