@@ -32,7 +32,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 20 | Push guard outside the model | Release 2 | done |
 | 8 | Failure and park policy | Release 2 | done |
 | 7 | Headless verify and test | Release 2 | done |
-| 9 | Design enforcement unattended | Release 2 | in-progress |
+| 9 | Design enforcement unattended | Release 2 | done |
 | 10 | Build queue and decision queue | Release 3 | in-progress |
 | 21 | Work names out of the public repo | Deferred | planned |
 | 23 | Questions that teach | Deferred | planned |
@@ -241,7 +241,7 @@ Unblocked 2026-10-12: `/architect` settled the seven findings (fix 1, 2, 3, 5, 7
 Unblocked 2026-10-12: `/architect` settled findings 8 and 9 (bind real paths, park a symlink inside a writable folder, catch an absent denied path that appears, plus ten cross check details); spec 0009 amended, build step 9.
 Blocked 2026-10-12 (step 10): step 9 is built and P2 passes through the built code, but P8 and P9 stop `guard_changed` on the first call: Claude Code makes `<repo>/.claude/.cc-writes/` in a repo with no `.claude`, which the new absent path check counts as a change. The step 9 commit review also found three doors (renaming `.git` past its read only binds, a symlink chain through the repo, a dangling symlink at an absent guarded file). All go to `/architect` (brief findings 10 to 13).
 
-### 9. Design enforcement unattended · in-progress
+### 9. Design enforcement unattended · done
 Frontend work in a headless run is audited by `design-gate`, never skipped: UI with no locked design parks `blocked`, calls cannot invoke `design` or `brand-system`, and before `/sync` the runner parks `design_gate` when a frontend file changed on the branch has no passing report newer than it. The headless Stop hook in the first wording was dropped at design: `design` never runs unattended, and the 0007 sandbox cannot write its pointer (spec 0010).
 **Done when:** a headless run whose branch changed frontend files with no fresh passing `design-gate` report parks `design_gate` before `/sync`, one with a passing report goes through, and UI with no locked design parks `blocked`.
 - [x] Design it (spec): `/architect design enforcement unattended`
@@ -251,7 +251,7 @@ Frontend work in a headless run is audited by `design-gate`, never skipped: UI w
    - [x] Prompt lines and `Skill(design)`, `Skill(brand-system)` denies (AC-5, AC-6)
    - [x] P2 to P4 through `wf run` in `verify.md` (AC-9)
 - [x] Verify it: `/check verify design enforcement unattended`
-- [ ] Test it: `/test design enforcement unattended`
+- [x] Test it: `/test design enforcement unattended`
 Spec [0010](../specs/0010-design-enforcement-unattended/index.md) · code in `runner/run.py`, `runner/tests/test_design.py`
 Steps 1 to 3 built 2026-10-12 inside a `wf run` call. P2 to P4 passed 2026-10-12 through real `wf run` from a normal session; P3's `design` deny was confirmed by a direct probe, since under `wf run` the AC-5 prompt line stops the call from trying (`verify.md`).
 

@@ -135,6 +135,14 @@ class TestChanged(RunCase):
         git(r, "checkout", "-q", "work")
         self.assertEqual(run.frontend_changed(str(r)), (None, ["committed.tsx", "new.css", "old.tsx"]))
 
+    # covers: AC-1 (a git failure raises; an empty list would let /sync run unchecked)
+    def test_git_failure(self):
+        plain = self.tmp / "not-a-repo"
+        plain.mkdir()
+        (plain / "a.tsx").write_text("x")
+        with self.assertRaises(RuntimeError):
+            run.frontend_changed(str(plain))
+
 
 class TestCheck(RunCase):
     def setUp(self):
@@ -153,7 +161,11 @@ class TestCheck(RunCase):
     # covers: AC-3, AC-7, AC-8 (no report parks design_gate, no sync call, exit 6, the detail and the record)
     def test_missing(self):
         self.steps([{"write_file": [["src/components/Nav.tsx", "x"]]}, {}, {"tick": False}])
-        rec = self.assert_stopped(self.wf("ui", "-y"), "design_gate", calls=2)
+        r = self.wf("ui", "-y")
+        rec = self.assert_stopped(r, "design_gate", calls=2)
+        # assert_stopped reads run.PARKS, so dropping design_gate from it passed; AC-8 pinned literally.
+        self.assertIs(rec["parked"], True)
+        self.assertIn("parked: design_gate: 1 frontend file(s)", r.stdout)
         self.assertEqual(rec["detail"], "1 frontend file(s) not covered by a passing design-gate report: "
                                         "src/components/Nav.tsx (no report)")
         self.assertEqual(rec["design"], {"base": None, "changed": ["src/components/Nav.tsx"], "reports": {},
@@ -208,6 +220,12 @@ class TestCheck(RunCase):
         self.assertEqual(rec["calls"][5]["retry_of"], 5)
         # Recorded once, before the first sync call: the file the failed sync rewrote was not checked again.
         self.assertEqual(rec["design"]["problems"], [])
+
+    # covers: AC-3 (a guarded git config changed by the last box call stops the run before wf's git reads it)
+    def test_guard_before_check(self):
+        self.steps([{"write_file": [["a.tsx", "x"]]}, {"write_file": [[".git/config", "{}"]]}, {"tick": False}])
+        rec = self.assert_stopped(self.wf("ui", "-y"), "guard_changed", calls=2)
+        self.assertIsNone(rec["design"])
 
 
 class TestCallArgs(RunCase):
