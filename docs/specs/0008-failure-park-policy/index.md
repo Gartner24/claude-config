@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-12
 **Status**: Accepted
-**Amended by**: [0009](../0009-headless-verify-test/index.md) - AC-1 park set gains `app_failed`, stop set gains `app_port_busy`; AC-3 snapshot is taken before the app starts and after it stops.
+**Amended by**: [0009](../0009-headless-verify-test/index.md) - AC-1 park set gains `app_failed`, stop set gains `app_port_busy`; AC-3 snapshot is taken before the app starts and after it stops. [0010](../0010-design-enforcement-unattended/index.md) - AC-1 park set gains `design_gate`; the classification order gains rule 14a (the design check before `/sync`).
 
 ## Summary
 

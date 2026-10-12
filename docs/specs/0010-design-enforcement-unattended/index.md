@@ -121,7 +121,7 @@ Skateboard: each step leaves `wf run` usable. Specs 0007, 0008 and the 0009 AC-9
 
 ## Follow-up
 
-- [ ] Spec 0007 and 0008 headers get `Amended by: 0010` when this is accepted; `/sync` owns those lines.
+- [x] Spec 0007 and 0008 headers get `Amended by: 0010` when this is accepted; `/sync` owns those lines.
 
 ## Rationale
 

@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-12
 **Status**: Accepted
-**Amended by**: [0008](../0008-failure-park-policy/index.md) - AC-1 env strip widened to paid API keys, tokens and secrets (one `call_env()`); `~/.aws`, `~/.config/gcloud`, `~/.azure` join AC-2 `denyRead` and AC-5 `Read` denies. [0009](../0009-headless-verify-test/index.md) - AC-4: `/check verify` and debug calls in a repo naming an app get `MCP_BROWSER` instead of the empty list; AC-2 settings on those calls gain the browser hook.
+**Amended by**: [0008](../0008-failure-park-policy/index.md) - AC-1 env strip widened to paid API keys, tokens and secrets (one `call_env()`); `~/.aws`, `~/.config/gcloud`, `~/.azure` join AC-2 `denyRead` and AC-5 `Read` denies. [0009](../0009-headless-verify-test/index.md) - AC-4: `/check verify` and debug calls in a repo naming an app get `MCP_BROWSER` instead of the empty list; AC-2 settings on those calls gain the browser hook. [0010](../0010-design-enforcement-unattended/index.md) - AC-5 deny list gains `Skill(design)` and `Skill(brand-system)`.
 
 ## Summary
 
