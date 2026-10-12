@@ -87,6 +87,15 @@ Three background security reviews of the step 3 to 5 commits found seven doors (
 6. **Accepted after a probe.** You asked for the downloads to go to the shots folder only if a simple setting worked. P11 found no download saved at all by 1.10.1 headless Brave, from a direct navigation or from a link click, so there is nothing to redirect. If a later version saves one, it lands in your download folder, where Chrome never overwrites a file and nothing runs it. P11 reruns on version changes.
 7. **Fixed.** The hook checked a resolved path, but the MCP writes the original string later, so a swapped symlink could aim the write at `.git/hooks`. The hook now accepts only a path that already equals its own realpath and normpath and sits under the shots folder. Nothing but the MCP writes there, so no link can appear in time.
 
+## Amendment 2026-10-12: findings 8 and 9
+
+Step 8 reran P2 through the built code and it failed; a review of the step 7 commit found one more door. You decided both:
+
+8. **Fixed, real path.** `bwrap` refuses `--ro-bind` onto a symlink, and `~/.gitconfig` and `~/.zshrc` are symlinks into `~/dotfiles` here, so every app parked `app_failed`. Each read only bind now uses the entry's real path. Runner up: skip symlinked entries outside the write binds, which is just as short but leaves the target writable when a dotfile points into the repo or a cache. A symlink inside a write bind could be re-pointed by the app, so it parks `app_failed` instead of starting unguarded.
+9. **Fixed, caught after the app stops.** An absent denied path (most often `.git/hooks` or `<repo>/.claude`) cannot be bound, so the app could plant a hook that runs unsandboxed at your next commit. `wf` records which denied paths were absent and, in the check right after every app stop (before any git of its own), stops the run when one holds content. Rejected: creating placeholders first (wf would write in the repo, breaking the spec's promise, and leave an empty `.claude` in the working tree), and refusing to start the app (nearly every repo lacks `.claude`). wf's git between app start and stop (`head_branch`) runs no hooks, so detection at the stop comes before any hook can fire.
+
+A cross check on another model found ten gaps in the first draft. You chose to apply all ten: write binds at their real path too, a precise "symlink inside a write bind" rule (only symlinks below the bind count), dangling symlinks treated as absent, `absent_denied` stored as real paths under the write binds only and skipping `guarded_files` keys, the check at every `files_changed()` call, real paths bound once, `file_hash()` no longer crashing on a directory, the symlink park on every start, and two residuals stated.
+
 ## Probe evidence
 
 P1 (localhost isolation) is the one fact the design rests on. It is in `verify.md` with command and result. P2 to P7 are the build's first step and gate the rest.

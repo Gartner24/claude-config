@@ -6,6 +6,7 @@
 - Spec 0009 Threat model: a door found after acceptance goes to a new `/architect` run, not into the build. So the three findings below were not patched in the build.
 - Settled by `/architect` 2026-10-12, now in spec 0009 (amendment "review findings 1 to 7"): fix 1, 2, 3, 5, 7; 4 accepted with the AC-8 prompt reworded; 6 accepted (P11: no download saved); app network stays open. No further hardening rounds. Build fixes, rerun P2 to P11, then P8 and P9.
 - Open build work: P8 and P9 through `wf run` (step 7). Hold them until `/architect` settles the findings, since a jail or MCP change reruns P2 to P9 anyway.
+- Settled by `/architect` 2026-10-12, now in spec 0009 (amendment "findings 8 and 9"): 8 binds each entry at its real path and parks `app_failed` on a symlink inside a write bind; 9 is caught, not prevented: `absent_denied` checked in `files_changed()`, wf creates nothing in the repo. All ten cross check details applied. Build step 9 builds them and reruns P2; step 10 is P8 and P9.
 - Build step 7 (review fixes) is built and committed with a test and a mutation check per fix (`fix(runner): spec 0009 review fixes ...`). Step 8 found findings 8 and 9 below; the build stops there, per the spec.
 
 ## Findings (background security review of `c4eec49`)
