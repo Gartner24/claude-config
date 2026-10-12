@@ -96,6 +96,17 @@ Step 8 reran P2 through the built code and it failed; a review of the step 7 com
 
 A cross check on another model found ten gaps in the first draft. You chose to apply all ten: write binds at their real path too, a precise "symlink inside a write bind" rule (only symlinks below the bind count), dangling symlinks treated as absent, `absent_denied` stored as real paths under the write binds only and skipping `guarded_files` keys, the check at every `files_changed()` call, real paths bound once, `file_hash()` no longer crashing on a directory, the symlink park on every start, and two residuals stated.
 
+## Amendment 2026-10-12: findings 10 to 13 (final round)
+
+Step 10 ran P8 and P9 through `wf run` and both stopped; a review of the step 9 commit found three more doors. You decided all four and closed hardening on this feature:
+
+10. **Fixed, empty folder trees are placeholders.** Claude Code creates `<repo>/.claude/.cc-writes/` during an ordinary call, so every first call in a repo with no `.claude` stopped `guard_changed`. A tree of only real folders now counts as unchanged, like an empty file; any file or symlink inside still trips. Rejected: exempting the one `.cc-writes` name (breaks on the next Claude Code folder), and checking only after an app stop (leaves the call path unchecked).
+11. **Residual.** Renaming `.git` (or `.claude`) and copying it back sheds the read only binds. It needs a model deliberately working to escape, outside the Threat model.
+12. **Residual.** A symlink chain through a write bind, or renaming the parent of a dotfile's real target in the repo. Same reason.
+13. **Fixed.** A guarded file absent at start that is now a symlink is a change, dangling or not. `file_hash()` followed the link and still read `absent`. One line, so it is fixed even though it sits near the edge of the Threat model.
+
+From now on a review finding that needs deliberate escape goes straight to residual under Security model; only a functional failure reopens this spec. Cross check: another model (standing answer). It found two open points and you applied both: a folder the walk cannot read counts as a change, and `file_hash()` returns `unreadable` on any other `OSError` (a symlink loop) instead of crashing. A named pipe at a guarded path still hangs the check; only a deliberate plant makes one, so it is residual.
+
 ## Probe evidence
 
 P1 (localhost isolation) is the one fact the design rests on. It is in `verify.md` with command and result. P2 to P7 are the build's first step and gate the rest.
