@@ -149,8 +149,16 @@ hook planted: guard_changed: <tmp>/plain/.git/hooks appeared during the run; ins
 
 The read only binds name the real dotfiles, never the links, and the app starts. Every P2 item from step 8 still holds.
 
-## P8 and P9
+## Step 10: P8 and P9 through `wf run` (run 2026-10-12): FAIL, build stopped
 
-Not run: they come after build step 9 (build step 10).
+Scratch repos `p8` and `p9` under the session scratchpad, each with `main` plus a `work` branch holding one checkpoint commit and no uncommitted change, Beta tier, `test-preferences.json` (unittest), `- run suite: yes`. `p9` adds `- app start: python3 server.py 8793` and `- app url: http://127.0.0.1:8793` (stdlib server plus `index.html`). `XDG_CONFIG_HOME` and `XDG_STATE_HOME` in the scratchpad with a copied `ntfy.json`, `wf allow` on both, then `wf.py run <repo> -y --budget 3 --call-timeout 20 --max-calls 6 --max-wait 0.25` (P9: 25 and 8). Nested `claude -p` was logged in.
+
+```
+p8: [1/6] /test calc helpers -> success, 0.69 USD, 1.0m, next: /sync
+p8: stopped: guard_changed: <scratch>/p8/.claude appeared during the run; inspect or delete it before opening a session in this repo
+p9: stopped: guard_changed: <scratch>/p9/.claude appeared during the run; inspect or delete it before opening a session in this repo
+```
+
+Both repos had no `.claude` at start. After the first call, `<repo>/.claude/.cc-writes/` exists, an empty folder Claude Code made inside a new `.claude`. `.claude` is in `absent_denied` and is not an empty folder, so the step 9 check trips. P9 passed the start checks (real `npx`, `brave`, `MCP_CACHE`) and stopped right after its `/check verify` call. Goes to `/architect` (brief finding 10).
 
 Tool facts read on 2026-10-12 (`npx -y chrome-devtools-mcp@latest --help`, `--version`): version 1.10.1; flags `--isolated`, `--headless`, `--executablePath`, `--proxyServer`, `--chromeArg`, `--browserUrl` (`-u`), `--wsEndpoint` (`-w`), `--autoConnect`, `--userDataDir`, `--allowedUrlPattern` (Chrome 149+). Brave installed: 154.1.96.60.
