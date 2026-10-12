@@ -143,13 +143,13 @@ A hook on `AskUserQuestion` answers safe panels with the recommended option and 
 **Done when:** a safe panel never reaches you, a real decision arrives on your phone, and your reply resumes the same session.
 - [x] Design it (spec): `/architect decision parking and phone pings`
 - [ ] Build it: `/develop decision parking and phone pings`
-   - [ ] `hook.py` safe list and answer lookup, `--settings` argv, new prompt, auto answers recorded (AC-3, AC-4, AC-5, AC-12)
+   - [x] `hook.py` safe list and answer lookup, `--settings` argv, new prompt, auto answers recorded (AC-3, AC-4, AC-5, AC-12)
    - [ ] `ntfy.py` and `wf ntfy init|codes|test`, `no_ntfy` start check, scrubbed JSON pings, reply rules and code burning (AC-1, AC-2, AC-7, AC-8, AC-13)
    - [ ] Deferred classification, wait loop, `answers.json`, resume call, prose decisions (AC-6, AC-9, AC-10, AC-11, AC-12)
    - [ ] Manual real claude and phone checks in `verify.md` (AC-14)
 - [ ] Verify it: `/check verify decision parking and phone pings`
 - [ ] Test it: `/test decision parking and phone pings`
-Spec [0005](../specs/0005-decision-parking-phone-pings/index.md)
+Spec [0005](../specs/0005-decision-parking-phone-pings/index.md) · code in `runner/hook.py`, `runner/run.py`, `runner/tests/test_run.py`
 
 ### 6. Standing answers · needs a decision
 Answers you always give the same way (tier, cross check, `/test` runs the suite, who marks done, accept the spec) live once in each repo's `AGENTS.md`, and the skills read them instead of asking.
