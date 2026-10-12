@@ -28,6 +28,7 @@ bash skills/design/scripts/test-ledger.sh       # design ledger + Stop hook asse
 node skills/design/scripts/build-ramp.mjs --check
 python3 -m unittest discover -s runner/tests    # wf runner self checks (install.sh runs these)
 wf run <repo>                                   # one feature unattended (spec 0004); locks and run records in $XDG_STATE_HOME/wf, else ~/.local/state/wf
+wf ntfy init|codes|test                         # phone pings for wf run decisions (spec 0005); config ~/.config/wf/ntfy.json (0600), wf run refuses without it
 ```
 
 ## Specs
@@ -52,6 +53,7 @@ None yet. When they exist: `docs/specs/NNNN-title.md`.
 - `jjstack/` is gitignored /review scratch; reports never enter the repo from there.
 - Runner fixtures are flat files (`runner/tests/fixtures/*.md`) that tests copy into `docs/scope/` or `.workflow/scope/` trees in temp dirs: `.workflow/` is globally gitignored, so a fixture tree there would never be committed. Keep them trimmed and free of client names (public repo).
 - Scripts hardcode `~/.claude/skills/...` paths: they run through the symlink, not from the repo path.
+- `claude -p` (2.1.296) never offers AskUserQuestion, so `wf run` steps ask through `DECISION NEEDED:` plus `OPTION:` lines (spec 0005); rerun its verify.md check 1 probe after a Claude Code upgrade. The Android ntfy app cannot type into a topic; typed replies go through the topic page in a phone browser.
 
 ## Agent skills
 
