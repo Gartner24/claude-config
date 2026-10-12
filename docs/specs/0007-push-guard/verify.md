@@ -92,3 +92,16 @@ Same command as run 3, run 2026-10-12 by you (`!`), with the prompt order 1, 2, 
 | 14 | 2 2 2 0 2 | pass: `2 2 2 0 2` |
 
 Required for accept (5, 12, 13, 14): all pass through wf's own argv and env. Unconfirmed sandbox layers behind a classifier denial: 4, 6 (as in run 2).
+
+## Amendment probe (worktree files and includes, before accept)
+
+Command: a scratch script, run 2026-10-12 by Claude in a `mktemp` dir with `HOME` set to it and `GIT_CONFIG_NOSYSTEM=1`: `git init`, one commit, `extensions.worktreeConfig true`, `git worktree add`, `git config --worktree core.x y`, a second commit in the worktree, then an `[include]` and an `[includeIf]` appended to the main `config`.
+
+| Check | Result |
+|---|---|
+| worktree `.git` | a file: `gitdir: <common>/worktrees/wt` |
+| `rev-parse --path-format=absolute --git-dir` in the worktree | `<common>/worktrees/wt`; the common dir is `<main>/.git` |
+| files in the worktree git dir | `commondir`, `config.worktree`, `gitdir`, `HEAD`, `index`, `logs/HEAD`, `ORIG_HEAD` |
+| what a commit in the worktree writes there | `logs/HEAD` changed, `COMMIT_EDITMSG` created (and `index` on a real change), so only `commondir`, `gitdir`, `config.worktree` can be frozen |
+| `config.worktree` path | main checkout `<common>/config.worktree`; linked worktree `<common>/worktrees/wt/config.worktree` (`rev-parse --git-path config.worktree`) |
+| `git config --file <config> --get-regexp '^include(if\..*)?\.path$'` | `include.path inc1`, `includeif.gitdir:/nowhere/.path ~/inc2`: both listed, the false condition too, values raw (relative, `~` unexpanded) |
