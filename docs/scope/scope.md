@@ -175,12 +175,12 @@ Spec [0006](../specs/0006-standing-answers/index.md) · code in `runner/run.py`,
 A box only you can close (a manual check on the real claude or your phone, like spec 0006 AC-9) gets a marker in the scope contract (spec 0003), and `next` and `wf run` treat it as waiting: refused with a reason, never built. The last `wf run` looped `/develop` on feature 6 because its open AC-9 milestone was owed to you.
 **Done when:** `wf run` on a feature whose next box carries the marker refuses with a waiting reason and makes no call, `next` says the box waits on you, and `/scope` and `/architect` know how to write the marker.
 - [x] Design it (spec): `/architect waiting boxes owed to you`
-- [ ] Build it: `/develop waiting boxes owed to you`
+- [x] Build it: `/develop waiting boxes owed to you`
    - [x] Marker, `NextBox.owed` and the near miss warning (AC-1, AC-2)
    - [x] `wf run` refuses or parks a marked box, ahead of every other box check (AC-5)
    - [x] `next` never launches a marked box (AC-3, AC-6)
    - [x] Rule file line live (AC-7; architecture sentence and the repo copy are in): `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` · waits on you
-   - [ ] Headless `/scope` probe (AC-8; the `wf run` refusal passed, see spec 0012 `verify.md`) · waits on you
+   - [x] Headless `/scope` probe (AC-8; the `wf run` refusal passed, see spec 0012 `verify.md`) · waits on you
 - [ ] Verify it: `/check verify waiting boxes owed to you`
 - [ ] Test it: `/test waiting boxes owed to you`
 Spec [0012](../specs/0012-waiting-boxes-owed-to-you/index.md) · code in `runner/wf.py`, `runner/run.py`, `runner/tests/`, `rules/scope-contract.md`
