@@ -65,6 +65,12 @@ A cross check (another model) then found seven gaps, all closed with its recomme
 
 Checked against git 2.56.0 in a temp repo: an absolute `gitdir` (default), a relative one (`worktree.useRelativePaths=true`, relative to the `<id>` folder, and the worktree's own `.git` file relative to the worktree), a detached `HEAD` holding a bare sha, and a submodule whose `gitdir:` folder has no `commondir`.
 
+### Amendment 2026-10-11: a picker that fails is not a cancel (feature 18)
+
+`pick()` treated every nonzero fzf exit as a cancel, so when fzf could not open a terminal (`inappropriate ioctl for device`, fzf exit 2) `next` exited 0 as if you had pressed Esc. fzf's own exit codes already separate the cases: 130 for Esc or Ctrl C, 1 for Enter with nothing matching, 2 for an error (basis: the fzf man page, linked below). Cancel stays exit 0; a failure exits 1, the same code as a missing fzf, because both mean the picker could not be used, and a script that calls `next` or `wf run` sees a nonzero code. A new exit code was weighed and not taken: nothing needs to tell a missing fzf from a broken one, and the message says which.
+
+The list and picker branch column showed `detached ` with nothing after it for an empty `HEAD`, a claim the file does not support. It now matches the AC-2 worktree label: `detached` only for a commit hash, `-` for anything else.
+
 ## References
 
 **Project sources**:

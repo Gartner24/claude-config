@@ -23,7 +23,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 2 | Scope contract for the runner | Foundation | done |
 | 3 | `next <repo>` | Release 1 | done |
 | 17 | Worktree discovery without git | Release 1 | done |
-| 18 | fzf failure is not a cancel | Release 1 | planned |
+| 18 | fzf failure is not a cancel | Release 1 | in-progress |
 | 19 | Singular change count | Release 1 | planned |
 | 4 | Headless step loop | Release 2 | done |
 | 5 | Decision parking and phone pings | Release 2 | planned |
@@ -101,10 +101,16 @@ Discovery still runs `git worktree list --porcelain` in every scanned main check
 - [x] Test it: `/test worktree discovery without git`
 Spec [0002](../specs/0002-next-repo-command/index.md) (amended AC-2) · code in `runner/wf.py`, `runner/tests/`
 
-### 18. fzf failure is not a cancel · needs a decision
-When fzf cannot open a terminal it prints `inappropriate ioctl for device` and `next` exits 0, the same as a cancelled pick (AC-4). Spec 0002 has no exit code or message for a picker that fails, so that is the decision.
+### 18. fzf failure is not a cancel · in-progress
+When fzf cannot open a terminal it prints `inappropriate ioctl for device` and `next` exits 0, the same as a cancelled pick (AC-4). Spec 0002 now names it: a failure exits 1 with a message. Same amendment: an empty or unknown `HEAD` shows `-` in the list branch column, not `detached ` (AC-12).
 **Done when:** a picker that fails to start prints why and exits with the code the spec names, and a real cancel still exits 0.
-- [ ] Design it (spec): `/architect fzf failure is not a cancel`
+- [x] Design it (spec): `/architect fzf failure is not a cancel`
+- [ ] Build it: `/develop fzf failure is not a cancel`
+   - [ ] `pick()` tells a cancel (130, 1) from a failure (exit 1 and message), tests for `next` and `wf run` (AC-4, build step 7)
+   - [ ] Shared hash pattern, `head_branch()` shows `-` for an empty or unknown `HEAD`, list tests (AC-12, build step 7)
+- [ ] Verify it: `/check verify fzf failure is not a cancel`
+- [ ] Test it: `/test fzf failure is not a cancel`
+Spec [0002](../specs/0002-next-repo-command/index.md) (amended AC-4, AC-12)
 
 ### 19. Singular change count
 The confirm line reads `1 changes` for one change. It should read `1 change`; spec 0002 AC-8 writes `N changes`, so its wording gets the singular too.
