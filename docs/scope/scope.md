@@ -142,12 +142,12 @@ Spec [0004](../specs/0004-headless-step-loop/index.md) · code in `runner/run.py
 The unattended prompt fixes the safe panel answers and asks real decisions as `DECISION NEEDED:` plus `OPTION:` lines; you get the question on your phone with buttons and the session resumes with your reply.
 **Done when:** a safe panel never reaches you, a real decision arrives on your phone, and your reply resumes the same session.
 - [x] Design it (spec): `/architect decision parking and phone pings`
-- [ ] Build it: `/develop decision parking and phone pings`
+- [x] Build it: `/develop decision parking and phone pings`
    - [x] `hook.py` safe list and answer lookup, `--settings` argv, new prompt, auto answers recorded (AC-3, AC-4, AC-5, AC-12)
    - [x] `ntfy.py` and `wf ntfy init|codes|test`, `no_ntfy` start check, scrubbed JSON pings, reply rules and code burning (AC-1, AC-2, AC-7, AC-8, AC-13)
    - [x] Deferred classification, wait loop, `answers.json`, resume call, prose decisions (AC-6, AC-9, AC-10, AC-11, AC-12)
    - [x] Text path: `OPTION:` lines become a panel decision, new prompt and resume sentence, delete `hook.py`, `answers.json`, `auto.jsonl` and the deferred rule (spec 0005 build plan 6; AC-3 to AC-6, AC-10 to AC-12)
-   - [ ] Manual checks in `verify.md` (AC-14): 1, 3, 6 done; checks 2 and 5 waits on you with the phone (`wf ntfy init`, subscribe, then a driven run you answer by tapping)
+   - [x] Manual checks in `verify.md` (AC-14): all six on claude -p 2.1.296 and the phone; label cuts and browser replies fixed from check 5
 - [ ] Verify it: `/check verify decision parking and phone pings`
 - [ ] Test it: `/test decision parking and phone pings`
 Spec [0005](../specs/0005-decision-parking-phone-pings/index.md) · code in `runner/ntfy.py`, `runner/run.py`, `runner/wf.py`, `runner/tests/`

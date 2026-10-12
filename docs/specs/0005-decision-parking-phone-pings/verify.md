@@ -3,15 +3,15 @@ _Steps derived from spec 0005 acceptance criteria. `/check verify` runs these; `
 
 ## Manual (AC-14, real claude and ntfy.sh)
 - [x] Check 1: a real step asked to choose a storage engine with AskUserQuestion -> FAILED, see Findings -> AC-14.1, AC-6
-- [ ] Check 2: a real step ends with `DECISION NEEDED:` and `OPTION:` lines; the phone reply resumes the same session -> AC-14.2, AC-4, AC-10
+- [x] Check 2: a real step ends with `DECISION NEEDED:` and `OPTION:` lines; the phone reply resumes the same session -> AC-14.2, AC-4, AC-10
 - [x] Check 3: a real `Doc type` panel decided by the model with the (recommended) option, no ping -> AC-14.3, AC-5
 - [x] Check 4: dropped 2026-10-11, no `--settings` is passed any more -> AC-14.4 · skipped
-- [ ] Check 5: on the phone, buttons, a coded free text reply, a reused code and `<id> maybe` -> AC-14.5, AC-7, AC-8
+- [x] Check 5: on the phone, buttons, a coded free text reply, a reused code and `<id> maybe` -> AC-14.5, AC-7, AC-8 (reused code by automated test only, see Findings)
 - [x] Check 6: a subagent's decision reaches the main agent's final message -> AC-14.6
 
 ## Commands
 - [ ] `python3 -m unittest discover -s runner/tests` -> all pass (fake claude, fake ntfy) -> AC-1 to AC-13
-- [ ] `wf ntfy init`, subscribe the phone, `wf ntfy test`, tap `1 yes` -> `accepted: yes` -> AC-1
+- [x] `wf ntfy init`, subscribe the phone, `wf ntfy test`, tap `1 yes` -> `accepted: yes` -> AC-1
 
 ## Value sourcing (one step per row that milestone 6 changed)
 - [ ] Question: a result with two `DECISION NEEDED:` lines and a bare one after them -> the last non empty one is the question (`TestReadDecision`) -> AC-4
@@ -53,4 +53,6 @@ Driven with `wf run <scratch repo> -y --max-calls 4 --budget 3 --max-wait 1`, on
 - Check 2 passes. Run A asked four decisions in a row (`uqtc`, `6v31`, `3l97`, `sdga`); each was answered by a button tap, each resume listed its id, and all four calls kept `session_id` `ec66086a...`; `waited_s` 199.6 did not count toward `--max-hours`; stop `max_calls` as capped.
 - Check 5, buttons: the ping showed the title, body and buttons, and a tap resumed the run (both runs). A 4 option panel (`3l97`) got 3 buttons.
 - Check 5 finding 1, fixed in this session: labels were cut hard at 40 characters mid word ("no datab") and read as redacted. AC-3 and AC-7 now ask for labels under 40 characters, keep body labels to 100, cut buttons to 40, and end every cut at a word with `...`. Run B's ping read cleanly.
-- Check 5 finding 2, open: you could not type a message to the topic from the phone, so `<id> maybe`, `<id> <code> text` and a reused code were never sent. The typed path is covered only by the automated tests. Until this is solved, a prose decision (no options) cannot be answered from the phone and waits until `--max-wait`.
+- Check 5 finding 2, resolved: the Android ntfy app cannot type into a topic, but the topic's web page in the phone browser can. `wf ntfy init` now prints `type replies: open that URL in your phone's browser and use the message box`.
+- Check 5, typed replies (run C, browser): `g8ya maybe` was ignored (`ignored` 1); `g8ya <code> build now the SQLite, one table named history` was accepted, burned the code (20 -> 19 left) and resumed the same session with that text; the run then built the feature, ran `/sync` and ended `feature_done`, exit 0. The 140 character question of run B ended `saved...` at a word boundary.
+- Check 5, reused code: not sent from the phone (the `wf ntfy test` ping was answered by a tap before the reused code message, per the topic log). Covered only by `test_ntfy.TestReplies.test_code` (the same code twice, the second ignored).

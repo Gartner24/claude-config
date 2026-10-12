@@ -371,6 +371,7 @@ class TestCommands(NtfyCase):
         self.assertEqual((cfg["server"], cfg["aliases"], cfg["block"]), ("https://ntfy.sh", {}, []))
         self.assertEqual(len(cfg["topic"]), 32)
         self.assertIn(f"subscribe: https://ntfy.sh/{cfg['topic']}", r.stdout)
+        self.assertIn("type replies: open that URL in your phone's browser and use the message box", r.stdout)
         codes = re.findall(r"^[a-z2-9]{8}$", r.stdout, re.M)
         self.assertEqual(len(codes), 20)
         self.assertTrue(all(set(c) <= set(ntfy.CODE_CHARS) for c in codes))

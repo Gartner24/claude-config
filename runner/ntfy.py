@@ -310,6 +310,8 @@ def cmd_init(rotate):
            "aliases": keep["aliases"], "block": keep["block"]}
     write(cfg)
     print(f"subscribe: {cfg['server']}/{cfg['topic']}")
+    # The Android app has no way to type into a topic (spec 0005 verify.md check 5); its web page does.
+    print("type replies: open that URL in your phone's browser and use the message box")
     show_codes(plain)
     return 0
 
