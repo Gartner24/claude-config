@@ -36,6 +36,8 @@ DENIED = ("AskUserQuestion,Bash(git push*),Bash(git * push*),"
 # Spec 0007. The prefix list above let `env git push` and `gh api` through (review 2026-10-12),
 # so the guard now sits below the model: no credential in a call, a jailed Bash, frozen files.
 GUARD_DENIED = "Artifact,ArtifactData,ArtifactComments,RemoteTrigger,CronCreate,CronDelete,SendMessage,Skill(schedule)"
+# Spec 0010 AC-6: a run never picks a design; only the two pipeline skills, design-gate stays allowed.
+DESIGN_DENIED = "Skill(design),Skill(brand-system)"
 CREDENTIAL_ENV = ("GH_TOKEN", "GITHUB_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_ENTERPRISE_TOKEN",
                   "SSH_AUTH_SOCK", "SSH_ASKPASS", "GIT_ASKPASS", "GIT_SSH", "GIT_SSH_COMMAND")
 # Spec 0008 AC-7: the cloud credential folders join them, so no call can bill a cloud account.
@@ -107,6 +109,12 @@ except Exception as e:
     print("wf run: browser tool call refused:", e, file=sys.stderr)
     sys.exit(2)
 """
+# Spec 0010 AC-2: what counts as frontend. Script files elsewhere (lib/ui.ts, app/) are not, on purpose.
+FRONTEND_EXT = (".html", ".htm", ".css", ".scss", ".sass", ".less", ".jsx", ".tsx", ".vue", ".svelte", ".astro")
+FRONTEND_SCRIPT_EXT = (".js", ".mjs", ".ts")
+FRONTEND_DIRS = ("components", "pages")
+FRONTEND_PREFIX = "src/ui/"
+FRONTEND_SKIP_DIRS = (".design", "dist", "build", ".next", "node_modules")
 UNATTENDED_PROMPT = (
     "You are running unattended inside wf run, and AskUserQuestion is not available. "
     "Decide these panels yourself with the fixed answer: Doc type, the option marked (recommended); "
@@ -124,7 +132,22 @@ UNATTENDED_PROMPT = (
     "with BLOCKED: followed by what you need. "
     "When /check verify ends in FAIL, end your final message with one line: VERIFY FAIL: debug when every "
     "failure is a bug, or VERIFY FAIL: develop when anything specced is missing or not applied. "
-    "Never run anything that bills: paid APIs, image generation, paid services.")
+    "Never run anything that bills: paid APIs, image generation, paid services. "
+    # Spec 0010 AC-5.
+    "If this step would build or restyle a user interface and no locked design covers it (a design.md, a "
+    "brand-system.html, or a .design/tokens.css next to a .design/reference-lock.md, in the folder of that UI or "
+    "any parent up to the repo root, or a spec under the specs folder that names this UI's design source and "
+    "composition), build none of that UI, and end with BLOCKED: no locked design for <what>. "
+    "Never invoke the design or brand-system skills. "
+    f"Frontend files are files ending in {', '.join(FRONTEND_EXT)}, and files ending in "
+    f"{', '.join(FRONTEND_SCRIPT_EXT)} inside a {' or '.join(FRONTEND_DIRS)} folder or under {FRONTEND_PREFIX}, "
+    f"except test files, files with .min. in their name, and files inside {', '.join(FRONTEND_SKIP_DIRS)}. "
+    "In every /check verify step of a feature whose branch changed frontend files, invoke the design-gate skill "
+    "when any changed frontend file has no passing .design/audit-report.md newer than it, on the lowest folder that "
+    "holds all the changed frontend files; fix its Must fix items within its own pass budget, and invoke "
+    "design-gate again after your last frontend edit. In any other step that changes frontend files, do the same "
+    "only when this feature has no open /check verify box left. wf will not close the feature without a passing "
+    "report newer than every changed frontend file.")
 # Spec 0006: the standing answers section, in the AGENTS.md mapped from the exact scope base.
 ANSWERS_FILE = {"docs/scope": "AGENTS.md", ".workflow/scope": ".workflow/AGENTS.md"}
 # Spec 0009 AC-1: the app keys take any value, kept as written; app url is checked by APP_URL.
@@ -148,7 +171,8 @@ TEST_BASE = (" For /test, the feature's changes are the files in git diff --name
 # Spec 0008 AC-1: a park ends only this feature, a stop ends the whole run (feature 10 tells them apart).
 # app_failed and app_port_busy come from spec 0009.
 PARKS = frozenset(("verify_failed", "blocked", "denied", "debug_touched", "no_progress", "call_error", "call_timeout",
-                   "budget", "decision_timeout", "manual_box", "waiting", "no_command", "no_feature", "app_failed"))
+                   "budget", "decision_timeout", "manual_box", "waiting", "no_command", "no_feature", "app_failed",
+                   "design_gate"))
 STOPS = frozenset(("interrupted", "max_calls", "run_limit", "usage_limit", "spawn_failed", "branch_changed",
                    "autopilot_off", "scope_unreadable", "guard_changed", "ping_failed", "internal_error", "app_port_busy"))
 # [ \t]*, not \s*: a bare `DECISION NEEDED:` used to swallow the next line as its question.
@@ -170,6 +194,10 @@ TEST_DIRS = ("test", "tests", "__tests__", "spec")
 TEST_NAME = re.compile(r"^test_|_test\.|\.test\.|\.spec\.")
 SKIP = re.compile(r"\b(skip|skipIf|skipUnless|xfail|xit|xdescribe|xtest)\b|\.skip\(|t\.Skip|@Disabled|@Ignore")
 TEST_DEF = re.compile(r"^\s*(async\s+)?def test|^\s*(it|test|describe)\(|^\s*func Test|^\s*#\[test\]")
+# Spec 0010 AC-4: the unfilled template line holds a `|` and never counts.
+DESIGN_VERDICT = re.compile(r"^\s*\**verdict:\**\s*(PASS WITH FINDINGS|PASS|FAIL|STOP)\s*(\(.*)?$", re.I)
+DESIGN_PASS = ("PASS", "PASS WITH FINDINGS")
+DESIGN_REPORT = os.path.join(".design", "audit-report.md")
 
 
 class Stop(Exception):
@@ -231,7 +259,7 @@ class Run:
             "caps": {"budget_usd": args.budget, "call_timeout_min": args.call_timeout,
                      "max_calls": args.max_calls, "max_hours": args.max_hours},
             "answers": {}, "calls": [], "decisions": [], "waited_s": 0,
-            "parked": None, "debug_attempts": 0, "limit_wait": None, "limit_waited_s": 0,
+            "parked": None, "debug_attempts": 0, "limit_wait": None, "limit_waited_s": 0, "design": None,
         }
         # Spec 0008 AC-6: set by a retryable failure, cleared by any call that does not fail.
         self.retried = False
@@ -425,7 +453,7 @@ class Run:
                 absent.append(r)
         self.record["guard"]["absent_denied"] = list(dict.fromkeys(absent))
         self.settings = json.dumps(self.guard_settings)
-        self.denied = ",".join([DENIED, GUARD_DENIED,
+        self.denied = ",".join([DENIED, GUARD_DENIED, DESIGN_DENIED,
                                 *(r for p in CREDENTIAL_PATHS for r in path_rules("Read", os.path.expanduser(p))),
                                 *(r for p in deny for r in path_rules("Edit", p))])
         self.claude = binaries["claude"]
@@ -782,11 +810,29 @@ class Run:
                 return "end", "denied", f"{denied['tool']}: {denied['reason'] or denied['input']}"
             return "end", "no_progress", f"the box is still open: {box.box_text}"
         if nb is None or nb.feature != self.feature:
+            # Spec 0010 AC-3, rule 14a: only here, so a retried or resumed sync call never checks again.
+            problem = self.design_check()
+            if problem:
+                return "end", "design_gate", problem
             return "next", "sync", None, "/sync"
         refusal = box_refusal(nb)
         if refusal:
             return ("end", *refusal)
         return "next", "box", nb, nb.command
+
+    def design_check(self):
+        """Spec 0010 AC-3, AC-7: records `design` and returns the design_gate detail, or None to go on to /sync."""
+        # wf's git must not read a config the call moved; the loop's own check would come only after this one.
+        changed = self.files_changed()
+        if changed:
+            raise Stop("guard_changed", changed)
+        base, changed = frontend_changed(self.c.path)
+        reports, problems = design_problems(self.c.path, changed)
+        self.record["design"] = {"base": base, "changed": changed, "reports": reports, "problems": problems}
+        if not problems:
+            return None
+        listed = ", ".join(f"{p['path']} ({p['problem']})" for p in problems[:5])
+        return flat(f"{len(problems)} frontend file(s) not covered by a passing design-gate report: {listed}")[:300]
 
     def guard(self, scope):
         """(reason, detail) when the next call may not start, else None. Runs after every call and
@@ -1108,6 +1154,72 @@ def test_base(repo):
             m = wf.git(repo, "merge-base", "HEAD", b)
             return (m.stdout.strip() or None) if m.returncode == 0 else None
     return None
+
+
+def is_frontend(rel):
+    """Spec 0010 AC-2."""
+    parts = rel.split("/")
+    name = parts[-1]
+    ext = os.path.splitext(name)[1].lower()
+    if is_test_file(rel) or any(p in FRONTEND_SKIP_DIRS for p in parts[:-1]) or ".min." in name:
+        return False
+    return ext in FRONTEND_EXT or ext in FRONTEND_SCRIPT_EXT and (
+        any(p in FRONTEND_DIRS for p in parts[:-1]) or rel.startswith(FRONTEND_PREFIX))
+
+
+def git_paths(repo, *args):
+    r = wf.git(repo, *args)
+    # An empty list here would let /sync run unchecked, so a git failure ends the run instead.
+    if r is None or r.returncode:
+        raise RuntimeError(f"git {' '.join(args)} failed: {flat(r and r.stderr)}")
+    return [p for p in r.stdout.split("\0") if p]
+
+
+def frontend_changed(repo):
+    """Spec 0010 AC-1: (base or None, frontend files changed since the merge base, sorted)."""
+    base = test_base(repo)
+    if base:
+        paths = git_paths(repo, "diff", "--name-only", "--diff-filter=ACMR", "-z", base) + \
+                git_paths(repo, "ls-files", "--others", "--exclude-standard", "-z")
+    else:
+        paths = git_paths(repo, "ls-files", "-co", "--exclude-standard", "-z")
+    return base, sorted(p for p in set(paths) if is_frontend(p) and os.path.isfile(os.path.join(repo, p))
+                        and not os.path.islink(os.path.join(repo, p)))
+
+
+def report_verdict(path):
+    """Spec 0010 AC-4: the last verdict line's value, upper cased, else "no verdict"."""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            lines = f.read().splitlines()
+    except OSError:
+        return "no verdict"
+    found = [m for m in map(DESIGN_VERDICT.match, lines) if m and "|" not in m.string]
+    return " ".join(found[-1].group(1).upper().split()) if found else "no verdict"
+
+
+def design_problems(repo, changed):
+    """Spec 0010 AC-3: ({report: verdict}, [{path, problem}]) for the changed frontend files, in path order."""
+    reports, problems = {}, []
+    for rel in changed:
+        mtime = os.stat(os.path.join(repo, rel)).st_mtime_ns
+        d, candidates = os.path.dirname(rel), []
+        while True:
+            report = os.path.join(d, DESIGN_REPORT)
+            if os.path.exists(os.path.join(repo, report)):
+                if report not in reports:
+                    reports[report] = report_verdict(os.path.join(repo, report))
+                candidates.append(report)
+            if not d:
+                break
+            d = os.path.dirname(d)
+        passing = [r for r in candidates if reports[r] in DESIGN_PASS]
+        if any(os.stat(os.path.join(repo, r)).st_mtime_ns >= mtime for r in passing):
+            continue
+        problem = "no report" if not candidates else "older than the file" if passing else \
+            "no verdict" if reports[candidates[0]] == "no verdict" else "verdict " + reports[candidates[0]]
+        problems.append({"path": rel, "problem": problem})
+    return dict(sorted(reports.items())), problems
 
 
 def read_bytes(path):

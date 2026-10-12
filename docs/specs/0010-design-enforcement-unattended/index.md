@@ -1,7 +1,7 @@
 # 0010. Design enforcement in `wf run`
 
 **Date**: 2026-10-12
-**Status**: Proposed
+**Status**: In Progress
 **Amends**: [0007](../0007-push-guard/index.md) AC-5 deny list gains `Skill(design)` and `Skill(brand-system)`. [0008](../0008-failure-park-policy/index.md) AC-1 park set gains `design_gate`; its classification order gains rule 14a.
 
 ## Summary

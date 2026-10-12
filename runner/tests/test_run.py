@@ -161,7 +161,8 @@ def guard_denied(t, r, bin):
     both = lambda tool, p: [f"{tool}(/{p})", f"{tool}(/{p}/**)"]
     rules = ["AskUserQuestion,Bash(git push*),Bash(git * push*),Bash(gh pr create*),Bash(gh pr merge*),"
              "Bash(gh pr ready*),Bash(gh * pr create*),Bash(gh * pr merge*),Bash(gh * pr ready*)",
-             "Artifact,ArtifactData,ArtifactComments,RemoteTrigger,CronCreate,CronDelete,SendMessage,Skill(schedule)"]
+             "Artifact,ArtifactData,ArtifactComments,RemoteTrigger,CronCreate,CronDelete,SendMessage,Skill(schedule)",
+             "Skill(design),Skill(brand-system)"]
     rules += [x for p in CREDENTIALS for x in both("Read", f"{t}/{p}")]
     for p in guard_deny(t, r, bin):
         # Only bin and .git exist at start: the absent paths get both forms.
@@ -353,7 +354,20 @@ class TestHappyPath(RunCase):
             "hardware, and when /check verify ends BLOCKED, stop and end your final message with one line that starts "
             "with BLOCKED: followed by what you need. When /check verify ends in FAIL, end your final message with one "
             "line: VERIFY FAIL: debug when every failure is a bug, or VERIFY FAIL: develop when anything specced is "
-            "missing or not applied. Never run anything that bills: paid APIs, image generation, paid services."))
+            "missing or not applied. Never run anything that bills: paid APIs, image generation, paid services. "
+            "If this step would build or restyle a user interface and no locked design covers it (a design.md, a "
+            "brand-system.html, or a .design/tokens.css next to a .design/reference-lock.md, in the folder of that UI "
+            "or any parent up to the repo root, or a spec under the specs folder that names this UI's design source "
+            "and composition), build none of that UI, and end with BLOCKED: no locked design for <what>. Never invoke "
+            "the design or brand-system skills. Frontend files are files ending in .html, .htm, .css, .scss, .sass, "
+            ".less, .jsx, .tsx, .vue, .svelte, .astro, and files ending in .js, .mjs, .ts inside a components or pages "
+            "folder or under src/ui/, except test files, files with .min. in their name, and files inside .design, "
+            "dist, build, .next, node_modules. In every /check verify step of a feature whose branch changed frontend "
+            "files, invoke the design-gate skill when any changed frontend file has no passing .design/audit-report.md "
+            "newer than it, on the lowest folder that holds all the changed frontend files; fix its Must fix items "
+            "within its own pass budget, and invoke design-gate again after your last frontend edit. In any other "
+            "step that changes frontend files, do the same only when this feature has no open /check verify box "
+            "left. wf will not close the feature without a passing report newer than every changed frontend file."))
         self.assertFalse(a["env_run_dir"])
         self.assertFalse((RUNNER / "hook.py").exists())
         self.assertEqual(a["cwd"], str(self.repo))
@@ -1126,8 +1140,9 @@ class TestGuard(RunCase):
         self.assertEqual([self.argv(n)["exe"] for n in (1, 2)], [str(self.fakes / "claude-a")] * 2)
         self.assertFalse((self.fakes / "b-ran").exists())
         # rev-parse, the include read of .git/config, remote -v, status for the confirm line, and (spec 0009 AC-9)
-        # the main and master lookups before the /test call.
-        self.assertEqual((self.fakes / "git-log").read_text().splitlines(), [str(self.fakes / "git-wrap")] * 6)
+        # the main and master lookups before the /test call, then (spec 0010 AC-1) those lookups and ls-files again
+        # for the design check before /sync.
+        self.assertEqual((self.fakes / "git-log").read_text().splitlines(), [str(self.fakes / "git-wrap")] * 9)
         _, rec = self.run_record()
         self.assertEqual(rec["guard"]["binaries"], {"git": str(self.fakes / "git-wrap"),
                                                     "claude": str(self.fakes / "claude-a"),

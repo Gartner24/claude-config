@@ -37,7 +37,7 @@ class TestParkSets(unittest.TestCase):
         self.assertEqual(run.PARKS & run.STOPS, frozenset())
         self.assertEqual(run.PARKS, {"verify_failed", "blocked", "denied", "debug_touched", "no_progress", "call_error",
                                      "call_timeout", "budget", "decision_timeout", "manual_box", "waiting", "no_command",
-                                     "no_feature", "app_failed"})
+                                     "no_feature", "app_failed", "design_gate"})
         self.assertEqual(run.STOPS, {"interrupted", "max_calls", "run_limit", "usage_limit", "spawn_failed",
                                      "branch_changed", "autopilot_off", "scope_unreadable", "guard_changed",
                                      "ping_failed", "internal_error", "app_port_busy"})
