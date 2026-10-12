@@ -118,7 +118,7 @@ The confirm line reads `1 changes` for one change. It should read `1 change`; sp
 - [x] Design it (spec): `/architect singular change count`
 - [x] Build it: `/develop singular change count`
    - [x] `changes()` returns `1 change` for one, `N changes` otherwise, test for 0, 1 and 2 (AC-8, build step 8)
-- [ ] Verify it: `/check verify singular change count`
+- [x] Verify it: `/check verify singular change count`
 - [ ] Test it: `/test singular change count`
 Spec [0002](../specs/0002-next-repo-command/index.md) (amended AC-8) · code in `runner/wf.py`, `runner/tests/test_wf.py`
 
