@@ -250,7 +250,7 @@ Frontend work in a headless run is audited by `design-gate`, never skipped: UI w
    - [x] Rule 14a check before `/sync`, park `design_gate`, `run.json` `design` (AC-3, AC-7, AC-8)
    - [x] Prompt lines and `Skill(design)`, `Skill(brand-system)` denies (AC-5, AC-6)
    - [x] P2 to P4 through `wf run` in `verify.md` (AC-9)
-- [ ] Verify it: `/check verify design enforcement unattended`
+- [x] Verify it: `/check verify design enforcement unattended`
 - [ ] Test it: `/test design enforcement unattended`
 Spec [0010](../specs/0010-design-enforcement-unattended/index.md) · code in `runner/run.py`, `runner/tests/test_design.py`
 Steps 1 to 3 built 2026-10-12 inside a `wf run` call. P2 to P4 passed 2026-10-12 through real `wf run` from a normal session; P3's `design` deny was confirmed by a direct probe, since under `wf run` the AC-5 prompt line stops the call from trying (`verify.md`).

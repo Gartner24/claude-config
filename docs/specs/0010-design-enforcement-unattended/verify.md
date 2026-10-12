@@ -47,18 +47,18 @@ XDG_CONFIG_HOME=<root>/config XDG_STATE_HOME=<root>/state python3 -B runner/wf.p
 _Steps derived from spec 0010 acceptance criteria. `/check verify` runs these; `/test` locks the durable ones._
 
 ## Commands
-- [ ] `python3 -m unittest discover -s runner/tests -p test_design.py` -> all pass -> AC-1 to AC-8
-- [ ] `python3 -m unittest discover -s runner/tests` -> all pass. The pinned prompt and deny list in `test_run.py` include the AC-5 lines and AC-6 denies. -> AC-5, AC-6
-- [ ] A fake claude run where `/develop` writes `src/components/Nav.tsx` and no report exists parks `design_gate`, says `(no report)`, makes no sync call and exits 6 -> AC-3, AC-8
-- [ ] The same run plus a later call that writes `.design/audit-report.md` ending `verdict: PASS WITH FINDINGS` reaches `/sync` -> AC-3, AC-4
-- [ ] Base: on a branch off `main`, a `.tsx` changed on `main` before the branch point is not in `design.changed`. Committed and uncommitted branch edits are in it. With `main` renamed away, `design.base` is null and every frontend file counts. -> AC-1
-- [ ] Rule: `app/page.tsx` and `src/ui/c.ts` count, `lib/ui.ts`, `x.test.tsx`, `dist/app.css` and `vendor.min.css` do not -> AC-2
-- [ ] Freshness: a passing report with `st_mtime_ns` one below the file's parks `older than the file`, and an equal one passes -> AC-3
-- [ ] Candidates: a FAIL report in the file's folder plus a passing root report covers it, and a report above `c.path` is never read -> AC-3
-- [ ] Verdict: the last matching line wins, `**verdict:** stop` reads `STOP`, and the template line and `verdict: PASS (a | b)` never match -> AC-4
-- [ ] Park detail: with 6 uncovered files it lists the first 5 in path order behind `6 frontend file(s) not covered ...` -> AC-3
-- [ ] Order: a retried sync call does not record a second check, and a `VERIFY FAIL: debug` runs the debug call before the check -> AC-3
-- [ ] Record: `design` is null when the run ends before rule 14 (a `BLOCKED:` park), else it holds base, changed, reports and problems -> AC-7
+- [x] `python3 -m unittest discover -s runner/tests -p test_design.py` -> all pass -> AC-1 to AC-8
+- [x] `python3 -m unittest discover -s runner/tests` -> all pass. The pinned prompt and deny list in `test_run.py` include the AC-5 lines and AC-6 denies. -> AC-5, AC-6
+- [x] A fake claude run where `/develop` writes `src/components/Nav.tsx` and no report exists parks `design_gate`, says `(no report)`, makes no sync call and exits 6 -> AC-3, AC-8
+- [x] The same run plus a later call that writes `.design/audit-report.md` ending `verdict: PASS WITH FINDINGS` reaches `/sync` -> AC-3, AC-4
+- [x] Base: on a branch off `main`, a `.tsx` changed on `main` before the branch point is not in `design.changed`. Committed and uncommitted branch edits are in it. With `main` renamed away, `design.base` is null and every frontend file counts. -> AC-1
+- [x] Rule: `app/page.tsx` and `src/ui/c.ts` count, `lib/ui.ts`, `x.test.tsx`, `dist/app.css` and `vendor.min.css` do not -> AC-2
+- [x] Freshness: a passing report with `st_mtime_ns` one below the file's parks `older than the file`, and an equal one passes -> AC-3
+- [x] Candidates: a FAIL report in the file's folder plus a passing root report covers it, and a report above `c.path` is never read -> AC-3
+- [x] Verdict: the last matching line wins, `**verdict:** stop` reads `STOP`, and the template line and `verdict: PASS (a | b)` never match -> AC-4
+- [x] Park detail: with 6 uncovered files it lists the first 5 in path order behind `6 frontend file(s) not covered ...` -> AC-3
+- [x] Order: a retried sync call does not record a second check, and a `VERIFY FAIL: debug` runs the debug call before the check -> AC-3
+- [x] Record: `design` is null when the run ends before rule 14 (a `BLOCKED:` park), else it holds base, changed, reports and problems -> AC-7
 
 ## Acceptance-criteria coverage
 - AC-1 base and changed files: Base step · AC-2: Rule step · AC-3: fake run, Freshness, Candidates, Park detail and Order steps · AC-4: Verdict step · AC-5: suite step, P4 · AC-6: suite step, P3 · AC-7: Record step · AC-8: fake run step · AC-9: P2 to P4
