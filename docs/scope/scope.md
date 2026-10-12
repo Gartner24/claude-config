@@ -28,7 +28,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 19 | Singular change count | Release 1 | done |
 | 4 | Headless step loop | Release 2 | done |
 | 5 | Decision parking and phone pings | Release 2 | done |
-| 6 | Standing answers | Release 2 | planned |
+| 6 | Standing answers | Release 2 | in-progress |
 | 7 | Headless verify and test | Release 2 | planned |
 | 8 | Failure and park policy | Release 2 | planned |
 | 9 | Design enforcement unattended | Release 2 | planned |
@@ -160,10 +160,18 @@ The unattended prompt fixes the safe panel answers and asks real decisions as `D
 - [x] Test it: `/test decision parking and phone pings`
 Spec [0005](../specs/0005-decision-parking-phone-pings/index.md) · code in `runner/ntfy.py`, `runner/run.py`, `runner/wf.py`, `runner/tests/`
 
-### 6. Standing answers · needs a decision
-Answers you always give the same way (tier, cross check, `/test` runs the suite, who marks done, accept the spec) live once in each repo's `AGENTS.md`, and the skills read them instead of asking.
-**Done when:** a headless run gets through `/architect` accept, `/test` setup, and the done decision without a single question.
-- [ ] Design it (spec): `/architect standing answers`
+### 6. Standing answers · in-progress
+Answers you always give the same way (cross check, `/test` runs the suite, who marks done) live once in each repo's `AGENTS.md` (`.workflow/AGENTS.md` in team repos), and `wf run` adds them to the unattended prompt instead of pinging you. Tier stays on the scope header, accepting a spec stays with you.
+**Done when:** a headless `wf run` gets through `/test`'s run suite question and the done decision without a single question, and a direct `claude -p /architect` probe with wf's prompt gets past the cross check panel without asking (accept still asks).
+- [x] Design it (spec): `/architect standing answers`
+- [ ] Build it: `/develop standing answers`
+   - [ ] Read and check the section, refusals, defaults (AC-1 to AC-4)
+   - [ ] Prompt per call, last box check, fake claude `write_file` (AC-4 to AC-6, AC-8)
+   - [ ] Confirm line, `run.json` `answers` and `last_box` (AC-7)
+   - [ ] Manual checks on the real claude (AC-9)
+- [ ] Verify it: `/check verify standing answers`
+- [ ] Test it: `/test standing answers`
+Spec [0006](../specs/0006-standing-answers/index.md)
 
 ### 7. Headless verify and test · needs a decision
 `/check verify` drives the app through the chrome-devtools MCP (isolated Brave) instead of reporting BLOCKED, and `/test` sees the feature's changes even after checkpoint commits.
