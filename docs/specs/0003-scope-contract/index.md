@@ -1,7 +1,7 @@
 # 0003. Scope contract for the runner: header fields, tags and the next box rule
 
 **Date**: 2026-10-11
-**Status**: In Progress
+**Status**: Accepted
 
 ## Summary
 

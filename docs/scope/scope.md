@@ -20,7 +20,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | C | Review stack | Existing | existing |
 | D | Skill routing | Existing | existing |
 | 1 | Runner stack and layout | Foundation | done |
-| 2 | Scope contract for the runner | Foundation | in-progress |
+| 2 | Scope contract for the runner | Foundation | done |
 | 3 | `next <repo>` | Release 1 | done |
 | 17 | Worktree discovery without git | Release 1 | in-progress |
 | 18 | fzf failure is not a cancel | Release 1 | planned |
@@ -62,7 +62,7 @@ Pick the language, the entry point, how it installs onto your PATH, and how it i
 - [x] Scaffold from the decision: `/develop runner stack and layout`
 Spec [0001](../specs/0001-runner-stack-and-layout.md) · code in `runner/`
 
-### 2. Scope contract for the runner · in-progress
+### 2. Scope contract for the runner · done
 The fields the runner reads: the hub `Repos` column (replaces `**Repo:**`), `**Source of truth:**`, `**Autopilot:**`, the `auto` tag, and how the next box is found (first unticked box, `docs/` or `.workflow/` base, milestone sub items). The skills that write the scope have to agree with it.
 **Done when:** a spec defines the fields and the next box rule, and `/scope` and `/architect` write them.
 - [x] Design it (spec): `/architect scope contract for the runner`
