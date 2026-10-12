@@ -50,6 +50,7 @@ wf ntfy init|codes|test                         # phone pings for wf run decisio
 
 - Root `CLAUDE.md` is NOT this repo's context. It is the payload copy of `~/.claude/CLAUDE.md` that `sync.sh` overwrites and `install.sh` ships. Repo context is this file, loaded via `.claude/CLAUDE.md`.
 - `asciify.py` skips only `agents/`, `rules/` and `anti-ai-writing`, so it flags the committed `culori` README. Never run it without `--check` first.
+- The middle dot `·` is allowed in repo markdown despite the ASCII rule: it is the scope tag separator (`rules/scope-contract.md`) that `runner/wf.py` parses, and `asciify.py` keeps it.
 - `jjstack/` is gitignored /review scratch; reports never enter the repo from there.
 - Runner fixtures are flat files (`runner/tests/fixtures/*.md`) that tests copy into `docs/scope/` or `.workflow/scope/` trees in temp dirs: `.workflow/` is globally gitignored, so a fixture tree there would never be committed. Keep them trimmed and free of client names (public repo).
 - Scripts hardcode `~/.claude/skills/...` paths: they run through the symlink, not from the repo path.
