@@ -27,7 +27,9 @@ bash hooks/block-destructive.sh --test          # guard hook self-checks
 bash skills/design/scripts/test-ledger.sh       # design ledger + Stop hook assertions
 node skills/design/scripts/build-ramp.mjs --check
 python3 -m unittest discover -s runner/tests    # wf runner self checks (install.sh runs these)
-wf run <repo>                                   # one feature unattended (spec 0004); locks and run records in $XDG_STATE_HOME/wf, else ~/.local/state/wf
+wf run [repo]                                   # the queued `· auto` features of one repo, or of every trusted repo with no name (spec 0011); locks, run records and queue.json in $XDG_STATE_HOME/wf, else ~/.local/state/wf
+wf queue [repo]                                 # read only plan: queued, parked, open and answered questions (spec 0011)
+wf unpark <repo> [feature]                      # clear parks and open questions so the next wf run starts them fresh (spec 0011)
 wf allow <repo>                                 # trust list (spec 0008); wf run refuses `untrusted` (exit 5) for a repo not in $XDG_CONFIG_HOME/wf/allowed.json, else ~/.config/wf/allowed.json
 wf ntfy init|codes|test                         # phone pings for wf run decisions (spec 0005); config ~/.config/wf/ntfy.json (0600), wf run refuses without it
 ```
