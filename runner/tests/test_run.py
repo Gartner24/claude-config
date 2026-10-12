@@ -275,7 +275,7 @@ class TestHappyPath(RunCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         lines = r.stdout.splitlines()
         self.assertEqual(lines[0], "demo | work | 1 change | 1. Loop | /develop loop | "
-                                   "caps: 20 USD/call, 60m/call, 20 calls, 8h | guard: 9 hosts, 6 files")
+                                   "caps: 20 USD/call, 60m/call, 20 calls, 8h | answers: none | guard: 9 hosts, 6 files")
         self.assertIn("[1/20] /develop loop -> success, 0.50 USD, 0.0m, next: /test loop", r.stdout)
         self.assertIn("[2/20] /test loop -> success, 0.50 USD, 0.0m, next: /sync", r.stdout)
         self.assertIn("[3/20] /sync -> success, 0.50 USD, 0.0m, next: -", r.stdout)
@@ -524,10 +524,16 @@ class TestConfirmLine(unittest.TestCase):
             buf = io.StringIO()
             with redirect_stdout(buf):
                 self.assertTrue(r.confirm())
-        self.assertEqual(buf.getvalue().strip(),
-                         "demo (worktree x) | work | 2 changes | 1. Loop | /develop loop | "
-                         "caps: 2.5 USD/call, 30m/call, 4 calls, 1.5h | guard: 2 hosts, 3 files | "
-                         "warning: w1 | warning: 1 session(s) already open here")
+                # spec 0006 AC-7: the present keys in table order.
+                r.answers = {"run suite": "yes", "done": "ask"}
+                self.assertTrue(r.confirm())
+        self.assertEqual(buf.getvalue().strip().split("\n"), [
+            "demo (worktree x) | work | 2 changes | 1. Loop | /develop loop | "
+            "caps: 2.5 USD/call, 30m/call, 4 calls, 1.5h | answers: none | guard: 2 hosts, 3 files | "
+            "warning: w1 | warning: 1 session(s) already open here",
+            "demo (worktree x) | work | 2 changes | 1. Loop | /develop loop | "
+            "caps: 2.5 USD/call, 30m/call, 4 calls, 1.5h | answers: run suite yes, done ask | guard: 2 hosts, 3 files | "
+            "warning: w1 | warning: 1 session(s) already open here"])
 
 
 class TestSpawnRace(unittest.TestCase):
@@ -1259,6 +1265,165 @@ class TestGuard(RunCase):
         self.assertEqual(codes, [2, 2, 2, 0, 0, 2, 2])
         r = subprocess.run(["bash", "-c", hook], input="", capture_output=True, text=True)
         self.assertEqual(r.stderr, "wf run: remote agents are refused\n")
+
+
+BOTH = "## Standing answers\n- run suite: yes\n- done: yes\n"
+SUITE = run.UNATTENDED_PROMPT + run.ANSWERS_INTRO + run.RUN_SUITE_YES
+SUITE_DONE = SUITE + run.DONE_YES
+VERIFY_TEST = ("# Scope: x\n**Autopilot:** allowed\n### 1. A · in-progress\n- [ ] Verify it: `/check verify a`\n"
+               "- [ ] Test it: `/test a`\n   - [ ] m1 cases\n")
+
+
+class TestStandingAnswers(RunCase):
+    refused = TestStart.refused
+
+    def prompt(self, n):
+        a = self.argv(n)["argv"]
+        return a[a.index("--append-system-prompt") + 1]
+
+    # covers: spec 0006 AC-1, AC-2 (mixed case, spaces, prose and blanks, table order, section bounds)
+    def test_parse(self):
+        (self.repo / "AGENTS.md").write_text(
+            "# demo\n- done: nope, outside the section\n  ## STANDING Answers  \nSome prose: here.\n\n"
+            "*   DONE   :   Yes  \n\nmore prose\n-  Run    Suite: ASK\n## Next\n- run suite: maybe\n")
+        c = SimpleNamespace(path=str(self.repo), scope_dir="docs/scope")
+        self.assertEqual(run.read_answers(c), ({"run suite": "ask", "done": "yes"}, None))
+        self.assertEqual(list(run.read_answers(c)[0]), ["run suite", "done"])
+        (self.repo / "AGENTS.md").write_text("# demo\nno section here\n")
+        self.assertEqual(run.read_answers(c), ({}, None))
+        (self.repo / "AGENTS.md").unlink()
+        self.assertEqual(run.read_answers(c), ({}, None))
+
+    # covers: spec 0006 AC-1 (the file comes from the exact scope base, never the other one)
+    def test_base(self):
+        (self.repo / "AGENTS.md").write_text("## Standing answers\n- done: yes\n")
+        (self.repo / ".workflow").mkdir()
+        (self.repo / ".workflow" / "AGENTS.md").write_text("## Standing answers\n- run suite: yes\n")
+        self.assertEqual(run.read_answers(SimpleNamespace(path=str(self.repo), scope_dir="docs/scope")),
+                         ({"done": "yes"}, None))
+        self.assertEqual(run.read_answers(SimpleNamespace(path=str(self.repo), scope_dir=".workflow/scope")),
+                         ({"run suite": "yes"}, None))
+        (self.repo / ".workflow" / "AGENTS.md").unlink()
+        self.assertEqual(run.read_answers(SimpleNamespace(path=str(self.repo), scope_dir=".workflow/scope")), ({}, None))
+
+    # covers: spec 0006 AC-1, AC-2, AC-3 (each refusal, its line, exit 5, no call, no run folder, first problem wins)
+    def test_refusals(self):
+        hint = " (expected: - run suite: yes|ask, - done: yes|ask)"
+        cases = [
+            ("form", "## Standing answers\n- run suite yes\n", "AGENTS.md:2: not a - key: value entry"),
+            ("unknown", "## Standing answers\n- cross check: yes\n", "AGENTS.md:2: unknown key cross check"),
+            ("value", "## Standing answers\n\n- done: no\n", "AGENTS.md:3: no is not allowed for done"),
+            # A two word value fails the AC-2 form before its key is looked at; either way it refuses.
+            ("note", "## Standing answers\n- Note: slow\n", "AGENTS.md:2: unknown key note"),
+            ("long note", "## Standing answers\n- Note: slow suite\n", "AGENTS.md:2: not a - key: value entry"),
+            ("repeat", "## Standing answers\n- done: yes\n- run suite: yes\n- DONE: ask\n", "AGENTS.md:4: done set twice"),
+            ("twice", "## Standing answers\n- done: yes\n# Other\n## Standing answers\n",
+             "AGENTS.md:4: ## Standing answers appears twice"),
+            ("extra", "## Standing answers (x)\n- done: yes\n",
+             "AGENTS.md:1: heading has text after ## Standing answers"),
+            ("first wins", "## Standing answers\n- done: maybe\n- bogus: yes\n", "AGENTS.md:2: maybe is not allowed for done"),
+        ]
+        for name, text, detail in cases:
+            with self.subTest(name):
+                repo = self.make_repo(name, SCOPE)
+                (repo / "AGENTS.md").write_text(text)
+                r = self.wf(name, "-y")
+                self.refused(r, "bad_answers")
+                self.assertIn(f"refused: bad_answers: {detail}{hint}\n", r.stdout)
+                self.assertFalse((self.state / "wf" / "locks").exists())
+        with self.subTest("not utf-8"):
+            repo = self.make_repo("latin", SCOPE)
+            (repo / "AGENTS.md").write_bytes(b"## Standing answers\n- done: s\xe9\n")
+            r = self.wf("latin", "-y")
+            self.refused(r, "bad_answers")
+            self.assertIn(f"refused: bad_answers: AGENTS.md: not UTF-8{hint}\n", r.stdout)
+
+    # covers: spec 0006 AC-4 (a Run built without start_checks() passes UNATTENDED_PROMPT and records {})
+    def test_defaults(self):
+        c = SimpleNamespace(path=str(self.repo), name="x", warnings=[], next=SimpleNamespace(feature="1. A"))
+        args = SimpleNamespace(budget=1, call_timeout=60, max_calls=1, max_hours=1, max_wait=12, yes=True)
+        with mock.patch.object(wf, "head_branch", return_value="work"):
+            r = run.Run(c, args)
+        r.folder = str(self.tmp)
+        seen = []
+        real = subprocess.Popen
+
+        def spawn(argv, **kw):
+            seen.append(argv)
+            return real(["true"], **kw)
+
+        with mock.patch.object(run.subprocess, "Popen", spawn):
+            rec = r.call(1, "/test a", last_box=True)[0]
+        self.assertEqual((r.answers, r.record["answers"], rec["last_box"]), ({}, {}, True))
+        self.assertEqual(seen[0][seen[0].index("--append-system-prompt") + 1], run.UNATTENDED_PROMPT)
+
+    # covers: spec 0006 AC-4 (a call that breaks the section mid run changes nothing for the later calls)
+    def test_freeze(self):
+        (self.repo / "AGENTS.md").write_text("## Standing answers\n- run suite: yes\n")
+        self.steps([{"write_file": [["AGENTS.md", "## Standing answers\n- done: yes\n- bogus\n"]]}, {}, {"tick": False}])
+        r = self.wf("demo", "-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual([self.prompt(n) for n in (1, 2, 3)], [SUITE] * 3)
+        self.assertEqual(self.run_record()[1]["answers"], {"run suite": "yes"})
+
+    # covers: spec 0006 AC-5, AC-6, AC-7 (sentences in order, done only on the last box, run.json and confirm line)
+    def test_prompt_and_record(self):
+        (self.repo / "AGENTS.md").write_text("## Standing Answers\n- Done: YES\n- run suite: yes\n")
+        self.steps([{}, {}, {"tick": False}])
+        r = self.wf("demo", "-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn(" | answers: run suite yes, done yes | ", r.stdout.splitlines()[0])
+        self.assertEqual([self.prompt(n) for n in (1, 2, 3)], [SUITE, SUITE_DONE, SUITE])
+        self.assertTrue(SUITE_DONE.endswith(
+            " Standing answers for this repo, use them instead of asking: Run tests?, Yes, run and fix to green. "
+            "When /test or /check verify offers to mark the feature done after its last open box passed: "
+            "Yes, mark it done."))
+        _, rec = self.run_record()
+        self.assertEqual(rec["answers"], {"run suite": "yes", "done": "yes"})
+        self.assertEqual([c["last_box"] for c in rec["calls"]], [False, True, False])
+
+    # covers: spec 0006 AC-5 (no section and all ask give UNATTENDED_PROMPT exactly)
+    def test_no_sentences(self):
+        for text in (None, "## Standing answers\n- run suite: ask\n- done: ask\n", "## Standing answers\n- done: yes\n"):
+            with self.subTest(text):
+                shutil.rmtree(self.state, ignore_errors=True)
+                (self.fakes / "count").unlink(missing_ok=True)
+                self.repo = self.make_repo(f"n{len(text or '')}", "# Scope: x\n**Autopilot:** allowed\n### 1. A\n"
+                                           "- [ ] `/develop a`\n- [ ] `/test a`\n")
+                if text:
+                    (self.repo / "AGENTS.md").write_text(text)
+                self.wf(self.repo.name, "-y", "--max-calls", "1")
+                # done: yes on a call that is not the last box adds nothing.
+                self.assertEqual(self.prompt(1), run.UNATTENDED_PROMPT)
+
+    # covers: spec 0006 AC-6 (Verify it is not the last box while Test it is open; a resume keeps the value;
+    # an open milestone under the box does not count; /sync never has it)
+    def test_last_box(self):
+        self.ntfy = FakeNtfy()
+        self.addCleanup(self.ntfy.close)
+        write_config(self.tmp / "config", self.ntfy.url, codes=[f"code{i:04d}" for i in range(5)])
+        self.ntfy.replies = ["{id} 1"]
+        repo = self.make_repo("vt", VERIFY_TEST)
+        (repo / "AGENTS.md").write_text("## Standing answers\n- done: yes\n")
+        # The asking call adds a box, so a resume that recomputed would read false; it keeps the true it resumes.
+        self.steps([{}, ask(edit=[["   - [ ] m1 cases\n", "   - [ ] m1 cases\n- [ ] `/document a`\n"]]),
+                    {"edit": [["- [ ] m1", "- [x] m1"]]}, {}, {"tick": False}])
+        r = self.wf("vt", "-y", mode="fast")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        _, rec = self.run_record()
+        self.assertEqual([(c["command"], c["last_box"]) for c in rec["calls"]],
+                         [("/check verify a", False), ("/test a", True), ("/test a", True), ("/document a", True),
+                          ("/sync", False)])
+        done = run.UNATTENDED_PROMPT + run.ANSWERS_INTRO + run.DONE_YES
+        self.assertEqual([self.prompt(n) for n in (1, 2, 3, 4, 5)],
+                         [run.UNATTENDED_PROMPT, done, done, done, run.UNATTENDED_PROMPT])
+
+    # covers: spec 0006 AC-8 (/architect still refused manual_box with a full section)
+    def test_architect_still_refused(self):
+        repo = self.make_repo("arch", "# Scope: x\n**Autopilot:** allowed\n### 1. A\n- [ ] `/architect a`\n")
+        (repo / "AGENTS.md").write_text(BOTH)
+        r = self.wf("arch", "-y")
+        self.refused(r, "manual_box")
 
 
 if __name__ == "__main__":

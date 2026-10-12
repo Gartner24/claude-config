@@ -161,13 +161,13 @@ Answers you always give the same way (`/test` runs the suite, who marks done) li
 **Done when:** a headless `wf run` gets through `/test`'s run suite question and the done decision without a single question.
 - [x] Design it (spec): `/architect standing answers`
 - [ ] Build it: `/develop standing answers`
-   - [ ] Read and check the section, refusals, defaults (AC-1 to AC-4)
-   - [ ] Prompt per call, last box check, fake claude `write_file` (AC-4 to AC-6, AC-8)
-   - [ ] Confirm line, `run.json` `answers` and `last_box` (AC-7)
+   - [x] Read and check the section, refusals, defaults (AC-1 to AC-4)
+   - [x] Prompt per call, last box check, fake claude `write_file` (AC-4 to AC-6, AC-8)
+   - [x] Confirm line, `run.json` `answers` and `last_box` (AC-7)
    - [ ] Manual checks on the real claude (AC-9)
 - [ ] Verify it: `/check verify standing answers`
 - [ ] Test it: `/test standing answers`
-Spec [0006](../specs/0006-standing-answers/index.md)
+Spec [0006](../specs/0006-standing-answers/index.md) · code in `runner/run.py`, `runner/tests/test_run.py`
 
 ### 20. Push guard outside the model · done
 A guard outside anything the model controls keeps every `wf run` call from pushing, opening or merging a PR, or starting a cloud agent: no credential in the call, the Bash sandbox blocks GitHub and the repo's remotes, and settings, hooks and git config cannot change mid run. The `--disallowedTools` deny list only matches prefixes, so `env git push`, `gh api` and other spellings still get through (review 2026-10-12). The pre-push hook and lock in the first wording were dropped at design: `--no-verify` and `gh api` skip a hook (spec 0007).
