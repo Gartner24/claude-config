@@ -86,8 +86,9 @@ def load(need_codes=True):
     return cfg
 
 
-def write(cfg):
-    p = path()
+def write(cfg, p=None):
+    """Atomic, 0600 in a 0700 folder. Spec 0008's allowed.json goes through here too."""
+    p = p or path()
     os.makedirs(os.path.dirname(p), mode=0o700, exist_ok=True)
     os.chmod(os.path.dirname(p), 0o700)
     tmp = p + ".tmp"

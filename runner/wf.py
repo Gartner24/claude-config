@@ -576,6 +576,8 @@ def build_parser():
     run.add_argument("--max-calls", type=positive(int), default=20, help="calls per run (default 20)")
     run.add_argument("--max-hours", type=positive(float), default=8, help="hours per run (default 8)")
     run.add_argument("--max-wait", type=positive(float), default=12, help="hours to wait for each phone reply (default 12)")
+    allow = sub.add_parser("allow", help="let wf run start in this repo (spec 0008 trust list)")
+    allow.add_argument("target", nargs="?", help="a path, folder name or scope title")
     ntfy = sub.add_parser("ntfy", help="set up and test phone pings for wf run")
     nsub = ntfy.add_subparsers(dest="action", metavar="<action>", required=True)
     init = nsub.add_parser("init", help="create the topic and one time codes")
@@ -599,6 +601,9 @@ def main(argv=None):
     if args.command == "run":
         import run
         return run.cmd_run(args)
+    if args.command == "allow":
+        import run
+        return run.cmd_allow(args)
     if args.command == "ntfy":
         import ntfy
         if args.action == "init":
