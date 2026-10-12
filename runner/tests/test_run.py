@@ -1223,7 +1223,8 @@ class TestGuard(RunCase):
         rec = self.assert_stopped(r, "guard_changed", calls=1, repo=True)
         self.assertTrue(rec["detail"].startswith(f"{path} changed"))
 
-    # covers: spec 0007 AC-7 (the same check runs before a resume)
+    # covers: spec 0007 AC-7, spec 0011 AC-9 (the check at the pick ends the repo before it waits or resumes; the
+    # Decision stays for a later run)
     def test_guard_changed_before_resume(self):
         self.ntfy = FakeNtfy()
         self.addCleanup(self.ntfy.close)
@@ -1231,9 +1232,13 @@ class TestGuard(RunCase):
         self.ntfy.replies = ["{id} 1"]
         self.steps([ask(write_file=[[".claude/settings.local.json", "{}"]]), {}])
         r = self.wf("demo", "-y", mode="fast")
-        rec = self.assert_stopped(r, "guard_changed", calls=1, repo=True)
-        self.assertTrue(rec["detail"].startswith(f"{self.repo}/.claude/settings.local.json changed"))
-        self.assertEqual(rec["decisions"][0]["answer"], "Postgres (recommended)")
+        self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
+        self.assertIn(f"\nstopped repo demo: guard_changed: {self.repo}/.claude/settings.local.json changed", r.stdout)
+        _, rec = self.run_record()
+        self.assertEqual((rec["stop_reason"], rec["repos"][0]["ended"], len(rec["calls"])), ("queue_done", "guard_changed", 1))
+        self.assertEqual((rec["decisions"][0]["answer"], rec["decisions"][0]["resumed_in"]), (None, None))
+        q = json.loads((self.state / "wf" / "queue.json").read_text())
+        self.assertEqual([d["id"] for d in q["decisions"]], [rec["decisions"][0]["id"]])
 
     # covers: spec 0007 AC-8 (each missing tool or user exclusion refuses: exit 5, no lock, no run folder)
     def test_no_sandbox(self):

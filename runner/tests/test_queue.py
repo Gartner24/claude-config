@@ -664,6 +664,28 @@ class TestAcrossRepos(QueueCase):
             self.assertEqual(len(self.run_record()[1]["calls"]), 1)
 
 
+class TestNestedRepo(QueueCase):
+    # covers: AC-9, spec 0007 AC-7 (the outer repo's last call rewrites a nested held repo's git config: the guard
+    # check at the pick ends the nested repo before wf runs any git there)
+    def test_no_git_after_write(self):
+        outer = self.make_repo("outer", ONE.replace("- [ ] `/develop a`", "- [x] `/develop a`"))
+        inner = self.make_repo("outer/inner", ONE)
+        (self.tmp / "config" / "wf" / "allowed.json").write_text(json.dumps([str(outer), str(inner)]))
+        log = self.fakes / "git-log"
+        (self.bin / "git").unlink()
+        self.fake("git", f'#!/bin/sh\necho "$@" >> {log}\nexec {shutil.which("git")} "$@"\n')
+        mark = [sys.executable, "-c", f"open({str(log)!r}, 'a').write('WRITE\\n')"]
+        config = (inner / ".git" / "config").read_text() + "# moved\n"
+        self.steps([{**DONE_A, "write_file": [[f"{inner}/.git/config", config]], "run": [mark]}])
+        r = self.wf("-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("  sync owed: 1. A\n", r.stdout)
+        self.assertIn(f"\nstopped repo inner: guard_changed: {inner}/.git/config changed during the run; ", r.stdout)
+        self.assertNotIn(f"-C {inner} ", log.read_text().split("WRITE\n", 1)[1])
+        self.assertEqual(len(self.run_record()[1]["calls"]), 1)
+        self.assertIn("done: 1. A", r.stdout)
+
+
 class TestExit(QueueCase):
     # covers: AC-19 (nothing to run with no record exits 0; with an old park 6; a park left after the run 6)
     def test_codes(self):

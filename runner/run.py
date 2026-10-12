@@ -902,6 +902,13 @@ class Run:
     def pick(self):
         """AC-7 over the held repos: (Feature, the answered Decision to resume or None) with its repo put in use,
         or None. Deletes Park records that no longer apply and answered Decisions gone stale."""
+        # Before any git here: a call in one repo can write what another held repo's git reads (a worktree's
+        # config.worktree under a shared common dir, a repo nested in its folder). No repo is in use, so a
+        # change to one repo's own files ends that repo and only a shared or global file stops the run.
+        self.repo = None
+        changed = self.files_changed()
+        if changed:
+            raise Stop("guard_changed", changed)
         live, q = [], None
         for h in self.held:
             self.use(h)
