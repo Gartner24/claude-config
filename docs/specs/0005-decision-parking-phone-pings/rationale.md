@@ -10,7 +10,7 @@ What is settled and not reopened here: ntfy as the phone channel; the PreToolUse
 
 ## Options considered
 
-### Option 1: Hook answers or defers, ntfy carries the question, `--resume` continues (chosen)
+### Option 1: Hook answers or defers, ntfy carries the question, `--resume` continues (chosen first, replaced by Option 5 after verify.md check 1)
 
 A PreToolUse hook on AskUserQuestion, passed per call with `--settings`, answers known safe panels through `updatedInput.answers` and returns `defer` for the rest. The call exits with the deferred question, `wf` pings you, waits for a valid reply, writes it to `answers.json`, and runs `claude -p --resume <session>`; the same tool call fires the hook again, which now answers from the file.
 
@@ -55,24 +55,49 @@ Keep spec 0004's stop, but send a ping saying a run stopped with a question; you
 **Cons**:
 - Does not meet the done when (your reply resumes the same session), and every safe panel still stops the run.
 
+### Option 5: Text decisions with options (chosen 2026-10-11, replaces Option 1)
+
+Option 2 plus structure in text: the step ends with `DECISION NEEDED:` and `OPTION:` lines, and the prompt carries the fixed safe panel answers.
+
+**Pros**:
+- Works on the CLI you have: it needs only `--resume` and the text of the result.
+- Keeps buttons and codeless option replies, the part of Option 1 that mattered on the phone.
+- Deletes code (the hook, two run files, the deferred rule) instead of adding any.
+
+**Cons**:
+- The safe panels rest on the model following the prompt, with no code check.
+- A step that leaves out the `OPTION:` lines falls back to a coded reply.
+
+### Option 6: MCP ask tool (not chosen, 2026-10-11)
+
+A small stdio MCP server exposes an `ask_user` tool that blocks on ntfy and returns the answer in the same turn.
+
+**Pros**: structured options and no resume round trip; MCP tools are offered in `-p`.
+
+**Cons**: a tool call held open for up to 12 hours runs into MCP tool timeouts, needs its own probe, and adds a server process.
+
 ## Rationale
+
+**Revision 2026-10-11.** verify.md check 1 showed `claude -p` 2.1.296 never offers AskUserQuestion, even with `--tools AskUserQuestion`, so Option 1's hook could not fire and every real question took the prose path with a code. You chose Option 5: it keeps the buttons by moving the options into text, and keeps safe panels off the phone by moving the fixed answers into the prompt. Option 2's main con (no structure, no buttons) is what the `OPTION:` lines fix. Option 6 was the runner up; it loses on the long held tool call and the extra process. Keeping the hook dormant was rejected as dead code with live tests. The original reasoning below still holds except where a line is marked _(replaced 2026-10-11)_.
+
+Changes after the second cross check (another model; you chose to apply all of them): the `DECISION NEEDED:` pattern matches only spaces and tabs after the colon, because `\s*` let a bare marker swallow the next line as its question; the parser tolerates bullets, bold, indents and a blank line before the options, since model text drifts; a label that scrubs to nothing is sent as `option <n>`; `multi` stays in the data model only for `ntfy.py`; the removed fields are named; a missing `session_id` stops `call_error`; option numbers are named the reliable reply. You added a follow up to rerun the check 1 probe after each Claude Code upgrade.
 
 The deciding force is that a `-p` chain has no live process to hold a question open, so the answer must cross a process boundary and land back in the same session. Option 1 is the only one that does that with documented behaviour, no new dependency, and the state on disk, which is also what feature 10 needs to park and come back later. Option 2 throws away the structure (options, recommended pick) that makes buttons and safe answering possible. Option 3 solves the waiting elegantly in the wrong place: an overnight laptop process. Option 4 fails the done when.
 
 The security design follows from your rules and one gap in them. A static shared secret is visible on the topic the first time you type it, after which anyone reading the topic can reuse it; one time codes close that, at the cost of a list you keep on the phone. Option replies stay codeless because their worst case is a choice you were already offered. Scrubbing plus a block list plus repo aliases keeps client names off a public service even though the question text is written by the model, which you cannot trust to leave names out (basis: data minimisation; treat model output as untrusted).
 
-Choices made with you, and why: wait in place with a 12 hour cap that does not eat `--max-hours`, because waiting costs nothing and an overnight question should survive until morning; an allow list of safe panels rather than "anything with a recommended option", because `/develop`'s spec gate and `/test` setup also carry a recommendation and are real decisions; the tool offer answered `Not now, later`, so an unattended run never records a lasting decline for you; refusing to start without a valid config, so a 3am question never silently ends a run you expected to finish; ntfy.sh with a `server` field, so self hosting later is a config edit.
+Choices made with you, and why: wait in place with a 12 hour cap that does not eat `--max-hours`, because waiting costs nothing and an overnight question should survive until morning; an allow list of safe panels rather than "anything with a recommended option", because `/develop`'s spec gate and `/test` setup also carry a recommendation and are real decisions (still holds; the list now lives in the prompt, not a hook); the tool offer answered `Not now, later`, so an unattended run never records a lasting decline for you; refusing to start without a valid config, so a 3am question never silently ends a run you expected to finish; ntfy.sh with a `server` field, so self hosting later is a config edit.
 
-Changes after the cross check (a read only review on another model; you chose to apply all of them): every code seen anywhere on the topic is burned before the id check, because a fake ping could otherwise trick you into exposing a live code; the access token field is dropped, because phone buttons post without auth and a protected topic would break them; pings are published as JSON to the server root, so labels with commas and non latin 1 text need no header quoting; waits and retries sleep in short slices so Ctrl C is prompt; `answers.json` is cleared before each fresh call; a mixed panel records its safe questions as `auto`; the config follows `XDG_CONFIG_HOME`; the wait clock counts suspend time; a resume keeps the box command in its record; a subagent defer is a manual check. You kept free text with one time codes over the simpler options only design, and kept the terminal read only.
+Changes after the cross check (a read only review on another model; you chose to apply all of them): every code seen anywhere on the topic is burned before the id check, because a fake ping could otherwise trick you into exposing a live code; the access token field is dropped, because phone buttons post without auth and a protected topic would break them; pings are published as JSON to the server root, so labels with commas and non latin 1 text need no header quoting; waits and retries sleep in short slices so Ctrl C is prompt; `answers.json` is cleared before each fresh call _(replaced 2026-10-11)_; a mixed panel records its safe questions as `auto` _(replaced 2026-10-11)_; the config follows `XDG_CONFIG_HOME`; the wait clock counts suspend time; a resume keeps the box command in its record; a subagent defer is a manual check. You kept free text with one time codes over the simpler options only design, and kept the terminal read only.
 
 Decided by the architect (not asked), with the runner up:
-- Hook passed per call with `--settings` and gated on `WF_RUN_DIR`, so interactive sessions are untouched (runner up: a global hook in `settings.json` that no ops outside `wf`, which would run in every session).
-- Panel key is a hash of the questions JSON rather than a tool use id, because the hook input's id field is not confirmed and the questions are identical on the replayed call (runner up: `tool_use_id`).
-- Hook errors deny with a reason pointing to `DECISION NEEDED:`, so a broken hook degrades to the prose path instead of hanging or letting an unanswered question through (runner up: defer, which could loop).
+- Hook passed per call with `--settings` and gated on `WF_RUN_DIR`, so interactive sessions are untouched (runner up: a global hook in `settings.json` that no ops outside `wf`, which would run in every session). _(replaced 2026-10-11)_
+- Panel key is a hash of the questions JSON rather than a tool use id, because the hook input's id field is not confirmed and the questions are identical on the replayed call (runner up: `tool_use_id`). _(replaced 2026-10-11)_
+- Hook errors deny with a reason pointing to `DECISION NEEDED:`, so a broken hook degrades to the prose path instead of hanging or letting an unanswered question through (runner up: defer, which could loop). _(replaced 2026-10-11)_
 - Poll every 15 seconds with `poll=1`, not a held stream, because a poll survives network drops and laptop sleep cleanly (runner up: a streaming subscribe, faster but needs reconnect logic).
 - Ping retries: 3 tries, 10 seconds apart, then `ping_failed`; a question nobody can receive is a stop, not a silent wait (runner up: keep retrying until `--max-wait`).
 - Codes 8 characters from a 31 character alphabet without look alike letters, about 40 bits each, easy to type on a phone (runner up: 6 digits, too guessable for a public topic).
-- Resume prompt `continue` for a panel, and a sentence quoting the answer for prose, so the resumed turn has the answer even without a tool call to replay (runner up: an empty prompt, unconfirmed to work with `-p`).
+- Resume prompt `continue` for a panel, and a sentence quoting the answer for prose, so the resumed turn has the answer even without a tool call to replay (runner up: an empty prompt, unconfirmed to work with `-p`). _(replaced 2026-10-11: both kinds now resume with the answer sentence)_
 - Ack ping on low priority after an accepted reply, so you know it landed; ignored replies get no answer, so a prober learns nothing (runner up: an error reply, which helps typos but also helps probers).
 
 ## References
