@@ -67,8 +67,28 @@ Command: `python3 -B docs/specs/0009-headless-verify-test/probes/p3-p7-browser.p
 
 P2 to P7 now all pass, so the build continues from step 3 (the step 2 `/test` base is already in `177110c`).
 
+## P10. npx and a planted `node_modules` (run 2026-10-12, /architect review amendment): finding 3 confirmed, fix works
+
+Command: `python3 docs/specs/0009-headless-verify-test/probes/p10-npx-cwd.py <scratch npm cache>`. Inside a scratch repo with `node_modules/chrome-devtools-mcp` (version 1.10.1, a bin that prints `PLANTED`) and a `package.json` naming it:
+
+```
+cwd=repo: exit 0 out 'PLANTED' err ''
+env -C clean: exit 0 out '1.10.1' err ''
+```
+
+## P11. Downloads (run 2026-10-12, /architect review amendment): no download saved
+
+Command: `python3 docs/specs/0009-headless-verify-test/probes/p11-download.py <scratch npm cache> 3`. It drives chrome-devtools-mcp 1.10.1 over stdio with the AC-4 args (minus the chromeArgs) and a scratch HOME. A local server answers `/f` with `Content-Disposition: attachment`. Two cases: default, and an `XDG_CONFIG_HOME` whose `user-dirs.dirs` names a shots folder.
+
+```
+default: new_page 'Error: net::ERR_ABORTED at http://127.0.0.1:41645/f' click 'Script ran on page and returned: "clicked"' files []
+XDG_CONFIG_HOME: new_page 'Error: net::ERR_ABORTED at http://127.0.0.1:41645/f' click 'Script ran on page and returned: "clicked"' files []
+```
+
+The click is an `<a download>` clicked from `evaluate_script` on an app page (page 3). After 8 s, no `p11-probe*` file was found under the scratch root, under `/tmp`, or in your real `~/Downloads`. The probe ran from a sandboxed Bash call; the real MCP runs outside it, so step 8 reruns P11 from the built code.
+
 ## P8 and P9
 
-Not run: they come after the build, which stopped at P5.
+Not run: they come after the review fixes (build steps 7 and 8).
 
 Tool facts read on 2026-10-12 (`npx -y chrome-devtools-mcp@latest --help`, `--version`): version 1.10.1; flags `--isolated`, `--headless`, `--executablePath`, `--proxyServer`, `--chromeArg`, `--browserUrl` (`-u`), `--wsEndpoint` (`-w`), `--autoConnect`, `--userDataDir`, `--allowedUrlPattern` (Chrome 149+). Brave installed: 154.1.96.60.
