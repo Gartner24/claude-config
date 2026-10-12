@@ -212,7 +212,7 @@ What parks a feature instead of looping: 2 `/debug` attempts after a FAIL, BLOCK
    - [x] Verify FAIL loop and debug guard (AC-2, AC-3)
    - [x] Paid key strip on the spec 0007 lists, usage limit wait (AC-7, AC-8); needs feature 20 built
    - [x] Manual checks 4 to 6 in `verify.md` (AC-11): all passed 2026-10-12 through real `wf run`s on scratch repos
-- [ ] Verify it: `/check verify failure and park policy`
+- [x] Verify it: `/check verify failure and park policy`
 - [ ] Test it: `/test failure and park policy`
 Spec [0008](../specs/0008-failure-park-policy/index.md) · code in `runner/run.py`, `runner/tests/test_park.py`
 Follow-up: the usage limit probe (spec 0008 `verify.md` Follow-up, check 3) waits on you at the next real limit; it does not hold this feature open.
