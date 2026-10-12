@@ -21,6 +21,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | D | Skill routing | Existing | existing |
 | 1 | Runner stack and layout | Foundation | done |
 | 2 | Scope contract for the runner | Foundation | done |
+| 21 | Work names out of the public repo | Foundation | planned |
 | 3 | `next <repo>` | Release 1 | done |
 | 17 | Worktree discovery without git | Release 1 | done |
 | 18 | fzf failure is not a cancel | Release 1 | done |
@@ -74,6 +75,12 @@ The fields the runner reads: the hub `Repos` column (replaces `**Repo:**`), `**S
 - [x] Verify it: `/check verify scope contract for the runner`
 - [x] Test it: `/test scope contract for the runner`
 Spec [0003](../specs/0003-scope-contract/index.md) · code in `rules/scope-contract.md`, `runner/wf.py`, `runner/tests/`
+
+### 21. Work names out of the public repo · needs a decision
+Work org and tool names sit in public files on main (`CLAUDE.md`, `HOOKS.md`, `SKILLS.md`, `NOTICE.md`, `README.md`, `.gitignore`). They move to one local untracked file, and the public files refer to it instead of naming anything. Root `CLAUDE.md` is the synced copy of `~/.claude/CLAUDE.md`, so `sync.sh` and `install.sh` have to keep the split. Then you decide whether main's history is rewritten too.
+**Done when:** no tracked file on the branch or main names a work org or tool, a fresh `install.sh` plus the local file gives the same behavior as today, `sync.sh` cannot put a name back, and the history decision is recorded (and carried out if the answer is rewrite).
+- [ ] Design it (spec): `/architect work names out of the public repo`
+Source: your message of 2026-10-12 (`/scope` request after the runner branch review).
 
 ## Release 1: next step in one command
 
