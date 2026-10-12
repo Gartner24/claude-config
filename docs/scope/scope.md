@@ -35,6 +35,8 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 9 | Design enforcement unattended | Release 2 | done |
 | 10 | Build queue and decision queue | Release 3 | done |
 | 21 | Work names out of the public repo | Deferred | planned |
+| 24 | Runner resilience | Deferred | planned |
+| 25 | Checks that cannot lie | Deferred | planned |
 | 23 | Questions that teach | Deferred | planned |
 | 15 | Cheap worker tier | Deferred | planned |
 | 16 | Issues and mixed source of truth | Deferred | planned |
@@ -281,6 +283,20 @@ Work org and tool names sit in public files on main (`CLAUDE.md`, `HOOKS.md`, `S
 **Done when:** no tracked file on the branch or main names a work org or tool, a fresh `install.sh` plus the local file gives the same behavior as today, `sync.sh` cannot put a name back, and the history decision is recorded (and carried out if the answer is rewrite).
 - [ ] Design it (spec): `/architect work names out of the public repo`
 Source: your message of 2026-10-12 (`/scope` request after the runner branch review).
+
+### 24. Runner resilience · needs a decision
+Deferred 2026-10-12: after the runner branch lands, in the order the brief sets (landing, 21, then this, then 25).
+Six runner additions in one spec (brief spec A): wait and retry through an API outage instead of parking every box; the same call failing the same way twice ends the run; a token and cost count per run in the run report; a timed out call counts as unknown, never pass or fail; a small fixed state fixture repo so `wf` gets an end to end regression test without a real project; a rolling log of each prompt and reply so a hung run shows what it waited on.
+**Done when:** the spec is built, each of the six behaviors has its test, and `wf run` on the fixture repo passes end to end.
+- [ ] Design it (spec): `/architect runner resilience`
+Source: [~/projects/docs/briefs/runner-ideas-2026-10-12.md](../../../projects/docs/briefs/runner-ideas-2026-10-12.md) (spec A, ideas 1 to 6); personal scope row 18.
+
+### 25. Checks that cannot lie · needs a decision
+Deferred 2026-10-12: after 24, in the order the brief sets.
+Two skill additions for `wf` and chat sessions (brief spec B): `/check verify` and `/test` reject any check that would pass on broken code (a "can this step fail?" pass over every step); every spec lists the files it covers on a `paths:` line, and `/sync` warns when a commit touched files of an accepted spec. The workflow skills are vendored and overwritten on pull, so the same `/architect` decides where these additions live (likely an override rule like `rules/handoff.md`), together with personal scope row 12 part 2 (cross checks that compare against the brief).
+**Done when:** the spec is built, a planted check that cannot fail is rejected, a commit touching an accepted spec's files is flagged by `/sync`, and an update of the vendored skills keeps both.
+- [ ] Design it (spec): `/architect checks that cannot lie`
+Source: [~/projects/docs/briefs/runner-ideas-2026-10-12.md](../../../projects/docs/briefs/runner-ideas-2026-10-12.md) (spec B, ideas 7 and 8); personal scope rows 19 and 12 part 2.
 
 ### 23. Questions that teach · needs a decision
 Deferred 2026-10-12: do it after the runner features are built.
