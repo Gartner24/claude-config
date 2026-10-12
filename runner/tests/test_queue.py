@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import run  # noqa: E402
 import wf  # noqa: E402
 from test_park import GIT_ID  # noqa: E402
-from test_run import WF, FakeNtfy, RunCase, ask, write_config  # noqa: E402
+from test_run import WF, FakeNtfy, RunCase, ask, plan, write_config  # noqa: E402
 
 TWO = """# Scope: x
 **Autopilot:** allowed
@@ -62,7 +62,7 @@ class TestDoneWhen(QueueCase):
         self.steps([blocked(), TICK_B, DONE_B])
         r = self.wf("two", "-y")
         self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
-        lines = r.stdout.splitlines()
+        lines = plan(r.stdout)
         self.assertEqual(lines[:3], ["two on work, 0 changes", "  queued: 1. A", "  queued: 2. B"])
         self.assertIn("parked: 1. A: blocked: test park", lines)
         self.assertEqual(lines[-3:-1], ["done: 2. B", "queue done: 1 done, 1 parked, 0 open"])
@@ -104,10 +104,10 @@ class TestQueueRules(QueueCase):
         self.make_repo("rules", text)
         r = self.wf("rules")
         self.assertEqual(r.returncode, 130, r.stdout + r.stderr)
-        self.assertEqual(r.stdout.splitlines()[1:7], [
+        self.assertEqual(plan(r.stdout)[1:7], [
             "  skip: 7. Twin: ambiguous_feature", "  queued: 8. Valid", "  skip: 7. Twin: ambiguous_feature",
             "  skip: 9. Arch: manual_box", "  skip: 10. Later: waiting", "  skip: 11. Owed: waiting"])
-        self.assertTrue(r.stdout.splitlines()[7].startswith("caps: "))
+        self.assertTrue(plan(r.stdout)[7].startswith("caps: "))
         self.assertIsNone(self.queue())
 
 
@@ -118,7 +118,8 @@ class TestSections(unittest.TestCase):
         text = ("# T\n### 1. A · auto\n- [x] (spec)\n```\n### not\n```\n<!-- note\n### hidden\n-->\n#### sub\n- [ ] `/x`\n"
                 "## Deferred\n### 2. B\n- [ ] y\n# Top\n### 3. C\n")
         got = wf.sections(text)
-        self.assertEqual([(h, d) for h, _, _, d in got], [("1. A · auto", False), ("2. B", True), ("3. C", True)])
+        # Spec 0002 AC-5: `# Top` ends ## Deferred (review L10).
+        self.assertEqual([(h, d) for h, _, _, d in got], [("1. A · auto", False), ("2. B", True), ("3. C", False)])
         self.assertEqual(got[0][1], ["### 1. A · auto", "- [x] (spec)", "```", "### not", "```", "<!-- note",
                                      "### hidden", "-->", "#### sub", "- [ ] `/x`"])
         self.assertEqual(got[0][2][5:8], ["", "", ""])
@@ -129,6 +130,9 @@ class TestSections(unittest.TestCase):
         self.assertNotEqual(edited.sha, a.sha)
         self.assertEqual(run.Feature(*wf.sections(text)[0]).sha, a.sha)
         self.assertFalse(run.Feature(*got[1]).queued)
+        # parse_text agrees: the box under 3. C is runnable again, the one under 2. B stays deferred.
+        boxes = wf.parse_text(text + "- [ ] `/develop c`\n")
+        self.assertEqual([(b.text, b.skip) for b in boxes][-2:], [("y", True), ("`/develop c`", False)])
 
 
 class TestEpicSplit(QueueCase):
@@ -146,7 +150,7 @@ class TestEpicSplit(QueueCase):
         (d / "two.md").write_text((d / "two.md").read_text() + "more\n")
         self.assertEqual(run.repo_features(str(repo), "docs/scope")[1][1].sha, before)
         r = self.wf("big")
-        self.assertEqual(r.stdout.splitlines()[1:3], ["  queued: 2. Two", "  queued: 1. One"])
+        self.assertEqual(plan(r.stdout)[1:3], ["  queued: 2. Two", "  queued: 1. One"])
 
 
 class TestSyncOwed(QueueCase):
@@ -187,12 +191,12 @@ class TestTreeRule(QueueCase):
         self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
         _, rec = self.run_record()
         self.assertEqual(len(rec["calls"]), 1)
-        self.assertEqual(r.stdout.splitlines()[-2], "queue done: 0 done, 1 parked, 0 open")
+        self.assertEqual(plan(r.stdout)[-2], "queue done: 0 done, 1 parked, 0 open")
         self.again()
         r = self.wf("tree")
-        self.assertEqual(r.stdout.splitlines()[1:3], ["  parked: 1. A: blocked: test park (wf unpark to retry)",
+        self.assertEqual(plan(r.stdout)[1:3], ["  parked: 1. A: blocked: test park (wf unpark to retry)",
                                                       "  skip: 2. B: dirty with parks"])
-        self.assertEqual(r.stdout.splitlines()[-1], "nothing to run")
+        self.assertEqual(plan(r.stdout)[-1], "nothing to run")
         self.assertEqual(r.returncode, 6)
         self.commit(repo)
         self.assertFalse(run.dirty(str(repo)))
@@ -215,7 +219,7 @@ class TestParkMemory(QueueCase):
         self.again()
         r = self.wf("mem", "-y")
         self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
-        self.assertEqual(r.stdout.splitlines()[1:2], ["  parked: 1. A: blocked: test park (wf unpark to retry)"])
+        self.assertEqual(plan(r.stdout)[1:2], ["  parked: 1. A: blocked: test park (wf unpark to retry)"])
         self.assertEqual(self.calls(), [])
         scope = repo / "docs" / "scope" / "scope.md"
         scope.write_text(scope.read_text().replace("- [ ] `/develop a`", "- [ ] `/develop a` "))
@@ -370,7 +374,7 @@ class TestDecisionMoveOn(DecisionCase):
         folder, rec = self.run_record()
         d = rec["decisions"][0]
         i = d["id"]
-        lines = r.stdout.splitlines()
+        lines = plan(r.stdout)
         self.assertEqual(lines[lines.index(f"open: {i} 1. A") + 1:][:3], [
             "[1/20] two: /develop b -> success, 0.50 USD, 0.0m, next: /sync", f"answered: {i} Postgres (recommended) (phone)",
             "[2/20] two: /sync -> success, 0.50 USD, 0.0m, next: -"])
@@ -441,7 +445,7 @@ class TestAcrossRuns(DecisionCase):
         self.steps([TICK_A, DONE_A])
         r = self.wf("st", "-y", mode="fast")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertEqual(r.stdout.splitlines()[1:3], [f"  stale: {i} 1. A", "  queued: 1. A"])
+        self.assertEqual(plan(r.stdout)[1:3], [f"  stale: {i} 1. A", "  queued: 1. A"])
         self.assertIn(f"\nstale: {i} 1. A\n", r.stdout)
         self.assertNotIn("--resume", self.argv(1)["argv"])
         self.assertEqual(self.queue()["decisions"], [])
@@ -539,7 +543,7 @@ class TestAcrossRepos(QueueCase):
         self.steps([TICK_A, DONE_A])
         r = self.wf("-y")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        lines = r.stdout.splitlines()
+        lines = plan(r.stdout)
         self.assertEqual(lines[:2], [f"{self.tmp}/gone", "  skip: missing: no folder or no scope"])
         self.assertTrue(lines[2].startswith("hubrepo on work, "), lines[2])
         self.assertEqual(lines[3], "  skip: hub: hubrepo is a hub scope with no boxes of its own")
@@ -580,7 +584,7 @@ class TestAcrossRepos(QueueCase):
         self.steps([TICK_A, DONE_A])
         r = self.wf("-y")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertEqual(r.stdout.splitlines()[:8], [
+        self.assertEqual(plan(r.stdout)[:8], [
             "onmain on main, 1 change", "  skip: branch: main, switch to a work branch first",
             "apoff on work, 1 change", "  skip: autopilot_off: Autopilot is off, the scope header needs **Autopilot:** allowed",
             "held on work, 1 change", "  skip: locked: 4242 2026-10-11T09:00:00+02:00",
@@ -589,12 +593,12 @@ class TestAcrossRepos(QueueCase):
         self.again()
         self.trust(main, off)
         r = self.wf("-y")
-        self.assertEqual((r.returncode, r.stdout.splitlines()[-1]), (5, "nothing to run"), r.stdout + r.stderr)
+        self.assertEqual((r.returncode, plan(r.stdout)[-1]), (5, "nothing to run"), r.stdout + r.stderr)
         self.assertEqual(self.calls(), [])
         self.assertFalse((self.state / "wf" / "runs").exists())
         self.trust(self.tmp / "gone", self.make_repo("hubrepo", "# Scope: hub\n\n| a | b |\n"))
         r = self.wf("-y")
-        self.assertEqual((r.returncode, r.stdout.splitlines()[-1]), (0, "nothing to run"), r.stdout + r.stderr)
+        self.assertEqual((r.returncode, plan(r.stdout)[-1]), (0, "nothing to run"), r.stdout + r.stderr)
 
     # covers: AC-5, AC-9 (Autopilot turned off in repo A ends A only, its lock kept while repo B runs to done)
     def test_repo_stop(self):
@@ -609,7 +613,7 @@ class TestAcrossRepos(QueueCase):
         r = self.wf("-y")
         self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
         self.assertIn("\nstopped repo ra: autopilot_off: Autopilot is now off\n", r.stdout)
-        self.assertEqual(r.stdout.splitlines()[-2], "queue done: 1 done, 0 parked, 0 open")
+        self.assertEqual(plan(r.stdout)[-2], "queue done: 1 done, 0 parked, 0 open")
         self.assertEqual(out.read_text(), "held")
         _, rec = self.run_record()
         self.assertEqual([(e["name"], e["ended"]) for e in rec["repos"]], [("ra", "autopilot_off"), ("rb", None)])
@@ -691,7 +695,7 @@ class TestExit(QueueCase):
     def test_codes(self):
         self.make_repo("plain", "# Scope: x\n**Autopilot:** allowed\n### 1. A\n- [ ] `/develop a`\n")
         r = self.wf("plain", "-y")
-        self.assertEqual((r.returncode, r.stdout.splitlines()[-1]), (0, "nothing to run"))
+        self.assertEqual((r.returncode, plan(r.stdout)[-1]), (0, "nothing to run"))
 
 
 def park(repo, feature, sha="a" * 64, **extra):
@@ -748,17 +752,21 @@ class TestQueueCommand(SubcommandCase):
             with self.subTest(args):
                 r = self.sub("queue", *args)
                 self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-                lines = r.stdout.splitlines()
+                # AC-6: wf queue shows the answers line and builds no guard, so no guard line.
+                self.assertEqual(r.stdout.splitlines()[1], "  answers: none")
+                self.assertNotIn("  guard: ", r.stdout)
+                lines = plan(r.stdout)
                 self.assertEqual(lines[:7], want)
                 self.assertTrue(lines[7].startswith("caps: 20 USD/call"), lines[7])
                 self.assertNotIn("nothing to run", r.stdout)
         self.assertEqual(p.read_text(), before)
-        self.assertEqual(sorted(os.listdir(self.state / "wf")), ["queue.json", "queue.lock"])
+        # AC-20: a read creates nothing, not even the lock file (review L12).
+        self.assertEqual(sorted(os.listdir(self.state / "wf")), ["queue.json"])
         self.assertEqual(self.calls(), [])
         fd, lock = self.hold(repo)
         r = self.sub("queue", "q")
         os.close(fd)
-        self.assertEqual((r.returncode, r.stdout.splitlines()[:2]),
+        self.assertEqual((r.returncode, plan(r.stdout)[:2]),
                          (0, ["q on work, 0 changes", "  skip: locked: 4242 2026-10-11T09:00:00+02:00"]))
         # Tested and let go: wf queue never keeps a lock.
         self.sub("queue", "q")

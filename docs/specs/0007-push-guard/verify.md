@@ -121,7 +121,7 @@ Command: a scratch driver ran the real `wf run` CLI (`python3 -B runner/wf.py ru
 | linked worktree: call 1 rewrites `wt/.git` (still valid) | AC-7 amendment | pass: `stopped: guard_changed: <wt>/.git changed during the run`, 1 call; `commondir`, `gitdir`, `config.worktree` guarded; `HEAD`, `index`, `logs` neither guarded nor denied |
 | main checkout: call 1 edits `~/nested.conf`, included by `~/inc.conf` through an `[includeIf]` with a false condition | AC-7 amendment | pass: `stopped: guard_changed: <home>/nested.conf changed`, 1 call; both targets in `deny_paths` |
 | no `bwrap` on PATH; user `excludedCommands`; a broken include | AC-8 | pass: exit 5 `refused: no_sandbox: not found on PATH: bwrap`; exit 5 `... sets sandbox.excludedCommands`; exit 5 `... git rev-parse --git-common-dir failed: fatal: bad config line 1 in file .git/broken.conf`; no new lock |
-| `run.json` `guard` and confirm line | AC-9 | pass: keys `hosts, write_paths, deny_paths, binaries, guarded_files`; `guard: 10 hosts, 22 files` (25 in the worktree) |
+| `run.json` `guard` and confirm line | AC-9 | pass: keys `hosts, write_paths, deny_paths, binaries, guarded_files`; `guard: 10 hosts, 22 files` (25 in the worktree); that was the one line confirm, before spec 0011; the `guard:` part is now a plan line per repo, pinned by `test_run.TestHappyPath.test_feature_runs_to_sync` and absent from `wf queue` per `test_queue.TestQueueCommand.test_plan` |
 | nothing written outside a run | AC-11 | pass: `install.sh --dry-run` writes no hook or git config; the fake `HOME` got no `.gitconfig` |
 | real `claude` with the amended argv | AC-10 | blocked: run 4 predates the amendment; rerun `run-wf-probe.py` |
 

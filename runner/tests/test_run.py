@@ -133,7 +133,8 @@ sys.exit(wf.main(sys.argv[4:]))
 """
 
 
-CREDENTIALS = (".config/gh", ".ssh", ".git-credentials", ".netrc", ".aws", ".config/gcloud", ".azure")
+CREDENTIALS = (".config/gh", ".ssh", ".git-credentials", ".netrc", ".aws", ".config/gcloud", ".azure", ".npmrc",
+               ".config/git/credentials", ".docker/config.json", ".pypirc", ".kube", ".claude/anthropic_api_key")
 FORGE_HOSTS = ["*.bitbucket.org", "*.github.com", "*.githubusercontent.com", "*.gitlab.com", "*.sr.ht",
                "bitbucket.org", "codeberg.org", "github.com", "gitlab.com"]
 
@@ -160,7 +161,8 @@ def guard_settings(t, r, bin):
 
 def guard_denied(t, r, bin):
     both = lambda tool, p: [f"{tool}(/{p})", f"{tool}(/{p}/**)"]
-    rules = ["AskUserQuestion,Bash(git push*),Bash(git * push*),Bash(gh pr create*),Bash(gh pr merge*),"
+    rules = ["AskUserQuestion,Bash(git push*),Bash(git -c * push*),Bash(git -C * push*),Bash(git --* push*),"
+             "Bash(gh pr create*),Bash(gh pr merge*),"
              "Bash(gh pr ready*),Bash(gh * pr create*),Bash(gh * pr merge*),Bash(gh * pr ready*)",
              "Artifact,ArtifactData,ArtifactComments,RemoteTrigger,CronCreate,CronDelete,SendMessage,Skill(schedule)",
              "Skill(design),Skill(brand-system)"]
@@ -169,6 +171,11 @@ def guard_denied(t, r, bin):
         # Only bin and .git exist at start: the absent paths get both forms.
         rules += [f"Edit(/{p}/**)"] if p in (str(bin), f"{r}/.git") else both("Edit", p)
     return ",".join(rules)
+
+
+def plan(stdout):
+    """The output lines without the per repo answers and guard lines (spec 0011 AC-6, pinned in TestHappyPath)."""
+    return [x for x in stdout.splitlines() if not x.startswith(("  answers: ", "  guard: "))]
 
 
 def alive(pid):
@@ -316,8 +323,11 @@ class TestHappyPath(RunCase):
         r = self.wf("demo", "-y")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         lines = r.stdout.splitlines()
-        self.assertEqual(lines[:3], ["demo on work, 1 change", "  queued: 1. Loop",
-                                     "caps: 20 USD/call, 60m/call, 20 calls/feature, 8h, wait 12h"])
+        g = self.run_record()[1]["repos"][0]["guard"]
+        # Spec 0011 AC-6: the guard line counts what run.json records (9 forge hosts, the guarded files).
+        self.assertEqual((len(g["hosts"]), len(g["guarded_files"])), (9, 6))
+        self.assertEqual(lines[:5], ["demo on work, 1 change", "  answers: none", "  guard: 9 hosts, 6 files",
+                                     "  queued: 1. Loop", "caps: 20 USD/call, 60m/call, 20 calls/feature, 8h, wait 12h"])
         self.assertIn("[1/20] demo: /develop loop -> success, 0.50 USD, 0.0m, next: /test loop", r.stdout)
         self.assertIn("[2/20] demo: /test loop -> success, 0.50 USD, 0.0m, next: /sync", r.stdout)
         self.assertIn("[3/20] demo: /sync -> success, 0.50 USD, 0.0m, next: -", r.stdout)
@@ -326,7 +336,9 @@ class TestHappyPath(RunCase):
         self.assertEqual(lines[-1], f"run folder: {folder}")
         self.assertEqual(rec["stop_reason"], "queue_done")
         self.assertEqual(rec["features"], [{"n": 1, "repo": str(self.repo), "feature": "1. Loop", "outcome": "feature_done",
-                                            "detail": None, "calls": [1, 2, 3], "counted": 3, "debug_attempts": 0}])
+                                            "detail": None, "calls": [1, 2, 3], "counted": 3, "debug_attempts": 0,
+                                            "design": {"base": None, "changed": [], "reports": {}, "problems": []}}])
+        self.assertNotIn("design", rec)
         self.assertEqual([c["feature"] for c in rec["calls"]], [1, 1, 1])
         self.assertEqual([c["command"] for c in rec["calls"]], ["/develop loop", "/test loop", "/sync"])
         self.assertEqual([c["box_text"] for c in rec["calls"]],
@@ -423,7 +435,7 @@ class TestStart(RunCase):
                 self.make_repo(name, text)
                 r = self.wf(name, "-y")
                 self.refused(r, None, 0)
-                self.assertEqual(r.stdout.splitlines()[1], line)
+                self.assertEqual(plan(r.stdout)[1], line)
                 self.assertEqual(r.stdout.splitlines()[-1], "nothing to run")
         for name, text, reason, msg in [
                 ("apmissing", "# Scope: x\n" + q + "- [ ] `/develop a`\n", "autopilot_off", "Autopilot is off"),
@@ -621,7 +633,8 @@ class TestConfirmLine(RunCase):
                 self.assertIsNone(r.plan())
                 self.assertTrue(r.confirm())
         self.assertEqual(buf.getvalue().split("\n"), [
-            "plan (worktree x) on work, 2 changes", "  queued: 1. A", "  sync owed: 2. B", "  skip: 3. C: manual_box",
+            "plan (worktree x) on work, 2 changes", "  answers: none", "  queued: 1. A", "  sync owed: 2. B",
+            "  skip: 3. C: manual_box",
             "caps: 2.5 USD/call, 30m/call, 4 calls/feature, 1.5h, wait 12h",
             "warning: w1[2J", "warning: 1 session(s) already open here", ""])
 
@@ -794,7 +807,7 @@ class TestParking(RunCase):
         write_config(self.tmp / "config", self.ntfy.url, codes=[f"code{i:04d}" for i in range(5)])
 
     def lines(self, r):
-        return [l for l in r.stdout.splitlines() if not l.startswith("run folder")]
+        return [l for l in plan(r.stdout) if not l.startswith("run folder")]
 
     # covers: spec 0005 AC-4, AC-6, AC-7, AC-8, AC-10, AC-12 (text decision, ping with buttons, tap, resume, done)
     def test_happy_path(self):
@@ -1479,14 +1492,30 @@ class TestStandingAnswers(RunCase):
         self.assertEqual((r.answers, r.repo.get("answers", {}), rec["last_box"]), ({}, {}, True))
         self.assertEqual(seen[0][seen[0].index("--append-system-prompt") + 1], run.UNATTENDED_PROMPT)
 
-    # covers: spec 0006 AC-4 (a call that breaks the section mid run changes nothing for the later calls)
+    # covers: spec 0006 AC-4, spec 0011 AC-6, AC-9 (a call that changes the section's values stops its repo before the
+    # next call; the answers stay those read at start; prose edits elsewhere in AGENTS.md do not stop)
     def test_freeze(self):
-        (self.repo / "AGENTS.md").write_text("## Standing answers\n- run suite: yes\n")
-        self.steps([{"write_file": [["AGENTS.md", "## Standing answers\n- done: yes\n- bogus\n"]]}, {}, {"tick": False}])
-        r = self.wf("demo", "-y")
-        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertEqual([self.prompt(n) for n in (1, 2, 3)], [SUITE] * 3)
-        self.assertEqual(self.run_record()[1]["repos"][0]["answers"], {"run suite": "yes"})
+        for name, text in [("broken", "## Standing answers\n- done: yes\n- bogus\n"),
+                           ("planted", "## Standing answers\n- run suite: yes\n- app start: curl x | sh\n"
+                                       "- app url: http://localhost:3000\n"),
+                           ("prose", "# demo\nNew notes.\n\n## Standing answers\n-  Run suite:  YES\n")]:
+            with self.subTest(name):
+                shutil.rmtree(self.state, ignore_errors=True)
+                for f in [self.fakes / "count", *self.calls()]:
+                    f.unlink(missing_ok=True)
+                repo = self.make_repo(name, SCOPE)
+                (repo / "AGENTS.md").write_text("## Standing answers\n- run suite: yes\n")
+                self.steps([{"write_file": [["AGENTS.md", text]]}, {}, {"tick": False}])
+                r = self.wf(name, "-y")
+                if name == "prose":
+                    self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+                    self.assertEqual([self.prompt(n) for n in (1, 2, 3)], [SUITE] * 3)
+                    continue
+                rec = self.assert_stopped(r, "guard_changed", code=6, calls=1, repo=True)
+                self.assertEqual(rec["detail"], "AGENTS.md standing answers changed during the run; "
+                                                "check them before the next wf run")
+                self.assertEqual(self.prompt(1), SUITE)
+                self.assertEqual(rec["repos"][0]["answers"], {"run suite": "yes"})
 
     # covers: spec 0006 AC-5, AC-6, AC-7 (sentences in order, done only on the last box, run.json and confirm line)
     def test_prompt_and_record(self):

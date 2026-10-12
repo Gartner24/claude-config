@@ -21,7 +21,7 @@ _Steps derived from spec 0006 acceptance criteria. `/check verify` runs these; `
 - [x] Each answer: `test_parse` (case, spaces, prose, a bullet outside the section ignored, table order) -> AC-2
 - [x] Prompt labels: `Run tests?` / `Yes, run and fix to green` still match `skills/test/SKILL.md` step 7.5, and the done offers in `skills/test/SKILL.md` and `skills/check/modes/verify.md` still read as the `DONE_YES` sentence describes -> AC-5 (grep 2026-10-12: SKILL.md lines 164, 165, 187; verify.md line 142)
 - [x] Base text: `test_argv` pins `UNATTENDED_PROMPT` unchanged -> AC-5
-- [x] Confirm line and `run.json`: `test_prompt_and_record`, `TestConfirmLine` -> AC-7
+- [x] Plan lines and `run.json` (since spec 0011 AC-6 the `answers:` part is its own line in each repo's plan block; the one line confirm runs above predate it): `test_prompt_and_record`, `TestConfirmLine`, `TestHappyPath.test_feature_runs_to_sync`, `test_queue.TestQueueCommand.test_plan` -> AC-7
 
 ## Acceptance-criteria coverage
 - AC-1 `test_parse`, `test_base`, `test_refusals` (extra heading text) · AC-2 `test_parse`, `test_refusals` · AC-3 `test_refusals`, `test_unreadable` · AC-4 `test_defaults`, `test_freeze` · AC-5 `test_prompt_and_record`, `test_no_sentences` · AC-6 `test_last_box`, `test_last_box_other_feature` · AC-7 `test_prompt_and_record`, `TestConfirmLine`, `TestHappyPath` · AC-8 `test_architect_still_refused` · AC-9 manual steps 1 and 2 (passed 2026-10-12, real claude 2.1.296)

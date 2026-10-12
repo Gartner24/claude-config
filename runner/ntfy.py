@@ -7,6 +7,7 @@ import json
 import os
 import re
 import secrets
+import tempfile
 import time
 import urllib.parse
 import urllib.request
@@ -70,7 +71,11 @@ def load(need_codes=True):
     if not isinstance(cfg.get("topic"), str) or not TOPIC.match(cfg["topic"]):
         raise Invalid("topic must be 32 to 64 characters of A-Z a-z 0-9 _ -")
     # Parsed, not a prefix: http://localhost.example.com used to pass as local plain http.
-    url = urllib.parse.urlsplit(server) if isinstance(server, str) else None
+    try:
+        url = urllib.parse.urlsplit(server) if isinstance(server, str) else None
+    except ValueError:
+        # "https://[x" raised past every caller, a traceback instead of no_ntfy (review M6).
+        url = None
     if not url or not url.hostname or not (url.scheme == "https" or
                                           (url.scheme == "http" and url.hostname in ("127.0.0.1", "localhost"))):
         raise Invalid("server must start with https://")
@@ -91,12 +96,18 @@ def write(cfg, p=None):
     p = p or path()
     os.makedirs(os.path.dirname(p), mode=0o700, exist_ok=True)
     os.chmod(os.path.dirname(p), 0o700)
-    tmp = p + ".tmp"
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    os.fchmod(fd, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as f:
-        json.dump(cfg, f, indent=2)
-    os.replace(tmp, p)
+    # A fixed .tmp name let two writers truncate each other's file (review L5); mkstemp makes it 0600.
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(p), prefix=os.path.basename(p) + ".")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, p)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
 
 
 def new_codes():

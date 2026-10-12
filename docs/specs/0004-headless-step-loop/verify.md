@@ -32,3 +32,7 @@ Scratch repos built by a throwaway script: Python `app.py`, `**Autopilot:** allo
 
 ## Acceptance criteria coverage
 - AC-1, AC-2: `test_run.TestStart` (incl. `test_allow_list`), `TestHappyPath` · AC-3: `TestStart.test_confirm_cancels`, `TestConfirmLine` · AC-4, AC-5: `TestHappyPath.test_argv`, `TestClassify.test_spawn_error`, check 4 · AC-6: `TestClassify`, checks 1 and 2 · AC-7: `TestHappyPath`, `TestClassify.test_sync_stops`, check 3 · AC-8: `TestCaps`, `TestStart.test_bad_caps`, check 3 · AC-9: `TestStart.test_lock`, `test_second_run_refused`, `test_state_fallback`, check 3 · AC-10: `TestHappyPath`, `TestRecordAndSignals.test_internal_error` · AC-11: `TestHappyPath`, `test_minutes` · AC-12: `TestRecordAndSignals`, `TestSpawnRace` · AC-13: `TestRecordAndSignals.test_inhibitor*` · AC-14: exit codes asserted across all classes · AC-15: the four checks above
+
+## Push rule probe (amendment 2026-10-12, review stack finding M9): OWED
+
+- [ ] `bash docs/specs/0004-headless-step-loop/probes/push-rule.sh` on the real claude: steps 1 and 2 run (one stash, one commit whose message holds "push"), steps 3 to 6 appear under denied commands, the bare remote has 0 branches. Not run yet: this session has no claude login, so you run it with `!`. The unit side is pinned by `test_run.TestHappyPath.test_argv` (the exact `--disallowedTools` string).

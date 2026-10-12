@@ -155,7 +155,7 @@ class TestCheck(RunCase):
         r = self.wf("ui", "-y")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         rec = self.run_record()[1]
-        self.assertEqual(rec["design"], {"base": None, "changed": [], "reports": {}, "problems": []})
+        self.assertEqual(rec["features"][-1]["design"], {"base": None, "changed": [], "reports": {}, "problems": []})
         self.assertEqual(rec["calls"][-1]["kind"], "sync")
 
     # covers: AC-3, AC-7, AC-8 (no report parks design_gate, no sync call, exit 6, the detail and the record)
@@ -168,7 +168,7 @@ class TestCheck(RunCase):
         self.assertIn("parked: 1. A: design_gate: 1 frontend file(s)", r.stdout)
         self.assertEqual(rec["detail"], "1 frontend file(s) not covered by a passing design-gate report: "
                                         "src/components/Nav.tsx (no report)")
-        self.assertEqual(rec["design"], {"base": None, "changed": ["src/components/Nav.tsx"], "reports": {},
+        self.assertEqual(rec["features"][-1]["design"], {"base": None, "changed": ["src/components/Nav.tsx"], "reports": {},
                                          "problems": [{"path": "src/components/Nav.tsx", "problem": "no report"}]})
         self.assertNotIn("sync", [c["kind"] for c in rec["calls"]])
         self.assertFalse((self.fakes / "argv-3.json").exists())
@@ -181,8 +181,8 @@ class TestCheck(RunCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         rec = self.run_record()[1]
         self.assertEqual([c["kind"] for c in rec["calls"]], ["box", "box", "sync"])
-        self.assertEqual(rec["design"]["reports"], {".design/audit-report.md": "PASS WITH FINDINGS"})
-        self.assertEqual(rec["design"]["problems"], [])
+        self.assertEqual(rec["features"][-1]["design"]["reports"], {".design/audit-report.md": "PASS WITH FINDINGS"})
+        self.assertEqual(rec["features"][-1]["design"]["problems"], [])
 
     # covers: AC-3 (a passing report, then the .tsx edited again, parks older than the file)
     def test_stale(self):
@@ -190,7 +190,7 @@ class TestCheck(RunCase):
         self.steps([{"write_file": [["a.tsx", "x"]]}, {"write_file": [report(PASSING)]},
                     {"write_file": [["a.tsx", "y"]]}])
         rec = self.assert_stopped(self.wf("ui", "-y"), "design_gate", calls=3)
-        self.assertEqual(rec["design"]["problems"], [{"path": "a.tsx", "problem": "older than the file"}])
+        self.assertEqual(rec["features"][-1]["design"]["problems"], [{"path": "a.tsx", "problem": "older than the file"}])
 
     # covers: AC-1, AC-3 (a rerun whose next box leads straight to /sync parks again; 6 files list the first 5)
     def test_rerun(self):
@@ -204,7 +204,7 @@ class TestCheck(RunCase):
         self.r.joinpath("docs/scope/scope.md").write_text(UI.replace("- [ ] `/develop", "- [x] `/develop"))
         self.steps([{}])
         rec = self.assert_stopped(self.wf("ui", "-y"), "design_gate", calls=1)
-        self.assertEqual(len(rec["design"]["problems"]), 6)
+        self.assertEqual(len(rec["features"][-1]["design"]["problems"]), 6)
 
     # covers: AC-3 (the check runs only when rule 14 picks /sync: a VERIFY FAIL: debug on the last box runs the
     # debug call first, and a retried sync call does not rerun it)
@@ -219,13 +219,13 @@ class TestCheck(RunCase):
         self.assertEqual([c["kind"] for c in rec["calls"]], ["box", "box", "debug", "box", "sync", "sync"])
         self.assertEqual(rec["calls"][5]["retry_of"], 5)
         # Recorded once, before the first sync call: the file the failed sync rewrote was not checked again.
-        self.assertEqual(rec["design"]["problems"], [])
+        self.assertEqual(rec["features"][-1]["design"]["problems"], [])
 
     # covers: AC-3 (a guarded git config changed by the last box call stops the run before wf's git reads it)
     def test_guard_before_check(self):
         self.steps([{"write_file": [["a.tsx", "x"]]}, {"write_file": [[".git/config", "{}"]]}, {"tick": False}])
         rec = self.assert_stopped(self.wf("ui", "-y"), "guard_changed", calls=2, repo=True)
-        self.assertIsNone(rec["design"])
+        self.assertIsNone(rec["features"][-1]["design"])
 
 
 class TestCallArgs(RunCase):
@@ -250,7 +250,7 @@ class TestCallArgs(RunCase):
         self.steps([{"tick": False, "json": {"result": "Nothing built.\nBLOCKED: no locked design for the pricing page"}}])
         rec = self.assert_stopped(self.wf("demo", "-y"), "blocked", calls=1)
         self.assertEqual(rec["detail"], "no locked design for the pricing page")
-        self.assertIsNone(rec["design"])
+        self.assertIsNone(rec["features"][-1]["design"])
 
 
 if __name__ == "__main__":

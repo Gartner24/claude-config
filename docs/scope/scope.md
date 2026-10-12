@@ -279,10 +279,11 @@ AC-22 manual checks passed 2026-10-12 through real `wf run` and phone taps (`ver
 Every HIGH, MEDIUM and LOW finding of the `/review-stack` of `d02d329..c95f181`, plus the 3 surviving mutants, fixed with a test and a mutation check each.
 **Done when:** every finding in the brief is fixed with a red-then-green test, or listed under its `## Residual` with the decision it needs, and the suite passes.
 - [x] Design it (spec): `/architect review stack fixes`
-- [ ] Build it: `/develop review stack fixes`
-   - [ ] Decision loop, plan answers and guard lines, standing answers watch, stale on unqueue, per call app logs, env strip (H1 to H4, L6, L9)
-   - [ ] MEDIUM fixes and the 3 mutants (M1 to M13)
-   - [ ] LOW fixes (L1 to L13)
+- [x] Build it: `/develop review stack fixes`
+   - [x] Decision loop, plan answers and guard lines, standing answers watch, stale on unqueue, per call app logs, env strip (H1 to H4, L6, L9)
+   - [x] MEDIUM fixes and the 3 mutants (M1 to M13)
+   - [x] LOW fixes (L1 to L13)
+   - [ ] Push rule probe on the real claude: `bash docs/specs/0004-headless-step-loop/probes/push-rule.sh` (M9) · waits on you
 - [ ] Verify it: `/check verify review stack fixes`
 - [ ] Test it: `/test review stack fixes`
 Specs amended: [0011](../specs/0011-build-decision-queue/index.md), [0009](../specs/0009-headless-verify-test/index.md), [0008](../specs/0008-failure-park-policy/index.md) · code in `runner/run.py`, `runner/wf.py`, `runner/ntfy.py`

@@ -20,6 +20,11 @@ Verdict WARN (0 critical, 4 high, 13 medium, 13 low). Receipt: `.git/review-stac
   - 0009 AC-3, AC-10: one `app-<seq>.log` per call that starts the app, a resume is its own call with its own `app` object; a retry never restarts the app (H4).
   - 0008 AC-7: `_KEY`, `_PAT` endings and exact `PGPASSWORD`, `DATABASE_URL`, `SENTRY_DSN`; the app gets the same env (L6).
   - 0007 AC-8 missing `claude` exits 1 is 0011 AC-4, so that part of L13 needs no code change.
+- Second panel 2026-10-12 (fixes whose text an accepted spec quotes), your picks, all recommended:
+  - M7: six common secret files (`~/.npmrc`, `~/.config/git/credentials`, `~/.docker/config.json`, `~/.pypirc`, `~/.kube`, `~/.claude/anthropic_api_key`) join `CREDENTIAL_PATHS` (steps and app); the jail also hides every exact path `~/.claude/settings.json` denies with `Read(//...)`.
+  - M9: `Bash(git * push*)` becomes `Bash(git -c * push*)`, `Bash(git -C * push*)`, `Bash(git --* push*)`; spec 0004 argv updated; a real claude probe is owed (you run it with `!`).
+  - M8 submodule hooks and config guarded like the main repo's; M10 hidden paths bound at their real path; M12 design record per feature entry.
+  - L2 the answering reply's id is stored on the record and skipped on later reads; L10 any `#` or `##` heading ends `## Deferred`.
 - Cross check: another model (standing). Comma inside an `app start` value in the `answers:` line stays ambiguous, accepted.
 
 ## Findings
@@ -64,6 +69,18 @@ Verdict WARN (0 critical, 4 high, 13 medium, 13 low). Receipt: `.git/review-stac
 - L12 `run.py:268`. `wf queue` creates `queue.lock` (0011 AC-20 says it changes nothing).
 - L13 0006 AC-6 `last_box` (run.py:1507-1517) false for a lone open milestone under a ticked parent; 0007 AC-8 missing `claude` exits 1, not `no_sandbox` (run.py:508-510). Also: ntfy ack failure is silent.
 
+## Build result (2026-10-12)
+
+Every HIGH, MEDIUM and LOW finding above is fixed, plus the 3 surviving mutants. Each fix has a test (`runner/tests/test_review_fixes.py`, and updated tests in `test_run.py`, `test_queue.py`, `test_design.py`, `test_wf.py`), and each passed a mutation check: 41 mutants, each one fix reverted alone, all red (`mutate.py` in the session scratchpad). Suite: 300 tests OK.
+
+Notes from the build:
+- H4 needed no code change: the code already wrote one log per call; spec 0009 now says so, pinned by `test_browser.TestLifecycle.test_decision_restarts`.
+- L2: a time based fix was tried first and reverted (two replies in the same second broke it); the stored `reply` id replaced it.
+- L10: `test_wf` had pinned the old rule on purpose (spec 0002's literal text); it now pins the amended rule.
+- M8: a new hook file in a submodule is stopped by `denyWrite`, an existing one by its hash, same as the main repo's hooks.
+- The 0007 AC-8 part of L13 is spec 0011 AC-4 (exit 1), no code change.
+
 ## Residual
 
-None yet.
+None needs a decision. One check is owed and only you can run it (it needs the real claude login):
+- M9 push rule probe: `bash docs/specs/0004-headless-step-loop/probes/push-rule.sh`, expected results in that spec's `verify.md`.

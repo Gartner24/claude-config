@@ -95,8 +95,11 @@ class TestParser(unittest.TestCase):
 + [ ] `/develop real`
 """
         self.assertEqual(parse(text).command, "/develop real")
-        text = "## Deferred\n# Title\n### 1. A\n- [ ] `/develop still-deferred`\n## Next\n- [ ] `/develop real`\n"
-        self.assertEqual(parse(text).command, "/develop real")
+        # Spec 0002 AC-5 (amended for review L10): a `#` heading ends ## Deferred like a `##` heading.
+        text = "## Deferred\n- [ ] `/develop deferred`\n# Title\n### 1. A\n- [ ] `/develop live`\n## Next\n- [ ] `/develop real`\n"
+        self.assertEqual(parse(text).command, "/develop live")
+        text = "## Deferred\n### 1. A\n- [ ] `/develop still-deferred`\n### 2. B\n- [ ] `/develop also-deferred`\n"
+        self.assertIsNone(parse(text))
 
     def test_command_skips_paths_and_missing_command(self):
         self.assertEqual(parse("- [ ] fix `/etc/keyd` then `/develop x`\n").command, "/develop x")

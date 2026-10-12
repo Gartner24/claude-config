@@ -42,6 +42,7 @@ COMMIT_HASH = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
 GIT_SAFE = ("-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null")
 # `wf run` swaps in the absolute path it resolved at start (spec 0007 AC-6).
 GIT = "git"
+GIT_TIMEOUT = 120
 
 
 def clean(text):
@@ -61,7 +62,8 @@ class Box:
 
 
 def owed_text(box):
-    return OWED.sub("", box.text).strip() if box and OWED.search(box.text) else None
+    # A box that is only the marker used to give "", which read as not owed and let the box run (review L4).
+    return (OWED.sub("", box.text).strip() or box.text.strip()) if box and OWED.search(box.text) else None
 
 
 class NextBox:
@@ -142,8 +144,9 @@ def parse_text(text):
             stack = []
             feature = heading if level == 3 else None
             gone = bool(feature and GONE_TAG.search(feature))
-            if level == 2:
-                deferred = heading.lower().startswith("deferred")
+            # A level 1 heading ends ## Deferred too; it used to keep every later feature deferred (review L10).
+            if level <= 2:
+                deferred = level == 2 and heading.lower().startswith("deferred")
             continue
         b = BOX.match(line)
         if not b:
@@ -176,8 +179,8 @@ def sections(text):
         if not h or len(h.group(1)) > 3:
             continue
         level, heading = len(h.group(1)), clean(h.group(2))
-        if level == 2:
-            deferred = heading.lower().startswith("deferred")
+        if level <= 2:
+            deferred = level == 2 and heading.lower().startswith("deferred")
         starts.append((i, heading if level == 3 else None, deferred))
     starts.append((len(raw), None, False))
     return [(h, raw[i:j], plain[i:j], d) for (i, h, d), (j, _, _) in zip(starts, starts[1:]) if h is not None]
@@ -230,10 +233,14 @@ def read(path):
 
 
 def git(path, *args):
+    argv = [GIT, *GIT_SAFE, "-C", path, *args]
     try:
-        return subprocess.run([GIT, *GIT_SAFE, "-C", path, *args], capture_output=True, text=True, errors="replace")
+        return subprocess.run(argv, capture_output=True, text=True, errors="replace", timeout=GIT_TIMEOUT)
     except FileNotFoundError:
         return None
+    except subprocess.TimeoutExpired:
+        # A hung git (a stale lock on a network mount) used to stall a run past --max-hours (review L7).
+        return subprocess.CompletedProcess(argv, 124, "", f"timed out after {GIT_TIMEOUT:g} s")
 
 
 def dot_git(path):
@@ -605,7 +612,7 @@ def build_parser():
         p.add_argument("--call-timeout", type=positive(float), default=60, help="minutes per call (default 60)")
         p.add_argument("--max-calls", type=positive(int), default=20, help="calls per feature (default 20)")
         p.add_argument("--max-hours", type=positive(float), default=8, help="hours per run (default 8)")
-        p.add_argument("--max-wait", type=positive(float), default=12, help="hours to wait for each phone reply (default 12)")
+        p.add_argument("--max-wait", type=positive(float), default=12, help="hours the run waits at its end for your phone replies (default 12)")
     unpark = sub.add_parser("unpark", help="clear a repo's parked features and open questions")
     unpark.add_argument("target", help="a path, folder name or scope title")
     unpark.add_argument("feature", nargs="?", help="only this feature: its heading, or a unique part of it")

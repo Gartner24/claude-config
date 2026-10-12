@@ -30,8 +30,9 @@ ALLOWED = ("/develop", "/check verify", "/test", "/debug", "/document")
 BAD_BRANCHES = ("main", "master", "no git", "-")
 # AskUserQuestion is never offered in `claude -p` 2.1.296 (spec 0005 verify.md check 1);
 # denied anyway so a later CLI that offers it cannot hang a run on an unseen panel.
-# `git * push*`, not `git -C * push*`: `git -c k=v push` and `git --no-pager push` used to pass.
-DENIED = ("AskUserQuestion,Bash(git push*),Bash(git * push*),"
+# Each option form, not `git * push*`: that also denied `git stash push` and any commit message with "push"
+# (review M9); `git -C * push*` alone used to let `git -c k=v push` and `git --no-pager push` pass.
+DENIED = ("AskUserQuestion,Bash(git push*),Bash(git -c * push*),Bash(git -C * push*),Bash(git --* push*),"
           "Bash(gh pr create*),Bash(gh pr merge*),Bash(gh pr ready*),"
           "Bash(gh * pr create*),Bash(gh * pr merge*),Bash(gh * pr ready*)")
 # Spec 0007. The prefix list above let `env git push` and `gh api` through (review 2026-10-12),
@@ -42,9 +43,12 @@ DESIGN_DENIED = "Skill(design),Skill(brand-system)"
 CREDENTIAL_ENV = ("GH_TOKEN", "GITHUB_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_ENTERPRISE_TOKEN",
                   "SSH_AUTH_SOCK", "SSH_ASKPASS", "GIT_ASKPASS", "GIT_SSH", "GIT_SSH_COMMAND")
 # Spec 0008 AC-7: the cloud credential folders join them, so no call can bill a cloud account.
-CREDENTIAL_PATHS = ("~/.config/gh", "~/.ssh", "~/.git-credentials", "~/.netrc", "~/.aws", "~/.config/gcloud", "~/.azure")
-PAID_SUFFIXES = ("_API_KEY", "_API_TOKEN", "_TOKEN", "_SECRET", "_ACCESS_KEY", "_PASSWORD")
-PAID_ENV = ("AWS_ACCESS_KEY_ID", "GOOGLE_APPLICATION_CREDENTIALS", "ANTHROPIC_AUTH_TOKEN",
+CREDENTIAL_PATHS = ("~/.config/gh", "~/.ssh", "~/.git-credentials", "~/.netrc", "~/.aws", "~/.config/gcloud", "~/.azure",
+                    # Review M7: package registry, docker, kube and API key files were readable by calls and the app.
+                    "~/.npmrc", "~/.config/git/credentials", "~/.docker/config.json", "~/.pypirc", "~/.kube",
+                    "~/.claude/anthropic_api_key")
+PAID_SUFFIXES = ("_API_KEY", "_API_TOKEN", "_TOKEN", "_SECRET", "_ACCESS_KEY", "_KEY", "_PAT", "_PASSWORD")
+PAID_ENV = ("PGPASSWORD", "DATABASE_URL", "SENTRY_DSN", "AWS_ACCESS_KEY_ID", "GOOGLE_APPLICATION_CREDENTIALS", "ANTHROPIC_AUTH_TOKEN",
             "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY")
 # The subscription login may need it; every other token goes.
 KEPT_ENV = ("CLAUDE_CODE_OAUTH_TOKEN",)
@@ -255,8 +259,10 @@ def queue_problem(data):
                 return f"parks[{i}] has a bad section_sha or reason"
             if kind == "decisions":
                 lists = (r["options"], r["pings"], r["acks"])
+                # reply may be absent: files written before it existed stay valid.
                 if not QUEUE_ID.fullmatch(r["id"]) or r["call_kind"] not in ("box", "debug", "sync") \
                         or r["kind"] not in ("panel", "prose") or r["source"] not in (None, "phone") \
+                        or not isinstance(r.get("reply"), OPT_STR) \
                         or not all(isinstance(x, str) for l in lists for x in l):
                     return f"decisions[{i}] has a bad id, call_kind, kind, source or list"
     ids = [d["id"] for d in data["decisions"]]
@@ -271,12 +277,22 @@ def queue_transact(change=None):
     state = state_dir()
     path, lock = os.path.join(state, "queue.json"), os.path.join(state, "queue.lock")
     try:
-        os.makedirs(state, mode=0o700, exist_ok=True)
-        fd = os.open(lock, os.O_RDWR | os.O_CREAT, 0o600)
+        if change:
+            os.makedirs(state, mode=0o700, exist_ok=True)
+            fd = os.open(lock, os.O_RDWR | os.O_CREAT, 0o600)
+        else:
+            # A read creates nothing: `wf queue` used to leave a queue.lock behind (AC-20, review L12). With no lock
+            # file nothing has written yet, and a writer replaces queue.json atomically.
+            fd = os.open(lock, os.O_RDONLY)
+    except FileNotFoundError:
+        if change:
+            raise QueueError(f"{lock}: missing")
+        fd = None
     except OSError as e:
         raise QueueError(f"{lock}: {e.strerror or e}")
     try:
-        fcntl.flock(fd, fcntl.LOCK_EX)
+        if fd is not None:
+            fcntl.flock(fd, fcntl.LOCK_EX)
         try:
             with open(path, encoding="utf-8") as f:
                 data = json.load(f)
@@ -301,7 +317,8 @@ def queue_transact(change=None):
                 raise QueueError(f"{path}: {e.strerror or e}")
         return data
     finally:
-        os.close(fd)
+        if fd is not None:
+            os.close(fd)
 
 
 def decision_box(box):
@@ -407,7 +424,7 @@ class Run:
             "caps": {"budget_usd": args.budget, "call_timeout_min": args.call_timeout,
                      "max_calls": args.max_calls, "max_hours": args.max_hours},
             "calls": [], "decisions": [], "waited_s": 0,
-            "limit_wait": None, "limit_waited_s": 0, "design": None,
+            "limit_wait": None, "limit_waited_s": 0,
         }
         # Spec 0008 AC-6: set by a retryable failure, cleared by any call that does not fail.
         self.retried = False
@@ -666,20 +683,39 @@ class Run:
         for p in settings_files:
             try:
                 settings.append(read_json(p))
-            except ValueError:
-                pass
+            except (ValueError, OSError) as e:
+                # Skipped silently, its hook scripts went unhashed and stayed writable (review, freeze_guard fallbacks).
+                return "no_sandbox", f"{p} cannot be read as settings, so its hooks are unknown: {flat(str(e))}"
         tokens = hook_tokens(settings, repo)
         hooks_dir = os.path.join(common, "hooks")
         try:
             hooks = [os.path.join(hooks_dir, n) for n in sorted(os.listdir(hooks_dir))]
-        except OSError:
+        except FileNotFoundError:
             hooks = []
+        except OSError as e:
+            # Any other error used to read as "no hooks", which left every hook unhashed (review M11).
+            return "no_sandbox", f"cannot list {hooks_dir}: {e.strerror or e}"
+        # Each submodule's own git dir: its hooks used to stay writable and run at your next commit there (review M8).
+        sub_git = []
+        for d, dirs, names in os.walk(os.path.join(common, "modules")):
+            dirs.sort()
+            if "HEAD" in names:
+                sub_hooks = os.path.join(d, "hooks")
+                sub_git += [os.path.join(d, "config"), sub_hooks]
+                if os.path.isdir(sub_hooks):
+                    hooks += [os.path.join(sub_hooks, n) for n in sorted(os.listdir(sub_hooks))]
+                # A git dir holds nested submodules only under its own modules folder.
+                dirs[:] = [x for x in dirs if x == "modules"]
         files = [*settings_files,
                  *sorted(glob.glob(os.path.join(home, ".claude", "plugins", "cache", "**", "hooks.json"), recursive=True)),
-                 os.path.join(common, "config"), *(p for p in git_files if not os.path.isdir(p)),
+                 os.path.join(common, "config"), *(p for p in git_files if not os.path.isdir(p)), *sub_git[::2],
                  *(p for p in hooks if os.path.isfile(p)), *tokens]
         deny = deny_paths(repo, common, tokens, git_files)
-        hosts = remote_hosts(wf.git(repo, "remote", "-v").stdout)
+        r = wf.git(repo, "remote", "-v")
+        # A failed read used to deny only the built in forges, leaving the repo's own self hosted remote open (M5).
+        if r is None or r.returncode:
+            return "no_sandbox", "git remote -v failed: " + flat(r and r.stderr)
+        hosts = remote_hosts(r.stdout)
         write = sorted({repo, common, *(os.path.expanduser(p) for p in CACHE_DIRS)})
         self.common = common
         self.repo["guard"] = {"hosts": hosts, "write_paths": write, "deny_paths": deny, "binaries": binaries,
@@ -690,7 +726,8 @@ class Run:
                         "allowUnsandboxedCommands": False,
                         "network": {"allowedDomains": ["*"], "deniedDomains": hosts, "strictAllowlist": True},
                         "filesystem": {"allowWrite": write,
-                                       "denyWrite": [p for p in deny if p != common] + [os.path.join(common, "config"), hooks_dir],
+                                       "denyWrite": [p for p in deny if p != common] + [os.path.join(common, "config"), hooks_dir,
+                                                                                        *sub_git],
                                        "denyRead": [os.path.expanduser(p) for p in CREDENTIAL_PATHS]}},
             "hooks": {"PreToolUse": [{"matcher": "Agent", "hooks": [{"type": "command", "timeout": 10, "command": hook}]}]}}
         # AC-3 step 5: the jail cannot bind an absent path, so an app could plant .git/hooks/post-commit in a
@@ -728,7 +765,9 @@ class Run:
         for p in dict.fromkeys(os.path.realpath(p) for p in self.guard_settings["sandbox"]["filesystem"]["denyWrite"]):
             if os.path.exists(p):
                 a += ["--ro-bind", p, p]
-        for p in (*(os.path.join(home, p[2:]) for p in JAIL_HIDDEN), *self.browser["wf_dirs"]):
+        hidden = [*(os.path.join(home, p[2:]) for p in JAIL_HIDDEN), *user_read_denies(), *self.browser["wf_dirs"]]
+        # At the real path, like the binds above: a symlinked ~/.ssh used to fail every app start (review M10).
+        for p in dict.fromkeys(os.path.realpath(p) for p in hidden):
             if os.path.isdir(p):
                 a += ["--tmpfs", p]
             elif os.path.exists(p):
@@ -822,8 +861,13 @@ class Run:
         repo is ended here, the repo in use by raising Stop guard_changed for it alone."""
         hits = [(h, path, detail) for h in self.held if h["repo"].get("guard") and not h["repo"]["ended"]
                 for path, detail in moved(h["repo"]["guard"])]
+        # Spec 0011 AC-6: a call could plant `app start` for the next run, unseen behind -y (review finding H2).
+        for h in self.held:
+            if h["repo"].get("guard") and not h["repo"]["ended"] and read_answers(h["c"]) != (h["answers"], None):
+                hits.append((h, None, f"{ANSWERS_FILE[h['c'].scope_dir]} standing answers changed during the run; "
+                                      "check them before the next wf run"))
         for h, path, detail in hits:
-            if not self.own_file(h, path):
+            if path is not None and not self.own_file(h, path):
                 return detail
         mine = None
         for h, path, detail in hits:
@@ -872,7 +916,7 @@ class Run:
                 names[f.name] = names.get(f.name, 0) + 1
         live = {p["feature"]: p for p in q["parks"] if p["repo"] == repo and self.applies(p, feats)}
         # A stale Decision leaves its feature queued fresh (AC-13).
-        decided = {d["feature"] for d in q["decisions"] if d["repo"] == repo and not self.stale(d, feats)}
+        decided = {d["feature"] for d in q["decisions"] if d["repo"] == repo and not self.stale(d, feats)} - set(live)
         ran = {e["feature"] for e in self.record["features"] if e["repo"] == repo}
         out = []
         for f in feats:
@@ -894,9 +938,15 @@ class Run:
             out.append((None, line))
         return out
 
+    def parked(self, d, q, feats):
+        """AC-7: Decision d's feature has a Park record that still applies."""
+        return any((p["repo"], p["feature"]) == (d["repo"], d["feature"]) and self.applies(p, feats) for p in q["parks"])
+
     def stale(self, d, feats):
-        """AC-13: an answered Decision whose branch moved or whose heading left the scope is never resumed."""
-        return d["answer"] is not None and (d["branch"] != self.branch or not any(f.name == d["feature"] for f in feats))
+        """AC-13: an answered Decision whose branch moved or whose feature is no longer queued (heading gone, `· auto`
+        removed, marked done) is never resumed."""
+        return d["answer"] is not None and (d["branch"] != self.branch or
+                                            not any(f.name == d["feature"] and f.queued for f in feats))
 
     def decision_lines(self, q, feats):
         """AC-6: (may resume, plan line) for this repo's Decisions, oldest asked first."""
@@ -905,7 +955,9 @@ class Run:
             if self.stale(d, feats):
                 out.append((False, f"stale: {d['id']} {d['feature']}"))
             else:
-                out.append((True, f"{'open' if d['answer'] is None else 'resume'}: {d['id']} {d['feature']}: {d['question']}"))
+                # AC-7: a parked feature's answer waits for the park to clear; its parked line comes from survey().
+                out.append((not self.parked(d, q, feats),
+                            f"{'open' if d['answer'] is None else 'resume'}: {d['id']} {d['feature']}: {d['question']}"))
                 # AC-20: wf queue lists the options under the question.
                 out += [(False, f"  {n} {o}") for n, o in enumerate(d["options"], 1) if self.peek]
         return out
@@ -950,8 +1002,10 @@ class Run:
             live.append((h, feats, dirty_tree))
         # AC-7 (1): an answered Decision first, oldest asked first, in any held repo; a dirty tree does not hold it back.
         repos = {h["c"].path: (h, feats) for h, feats, _ in live}
-        answered = sorted((d for d in (q or {"decisions": []})["decisions"]
-                           if d["repo"] in repos and d["answer"] is not None), key=asked_at)
+        # A resume that parked before its call (app_failed on the restart) used to be picked again until --max-hours.
+        q = q or {"decisions": [], "parks": []}
+        answered = sorted((d for d in q["decisions"] if d["repo"] in repos and d["answer"] is not None
+                           and not self.parked(d, q, repos[d["repo"]][1])), key=asked_at)
         if answered:
             h, feats = repos[answered[0]["repo"]]
             self.use(h)
@@ -1017,6 +1071,10 @@ class Run:
                 if self.target and not self.peek:
                     return self.refuse("scope_unreadable", e)
                 self.held.remove(h)
+                # A skipped repo used to stay locked for the whole run (review L1).
+                if h["lock_fd"] is not None:
+                    os.close(h["lock_fd"])
+                    h["lock_fd"] = None
                 entry["skip"] = flat(f"scope_unreadable: {e}")
                 print(head)
                 print("  skip: " + entry["skip"])
@@ -1027,6 +1085,11 @@ class Run:
             items += [(None, f"would clear: {p['feature']}") for p in q["parks"]
                       if self.peek and p["repo"] == c.path and not self.applies(p, feats)]
             print(head)
+            # Specs 0006 AC-7, 0007 AC-9, now plan lines (spec 0011 AC-6): the app command that will run, in full.
+            print("  " + flat("answers: " + (", ".join(f"{k} {v}" for k, v in self.answers.items()) or "none")))
+            if self.repo.get("guard"):
+                g = self.repo["guard"]
+                print(f"  guard: {len(g['hosts'])} hosts, {len(g['guarded_files'])} files")
             for _, line in decisions + items:
                 # flat() drops an option line's own indent.
                 print(("    " if line.startswith("  ") else "  ") + flat(line))
@@ -1307,7 +1370,7 @@ class Run:
             raise Stop("guard_changed", changed)
         base, changed = frontend_changed(self.c.path)
         reports, problems = design_problems(self.c.path, changed)
-        self.record["design"] = {"base": base, "changed": changed, "reports": reports, "problems": problems}
+        self.entry["design"] = {"base": base, "changed": changed, "reports": reports, "problems": problems}
         if not problems:
             return None
         listed = ", ".join(f"{p['path']} ({p['problem']})" for p in problems[:5])
@@ -1363,7 +1426,8 @@ class Run:
              "session_id": rec["session_id"], "call_kind": kind, "command": command,
              "box_text": box.box_text if kind == "box" else None, "question": question, "options": options,
              "kind": "panel" if options else "prose", "multi": False, "sent": None, "pings": [], "acks": [],
-             "asked": now(), "answer": None, "source": None, "answered": None, "ignored": 0, "run": self.folder}
+             "asked": now(), "answer": None, "source": None, "answered": None, "ignored": 0, "run": self.folder,
+             "reply": None}
 
         def add(q):
             # Drawn under the lock: unique in the file and in this run.
@@ -1427,9 +1491,12 @@ class Run:
             text, hit = str(msg.get("message") or ""), []
 
             def take(q):
-                if msg.get("id") in {i for d in q["decisions"] for i in d["pings"] + d["acks"]}:
+                # The reply that answered a record: a later poll from an older cursor used to count it ignored (L2).
+                if msg.get("id") in {i for d in q["decisions"] for i in d["pings"] + d["acks"] + [d.get("reply")]}:
                     return False
                 d = reader.take(text, [d for d in q["decisions"] if d["answer"] is None])
+                if d:
+                    d["reply"] = msg.get("id")
                 m = ntfy.REPLY.match(text)
                 late = m and next((x for x in q["decisions"] if x["id"] == m.group(1).lower()
                                    and x["answer"] is not None and x is not d), None)
@@ -1449,7 +1516,9 @@ class Run:
                     self.save()
                 try:
                     mid = self.topic(d).publish(f"{d['id']} accepted", 2, stopped=lambda: self.interrupted)
-                except ntfy.PingFailed:
+                except ntfy.PingFailed as e:
+                    # Silent before: your phone never said accepted and nothing said why (review L13).
+                    print(f"warning: ack {d['id']} failed: {flat(e)}", flush=True)
                     mid = None
                 if mid:
                     self.own.add(mid)
@@ -1512,9 +1581,11 @@ class Run:
         top = next((b for b in boxes if b.open and not b.skip), None)
         if top is None:
             return False
-        while top.parent:
+        # Up through open parents only: a lone open milestone under a ticked parent is the call's box, and climbing
+        # to the ticked parent used to say "not last" (review L13).
+        while top.parent and top.parent.open:
             top = top.parent
-        return top.open and not any(b.open and not b.skip and b is not top and not wf.under(b, top) for b in boxes)
+        return not any(b.open and not b.skip and b is not top and not wf.under(b, top) for b in boxes)
 
     # -- the loop ------------------------------------------------------------
 
@@ -1525,10 +1596,12 @@ class Run:
         e = next((x for x in self.record["features"] if d and (x["repo"], x["feature"]) == (self.c.path, f.name)), None)
         if e is None:
             e = {"n": len(self.record["features"]) + 1, "repo": self.c.path, "feature": f.name,
-                 "outcome": None, "detail": None, "calls": [], "counted": 0, "debug_attempts": 0}
+                 "outcome": None, "detail": None, "calls": [], "counted": 0, "debug_attempts": 0, "design": None}
             self.record["features"].append(e)
         e.update(outcome=None, detail=None)
-        self.entry, self.feature, self.retried = e, f.name, False
+        # A limit rerun ended by a repo stop used to carry into the next feature, whose loop then skipped its
+        # first call setup and died on an unset `last` (internal_error, review M1).
+        self.entry, self.feature, self.retried, self.limit_rerun = e, f.name, False, False
         try:
             if d:
                 box = None
@@ -1549,6 +1622,17 @@ class Run:
             if s.reason in RUN_STOPS and not s.repo:
                 raise
             e.update(outcome=s.reason, detail=None if s.detail is None else str(s.detail))
+        # AC-8: no app outlives its feature. Its guard check ran outside the try, so a repo stop there used to
+        # end every repo (review M2); it wins over the feature's outcome, as in spec 0009 AC-3 step 5.
+        if self.app is not None:
+            try:
+                self.stop_app()
+            except Stop as s:
+                if s.reason in RUN_STOPS and not s.repo:
+                    raise
+                e.update(outcome=s.reason, detail=str(s.detail))
+            finally:
+                sweep(self.run_id)
         self.save()
         if e["outcome"] == "feature_done":
             print(f"done: {f.name}", flush=True)
@@ -1559,10 +1643,6 @@ class Run:
             print(f"parked: {f.name}: {e['outcome']}: {flat(e['detail'])}", flush=True)
         else:
             self.end_repo(e["outcome"], e["detail"])
-        # AC-8: no app outlives its feature.
-        if self.app is not None:
-            self.stop_app()
-            sweep(self.run_id)
         self.save()
 
     def loop(self, kind, box, command, resume=None):
@@ -1688,10 +1768,14 @@ class Run:
 
     def snapshot(self):
         """Spec 0008 AC-3: {path: (sha256, text or None)} for the specs folder and every test file."""
-        r = wf.git(self.c.path, "ls-files", "-z", "-co", "--exclude-standard")
+        # A git failure used to read as an empty tree, so nothing could ever count as touched (review M4).
+        listed = git_paths(self.c.path, "ls-files", "-z", "-co", "--exclude-standard")
         specs = os.path.join(os.path.dirname(self.c.scope_dir), "specs") + "/"
+        # .workflow/ is globally ignored, so git never lists its specs; walk the folder itself (review M13).
+        for d, _, names in os.walk(os.path.join(self.c.path, specs)):
+            listed += [os.path.relpath(os.path.join(d, n), self.c.path) for n in names]
         out = {}
-        for rel in dict.fromkeys((r.stdout if r else "").split("\0")):
+        for rel in dict.fromkeys(listed):
             is_test = is_test_file(rel)
             if not rel or not (rel.startswith(specs) or is_test):
                 continue
@@ -1752,6 +1836,8 @@ class Run:
             reason, detail = s.reason, s.detail
         except Exception as e:
             detail = flat(traceback.format_exception_only(e)[-1])
+            # The detail keeps one line; the trace used to be lost with it (review L8).
+            traceback.print_exc()
         finally:
             # AC-3 step 5: a guarded file the app moved wins over the reason the run ended with, Ctrl C included.
             changed = self.cleanup()
@@ -1861,7 +1947,9 @@ def frontend_changed(repo):
     """Spec 0010 AC-1: (base or None, frontend files changed since the merge base, sorted)."""
     base = test_base(repo)
     if base:
-        paths = git_paths(repo, "diff", "--name-only", "--diff-filter=ACMR", "-z", base) + \
+        # --relative: diff paths are from the git top, ls-files from the cwd; a scope repo in a subfolder of a
+        # git repo used to lose every committed frontend file here (review M3).
+        paths = git_paths(repo, "diff", "--relative", "--name-only", "--diff-filter=ACMR", "-z", base) + \
                 git_paths(repo, "ls-files", "--others", "--exclude-standard", "-z")
     else:
         paths = git_paths(repo, "ls-files", "-co", "--exclude-standard", "-z")
@@ -2019,18 +2107,29 @@ def cmd_allow(args):
     if c is None:
         return rc
     real = os.path.realpath(c.path)
-    paths, problem = read_allowed()
-    if paths is None and not os.path.exists(allowed_path()):
-        paths = []
-    if paths is None:
-        print(problem, file=sys.stderr)
+    # Two wf allow at once used to drop one path: read, change and write under one lock (review L5).
+    try:
+        os.makedirs(os.path.dirname(allowed_path()), mode=0o700, exist_ok=True)
+        lock = os.open(allowed_path() + ".lock", os.O_RDWR | os.O_CREAT, 0o600)
+    except OSError as e:
+        print(f"{allowed_path()}: {e.strerror or e}", file=sys.stderr)
         return 1
-    if real not in paths:
-        try:
-            ntfy.write(paths + [real], allowed_path())
-        except OSError as e:
-            print(f"{allowed_path()}: {e.strerror or e}", file=sys.stderr)
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        paths, problem = read_allowed()
+        if paths is None and not os.path.exists(allowed_path()):
+            paths = []
+        if paths is None:
+            print(problem, file=sys.stderr)
             return 1
+        if real not in paths:
+            try:
+                ntfy.write(paths + [real], allowed_path())
+            except OSError as e:
+                print(f"{allowed_path()}: {e.strerror or e}", file=sys.stderr)
+                return 1
+    finally:
+        os.close(lock)
     print(f"allowed: {wf.clean(real)}")
     return 0
 
@@ -2150,6 +2249,19 @@ def read_json(path):
         return {}
 
 
+USER_READ_DENY = re.compile(r"Read\(/(/[^*]+?)(?:/\*\*)?\)")
+
+
+def user_read_denies():
+    """Spec 0009 AC-3 step 3: the exact paths ~/.claude/settings.json denies with Read(//path) or Read(//path/**),
+    so the app jail hides your own secret files without this public repo naming them (review M7)."""
+    try:
+        rules = read_json(os.path.expanduser("~/.claude/settings.json")).get("permissions", {}).get("deny", [])
+    except (ValueError, OSError, AttributeError):
+        return []
+    return [m.group(1) for r in rules if isinstance(r, str) and (m := USER_READ_DENY.fullmatch(r))]
+
+
 def user_exclusions():
     """AC-8: why a user settings file defeats the sandbox, else None. User exclusions still apply under --settings."""
     for name in ("settings.json", "settings.local.json"):
@@ -2240,9 +2352,13 @@ def url_host(url):
         scheme, rest = url.split("://", 1)
         if scheme == "file":
             return None
-        return rest.split("/", 1)[0].rsplit("@", 1)[-1].split(":", 1)[0] or None
-    # scp form: a colon before any slash, as git reads it.
-    m = re.match(r"(?:[^@/]+@)?([^/:]+):", url)
+        host = rest.split("/", 1)[0].rsplit("@", 1)[-1]
+        # An IPv6 literal used to be cut at its first colon, `[` (review L11).
+        if host.startswith("["):
+            return host[1:].split("]", 1)[0] or None
+        return host.split(":", 1)[0] or None
+    # scp form: a colon before any slash, as git reads it; an IPv6 literal sits in brackets.
+    m = re.match(r"(?:[^@/]+@)?\[([^\]/]+)\]:", url) or re.match(r"(?:[^@/]+@)?([^/:]+):", url)
     return m.group(1) if m else None
 
 
