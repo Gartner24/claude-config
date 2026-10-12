@@ -70,7 +70,7 @@ The fields the runner reads: the hub `Repos` column (replaces `**Repo:**`), `**S
    - [x] Rule file `scope-contract.md`, synced, in `NOTICE.md` (AC-4 to AC-9)
    - [x] Header check in `wf.py` with warnings on every path, fixtures and tests (AC-1, AC-2, AC-3, AC-5, AC-7)
    - [x] Manual `/scope` replan, headless `/scope`, `/architect` queue check (AC-10); replan, headless and the `· auto` write pass; the no tag half passed at the feature 17 capture (2026-10-11)
-- [ ] Verify it: `/check verify scope contract for the runner`
+- [x] Verify it: `/check verify scope contract for the runner`
 - [ ] Test it: `/test scope contract for the runner`
 Spec [0003](../specs/0003-scope-contract/index.md) · code in `rules/scope-contract.md`, `runner/wf.py`, `runner/tests/`
 
