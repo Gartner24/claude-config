@@ -82,6 +82,18 @@ class TestBaseRun(RunCase):
         self.assertEqual(prompts[1], prompts[0])
         self.assertEqual(prompts[2:], [run.UNATTENDED_PROMPT] * 2)
 
+    # covers: AC-9 (neither main nor master: the /test prompt adds nothing), AC-10 (test_base null)
+    def test_run_no_base(self):
+        branch_repo(self.repo, "trunk")
+        (self.repo / "docs/scope/scope.md").write_text(TEST_FIRST)
+        self.steps([{}, {}, {"tick": False}])
+        r = self.wf("demo", "-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        rec = json.loads(next((self.state / "wf" / "runs").iterdir()).joinpath("run.json").read_text())
+        self.assertEqual([(c["command"], c["test_base"]) for c in rec["calls"]][0], ("/test a", None))
+        argv = self.argv(1)["argv"]
+        self.assertEqual(argv[argv.index("--append-system-prompt") + 1], run.UNATTENDED_PROMPT)
+
 
 class TestAppKeys(unittest.TestCase):
     # covers: AC-1 (both keys, case and spaces kept, every refusal, the other keys unchanged)
@@ -359,7 +371,9 @@ class TestRealPathBinds(unittest.TestCase):
         self.assertIsNone(changed(tree()))
         self.assertIsNone(changed(lambda d, p: p.write_text("")))
         self.assertIsNone(changed(lambda d, p: p.write_text(""), guarded=True))
-        for name, extra in (("file deep", lambda d, a: (a / "post-commit").write_text("")),
+        for name, extra in (("file top", lambda d, a: (a.parent.parent / "f").write_text("")),
+                            ("file deep", lambda d, a: (a / "post-commit").write_text("")),
+                            ("file deeper", lambda d, a: (a / "b" / "c").mkdir(parents=True) or (a / "b" / "c" / "f").write_text("")),
                             ("link to file", lambda d, a: (a / "l").symlink_to(d / "out" / "f")),
                             ("link to folder", lambda d, a: (a / "l").symlink_to(d / "out"))):
             with self.subTest(name):

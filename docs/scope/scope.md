@@ -31,7 +31,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 22 | Waiting boxes owed to you | Release 2 | done |
 | 20 | Push guard outside the model | Release 2 | done |
 | 8 | Failure and park policy | Release 2 | done |
-| 7 | Headless verify and test | Release 2 | in-progress |
+| 7 | Headless verify and test | Release 2 | done |
 | 9 | Design enforcement unattended | Release 2 | in-progress |
 | 10 | Build queue and decision queue | Release 3 | in-progress |
 | 21 | Work names out of the public repo | Deferred | planned |
@@ -217,7 +217,7 @@ What parks a feature instead of looping: 2 `/debug` attempts after a FAIL, BLOCK
 Spec [0008](../specs/0008-failure-park-policy/index.md) · code in `runner/run.py`, `runner/tests/test_park.py`
 Follow-up: the usage limit probe (spec 0008 `verify.md` Follow-up, check 3) waits on you at the next real limit; it does not hold this feature open.
 
-### 7. Headless verify and test · in-progress
+### 7. Headless verify and test · done
 `/check verify` drives the app through the chrome-devtools MCP (isolated Brave) instead of reporting BLOCKED, and `/test` sees the feature's changes even after checkpoint commits.
 **Done when:** a Beta feature passes `/check verify` and `/test` in a headless run, and only real walls (login, captcha, 2FA, hardware) report BLOCKED.
 - [x] Design it (spec): `/architect headless verify and test`
@@ -232,7 +232,7 @@ Follow-up: the usage limit probe (spec 0008 `verify.md` Follow-up, check 3) wait
    - [x] Findings 10 and 13: empty folder trees pass, absent guarded symlinks and unreadable files trip, 11 and 12 residual (AC-3)
    - [x] P8 and P9 through `wf run`, with P2 rerun (AC-11)
 - [x] Verify it: `/check verify headless verify and test`
-- [ ] Test it: `/test headless verify and test`
+- [x] Test it: `/test headless verify and test`
 Spec [0009](../specs/0009-headless-verify-test/index.md) · code in `runner/run.py`, `runner/tests/test_browser.py`
 Unblocked 2026-10-12: P5 failed on the WebRTC switch spelling Brave ignores; spec 0009 amended (AC-4 `--webrtc-ip-handling-policy`, `MCP_CACHE`) and P2 to P7 now pass. Steps 3 to 6 built 2026-10-12 (the held patch reapplied plus the `MCP_CACHE` checks); P8 and P9 through `wf run` remain.
 Blocked 2026-10-12: a security review of the build found seven doors (app jail narrower than the call deny set, app network and token, npx local package resolution, browser loopback reach, guard URL parser differential, browser downloads, guard path symlink swap); they go to `/architect` before P8 and P9. Source: [docs/briefs/0009-review-findings.md](../briefs/0009-review-findings.md)
