@@ -2,6 +2,7 @@
 
 **Date**: 2026-10-12
 **Status**: Proposed
+**Amended by**: [0009](../0009-headless-verify-test/index.md) - AC-2 gains the `app start` and `app url` keys and a wider entry pattern (`app start` keeps spaces and case); AC-3 hint lists them.
 **Amended**: 2026-10-12, architecture pass ([architecture](../../architecture.md)): the `cross check` key is dropped before the build. Its only user would be `/architect` running unattended, which the runner never does.
 
 ## Summary

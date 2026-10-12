@@ -30,7 +30,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 6 | Standing answers | Release 2 | in-progress |
 | 20 | Push guard outside the model | Release 2 | in-progress |
 | 8 | Failure and park policy | Release 2 | in-progress |
-| 7 | Headless verify and test | Release 2 | planned |
+| 7 | Headless verify and test | Release 2 | in-progress |
 | 9 | Design enforcement unattended | Release 2 | planned |
 | 10 | Build queue and decision queue | Release 3 | planned |
 | 21 | Work names out of the public repo | Deferred | planned |
@@ -198,10 +198,19 @@ What parks a feature instead of looping: 2 `/debug` attempts after a FAIL, BLOCK
 - [ ] Test it: `/test failure and park policy`
 Spec [0008](../specs/0008-failure-park-policy/index.md)
 
-### 7. Headless verify and test · needs a decision
+### 7. Headless verify and test · in-progress
 `/check verify` drives the app through the chrome-devtools MCP (isolated Brave) instead of reporting BLOCKED, and `/test` sees the feature's changes even after checkpoint commits.
 **Done when:** a Beta feature passes `/check verify` and `/test` in a headless run, and only real walls (login, captcha, 2FA, hardware) report BLOCKED.
-- [ ] Design it (spec): `/architect headless verify and test`
+- [x] Design it (spec): `/architect headless verify and test`
+- [ ] Build it: `/develop headless verify and test`
+   - [ ] Probe gate P2 to P7 first; any failure stops the build and goes back to `/architect` (AC-11)
+   - [ ] `/test` base from the merge base with `main` (AC-9, AC-10)
+   - [ ] App keys, `no_browser` start checks, app jail lifecycle, `app_failed` and `app_port_busy` (AC-1 to AC-3, AC-10)
+   - [ ] Browser calls: pinned MCP, allowed and denied tools, browser hook, prompt (AC-4 to AC-8)
+   - [ ] P8 and P9 through `wf run` (AC-11)
+- [ ] Verify it: `/check verify headless verify and test`
+- [ ] Test it: `/test headless verify and test`
+Spec [0009](../specs/0009-headless-verify-test/index.md)
 
 ### 9. Design enforcement unattended · needs a decision
 Frontend work in a headless run goes through `design` and `design-gate`, never skipped: the Stop hook runs headless, and the runner fails a step that changed frontend files without a newer gate report.

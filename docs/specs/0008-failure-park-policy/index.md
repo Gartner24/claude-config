@@ -2,6 +2,7 @@
 
 **Date**: 2026-10-12
 **Status**: Proposed
+**Amended by**: [0009](../0009-headless-verify-test/index.md) - AC-1 park set gains `app_failed`, stop set gains `app_port_busy`; AC-3 snapshot is taken before the app starts and after it stops.
 
 ## Summary
 
