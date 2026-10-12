@@ -61,6 +61,32 @@ if not ok:
     print("wf run: remote agents are refused", file=sys.stderr)
     sys.exit(2)
 """
+# Spec 0009 AC-7, argv: app url, shots dir. Fails closed like AGENT_GUARD: exit 0 only on an allowed call.
+BROWSER_GUARD = """import json, os, sys, urllib.parse
+def origin(u):
+    s = urllib.parse.urlsplit(u)
+    return s.scheme.lower(), (s.hostname or "").lower(), s.port or {"http": 80, "https": 443}.get(s.scheme.lower())
+try:
+    app, shots = sys.argv[1], os.path.realpath(sys.argv[2])
+    d = json.load(sys.stdin)
+    name, i = d["tool_name"], d["tool_input"]
+    if not name.startswith("mcp__chrome-devtools__") or not isinstance(i, dict):
+        raise ValueError("not a chrome-devtools call")
+    tool = name[len("mcp__chrome-devtools__"):]
+    if tool in ("navigate_page", "new_page") and not (
+            tool == "navigate_page" and "url" not in i and i.get("type") == "reload"):
+        u = i.get("url")
+        if not isinstance(u, str) or origin(u) != origin(app):
+            raise ValueError(f"{tool} may only open {app}")
+    for k, v in i.items():
+        if k.endswith(("path", "Path")):
+            p = os.path.realpath(v) if isinstance(v, str) else ""
+            if p != shots and not p.startswith(shots + "/"):
+                raise ValueError(f"{k} must be under {shots}")
+except Exception as e:
+    print("wf run: browser tool call refused:", e, file=sys.stderr)
+    sys.exit(2)
+"""
 UNATTENDED_PROMPT = (
     "You are running unattended inside wf run, and AskUserQuestion is not available. "
     "Decide these panels yourself with the fixed answer: Doc type, the option marked (recommended); "
@@ -88,6 +114,9 @@ ANSWERS_INTRO = " Standing answers for this repo, use them instead of asking:"
 RUN_SUITE_YES = " Run tests?, Yes, run and fix to green."
 DONE_YES = (" When /test or /check verify offers to mark the feature done after its last open box passed: "
             "Yes, mark it done.")
+TEST_BASE = (" For /test, the feature's changes are the files in git diff --name-only --diff-filter=ACMR {} plus the "
+             "untracked files from git ls-files --others --exclude-standard; use that list as the changed files "
+             "instead of uncommitted files only.")
 # Spec 0008 AC-1: a park ends only this feature, a stop ends the whole run (feature 10 tells them apart).
 # app_failed and app_port_busy come from spec 0009.
 PARKS = frozenset(("verify_failed", "blocked", "denied", "debug_touched", "no_progress", "call_error", "call_timeout",
@@ -405,21 +434,21 @@ class Run:
 
     # -- one call ------------------------------------------------------------
 
-    def call(self, seq, command, resume=None, last_box=False):
+    def call(self, seq, command, resume=None, last_box=False, sha=None):
         """Run one claude call, or with resume=(session id, prompt) continue that session.
         Returns (call record, parsed JSON or None, timed out, stderr tail, spawn error)."""
         a = self.args
         argv = [self.claude, "-p", resume[1] if resume else command,
                 *(["--resume", resume[0]] if resume else []), "--output-format", "json", "--permission-mode", "auto",
                 "--permission-prompts", "none", "--max-budget-usd", "%g" % a.budget,
-                "--disallowedTools", self.denied, "--append-system-prompt", unattended_prompt(self.answers, last_box),
+                "--disallowedTools", self.denied, "--append-system-prompt", unattended_prompt(self.answers, last_box, sha),
                 "--settings", self.settings, "--strict-mcp-config", "--mcp-config", MCP_ALLOW]
         base = os.path.join(self.folder, f"call-{seq:02d}")
         rec = {"seq": seq, "kind": None, "command": command, "box_text": None, "started": now(), "duration_s": None,
                "exit_code": None, "session_id": None, "subtype": None, "is_error": None,
                "cost_usd": None, "num_turns": None, "next_after": None, "decision": None,
                "resumes": [], "last_box": last_box, "denials": [], "marker": None, "limited": False,
-               "retry_of": None, "touched": None}
+               "retry_of": None, "touched": None, "test_base": sha}
         t0 = time.monotonic()
         timed_out = False
         with open(base + ".json", "wb") as out, open(base + ".stderr", "wb") as err:
@@ -629,13 +658,14 @@ class Run:
             # A resume, retry or limit rerun keeps the value of the call it repeats; /sync is never a last box call.
             if fresh:
                 last = kind == "box" and self.last_box()
+                base = test_base(self.c.path) if kind == "box" and command.split()[0] == "/test" else None
                 if kind == "debug":
                     snapshot = self.snapshot()
                     self.record["debug_attempts"] += 1
             if self.limit_rerun:
                 self.record["limit_wait"]["resumed"] = now()
                 self.limit_rerun = False
-            rec, data, timed_out, tail, spawn_error = self.call(seq, command, resume and resume[:2], last)
+            rec, data, timed_out, tail, spawn_error = self.call(seq, command, resume and resume[:2], last, base)
             rec.update(kind=kind, box_text=box.box_text if kind == "box" else None,
                        resumes=resume[2] if resume else [], retry_of=retry_of)
             calls.append(rec)
@@ -801,11 +831,22 @@ def read_answers(c):
     return {k: found[k] for k in ANSWER_KEYS if k in found}, None
 
 
-def unattended_prompt(answers, last_box):
-    """Spec 0006 AC-5: UNATTENDED_PROMPT, plus a sentence per standing answer that applies to this call."""
+def unattended_prompt(answers, last_box, base=None):
+    """Spec 0006 AC-5: UNATTENDED_PROMPT, plus a sentence per standing answer that applies to this call,
+    plus (spec 0009 AC-9) the /test base sentence."""
     said = ([RUN_SUITE_YES] if answers.get("run suite") == "yes" else []) + \
            ([DONE_YES] if last_box and answers.get("done") == "yes" else [])
-    return UNATTENDED_PROMPT + (ANSWERS_INTRO + "".join(said) if said else "")
+    return UNATTENDED_PROMPT + (ANSWERS_INTRO + "".join(said) if said else "") + (TEST_BASE.format(base) if base else "")
+
+
+def test_base(repo):
+    """Spec 0009 AC-9: the merge base of HEAD with local main, else master, else None."""
+    for b in ("main", "master"):
+        r = wf.git(repo, "rev-parse", "--verify", "--quiet", f"refs/heads/{b}")
+        if r and r.returncode == 0:
+            m = wf.git(repo, "merge-base", "HEAD", b)
+            return (m.stdout.strip() or None) if m.returncode == 0 else None
+    return None
 
 
 def read_bytes(path):

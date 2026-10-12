@@ -1125,8 +1125,9 @@ class TestGuard(RunCase):
         self.wf("demo", "-y", "--max-calls", "2")
         self.assertEqual([self.argv(n)["exe"] for n in (1, 2)], [str(self.fakes / "claude-a")] * 2)
         self.assertFalse((self.fakes / "b-ran").exists())
-        # rev-parse, the include read of .git/config, remote -v, and status for the confirm line.
-        self.assertEqual((self.fakes / "git-log").read_text().splitlines(), [str(self.fakes / "git-wrap")] * 4)
+        # rev-parse, the include read of .git/config, remote -v, status for the confirm line, and (spec 0009 AC-9)
+        # the main and master lookups before the /test call.
+        self.assertEqual((self.fakes / "git-log").read_text().splitlines(), [str(self.fakes / "git-wrap")] * 6)
         _, rec = self.run_record()
         self.assertEqual(rec["guard"]["binaries"], {"git": str(self.fakes / "git-wrap"),
                                                     "claude": str(self.fakes / "claude-a"),

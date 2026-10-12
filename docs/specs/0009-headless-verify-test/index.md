@@ -1,7 +1,7 @@
 # 0009. Headless verify and test for `wf run`
 
 **Date**: 2026-10-12
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 
