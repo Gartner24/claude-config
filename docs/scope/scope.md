@@ -231,7 +231,7 @@ Follow-up: the usage limit probe (spec 0008 `verify.md` Follow-up, check 3) wait
    - [x] Findings 8 and 9: binds at the real path, symlink inside a write bind parks, `absent_denied` check, `file_hash()` on a directory, then rerun P2 through the built code (AC-3, AC-11)
    - [x] Findings 10 and 13: empty folder trees pass, absent guarded symlinks and unreadable files trip, 11 and 12 residual (AC-3)
    - [x] P8 and P9 through `wf run`, with P2 rerun (AC-11)
-- [ ] Verify it: `/check verify headless verify and test`
+- [x] Verify it: `/check verify headless verify and test`
 - [ ] Test it: `/test headless verify and test`
 Spec [0009](../specs/0009-headless-verify-test/index.md) · code in `runner/run.py`, `runner/tests/test_browser.py`
 Unblocked 2026-10-12: P5 failed on the WebRTC switch spelling Brave ignores; spec 0009 amended (AC-4 `--webrtc-ip-handling-policy`, `MCP_CACHE`) and P2 to P7 now pass. Steps 3 to 6 built 2026-10-12 (the held patch reapplied plus the `MCP_CACHE` checks); P8 and P9 through `wf run` remain.

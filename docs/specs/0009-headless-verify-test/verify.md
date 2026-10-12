@@ -189,3 +189,19 @@ done: 1. Greeter page
 The verify call reported `PASS`, all four ACs, driven in the headless browser, screenshot cited (`shots/ac2-ada.png`, present in the run folder). Its call record: `app {"url": "http://127.0.0.1:8793", "logs": ["app-01.log"], "ready_s": 0.5, "exit": -15}`. After the run, no process carries `WF_RUN=<run id>` (`grep -sl` over `/proc/*/environ`, no match), and no `server.py 8793` or headless Brave runs. The only chrome-devtools processes left are your own sessions' `@latest` MCPs (not pinned, not headless, started before the run).
 
 Tool facts read on 2026-10-12 (`npx -y chrome-devtools-mcp@latest --help`, `--version`): version 1.10.1; flags `--isolated`, `--headless`, `--executablePath`, `--proxyServer`, `--chromeArg`, `--browserUrl` (`-u`), `--wsEndpoint` (`-w`), `--autoConnect`, `--userDataDir`, `--allowedUrlPattern` (Chrome 149+). Brave installed: 154.1.96.60.
+
+## /check verify (run 2026-10-12): PASS
+
+Every AC exercised through the real `wf.py run` on scratch repos (`wf11`), with a stand-in `claude` first on `PATH` where the check needed the exact argv or a decision, and the real `claude` for P8 and P9 above. Scripts in the session scratchpad: `run_v.sh`, `check_argv.py`, `hook_cases.py`, `ac1_ac2.py`, `decision_run.py`, `ac3_fail.py`, `debug_order.py`, `ac5_real.py`.
+
+- [x] AC-1: only `app start`, a remote host, no port, port 70000 and a repeated `app url` each refuse `bad_answers` exit 5 with the spec detail and the `expected:` hint naming both keys; the confirm line shows `app start python3 server.py 8793, app url http://127.0.0.1:8793` with case and spaces kept.
+- [x] AC-2: a fake `npx` failing `--version` refuses `no_browser: mcp: npm ERR! fake failure`; `XDG_STATE_HOME` inside the repo refuses `no_browser: state dir is writable by calls` and creates nothing there; with real tools the start check passes.
+- [x] AC-3: P2 (jail) above; a busy port stops `app_port_busy: something already answers at http://127.0.0.1:8793` and an app exiting 3 parks `app_failed: app exited 3: boom`, both with no claude call; during a call the app answers 200, the call has `WF_RUN` and no OAuth token, and after the run the port is closed; a decision wait stops the app (port down from 1.7 s to 91.9 s while the local ntfy stand in held the answer), restarts it for the resume (`logs [app-01.log, app-01-r1.log]`, 200 during the resume); a debug call whose app rewrote `tests/generated_x.py` (new timestamp) while it ran did not park `debug_touched`.
+- [x] AC-4: the captured verify call argv has `--strict-mcp-config` and `MCP_BROWSER` exactly as specified (`env -C <state dir>`, resolved `npx`, `chrome-devtools-mcp@1.10.1`, `--isolated --headless`, dead proxy, both chromeArgs, `npm_config_cache` the state dir `npm`), and `--allowedTools` lists the 24 `BROWSER_TOOLS`; the debug call gets the browser MCP too.
+- [x] AC-5: `check_mcp` passes on the real captured config and rejects it with `--browserUrl` added; `test_argv` and `test_check_rejects` pass.
+- [x] AC-6: `--disallowedTools` holds the six chrome-devtools names.
+- [x] AC-7: the real hook command from the argv: app origin and `reload` exit 0, a screenshot inside shots exit 0; github, `file://`, the backslash form, `8793.evil.example`, a home path, a `..` path and malformed JSON exit 2 with `wf run: browser tool call refused`.
+- [x] AC-8: the prompt ends with the AC-8 text naming `http://127.0.0.1:8793` and the real shots dir.
+- [x] AC-9: P8 `test_base` `0b97be9`, P9 `886af04`, `/test` covered the committed files.
+- [x] AC-10: call records carry `app` (`url`, `logs`, `ready_s 0.5`, `exit -15`) and `test_base`; `run.json` `answers` shows the app keys.
+- [x] AC-11: P1 to P11 recorded in this file, P2, P8, P9 rerun today after the last code change.
