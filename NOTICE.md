@@ -18,6 +18,7 @@ because the LICENSE covers only the parts authored here.
 | `rules/spec-gate.md` | Spec gate: the agreeing section, probe before accept, small change fast path, `docs/architecture.md` |
 | `rules/handoff.md` | Handoff override: replaces the skills' bare "/clear" line with `/rollover` or `/save-and-clear` |
 | `rules/standing-answers.md` | Standing answers: skill questions answered the same way every time in interactive sessions |
+| `rules/plain-questions.md` | Plain questions: every question to you opens with what is decided, explains each term, and re-explains from zero on request |
 | `rules/ecc/*/index.md` (7 files) | Per-language rule indexes - authored here, not upstream. They only `@import` the files below. |
 | `sync.sh`, `CLAUDE.md`, `rules/ecc/common/{code-review,testing}.md` additions | Setup and the hand-earned rules |
 
