@@ -2,6 +2,7 @@
 
 **Date**: 2026-10-11
 **Status**: Accepted
+**Amended**: 2026-10-11, AC-2 reads worktrees from the files instead of `git worktree list` (scope feature 17, build step 6, not yet built)
 
 ## Summary
 
@@ -15,7 +16,7 @@
 
 **Acceptance criteria**:
 - **AC-1**: A folder is a candidate when it holds `docs/scope/scope.md`, `docs/scope/index.md`, `.workflow/scope/scope.md` or `.workflow/scope/index.md`. The default roots are `~` (its direct child folders) and `~/projects` (itself and folders up to three levels below). Hidden folders and `node_modules` are skipped. `WF_ROOTS` (a colon separated list of folders) replaces the default roots. Each listed root is scanned the same way as `~/projects`: the root itself and up to three levels below. Candidates are deduplicated by real path (symlinks resolved), so `~/projects`, which is both a child of `~` and a root, appears once. Deeper repos need `WF_ROOTS`.
-- **AC-2**: For each candidate that is a main checkout (its `.git` is a folder), its linked worktrees (from `git worktree list --porcelain`) that hold a scope are candidates too, wherever they live. A worktree's label is `worktree <branch>`, or `worktree (detached)` when its record has no `branch` line. A main checkout has no label. A worktree found both by the scan and through git appears once (AC-1 dedupe).
+- **AC-2**: For each candidate that is a main checkout (its `.git` is a folder), its linked worktrees that hold a scope are candidates too, wherever they live. They are read from the files, and no git runs in a scanned repo: the `<id>` entries of `<main>/.git/worktrees/` are read in sorted order, each `<id>/gitdir` names that worktree's `.git` file (an absolute path, or one relative to that `<id>` folder), and the worktree is the folder holding it. An entry is used only when that `.git` is a file whose `gitdir:` resolves back to the same `<id>` folder. Every other entry is skipped with no warning: a folder that is gone (git calls it prunable), a folder reused after its worktree was deleted, an unreadable or empty `gitdir`, or no `.git/worktrees` folder at all. A candidate is a linked worktree when its `.git` is a file whose `gitdir:` folder holds a `commondir` file, so a submodule gets no label. Its label comes from that folder's `HEAD`: `ref: refs/heads/<x>` gives `worktree <x>` (through `clean()`), a commit hash (40 or 64 hex characters) gives `worktree (detached)`, and anything else gives `worktree (branch unknown)`: reftable's `.invalid` placeholder, an unreadable or empty `HEAD`, or any other content. Every file is read with surrounding whitespace stripped; only a `.git` file's content loses its `gitdir:` prefix (`<id>/gitdir` has none). A main checkout has no label. A worktree found both by the scan and through a main checkout appears once (AC-1 dedupe). A missing `git` binary changes none of this.
 - **AC-3**: The argument is a path when it names an existing folder that holds a scope (`next .`, `next ~/x`). That folder is used directly, even outside the roots. Otherwise it is a name, matched case insensitively against each candidate's folder name and its scope title (the text after `# Scope:` on the first heading). Exact matches win over substring matches. One match is used directly. Several matches open fzf over just those. No match prints `no scope matches '<name>'` and exits 1.
 - **AC-4**: `next` with no argument looks at the current folder, then each parent in turn, and uses the first one that is a candidate and not a hub. Finding none, it opens fzf over all candidates. Cancelling fzf, here or in AC-3, exits 0 and launches nothing.
 - **AC-5**: Boxes are lines matching `^\s*[-*+]\s+\[([ xX])\]`. A space inside the brackets means open, `x` or `X` means ticked. The next box is the first open box in file order. These are never read: HTML comments (which may span lines), fenced code blocks, and everything from a `## Deferred` heading to the next `##` heading. A box also counts as gone when its feature is done, existing or dropped. Its feature is the nearest `###` heading above it. Any heading of level 1, 2 or 3 starts a new feature context, so a `##` heading clears the previous `###`. A feature is done, existing or dropped when its heading carries that word as a whole tag: case insensitive, either inside parentheses (`(done)`) or as a `·` segment (`· done`, ending at the next `·` or the line end). `(done criteria)` is not a tag. For an `index.md`, its own boxes are ignored. The epic files are its relative `.md` links that resolve inside the scope folder, read once each in first link order. URLs, anchors and links outside the folder are ignored. A linked epic file that is missing adds a warning, and reading goes on.
@@ -45,7 +46,7 @@
 ## Feature design
 
 **Data model sketch** (in memory only, nothing stored):
-- `Candidate`: `path` (real path, required, unique), `scope_dir` (`docs/scope` or `.workflow/scope`, required), `name` (folder basename, required), `title` (from `# Scope:`, nullable), `label` (empty, `worktree <branch>` or `worktree (detached)`), `is_hub` (true when its scope files have no box line), `warnings` (list).
+- `Candidate`: `path` (real path, required, unique), `scope_dir` (`docs/scope` or `.workflow/scope`, required), `name` (folder basename, required), `title` (from `# Scope:`, nullable), `label` (empty, `worktree <branch>`, `worktree (branch unknown)` or `worktree (detached)`), `is_hub` (true when its scope files have no box line), `warnings` (list).
 - `NextBox`: `feature` (display heading, nullable for a box outside any feature), `box_text` (required), `command` (nullable), `note` (milestone text, nullable), `waiting` (bool), `file` and `line` (required).
 - A candidate has zero or one `NextBox`.
 
@@ -59,7 +60,8 @@
 **Value sourcing**:
 | Action | Value produced / displayed | Source |
 |---|---|---|
-| discover | candidate folders | scan of `WF_ROOTS`, else the default roots (AC-1), plus `git worktree list --porcelain` per main checkout (AC-2), deduplicated by `os.path.realpath` |
+| discover | candidate folders | scan of `WF_ROOTS`, else the default roots (AC-1), plus, per main checkout, the parent folder of each path named in `<main>/.git/worktrees/<id>/gitdir`, `<id>` sorted (relative paths joined to that `<id>` folder), kept only when that worktree's `.git` file points back to the same `<id>` folder (AC-2), deduplicated by `os.path.realpath` |
+| discover | linked worktree | `<path>/.git` is a file, and the folder its `gitdir:` line names (joined to `<path>` when relative) holds `commondir`. Two join bases: an `<id>/gitdir` path is relative to `<id>`, a `.git` file's path is relative to the worktree |
 | discover | `scope_dir` | whichever of `docs/scope`, `.workflow/scope` holds `scope.md` or `index.md`, with `docs/` winning (AC-11) |
 | discover | main checkout | `<path>/.git` is a folder |
 | match | path argument | the argument names an existing folder holding a scope (AC-3) |
@@ -75,7 +77,7 @@
 | list, picker | branch | read from the files, never by running git: `<path>/.git/HEAD`, or for a worktree the `HEAD` in the folder its `.git` file's `gitdir:` names. `ref: refs/heads/<x>` shows `<x>` (`-` for reftable's `.invalid` placeholder); anything else shows `detached` plus its first 7 characters; no readable `HEAD` shows `no git`. No `no commits` state here |
 | list, picker | changes | always `-` |
 | launch line | open sessions | for each `/proc/<pid>`: `comm` equal to `claude`, `cmdline` without `--chrome-native-host`, `cwd` real path equal to or under the candidate path; unreadable entries skipped |
-| launch line | worktree label | the `branch refs/heads/<x>` line of that worktree's porcelain record, else `(detached)` |
+| discover | worktree label | the `HEAD` file in that worktree's `gitdir:` folder: `ref: refs/heads/<x>` gives `worktree <x>` (through `clean()`), 40 or 64 hex characters give `worktree (detached)`, anything else (`.invalid`, unreadable, empty) gives `worktree (branch unknown)`; never by running git |
 | launch | launch mode | `$TMUX` set, then `os.isatty(0)` (AC-16) |
 | hub rows | open rows | At a glance table rows whose last cell, lowercased, does not start with done, dropped or existing |
 
@@ -104,6 +106,7 @@ Fixtures are trimmed copies of real scopes pinned in `runner/tests/fixtures/` (d
 - Sessions: a stubbed `/proc` listing with one claude in the repo, one in a subfolder and one `--chrome-native-host` warns `2 session(s)`, verifies **AC-10**.
 - Both bases present: `docs/scope` wins with a warning, verifies **AC-11**.
 - Worktree: a temp repo with a linked worktree on a branch and one detached lists three candidates with the right labels, verifies **AC-2**.
+- Worktree without git: the same repo plus a worktree added with `worktree.useRelativePaths=true`, a submodule, a prunable entry (worktree folder deleted), a reused entry (worktree folder deleted, then a plain folder with a scope made at the same path), an `<id>` whose `gitdir` is emptied, and worktree `HEAD`s rewritten to `ref: refs/heads/.invalid` and to an empty file. `wf next --list` runs with a fake `git` first on PATH that records every call: all valid worktrees are listed with the right labels (`worktree (branch unknown)` for the placeholder and the empty `HEAD`), the submodule has no label, the reused folder appears only through the scan with no label, the prunable and emptied entries are absent, and the fake records zero calls. Then with no `git` on PATH at all, the same worktrees are still listed, verifies **AC-2**.
 - List: `wf next --list` prints sorted tab separated lines; `wf next --list x` exits 2, verifies **AC-12**.
 - Shortcut: invoking through a `next` symlink equals `wf next`, verifies **AC-13**.
 - Missing tools: no `claude` on PATH exits 1 before the prompt; no `fzf` with several matches exits 1; no `git` shows `no git` and `-`, verifies **AC-14**.
@@ -119,6 +122,7 @@ Skateboard: the first milestone is already usable on its own (`next <exact name>
 3. Box parser: box syntax, comments and fences, Deferred, heading resets and tags, command pattern, milestones and waiting notes, hubs and brownfield, `index.md` epics, satisfies **AC-5**, **AC-6**, **AC-7**
 4. Confirm line and exec: branch states, change count, open session warning, empty line or `-y`, satisfies **AC-8**, **AC-9**, **AC-10**, **AC-14**, **AC-16**
 5. No argument and several matches via fzf, linked worktrees, `--list`, then the manual real claude check, satisfies **AC-2**, **AC-4**, **AC-12**, **AC-15**
+6. (Feature 17) Replace `worktrees()` and `worktree_label()` with file reads of `gitdir`, `commondir` and `HEAD`, so `discover()` runs no git. One helper resolves a `.git` file to its gitdir folder (joined to the worktree) and is shared by the label and `head_branch()`; the `<id>/gitdir` path is joined to `<id>` instead, a different base. Add the "worktree without git" test, satisfies **AC-2**
 
 ## Consequences
 
@@ -131,6 +135,8 @@ Skateboard: the first milestone is already usable on its own (`next <exact name>
 - A repo outside the roots is invisible without `WF_ROOTS`.
 - The open session check reads `/proc`, so it is Linux only (the runner's only target).
 - Including worktrees can show stale copies of a scope; the label is the only guard.
+- Worktree discovery reads git's on disk layout (`worktrees/<id>/gitdir`, `commondir`, `HEAD`) instead of a git command. That layout has been stable for years, but a future change to it would break discovery quietly; the "worktree without git" test against the real git is the early warning.
+- A main checkout made with `--separate-git-dir` has a `.git` file, not a folder, so it is not a main checkout here and its worktrees are found only by the scan. A known miss, accepted.
 
 **Neutral**:
 - Feature 2 (scope contract) may replace the scan with `**Repo:**` fields later; this design keeps discovery in one function so that swap stays local.

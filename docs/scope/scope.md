@@ -22,7 +22,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 1 | Runner stack and layout | Foundation | done |
 | 2 | Scope contract for the runner | Foundation | in-progress |
 | 3 | `next <repo>` | Release 1 | done |
-| 17 | Worktree discovery without git | Release 1 | planned |
+| 17 | Worktree discovery without git | Release 1 | in-progress |
 | 18 | fzf failure is not a cancel | Release 1 | planned |
 | 19 | Singular change count | Release 1 | planned |
 | 4 | Headless step loop | Release 2 | done |
@@ -66,10 +66,10 @@ Spec [0001](../specs/0001-runner-stack-and-layout.md) · code in `runner/`
 The fields the runner reads: the hub `Repos` column (replaces `**Repo:**`), `**Source of truth:**`, `**Autopilot:**`, the `auto` tag, and how the next box is found (first unticked box, `docs/` or `.workflow/` base, milestone sub items). The skills that write the scope have to agree with it.
 **Done when:** a spec defines the fields and the next box rule, and `/scope` and `/architect` write them.
 - [x] Design it (spec): `/architect scope contract for the runner`
-- [ ] Build it: `/develop scope contract for the runner`
+- [x] Build it: `/develop scope contract for the runner`
    - [x] Rule file `scope-contract.md`, synced, in `NOTICE.md` (AC-4 to AC-9)
    - [x] Header check in `wf.py` with warnings on every path, fixtures and tests (AC-1, AC-2, AC-3, AC-5, AC-7)
-   - [ ] Manual `/scope` replan, headless `/scope`, `/architect` queue check (AC-10); replan, headless and the `· auto` write pass; the no tag half waits on the next `/architect` capture done without a queue request (feature 17 or 18)
+   - [x] Manual `/scope` replan, headless `/scope`, `/architect` queue check (AC-10); replan, headless and the `· auto` write pass; the no tag half passed at the feature 17 capture (2026-10-11)
 - [ ] Verify it: `/check verify scope contract for the runner`
 - [ ] Test it: `/test scope contract for the runner`
 Spec [0003](../specs/0003-scope-contract/index.md) · code in `rules/scope-contract.md`, `runner/wf.py`, `runner/tests/`
@@ -90,10 +90,16 @@ From any folder, name a repo (a path, its folder name or its scope title, found 
 - [x] Test it: `/test next repo command`
 Spec [0002](../specs/0002-next-repo-command/index.md) · code in `runner/wf.py`, `runner/tests/`
 
-### 17. Worktree discovery without git · needs a decision
+### 17. Worktree discovery without git · in-progress
 Discovery still runs `git worktree list --porcelain` in every scanned main checkout. Decide whether to read `.git/worktrees/*/gitdir` instead, so no git runs in a repo that is only scanned (the rule since `c26dc8a`). Changing it rewords spec 0002 AC-2 and its worktree label row.
 **Done when:** spec 0002 records the decision, and if it changes, worktrees are still found and labelled with no git call in scanned repos.
-- [ ] Design it (spec): `/architect worktree discovery without git`
+- [x] Design it (spec): `/architect worktree discovery without git`
+- [ ] Build it: `/develop worktree discovery without git`
+   - [ ] File reads of `gitdir`, `commondir` and `HEAD` replace `worktrees()` and `worktree_label()`, one shared `.git` file resolver (AC-2, build step 6)
+   - [ ] "Worktree without git" test: zero git calls, relative, prunable, reused, empty and placeholder cases, no git on PATH (AC-2)
+- [ ] Verify it: `/check verify worktree discovery without git`
+- [ ] Test it: `/test worktree discovery without git`
+Spec [0002](../specs/0002-next-repo-command/index.md) (amended AC-2) · code in `runner/wf.py`, `runner/tests/`
 
 ### 18. fzf failure is not a cancel · needs a decision
 When fzf cannot open a terminal it prints `inappropriate ioctl for device` and `next` exits 0, the same as a cancelled pick (AC-4). Spec 0002 has no exit code or message for a picker that fails, so that is the decision.

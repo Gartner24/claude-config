@@ -51,6 +51,20 @@ Add a path column to the hub tables and read repos from there.
 
 The research's main friction was the wrong folder, and every fix that needs you to keep a list is the same failure in a new place. Scanning removes the list (basis: research section 1, the wrong folder friction). It is cheap at this size: about 25 scopes, three levels deep, read in milliseconds. Reading the first unticked box in file order is exactly the documented rule ("Next step = the first unticked box", `scope-template.md`), so `next` agrees with what `/scope` and `/develop` already say. The confirm line (basis: confirm before an action that starts paid work) costs one key press and catches the two expensive mistakes: a wrong match, and a dirty tree or wrong branch before a session starts work. Hubs are included because you asked for it. Their rows are shown rather than run, since hub rows are not commands.
 
+### Amendment 2026-10-11: worktree discovery without git (feature 17)
+
+After `c26dc8a` the list and picker stopped running git in scanned repos, but discovery still ran `git worktree list --porcelain` in every main checkout, and again for every candidate whose `.git` is a file (`runner/wf.py` `discover()` and `worktree_label()`). That command runs no filter drivers, and `GIT_SAFE` already turns off fsmonitor and hooks, so the `git status` danger did not strictly apply. The costs were that the rule had an exception, one subprocess per repo, and no worktrees at all when git is not installed.
+
+Options you weighed:
+- **Read the files (chosen).** `<main>/.git/worktrees/<id>/gitdir` names each worktree's `.git`. No git in a scanned repo, the rule has no exception, and worktrees are found without a git binary. It depends on git's on disk layout.
+- **Keep `git worktree list`, record why it is allowed.** No code change, but the exception and the missing git case stay.
+
+Smaller calls, each your pick: a linked worktree is told apart from a submodule by the `commondir` file (git writes it only for linked worktrees; matching a `worktrees/` path part would misfire on a folder that happens to have that name). A prunable entry is skipped silently, as it already was (its folder holds no scope). Reftable's `.invalid` placeholder labels as `worktree (branch unknown)`, so the label never claims detached when that is not known.
+
+A cross check (another model) then found seven gaps, all closed with its recommended fix on your pick: skip unreadable or empty entries and a missing `.git/worktrees`; require the worktree's `.git` to point back to its `<id>` (a reused folder would otherwise get a wrong label); `detached` only for a commit hash, `branch unknown` for an unreadable, empty or other `HEAD`; strip whitespace, drop `gitdir:` only from a `.git` file, `clean()` the branch; name both join bases; read `<id>` sorted; record the `--separate-git-dir` miss.
+
+Checked against git 2.56.0 in a temp repo: an absolute `gitdir` (default), a relative one (`worktree.useRelativePaths=true`, relative to the `<id>` folder, and the worktree's own `.git` file relative to the worktree), a detached `HEAD` holding a bare sha, and a submodule whose `gitdir:` folder has no `commondir`.
+
 ## References
 
 **Project sources**:
@@ -66,6 +80,6 @@ The research's main friction was the wrong folder, and every fix that needs you 
 
 **Links**:
 - Claude Code CLI reference (`claude "query"` starts an interactive session with an initial prompt): https://code.claude.com/docs/en/cli-reference
-- git worktree (`list --porcelain` record format, the `.git` pointer in a linked worktree): https://git-scm.com/docs/git-worktree
+- git worktree (`list --porcelain` record format, the `.git` pointer in a linked worktree, the `$GIT_DIR/worktrees/<id>` files): https://git-scm.com/docs/git-worktree
 - fzf man page (reads stdin, prints the pick; exit 130 on Ctrl C or Esc, 1 on no match): https://raw.githubusercontent.com/junegunn/fzf/master/man/man1/fzf.1
 - `/proc/<pid>/cwd` (the proc_pid_cwd(5) man page): found by search but not fetched, so cited by name only
