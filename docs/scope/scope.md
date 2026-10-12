@@ -181,7 +181,7 @@ A box only you can close (a manual check on the real claude or your phone, like 
    - [x] `next` never launches a marked box (AC-3, AC-6)
    - [x] Rule file line live (AC-7; architecture sentence and the repo copy are in): `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` · waits on you
    - [x] Headless `/scope` probe (AC-8; the `wf run` refusal passed, see spec 0012 `verify.md`) · waits on you
-- [ ] Verify it: `/check verify waiting boxes owed to you`
+- [x] Verify it: `/check verify waiting boxes owed to you`
 - [ ] Test it: `/test waiting boxes owed to you`
 Spec [0012](../specs/0012-waiting-boxes-owed-to-you/index.md) · code in `runner/wf.py`, `runner/run.py`, `runner/tests/`, `rules/scope-contract.md`
 Source: your message of 2026-10-12, after the feature 6 `wf run` loop.
