@@ -261,15 +261,16 @@ Steps 1 to 3 built 2026-10-12 inside a `wf run` call. P2 to P4 passed 2026-10-12
 A parked feature no longer stops the run: the runner moves to the next queued feature or repo. The queue is the scope files themselves (accepted spec, unticked build boxes, `auto` tag), one feature at a time per repo.
 **Done when:** with two queued features where the first parks, the second still builds, and the parked question waits for you.
 - [x] Design it (spec): `/architect build queue and decision queue`
-- [ ] Build it: `/develop build queue and decision queue`
+- [x] Build it: `/develop build queue and decision queue`
    - [x] Queue inside one repo, `queue.json`, park memory, tree rule, exit codes (AC-2, AC-3, AC-7, AC-8, AC-10, AC-16 to AC-19)
    - [x] Decision queue: records, polling, resume, stale, end wait (AC-7, AC-11 to AC-13, AC-15)
    - [x] Across repos: trust list, skips, locks and guard baselines, plan, repo vs run stops, re-ping (AC-1, AC-4 to AC-6, AC-9, AC-14)
    - [x] `wf queue` and `wf unpark` (AC-20, AC-21)
-   - [ ] Manual checks on the real claude and phone (AC-22) · waits on you
+   - [x] Manual checks on the real claude and phone (AC-22) · waits on you
 - [ ] Verify it: `/check verify build queue and decision queue`
 - [ ] Test it: `/test build queue and decision queue`
 Spec [0011](../specs/0011-build-decision-queue/index.md) · code in `runner/run.py`, `runner/wf.py`, `runner/tests/test_queue.py`
+AC-22 manual checks passed 2026-10-12 through real `wf run` and phone taps (`verify.md`).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.

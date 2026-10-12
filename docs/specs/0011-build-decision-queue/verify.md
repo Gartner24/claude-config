@@ -24,9 +24,16 @@ _Steps derived from spec 0011 acceptance criteria. `/check verify` runs these; `
 - [ ] End wait budget: `--max-wait 0.0001` ends the run `queue_done` within a few polls, `waited_s` grows, `--max-hours` is not charged -> AC-15
 
 ## Manual (AC-22, after all build steps)
-- [ ] The four checks of AC-22 on the real claude and your phone · waits on you -> AC-22
+- [x] The four checks of AC-22 on the real claude and your phone · waits on you -> AC-22
+
+Run 2026-10-12 from a normal session against the real `claude` (2.1.296) and the real ntfy topic, the user answering on the phone. Scratch repos with `**Autopilot:** allowed`, `· auto` features with a ticked `(spec)` box, a work branch, isolated `XDG_CONFIG_HOME` / `XDG_STATE_HOME` with the ntfy config copied in, `wf allow` per repo. Caps `--budget 3 --call-timeout 20 --max-calls 6 --max-wait 0.5`. About 4 USD total on the subscription.
+
+1. PASS. Bare `wf run -y` over trusted `a1` (work) and `d4` (main). `parked: 1. Park test: blocked: test park` with a clean tree, then `2. Hello file` built, `/sync`, `done: 2. Hello file`, `queue done: 1 done, 1 parked, 0 open`, exit 6. `run.json` features: `blocked`, `feature_done`; `queue.json` holds one Park (`blocked`, `test park`, `cap` null). A first attempt parked feature 2 `denied` because its step text did not say to tick the box (the call committed `hello.txt` and claimed there was no scope); the step text was the probe's fault, rerun with "tick this Build it box".
+2. PASS. `wf run b2 -y`: call 1 ended `DECISION NEEDED:` with two `OPTION:` lines, `waiting: h8dv`, ping on the phone, `open: h8dv 1. Color file`, then `2. Hello file` ran (call 2, 12:38:33). The phone tap was polled after call 2 ended: `answered: h8dv blue (phone)` at 12:39:26, then `(resume h8dv)` as call 3. Calls 1 and 3 share `session_id` 21a4b31d-32c5-4b7a-8747-8fe7ba996a82; `decisions[0].resumed_in` 3, `queue.json` empty after. Both features then parked `denied` on the same step text slip as check 1's first attempt (no box tick), which AC-22 (2) does not cover.
+3. PASS. `wf run c3 -y`: `open: jqfo`, SIGINT in the end wait: `stopped: interrupted`, exit 130, `wf queue` still shows `open: jqfo`. The next `wf run c3 -y` printed `open: jqfo` in its plan, re-pinged with no `warning: re-ping` line, and the user tapped the new `jqfo` ping: `answered: jqfo blue (phone)`, `(resume jqfo)` with the first run's `session_id` f5e6aff7-15cb-4d66-a056-3e14695bde83, `/sync`, `done: 1. Color file`, exit 0, `queue.json` empty, `color.txt` committed as `blue`.
+4. PASS. In check 1's bare run, `d4 on main, 0 changes` / `skip: branch: main, switch to a work branch first` while `a1` ran.
 
 ## Acceptance-criteria coverage
 - AC-2, AC-3, AC-7 (one repo), AC-8, AC-10, AC-11, AC-12, AC-13, AC-15, AC-16, AC-17, AC-18 (repos, features, Call feature, decisions with `resumed_in`), AC-19: Commands and Value sourcing above.
 - AC-6 plan lines `open:`, `resume:` and `stale:` are in for one repo; the rest of AC-6 is with the across repos milestone.
-- AC-1, AC-4 to AC-6 across repos, AC-9 `guard_changed` split, AC-14 re-ping, AC-20, AC-21, AC-22: not built yet (milestones 3 to 5).
+- AC-22: Manual above, all four checks passed 2026-10-12.
