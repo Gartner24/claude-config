@@ -388,6 +388,8 @@ class Run:
     def __init__(self, c, args):
         """c: the one target repo, or None for bare `wf run` (spec 0011 AC-1), whose repos come through add()."""
         self.args, self.target = args, c is not None
+        # Spec 0011 AC-20: `wf queue` plans like wf run, reads only, and never calls.
+        self.peek = getattr(args, "command", None) == "queue"
         # Spec 0011: the feature being run (display heading) and its FeatureEntry; None between features.
         self.feature = self.entry = None
         self.interrupted = False
@@ -465,25 +467,22 @@ class Run:
         return 5
 
     def take_lock(self):
-        """AC-9. (reason, detail) on refusal, else None."""
+        """AC-9. (reason, detail) on refusal, else None. `wf queue` only tests the lock and lets it go (spec 0011 AC-20)."""
         state = state_dir()
-        locks = os.path.join(state, "locks")
         try:
-            for d in (locks, os.path.join(state, "runs")):
+            if self.peek:
+                fd, who = repo_lock(self.c.path, create=False)
+                if fd is not None:
+                    os.close(fd)
+                return who and ("locked", who)
+            for d in (os.path.join(state, "locks"), os.path.join(state, "runs")):
                 os.makedirs(d, mode=0o700, exist_ok=True)
                 if not os.access(d, os.W_OK):
                     raise PermissionError(f"not writable: {d}")
-            name = hashlib.sha1(self.c.path.encode()).hexdigest() + ".lock"
-            # No O_TRUNC: a losing opener used to wipe the holder's pid line.
-            self.lock_fd = os.open(os.path.join(locks, name), os.O_RDWR | os.O_CREAT, 0o600)
+            self.lock_fd, who = repo_lock(self.c.path)
         except OSError as e:
             return "state_unwritable", f"{state}: {e.strerror or e}"
-        try:
-            fcntl.flock(self.lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            who = holder(self.lock_fd)
-            os.close(self.lock_fd)
-            self.lock_fd = None
+        if who:
             # Spec 0011 AC-5: a skip line names the holder bare; the target refusal keeps spec 0004's sentence.
             if not self.target:
                 return "locked", who
@@ -506,15 +505,17 @@ class Run:
                 queue_transact()
         except QueueError as e:
             return self.refuse("queue_unreadable", e)
-        if not shutil.which("claude"):
+        if not self.peek and not shutil.which("claude"):
             print("claude not found on PATH", file=sys.stderr)
             return 1
         try:
             self.ntfy = ntfy.load()
         except ntfy.Invalid as e:
-            return self.refuse("no_ntfy", e)
+            return None if self.peek else self.refuse("no_ntfy", e)
         if len(self.ntfy["codes"]) < 5:
             self.warnings.append(f"{len(self.ntfy['codes'])} one time codes left, run wf ntfy codes")
+        if self.peek:
+            return None
         missing = [t for t in SANDBOX_TOOLS if not shutil.which(t)]
         if missing:
             return self.refuse("no_sandbox", "not found on PATH: " + ", ".join(missing))
@@ -529,6 +530,11 @@ class Run:
         if rc is not None:
             return rc
         problem = self.repo_checks()
+        # wf queue shows a failing repo as its skip line, the way bare wf run does.
+        if problem and self.peek and problem[0] != "state_unwritable":
+            self.held.clear()
+            self.repo["skip"] = flat(f"{problem[0]}: {problem[1]}")
+            return None
         if problem:
             return self.refuse(*problem)
         self.held[0].update(self.keep())
@@ -585,6 +591,9 @@ class Run:
         self.repo["answers"] = dict(answers)
         if self.branch in BAD_BRANCHES or self.branch.startswith("detached"):
             return "branch", f"{self.branch}, switch to a work branch first"
+        # The browser check fetches the MCP and the guard is only for calls; wf queue makes none.
+        if self.peek:
+            return self.take_lock()
         if "app url" in answers:
             problem = self.browser_checks()
             if problem:
@@ -897,6 +906,8 @@ class Run:
                 out.append((False, f"stale: {d['id']} {d['feature']}"))
             else:
                 out.append((True, f"{'open' if d['answer'] is None else 'resume'}: {d['id']} {d['feature']}: {d['question']}"))
+                # AC-20: wf queue lists the options under the question.
+                out += [(False, f"  {n} {o}") for n, o in enumerate(d["options"], 1) if self.peek]
         return out
 
     def pick(self):
@@ -986,7 +997,9 @@ class Run:
         to run, else None."""
         a = self.args
         try:
-            q = queue_transact()
+            # wf queue never creates the state folder.
+            q = queue_transact() if not self.peek or os.path.isdir(state_dir()) else \
+                {"version": 1, "parks": [], "decisions": []}
         except QueueError as e:
             return self.refuse("queue_unreadable", e)
         runnable, warnings = False, []
@@ -1001,7 +1014,7 @@ class Run:
             try:
                 _, feats = repo_features(c.path, c.scope_dir)
             except (OSError, StopIteration) as e:
-                if self.target:
+                if self.target and not self.peek:
                     return self.refuse("scope_unreadable", e)
                 self.held.remove(h)
                 entry["skip"] = flat(f"scope_unreadable: {e}")
@@ -1010,9 +1023,13 @@ class Run:
                 continue
             decisions = self.decision_lines(q, feats)
             items = self.survey(feats, q, dirty(c.path))
+            # AC-20: wf run deletes these at its first pick; wf queue only says so.
+            items += [(None, f"would clear: {p['feature']}") for p in q["parks"]
+                      if self.peek and p["repo"] == c.path and not self.applies(p, feats)]
             print(head)
             for _, line in decisions + items:
-                print("  " + flat(line))
+                # flat() drops an option line's own indent.
+                print(("    " if line.startswith("  ") else "  ") + flat(line))
             if not decisions + items:
                 print("  nothing to run")
             # An open Decision counts too: the run re-pings it and its end wait takes the reply (AC-14, AC-15).
@@ -1029,6 +1046,9 @@ class Run:
             self.use(self.held[0])
         if not runnable:
             print("nothing to run", flush=True)
+        if self.peek:
+            return 0
+        if not runnable:
             refused = any(e["skip"] and e["skip"].split(":")[0] not in ("missing", "hub") for e in self.record["repos"])
             return 5 if refused else self.exit_code("queue_done")
         return None
@@ -2163,6 +2183,26 @@ def moved(guard):
         yield path, f"{path} appeared during the run; inspect or delete it before opening a session in this repo"
 
 
+def repo_lock(path, create=True):
+    """Spec 0004 AC-9 lock of repo path, LOCK_NB: (fd holding it, None), (None, holder line) when a run holds it,
+    or (None, None) for create=False and no lock file. Raises OSError."""
+    lock = os.path.join(state_dir(), "locks", hashlib.sha1(path.encode()).hexdigest() + ".lock")
+    try:
+        # No O_TRUNC: a losing opener used to wipe the holder's pid line.
+        fd = os.open(lock, os.O_RDWR | os.O_CREAT, 0o600) if create else os.open(lock, os.O_RDONLY)
+    except FileNotFoundError:
+        if create:
+            raise
+        return None, None
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        who = holder(fd)
+        os.close(fd)
+        return None, who
+    return fd, None
+
+
 def holder(fd):
     """Spec 0004 AC-9: the lock holder line's `<pid> <start>`, else "unknown"."""
     words = os.pread(fd, 200, 0).decode(errors="replace").split()
@@ -2360,20 +2400,24 @@ def parse_result(raw):
     return data if isinstance(data, dict) else None
 
 
+def planned(args):
+    """Checks and plan for wf run's targets: (Run or None, exit code or None to go on)."""
+    # Spec 0011 AC-1: bare `wf run` takes the trust list, never the current folder or the picker.
+    if args.target:
+        c, rc = wf.resolve(args)
+        if c is None:
+            return None, rc
+        r = Run(c, args)
+        rc = r.start_checks()
+    else:
+        r = Run(None, args)
+        rc = r.bare_checks()
+    return r, rc if rc is not None else r.plan()
+
+
 def cmd_run(args):
     try:
-        # Spec 0011 AC-1: bare `wf run` takes the trust list, never the current folder or the picker.
-        if args.target:
-            c, rc = wf.resolve(args)
-            if c is None:
-                return rc
-            r = Run(c, args)
-            rc = r.start_checks()
-        else:
-            r = Run(None, args)
-            rc = r.bare_checks()
-        if rc is None:
-            rc = r.plan()
+        r, rc = planned(args)
         if rc is not None:
             return rc
         if not r.confirm():
@@ -2382,3 +2426,64 @@ def cmd_run(args):
         print()
         return 130
     return r.run()
+
+
+def cmd_queue(args):
+    """Spec 0011 AC-20: wf run's plan, read only."""
+    try:
+        return planned(args)[1]
+    except KeyboardInterrupt:
+        print()
+        return 130
+
+
+def cmd_unpark(args):
+    """Spec 0011 AC-21: delete a repo's Park and Decision records, all of them or one feature's."""
+    c, rc = wf.resolve(args)
+    if c is None:
+        return rc
+    refuse = lambda reason, detail: print(f"refused: {reason}: {wf.clean(str(detail))}", flush=True) or 5
+    try:
+        queue_transact()
+    except QueueError as e:
+        return refuse("queue_unreadable", e)
+    # Held through the change, so no run starts on this repo between the check and the delete.
+    try:
+        os.makedirs(os.path.join(state_dir(), "locks"), mode=0o700, exist_ok=True)
+        fd, who = repo_lock(c.path)
+    except OSError as e:
+        return refuse("state_unwritable", f"{state_dir()}: {e.strerror or e}")
+    if who:
+        return refuse("locked", f"a wf run holds this repo: {who}")
+    out, ambiguous = [], []
+
+    def drop(q):
+        mine = list(dict.fromkeys(r["feature"] for r in q["parks"] + q["decisions"] if r["repo"] == c.path))
+        if args.feature is not None:
+            want = args.feature.casefold()
+            exact = [f for f in mine if f.casefold() == want]
+            mine = exact or [f for f in mine if want in f.casefold()]
+            if len(mine) > 1:
+                ambiguous[:] = mine
+                return False
+        out[:] = [f"unparked: {p['feature']}" for p in q["parks"] if p["repo"] == c.path and p["feature"] in mine] + \
+                 [f"dropped: {d['id']} {d['feature']}" for d in q["decisions"] if d["repo"] == c.path and d["feature"] in mine]
+        keep = lambda r: r["repo"] != c.path or r["feature"] not in mine
+        q["parks"], q["decisions"] = [p for p in q["parks"] if keep(p)], [d for d in q["decisions"] if keep(d)]
+        return bool(out)
+
+    try:
+        queue_transact(drop)
+    except QueueError as e:
+        print(e, file=sys.stderr)
+        return 1
+    finally:
+        os.close(fd)
+    if ambiguous:
+        print(f"'{wf.clean(args.feature)}' matches several features in {wf.clean(c.name)}:", file=sys.stderr)
+        for f in ambiguous:
+            print("  " + flat(f), file=sys.stderr)
+        return 1
+    for line in out or [f"nothing parked in {c.name}"]:
+        print(flat(line))
+    return 0

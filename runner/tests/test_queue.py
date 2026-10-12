@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import run  # noqa: E402
 import wf  # noqa: E402
 from test_park import GIT_ID  # noqa: E402
-from test_run import FakeNtfy, RunCase, ask, write_config  # noqa: E402
+from test_run import WF, FakeNtfy, RunCase, ask, write_config  # noqa: E402
 
 TWO = """# Scope: x
 **Autopilot:** allowed
@@ -692,6 +692,134 @@ class TestExit(QueueCase):
         self.make_repo("plain", "# Scope: x\n**Autopilot:** allowed\n### 1. A\n- [ ] `/develop a`\n")
         r = self.wf("plain", "-y")
         self.assertEqual((r.returncode, r.stdout.splitlines()[-1]), (0, "nothing to run"))
+
+
+def park(repo, feature, sha="a" * 64, **extra):
+    return {"repo": str(repo), "feature": feature, "section_sha": sha, "reason": "blocked", "detail": "test park",
+            "cap": None, "run": "/x", "parked_at": "2026-10-12T09:00:00+02:00", **extra}
+
+
+def decision(repo, feature, did="ab12", **extra):
+    return {"id": did, "repo": str(repo), "feature": feature, "branch": "work", "session_id": "s", "call_kind": "box",
+            "command": "/develop c", "box_text": "`/develop c`", "question": "Which storage engine?",
+            "options": ["Postgres (recommended)", "SQLite"], "kind": "panel", "multi": False, "sent": None,
+            "pings": [], "acks": [], "asked": "2026-10-12T09:00:00+02:00", "answer": None, "source": None,
+            "answered": None, "ignored": 0, "run": "/x", **extra}
+
+
+class SubcommandCase(QueueCase):
+    def sub(self, *args):
+        return subprocess.run([sys.executable, str(WF), *args], capture_output=True, text=True, env=self.env, timeout=60)
+
+    def write_queue(self, parks, decisions):
+        p = self.state / "wf" / "queue.json"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps({"version": 1, "parks": parks, "decisions": decisions}))
+        return p
+
+    def hold(self, repo):
+        lock = self.state / "wf" / "locks" / (run.hashlib.sha1(str(repo).encode()).hexdigest() + ".lock")
+        lock.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        fd = os.open(lock, os.O_RDWR | os.O_CREAT, 0o600)
+        run.fcntl.flock(fd, run.fcntl.LOCK_EX)
+        os.write(fd, b"4242 2026-10-11T09:00:00+02:00\n")
+        return fd, lock
+
+
+THREE = TWO + "\n### 3. C · auto\n- [x] (spec)\n- [ ] `/develop c`\n"
+
+
+class TestQueueCommand(SubcommandCase):
+    # covers: AC-20 (the plan with options and would clear, no call, no write, locks left free, no claude and no
+    # ntfy config needed; a held lock is a skip line; a broken queue.json refuses)
+    def test_plan(self):
+        repo = self.make_repo("q", THREE)
+        self.commit(repo)
+        p = self.write_queue([park(repo, "1. A", self.section_sha(repo, "1. A")), park(repo, "2. B", "b" * 64)],
+                             [decision(repo, "3. C")])
+        before = p.read_text()
+        (self.tmp / "config" / "wf" / "allowed.json").write_text(json.dumps([str(repo)]))
+        (self.bin / "claude").unlink()
+        self.ntfy_config.unlink()
+        want = ["q on work, 0 changes", "  open: ab12 3. C: Which storage engine?", "    1 Postgres (recommended)",
+                "    2 SQLite", "  parked: 1. A: blocked: test park (wf unpark to retry)", "  queued: 2. B",
+                "  would clear: 2. B"]
+        for args in (["q"], []):
+            with self.subTest(args):
+                r = self.sub("queue", *args)
+                self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+                lines = r.stdout.splitlines()
+                self.assertEqual(lines[:7], want)
+                self.assertTrue(lines[7].startswith("caps: 20 USD/call"), lines[7])
+                self.assertNotIn("nothing to run", r.stdout)
+        self.assertEqual(p.read_text(), before)
+        self.assertEqual(sorted(os.listdir(self.state / "wf")), ["queue.json", "queue.lock"])
+        self.assertEqual(self.calls(), [])
+        fd, lock = self.hold(repo)
+        r = self.sub("queue", "q")
+        os.close(fd)
+        self.assertEqual((r.returncode, r.stdout.splitlines()[:2]),
+                         (0, ["q on work, 0 changes", "  skip: locked: 4242 2026-10-11T09:00:00+02:00"]))
+        # Tested and let go: wf queue never keeps a lock.
+        self.sub("queue", "q")
+        fd = os.open(lock, os.O_RDONLY)
+        run.fcntl.flock(fd, run.fcntl.LOCK_EX | run.fcntl.LOCK_NB)
+        os.close(fd)
+        self.assertEqual(lock.read_text(), "4242 2026-10-11T09:00:00+02:00\n")
+        p.write_text("{broken")
+        r = self.sub("queue", "q")
+        self.assertEqual(r.returncode, 5)
+        self.assertIn("refused: queue_unreadable: ", r.stdout)
+
+    # covers: AC-20 (a fresh state folder is never created; a higher cap shows the cap park as would clear)
+    def test_no_state_and_cap(self):
+        repo = self.make_repo("q", THREE)
+        r = self.sub("queue", "q")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertFalse(self.state.exists())
+        self.commit(repo)
+        self.write_queue([park(repo, "1. A", self.section_sha(repo, "1. A"), reason="budget", cap=1)], [])
+        self.assertIn("  parked: 1. A: budget: ", self.sub("queue", "q", "--budget", "1").stdout)
+        self.assertIn("  would clear: 1. A\n", self.sub("queue", "q", "--budget", "2").stdout)
+
+
+class TestUnpark(SubcommandCase):
+    # covers: AC-21 (exact heading before substring, ambiguous exits 1, all records of the repo, other repos kept,
+    # nothing parked, a held lock refuses)
+    def test_unpark(self):
+        repo = self.make_repo("q", THREE)
+        other = park("/other", "Login")
+        p = self.write_queue([park(repo, "Login"), park(repo, "Login page"), other],
+                             [decision(repo, "Billing"), decision(repo, "Login page", "cd34")])
+        r = self.sub("unpark", "q", "LOGIN")
+        self.assertEqual((r.returncode, r.stdout), (0, "unparked: Login\n"), r.stderr)
+        before = p.read_text()
+        r = self.sub("unpark", "q", "i")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("  Login page\n  Billing\n", r.stderr)
+        self.assertEqual(p.read_text(), before)
+        r = self.sub("unpark", "q", "page")
+        self.assertEqual((r.returncode, r.stdout), (0, "unparked: Login page\ndropped: cd34 Login page\n"), r.stderr)
+        self.assertEqual(self.sub("unpark", "q", "nope").stdout, "nothing parked in q\n")
+        fd, _ = self.hold(repo)
+        r = self.sub("unpark", "q")
+        os.close(fd)
+        self.assertEqual(r.returncode, 5)
+        self.assertIn("refused: locked: a wf run holds this repo: 4242 ", r.stdout)
+        r = self.sub("unpark", "q")
+        self.assertEqual((r.returncode, r.stdout), (0, "dropped: ab12 Billing\n"), r.stderr)
+        self.assertEqual(self.sub("unpark", "q").stdout, "nothing parked in q\n")
+        self.assertEqual(self.queue(), {"version": 1, "parks": [other], "decisions": []})
+        self.assertEqual(self.sub("unpark", "nosuchrepo").returncode, 1)
+
+    # covers: AC-21 (a dropped Decision is never resumed: its feature is queued fresh)
+    def test_dropped_not_resumed(self):
+        repo = self.make_repo("q", ONE)
+        self.commit(repo)
+        self.write_queue([], [decision(repo, "1. A", answer="1", source="phone", answered="2026-10-12T09:01:00+02:00")])
+        self.assertIn("  resume: ab12 1. A: ", self.wf("q").stdout)
+        self.sub("unpark", "q")
+        self.assertIn("  queued: 1. A\n", self.wf("q").stdout)
 
 
 if __name__ == "__main__":

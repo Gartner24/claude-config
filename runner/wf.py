@@ -597,11 +597,18 @@ def build_parser():
     run = sub.add_parser("run", help="build the queued features unattended, a fresh claude -p call per box")
     run.add_argument("target", nargs="?", help="a path, folder name or scope title; none: every repo on the wf allow list")
     run.add_argument("-y", "--yes", action="store_true", help="start without the confirm prompt")
-    run.add_argument("--budget", type=positive(float), default=20, help="USD per call (default 20)")
-    run.add_argument("--call-timeout", type=positive(float), default=60, help="minutes per call (default 60)")
-    run.add_argument("--max-calls", type=positive(int), default=20, help="calls per feature (default 20)")
-    run.add_argument("--max-hours", type=positive(float), default=8, help="hours per run (default 8)")
-    run.add_argument("--max-wait", type=positive(float), default=12, help="hours to wait for each phone reply (default 12)")
+    queue = sub.add_parser("queue", help="print what wf run would do, changing nothing")
+    queue.add_argument("target", nargs="?", help="as wf run")
+    # wf queue takes the caps too: a cap park shows as cleared under a higher one (spec 0011 AC-3).
+    for p in (run, queue):
+        p.add_argument("--budget", type=positive(float), default=20, help="USD per call (default 20)")
+        p.add_argument("--call-timeout", type=positive(float), default=60, help="minutes per call (default 60)")
+        p.add_argument("--max-calls", type=positive(int), default=20, help="calls per feature (default 20)")
+        p.add_argument("--max-hours", type=positive(float), default=8, help="hours per run (default 8)")
+        p.add_argument("--max-wait", type=positive(float), default=12, help="hours to wait for each phone reply (default 12)")
+    unpark = sub.add_parser("unpark", help="clear a repo's parked features and open questions")
+    unpark.add_argument("target", help="a path, folder name or scope title")
+    unpark.add_argument("feature", nargs="?", help="only this feature: its heading, or a unique part of it")
     allow = sub.add_parser("allow", help="let wf run start in this repo (spec 0008 trust list)")
     allow.add_argument("target", nargs="?", help="a path, folder name or scope title")
     ntfy = sub.add_parser("ntfy", help="set up and test phone pings for wf run")
@@ -627,9 +634,9 @@ def main(argv=None):
     if args.command == "run":
         import run
         return run.cmd_run(args)
-    if args.command == "allow":
+    if args.command in ("allow", "queue", "unpark"):
         import run
-        return run.cmd_allow(args)
+        return getattr(run, "cmd_" + args.command)(args)
     if args.command == "ntfy":
         import ntfy
         if args.action == "init":
