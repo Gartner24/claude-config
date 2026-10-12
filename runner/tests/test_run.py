@@ -1425,6 +1425,31 @@ class TestStandingAnswers(RunCase):
         r = self.wf("arch", "-y")
         self.refused(r, "manual_box")
 
+    # covers: spec 0006 AC-3 (an AGENTS.md that exists but cannot be read refuses, never reads as no section)
+    def test_unreadable(self):
+        (self.repo / "AGENTS.md").mkdir()
+        answers, problem = run.read_answers(SimpleNamespace(path=str(self.repo), scope_dir="docs/scope"))
+        self.assertIsNone(answers)
+        self.assertTrue(problem.startswith("AGENTS.md: cannot read: "), problem)
+
+    # covers: spec 0006 AC-6 (an open box in another feature does not stop the last box; one in the same feature does)
+    def test_last_box_other_feature(self):
+        c = SimpleNamespace(path=str(self.repo), scope_dir="docs/scope", name="x", warnings=[],
+                            next=SimpleNamespace(feature="1. A"))
+        args = SimpleNamespace(budget=1, call_timeout=60, max_calls=1, max_hours=1, max_wait=12, yes=True)
+        with mock.patch.object(wf, "head_branch", return_value="work"):
+            r = run.Run(c, args)
+        scope = self.repo / "docs" / "scope" / "scope.md"
+        head = "# Scope: x\n**Autopilot:** allowed\n### 1. A\n- [x] `/develop a`\n- [ ] `/test a`\n"
+        for name, text, want in [
+                ("only box", head, True),
+                ("other feature open", head + "### 2. B\n- [ ] `/develop b`\n", True),
+                ("same feature open", head + "- [ ] `/document a`\n", False),
+                ("nothing open", "# Scope: x\n**Autopilot:** allowed\n### 1. A\n- [x] `/test a`\n", False)]:
+            with self.subTest(name):
+                scope.write_text(text)
+                self.assertIs(r.last_box(), want)
+
 
 if __name__ == "__main__":
     unittest.main()

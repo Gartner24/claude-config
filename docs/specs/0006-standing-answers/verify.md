@@ -12,7 +12,7 @@ _Steps derived from spec 0006 acceptance criteria. `/check verify` runs these; `
   - Run 2026-10-12 by `/check verify`: `wf run <scratch>/docs-repo` printed `refused: bad_answers: AGENTS.md:6: unknown key cross check (expected: - run suite: yes|ask, - done: yes|ask)`, exit 5, `$XDG_STATE_HOME/wf/runs` empty. PASS
 
 ## Commands
-- [x] `python3 -B -m unittest discover -s runner/tests -k TestStandingAnswers` -> 9 tests OK -> AC-1 to AC-8
+- [x] `python3 -B -m unittest discover -s runner/tests -k TestStandingAnswers` -> 11 tests OK (155 in the suite, `/test` 2026-10-12) -> AC-1 to AC-8
 - [x] `python3 -B -m unittest discover -s runner/tests` -> all OK, `test_argv` still compares against `UNATTENDED_PROMPT` with no section -> AC-5 (153 tests OK, 2026-10-12)
 
 ## Value sourcing
@@ -24,5 +24,5 @@ _Steps derived from spec 0006 acceptance criteria. `/check verify` runs these; `
 - [x] Confirm line and `run.json`: `test_prompt_and_record`, `TestConfirmLine` -> AC-7
 
 ## Acceptance-criteria coverage
-- AC-1 `test_parse`, `test_base`, `test_refusals` (extra heading text) · AC-2 `test_parse`, `test_refusals` · AC-3 `test_refusals` · AC-4 `test_defaults`, `test_freeze` · AC-5 `test_prompt_and_record`, `test_no_sentences` · AC-6 `test_last_box` · AC-7 `test_prompt_and_record`, `TestConfirmLine`, `TestHappyPath` · AC-8 `test_architect_still_refused` · AC-9 manual steps 1 and 2 (passed 2026-10-12, real claude 2.1.296)
+- AC-1 `test_parse`, `test_base`, `test_refusals` (extra heading text) · AC-2 `test_parse`, `test_refusals` · AC-3 `test_refusals`, `test_unreadable` · AC-4 `test_defaults`, `test_freeze` · AC-5 `test_prompt_and_record`, `test_no_sentences` · AC-6 `test_last_box`, `test_last_box_other_feature` · AC-7 `test_prompt_and_record`, `TestConfirmLine`, `TestHappyPath` · AC-8 `test_architect_still_refused` · AC-9 manual steps 1 and 2 (passed 2026-10-12, real claude 2.1.296)
 - Mutation checks run 2026-10-12: every box treated as last box (3 tests red), resumes recomputing the flag (`test_last_box` red), answers reread per call (`test_freeze` red); restored, 152 tests green.
