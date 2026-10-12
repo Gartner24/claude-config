@@ -100,7 +100,8 @@ open(os.path.join(d, "inhibit-self-exit"), "w").close()
 SCOPE = """# Scope: demo
 **Autopilot:** allowed
 
-### 1. Loop · in-progress
+### 1. Loop · in-progress · auto
+- [x] Design it (spec): `/architect loop`
 - [ ] Build it: `/develop loop`
 - [ ] Test it: `/test loop`
 
@@ -282,13 +283,24 @@ class RunCase(unittest.TestCase):
         return runs[0], json.loads((runs[0] / "run.json").read_text())
 
     def assert_stopped(self, r, reason, code=6, calls=None):
-        """Spec 0008 AC-1: a park prints parked:, a stop stopped:, and run.json says which."""
+        """Spec 0011 AC-9: a park ends its feature and the queue goes on, a repo stop ends the repo, a run stop the
+        run. Returns run.json with `detail` set to the last feature's detail for a park or a repo stop."""
         self.assertEqual(r.returncode, code, r.stdout + r.stderr)
-        self.assertIn(f"{'parked' if reason in run.PARKS else 'stopped'}: {reason}", r.stdout)
         folder, rec = self.run_record()
-        self.assertEqual(rec["stop_reason"], reason)
-        self.assertIs(rec["parked"], reason in run.PARKS)
         self.assertIsNotNone(rec["ended"])
+        last = rec["features"][-1] if rec["features"] else None
+        if reason in run.RUN_STOPS:
+            self.assertIn(f"stopped: {reason}", r.stdout)
+            self.assertEqual(rec["stop_reason"], reason)
+        else:
+            self.assertEqual(rec["stop_reason"], "queue_done")
+            self.assertEqual(last["outcome"], reason)
+            if reason in run.PARKS:
+                self.assertIn(f"parked: {last['feature']}: {reason}", r.stdout)
+            else:
+                self.assertIn(f"stopped repo {rec['repos'][0]['name']}: {reason}", r.stdout)
+                self.assertEqual(rec["repos"][0]["ended"], reason)
+            rec["detail"] = last["detail"]
         if calls is not None:
             self.assertEqual(len(rec["calls"]), calls)
         return rec
@@ -301,22 +313,26 @@ class TestHappyPath(RunCase):
         r = self.wf("demo", "-y")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         lines = r.stdout.splitlines()
-        self.assertEqual(lines[0], "demo | work | 1 change | 1. Loop | /develop loop | "
-                                   "caps: 20 USD/call, 60m/call, 20 calls, 8h | answers: none | guard: 9 hosts, 6 files")
-        self.assertIn("[1/20] /develop loop -> success, 0.50 USD, 0.0m, next: /test loop", r.stdout)
-        self.assertIn("[2/20] /test loop -> success, 0.50 USD, 0.0m, next: /sync", r.stdout)
-        self.assertIn("[3/20] /sync -> success, 0.50 USD, 0.0m, next: -", r.stdout)
-        self.assertEqual(lines[-2], "done: 1. Loop")
+        self.assertEqual(lines[:3], ["demo on work, 1 change", "  queued: 1. Loop",
+                                     "caps: 20 USD/call, 60m/call, 20 calls/feature, 8h, wait 12h"])
+        self.assertIn("[1/20] demo: /develop loop -> success, 0.50 USD, 0.0m, next: /test loop", r.stdout)
+        self.assertIn("[2/20] demo: /test loop -> success, 0.50 USD, 0.0m, next: /sync", r.stdout)
+        self.assertIn("[3/20] demo: /sync -> success, 0.50 USD, 0.0m, next: -", r.stdout)
+        self.assertEqual(lines[-3:-1], ["done: 1. Loop", "queue done: 1 done, 0 parked, 0 open"])
         folder, rec = self.run_record()
         self.assertEqual(lines[-1], f"run folder: {folder}")
-        self.assertEqual(rec["stop_reason"], "feature_done")
+        self.assertEqual(rec["stop_reason"], "queue_done")
+        self.assertEqual(rec["features"], [{"n": 1, "repo": str(self.repo), "feature": "1. Loop", "outcome": "feature_done",
+                                            "detail": None, "calls": [1, 2, 3], "counted": 3, "debug_attempts": 0}])
+        self.assertEqual([c["feature"] for c in rec["calls"]], [1, 1, 1])
         self.assertEqual([c["command"] for c in rec["calls"]], ["/develop loop", "/test loop", "/sync"])
         self.assertEqual([c["box_text"] for c in rec["calls"]],
                          ["Build it: `/develop loop`", "Test it: `/test loop`", None])
         self.assertEqual(rec["calls"][0]["session_id"], "s-1")
         self.assertEqual(rec["calls"][0]["exit_code"], 0)
         self.assertEqual(rec["calls"][0]["next_after"], "/test loop")
-        self.assertEqual((rec["repo"], rec["name"], rec["feature"], rec["branch"]), (str(self.repo), "demo", "1. Loop", "work"))
+        self.assertEqual(rec["repos"], [{"repo": str(self.repo), "name": "demo", "branch": "work", "skip": None, "ended": None}])
+        self.assertNotIn("parked", rec)
         self.assertEqual(rec["caps"], {"budget_usd": 20, "call_timeout_min": 60, "max_calls": 20, "max_hours": 8,
                                        "max_wait_h": 12})
         self.assertEqual((rec["decisions"], rec["waited_s"]), ([], 0))
@@ -386,24 +402,31 @@ class TestStart(RunCase):
         runs = self.state / "wf" / "runs"
         self.assertEqual(list(runs.iterdir()) if runs.exists() else [], [])
 
-    # covers: AC-1, AC-2, AC-14 (every start check, no call, no run folder)
+    # covers: spec 0011 AC-3, AC-4, AC-6 (box checks are per feature skips that exit 0 with nothing to run;
+    # repo checks still refuse 5; no call, no run folder)
     def test_refusals(self):
-        allowed = "# Scope: x\n**Autopilot:** allowed\n"
-        cases = [
-            ("none", allowed + "### 1. A\n- [x] `/develop a`\n", None, 0, "nothing to run in none"),
-            ("nocmd", allowed + "### 1. A\n- [ ] call the vendor\n", None, 3, "no command in this box"),
-            ("nofeat", allowed + "## Section\n- [ ] `/develop a`\n", "no_feature", 5, None),
-            ("arch", allowed + "### 1. A\n- [ ] `/architect a`\n", "manual_box", 5, "/architect a runs only with you"),
-            ("scope", allowed + "### 1. A\n- [ ] `/scope a`\n", "manual_box", 5, None),
-            ("wait", allowed + "### 1. A\n- [ ] `/develop a`\n   - [ ] waits on the merge\n", "waiting", 5, None),
-            ("apmissing", "# Scope: x\n### 1. A\n- [ ] `/develop a`\n", "autopilot_off", 5, "Autopilot is off"),
-            ("apoff", "# Scope: x\n**Autopilot:** off\n### 1. A\n- [ ] `/develop a`\n", "autopilot_off", 5, None),
-        ]
-        for name, text, reason, code, msg in cases:
+        allowed, q = "# Scope: x\n**Autopilot:** allowed\n", "### 1. A · auto\n- [x] (spec)\n"
+        for name, text, line in [
+                ("none", allowed + "### 1. A\n- [ ] `/develop a`\n", "  nothing to run"),
+                ("nofeat", allowed + "## Section\n- [ ] `/develop a`\n", "  nothing to run"),
+                ("nocmd", allowed + q + "- [ ] call the vendor\n", "  skip: 1. A: no_command"),
+                ("arch", allowed + q + "- [ ] `/architect a`\n", "  skip: 1. A: manual_box"),
+                ("scope", allowed + q + "- [ ] `/scope a`\n", "  skip: 1. A: manual_box"),
+                ("wait", allowed + q + "- [ ] `/develop a`\n   - [ ] waits on the merge\n", "  skip: 1. A: waiting")]:
             with self.subTest(name):
                 self.make_repo(name, text)
                 r = self.wf(name, "-y")
-                self.refused(r, reason, code)
+                self.refused(r, None, 0)
+                self.assertEqual(r.stdout.splitlines()[1], line)
+                self.assertEqual(r.stdout.splitlines()[-1], "nothing to run")
+        for name, text, reason, msg in [
+                ("apmissing", "# Scope: x\n" + q + "- [ ] `/develop a`\n", "autopilot_off", "Autopilot is off"),
+                ("apoff", "# Scope: x\n**Autopilot:** off\n" + q + "- [ ] `/develop a`\n", "autopilot_off", None),
+                ("hub", "# Scope: hub\n\n| a | b |\n", "hub", None)]:
+            with self.subTest(name):
+                self.make_repo(name, text)
+                r = self.wf(name, "-y")
+                self.refused(r, reason)
                 if msg:
                     self.assertIn(msg, r.stdout)
         for name, head, shown in [("main", "ref: refs/heads/main\n", "main"), ("master", "ref: refs/heads/master\n", "master"),
@@ -415,35 +438,38 @@ class TestStart(RunCase):
                 self.refused(r, "branch")
                 self.assertIn(f"refused: branch: {shown}", r.stdout)
 
-    # covers: spec 0012 AC-5 (a marked box is refused waiting ahead of every other check)
+    # covers: spec 0012 AC-5 (a marked box is skipped waiting ahead of every other check), spec 0011 AC-3
     def test_owed_refused(self):
-        allowed = "# Scope: x\n**Autopilot:** allowed\n### 1. A\n"
-        for name, body, owed in [("odev", "- [ ] `/develop a` · waits on you\n", "`/develop a`"),
-                                 ("oarch", "- [ ] `/architect a` · waits on you\n", "`/architect a`"),
-                                 ("onocmd", "- [ ] phone check · waits on you\n", "phone check"),
-                                 ("oms", "- [x] `/develop a`\n   - [ ] phone check · waits on you\n", "phone check")]:
+        allowed = "# Scope: x\n**Autopilot:** allowed\n### 1. A · auto\n- [x] (spec)\n"
+        for name, body in [("odev", "- [ ] `/develop a` · waits on you\n"),
+                           ("oarch", "- [ ] `/architect a` · waits on you\n"),
+                           ("onocmd", "- [ ] phone check · waits on you\n"),
+                           ("oms", "- [x] `/develop a`\n   - [ ] phone check · waits on you\n")]:
             with self.subTest(name):
                 self.make_repo(name, allowed + body)
                 r = self.wf(name, "-y")
-                self.refused(r, "waiting")
-                self.assertIn(f"refused: waiting: waits on you: {owed}", r.stdout)
+                self.refused(r, None, 0)
+                self.assertIn("  skip: 1. A: waiting\n", r.stdout)
 
     # covers: AC-2 check 4 (every allow listed first word starts; the match is on the whole first word)
     def test_allow_list(self):
-        allowed = "# Scope: x\n**Autopilot:** allowed\n### 1. A\n- [ ] `%s`\n"
+        allowed = "# Scope: x\n**Autopilot:** allowed\n### 1. A · auto\n- [x] (spec)\n- [ ] `%s`\n"
         for name, command in [("chk", "/check verify a"), ("dbg", "/debug a"), ("doc", "/document a")]:
             with self.subTest(command):
                 shutil.rmtree(self.state, ignore_errors=True)
                 self.make_repo(name, allowed % command)
                 r = self.wf(name, "-y", "--max-calls", "1")
-                self.assertIn(f"[1/1] {command} -> success", r.stdout)
+                self.assertIn(f"[1/1] {name}: {command} -> success", r.stdout)
         for name, command in [("dev2", "/developer a"), ("sync", "/sync"), ("tst2", "/tests a"),
                               ("rev", "/check review a"), ("bare", "/check"), ("vrf2", "/check verifyx a")]:
             with self.subTest(command):
+                shutil.rmtree(self.state, ignore_errors=True)
+                for f in self.calls():
+                    f.unlink()
                 self.make_repo(name, allowed % command)
                 r = self.wf(name, "-y")
-                self.assertEqual(r.returncode, 5)
-                self.assertIn(f"refused: manual_box: {command} runs only with you", r.stdout)
+                self.refused(r, None, 0)
+                self.assertIn("  skip: 1. A: manual_box\n", r.stdout)
 
     # covers: AC-9 (no XDG_STATE_HOME, or an empty one, puts the state under ~/.local/state/wf)
     def test_state_fallback(self):
@@ -474,7 +500,7 @@ class TestStart(RunCase):
 
     # covers: AC-2 (warnings print on refusal paths)
     def test_header_warning_on_refusal(self):
-        self.make_repo("warn", "# Scope: x\n**Autopilot:** on\n### 1. A\n- [ ] `/develop a`\n")
+        self.make_repo("warn", "# Scope: x\n**Autopilot:** on\n### 1. A · auto\n- [x] (spec)\n- [ ] `/develop a`\n")
         r = self.wf("warn", "-y")
         self.refused(r, "autopilot_off")
         self.assertIn("warning: unknown Autopilot value 'on', using off", r.stdout)
@@ -497,7 +523,7 @@ class TestStart(RunCase):
         self.assertIn("is missing, run wf ntfy init", self.wf("demo", "-y").stdout)
         write_config(self.tmp / "config", "http://127.0.0.1:9", codes=["a1234567"] * 4)
         r = self.wf("demo", "-y", "--max-calls", "1")
-        self.assertIn("warning: 4 one time codes left, run wf ntfy codes", r.stdout.splitlines()[0])
+        self.assertIn("\nwarning: 4 one time codes left, run wf ntfy codes\n", r.stdout)
 
     # covers: AC-1 (no match exits 1, shared resolve)
     def test_no_match(self):
@@ -568,30 +594,28 @@ class TestStart(RunCase):
                 self.assertEqual(self.calls(), [])
 
 
-class TestConfirmLine(unittest.TestCase):
-    # covers: AC-3 (head_branch, caps and the open session warning on the line)
+class TestConfirmLine(RunCase):
+    # covers: spec 0011 AC-6 (head_branch, changes, one line per item, caps and the open session warning)
     def test_line(self):
-        c = SimpleNamespace(path="/r", name="demo", warnings=["w1"], display_name=lambda: "demo (worktree x)",
-                            next=SimpleNamespace(feature="1. Loop", command="/develop loop", note=None))
+        self.make_repo("plan", "# Scope: x\n**Autopilot:** allowed\n### 1. A · auto\n- [x] (spec)\n- [ ] `/develop a`\n"
+                               "### 2. B · auto\n- [x] (spec)\n- [x] `/develop b`\n"
+                               "### 3. C · auto\n- [x] (spec)\n- [ ] `/architect c`\n### 4. D\n- [ ] `/develop d`\n")
+        c = wf.make_candidate(self.tmp / "root" / "plan")
+        c.display_name, c.warnings = lambda: "plan (worktree x)", ["w1\x1b[2J"]
         args = SimpleNamespace(budget=2.5, call_timeout=30, max_calls=4, max_hours=1.5, max_wait=12, yes=True)
         with mock.patch.object(wf, "head_branch", return_value="work"), \
                 mock.patch.object(wf, "changes", return_value="2 changes"), \
-                mock.patch.object(wf, "open_sessions", return_value=1):
+                mock.patch.object(wf, "open_sessions", return_value=1), \
+                mock.patch.dict(os.environ, {"XDG_STATE_HOME": str(self.state)}):
             r = run.Run(c, args)
-            r.record["guard"] = {"hosts": ["a", "b"], "guarded_files": {"/x": "absent", "/y": "absent", "/z": "absent"}}
             buf = io.StringIO()
             with redirect_stdout(buf):
+                self.assertIsNone(r.plan())
                 self.assertTrue(r.confirm())
-                # spec 0006 AC-7: the present keys in table order.
-                r.answers = {"run suite": "yes", "done": "ask"}
-                self.assertTrue(r.confirm())
-        self.assertEqual(buf.getvalue().strip().split("\n"), [
-            "demo (worktree x) | work | 2 changes | 1. Loop | /develop loop | "
-            "caps: 2.5 USD/call, 30m/call, 4 calls, 1.5h | answers: none | guard: 2 hosts, 3 files | "
-            "warning: w1 | warning: 1 session(s) already open here",
-            "demo (worktree x) | work | 2 changes | 1. Loop | /develop loop | "
-            "caps: 2.5 USD/call, 30m/call, 4 calls, 1.5h | answers: run suite yes, done ask | guard: 2 hosts, 3 files | "
-            "warning: w1 | warning: 1 session(s) already open here"])
+        self.assertEqual(buf.getvalue().split("\n"), [
+            "plan (worktree x) on work, 2 changes", "  queued: 1. A", "  sync owed: 2. B", "  skip: 3. C: manual_box",
+            "caps: 2.5 USD/call, 30m/call, 4 calls/feature, 1.5h, wait 12h",
+            "warning: w1[2J", "warning: 1 session(s) already open here", ""])
 
 
 class TestSpawnRace(unittest.TestCase):
@@ -637,7 +661,7 @@ class TestClassify(RunCase):
         rec = self.assert_stopped(r, "spawn_failed", calls=1)
         self.assertIn("could not start claude: ", rec["detail"])
         self.assertIsNone(rec["calls"][0]["exit_code"])
-        self.assertIn("[1/20] /develop loop -> spawn_failed, - USD", r.stdout)
+        self.assertIn("[1/20] demo: /develop loop -> spawn_failed, - USD", r.stdout)
 
     # covers: AC-6 rule 3 (an array ending in a result element reads as success)
     def test_array(self):
@@ -699,14 +723,14 @@ class TestClassify(RunCase):
             with self.subTest(reason):
                 shutil.rmtree(self.tmp / "root")
                 shutil.rmtree(self.state, ignore_errors=True)
-                self.make_repo("demo", "# Scope: x\n**Autopilot:** allowed\n### 1. A\n- [ ] `/develop a`\n" + extra)
+                self.make_repo("demo", "# Scope: x\n**Autopilot:** allowed\n### 1. A · auto\n- [x] (spec)\n- [ ] `/develop a`\n" + extra)
                 rec = self.assert_stopped(self.wf("demo", "-y"), reason, calls=1)
                 if "waits on you" in extra:
                     self.assertEqual(rec["detail"], "waits on you: `/test b`")
 
     # covers: AC-7 (/sync failure and /sync decision)
     def test_sync_stops(self):
-        self.make_repo("one", "# Scope: x\n**Autopilot:** allowed\n### 1. A\n- [ ] `/develop a`\n### 2. B\n- [ ] `/develop b`\n")
+        self.make_repo("one", "# Scope: x\n**Autopilot:** allowed\n### 1. A · auto\n- [x] (spec)\n- [ ] `/develop a`\n### 2. B\n- [ ] `/develop b`\n")
         self.steps([{}, {"rc": 1, "tick": False}])
         rec = self.assert_stopped(self.wf("one", "-y"), "call_error", calls=3)
         self.assertEqual([(c["command"], c["kind"], c["retry_of"]) for c in rec["calls"][1:]],
@@ -714,7 +738,7 @@ class TestClassify(RunCase):
         self.assertIsNone(rec["calls"][1]["box_text"])
         shutil.rmtree(self.state)
         (self.fakes / "count").unlink()
-        self.make_repo("two", "# Scope: x\n**Autopilot:** allowed\n### 1. A\n- [ ] `/develop a`\n")
+        self.make_repo("two", "# Scope: x\n**Autopilot:** allowed\n### 1. A · auto\n- [x] (spec)\n- [ ] `/develop a`\n")
         self.steps([{}, {"tick": False, "json": {"result": "DECISION NEEDED: merge now?"}}])
         rec = self.assert_stopped(self.wf("two", "-y", mode="fast"), "ping_failed", calls=2)
         self.assertEqual((rec["decisions"][0]["call"], rec["calls"][1]["command"]), (2, "/sync"))
@@ -778,11 +802,11 @@ class TestParking(RunCase):
         self.assertEqual((d["kind"], d["options"], d["multi"], d["answer"], d["source"], d["call"]),
                          ("panel", ["Postgres (recommended)", "SQLite"], False, "SQLite", "phone", 1))
         i = d["id"]
-        self.assertEqual(self.lines(r)[1:7], [
-            "[1/20] /develop loop -> success, 0.50 USD, 0.0m, next: waiting",
+        self.assertEqual(self.lines(r)[3:9], [
+            "[1/20] demo: /develop loop -> success, 0.50 USD, 0.0m, next: waiting",
             f"waiting: {i} Which storage engine?", "  1 Postgres (recommended)", "  2 SQLite",
             f"answered: {i} SQLite (phone)",
-            f"[2/20] /develop loop (resume {i}) -> success, 0.50 USD, 0.0m, next: /test loop"])
+            f"[2/20] demo: /develop loop (resume {i}) -> success, 0.50 USD, 0.0m, next: /test loop"])
         a = self.argv(2)
         self.assertEqual(a["argv"][:4],
                          ["-p", "The user answered your DECISION NEEDED question: SQLite", "--resume", "s-1"])
@@ -882,7 +906,7 @@ class TestParking(RunCase):
         out, err = p.communicate(timeout=20)
         self.assertEqual(p.returncode, 6, out + err)
         _, rec = self.run_record()
-        self.assertEqual((rec["stop_reason"], len(rec["calls"]), rec["decisions"][0]["answer"]),
+        self.assertEqual((rec["repos"][0]["ended"], len(rec["calls"]), rec["decisions"][0]["answer"]),
                          ("autopilot_off", 1, "Postgres (recommended)"))
 
     # covers: spec 0005 AC-9, AC-12 (a wait longer than --max-hours does not stop the run; waited_s recorded)
@@ -923,7 +947,7 @@ class TestCaps(RunCase):
     def test_max_calls(self):
         r = self.wf("demo", "-y", "--max-calls", "1")
         self.assert_stopped(r, "max_calls", calls=1)
-        self.assertIn("[1/1] /develop loop", r.stdout)
+        self.assertIn("[1/1] demo: /develop loop", r.stdout)
         shutil.rmtree(self.state)
         self.repo = self.make_repo("demo2", SCOPE)
         rec = self.assert_stopped(self.wf("demo2", "-y", "--max-calls", "2"), "max_calls", calls=2)
@@ -931,7 +955,7 @@ class TestCaps(RunCase):
 
     # covers: AC-6 rule 9 (a ticked milestone is progress though the parent box text is unchanged)
     def test_milestone_is_progress(self):
-        self.make_repo("ms", "# Scope: x\n**Autopilot:** allowed\n### 1. A\n- [ ] `/develop a`\n"
+        self.make_repo("ms", "# Scope: x\n**Autopilot:** allowed\n### 1. A · auto\n- [x] (spec)\n- [ ] `/develop a`\n"
                              "  - [ ] m1\n  - [ ] m2\n")
         self.steps([{"tick": False, "edit": [["- [ ] m1", "- [x] m1"]]},
                     {"tick": False, "edit": [["- [ ] m2", "- [x] m2"]]}])
@@ -1022,7 +1046,7 @@ class TestRecordAndSignals(RunCase):
         p.send_signal(signal.SIGINT)
         out, _ = p.communicate(timeout=20)
         self.assertEqual(p.returncode, 130)
-        self.assertIn("[1/20] /develop loop -> success", out)
+        self.assertIn("[1/20] demo: /develop loop -> success", out)
         self.assertEqual(len(self.calls()), 1)
 
     # covers: AC-13 (inhibitor argv, lid switch, tail --pid, gone after success)
@@ -1057,6 +1081,8 @@ class TestGuard(RunCase):
     def fresh(self):
         shutil.rmtree(self.state, ignore_errors=True)
         (self.fakes / "count").unlink(missing_ok=True)
+        # The fake ticks boxes; a feature left all ticked would start with its owed /sync (spec 0011 AC-8).
+        (self.repo / "docs" / "scope" / "scope.md").write_text(SCOPE)
 
     # covers: spec 0007 AC-1 (no credential env reaches a call, the rest does)
     def test_env(self):
@@ -1139,10 +1165,10 @@ class TestGuard(RunCase):
         self.wf("demo", "-y", "--max-calls", "2")
         self.assertEqual([self.argv(n)["exe"] for n in (1, 2)], [str(self.fakes / "claude-a")] * 2)
         self.assertFalse((self.fakes / "b-ran").exists())
-        # rev-parse, the include read of .git/config, remote -v, status for the confirm line, and (spec 0009 AC-9)
-        # the main and master lookups before the /test call, then (spec 0010 AC-1) those lookups and ls-files again
-        # for the design check before /sync.
-        self.assertEqual((self.fakes / "git-log").read_text().splitlines(), [str(self.fakes / "git-wrap")] * 9)
+        # rev-parse, the include read of .git/config, remote -v, status for the plan's tree rule and changes, status
+        # for the first pick, (spec 0009 AC-9) the main and master lookups before the /test call, then (spec 0010
+        # AC-1) those lookups and ls-files again for the design check, and status for the pick after the park.
+        self.assertEqual((self.fakes / "git-log").read_text().splitlines(), [str(self.fakes / "git-wrap")] * 12)
         _, rec = self.run_record()
         self.assertEqual(rec["guard"]["binaries"], {"git": str(self.fakes / "git-wrap"),
                                                     "claude": str(self.fakes / "claude-a"),
@@ -1218,7 +1244,9 @@ class TestGuard(RunCase):
                 self.assertEqual(r.returncode, 5, r.stdout + r.stderr)
                 self.assertIn(f"refused: no_sandbox: {msg}", r.stdout)
                 self.assertEqual(self.calls(), [])
-                self.assertFalse((self.state / "wf").exists())
+                # Spec 0011 AC-4: the state folder is checked first, so it exists; still no lock and no run.
+                self.assertFalse((self.state / "wf" / "locks").exists())
+                self.assertFalse((self.state / "wf" / "runs").exists())
         (user / "settings.json").write_text('{"sandbox": {"excludedCommands": []}, "hooks": {}}')
         self.assertEqual(self.wf("demo", "-y", "--max-calls", "1").returncode, 6)
 
@@ -1227,8 +1255,7 @@ class TestGuard(RunCase):
         subprocess.run(["git", "-C", str(self.repo), "remote", "add", "origin", "git@code.example.com:x/y.git"], check=True)
         (self.repo / ".git" / "hooks").mkdir()
         (self.repo / ".git" / "hooks" / "pre-push").write_text("#!/bin/sh\n")
-        r = self.wf("demo", "-y", "--max-calls", "1")
-        self.assertIn(" | guard: 10 hosts, 7 files", r.stdout.splitlines()[0])
+        self.wf("demo", "-y", "--max-calls", "1")
         _, rec = self.run_record()
         g = rec["guard"]
         self.assertEqual(list(g), ["hosts", "write_paths", "deny_paths", "binaries", "guarded_files", "absent_denied"])
@@ -1340,7 +1367,7 @@ class TestGuard(RunCase):
 BOTH = "## Standing answers\n- run suite: yes\n- done: yes\n"
 SUITE = run.UNATTENDED_PROMPT + run.ANSWERS_INTRO + run.RUN_SUITE_YES
 SUITE_DONE = SUITE + run.DONE_YES
-VERIFY_TEST = ("# Scope: x\n**Autopilot:** allowed\n### 1. A · in-progress\n- [ ] Verify it: `/check verify a`\n"
+VERIFY_TEST = ("# Scope: x\n**Autopilot:** allowed\n### 1. A · in-progress · auto\n- [x] (spec)\n- [ ] Verify it: `/check verify a`\n"
                "- [ ] Test it: `/test a`\n   - [ ] m1 cases\n")
 
 
@@ -1443,7 +1470,6 @@ class TestStandingAnswers(RunCase):
         self.steps([{}, {}, {"tick": False}])
         r = self.wf("demo", "-y")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn(" | answers: run suite yes, done yes | ", r.stdout.splitlines()[0])
         self.assertEqual([self.prompt(n) for n in (1, 2, 3)], [SUITE, SUITE_DONE, SUITE])
         self.assertTrue(SUITE_DONE.endswith(
             " Standing answers for this repo, use them instead of asking: Run tests?, Yes, run and fix to green. "
@@ -1459,7 +1485,7 @@ class TestStandingAnswers(RunCase):
             with self.subTest(text):
                 shutil.rmtree(self.state, ignore_errors=True)
                 (self.fakes / "count").unlink(missing_ok=True)
-                self.repo = self.make_repo(f"n{len(text or '')}", "# Scope: x\n**Autopilot:** allowed\n### 1. A\n"
+                self.repo = self.make_repo(f"n{len(text or '')}", "# Scope: x\n**Autopilot:** allowed\n### 1. A · auto\n- [x] (spec)\n"
                                            "- [ ] `/develop a`\n- [ ] `/test a`\n")
                 if text:
                     (self.repo / "AGENTS.md").write_text(text)
@@ -1491,10 +1517,11 @@ class TestStandingAnswers(RunCase):
 
     # covers: spec 0006 AC-8 (/architect still refused manual_box with a full section)
     def test_architect_still_refused(self):
-        repo = self.make_repo("arch", "# Scope: x\n**Autopilot:** allowed\n### 1. A\n- [ ] `/architect a`\n")
+        repo = self.make_repo("arch", "# Scope: x\n**Autopilot:** allowed\n### 1. A · auto\n- [x] (spec)\n- [ ] `/architect a`\n")
         (repo / "AGENTS.md").write_text(BOTH)
         r = self.wf("arch", "-y")
-        self.refused(r, "manual_box")
+        self.refused(r, None, 0)
+        self.assertIn("  skip: 1. A: manual_box\n", r.stdout)
 
     # covers: spec 0006 AC-3 (an AGENTS.md that exists but cannot be read refuses, never reads as no section)
     def test_unreadable(self):
@@ -1510,13 +1537,14 @@ class TestStandingAnswers(RunCase):
         args = SimpleNamespace(budget=1, call_timeout=60, max_calls=1, max_hours=1, max_wait=12, yes=True)
         with mock.patch.object(wf, "head_branch", return_value="work"):
             r = run.Run(c, args)
+        r.feature = "1. A"
         scope = self.repo / "docs" / "scope" / "scope.md"
-        head = "# Scope: x\n**Autopilot:** allowed\n### 1. A\n- [x] `/develop a`\n- [ ] `/test a`\n"
+        head = "# Scope: x\n**Autopilot:** allowed\n### 1. A · auto\n- [x] (spec)\n- [x] `/develop a`\n- [ ] `/test a`\n"
         for name, text, want in [
                 ("only box", head, True),
                 ("other feature open", head + "### 2. B\n- [ ] `/develop b`\n", True),
                 ("same feature open", head + "- [ ] `/document a`\n", False),
-                ("nothing open", "# Scope: x\n**Autopilot:** allowed\n### 1. A\n- [x] `/test a`\n", False)]:
+                ("nothing open", "# Scope: x\n**Autopilot:** allowed\n### 1. A · auto\n- [x] (spec)\n- [x] `/test a`\n", False)]:
             with self.subTest(name):
                 scope.write_text(text)
                 self.assertIs(r.last_box(), want)

@@ -16,7 +16,7 @@ import run  # noqa: E402
 from test_ntfy import FakeNtfy, write_config  # noqa: E402
 from test_run import WF, RunCase, ask  # noqa: E402
 
-VERIFY = "# Scope: x\n**Autopilot:** allowed\n### 1. A · in-progress\n- [ ] Verify it: `/check verify a`\n- [ ] `/test a`\n"
+VERIFY = "# Scope: x\n**Autopilot:** allowed\n### 1. A · in-progress · auto\n- [x] (spec)\n- [ ] Verify it: `/check verify a`\n- [ ] `/test a`\n"
 GIT_ID = ["-c", "user.name=t", "-c", "user.email=t@example.invalid"]
 
 
@@ -32,30 +32,34 @@ def limited(text=LIMIT_TEXT, **extra):
 
 
 class TestParkSets(unittest.TestCase):
-    # covers: AC-1 (every reason is a park or a stop, never both, as the spec lists them)
+    # covers: spec 0011 AC-9, AC-10 (three scopes, never two for one reason; the recorded set)
     def test_sets(self):
-        self.assertEqual(run.PARKS & run.STOPS, frozenset())
+        self.assertEqual(run.PARKS & run.REPO_STOPS, frozenset())
+        self.assertEqual(run.PARKS & run.RUN_STOPS, frozenset())
+        self.assertEqual(run.REPO_STOPS & run.RUN_STOPS, frozenset())
         self.assertEqual(run.PARKS, {"verify_failed", "blocked", "denied", "debug_touched", "no_progress", "call_error",
-                                     "call_timeout", "budget", "decision_timeout", "manual_box", "waiting", "no_command",
-                                     "no_feature", "app_failed", "design_gate"})
-        self.assertEqual(run.STOPS, {"interrupted", "max_calls", "run_limit", "usage_limit", "spawn_failed",
-                                     "branch_changed", "autopilot_off", "scope_unreadable", "guard_changed",
-                                     "ping_failed", "internal_error", "app_port_busy"})
+                                     "call_timeout", "budget", "max_calls", "decision_timeout", "manual_box", "waiting",
+                                     "no_command", "no_feature", "app_failed", "design_gate"})
+        self.assertEqual(run.REPO_STOPS, {"branch_changed", "autopilot_off", "scope_unreadable"})
+        self.assertEqual(run.RUN_STOPS, {"interrupted", "run_limit", "usage_limit", "spawn_failed", "guard_changed",
+                                         "ping_failed", "internal_error", "app_port_busy"})
+        self.assertEqual(run.PARKS - run.RECORDED, {"call_error", "manual_box", "waiting", "no_command", "no_feature"})
 
 
 class TestParkPrint(RunCase):
-    # covers: AC-1 (feature_done has parked null, a park and a stop both exit 6, interrupted 130 and parked false)
+    # covers: spec 0011 AC-18, AC-19 (feature_done exits 0, a park exits 6 with the queue done line,
+    # interrupted exits 130 and the running feature's outcome says so)
     def test_values(self):
         self.steps([{}, {}, {"tick": False}])
         r = self.wf("demo", "-y")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIsNone(self.run_record()[1]["parked"])
+        self.assertEqual(self.run_record()[1]["features"][0]["outcome"], "feature_done")
         for name, steps, reason in [("np", [{"tick": False}], "no_progress"), ("mc", [{}], "max_calls")]:
             self.fresh(name)
             self.steps(steps)
             r = self.wf(name, "-y", "--max-calls", "1")
             self.assert_stopped(r, reason)
-        self.assertIn("stopped: max_calls: 1 calls made", r.stdout)
+        self.assertIn("parked: 1. A: max_calls: 1 calls made\nqueue done: 0 done, 1 parked, 0 open\n", r.stdout)
         self.fresh("int")
         self.steps([{"sleep": 30}])
         p = self.start("int", "-y")
@@ -64,7 +68,7 @@ class TestParkPrint(RunCase):
         out, _ = p.communicate(timeout=20)
         self.assertEqual(p.returncode, 130)
         self.assertIn("stopped: interrupted", out)
-        self.assertIs(self.run_record()[1]["parked"], False)
+        self.assertEqual(self.run_record()[1]["features"][0]["outcome"], "interrupted")
 
     def fresh(self, name):
         shutil.rmtree(self.state, ignore_errors=True)
@@ -82,7 +86,7 @@ class TestVerifyLoop(RunCase):
         r = self.wf("v", "-y")
         rec = self.assert_stopped(r, "verify_failed", calls=5)
         self.assertEqual(rec["detail"], "2 debug attempts made")
-        self.assertEqual(rec["debug_attempts"], 2)
+        self.assertEqual(rec["features"][0]["debug_attempts"], 2)
         self.assertEqual([c["kind"] for c in rec["calls"]], ["box", "debug", "box", "debug", "box"])
         self.assertEqual([c["marker"] for c in rec["calls"]],
                          ["verify_fail_debug", None, "verify_fail_debug", None, "verify_fail_debug"])
@@ -106,15 +110,16 @@ class TestVerifyLoop(RunCase):
                 self.steps([fail(marker, text)])
                 rec = self.assert_stopped(self.wf("v" + marker, "-y"), "verify_failed", calls=1)
                 self.assertEqual(rec["detail"], f"line 2 line 3 line 4 line 5 line 6 VERIFY FAIL: {marker}")
-                self.assertEqual((rec["calls"][0]["marker"], rec["debug_attempts"]), ("verify_fail_develop", 0))
+                self.assertEqual((rec["calls"][0]["marker"], rec["features"][0]["debug_attempts"]),
+                                 ("verify_fail_develop", 0))
 
     # covers: AC-2 (a verify box with no arguments; a marker on another command is ignored)
     def test_bare_and_other(self):
-        self.make_repo("bare", "# Scope: x\n**Autopilot:** allowed\n### 1. A\n- [ ] `/check verify`\n- [ ] `/test a`\n")
+        self.make_repo("bare", "# Scope: x\n**Autopilot:** allowed\n### 1. A · auto\n- [x] (spec)\n- [ ] `/check verify`\n- [ ] `/test a`\n")
         self.steps([fail(text=""), {"tick": False}, {}])
         self.wf("bare", "-y", "--max-calls", "2")
         self.assertEqual(self.argv(2)["argv"][1], "/debug -- the last /check verify failed:\nVERIFY FAIL: debug\n")
-        self.make_repo("dev", "# Scope: x\n**Autopilot:** allowed\n### 1. A\n- [ ] `/develop a`\n- [ ] `/test a`\n")
+        self.make_repo("dev", "# Scope: x\n**Autopilot:** allowed\n### 1. A · auto\n- [x] (spec)\n- [ ] `/develop a`\n- [ ] `/test a`\n")
         shutil.rmtree(self.state)
         (self.fakes / "count").unlink()
         self.steps([{"json": {"result": "VERIFY FAIL: develop"}}])
@@ -126,7 +131,7 @@ class TestVerifyLoop(RunCase):
 class TestDebugGuard(RunCase):
     def setUp(self):
         super().setUp()
-        self.v = self.make_repo("g", "# Scope: x\n**Autopilot:** allowed\n### 1. A\n- [ ] `/develop a`\n"
+        self.v = self.make_repo("g", "# Scope: x\n**Autopilot:** allowed\n### 1. A · auto\n- [x] (spec)\n- [ ] `/develop a`\n"
                                      "- [ ] Verify it: `/check verify a`\n- [ ] `/test a`\n")
         (self.v / "docs" / "specs").mkdir()
         (self.v / "docs" / "specs" / "x.md").write_text("# spec\n")
@@ -199,7 +204,7 @@ class TestBlocked(RunCase):
         rec = self.assert_stopped(r, "blocked", calls=1)
         self.assertEqual(rec["detail"], "sudo pacman -S stow")
         self.assertEqual((rec["calls"][0]["marker"], rec["calls"][0]["decision"], rec["decisions"]), ("blocked", None, []))
-        self.assertIn("parked: blocked: sudo pacman -S stow", r.stdout)
+        self.assertIn("parked: 1. Loop: blocked: sudo pacman -S stow", r.stdout)
 
 
 DENIALS = [{"tool_name": "AskUserQuestion", "tool_use_id": "toolu_ask", "tool_input": {"questions": []}},
@@ -263,7 +268,7 @@ class TestRetry(RunCase):
         _, rec = self.run_record()
         self.assertEqual([(c["command"], c["retry_of"]) for c in rec["calls"]],
                          [("/develop loop", None), ("/develop loop", 1), ("/test loop", None), ("/sync", None)])
-        self.assertIn("[1/20] /develop loop -> success, 0.50 USD, 0.0m, next: retry", r.stdout)
+        self.assertIn("[1/20] demo: /develop loop -> success, 0.50 USD, 0.0m, next: retry", r.stdout)
         shutil.rmtree(self.state)
         (self.fakes / "count").unlink()
         self.steps([{"tick": False, "json": {"subtype": "error_max_turns", "is_error": True}}])
@@ -271,7 +276,7 @@ class TestRetry(RunCase):
 
     # covers: AC-6 (a failure clears only on a call that does not fail: fail, ok, fail, ok runs on)
     def test_flag_clears(self):
-        self.make_repo("four", "# Scope: x\n**Autopilot:** allowed\n### 1. A\n- [ ] `/develop a`\n- [ ] `/test a`\n")
+        self.make_repo("four", "# Scope: x\n**Autopilot:** allowed\n### 1. A · auto\n- [x] (spec)\n- [ ] `/develop a`\n- [ ] `/test a`\n")
         self.steps([{"tick": False, "rc": 1}, {}, {"tick": False, "rc": 1}, {}, {"tick": False}])
         r = self.wf("four", "-y")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
@@ -349,8 +354,8 @@ class TestLimit(RunCase):
         self.assertEqual(lw["reset"], "2026-10-12T06:20:00-05:00")
         self.assertIsNotNone(lw["resumed"])
         self.assertEqual(rec["limit_waited_s"], lw["waited_s"])
-        self.assertIn("[1/3] /develop loop -> usage_limit", r.stdout)
-        self.assertIn("[1/3] /develop loop -> success", r.stdout)
+        self.assertIn("[1/3] demo: /develop loop -> usage_limit", r.stdout)
+        self.assertIn("[1/3] demo: /develop loop -> success", r.stdout)
         self.assertIn("waiting: usage limit, resets 2026-10-12T06:20-05:00, sleeping 22m", r.stdout)
         self.assertEqual(sorted(p.name for p in self.run_record()[0].iterdir() if p.suffix == ".json"),
                          ["call-01.json", "call-02.json", "call-03.json", "call-04.json", "run.json"])
@@ -402,7 +407,7 @@ class TestLimit(RunCase):
         out, err = p.communicate(timeout=30)
         self.assertEqual(p.returncode, 6, out + err)
         _, rec = self.run_record()
-        self.assertEqual((rec["stop_reason"], len(rec["calls"])), ("autopilot_off", 1))
+        self.assertEqual((rec["repos"][0]["ended"], len(rec["calls"])), ("autopilot_off", 1))
         self.assertGreater(rec["limit_waited_s"], 9)
 
     # covers: AC-8 (Ctrl C during the sleep stops interrupted at once)
@@ -479,7 +484,8 @@ class TestTrust(RunCase):
                 self.assertEqual(r.returncode, 5, r.stdout + r.stderr)
                 self.assertIn(f"refused: untrusted: {detail}", r.stdout)
                 self.assertEqual(self.calls(), [])
-                self.assertFalse((self.state / "wf").exists())
+                self.assertFalse((self.state / "wf" / "locks").exists())
+                self.assertFalse((self.state / "wf" / "runs").exists())
 
 
 class TestRecord(RunCase):
@@ -490,8 +496,8 @@ class TestRecord(RunCase):
         r = self.wf("mix", "-y")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         _, rec = self.run_record()
-        self.assertEqual((rec["parked"], rec["debug_attempts"], rec["limit_wait"], rec["limit_waited_s"]),
-                         (None, 1, None, 0))
+        self.assertEqual((rec["features"][0]["outcome"], rec["features"][0]["debug_attempts"], rec["limit_wait"],
+                          rec["limit_waited_s"]), ("feature_done", 1, None, 0))
         self.assertEqual([(c["seq"], c["kind"], c["marker"], c["limited"], c["retry_of"], c["touched"], c["denials"])
                           for c in rec["calls"]],
                          [(1, "box", None, False, None, None, []), (2, "box", "verify_fail_debug", False, 1, None, []),

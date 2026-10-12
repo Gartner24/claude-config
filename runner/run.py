@@ -168,13 +168,32 @@ BROWSER_PROMPT = (" wf started the app at {} and stops it after this step; do no
 TEST_BASE = (" For /test, the feature's changes are the files in git diff --name-only --diff-filter=ACMR {} plus the "
              "untracked files from git ls-files --others --exclude-standard; use that list as the changed files "
              "instead of uncommitted files only.")
-# Spec 0008 AC-1: a park ends only this feature, a stop ends the whole run (feature 10 tells them apart).
-# app_failed and app_port_busy come from spec 0009.
+# Spec 0011 AC-9 (replacing spec 0008 AC-1's two sets): a park ends its feature and the queue goes on,
+# a repo stop ends that repo, a run stop ends the run. app_failed and app_port_busy come from spec 0009.
 PARKS = frozenset(("verify_failed", "blocked", "denied", "debug_touched", "no_progress", "call_error", "call_timeout",
-                   "budget", "decision_timeout", "manual_box", "waiting", "no_command", "no_feature", "app_failed",
-                   "design_gate"))
-STOPS = frozenset(("interrupted", "max_calls", "run_limit", "usage_limit", "spawn_failed", "branch_changed",
-                   "autopilot_off", "scope_unreadable", "guard_changed", "ping_failed", "internal_error", "app_port_busy"))
+                   "budget", "max_calls", "decision_timeout", "manual_box", "waiting", "no_command", "no_feature",
+                   "app_failed", "design_gate"))
+REPO_STOPS = frozenset(("branch_changed", "autopilot_off", "scope_unreadable"))
+RUN_STOPS = frozenset(("interrupted", "run_limit", "usage_limit", "spawn_failed", "guard_changed", "ping_failed",
+                       "internal_error", "app_port_busy"))
+# AC-10: call_error is retried by the next run; the box reasons clear when the files change.
+UNRECORDED = frozenset(("call_error", "manual_box", "waiting", "no_command", "no_feature"))
+RECORDED = PARKS - UNRECORDED
+# AC-3: a cap park clears when this run's value for that cap is higher.
+# The reason names the wf run flag: --budget, --max-calls, --call-timeout.
+CAPPED = ("budget", "max_calls", "call_timeout")
+SKIPPED = re.compile(r"·\s*skipped\s*$", re.I)
+QUEUE_ID = re.compile(r"[a-z0-9]{4}")
+HEX64 = re.compile(r"[0-9a-f]{64}")
+OPT_STR, NUM = (str, type(None)), (int, float, type(None))
+# AC-17, the data model: field -> allowed types.
+PARK_FIELDS = {"repo": (str,), "feature": (str,), "section_sha": (str,), "reason": (str,), "detail": OPT_STR,
+               "cap": NUM, "run": (str,), "parked_at": (str,)}
+DECISION_FIELDS = {"id": (str,), "repo": (str,), "feature": (str,), "branch": (str,), "session_id": (str,),
+                   "call_kind": (str,), "command": (str,), "box_text": OPT_STR, "question": (str,), "options": (list,),
+                   "kind": (str,), "multi": (bool,), "sent": OPT_STR, "pings": (list,), "acks": (list,),
+                   "asked": (str,), "answer": OPT_STR, "source": OPT_STR, "answered": OPT_STR, "ignored": (int,),
+                   "run": (str,)}
 # [ \t]*, not \s*: a bare `DECISION NEEDED:` used to swallow the next line as its question.
 DECISION = re.compile(r"^[ \t>*-]*DECISION NEEDED:\**[ \t]*(\S.*)$")
 OPTION = re.compile(r"^[ \t>*-]*OPTION:\**[ \t]*(\S.*)$")
@@ -203,6 +222,115 @@ DESIGN_REPORT = os.path.join(".design", "audit-report.md")
 class Stop(Exception):
     def __init__(self, reason, detail):
         self.reason, self.detail = reason, detail
+
+
+class QueueError(Exception):
+    pass
+
+
+def queue_problem(data):
+    """AC-17: what breaks the data model in a parsed queue.json, else None."""
+    if not isinstance(data, dict) or data.get("version") != 1:
+        return "version is not 1"
+    for kind, fields in (("parks", PARK_FIELDS), ("decisions", DECISION_FIELDS)):
+        if not isinstance(data.get(kind), list):
+            return f"{kind} is not a list"
+        keys = set()
+        for i, r in enumerate(data[kind]):
+            if not isinstance(r, dict):
+                return f"{kind}[{i}] is not an object"
+            for k, types in fields.items():
+                # bool is an int in Python; only multi may be one.
+                if k not in r or not isinstance(r[k], types) or (isinstance(r[k], bool) and bool not in types):
+                    return f"{kind}[{i}].{k} is missing or has the wrong type"
+            if (r["repo"], r["feature"]) in keys:
+                return f"two {kind} for {r['feature']} in {r['repo']}"
+            keys.add((r["repo"], r["feature"]))
+            if kind == "parks" and (not HEX64.fullmatch(r["section_sha"]) or r["reason"] not in RECORDED):
+                return f"parks[{i}] has a bad section_sha or reason"
+            if kind == "decisions":
+                lists = (r["options"], r["pings"], r["acks"])
+                if not QUEUE_ID.fullmatch(r["id"]) or r["call_kind"] not in ("box", "debug", "sync") \
+                        or r["kind"] not in ("panel", "prose") or r["source"] not in (None, "phone") \
+                        or not all(isinstance(x, str) for l in lists for x in l):
+                    return f"decisions[{i}] has a bad id, call_kind, kind, source or list"
+    ids = [d["id"] for d in data["decisions"]]
+    if len(ids) != len(set(ids)):
+        return "two decisions share an id"
+    return None
+
+
+def queue_transact(change=None):
+    """AC-17: read queue.json under queue.lock; change(data) may modify it and returns True to write it in the same hold.
+    Returns the data. Raises QueueError naming the problem; the file is never overwritten then."""
+    state = state_dir()
+    path, lock = os.path.join(state, "queue.json"), os.path.join(state, "queue.lock")
+    try:
+        os.makedirs(state, mode=0o700, exist_ok=True)
+        fd = os.open(lock, os.O_RDWR | os.O_CREAT, 0o600)
+    except OSError as e:
+        raise QueueError(f"{lock}: {e.strerror or e}")
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        try:
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            data = {"version": 1, "parks": [], "decisions": []}
+        except ValueError:
+            raise QueueError(f"{path} is not JSON")
+        except OSError as e:
+            raise QueueError(f"{path}: {e.strerror or e}")
+        problem = queue_problem(data)
+        if problem:
+            raise QueueError(f"{path}: {problem}")
+        if change and change(data):
+            try:
+                tmp = path + ".tmp"
+                out = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+                os.fchmod(out, 0o600)
+                with os.fdopen(out, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2)
+                os.replace(tmp, path)
+            except OSError as e:
+                raise QueueError(f"{path}: {e.strerror or e}")
+        return data
+    finally:
+        os.close(fd)
+
+
+def decision_box(box):
+    """AC-2: a box whose label (the text before its first backtick) ends with (spec)."""
+    label = SKIPPED.sub("", box.text.split("`")[0]).strip().rstrip(":").rstrip()
+    return label.endswith("(spec)")
+
+
+class Feature:
+    """One level 3 section of a scope file (spec 0011 AC-2, AC-3)."""
+    def __init__(self, heading, raw, lines, deferred):
+        self.name = wf.DISPLAY_TAG.sub("", heading).strip()
+        self.sha = hashlib.sha256("\n".join(raw).encode()).hexdigest()
+        self.boxes = wf.parse_text("\n".join(lines))
+        spec = [b for b in self.boxes if decision_box(b)]
+        self.queued = not deferred and not wf.GONE_TAG.search(heading) and bool(wf.AUTO_TAG.search(heading)) \
+            and bool(spec) and all(not b.open and not SKIPPED.search(b.text) for b in spec)
+        # None: every box is ticked and /sync is owed.
+        self.next = wf.pick_next(self.boxes)
+
+
+def repo_features(path, scope_dir):
+    """(top file text, [Feature] in file order, load_scope order for an epic split). Raises OSError, StopIteration."""
+    folder = os.path.join(path, scope_dir)
+    main = next(os.path.join(folder, f) for f in wf.SCOPE_FILES if os.path.isfile(os.path.join(folder, f)))
+    text = wf.read(main)
+    texts = [wf.read(f) for f in wf.epics(folder, text, [])] if main.endswith("index.md") else [text]
+    return text, [Feature(*s) for t in texts for s in wf.sections(t)]
+
+
+def dirty(path):
+    """AC-7: a failed git status reads dirty, never clean."""
+    r = wf.git(path, "status", "--porcelain")
+    return r is None or r.returncode != 0 or bool(r.stdout.strip())
 
 
 def now():
@@ -246,20 +374,22 @@ def progress_key(nb):
 class Run:
     def __init__(self, c, args):
         self.c, self.args = c, args
-        self.feature = c.next.feature
+        # Spec 0011: the feature being run (display heading) and its FeatureEntry; None between features.
+        self.feature = self.entry = None
         self.branch = wf.head_branch(c.path)
         self.interrupted = False
         self.sigint_at = None
         self.proc = None
         self.inhibitor = None
         self.folder = None
+        self.repo = {"repo": c.path, "name": c.name, "branch": self.branch, "skip": None, "ended": None}
         self.record = {
-            "repo": c.path, "name": c.name, "feature": self.feature, "branch": self.branch,
+            "repos": [self.repo], "features": [],
             "started": None, "ended": None, "stop_reason": None, "detail": None,
             "caps": {"budget_usd": args.budget, "call_timeout_min": args.call_timeout,
                      "max_calls": args.max_calls, "max_hours": args.max_hours},
             "answers": {}, "calls": [], "decisions": [], "waited_s": 0,
-            "parked": None, "debug_attempts": 0, "limit_wait": None, "limit_waited_s": 0, "design": None,
+            "limit_wait": None, "limit_waited_s": 0, "design": None,
         }
         # Spec 0008 AC-6: set by a retryable failure, cleared by any call that does not fail.
         self.retried = False
@@ -308,15 +438,21 @@ class Run:
         return None
 
     def start_checks(self):
-        c = self.c
-        if c.next.owed:
-            return self.refuse(*box_refusal(c.next))
-        rc = wf.no_start(c)
-        if rc is not None:
-            return rc
-        refusal = box_refusal(c.next)
-        if refusal:
-            return self.refuse(*refusal)
+        c, state = self.c, state_dir()
+        # Spec 0011 AC-4: the state folder first, then queue.json, before any repo check. Nothing is created
+        # yet: spec 0009 refuses a state folder a call could write, and that check comes later.
+        p = state
+        while not os.path.lexists(p):
+            p = os.path.dirname(p)
+        if not os.path.isdir(p) or not os.access(p, os.W_OK):
+            return self.refuse("state_unwritable", f"{state}: {p} is not a writable folder")
+        try:
+            if os.path.isdir(state):
+                queue_transact()
+        except QueueError as e:
+            return self.refuse("queue_unreadable", e)
+        if c.is_hub:
+            return self.refuse("hub", f"{c.name} is a hub scope with no boxes of its own")
         autopilot = wf.header_values(c.text)["autopilot"]
         if autopilot != "allowed":
             return self.refuse("autopilot_off", f"Autopilot is {autopilot}, the scope header needs **Autopilot:** allowed")
@@ -583,20 +719,144 @@ class Run:
             return f"{path} appeared during the run; inspect or delete it before opening a session in this repo"
         return None
 
-    def confirm(self):
-        c, nb, a = self.c, self.c.next, self.args
-        parts = [c.display_name(), self.branch, wf.changes(c.path), nb.feature, nb.command]
-        if nb.note:
-            parts.append("note: " + nb.note)
-        parts.append(f"caps: {a.budget:g} USD/call, {a.call_timeout:g}m/call, {a.max_calls} calls, {a.max_hours:g}h")
-        parts.append("answers: " + (", ".join(f"{k} {v}" for k, v in self.answers.items()) or "none"))
-        g = self.record["guard"]
-        parts.append(f"guard: {len(g['hosts'])} hosts, {len(g['guarded_files'])} files")
+    # -- the queue (spec 0011) -------------------------------------------------
+
+    def queue(self, change=None):
+        """queue_transact during a run: a read or write failure stops the run internal_error (AC-17)."""
+        try:
+            return queue_transact(change)
+        except QueueError as e:
+            raise Stop("internal_error", str(e))
+
+    def applies(self, p, feats):
+        """AC-3: a Park record still holds while its feature is queued with the same section and the cap not raised."""
+        if not any(f.queued and f.name == p["feature"] and f.sha == p["section_sha"] for f in feats):
+            return False
+        return not (p["reason"] in CAPPED and p["cap"] is not None and getattr(self.args, p["reason"]) > p["cap"])
+
+    def survey(self, feats, q, dirty_tree):
+        """AC-2, AC-3, AC-7 over this repo's features: [(Feature that may start or None, plan line)], file order.
+        A feature this run already ran is left out: a call_error or an unticked /sync must not loop."""
+        repo = self.c.path
+        names = {}
+        for f in feats:
+            if f.queued:
+                names[f.name] = names.get(f.name, 0) + 1
+        live = {p["feature"]: p for p in q["parks"] if p["repo"] == repo and self.applies(p, feats)}
+        decided = {d["feature"] for d in q["decisions"] if d["repo"] == repo}
+        ran = {e["feature"] for e in self.record["features"] if e["repo"] == repo}
+        out = []
+        for f in feats:
+            if not f.queued or f.name in ran or f.name in decided:
+                continue
+            refusal = f.next and box_refusal(f.next)
+            if names[f.name] > 1:
+                line = f"skip: {f.name}: ambiguous_feature"
+            elif f.name in live:
+                p = live[f.name]
+                line = f"parked: {f.name}: {p['reason']}: {p['detail'] or ''} (wf unpark to retry)"
+            elif refusal:
+                line = f"skip: {f.name}: {refusal[0]}"
+            elif dirty_tree and (live or decided):
+                line = f"skip: {f.name}: dirty with parks"
+            else:
+                out.append((f, f"{'sync owed' if f.next is None else 'queued'}: {f.name}"))
+                continue
+            out.append((None, line))
+        return out
+
+    def pick(self):
+        """AC-7 for this repo: the next Feature to start, or None. Deletes Park records that no longer apply."""
+        if self.repo["ended"]:
+            return None
+        try:
+            text, feats = repo_features(self.c.path, self.c.scope_dir)
+        except (OSError, StopIteration):
+            text = feats = None
+        refusal = self.guard(None if feats is None else (None, wf.header_values(text)["autopilot"]))
+        if refusal:
+            self.end_repo(*refusal)
+            return None
+        dirty_tree = dirty(self.c.path)
+
+        def clear(q):
+            keep = [p for p in q["parks"] if p["repo"] != self.c.path or self.applies(p, feats)]
+            changed = len(keep) != len(q["parks"])
+            q["parks"] = keep
+            return changed
+
+        return next((f for f, _ in self.survey(feats, self.queue(clear), dirty_tree) if f), None)
+
+    def end_repo(self, reason, detail):
+        """AC-9 repo stop: no more calls in this repo this run, its lock kept."""
+        self.repo["ended"] = reason
+        print(f"stopped repo {self.c.name}: {reason}: {flat(detail)}", flush=True)
+
+    def park(self, reason, detail):
+        """AC-10: write or replace the feature's Park record, unless the reason is never recorded."""
+        if reason in UNRECORDED:
+            return
+        try:
+            _, feats = repo_features(self.c.path, self.c.scope_dir)
+        except (OSError, StopIteration):
+            feats = []
+        f = next((f for f in feats if f.name == self.feature), None)
+        if f is None:
+            # Not queued any more, so the record would clear at the next pick anyway.
+            return
+        rec = {"repo": self.c.path, "feature": self.feature, "section_sha": f.sha, "reason": reason,
+               "detail": None if detail is None else str(detail),
+               "cap": getattr(self.args, reason) if reason in CAPPED else None,
+               "run": self.folder, "parked_at": now()}
+
+        def write(q):
+            q["parks"] = [p for p in q["parks"] if (p["repo"], p["feature"]) != (rec["repo"], rec["feature"])] + [rec]
+            return True
+
+        self.queue(write)
+
+    def plan(self):
+        """AC-6: print the plan. Returns the exit code when there is nothing to run, else None."""
+        c, a = self.c, self.args
+        try:
+            _, feats = repo_features(c.path, c.scope_dir)
+            q = queue_transact()
+        except (OSError, StopIteration) as e:
+            return self.refuse("scope_unreadable", e)
+        except QueueError as e:
+            return self.refuse("queue_unreadable", e)
+        items = self.survey(feats, q, dirty(c.path))
+        print(flat(f"{c.display_name()} on {self.branch}, {wf.changes(c.path)}"))
+        for _, line in items:
+            print("  " + flat(line))
+        if not items:
+            print("  nothing to run")
+        print(f"caps: {a.budget:g} USD/call, {a.call_timeout:g}m/call, {a.max_calls} calls/feature, "
+              f"{a.max_hours:g}h, wait {a.max_wait:g}h")
         sessions = wf.open_sessions(c.path)
-        warnings = c.warnings + ([f"{sessions} session(s) already open here"] if sessions else [])
-        parts += [f"warning: {w}" for w in warnings]
-        print(" | ".join(parts), flush=True)
-        if a.yes:
+        for w in c.warnings + ([f"{sessions} session(s) already open here"] if sessions else []):
+            print(f"warning: {flat(w)}")
+        sys.stdout.flush()
+        if not any(f for f, _ in items):
+            print("nothing to run", flush=True)
+            return self.exit_code("queue_done")
+        return None
+
+    def exit_code(self, reason):
+        """AC-19: 0 only when nothing is left waiting for you."""
+        if reason == "interrupted":
+            return 130
+        if reason != "queue_done":
+            return 6
+        try:
+            q = queue_transact()
+        except QueueError:
+            return 6
+        left = any(r["repo"] == self.c.path for r in q["parks"] + q["decisions"])
+        return 0 if not left and all(e["outcome"] == "feature_done" for e in self.record["features"]) else 6
+
+    def confirm(self):
+        if self.args.yes:
             return True
         if not os.isatty(0):
             return False
@@ -749,7 +1009,7 @@ class Run:
         error_detail = "; ".join(p for p in (flat(subtype), flat(result[:200]), tail) if p)
         scope = self.reread()
         if scope:
-            rec["next_after"] = scope[0].command if scope[0] else None
+            rec["next_after"] = scope[0].next.command if scope[0] and scope[0].next else None
         if self.interrupted:
             return "end", "interrupted", "Ctrl C or a stop signal"
         if timed_out:
@@ -793,7 +1053,7 @@ class Run:
             verdict = last_line(VERIFY_FAIL, result)
             if verdict and verdict[1].group(1).strip().strip("*").strip().casefold() == "debug":
                 rec["marker"] = "verify_fail_debug"
-                if self.record["debug_attempts"] >= MAX_DEBUG:
+                if self.entry["debug_attempts"] >= MAX_DEBUG:
                     return "end", "verify_failed", f"{MAX_DEBUG} debug attempts made"
                 return "next", "debug", box, debug_command(box.command, result)
             if verdict:
@@ -802,14 +1062,17 @@ class Run:
                 return "end", "verify_failed", flat(" ".join(lines[-6:]))[:300]
         if kind == "sync":
             return "end", "feature_done", None
-        nb = scope[0]
+        if scope[0] is None:
+            return "end", "no_feature", f"the heading {self.feature} is gone from the scope"
+        # Spec 0011 AC-8: the next box is the feature's own; another feature's open box never ends this one.
+        nb = scope[0].next
         if kind == "box" and progress_key(nb) == progress_key(box):
             denied = next((d for d in rec["denials"] if d["tool"] != "AskUserQuestion"), None) or \
                      (rec["denials"] or [None])[0]
             if denied:
                 return "end", "denied", f"{denied['tool']}: {denied['reason'] or denied['input']}"
             return "end", "no_progress", f"the box is still open: {box.box_text}"
-        if nb is None or nb.feature != self.feature:
+        if nb is None:
             # Spec 0010 AC-3, rule 14a: only here, so a retried or resumed sync call never checks again.
             problem = self.design_check()
             if problem:
@@ -885,45 +1148,75 @@ class Run:
         return rec["session_id"], "The user answered your DECISION NEEDED question: " + d["answer"]
 
     def reread(self):
-        """(next box, Autopilot value) from the files only, or None when the scope is gone."""
+        """(this feature's Feature, None when its heading is gone; Autopilot value) from the files only,
+        or None when the scope is gone."""
         try:
-            text, boxes = wf.load_scope(os.path.join(self.c.path, self.c.scope_dir), [])
+            text, feats = repo_features(self.c.path, self.c.scope_dir)
         except (OSError, StopIteration):
             return None
-        return wf.pick_next(boxes), wf.header_values(text)["autopilot"]
+        return next((f for f in feats if f.name == self.feature), None), wf.header_values(text)["autopilot"]
 
     def last_box(self):
         """Spec 0006 AC-6: the next call's box is open and its feature has no other open box
         outside it and the boxes under it. Computed by wf from the files, never by the model."""
-        try:
-            _, boxes = wf.load_scope(os.path.join(self.c.path, self.c.scope_dir), [])
-        except (OSError, StopIteration):
-            return False
+        scope = self.reread()
+        boxes = scope[0].boxes if scope and scope[0] else []
         top = next((b for b in boxes if b.open and not b.skip), None)
         if top is None:
             return False
         while top.parent:
             top = top.parent
-        return top.open and not any(b.open and not b.skip and b.feature == top.feature and b is not top
-                                    and not wf.under(b, top) for b in boxes)
+        return top.open and not any(b.open and not b.skip and b is not top and not wf.under(b, top) for b in boxes)
 
     # -- the loop ------------------------------------------------------------
 
-    def loop(self):
-        a, calls = self.args, self.record["calls"]
-        kind, box, command, resume, retry_of, snapshot = "box", self.c.next, self.c.next.command, None, None, None
-        # The boot clock, like waited_s: a suspend during a wait used to make the subtraction negative.
-        t0 = ntfy.boottime()
+    def run_feature(self, f):
+        """Spec 0011 AC-8: one feature's calls until it is done, parks or its repo stops. A run stop propagates."""
+        e = self.entry = {"n": len(self.record["features"]) + 1, "repo": self.c.path, "feature": f.name,
+                          "outcome": None, "detail": None, "calls": [], "counted": 0, "debug_attempts": 0}
+        self.record["features"].append(e)
+        self.feature, self.retried, self.topic = f.name, False, None
+        try:
+            if f.next is None:
+                # A /sync owed from an earlier run passes the same design check as one reached here (spec 0010).
+                problem = self.design_check()
+                if problem:
+                    raise Stop("design_gate", problem)
+                self.loop("sync", None, "/sync")
+            else:
+                self.loop("box", f.next, f.next.command)
+        except Stop as s:
+            if s.reason in RUN_STOPS:
+                raise
+            e.update(outcome=s.reason, detail=None if s.detail is None else str(s.detail))
+        self.save()
+        if e["outcome"] == "feature_done":
+            print(f"done: {f.name}", flush=True)
+        elif e["outcome"] in PARKS:
+            self.park(e["outcome"], e["detail"])
+            print(f"parked: {f.name}: {e['outcome']}: {flat(e['detail'])}", flush=True)
+        else:
+            self.end_repo(e["outcome"], e["detail"])
+        # AC-8: no app outlives its feature.
+        if self.app is not None:
+            self.stop_app()
+            sweep(self.run_id)
+        self.save()
+
+    def loop(self, kind, box, command):
+        a, calls, e = self.args, self.record["calls"], self.entry
+        resume, retry_of, snapshot = None, None, None
         while True:
             seq = len(calls) + 1
             # Spec 0008 AC-8: a limited call is not counted; seq still numbers every call file.
-            count = sum(1 for c in calls if not c["limited"]) + 1
+            count = e["counted"] + 1
             if self.interrupted:
                 raise Stop("interrupted", "Ctrl C or a stop signal")
+            # Spec 0011 AC-16: per feature.
             if count > a.max_calls:
                 raise Stop("max_calls", f"{a.max_calls} calls made")
             # Time spent waiting on you or on a usage limit does not count toward --max-hours (AC-9).
-            if ntfy.boottime() - t0 - self.record["waited_s"] - self.record["limit_waited_s"] >= a.max_hours * 3600:
+            if ntfy.boottime() - self.t0 - self.record["waited_s"] - self.record["limit_waited_s"] >= a.max_hours * 3600:
                 raise Stop("run_limit", f"{a.max_hours:g}h passed")
             changed = self.files_changed()
             if changed:
@@ -935,7 +1228,7 @@ class Run:
                 base = test_base(self.c.path) if kind == "box" and command.split()[0] == "/test" else None
                 if kind == "debug":
                     snapshot = self.snapshot()
-                    self.record["debug_attempts"] += 1
+                    e["debug_attempts"] += 1
             if self.limit_rerun:
                 self.record["limit_wait"]["resumed"] = now()
                 self.limit_rerun = False
@@ -952,13 +1245,15 @@ class Run:
             rec, data, timed_out, tail, spawn_error = self.call(seq, command, resume and resume[:2], last, base,
                                                                 app is not None)
             rec.update(kind=kind, box_text=box.box_text if kind == "box" else None,
-                       resumes=resume[2] if resume else [], retry_of=retry_of, app=app)
+                       resumes=resume[2] if resume else [], retry_of=retry_of, app=app, feature=e["n"])
             calls.append(rec)
+            e["calls"].append(seq)
             act = self.classify(rec, data, timed_out, tail, spawn_error, kind, box, snapshot)
             if app and act[0] not in ("retry", "limit"):
                 self.stop_app()
                 sweep(self.run_id)
             pending = self.new_decision(seq, act[1]) if act[0] == "decide" else None
+            e["counted"] += not rec["limited"]
             self.save()
             reason = act[1] if act[0] == "end" else None
             shown = "usage_limit" if rec["limited"] else rec["subtype"] or reason or "error"
@@ -966,7 +1261,7 @@ class Run:
             after = {"decide": "waiting", "retry": "retry", "limit": "limit wait", "end": "-"}.get(act[0]) or act[3].split("\n")[0]
             # A debug command carries the verify failure on its later lines; the terminal shows the first.
             label = command.split("\n")[0] + (f" (resume {', '.join(resume[2])})" if resume else "")
-            print(f"[{count}/{a.max_calls}] {wf.clean(label)} -> {wf.clean(str(shown))}, {cost} USD, "
+            print(f"[{count}/{a.max_calls}] {self.c.name}: {wf.clean(label)} -> {wf.clean(str(shown))}, {cost} USD, "
                   f"{rec['duration_s'] / 60:.1f}m, next: {wf.clean(after)}", flush=True)
             if act[0] == "end":
                 raise Stop(act[1], act[2])
@@ -1068,7 +1363,16 @@ class Run:
                                                          self.browser["url"], self.browser["shots"])
             self.save()
             self.start_inhibitor()
-            self.loop()
+            # The boot clock, like waited_s: a suspend during a wait used to make the subtraction negative.
+            self.t0 = ntfy.boottime()
+            while True:
+                if self.interrupted:
+                    raise Stop("interrupted", "Ctrl C or a stop signal")
+                f = self.pick()
+                if f is None:
+                    break
+                self.run_feature(f)
+            reason = "queue_done"
         except Stop as s:
             reason, detail = s.reason, s.detail
         except Exception as e:
@@ -1078,15 +1382,18 @@ class Run:
             changed = self.cleanup()
             if changed:
                 reason, detail = "guard_changed", changed
-            parked = None if reason == "feature_done" else reason in PARKS
-            self.record.update(ended=now(), stop_reason=reason, detail=detail, parked=parked)
+            if self.entry and self.entry["outcome"] is None:
+                self.entry.update(outcome=reason, detail=None if detail is None else str(detail))
+            self.record.update(ended=now(), stop_reason=reason, detail=detail)
             self.save()
-        if reason == "feature_done":
-            print(f"done: {self.feature}")
+        if reason == "queue_done":
+            outcomes = [e["outcome"] for e in self.record["features"]]
+            print(f"queue done: {outcomes.count('feature_done')} done, {sum(o in PARKS for o in outcomes)} parked, "
+                  f"{outcomes.count('decision_open')} open")
         else:
-            print(f"{'parked' if parked else 'stopped'}: {reason}: {wf.clean(str(detail))}")
+            print(f"stopped: {reason}: {wf.clean(str(detail))}")
         print(f"run folder: {self.folder}", flush=True)
-        return 0 if reason == "feature_done" else 130 if reason == "interrupted" else 6
+        return self.exit_code(reason)
 
 
 def read_answers(c):
@@ -1679,10 +1986,10 @@ def cmd_run(args):
         c, rc = wf.resolve(args)
         if c is None:
             return rc
-        r = Run(c, args) if c.next else None
-        if r is None:
-            return wf.no_start(c)
+        r = Run(c, args)
         rc = r.start_checks()
+        if rc is None:
+            rc = r.plan()
         if rc is not None:
             return rc
         if not r.confirm():

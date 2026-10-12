@@ -25,7 +25,7 @@ LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)")
 HEADER_LINE = re.compile(r"^\*\*(Source of truth|Autopilot):\*\*\s*(.*)$", re.I)
 HEADER_FIELDS = {"source of truth": ("Source of truth", ("scope", "issues", "mixed"), "scope"),
                  "autopilot": ("Autopilot", ("allowed", "off"), "off")}
-# No production reader yet (the queue that consumes `· auto` is not built); pinned so the skills' output is tested.
+# Spec 0011 AC-2: only a feature carrying it runs under wf run.
 AUTO_TAG = re.compile(r"·\s*auto\s*(?=·|$)", re.I)
 # A box only you can close (spec 0012). The `after` / `waits on` words missed a
 # manual check once and a wf run looped /develop on it.
@@ -155,6 +155,32 @@ def parse_text(text):
         stack.append(box)
         boxes.append(box)
     return boxes
+
+
+def sections(text):
+    """Spec 0011 AC-3: (heading, raw lines, uncommented lines, under ## Deferred) per level 3 heading,
+    from the heading to the next heading of level 1 to 3 or the end. Raw lines keep comments, so
+    editing a comment changes the hash; headings inside a fence or a comment do not count."""
+    raw, plain = text.split("\n"), uncomment(text).split("\n")
+    starts, fence, deferred = [], None, False
+    for i, line in enumerate(plain):
+        s = line.strip()
+        if fence:
+            if s.startswith(fence):
+                fence = None
+            continue
+        if s.startswith("```") or s.startswith("~~~"):
+            fence = s[:3]
+            continue
+        h = HEADING.match(line)
+        if not h or len(h.group(1)) > 3:
+            continue
+        level, heading = len(h.group(1)), clean(h.group(2))
+        if level == 2:
+            deferred = heading.lower().startswith("deferred")
+        starts.append((i, heading if level == 3 else None, deferred))
+    starts.append((len(raw), None, False))
+    return [(h, raw[i:j], plain[i:j], d) for (i, h, d), (j, _, _) in zip(starts, starts[1:]) if h is not None]
 
 
 def under(box, ancestor):

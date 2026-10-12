@@ -12,7 +12,7 @@ import run  # noqa: E402
 from test_run import RunCase  # noqa: E402
 
 GIT_ID = ["-c", "user.name=t", "-c", "user.email=t@example.invalid"]
-UI = "# Scope: x\n**Autopilot:** allowed\n### 1. A · in-progress\n- [ ] `/develop a`\n- [ ] Verify it: `/check verify a`\n"
+UI = "# Scope: x\n**Autopilot:** allowed\n### 1. A · in-progress · auto\n- [x] (spec)\n- [ ] `/develop a`\n- [ ] Verify it: `/check verify a`\n"
 PASSING = "# Design audit\n\nverdict: PASS WITH FINDINGS\n"
 
 
@@ -164,8 +164,8 @@ class TestCheck(RunCase):
         r = self.wf("ui", "-y")
         rec = self.assert_stopped(r, "design_gate", calls=2)
         # assert_stopped reads run.PARKS, so dropping design_gate from it passed; AC-8 pinned literally.
-        self.assertIs(rec["parked"], True)
-        self.assertIn("parked: design_gate: 1 frontend file(s)", r.stdout)
+        self.assertEqual(rec["stop_reason"], "queue_done")
+        self.assertIn("parked: 1. A: design_gate: 1 frontend file(s)", r.stdout)
         self.assertEqual(rec["detail"], "1 frontend file(s) not covered by a passing design-gate report: "
                                         "src/components/Nav.tsx (no report)")
         self.assertEqual(rec["design"], {"base": None, "changed": ["src/components/Nav.tsx"], "reports": {},

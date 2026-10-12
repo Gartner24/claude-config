@@ -20,7 +20,7 @@ import run  # noqa: E402
 from test_run import RUNNER, WRAPPER, FakeNtfy, RunCase, alive, ask, write_config  # noqa: E402
 
 GIT_ID = ["-c", "user.name=t", "-c", "user.email=t@example.invalid"]
-TEST_FIRST = "# Scope: x\n**Autopilot:** allowed\n### 1. A · in-progress\n- [ ] `/test a`\n- [ ] `/develop a`\n"
+TEST_FIRST = "# Scope: x\n**Autopilot:** allowed\n### 1. A · in-progress · auto\n- [x] (spec)\n- [ ] `/test a`\n- [ ] `/develop a`\n"
 
 
 def git(repo, *args):
@@ -176,7 +176,7 @@ http.server.HTTPServer(("127.0.0.1", port), H).serve_forever()
 # WRAPPER plus a patchable APP_READY, so a never ready app parks in seconds.
 BROWSER_WRAPPER = WRAPPER.replace("import ntfy, run, wf\n", "import ntfy, run, wf, os\n"
                                   "run.APP_READY = float(os.environ.get('WF_TEST_APP_READY', run.APP_READY))\n")
-VERIFY_FIRST = "# Scope: x\n**Autopilot:** allowed\n### 1. A · in-progress\n- [ ] `/check verify a`\n"
+VERIFY_FIRST = "# Scope: x\n**Autopilot:** allowed\n### 1. A · in-progress · auto\n- [x] (spec)\n- [ ] `/check verify a`\n"
 
 
 def free_port():
@@ -235,7 +235,9 @@ class TestStart(AppCase):
         self.assertEqual(npx["cwd"], str(self.state / "wf"))
         self.assertTrue(cache.is_dir())
         self.assertEqual(run.mcp_cache(), os.path.join(run.state_dir(), "npm"))
-        self.assertIn(f"answers: app start {self.start_cmd}, app url {self.url}", r.stdout.splitlines()[0])
+        # Spec 0011 AC-6 dropped the answers from the plan; run.json keeps them.
+        self.assertEqual(json.loads(next((self.state / "wf" / "runs").iterdir()).joinpath("run.json").read_text())
+                         ["answers"]["app url"], self.url)
 
     def test_refusals(self):
         with self.subTest("no brave"):
@@ -660,7 +662,7 @@ class TestBrowserArgv(AppCase):
     # covers: AC-4, AC-5, AC-6, AC-7 (which calls get the browser and exactly what they get), AC-8 (prompt)
     def test_argv(self):
         (self.repo / "docs/scope/scope.md").write_text(
-            "# Scope: x\n**Autopilot:** allowed\n### 1. A · in-progress\n- [ ] `/develop a`\n- [ ] `/check verify a`\n"
+            "# Scope: x\n**Autopilot:** allowed\n### 1. A · in-progress · auto\n- [x] (spec)\n- [ ] `/develop a`\n- [ ] `/check verify a`\n"
             "- [ ] `/test a`\n")
         self.steps([{}, {"tick": False, "json": {"result": "VERIFY FAIL: debug"}}, {"tick": False}, {}, {},
                     {"tick": False}])
