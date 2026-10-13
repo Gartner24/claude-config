@@ -29,6 +29,7 @@ node skills/design/scripts/build-ramp.mjs --check
 python3 -m unittest discover -s runner/tests    # wf runner self checks (install.sh runs these)
 python3 runner/e2e/run.py                       # real claude end to end on a temp fixture repo (spec 0014); run it yourself with `!` after a Claude Code upgrade or runner change, prints PASS or FAIL: <check>
 python3 scripts/private-names.py --test         # private names checker self checks (spec 0013); `check` scans the repo, exits 0 when clean
+python3 scripts/spec-paths.py --test            # stale spec warner self checks (spec 0015); install.sh links it as ~/.local/bin/spec-paths, which /sync runs as `spec-paths --spec NNNN`
 wf run [repo]                                   # the queued `· auto` features of one repo, or of every trusted repo with no name (spec 0011); locks, run records and queue.json in $XDG_STATE_HOME/wf, else ~/.local/state/wf
 wf queue [repo]                                 # read only plan: queued, parked, open and answered questions (spec 0011)
 wf unpark <repo> [feature]                      # clear parks and open questions so the next wf run starts them fresh (spec 0011)
@@ -38,7 +39,7 @@ wf ntfy init|codes|test                         # phone pings for wf run decisio
 
 ## Specs
 
-`docs/specs/NNNN-title.md` (folder form `NNNN-title/index.md` for split specs): 0001 runner stack, 0002 `next`, 0003 scope contract, 0004 `wf run`, 0005 decision parking and phone pings, 0006 standing answers, 0007 push guard, 0008 failure and park policy, 0009 headless verify and test, 0010 design enforcement, 0011 build and decision queue, 0012 waiting boxes owed to you, 0013 work names out of the public repo, 0014 runner resilience.
+`docs/specs/NNNN-title.md` (folder form `NNNN-title/index.md` for split specs): 0001 runner stack, 0002 `next`, 0003 scope contract, 0004 `wf run`, 0005 decision parking and phone pings, 0006 standing answers, 0007 push guard, 0008 failure and park policy, 0009 headless verify and test, 0010 design enforcement, 0011 build and decision queue, 0012 waiting boxes owed to you, 0013 work names out of the public repo, 0014 runner resilience, 0015 checks that cannot lie. Every spec top file carries a `**Paths:**` line right after `**Status**:` (`rules/check-gates.md` gate 3).
 
 ## Rules
 

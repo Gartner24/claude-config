@@ -38,7 +38,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 27 | Second review stack fixes | Release 3 | done |
 | 21 | Work names out of the public repo | Release 3 | done |
 | 24 | Runner resilience | Release 4 | done |
-| 25 | Checks that cannot lie | Release 4 | in-progress |
+| 25 | Checks that cannot lie | Release 4 | done |
 | 28 | Guard hook false alarms | Release 4 | done |
 | 29 | Several repos at once | Release 4 | in-progress |
 | 30 | Live setup steps in one command | Release 5 | in-progress |
@@ -366,7 +366,7 @@ Eight runner changes: wait through an API outage, stop on a crash loop, count to
 Spec [0014](../specs/0014-runner-resilience/index.md) · code in `runner/run.py`, `runner/wf.py`, `runner/e2e/`, tests in `runner/tests/test_resilience.py`
 Source: [~/projects/docs/briefs/runner-ideas-2026-10-12.md](../../../projects/docs/briefs/runner-ideas-2026-10-12.md) (spec A, ideas 1 to 6); personal scope row 24 (skip ahead and `/sync` box notes); personal scope row 18.
 
-### 25. Checks that cannot lie · in-progress · auto
+### 25. Checks that cannot lie · done · auto
 One always loaded rule file the vendored skills cannot overwrite: verify steps and tests must be able to fail, every spec lists its files and `/sync` warns on stale ones, and cross checks compare against the brief. Under `wf run` a pass without its check line parks `unchecked`.
 **Done when:** the spec is built, a planted check that cannot fail is rejected, a commit touching an accepted spec's files is flagged by `/sync`, a dropped brief item is named by the cross check, and an update of the vendored skills keeps all three.
 - [x] Design it (spec): `/architect checks that cannot lie`
@@ -379,7 +379,7 @@ One always loaded rule file the vendored skills cannot overwrite: verify steps a
 - [x] Test it: `/test checks that cannot lie`
 - [x] Copy the rule live and link the script: `cp ~/claude-config/rules/check-gates.md ~/.claude/rules/check-gates.md`, then `./install.sh` (AC-1, AC-6) · waits on you
 - [x] Run probes P1 to P3 with `!` and record them in `docs/specs/0015-checks-that-cannot-lie/verify.md` (AC-10) · waits on you
-- [ ] Sync docs: `/sync checks that cannot lie`
+- [x] Sync docs: `/sync checks that cannot lie`
 Spec [0015](../specs/0015-checks-that-cannot-lie/index.md) · code in `runner/run.py`, `scripts/spec-paths.py`, `rules/check-gates.md`, `install.sh`, tests in `runner/tests/test_checks.py`, `runner/tests/test_spec_paths.py`
 Source: [~/projects/docs/briefs/runner-ideas-2026-10-12.md](../../../projects/docs/briefs/runner-ideas-2026-10-12.md) (spec B, ideas 7 and 8; item 7 narrowed to changed tests, agreed 2026-10-13); personal scope rows 19 and 12 part 2.
 
