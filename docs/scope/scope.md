@@ -37,7 +37,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 26 | Review stack fixes | Release 3 | done |
 | 27 | Second review stack fixes | Release 3 | done |
 | 21 | Work names out of the public repo | Release 3 | done |
-| 24 | Runner resilience | Deferred | planned |
+| 24 | Runner resilience | Release 4 | in-progress |
 | 25 | Checks that cannot lie | Deferred | planned |
 | 28 | Guard hook false alarms | Deferred | planned |
 | 29 | Several repos at once | Deferred | planned |
@@ -329,15 +329,29 @@ Work org and tool names sit in public files on main (`CLAUDE.md`, `HOOKS.md`, `S
 Spec: [0013](../specs/0013-work-names-out/index.md) · code in `scripts/private-names.py`, `sync.sh`, `install.sh`
 Source: [docs/briefs/work-names-out.md](../briefs/work-names-out.md) (decisions); your message of 2026-10-12 (`/scope` request after the runner branch review); your `/architect` amendment of AC-7, 2026-10-12 (hooks copied, not linked, after a `wf run` stopped `guard_changed` on `.git/hooks/commit-msg`).
 
+## Release 4: resilience and checks
+
+Queued in the batch planning session of 2026-10-12 (personal scope row 24). One bare `wf run` builds them in file order. A box that waits on you sets aside only its feature. Until feature 24 is built, a `/sync` box parks `manual_box`, so a feature that reaches its `/sync` box before then waits for the next run.
+
+### 24. Runner resilience · in-progress · auto
+Eight runner changes: wait through an API outage, stop on a crash loop, count tokens and cost, name the boxes a timed out call ticked, a real end to end fixture, a live log, a `/sync` box that runs, and a waits on you box that lets later boxes go on.
+**Done when:** the spec is built, each behavior has its test, and `python3 runner/e2e/run.py` passes on the real claude.
+- [x] Design it (spec): `/architect runner resilience`
+- [ ] Build it: `/develop runner resilience`
+   - [ ] Tokens and cost, live log with `--session-id` (AC-3, AC-6)
+   - [ ] Timeout unconfirmed boxes, outage waits, crash loop (AC-1, AC-2, AC-4)
+   - [ ] Sync box and skip ahead in `wf.py` and `run.py`, repo copy of `rules/scope-contract.md`, architecture table (AC-7, AC-8)
+   - [ ] Fixture repo and `runner/e2e/run.py` with its fake `wf` test (AC-5)
+- [ ] Verify it: `/check verify runner resilience`
+- [ ] Test it: `/test runner resilience`
+- [ ] Copy the rule file live: `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` (AC-8) · waits on you
+- [ ] Run the real end to end with `!`: `python3 runner/e2e/run.py`, record it in `docs/specs/0014-runner-resilience/verify.md` (AC-5, AC-9) · waits on you
+- [ ] Sync docs: `/sync runner resilience`
+Spec [0014](../specs/0014-runner-resilience/index.md)
+Source: [~/projects/docs/briefs/runner-ideas-2026-10-12.md](../../../projects/docs/briefs/runner-ideas-2026-10-12.md) (spec A, ideas 1 to 6); personal scope row 24 (skip ahead and `/sync` box notes); personal scope row 18.
+
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
-
-### 24. Runner resilience · needs a decision
-Deferred 2026-10-12: after the runner branch lands, in the order the brief sets (landing, 21, then this, then 25).
-Six runner additions in one spec (brief spec A): wait and retry through an API outage instead of parking every box; the same call failing the same way twice ends the run; a token and cost count per run in the run report; a timed out call counts as unknown, never pass or fail; a small fixed state fixture repo so `wf` gets an end to end regression test without a real project; a rolling log of each prompt and reply so a hung run shows what it waited on.
-**Done when:** the spec is built, each of the six behaviors has its test, and `wf run` on the fixture repo passes end to end.
-- [ ] Design it (spec): `/architect runner resilience`
-Source: [~/projects/docs/briefs/runner-ideas-2026-10-12.md](../../../projects/docs/briefs/runner-ideas-2026-10-12.md) (spec A, ideas 1 to 6); personal scope row 18.
 
 ### 25. Checks that cannot lie · needs a decision
 Deferred 2026-10-12: after 24, in the order the brief sets.
