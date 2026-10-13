@@ -44,6 +44,8 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 30 | Live setup steps in one command | Release 5 | done |
 | 13 | Morning report | Release 5 | done |
 | 32 | One command: wf | Release 6 | in-progress |
+| 33 | Runner never stops on a known block | Release 6 | needs a decision |
+| 34 | Report names repos | Release 6 | needs a decision |
 | 31 | Guard baseline check before each repo | Deferred | planned |
 | 23 | Questions that teach | Deferred | planned |
 | 15 | Cheap worker tier | Deferred | planned |
@@ -460,6 +462,18 @@ You type only `wf`. After one confirm screen it shows the report, applies pendin
 - [ ] Sync docs: `/sync one command wf`
 Spec [0020](../specs/0020-one-command-wf/index.md)
 Source: [docs/briefs/never-wait-on-each-other.md](../briefs/never-wait-on-each-other.md).
+
+### 33. Runner never stops on a known block · needs a decision
+Before the confirm screen, `wf` checks every queued feature for blocks it can predict (spec paths the run may not write, a UI with no locked design) and shows them with their fix instead of starting them; everything else runs. Planning does the same check before the handoff.
+**Done when:** a queued feature whose spec touches a denied path, or a UI with no locked design, is named on the confirm screen with its fix and never started, and the rest of the queue runs.
+- [ ] Design it (spec): `/architect runner never stops on a known block`
+Source: [docs/briefs/runner-never-stops.md](../briefs/runner-never-stops.md).
+
+### 34. Report names repos · needs a decision
+The morning report says `repo-e679` where it means `claude-config`, because it scrubs every repo name. Show the folder name of repos that are not private (the private names list decides), so the next step is readable.
+**Done when:** the phone report for a claude-config run names `claude-config`, and a repo whose name is on the private list is still hidden.
+- [ ] Design it (spec): `/architect report names repos`
+Source: the 14:51 report of 2026-10-13 ("next: wf finish, then review and merge: repo-e679").
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
