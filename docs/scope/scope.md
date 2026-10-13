@@ -38,7 +38,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 27 | Second review stack fixes | Release 3 | done |
 | 21 | Work names out of the public repo | Release 3 | done |
 | 24 | Runner resilience | Release 4 | in-progress |
-| 25 | Checks that cannot lie | Deferred | planned |
+| 25 | Checks that cannot lie | Release 4 | in-progress |
 | 28 | Guard hook false alarms | Deferred | planned |
 | 29 | Several repos at once | Deferred | planned |
 | 23 | Questions that teach | Deferred | planned |
@@ -350,15 +350,25 @@ Eight runner changes: wait through an API outage, stop on a crash loop, count to
 Spec [0014](../specs/0014-runner-resilience/index.md)
 Source: [~/projects/docs/briefs/runner-ideas-2026-10-12.md](../../../projects/docs/briefs/runner-ideas-2026-10-12.md) (spec A, ideas 1 to 6); personal scope row 24 (skip ahead and `/sync` box notes); personal scope row 18.
 
+### 25. Checks that cannot lie · in-progress · auto
+One always loaded rule file the vendored skills cannot overwrite: verify steps and tests must be able to fail, every spec lists its files and `/sync` warns on stale ones, and cross checks compare against the brief. Under `wf run` a pass without its check line parks `unchecked`.
+**Done when:** the spec is built, a planted check that cannot fail is rejected, a commit touching an accepted spec's files is flagged by `/sync`, a dropped brief item is named by the cross check, and an update of the vendored skills keeps all three.
+- [x] Design it (spec): `/architect checks that cannot lie`
+- [ ] Build it: `/develop checks that cannot lie`
+   - [ ] `scripts/spec-paths.py` with `--test` and its `install.sh` link (AC-6)
+   - [ ] Rule 11a, the `unchecked` park and prompt lines (AC-4)
+   - [ ] `rules/check-gates.md` repo copy, `NOTICE.md`, `**Paths:**` backfill on specs 0001 to 0015 (AC-1 to AC-3, AC-5, AC-7 to AC-9)
+   - [ ] Probe scripts P1 to P3 written (AC-10)
+- [ ] Verify it: `/check verify checks that cannot lie`
+- [ ] Test it: `/test checks that cannot lie`
+- [ ] Copy the rule live and link the script: `cp ~/claude-config/rules/check-gates.md ~/.claude/rules/check-gates.md`, then `./install.sh` (AC-1, AC-6) · waits on you
+- [ ] Run probes P1 to P3 with `!` and record them in `docs/specs/0015-checks-that-cannot-lie/verify.md` (AC-10) · waits on you
+- [ ] Sync docs: `/sync checks that cannot lie`
+Spec [0015](../specs/0015-checks-that-cannot-lie/index.md)
+Source: [~/projects/docs/briefs/runner-ideas-2026-10-12.md](../../../projects/docs/briefs/runner-ideas-2026-10-12.md) (spec B, ideas 7 and 8; item 7 narrowed to changed tests, agreed 2026-10-13); personal scope rows 19 and 12 part 2.
+
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
-
-### 25. Checks that cannot lie · needs a decision
-Deferred 2026-10-12: after 24, in the order the brief sets.
-Two skill additions for `wf` and chat sessions (brief spec B): `/check verify` and `/test` reject any check that would pass on broken code (a "can this step fail?" pass over every step); every spec lists the files it covers on a `paths:` line, and `/sync` warns when a commit touched files of an accepted spec. The workflow skills are vendored and overwritten on pull, so the same `/architect` decides where these additions live (likely an override rule like `rules/handoff.md`), together with personal scope row 12 part 2 (cross checks that compare against the brief).
-**Done when:** the spec is built, a planted check that cannot fail is rejected, a commit touching an accepted spec's files is flagged by `/sync`, and an update of the vendored skills keeps both.
-- [ ] Design it (spec): `/architect checks that cannot lie`
-Source: [~/projects/docs/briefs/runner-ideas-2026-10-12.md](../../../projects/docs/briefs/runner-ideas-2026-10-12.md) (spec B, ideas 7 and 8); personal scope rows 19 and 12 part 2.
 
 ### 28. Guard hook false alarms · needs a decision
 `block-destructive.sh` blocked a `git commit` on 2026-10-11 because the commit message held a power command word, and again on a scope edit whose text mentioned it. In an unattended run that stalls silently. It should match the command being run, not words inside quoted text or heredocs.
