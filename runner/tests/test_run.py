@@ -149,7 +149,8 @@ def guard_deny(t, r, bin):
     """The spec 0007 AC-5 deny list for the demo repo in a fake home with no ~/.claude."""
     return sorted([f"{t}/.claude.json", f"{r}/.claude", f"{r}/.git", f"{r}/.git/config.worktree", str(bin),
                    *(f"{t}/{p}" for p in (".gitconfig", ".config/git", ".config/gh", ".bashrc", ".bash_profile",
-                                          ".profile", ".zshrc", ".zshenv", ".zprofile", ".local/share/claude"))])
+                                          ".profile", ".zshrc", ".zshenv", ".zprofile", ".local/share/claude",
+                                          ".local/share/wf"))])
 
 
 def guard_settings(t, r, bin):
@@ -1227,7 +1228,7 @@ class TestGuard(RunCase):
             f"{h}/.claude/hooks", f"{h}/.claude/settings.json", f"{h}/.claude.json", f"{self.repo}/.claude",
             f"{self.repo}/.git", *(f"{h}/{p}" for p in (".gitconfig", ".config/git", ".config/gh", ".bashrc",
                                                         ".bash_profile", ".profile", ".zshrc", ".zshenv", ".zprofile",
-                                                        ".local/share/claude", "rw", "scripts", "real"))]))
+                                                        ".local/share/claude", ".local/share/wf", "rw", "scripts", "real"))]))
 
     # covers: spec 0007 AC-6 (claude and git run by the absolute path resolved at start)
     def test_binaries(self):

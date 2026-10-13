@@ -2801,7 +2801,9 @@ def deny_paths(repo, common, tokens, git_files=()):
     except FileNotFoundError:
         entries = []
     deny = [*entries, claude + ".json", os.path.join(repo, ".claude"), common,
-            *(os.path.expanduser(p) for p in DOTFILES), os.path.join(home, ".local", "share", "claude")]
+            *(os.path.expanduser(p) for p in DOTFILES), os.path.join(home, ".local", "share", "claude"),
+            # Spec 0020 AC-12: every runner copy, not only the one the wf hook token resolves into.
+            os.path.join(home, ".local", "share", "wf")]
     deny += [os.path.abspath(d) for d in os.environ.get("PATH", "").split(os.pathsep) if d and os.access(d, os.W_OK)]
     deny += git_files
     for t in tokens:

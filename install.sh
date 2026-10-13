@@ -54,19 +54,13 @@ for d in commands skills; do
   done
 done
 
-# The runner goes on PATH by symlink too, so repo edits are live (spec 0001).
+# The runner goes on PATH as a copy outside the repo (spec 0020 AC-12). It used to link into
+# runner/, and the SessionStart hook naming wf then made every wf run call's guard deny runner/.
+# `next` is the same file; called by that name it acts as `wf next`.
 echo "runner:"
 BIN="$HOME/.local/bin"
 run mkdir -p "$BIN"
-# `next` is the same file; called by that name it acts as `wf next`.
-for name in wf next; do
-  if [ -e "$BIN/$name" ] && ! [ -L "$BIN/$name" ]; then
-    note "SKIP $name (a real file is already at $BIN/$name)"
-  else
-    note "$name -> runner/wf.py"
-    run ln -sfn "$REPO/runner/wf.py" "$BIN/$name"
-  fi
-done
+python3 -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/runner"); import finish; finish.install_runner(sys.argv[1], sys.argv[2], sys.argv[3] == "1")' "$REPO" "$HOME" "$DRY"
 # Spec 0015 AC-6: /sync runs spec-paths to warn about stale accepted specs.
 if [ -e "$BIN/spec-paths" ] && ! [ -L "$BIN/spec-paths" ]; then
   note "SKIP spec-paths (a real file is already at $BIN/spec-paths)"

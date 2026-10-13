@@ -449,7 +449,7 @@ You type only `wf`. After one confirm screen it shows the report, applies pendin
 **Done when:** with a run going in another repo, one `wf` does all five steps, that run keeps going and its next call uses the new setup, a change to `~/.claude` not made by `wf` still stops the run, and no skill, rule or report tells you to type any `wf` subcommand.
 - [x] Design it (spec): `/architect one command wf`
 - [ ] Build it: `/develop one command wf`
-   - [ ] Runner copy: `install_runner` in `runner/finish.py`, `install.sh` calls it, deny `~/.local/share/wf` (AC-12)
+   - [x] Runner copy: `install_runner` in `runner/finish.py`, `install.sh` calls it, deny `~/.local/share/wf` (AC-12)
    - [ ] Locks: holder line by every taker, `wf finish` without repo locks, held repos skipped (AC-9, AC-7)
    - [ ] Runs take a `wf` swap: `live_dir()`, ledger acceptance, live dir guard rebuild, state folder deny (AC-5)
    - [ ] Staged setup and swap: `WF_STAGE` in `install.sh`, stage, journal, ledger, ordered renames, crash finish (AC-3, AC-4)
@@ -459,6 +459,7 @@ You type only `wf`. After one confirm screen it shows the report, applies pendin
 - [ ] Test it: `/test one command wf`
 - [x] Copy the handoff rule live: `cp ~/claude-config/rules/runner-handoff.md ~/.claude/rules/runner-handoff.md` (AC-10) · waits on you · live
 - [x] Copy the scope contract live: `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` (AC-10) · waits on you · live
+- [ ] Install the runner copy: `./install.sh` (AC-12) · waits on you · live
 - [ ] Real check beside a run: `python3 runner/e2e/run.py --beside` (AC-11) · waits on you · live
 - [ ] Sync docs: `/sync one command wf`
 Spec [0020](../specs/0020-one-command-wf/index.md)

@@ -3,6 +3,7 @@
 import datetime
 import fcntl
 import filecmp
+import hashlib
 import os
 import re
 import shlex
@@ -36,6 +37,65 @@ def live_dir():
 
 def inside(path, root):
     return path == root or path.startswith(root + os.sep)
+
+
+def runner_fp(src):
+    """Spec 0020 AC-12: 12 hex of the sha256 over name, NUL, bytes, NUL of each runner/*.py in name order."""
+    h = hashlib.sha256()
+    for name in sorted(n for n in os.listdir(src) if n.endswith(".py")):
+        with open(os.path.join(src, name), "rb") as f:
+            h.update(name.encode() + b"\0" + f.read() + b"\0")
+    return h.hexdigest()[:12]
+
+
+def install_runner(repo, home, dry=False):
+    """Spec 0020 AC-12: copy runner/*.py to <home>/.local/share/wf/<fp>/, link wf and next to it, prune.
+    The link used to point into the repo, so the SessionStart hook's `wf` token made every call's guard
+    deny Edit on runner/ (verify.md P2). Returns <fp>."""
+    src = os.path.join(repo, "runner")
+    fp = runner_fp(src)
+    share = os.path.join(home, ".local", "share", "wf")
+    dst = os.path.join(share, fp)
+    binp = os.path.join(home, ".local", "bin")
+    if dry:
+        print(f"  would: copy runner/*.py to {dst}")
+    elif not os.path.isdir(dst):
+        tmp = f"{dst}.tmp-{os.getpid()}"
+        os.makedirs(tmp)
+        for name in sorted(os.listdir(src)):
+            if name.endswith(".py"):
+                shutil.copy2(os.path.join(src, name), tmp)
+        os.rename(tmp, dst)
+    for name in ("wf", "next"):
+        link = os.path.join(binp, name)
+        if os.path.exists(link) and not os.path.islink(link):
+            print(f"  SKIP {name} (a real file is already at {link})")
+        elif dry:
+            print(f"  would: ln -sfn {dst}/wf.py {link}")
+        else:
+            print(f"  {name} -> {dst}/wf.py")
+            os.makedirs(binp, exist_ok=True)
+            tmp = f"{link}.tmp-{os.getpid()}"
+            os.symlink(os.path.join(dst, "wf.py"), tmp)
+            os.replace(tmp, link)
+    if dry:
+        print(f"  would: prune {share} folders unpicked for 7 days")
+        return fp
+    # The mtime is the "last picked" time: a running wf keeps its own folder, and one picked in the
+    # last 7 days is never pruned under it.
+    os.utime(dst)
+    linked = set()
+    for n in os.listdir(binp) if os.path.isdir(binp) else ():
+        p = os.path.join(binp, n)
+        if os.path.islink(p):
+            linked.add(os.path.realpath(p))
+    old = datetime.datetime.now().timestamp() - 7 * 86400
+    for n in os.listdir(share):
+        d = os.path.join(share, n)
+        if os.path.isdir(d) and not os.path.islink(d) and os.path.getmtime(d) < old \
+                and not any(inside(t, os.path.realpath(d)) for t in linked):
+            shutil.rmtree(d)
+    return fp
 
 
 def repo_file(root, arg):
