@@ -190,7 +190,8 @@ class TestGitPaths(unittest.TestCase):
                 before = run.Run.snapshot(ns)["tests/test_big.py"]
                 f.write_text("# pad\n" + "x" * 39 + "y")
                 after = run.Run.snapshot(ns)["tests/test_big.py"]
-            self.assertEqual(before[1], "# pad\nxx")
+            # No text past the cap (second review): touched() counts the change instead of diffing a prefix.
+            self.assertEqual(before[1], None)
             self.assertNotEqual(before[0], after[0])
 
     # covers: spec 0008 AC-3 (commit review: a huge sparse file is never read past the cap, so the snapshot ends fast)
@@ -209,7 +210,7 @@ class TestGitPaths(unittest.TestCase):
             finally:
                 signal.alarm(0)
             self.assertLess(time.monotonic() - t0, 3)
-            self.assertEqual(len(snap["tests/test_huge.py"][1]), run.SNAPSHOT_CAP)
+            self.assertIsNone(snap["tests/test_huge.py"][1])
 
     # covers: spec 0008 AC-3 (commit review: a specs folder pointing out of the repo is not walked; a link to
     # /dev/zero and a FIFO are never read, so the snapshot neither hangs nor fills memory)

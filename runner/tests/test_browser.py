@@ -61,7 +61,7 @@ class TestBaseUnit(unittest.TestCase):
     def test_prompt(self):
         self.assertEqual(run.unattended_prompt({}, False, None), run.UNATTENDED_PROMPT)
         self.assertEqual(run.unattended_prompt({}, False, "abc123"), run.UNATTENDED_PROMPT + (
-            " For /test, the feature's changes are the files in git diff --name-only --diff-filter=ACMR abc123 plus "
+            " For /test, the feature's changes are the files in git diff --relative --name-only --diff-filter=ACMR abc123 plus "
             "the untracked files from git ls-files --others --exclude-standard; use that list as the changed files "
             "instead of uncommitted files only."))
 

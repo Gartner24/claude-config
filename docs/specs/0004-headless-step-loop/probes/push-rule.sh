@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Spec 0004 AC-4 amendment (review stack finding M9): one real claude -p call carrying run.py's DENIED list.
+# Spec 0004 AC-4 amendment (review stack finding M9, second review): one real claude -p call carrying run.py's DENIED list.
 # Only the deny rules are tested: git is allowed by an explicit rule in default mode, so the auto mode classifier
 # (which wf calls also face) cannot deny anything here; a deny rule beats an allow rule.
-# Expect: steps 1 and 2 run (git stash push, a commit whose message holds "push"); steps 3 to 8 are denied, and the
+# Expect: steps 1 and 2 run (git stash push, a commit whose message holds "push"); steps 3 to 11 are denied, and the
 # local bare remote never gets a branch. Run it yourself with ! (about 1 minute).
 set -u
 P=$(cd "$(dirname "$0")" && pwd)
@@ -29,14 +29,17 @@ PROMPT="Permission probe for the machine owner. Run each step as exactly one Bas
 5. git -C . push origin work
 6. git --no-pager push origin work
 7. git -P push origin work
-8. git -p push origin work"
+8. git -p push origin work
+9. git subtree push --prefix=. origin work
+10. git submodule foreach 'git push origin work'
+11. git lfs push origin work"
 OUT=$(cd "$R/repo" && claude -p "$PROMPT" --model haiku --output-format json --permission-mode default \
   --allowedTools "Bash(git *)" --disallowedTools "$DENIED")
 printf '%s' "$OUT" | python3 -c '
 import json, sys
 d = json.load(sys.stdin)
 denied = [x.get("tool_input", {}).get("command") for x in d.get("permission_denials", [])]
-print("denied commands (expect steps 3 to 8 only):")
+print("denied commands (expect steps 3 to 11 only):")
 for c in denied:
     print("  ", c)
 print("result:", d.get("result", "")[:1500])'

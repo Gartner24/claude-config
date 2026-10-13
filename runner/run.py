@@ -36,7 +36,10 @@ BAD_BRANCHES = ("main", "master", "no git", "-")
 # A first line only: an inline alias (`git -c alias.p=push p`) or a quoted `"push"` gets past any glob. The push
 # guard is spec 0007 below the model (no credentials, forge and remote hosts denied); those bypasses are residual.
 # Over match, accepted: `git -c k=v commit -m "fix push"` is denied too.
+# The three subcommands that push for you, which `git * push*` used to deny and `git -* push*` let through
+# (second review): subtree push, push run from submodule foreach, lfs push.
 DENIED = ("AskUserQuestion,Bash(git push*),Bash(git -* push*),"
+          "Bash(git *subtree push*),Bash(git *submodule foreach*push*),Bash(git *lfs push*),"
           "Bash(gh pr create*),Bash(gh pr merge*),Bash(gh pr ready*),"
           "Bash(gh * pr create*),Bash(gh * pr merge*),Bash(gh * pr ready*)")
 # Spec 0007. The prefix list above let `env git push` and `gh api` through (review 2026-10-12),
@@ -176,7 +179,9 @@ BROWSER_PROMPT = (" wf started the app at {} and stops it after this step; do no
                   "browser tool writes under {}, or leave its path out. Anything you start from Bash runs in a separate sandbox the browser "
                   "cannot reach. If no chrome-devtools tool is available, end with BLOCKED: browser tools unavailable. "
                   "Otherwise end with BLOCKED only for a login, captcha, 2FA or hardware.")
-TEST_BASE = (" For /test, the feature's changes are the files in git diff --name-only --diff-filter=ACMR {} plus the "
+# --relative, as in frontend_changed: a scope repo in a git subfolder got paths from the git top, which matched
+# none of its own files (second review of M3).
+TEST_BASE = (" For /test, the feature's changes are the files in git diff --relative --name-only --diff-filter=ACMR {} plus the "
              "untracked files from git ls-files --others --exclude-standard; use that list as the changed files "
              "instead of uncommitted files only.")
 # Spec 0011 AC-9 (replacing spec 0008 AC-1's two sets): a park ends its feature and the queue goes on,
@@ -702,16 +707,48 @@ class Run:
             # Any other error used to read as "no hooks", which left every hook unhashed (review M11).
             return "no_sandbox", f"cannot list {hooks_dir}: {e.strerror or e}"
         # Each submodule's own git dir: its hooks used to stay writable and run at your next commit there (review M8).
-        sub_git = []
-        for d, dirs, names in os.walk(os.path.join(common, "modules")):
+        sub_dirs, walk_errors = [], []
+        for d, dirs, names in os.walk(os.path.join(common, "modules"), onerror=walk_errors.append):
             dirs.sort()
             if "HEAD" in names:
-                sub_hooks = os.path.join(d, "hooks")
-                sub_git += [os.path.join(d, "config"), sub_hooks]
-                if os.path.isdir(sub_hooks):
-                    hooks += [os.path.join(sub_hooks, n) for n in sorted(os.listdir(sub_hooks))]
+                sub_dirs.append(d)
                 # A git dir holds nested submodules only under its own modules folder.
                 dirs[:] = [x for x in dirs if x == "modules"]
+        # An unreadable folder there used to read as "no submodule", its hooks unhashed (second review).
+        walk_errors = [e for e in walk_errors if not isinstance(e, FileNotFoundError)]
+        if walk_errors:
+            return "no_sandbox", f"cannot list {walk_errors[0].filename}: {walk_errors[0].strerror or walk_errors[0]}"
+        # A submodule cloned in place keeps a real .git folder in the work tree, and an absorbed one's .git pointer
+        # could be aimed at a git dir the call wrote; both used to stay writable (second review).
+        # ponytail: gitlinks of this repo's index only; a submodule nested in an in place clone is not walked.
+        try:
+            links = [e.split("\t", 1)[1] for e in git_paths(repo, "ls-files", "-z", "--stage") if e.startswith("160000 ")]
+        except RuntimeError as e:
+            return "no_sandbox", str(e)
+        sub_in_tree = []
+        for link in links:
+            dot_git = os.path.join(repo, link, ".git")
+            if os.path.isdir(dot_git) and not os.path.islink(dot_git):
+                sub_in_tree.append(dot_git)
+            elif os.path.lexists(dot_git):
+                git_files.append(dot_git)
+        sub_git = []
+        for d in sub_dirs + sub_in_tree:
+            sub_hooks = os.path.join(d, "hooks")
+            sub_git += [os.path.join(d, "config"), sub_hooks]
+            try:
+                hooks += [os.path.join(sub_hooks, n) for n in sorted(os.listdir(sub_hooks))]
+            except FileNotFoundError:
+                pass
+            except OSError as e:
+                return "no_sandbox", f"cannot list {sub_hooks}: {e.strerror or e}"
+            # The same config.worktree and include targets the main repo's git dir gets.
+            git_files.append(os.path.join(d, "config.worktree"))
+            try:
+                git_files += include_targets([os.path.join(d, "config"), os.path.join(d, "config.worktree")])
+            except ValueError as e:
+                return "no_sandbox", e
+        git_files = list(dict.fromkeys(git_files))
         files = [*settings_files,
                  *sorted(glob.glob(os.path.join(home, ".claude", "plugins", "cache", "**", "hooks.json"), recursive=True)),
                  os.path.join(common, "config"), *(p for p in git_files if not os.path.isdir(p)), *sub_git[::2],
@@ -725,6 +762,7 @@ class Run:
         write = sorted({repo, common, *(os.path.expanduser(p) for p in CACHE_DIRS)})
         self.common = common
         self.repo["guard"] = {"hosts": hosts, "write_paths": write, "deny_paths": deny, "binaries": binaries,
+                              "submodules": [os.path.join(repo, link) for link in links],
                               "guarded_files": {p: file_hash(p) for p in dict.fromkeys(files)}}
         hook = f"{shlex.quote(binaries['python3'])} -c {shlex.quote(AGENT_GUARD)} || exit 2"
         self.guard_settings = {
@@ -749,7 +787,10 @@ class Run:
         self.settings = json.dumps(self.guard_settings)
         self.denied = ",".join([DENIED, GUARD_DENIED, DESIGN_DENIED,
                                 *(r for p in CREDENTIAL_PATHS for r in path_rules("Read", os.path.expanduser(p))),
-                                *(r for p in deny for r in path_rules("Edit", p))])
+                                *(r for p in deny for r in path_rules("Edit", p)),
+                                # The whole in place git dir, as the common dir above; the sandbox denies only its
+                                # config and hooks, so a commit in the submodule still works.
+                                *(r for p in sub_in_tree for r in path_rules("Edit", p))])
         self.claude = binaries["claude"]
         self.bwrap = os.path.realpath(shutil.which("bwrap"))
         return None
@@ -772,8 +813,13 @@ class Run:
             if os.path.exists(p):
                 a += ["--ro-bind", p, p]
         hidden = [*(os.path.join(home, p[2:]) for p in JAIL_HIDDEN), *user_read_denies(), *self.browser["wf_dirs"]]
+        binds = [os.path.realpath(p) for p in write_binds(repo)]
         # At the real path, like the binds above: a symlinked ~/.ssh used to fail every app start (review M10).
         for p in dict.fromkeys(os.path.realpath(p) for p in hidden):
+            # A deny like Read(//home/u/**) holds the repo: its tmpfs used to cover the repo bind, and every app
+            # start parked app_failed (second review). Such a path stays as the binds left it.
+            if any(under(b, [p]) for b in binds):
+                continue
             if os.path.isdir(p):
                 a += ["--tmpfs", p]
             elif os.path.exists(p):
@@ -893,9 +939,14 @@ class Run:
         if path in (os.path.join(repo, ".claude", "settings.json"), os.path.join(repo, ".claude", "settings.local.json"),
                     os.path.join(repo, ".claude")):
             return True
-        common = os.path.realpath(h["common"])
-        return under(os.path.realpath(path), [common]) and not any(
-            os.path.realpath(o["common"]) == common for o in self.held if o is not h)
+        common, real = os.path.realpath(h["common"]), os.path.realpath(path)
+        others = [o for o in self.held if o is not h]
+        # A submodule's git files in its work tree folder (second review) are this repo's alone too, unless another
+        # held repo sits inside it and holds the file.
+        subs = [os.path.realpath(s) for s in h["repo"].get("guard", {}).get("submodules", [])]
+        if under(real, subs) and not any(under(real, [os.path.realpath(o["c"].path)]) for o in others):
+            return True
+        return under(real, [common]) and not any(os.path.realpath(o["common"]) == common for o in others)
 
     # -- the queue (spec 0011) -------------------------------------------------
 
@@ -1780,9 +1831,17 @@ class Run:
         # .workflow/ is globally ignored, so git never lists its specs; walk the folder itself (review M13). Only when
         # it really lies in the repo: a call could point it at / and make wf read the whole disk (commit review).
         top = os.path.join(self.c.path, specs)
-        if under(os.path.realpath(top), [os.path.realpath(self.c.path)]):
-            for d, _, names in os.walk(top):
-                listed += [os.path.relpath(os.path.join(d, n), self.c.path) for n in names]
+        # Only an ignored specs folder: walking docs/specs too hashed its ignored files (__pycache__ from a probe
+        # run), and a debug call that ran a probe parked debug_touched for an edit nobody made (second review).
+        # Asked by the real path: git refuses a path beyond a symbolic link.
+        real, real_repo = os.path.realpath(top), os.path.realpath(self.c.path)
+        if under(real, [real_repo]):
+            ignored = wf.git(real_repo, "check-ignore", "-q", os.path.relpath(real, real_repo))
+            if ignored is None or ignored.returncode not in (0, 1):
+                raise RuntimeError(f"git check-ignore {specs} failed: {flat(ignored and ignored.stderr)}")
+            if ignored.returncode == 0:
+                for d, _, names in os.walk(top):
+                    listed += [os.path.relpath(os.path.join(d, n), self.c.path) for n in names]
         out = {}
         for rel in dict.fromkeys(listed):
             is_test = is_test_file(rel)
@@ -1804,10 +1863,13 @@ class Run:
                             # Never read past the cap: a sparse `truncate -s 1T` file used to tie wf up for hours. Past
                             # it, the key adds size, inode and ctime: any write moves ctime and no call can set it back,
                             # so an edit after the first SNAPSHOT_CAP bytes is still seen (both commit reviews).
-                            key = raw
+                            key, text = raw, raw.decode(errors="replace") if is_test else None
                             if st.st_size > SNAPSHOT_CAP or (len(raw) == SNAPSHOT_CAP and f.read(1)):
                                 key = raw + b"\0oversize:%d:%d:%d" % (st.st_size, st.st_ino, st.st_ctime_ns)
-                            out[rel] = (hashlib.sha256(key).hexdigest(), raw.decode(errors="replace") if is_test else None)
+                                # No text: a skip added past the cap used to hide behind identical first bytes, so
+                                # touched() counts any change to such a test file (second review).
+                                text = None
+                            out[rel] = (hashlib.sha256(key).hexdigest(), text)
                             continue
             except OSError:
                 # Listed by the index but gone from the tree: absent, so deleted.
@@ -1863,8 +1925,16 @@ class Run:
             reason, detail = s.reason, s.detail
         except Exception as e:
             detail = flat(traceback.format_exception_only(e)[-1])
-            # The detail keeps one line; the trace used to be lost with it (review L8).
-            traceback.print_exc()
+            # The detail keeps one line; the trace used to be lost with it (review L8). It goes to stderr, each line
+            # cleaned like every other printed text, and whole to the run folder, which outlives the terminal.
+            trace = traceback.format_exc()
+            sys.stderr.write("\n".join(wf.clean(line) for line in trace.split("\n")))
+            if self.folder and os.path.isdir(self.folder):
+                try:
+                    with open(os.path.join(self.folder, "traceback.txt"), "w", encoding="utf-8", errors="replace") as f:
+                        f.write(trace)
+                except OSError as w:
+                    print(f"warning: traceback.txt not written: {w.strerror or w}", file=sys.stderr)
         finally:
             # AC-3 step 5: a guarded file the app moved wins over the reason the run ended with, Ctrl C included.
             changed = self.cleanup()
@@ -1888,8 +1958,15 @@ def read_answers(c):
     """Spec 0006 AC-1 to AC-3: (answers in ANSWER_KEYS order, None), or (None, refusal detail)."""
     rel = ANSWERS_FILE[c.scope_dir]
     try:
-        with open(os.path.join(c.path, rel), encoding="utf-8") as f:
-            lines = f.read().split("\n")
+        # Reread after every call (spec 0011 AC-6), so a call could swap the file for a FIFO or a link to /dev/zero:
+        # a plain read used to hang wf or fill its memory there, as snapshot() once did (second review).
+        with os.fdopen(os.open(os.path.join(c.path, rel), os.O_RDONLY | os.O_NONBLOCK), "rb") as f:
+            if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
+                return None, f"{rel}: not a regular file"
+            raw = f.read(SNAPSHOT_CAP + 1)
+        if len(raw) > SNAPSHOT_CAP:
+            return None, f"{rel}: larger than {SNAPSHOT_CAP} bytes"
+        lines = raw.decode("utf-8").split("\n")
     except FileNotFoundError:
         return {}, None
     except UnicodeDecodeError:
@@ -2229,7 +2306,8 @@ def touched(before, after):
         if not is_test_file(rel):
             bad.add(rel)
             continue
-        if new is None:
+        # A test file past the snapshot cap has no text to diff (snapshot()), so any change to it counts.
+        if new is None or new[1] is None or (old and old[1] is None):
             bad.add(rel)
             continue
         old_lines = old[1].split("\n") if old else []

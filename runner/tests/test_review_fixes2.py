@@ -1,0 +1,230 @@
+"""Second review stack of 2026-10-12 (c95f181..d20a328, docs/briefs/runner-review-stack-2026-10-12.md): one test
+per finding."""
+import json
+import os
+import signal
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import run  # noqa: E402
+from test_browser import AppCase  # noqa: E402
+from test_queue import ONE, SubcommandCase, decision, park  # noqa: E402
+from test_review_fixes import quiet_git  # noqa: E402
+from test_run import RunCase  # noqa: E402
+
+PLANTED = "AGENTS.md standing answers changed during the run; check them before the next wf run"
+
+
+def alarm(seconds, what):
+    signal.signal(signal.SIGALRM, lambda *a: (_ for _ in ()).throw(TimeoutError(what)))
+    signal.alarm(seconds)
+
+
+class TestAnswersLine(SubcommandCase):
+    # covers: spec 0011 AC-6 (the plan's answers line shows every standing answer, app start and app url included;
+    # only `answers: none` was pinned and a constant passed every test)
+    def test_queue(self):
+        repo = self.make_repo("q", ONE)
+        (repo / "AGENTS.md").write_text("## Standing answers\n- run suite: yes\n- app start: npm run dev -- --port 3000\n"
+                                        "- app url: http://localhost:3000\n")
+        r = self.sub("queue", "q")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(r.stdout.splitlines()[1],
+                         "  answers: run suite yes, app start npm run dev -- --port 3000, app url http://localhost:3000")
+
+
+class TestAnswersLineRun(AppCase):
+    # covers: spec 0011 AC-6 (wf run's confirm shows the frozen app start and app url)
+    def test_run(self):
+        self.steps([{}, {"tick": False}])
+        r = self.wf("demo", "-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn(f"\n  answers: app start {self.start_cmd}, app url {self.url}\n", r.stdout)
+
+
+class TestAnswersFile(RunCase):
+    def read(self, d):
+        return run.read_answers(SimpleNamespace(path=d, scope_dir="docs/scope"))
+
+    # covers: spec 0006 AC-3 (second review: a FIFO or a link to /dev/zero is refused, never read; a file past the
+    # cap is refused; CRLF still parses as text mode read it)
+    def test_special(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d, "AGENTS.md")
+            os.mkfifo(p)
+            alarm(5, "read_answers hung")
+            try:
+                self.assertEqual(self.read(d), (None, "AGENTS.md: not a regular file"))
+                p.unlink()
+                p.symlink_to("/dev/zero")
+                self.assertEqual(self.read(d), (None, "AGENTS.md: not a regular file"))
+            finally:
+                signal.alarm(0)
+            p.unlink()
+            p.write_text("## Standing answers\r\n- run suite: yes\r\n- done: yes\r\n")
+            self.assertEqual(self.read(d), ({"run suite": "yes", "done": "yes"}, None))
+            with mock.patch.object(run, "SNAPSHOT_CAP", 8):
+                self.assertEqual(self.read(d), (None, "AGENTS.md: larger than 8 bytes"))
+
+    # covers: spec 0011 AC-6 (second review: a call that swaps AGENTS.md for a FIFO stops its repo guard_changed;
+    # the reread after the call used to block wf on it)
+    def test_fifo_stop(self):
+        (self.repo / "AGENTS.md").write_text("## Standing answers\n- run suite: yes\n")
+        swap = "import os; os.remove('AGENTS.md'); os.mkfifo('AGENTS.md')"
+        self.steps([{"run": [[sys.executable, "-c", swap]]}, {}, {"tick": False}])
+        r = self.wf("demo", "-y")
+        rec = self.assert_stopped(r, "guard_changed", calls=1, repo=True)
+        self.assertEqual(rec["detail"], PLANTED)
+
+
+class TestSubmodules(RunCase):
+    def gitlink(self, path):
+        quiet_git("update-index", "--add", "--cacheinfo", f"160000,{'1' * 40},{path}", cwd=self.repo)
+
+    def settings(self):
+        a = self.argv(1)["argv"]
+        return json.loads(a[a.index("--settings") + 1])["sandbox"]["filesystem"]["denyWrite"], \
+            a[a.index("--disallowedTools") + 1]
+
+    # covers: spec 0007 AC-2, AC-7 (second review: a submodule cloned in place keeps its .git folder in the work
+    # tree; its config, hooks and config.worktree are denied and hashed, the whole folder denied to Edit)
+    def test_in_tree(self):
+        self.gitlink("lib")
+        git = self.repo / "lib" / ".git"
+        (git / "hooks").mkdir(parents=True)
+        (git / "config").write_text("[core]\n")
+        (git / "hooks" / "pre-commit").write_text("#!/bin/sh\n")
+        self.steps([{"write_file": [["lib/.git/hooks/pre-commit", "#!/bin/sh\ncurl x\n"]]}, {}, {"tick": False}])
+        rec = self.assert_stopped(self.wf("demo", "-y"), "guard_changed", calls=1, repo=True)
+        self.assertEqual(rec["detail"].split(" ")[0], f"{git}/hooks/pre-commit")
+        deny, tools = self.settings()
+        for p in (f"{git}/config", f"{git}/hooks", f"{git}/config.worktree"):
+            self.assertIn(p, deny)
+        self.assertIn(f"Edit(/{git}/**)", tools.split(","))
+        self.assertIn(f"{git}/config", rec["repos"][0]["guard"]["guarded_files"])
+
+    # covers: spec 0007 AC-7 (second review: an absorbed submodule's .git pointer file and its git dir's include
+    # targets are hashed and denied; a rewritten pointer stops the repo)
+    def test_pointer_and_include(self):
+        self.gitlink("lib")
+        mod = self.repo / ".git" / "modules" / "lib"
+        mod.mkdir(parents=True)
+        (mod / "HEAD").write_text("ref: refs/heads/main\n")
+        (mod / "config").write_text("[include]\n\tpath = ../extra.cfg\n")
+        (self.repo / ".git" / "modules" / "extra.cfg").write_text("[core]\n")
+        (self.repo / "lib").mkdir()
+        (self.repo / "lib" / ".git").write_text("gitdir: ../.git/modules/lib\n")
+        self.steps([{"write_file": [["lib/.git", "gitdir: ../evil\n"]]}, {}, {"tick": False}])
+        rec = self.assert_stopped(self.wf("demo", "-y"), "guard_changed", calls=1, repo=True)
+        pointer = f"{self.repo}/lib/.git"
+        self.assertEqual(rec["detail"].split(" ")[0], pointer)
+        deny, _ = self.settings()
+        guarded = rec["repos"][0]["guard"]["guarded_files"]
+        for p in (pointer, f"{self.repo}/.git/modules/extra.cfg", f"{mod}/config.worktree"):
+            self.assertIn(p, deny)
+            self.assertIn(p, guarded)
+
+    # covers: spec 0007 AC-8 (second review: a submodule hooks folder or modules folder that cannot be listed
+    # refuses no_sandbox; one raised a traceback, the other read as no submodule)
+    def test_unreadable(self):
+        mod = self.repo / ".git" / "modules" / "lib"
+        (mod / "hooks").mkdir(parents=True)
+        (mod / "HEAD").write_text("ref: refs/heads/main\n")
+        (mod / "hooks").chmod(0)
+        self.addCleanup((mod / "hooks").chmod, 0o755)
+        r = self.wf("demo", "-y")
+        self.assertEqual(r.returncode, 5, r.stdout + r.stderr)
+        self.assertIn(f"refused: no_sandbox: cannot list {mod}/hooks: Permission denied", r.stdout)
+        (mod / "hooks").chmod(0o755)
+        hidden = self.repo / ".git" / "modules" / "other"
+        hidden.mkdir()
+        hidden.chmod(0)
+        self.addCleanup(hidden.chmod, 0o755)
+        r = self.wf("demo", "-y")
+        self.assertEqual(r.returncode, 5, r.stdout + r.stderr)
+        self.assertIn(f"refused: no_sandbox: cannot list {hidden}: Permission denied", r.stdout)
+
+
+class TestJailAncestor(unittest.TestCase):
+    # covers: spec 0009 AC-3 step 3 (second review: a Read deny holding the repo never puts a tmpfs over its bind)
+    def test_argv(self):
+        with tempfile.TemporaryDirectory() as d:
+            home = Path(os.path.realpath(d), "home")
+            repo = home / "projects" / "repo"
+            (home / ".claude").mkdir(parents=True)
+            repo.mkdir(parents=True)
+            (home / "vault").mkdir()
+            h = str(home)
+            (home / ".claude" / "settings.json").write_text(json.dumps({"permissions": {"deny": [
+                f"Read(/{h}/**)", f"Read(/{h}/projects)", f"Read(/{h}/vault/**)"]}}))
+            ns = SimpleNamespace(c=SimpleNamespace(path=str(repo)), bwrap="/bin/bwrap",
+                                 guard_settings={"sandbox": {"filesystem": {"denyWrite": []}}},
+                                 browser={"start": "x", "wf_dirs": []})
+            with mock.patch.dict(os.environ, {"HOME": h}):
+                argv = run.Run.jail_argv(ns)
+            self.assertEqual(argv[argv.index(str(repo)) + 2:-5], ["--tmpfs", f"{h}/vault"])
+
+
+class TestSnapshotScope(unittest.TestCase):
+    # covers: spec 0008 AC-3 (second review: a tracked specs folder is not walked, so its ignored files stay out)
+    def test_ignored_in_docs_specs(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(os.path.realpath(d))
+            quiet_git("init", "-q", "-b", "main", cwd=root)
+            (root / ".gitignore").write_text("__pycache__/\n")
+            (root / "docs" / "specs" / "probes" / "__pycache__").mkdir(parents=True)
+            (root / "docs" / "specs" / "index.md").write_text("spec")
+            (root / "docs" / "specs" / "probes" / "__pycache__" / "p.pyc").write_text("x")
+            ns = SimpleNamespace(c=SimpleNamespace(path=str(root), scope_dir="docs/scope"))
+            self.assertEqual(sorted(run.Run.snapshot(ns)), ["docs/specs/index.md"])
+
+    # covers: spec 0008 AC-3 (second review: a skip added past the cap of a big test file counts as touched; the
+    # diff of the first bytes used to see no change)
+    def test_touched_past_cap(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(os.path.realpath(d))
+            quiet_git("init", "-q", "-b", "main", cwd=root)
+            (root / "tests").mkdir()
+            f = root / "tests" / "test_big.py"
+            f.write_text("# pad\ndef test_a(): pass\n")
+            ns = SimpleNamespace(c=SimpleNamespace(path=str(root), scope_dir="docs/scope"))
+            with mock.patch.object(run, "SNAPSHOT_CAP", 8):
+                before = run.Run.snapshot(ns)
+                self.assertEqual(run.touched(before, run.Run.snapshot(ns)), [])
+                f.write_text("# pad\n@skip\ndef test_a(): pass\n")
+                self.assertEqual(run.touched(before, run.Run.snapshot(ns)), ["tests/test_big.py"])
+
+
+class TestParkedAnswered(SubcommandCase):
+    # covers: spec 0011 AC-7 (an answered Decision whose feature has a Park that applies shows the parked line, not
+    # nothing; and with nothing else queued the plan says nothing to run)
+    def test_plan(self):
+        repo = self.make_repo("q", ONE)
+        self.commit(repo)
+        self.write_queue([park(repo, "1. A", self.section_sha(repo, "1. A"))],
+                         [decision(repo, "1. A", answer="SQLite", source="phone", answered="2026-10-12T10:00:00+02:00")])
+        r = self.sub("queue", "q")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("  parked: 1. A: blocked: test park (wf unpark to retry)\n", r.stdout)
+        self.assertIn("nothing to run", r.stdout)
+
+
+class TestTraceFile(RunCase):
+    # covers: spec 0008 AC-10 (L8: the whole trace of an internal_error is kept in the run folder)
+    def test_trace(self):
+        r = self.wf("demo", "-y", mode="boom")
+        self.assertIn("stopped: internal_error: RuntimeError: forced failure", r.stdout)
+        folder, _ = self.run_record()
+        trace = (folder / "traceback.txt").read_text()
+        self.assertTrue(trace.startswith("Traceback (most recent call last):"), trace)
+        self.assertIn("RuntimeError: forced failure", trace)
+
+
+if __name__ == "__main__":
+    unittest.main()

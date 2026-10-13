@@ -162,6 +162,7 @@ def guard_settings(t, r, bin):
 def guard_denied(t, r, bin):
     both = lambda tool, p: [f"{tool}(/{p})", f"{tool}(/{p}/**)"]
     rules = ["AskUserQuestion,Bash(git push*),Bash(git -* push*),"
+             "Bash(git *subtree push*),Bash(git *submodule foreach*push*),Bash(git *lfs push*),"
              "Bash(gh pr create*),Bash(gh pr merge*),"
              "Bash(gh pr ready*),Bash(gh * pr create*),Bash(gh * pr merge*),Bash(gh * pr ready*)",
              "Artifact,ArtifactData,ArtifactComments,RemoteTrigger,CronCreate,CronDelete,SendMessage,Skill(schedule)",
@@ -1197,10 +1198,11 @@ class TestGuard(RunCase):
         self.wf("demo", "-y", "--max-calls", "2")
         self.assertEqual([self.argv(n)["exe"] for n in (1, 2)], [str(self.fakes / "claude-a")] * 2)
         self.assertFalse((self.fakes / "b-ran").exists())
-        # rev-parse, the include read of .git/config, remote -v, status for the plan's tree rule and changes, status
-        # for the first pick, (spec 0009 AC-9) the main and master lookups before the /test call, then (spec 0010
-        # AC-1) those lookups and ls-files again for the design check, and status for the pick after the park.
-        self.assertEqual((self.fakes / "git-log").read_text().splitlines(), [str(self.fakes / "git-wrap")] * 12)
+        # rev-parse, the include read of .git/config, ls-files for submodule gitlinks, remote -v, status for the plan's
+        # tree rule and changes, status for the first pick, (spec 0009 AC-9) the main and master lookups before the
+        # /test call, then (spec 0010 AC-1) those lookups and ls-files again for the design check, and status for the
+        # pick after the park.
+        self.assertEqual((self.fakes / "git-log").read_text().splitlines(), [str(self.fakes / "git-wrap")] * 13)
         _, rec = self.run_record()
         self.assertEqual(rec["repos"][0]["guard"]["binaries"], {"git": str(self.fakes / "git-wrap"),
                                                     "claude": str(self.fakes / "claude-a"),
@@ -1295,7 +1297,9 @@ class TestGuard(RunCase):
         self.wf("demo", "-y", "--max-calls", "1")
         _, rec = self.run_record()
         g = rec["repos"][0]["guard"]
-        self.assertEqual(list(g), ["hosts", "write_paths", "deny_paths", "binaries", "guarded_files", "absent_denied"])
+        self.assertEqual(list(g), ["hosts", "write_paths", "deny_paths", "binaries", "submodules", "guarded_files",
+                                   "absent_denied"])
+        self.assertEqual(g["submodules"], [])
         # Spec 0009 AC-3 step 5: the repo has no .claude; config.worktree is a guarded file, so left out.
         self.assertEqual(g["absent_denied"], [f"{self.repo}/.claude"])
         self.assertEqual(g["hosts"], sorted(FORGE_HOSTS + ["code.example.com"]))
