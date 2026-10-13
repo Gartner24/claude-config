@@ -1,7 +1,7 @@
 # 0019. Live setup steps in one command
 
 **Date**: 2026-10-13
-**Status**: Proposed
+**Status**: In Progress
 **Paths:** `runner/finish.py`, `runner/wf.py`, `install.sh`, `scripts/private-names.py`, `rules/scope-contract.md`, `rules/runner-handoff.md`
 **Amends**: [0003](../0003-scope-contract/index.md) (new ` · live` tag), [0012](../0012-waiting-boxes-owed-to-you/index.md) (a live box is still a waiting box for `wf run`), architecture invariant 7 (`wf finish`, run by you, ticks boxes, writes verify.md and commits).
 

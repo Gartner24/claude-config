@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # The workflow runner (spec 0001). Stdlib only, so a fresh clone works with no
 # install step. Subcommands: `list`/`next` (spec 0002), `run` (0004, in run.py),
-# `ntfy` (0005, in ntfy.py).
+# `ntfy` (0005, in ntfy.py), `finish` (0019, in finish.py).
 import argparse
 import math
 import os
@@ -34,6 +34,8 @@ NEAR_OWED = re.compile(r"waits on you", re.I)
 # Spec 0014 AC-8: with OWED, a waiting box later boxes of the feature may pass.
 SKIP_AHEAD = re.compile(r"·\s*later boxes go on\s*(?=·|$)", re.I)
 NEAR_SKIP = re.compile(r"later boxes go on", re.I)
+# Spec 0019 AC-1: with OWED, a box `wf finish` may run for you.
+LIVE = re.compile(r"·\s*live\s*(?=·|$)", re.I)
 # C0 and C1 control characters. Scope text and folder names come from repos you
 # may have cloned; an ESC or CR in them used to reach the terminal and fzf as is.
 # Lone surrogates are undecodable bytes in a folder name; printing one used to
@@ -644,7 +646,10 @@ def build_parser():
         p.add_argument("--max-calls", type=positive(int), default=20, help="calls per feature (default 20)")
         p.add_argument("--max-hours", type=positive(float), default=8, help="hours per run (default 8)")
         p.add_argument("--max-wait", type=positive(float), default=12, help="hours the run waits at its end for your phone replies (default 12)")
-    unpark = sub.add_parser("unpark", help="clear a repo's parked features and open questions")
+    finish = sub.add_parser("finish", help="run the live setup steps waiting on you, after one Enter")
+    finish.add_argument("target", nargs="?", help="a path, folder name or scope title; none: every repo on the wf allow list")
+    finish.add_argument("-y", "--yes", action="store_true", help="run without the confirm prompt")
+    unpark = sub.add_parser("unpark",help="clear a repo's parked features and open questions")
     unpark.add_argument("target", help="a path, folder name or scope title")
     unpark.add_argument("feature", nargs="?", help="only this feature: its heading, or a unique part of it")
     allow = sub.add_parser("allow", help="let wf run start in this repo (spec 0008 trust list)")
@@ -672,6 +677,9 @@ def main(argv=None):
     if args.command == "run":
         import run
         return run.cmd_run(args)
+    if args.command == "finish":
+        import finish
+        return finish.cmd_finish(args)
     if args.command in ("allow", "queue", "unpark"):
         import run
         return getattr(run, "cmd_" + args.command)(args)

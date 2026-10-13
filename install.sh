@@ -78,6 +78,25 @@ fi
 # settings.json hardcodes absolute paths to hook scripts. Substituting $HOME is
 # what makes this repo installable by anyone, not just its author.
 echo "settings.json:"
+# Spec 0019 AC-9: sync.sh strips autoMode from the repo copy, so every install used to
+# drop yours. Read it before the file is replaced, write it back after the private merge.
+keep_auto=""
+if [ -e "$LIVE/settings.json" ]; then
+  if ! keep_auto=$(python3 -c '
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+except (OSError, ValueError) as e:
+    print(e)
+    sys.exit(1)
+if isinstance(d, dict) and "autoMode" in d:
+    print(json.dumps(d["autoMode"]))
+' "$LIVE/settings.json"); then
+    note "autoMode not kept: $keep_auto"
+    keep_auto=""
+  fi
+fi
+[ -n "$keep_auto" ] && [ "$DRY" = 1 ] && note "would keep autoMode"
 if [ -e "$LIVE/settings.json" ] && [ "$DRY" = 0 ]; then
   bak="$LIVE/settings.json.bak.$(date +%Y%m%d-%H%M%S)"
   cp "$LIVE/settings.json" "$bak"
@@ -107,6 +126,19 @@ for f in settings.json settings.local.json; do
     sed "s|/home/santiago|$HOME|g" "$frag" | python3 "$REPO/scripts/private-names.py" merge-settings "$LIVE/$f" -
   fi
 done
+if [ -n "$keep_auto" ] && [ "$DRY" = 0 ]; then
+  python3 -c '
+import json, os, sys
+p = sys.argv[1]
+d = json.load(open(p))
+d["autoMode"] = json.loads(sys.argv[2])
+with open(p + ".tmp", "w") as f:
+    json.dump(d, f, indent=2)
+    f.write("\n")
+os.replace(p + ".tmp", p)
+' "$LIVE/settings.json" "$keep_auto"
+  note "kept your autoMode"
+fi
 
 # The names list exists only on the author's machine, so this part is this repo only:
 # private ignore lines go to .git/info/exclude (never the public .gitignore) and the

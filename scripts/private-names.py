@@ -650,6 +650,19 @@ def selftest():
     ok(json.loads((ilive / "settings.json").read_text()) == live_s, "AC-6 install rerun gives the same settings")
     ok(all(f"{h}: up to date" in out and is_copy(h) for h in ("pre-commit", "commit-msg")),
        "AC-7 install rerun says up to date")
+    # spec 0019 AC-9: the live autoMode survives an install; none in, none out; unreadable warns and goes on
+    ok("autoMode" not in live_s, "0019 AC-9 a live file with no autoMode yields none")
+    auto = {"environment": ["trusted repo"], "allow": ["x"]}
+    (ilive / "settings.json").write_text(json.dumps({**live_s, "autoMode": auto}))
+    code, out = run("--dry-run", script=irepo / "install.sh", extra=ienv)
+    ok("would keep autoMode" in out, "0019 AC-9 dry run says it would keep autoMode")
+    code, out = run(script=irepo / "install.sh", extra=ienv)
+    kept = json.loads((ilive / "settings.json").read_text())
+    ok(kept == {**live_s, "autoMode": auto}, f"0019 AC-9 install keeps the live autoMode: {kept}")
+    (ilive / "settings.json").write_text("{not json")
+    code, out = run(script=irepo / "install.sh", extra=ienv)
+    ok("autoMode not kept: " in out and json.loads((ilive / "settings.json").read_text()) == live_s,
+       "0019 AC-9 an unreadable live file warns and installs on")
     # the old install: a link to the checker, and an older copy recognized by line 2
     (hooks / "pre-commit").unlink()
     (hooks / "pre-commit").symlink_to(ichecker)

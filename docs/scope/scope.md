@@ -406,11 +406,11 @@ The 2026-10-13 night run ended at 03:20 with no message and six manual steps ove
 The runner keeps building and gathers every waits-on-you step of the run that copies into `~/.claude`, runs `install.sh` or runs a real claude check, then gives you one command that does them all and ticks their boxes. The unattended calls still never write `~/.claude` themselves. Built before feature 13, which reads its ` · live` tag.
 **Done when:** a run whose features end in live setup steps leaves you one command, and running it does every step, keeps `autoMode`, and ticks the boxes so the next run can `/sync`.
 - [x] Design it (spec): `/architect live setup steps in one command`
-- [ ] Build it: `/develop live setup steps in one command`
-   - [ ] ` · live` tag, shapes, plan and confirm in `runner/finish.py` and `wf finish` (AC-1 to AC-3)
-   - [ ] Phases, backups, logs, failure policy, Ctrl C (AC-4)
-   - [ ] Record in verify.md, tick, commit, end lines, report.seen, exit codes (AC-5 to AC-8)
-   - [ ] `install.sh` keeps `autoMode`, its self checks; repo copies of `rules/scope-contract.md` and `rules/runner-handoff.md` (AC-9, AC-10)
+- [x] Build it: `/develop live setup steps in one command`
+   - [x] ` · live` tag, shapes, plan and confirm in `runner/finish.py` and `wf finish` (AC-1 to AC-3)
+   - [x] Phases, backups, logs, failure policy, Ctrl C (AC-4)
+   - [x] Record in verify.md, tick, commit, end lines, report.seen, exit codes (AC-5 to AC-8)
+   - [x] `install.sh` keeps `autoMode`, its self checks; repo copies of `rules/scope-contract.md` and `rules/runner-handoff.md` (AC-9, AC-10)
 - [ ] Verify it: `/check verify live setup steps in one command`
 - [ ] Test it: `/test live setup steps in one command`
 - [ ] Copy the scope contract live: `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` (AC-10) · waits on you · live
