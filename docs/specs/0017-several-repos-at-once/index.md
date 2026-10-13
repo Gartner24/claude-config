@@ -75,6 +75,7 @@ Options and reasoning: [rationale.md](rationale.md).
 - The plan is printed twice (the parent's, then each child's, prefixed). A separate in process path for a single repo would avoid that, at the cost of two code paths; not taken.
 - Children start one after another, so the last of many repos starts a little later than the first.
 - A parent killed with `kill -9` leaves its children running to their end.
+- Each child takes its guard baseline at its own start, so a guarded file one repo's call changes in another repo goes unnoticed when that other repo's child starts afterwards (always so for a repo nested in another, which AC-3 starts after the outer one ends). The bare run used to stop on it while it held both repos. Accepted 2026-10-13 (your answer during the build); the calling repo's own guarded files still stop its child.
 - Needs spec 0014 built first (`run folder:` after the confirm, `runner/e2e/run.py`).
 - Changes architecture invariant 6: one call at a time per repo, not per run.
 
