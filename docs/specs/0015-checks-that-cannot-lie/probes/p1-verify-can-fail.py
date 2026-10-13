@@ -43,7 +43,9 @@ def main():
     line = [m for m in re.finditer(r"^[ \t>*-]*CAN FAIL CHECKED:\**[ \t]*(\d+)", result, re.M)]
     checks = {
         "ends with CAN FAIL CHECKED": bool(line),
-        "a can fail note per step": len(re.findall(r"can fail:", result + reports, re.I)) >= 2,
+        # One note per step that passed: a dropped planted step leaves 1, a rewritten one 2.
+        "a can fail note per step": bool(line) and int(line[-1].group(1)) >= 1
+        and len(re.findall(r"can fail:", result + reports, re.I)) >= int(line[-1].group(1)),
         "planted step rewritten or dropped": bool(re.search(r"test -f calc\.py.{0,300}(rewr|drop)|(rewr|drop).{0,300}"
                                                             r"test -f calc\.py", result + reports, re.I | re.S)),
     }

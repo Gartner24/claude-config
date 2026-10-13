@@ -9,6 +9,10 @@
 - P1 planted verify step: record date, Claude Code version, pass or fail.
 - P2 `/sync` stale spec warning: record date, version, pass or fail.
 - P3 brief item dropped by a spec, named by the cross check: record date, version, pass or fail.
+- 2026-10-13, Claude Code 2.1.296:
+  - P1: the planted `test -f calc.py` step was dropped and named, the real step carried a `can fail:` note, the report ended `CAN FAIL CHECKED: 1`. The probe printed `FAIL a can fail note per step` because it required 2 notes, which only holds when the planted step is rewritten; the rule also allows dropping it. The probe now requires one note per counted step. PASS on that reading.
+  - P2: PASS (5 of 5 lines; `src/a.py` named for spec 0001, nothing for 0002, spec 0001 unedited).
+  - P3: PASS (3 of 3 lines; the dropped retry cap named with the brief, spec unedited).
 
 # Verify: checks that cannot lie · spec 0015 · updated 2026-10-13
 _Steps derived from spec 0015 acceptance criteria. `/check verify` runs these; `/test` locks the durable ones._
@@ -28,7 +32,7 @@ _Steps derived from spec 0015 acceptance criteria. `/check verify` runs these; `
 
 ## Waits on you
 - [ ] `cp ~/claude-config/rules/check-gates.md ~/.claude/rules/check-gates.md`, then `./install.sh` -> AC-1, AC-6
-- [ ] Run with `!`: `python3 docs/specs/0015-checks-that-cannot-lie/probes/p1-verify-can-fail.py`, `p2-sync-stale.py`, `p3-brief-check.py`; each prints PASS lines; record under "Probes after build" -> AC-2, AC-3, AC-7, AC-9, AC-10
+- [x] Run with `!`: `python3 docs/specs/0015-checks-that-cannot-lie/probes/p1-verify-can-fail.py`, `p2-sync-stale.py`, `p3-brief-check.py`; each prints PASS lines; record under "Probes after build" -> AC-2, AC-3, AC-7, AC-9, AC-10
 
 ## Acceptance-criteria coverage
 - AC-1 rule file and NOTICE steps · AC-2 probe P1 · AC-3 rule section 2 (probe P1 covers the verify half; the /test half is followed in chat) · AC-4 test_checks and its mutants · AC-5, AC-8 test_spec_paths · AC-6 spec-paths --test, flags, install dry run · AC-7 probe P2 · AC-9 probe P3 · AC-10 the three probe scripts
