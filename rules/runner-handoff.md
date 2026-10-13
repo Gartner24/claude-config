@@ -14,12 +14,7 @@ will not remember the flow; you do.
    - repo trusted: `wf allow <repo path>` (check `~/.config/wf/allowed.json`);
    - current branch is not `main`/`master` (give `git -C <repo> switch -c feat/<slug>`);
    - web app with no `- app start:` / `- app url:` in AGENTS.md (ask for them);
-   - UI feature with no locked `design.md` (route to `design`);
-   - any path the spec will touch that `wf run` calls may not write (the guard's deny list: `~/.claude`,
-     `~/.local/bin` and what its links point into, the repo's `.git/hooks`): move that work into a
-     waits-on-you box or change the design before handing off.
-   A gap you can fix yourself (a setup line, a design route, a box split) is fixed now, not listed.
-   The handoff never leaves a box the run is known to stop on.
+   - UI feature with no locked `design.md` (route to `design`).
 3. Batch first: if any other feature in this repo's plan, or in a hub row that names this repo
    (work, freelance, personal), still says `needs a decision`, do not hand off to the runner yet.
    Name the next one and run its `/architect` in this session (or, past ~150k tokens, `/rollover`

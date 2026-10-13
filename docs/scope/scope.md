@@ -44,7 +44,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 30 | Live setup steps in one command | Release 5 | done |
 | 13 | Morning report | Release 5 | done |
 | 32 | One command: wf | Release 6 | in-progress |
-| 33 | Runner never stops on a known block | Release 6 | needs a decision |
+| 33 | Ask, never stop | Release 6 | needs a decision |
 | 34 | Report names repos | Release 6 | needs a decision |
 | 31 | Guard baseline check before each repo | Deferred | planned |
 | 23 | Questions that teach | Deferred | planned |
@@ -463,10 +463,10 @@ You type only `wf`. After one confirm screen it shows the report, applies pendin
 Spec [0020](../specs/0020-one-command-wf/index.md)
 Source: [docs/briefs/never-wait-on-each-other.md](../briefs/never-wait-on-each-other.md).
 
-### 33. Runner never stops on a known block · needs a decision
-Before the confirm screen, `wf` checks every queued feature for blocks it can predict (spec paths the run may not write, a UI with no locked design) and shows them with their fix instead of starting them; everything else runs. Planning does the same check before the handoff.
-**Done when:** a queued feature whose spec touches a denied path, or a UI with no locked design, is named on the confirm screen with its fix and never started, and the rest of the queue runs.
-- [ ] Design it (spec): `/architect runner never stops on a known block`
+### 33. Ask, never stop · needs a decision
+A step that needs a protected place (`~/.claude`, the runner's own `runner/`, `.git/hooks`) never parks. With a standing permission for that repo (allowed once, ahead of time) the run just writes it and goes on. Without one, it asks on your phone (yes, no, always), keeps building everything else meanwhile, and resumes that step when you answer.
+**Done when:** a claude-config night run whose features edit `~/.claude` and `runner/` builds them to the end with no stop, given the standing permission; without it you get one phone question and the step resumes on your yes; a change to `~/.claude` from outside the run still stops it.
+- [ ] Design it (spec): `/architect ask never stop`
 Source: [docs/briefs/runner-never-stops.md](../briefs/runner-never-stops.md).
 
 ### 34. Report names repos · needs a decision

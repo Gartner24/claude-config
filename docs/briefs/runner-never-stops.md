@@ -1,13 +1,14 @@
-# The runner never stops on a known block
+# Ask, never stop
 
 ## Agreed so far, do not ask again
-- Your rule (2026-10-13): the runner does not stop. A block that could have been seen before the run is a runner bug, not your job to find in the morning, and it must not depend on any chat session remembering to check.
-- Trigger, 2026-10-13: feature 32 parked `blocked` 7 minutes into its build because `wf run` calls may not write `runner/` (the `~/.local/bin` deny follows the `wf` link into it). Earlier the same day the codebase carousel parked on a missing locked design. Both were knowable before the run started.
-- Two layers:
-  1. Preflight in `wf` itself: before the confirm screen, for every queued feature, check its spec's `**Paths:**` against the guard's deny list (resolved through links) and, for a UI feature, that a locked design exists. A feature that would block is shown on the confirm screen with the reason and the fix, and is not started; every other feature runs.
-  2. Planning: `rules/runner-handoff.md` step 2 now has the same check, so `/architect` fixes the gap (a box split, a design route) before the handoff instead of listing it.
-- When a call still hits a block nobody could predict, the runner sets aside only that feature and goes on with every other one (as today), and the morning report names the fix.
+- The problem (your words, 2026-10-13): runs are for long nights. Today a run stops about an hour in whenever a step needs to touch something the run is not allowed to touch (`~/.claude`, the runner's own `runner/`, `.git/hooks`), and in the morning nothing is built. Editing those is on purpose, it is the work. It needs your OK, not a stop.
+- Not the fix: more checks, preflights or rules that predict blocks. They add depth and still leave the night idle.
+- The fix:
+  1. Per repo standing permission: you allow once, ahead of time, which protected places a repo's runs may write (claude-config: `~/.claude`, `runner/`, `.git/hooks`). One line in that repo's `AGENTS.md` `## Standing answers`, or one question on the `wf` confirm screen the first time. With it, the run's calls get those paths writable and simply go on. Nothing stops.
+  2. Without a standing permission, a step that needs a protected path does not park: it asks on your phone ("allow claude-config to write ~/.claude/rules? yes / no / always"), keeps building every other feature meanwhile, and resumes that step the moment you answer. "always" writes the standing permission.
+  3. A run guarding itself against changes to `~/.claude` accepts changes made by its own allowed calls (they are the work), and still stops on a change from anywhere else.
+- Builds on the decision queue (spec 0011) for the phone question and on `wf` (spec 0020) for the confirm screen.
 
 ## Open for /architect
-- Which other block reasons can be predicted from the spec and the repo (app start line, trust, branch, missing tools).
-- Whether a predicted block becomes a waits-on-you box automatically or only shows on the screen.
+- The exact standing permission line and which places it can name (never secrets: credentials, ssh, gh, private/).
+- How an allowed call's own `~/.claude` writes are told apart from outside changes.
