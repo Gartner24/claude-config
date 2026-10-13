@@ -154,7 +154,7 @@ Every finding above is fixed. Tests in `runner/tests/test_review_fixes2.py` (16)
 
 The background security reviews of the fix commit found 5 issues in these fixes, all fixed with a test and a mutation check: the jail skip exposed the denied tree (now hidden first, binds on top); a submodule not checked out was unwatched (now hashed absent); a symlinked submodule `.git` went unhashed (now refused); `own_file` resolved the submodule folder at check time, so a call could swap it for a link to `/` (now the frozen `.git` text); and it ignored another held repo whose common dir lies in the submodule (now checked).
 
-Owed to you: the push rule probe rerun on the real claude (steps 9 to 11, spec 0004 `verify.md`).
+Push rule probe rerun on the real claude (steps 9 to 11): PASS 2026-10-12, spec 0004 `verify.md`. Nothing owed.
 
 ## /check verify, second round (2026-10-12): PASS
 
