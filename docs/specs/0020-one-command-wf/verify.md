@@ -10,3 +10,8 @@ Result, log in order: `v1`, `v1`, `swapped`, `post`, `v2`, `post`, `v2`, `post`,
 Rerun the same day with the call limited to `--allowedTools Bash(echo:*) Bash(sleep:*)` and the temp folder as its working folder (the first run used `bypassPermissions`, flagged by a security review): the same order and the same `RESULT` line.
 
 Confirmed: a running call rereads `settings.json` mid call and runs hook scripts fresh on each tool use. So AC-4 renames `settings.json` last, and the spec accepts that an in flight call uses the new setup for its remaining tool uses. Rerun after a Claude Code upgrade.
+
+### P2: why a `wf run` call cannot edit `runner/` (AC-12)
+Command, run 2026-10-13 against the live `~/.claude/settings.json`: `python3 -B -c "import sys,json,os; sys.path.insert(0,'runner'); import run; s=json.load(open(os.path.expanduser('~/.claude/settings.json'))); t=run.hook_tokens([s],'<repo>'); print([x for x in t if 'wf' in x]); print([d for d in run.deny_paths('<repo>','<repo>/.git',t) if '<repo>' in d])"`.
+
+Result: the tokens are `~/.local/bin/wf` and `<repo>/runner/wf.py`; the repo paths in the deny list are `.claude`, `.git` and `runner`. Confirmed: `runner/` is denied because the SessionStart hook `wf report --hook` names the link and `deny_paths` adds the folder of its real path. Not Claude Code resolving links in the `~/.local/bin` rule, as first guessed. Rerun after AC-12 lands: `runner` must be gone from that list.

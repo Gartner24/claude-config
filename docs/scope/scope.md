@@ -449,6 +449,7 @@ You type only `wf`. After one confirm screen it shows the report, applies pendin
 **Done when:** with a run going in another repo, one `wf` does all five steps, that run keeps going and its next call uses the new setup, a change to `~/.claude` not made by `wf` still stops the run, and no skill, rule or report tells you to type any `wf` subcommand.
 - [x] Design it (spec): `/architect one command wf`
 - [ ] Build it: `/develop one command wf`
+   - [ ] Runner copy: `install_runner` in `runner/finish.py`, `install.sh` calls it, deny `~/.local/share/wf` (AC-12)
    - [ ] Locks: holder line by every taker, `wf finish` without repo locks, held repos skipped (AC-9, AC-7)
    - [ ] Runs take a `wf` swap: `live_dir()`, ledger acceptance, live dir guard rebuild, state folder deny (AC-5)
    - [ ] Staged setup and swap: `WF_STAGE` in `install.sh`, stage, journal, ledger, ordered renames, crash finish (AC-3, AC-4)
