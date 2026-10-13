@@ -321,7 +321,7 @@ Work org and tool names sit in public files on main (`CLAUDE.md`, `HOOKS.md`, `S
 - [x] Verify the hook copy: `/check verify work names out of the public repo`
 - [x] Test the hook copy: `/test work names out of the public repo`
 - [x] Rerun `./install.sh`: both hooks print `refreshed` or `up to date`, and neither is a symlink (spec 0013 build plan 7c, AC-7) · waits on you
-- [ ] Sync docs for feature 21: `/sync work names out of the public repo`
+- [x] Sync docs for feature 21: `/sync work names out of the public repo`
 - [ ] Merge `feat/autonomous-runner` into `main` locally, then rewrite history in a fresh clone per the spec 0013 migration plan phases 1 and 2, `check-history` exits 0 (AC-10) · waits on you
 - [ ] Delete and recreate `Gartner24/claude-config`, push `main`, `check-history` on a fresh clone of the new remote, swap folders (migration plan phases 3 to 5, AC-10) · waits on you
 Spec: [0013](../specs/0013-work-names-out/index.md) · code in `scripts/private-names.py`, `sync.sh`, `install.sh`

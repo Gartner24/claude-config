@@ -27,6 +27,7 @@ bash hooks/block-destructive.sh --test          # guard hook self-checks
 bash skills/design/scripts/test-ledger.sh       # design ledger + Stop hook assertions
 node skills/design/scripts/build-ramp.mjs --check
 python3 -m unittest discover -s runner/tests    # wf runner self checks (install.sh runs these)
+python3 scripts/private-names.py --test         # private names checker self checks (spec 0013); `check` scans the repo, exits 0 when clean
 wf run [repo]                                   # the queued `· auto` features of one repo, or of every trusted repo with no name (spec 0011); locks, run records and queue.json in $XDG_STATE_HOME/wf, else ~/.local/state/wf
 wf queue [repo]                                 # read only plan: queued, parked, open and answered questions (spec 0011)
 wf unpark <repo> [feature]                      # clear parks and open questions so the next wf run starts them fresh (spec 0011)
@@ -36,7 +37,7 @@ wf ntfy init|codes|test                         # phone pings for wf run decisio
 
 ## Specs
 
-`docs/specs/NNNN-title.md` (folder form `NNNN-title/index.md` for split specs): 0001 runner stack, 0002 `next`, 0003 scope contract, 0004 `wf run`, 0005 decision parking and phone pings, 0006 standing answers, 0007 push guard, 0008 failure and park policy, 0009 headless verify and test, 0010 design enforcement, 0011 build and decision queue, 0012 waiting boxes owed to you.
+`docs/specs/NNNN-title.md` (folder form `NNNN-title/index.md` for split specs): 0001 runner stack, 0002 `next`, 0003 scope contract, 0004 `wf run`, 0005 decision parking and phone pings, 0006 standing answers, 0007 push guard, 0008 failure and park policy, 0009 headless verify and test, 0010 design enforcement, 0011 build and decision queue, 0012 waiting boxes owed to you, 0013 work names out of the public repo.
 
 ## Rules
 
@@ -55,6 +56,7 @@ wf ntfy init|codes|test                         # phone pings for wf run decisio
 - `asciify.py` skips only `agents/`, `rules/` and `anti-ai-writing`, so it flags the committed `culori` README. Never run it without `--check` first.
 - The middle dot `·` is allowed in repo markdown despite the ASCII rule: it is the scope tag separator (`rules/scope-contract.md`) that `runner/wf.py` parses, and `asciify.py` keeps it.
 - `jjstack/` is gitignored /review scratch; reports never enter the repo from there.
+- Private names live in `~/.claude/private/` (`names.txt`, `work.md`, `gitignore`, settings fragments), never in the repo (spec 0013). Without `names.txt`, `sync.sh` and every commit here fail closed. `sync.sh` moves name bearing settings entries into the fragments and `install.sh` merges them back. The `pre-commit` and `commit-msg` hooks are copies of `scripts/private-names.py`, not links: after editing the checker, rerun `./install.sh` to refresh them. Hit lines print the `names.txt` line number, never the name.
 - Runner fixtures are flat files (`runner/tests/fixtures/*.md`) that tests copy into `docs/scope/` or `.workflow/scope/` trees in temp dirs: `.workflow/` is globally gitignored, so a fixture tree there would never be committed. Keep them trimmed and free of client names (public repo).
 - Scripts hardcode `~/.claude/skills/...` paths: they run through the symlink, not from the repo path.
 - `claude -p` (2.1.296) never offers AskUserQuestion, so `wf run` steps ask through `DECISION NEEDED:` plus `OPTION:` lines (spec 0005); rerun its verify.md check 1 probe after a Claude Code upgrade. The Android ntfy app cannot type into a topic; typed replies go through the topic page in a phone browser.
