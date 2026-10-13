@@ -85,6 +85,16 @@ class TestStagedFinish(FinishCase):
         self.assertEqual(kept, ["20260102-000000", "20260103-000000", "20260104-000000"])
 
 
+class TestShapeConfigDir(FinishCase):
+    # covers: AC-3 (a copy box's `~/.claude/` names the live dir, $CLAUDE_CONFIG_DIR when set)
+    def test_copy_into_config_dir(self):
+        conf = self.tmp / "conf"
+        conf.mkdir()
+        with mock.patch.dict(os.environ, {"HOME": str(self.home), "CLAUDE_CONFIG_DIR": str(conf)}):
+            phase, fields = finish.shape(str(self.repo.resolve()), "cp rules/a.md ~/.claude/rules/a.md")
+        self.assertEqual((phase, fields["dst"]), ("copy", str(conf.resolve() / "rules" / "a.md")))
+
+
 class SwapUnit(unittest.TestCase):
     """swap() and recover() in process, on a temp home, live dir, state and repo."""
 

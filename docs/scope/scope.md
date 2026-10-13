@@ -454,7 +454,7 @@ You type only `wf`. After one confirm screen it shows the report, applies pendin
    - [x] Runs take a `wf` swap: `live_dir()`, ledger acceptance, live dir guard rebuild, state folder deny (AC-5)
    - [x] Staged setup and swap: `WF_STAGE` in `install.sh`, stage, journal, ledger, ordered renames, crash finish (AC-3, AC-4)
    - [x] Retakes by reason, then bare `wf`: screen, order, builds, checks beside them, commit retries (AC-6, AC-1, AC-2, AC-7, AC-8)
-   - [ ] One command texts and rule copies, corpus test, `runner/e2e/run.py --beside` (AC-10, AC-11)
+   - [x] One command texts and rule copies, corpus test, `runner/e2e/run.py --beside` (AC-10, AC-11)
 - [ ] Verify it: `/check verify one command wf`
 - [ ] Test it: `/test one command wf`
 - [x] Copy the handoff rule live: `cp ~/claude-config/rules/runner-handoff.md ~/.claude/rules/runner-handoff.md` (AC-10) · waits on you · live

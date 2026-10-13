@@ -169,7 +169,7 @@ class TestHappyPath(FinishCase):
         self.assertEqual(sorted(log[7:]), ["docs/scope/scope.md", "docs/specs/0001-x/verify.md",
                                            "docs/specs/0002-y/verify.md"])
         self.assertIn("notes.md", self.git(self.repo, "status", "--porcelain").stdout)
-        self.assertEqual(out.splitlines()[-1], "next: wf run")
+        self.assertEqual(out.splitlines()[-1], "next: wf")
         self.assertIn("PASS: r: ./install.sh", out)
         self.assertTrue((self.state / "wf" / "report.seen").exists())
 
@@ -219,7 +219,7 @@ class TestHappyPath(FinishCase):
         self.assertIn("commit failed in r: hook says no", r.stdout)
         self.assertEqual(self.git(self.repo, "log", "--format=%s").stdout.strip(), "init")
         self.assertIn("- [x] Copy:", self.scope())
-        self.assertEqual(r.stdout.splitlines()[-1], "next: wf run")
+        self.assertEqual(r.stdout.splitlines()[-1], "next: wf")
 
 
 class TestFailures(FinishCase):
@@ -234,7 +234,7 @@ class TestFailures(FinishCase):
         self.assertIn("FAIL: r: cp rules/a.md ~/.claude/rules/a.md", r.stdout)
         self.assertIn("FAIL: r: ./install.sh (not run)", r.stdout)
         self.assertNotIn("- [x]", self.scope())
-        self.assertEqual(r.stdout.splitlines()[-1], "next: fix the FAIL lines, then wf finish")
+        self.assertEqual(r.stdout.splitlines()[-1], "next: fix the FAIL lines, then wf")
 
     # covers: AC-4, AC-5, AC-6 (a failed probe is recorded, the next probe still runs, its box stays open)
     def test_failed_probe(self):

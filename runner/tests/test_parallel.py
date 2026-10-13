@@ -276,7 +276,7 @@ class TestExitAndSummary(ParallelCase):
         self.steps({"rb": [TICK_A, DONE_A]})
         r = self.wf("-y")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn("  parked: 1. A: blocked: test park (wf unpark to retry)", plan(r.stdout))
+        self.assertIn("  parked: 1. A: blocked: test park (retaken on a new commit)", plan(r.stdout))
         self.assertIn("jobs: 1 at once", plan(r.stdout))
         self.assertNotIn("[rp] ", r.stdout)
         self.assertFalse((self.fakes / "rp-argv-1.json").exists())

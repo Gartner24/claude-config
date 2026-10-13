@@ -6,7 +6,7 @@ will not remember the flow; you do.
 ## After /architect accepts a spec
 1. If the repo's scope header says `**Autopilot:** allowed`, tag the feature heading `· auto`,
    put `/sync` as its last box, and mark any step that writes `~/.claude` or `.git/hooks` as
-   `· waits on you`. When that step is one of the four `wf finish` shapes (`rules/scope-contract.md`),
+   `· waits on you`. When that step is one of the four live step shapes `wf` runs (`rules/scope-contract.md`),
    write it one step per box with ` · live` too; a human step goes in its own box without ` · live`.
    Commit.
 2. Check runner readiness and list only what is missing, each with the exact command:
@@ -19,21 +19,21 @@ will not remember the flow; you do.
    (work, freelance, personal), still says `needs a decision`, do not hand off to the runner yet.
    Name the next one and run its `/architect` in this session (or, past ~150k tokens, `/rollover`
    with that `/architect` as the next command). Only when none is left, go to step 4.
-4. End the turn with: "Ready for the runner: type `wf run <repo>` in a terminal (or `wf run`
-   for every trusted repo)." This replaces the `/clear` handoff for a queued feature.
+4. End the turn with: "Ready for the runner: type `wf` in a terminal." This replaces the `/clear`
+   handoff for a queued feature.
 
 Never route an accepted spec to `/develop` in chat because the repo is not runner ready. A missing
 `Autopilot: allowed` or `wf allow` is a setup step to list in step 2, not a reason to build in
 chat. Build in chat only when the user says so for that feature.
 
 ## At session start in a repo
-Run `wf queue` (read only). If anything finished, parked or waits on you since the last run,
+Read the queue (`wf queue`, read only) yourself. If anything finished, parked or waits on you since the last run,
 say it first in one short list, with the next command for each: review and merge for finished
 work, the fix for a park, the box for a waits-on-you step.
 When the session opens with a wf morning report, say it first in one short list with its next
 command, then follow *After a wf run ends*.
 
 ## After a wf run ends
-When the user says a run ended, read `wf queue` and the run's `run.json`, then give the morning
-steps: what was built, the review command for this repo (`## Review Rules`), and the merge and
+When the user says a run ended, read the queue (`wf queue`, read only) and the run's `run.json`
+yourself, then give the morning steps: what was built, the review command for this repo (`## Review Rules`), and the merge and
 push commands. Never push or merge without the user's yes.

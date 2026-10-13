@@ -12,7 +12,8 @@ import wf
 
 MAX_LINES = 12
 MAX_CHARS = 1000
-HOOK_HEAD = "wf morning report (shows in every session until you run wf finish or wf report --seen):"
+# Spec 0020 AC-10: the one command marks it seen.
+HOOK_HEAD = "wf morning report (shows in every session until you run wf):"
 FOLDER = re.compile(r"^(.+)-(\d{8}-\d{6})-(\d+)$")
 # Item kinds in AC-2 order; parked and stopped share a slot, kept in feature order.
 ORDER = ("built", "parked", "question", "live", "yours", "no record", "no end", "not started")
@@ -102,10 +103,10 @@ def next_line(items, name):
     kinds = {i["kind"] for i in items}
     built = ", ".join(dict.fromkeys(name(i) for i in items if i["kind"] == "built"))
     if "live" in kinds:
-        return "next: wf finish" + (f", then review and merge: {built}" if built else "")
+        return "next: wf" + (f", then review and merge: {built}" if built else "")
     if kinds & {"parked", "stopped", "question", "yours", "no record", "no end", "not started"}:
-        return "next: wf queue"
-    return f"next: review and merge: {built}" if built else "next: wf queue"
+        return "next: wf"
+    return f"next: review and merge: {built}" if built else "next: wf"
 
 
 def item_line(i, multi, phone, cfg):
@@ -149,7 +150,7 @@ def render(sources, cfg):
     tail, dropped = next_line(items, lambda i: label(cfg, i)), 0
 
     def body():
-        more = [f"+{dropped} more, run wf report"] if dropped else []
+        more = [f"+{dropped} more on the wf screen"] if dropped else []
         return "\n".join([top] + lines + more + [tail])
     while lines and (len(lines) + 2 + bool(dropped) > MAX_LINES or len(body()) > MAX_CHARS):
         # AC-4: built: lines go first, then other item lines from the end.

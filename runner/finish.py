@@ -163,7 +163,9 @@ def shape(root, span):
         if rel in NEVER_COPIED or rel.split(os.sep)[0] == "private":
             return None
         dst = os.path.join(live_dir(), rel)
-        if os.path.realpath(os.path.join(root, os.path.expanduser(t[2]))) != dst:
+        # Spec 0020 AC-3: `~/.claude/` names the live dir, $CLAUDE_CONFIG_DIR when set.
+        target = run.expand(t[2])[0] if t[2].startswith("~/.claude/") else os.path.join(root, os.path.expanduser(t[2]))
+        if os.path.realpath(target) != dst:
             return None
         return "copy", {"src": src, "dst": dst, "rel": rel}
     if t == ["./install.sh"] and repo_file(root, "install.sh"):
@@ -859,7 +861,8 @@ def cmd_finish(args):
         print(f"{s.result or 'FAIL'}: {s.repo.name}: {wf.clean(s.span)}" + ("" if s.result else " (not run)")
               + (f" (log {s.log})" if s.result == "FAIL" and s.log else ""))
     passed = all(s.result == "PASS" for s in steps)
-    print("next: wf run" if passed else "next: fix the FAIL lines, then wf finish")
+    # Spec 0020 AC-10: one command.
+    print("next: wf" if passed else "next: fix the FAIL lines, then wf")
     if f.interrupted:
         return 130
     seen()

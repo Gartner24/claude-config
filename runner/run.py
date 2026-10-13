@@ -1231,7 +1231,8 @@ class Run:
                 line = f"skip: {f.name}: ambiguous_feature"
             elif f.name in live:
                 p = live[f.name]
-                line = f"parked: {f.name}: {p['reason']}: {p['detail'] or ''} (wf unpark to retry)"
+                # Spec 0020 AC-10: `wf` takes it back by itself once its cause changed.
+                line = f"parked: {f.name}: {p['reason']}: {p['detail'] or ''} (retaken on {retaken_on(p)})"
             elif refusal:
                 line = f"skip: {f.name}: {refusal[0]}"
             elif f.next is None and f.waiting:
@@ -1643,8 +1644,7 @@ class Run:
             rec["unconfirmed"] = [t for i, t, was_open in before if was_open and (i, t, False) in after]
             detail = f"still running after {self.args.call_timeout:g}m"
             if rec["unconfirmed"]:
-                detail += "; ticked before the timeout, recheck: " + "; ".join(flat(t)[:80] for t in rec["unconfirmed"]) \
-                    + "; then wf unpark"
+                detail += "; ticked before the timeout, recheck: " + "; ".join(flat(t)[:80] for t in rec["unconfirmed"])
             return "end", "call_timeout", detail
         if spawn_error:
             return "end", "spawn_failed", spawn_error
@@ -1717,7 +1717,7 @@ class Run:
                                 for rel in set(snapshot or {}) | set(after)) else 0
             if n is None or (n == 0 and pattern is CAN_FAIL):
                 return "end", "unchecked", f"{box.box_text} ticked without a valid {name} line; " \
-                                           "untick it to rerun, or wf unpark to accept"
+                                           "untick it to rerun"
             rec["marker"] = rec["marker"] or marker
             rec["checked_n"] = n
         if kind == "sync":

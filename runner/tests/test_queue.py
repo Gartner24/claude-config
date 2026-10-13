@@ -198,7 +198,7 @@ class TestTreeRule(QueueCase):
         self.assertEqual(plan(r.stdout)[-3], "queue done: 0 done, 1 parked, 0 open")
         self.again()
         r = self.wf("tree")
-        self.assertEqual(plan(r.stdout)[1:3], ["  parked: 1. A: blocked: test park (wf unpark to retry)",
+        self.assertEqual(plan(r.stdout)[1:3], ["  parked: 1. A: blocked: test park (retaken on a new commit)",
                                                       "  skip: 2. B: dirty with parks"])
         self.assertEqual(plan(r.stdout)[-1], "nothing to run")
         self.assertEqual(r.returncode, 6)
@@ -223,7 +223,7 @@ class TestParkMemory(QueueCase):
         self.again()
         r = self.wf("mem", "-y")
         self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
-        self.assertEqual(plan(r.stdout)[1:2], ["  parked: 1. A: blocked: test park (wf unpark to retry)"])
+        self.assertEqual(plan(r.stdout)[1:2], ["  parked: 1. A: blocked: test park (retaken on a new commit)"])
         self.assertEqual(self.calls(), [])
         scope = repo / "docs" / "scope" / "scope.md"
         scope.write_text(scope.read_text().replace("- [ ] `/develop a`", "- [ ] `/develop a` "))
@@ -243,7 +243,7 @@ class TestParkMemory(QueueCase):
         self.assertEqual((park["reason"], park["cap"]), ("budget", 1))
         self.again()
         r = self.wf("cap", "--budget", "1")
-        self.assertIn("  parked: 1. A: budget: error_max_budget_usd (wf unpark to retry)\n", r.stdout)
+        self.assertIn("  parked: 1. A: budget: error_max_budget_usd (retaken on a higher --budget)\n", r.stdout)
         r = self.wf("cap", "--budget", "1.5")
         self.assertIn("  queued: 1. A\n", r.stdout)
         # The plan alone never deletes a record.
@@ -743,7 +743,7 @@ class TestQueueCommand(SubcommandCase):
         (self.bin / "claude").unlink()
         self.ntfy_config.unlink()
         want = ["q on work, 0 changes", "  open: ab12 3. C: Which storage engine?", "    1 Postgres (recommended)",
-                "    2 SQLite", "  parked: 1. A: blocked: test park (wf unpark to retry)", "  queued: 2. B",
+                "    2 SQLite", "  parked: 1. A: blocked: test park (retaken on a new commit)", "  queued: 2. B",
                 "  would clear: 2. B"]
         for args in (["q"], []):
             with self.subTest(args):

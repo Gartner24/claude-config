@@ -57,7 +57,7 @@ class Unit(unittest.TestCase):
         return {"path": path, "name": os.path.basename(path), "folder": folder, "code": code, "rec": r}
 
     # covers: AC-2, AC-4 (head, items in AC-2 order, live counted per feature, the owed text without its tags,
-    # Deferred skipped, next: wf finish; the phone body has the label and no park detail or run folder)
+    # Deferred skipped, next: wf; the phone body has the label and no park detail or run folder)
     def test_lines(self):
         p = self.repo("demo", "# Scope: x\n" + WAITING)
         calls = [{"cost_usd": 0.5, "tokens": {"input": 10, "output": 5, "cache_read": 0, "cache_write": 0}}]
@@ -67,10 +67,10 @@ class Unit(unittest.TestCase):
         self.assertEqual(full.splitlines(), [
             f"wf done {at}: 1 built, 1 parked, 0 open, 0.50 USD, 15 tokens", "built: 2. B",
             "parked: 1. A: blocked: test park", "live: 3. C: 2 step(s)", "yours: 3. C: Check the phone",
-            "next: wf finish, then review and merge: demo", "run folder: /f"])
+            "next: wf, then review and merge: demo", "run folder: /f"])
         label = ntfy.repo_label(CFG, p)
         self.assertEqual(body.splitlines(), full.splitlines()[:2] + ["parked: 1. A: blocked"] + full.splitlines()[3:5]
-                         + [f"next: wf finish, then review and merge: {label}"])
+                         + [f"next: wf, then review and merge: {label}"])
 
     # covers: AC-2 (internal_error reads crash; distinct reasons in run order; question ids; stopped lines;
     # each repo suffix; no record, no end and not started rows)
@@ -85,7 +85,7 @@ class Unit(unittest.TestCase):
         self.assertTrue(lines[0].startswith("wf stopped internal_error (crash), queue_done "), lines[0])
         self.assertTrue(lines[0].endswith(": 0 built, 0 parked, 1 open, - USD, - tokens"), lines[0])
         self.assertEqual(lines[1:7], ["stopped: 1. B: branch_changed (b)", "question k3x9: 1. A (a)",
-                                      "no record: c: exit 1 (c)", "no end: d (d)", "not started: e (e)", "next: wf queue"])
+                                      "no record: c: exit 1 (c)", "no end: d (d)", "not started: e (e)", "next: wf"])
 
     # covers: AC-1, AC-2 (the parent's sources come from its summary rows: work rows only, folder - with a code is
     # no record, without one not started, a folder's run.json read for its features)
@@ -102,16 +102,16 @@ class Unit(unittest.TestCase):
         self.assertEqual(send.call_count, 1)
         text = (self.tmp / "state" / "wf" / "report.txt").read_text().splitlines()
         self.assertEqual(text[1:], ["built: 1. B (rb)", "no record: ra: exit 5 (ra)", "not started: rc (rc)",
-                                    "next: wf queue", f"run folder: {folder}"])
+                                    "next: wf", f"run folder: {folder}"])
 
-    # covers: AC-2 (next: wf finish, wf queue, review and merge, wf queue, in that order of precedence)
+    # covers: AC-2 (next: wf, wf queue, review and merge, wf queue, in that order of precedence)
     def test_next(self):
         p = self.repo("demo")
         live = self.repo("live", "# Scope: x\n### 1. L\n- [ ] x · waits on you · live\n")
-        cases = [([self.source(live, rec([]))], "next: wf finish"),
-                 ([self.source(p, rec([("1. A", "blocked", None), ("2. B", "feature_done", None)]))], "next: wf queue"),
+        cases = [([self.source(live, rec([]))], "next: wf"),
+                 ([self.source(p, rec([("1. A", "blocked", None), ("2. B", "feature_done", None)]))], "next: wf"),
                  ([self.source(p, rec([("2. B", "feature_done", None)]))], "next: review and merge: demo"),
-                 ([self.source(p, rec([]))], "next: wf queue")]
+                 ([self.source(p, rec([]))], "next: wf")]
         for sources, line in cases:
             with self.subTest(line):
                 self.assertEqual(report.render(sources, CFG)[0].splitlines()[-2], line)
@@ -128,7 +128,7 @@ class Unit(unittest.TestCase):
         self.assertEqual(len(lines), 12)
         self.assertLessEqual(len(body), 1000)
         self.assertEqual(lines[1:10], ["parked: feature: blocked"] + [f"parked: {n}. Parked: blocked" for n in range(16, 24)])
-        self.assertEqual(lines[-2:], ["+21 more, run wf report", "next: wf queue"])
+        self.assertEqual(lines[-2:], ["+21 more on the wf screen", "next: wf"])
         # Nine yours lines of about 130 characters fit the line cap but not the 1000 characters.
         boxes = "".join(f"- [ ] {n} " + "word " * 30 + "· waits on you\n" for n in range(9))
         q = self.repo("long", "# Scope: x\n### 1. A feature name that runs well past forty characters\n" + boxes)
@@ -137,7 +137,7 @@ class Unit(unittest.TestCase):
         self.assertLessEqual(len(body), 1000)
         self.assertLessEqual(len(lines[1]), len("yours: ") + 40 + 2 + 80, lines[1])
         self.assertTrue(lines[1].endswith("..."), lines[1])
-        self.assertEqual(lines[-2:], [f"+{9 - (len(lines) - 3)} more, run wf report", "next: wf queue"])
+        self.assertEqual(lines[-2:], [f"+{9 - (len(lines) - 3)} more on the wf screen", "next: wf"])
         self.assertGreater(len(lines), 5)
         self.assertEqual(ntfy.scrub_field(CFG, "`/x` ~/y", 40, "step"), "step")
         self.assertEqual(ntfy.scrub_field(CFG, "fine words", 40, "step"), "fine words")
@@ -177,8 +177,8 @@ class Unit(unittest.TestCase):
     def test_hook_and_seen(self):
         state = self.tmp / "state" / "wf"
         self.assertEqual((self.hook(), self.wf()), ("", "no report yet\n"))
-        (state / "report.txt").write_text("wf done 03:20: x\nnext: wf queue\n")
-        self.assertEqual(self.hook(), report.HOOK_HEAD + "\nwf done 03:20: x\nnext: wf queue\n")
+        (state / "report.txt").write_text("wf done 03:20: x\nnext: wf\n")
+        self.assertEqual(self.hook(), report.HOOK_HEAD + "\nwf done 03:20: x\nnext: wf\n")
         self.assertEqual(self.hook(WF_RUN="r"), "")
         (state / "locks").mkdir()
         lock = state / "locks" / "a.lock"
@@ -192,7 +192,7 @@ class Unit(unittest.TestCase):
         holder.wait()
         holder.stdout.close()
         self.assertNotEqual(self.hook(), "")
-        self.assertEqual(self.wf(), "wf done 03:20: x\nnext: wf queue\n")
+        self.assertEqual(self.wf(), "wf done 03:20: x\nnext: wf\n")
         self.assertEqual(self.wf("--seen"), "")
         self.assertEqual(((state / "report.seen").read_text(), self.hook()), ("", ""))
         report.save("wf done 04:00: y\n")
@@ -271,7 +271,7 @@ class TestEndOfRun(QueueCase):
         self.assertEqual(record["report"], "sent")
         text = (self.state / "wf" / "report.txt").read_text().splitlines()
         self.assertEqual(text[1:6], ["built: 2. B", "parked: 1. A: blocked: test park", "live: 3. C: 2 step(s)",
-                                     "yours: 3. C: Check the phone", "next: wf finish, then review and merge: two"])
+                                     "yours: 3. C: Check the phone", "next: wf, then review and merge: two"])
         self.assertEqual(text[-1], f"run folder: {folder}")
         notes = [p for p in self.report_ntfy.posts if p["title"] == "wf report"]
         self.assertEqual(len(notes), 1)

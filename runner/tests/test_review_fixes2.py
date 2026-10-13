@@ -369,7 +369,7 @@ class TestParkedAnswered(SubcommandCase):
                          [decision(repo, "1. A", answer="SQLite", source="phone", answered="2026-10-12T10:00:00+02:00")])
         r = self.sub("queue", "q")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn("  parked: 1. A: blocked: test park (wf unpark to retry)\n", r.stdout)
+        self.assertIn("  parked: 1. A: blocked: test park (retaken on a new commit)\n", r.stdout)
         self.assertIn("nothing to run", r.stdout)
 
 

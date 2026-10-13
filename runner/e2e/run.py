@@ -3,6 +3,8 @@
 # yourself with `!` after a Claude Code upgrade or a runner change; install.sh and the unittest suite never do.
 # Spec 0017 AC-8: `--parallel` runs a bare `wf run` over two copies and checks their calls overlapped.
 # Spec 0018 AC-8: both forms also check the morning report, so a PASS sends a real note to your phone.
+# Spec 0020 AC-11: `--beside` runs `wf -y` beside a running `wf run`, in a temp CLAUDE_CONFIG_DIR holding a copy of
+# your login (removed at the end however it ends), and checks the run takes the swap and still stops on a hand edit.
 import datetime
 import glob
 import json
@@ -12,6 +14,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
@@ -114,28 +117,150 @@ def parallel_failure(top, env):
     return None
 
 
+def wait(test, seconds, what):
+    """Poll test() every second; raises RuntimeError naming what never happened."""
+    end = time.monotonic() + seconds
+    while not test():
+        if time.monotonic() > end:
+            raise RuntimeError(f"timed out waiting for {what}")
+        time.sleep(1)
+
+
+def first_call(top, name, after=0):
+    """True once a run of repo name, past the first `after` run folders, logged its first call."""
+    for log in sorted(glob.glob(os.path.join(top, "state", "wf", "runs", f"{name}-*", "log.txt")))[after:]:
+        with open(log, encoding="utf-8", errors="replace") as f:
+            if " call 1 " in f.read():
+                return True
+    return False
+
+
+def run_record(top, name):
+    """The newest run.json of repo name, else None."""
+    runs = sorted(glob.glob(os.path.join(top, "state", "wf", "runs", f"{name}-*", "run.json")))
+    if not runs:
+        return None
+    with open(runs[-1], encoding="utf-8") as f:
+        return json.load(f)
+
+
+def config_dir(top):
+    """AC-11: a temp CLAUDE_CONFIG_DIR with your login copied in and a settings.json whose hook names a script."""
+    conf = os.path.join(top, "claude")
+    os.makedirs(os.path.join(conf, "hooks"), mode=0o700)
+    live = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")
+    for src, name in ((os.path.join(live, ".credentials.json"), ".credentials.json"),
+                      (os.path.expanduser("~/.claude.json"), ".claude.json")):
+        if os.path.isfile(src):
+            shutil.copyfile(src, os.path.join(conf, name))
+            os.chmod(os.path.join(conf, name), 0o600)
+    hook = os.path.join(conf, "hooks", "h.sh")
+    with open(hook, "w") as f:
+        f.write("#!/bin/sh\nexit 0\n")
+    with open(os.path.join(conf, "settings.json"), "w") as f:
+        json.dump({"hooks": {"Stop": [{"hooks": [{"type": "command", "command": f"sh {hook}"}]}]}}, f)
+    return conf
+
+
+def beside_failure(top):
+    """None when every spec 0020 AC-11 check passes, else the check that failed."""
+    (a, b), env = setup(top, ("a", "b"))
+    conf = config_dir(top)
+    env = {**env, "CLAUDE_CONFIG_DIR": conf}
+    # B builds nothing: its feature is not queued; it only carries the live copy box.
+    scope = os.path.join(b, "docs", "scope", "scope.md")
+    with open(scope, encoding="utf-8") as f:
+        text = f.read().replace("· in-progress · auto", "· in-progress")
+    os.makedirs(os.path.join(b, "hooks"))
+    with open(os.path.join(b, "hooks", "h.sh"), "w") as f:
+        f.write("#!/bin/sh\necho swapped >/dev/null\nexit 0\n")
+    with open(scope, "w", encoding="utf-8") as f:
+        f.write(text + "\n### 2. Hook\n- [ ] Copy hook: `cp hooks/h.sh ~/.claude/hooks/h.sh` · waits on you · live\n")
+    git(b, "add", "-A")
+    git(b, "commit", "-q", "-m", "chore: live copy box")
+    with open(os.path.join(top, "a.log"), "w") as log:
+        run_a = subprocess.Popen(["wf", "run", a, "-y", *CAPS], env=env, stdin=subprocess.DEVNULL, stdout=log,
+                                 stderr=subprocess.STDOUT)
+    try:
+        wait(lambda: first_call(top, "a"), 600, "A's first call")
+        rc = subprocess.run(["wf", "-y"], env=env, stdin=subprocess.DEVNULL).returncode
+        if rc != 0:
+            return f"wf exit {rc}"
+        run_a.wait(timeout=3600)
+    finally:
+        if run_a.poll() is None:
+            run_a.kill()
+    hook = os.path.realpath(os.path.join(conf, "hooks", "h.sh"))
+    try:
+        with open(os.path.join(top, "state", "wf", "swaps.jsonl"), encoding="utf-8") as f:
+            ledger = [json.loads(line) for line in f]
+    except (OSError, ValueError):
+        return "no readable swaps.jsonl"
+    if not any(hook in line.get("files", {}) for line in ledger):
+        return "the swap ledger does not name the hook script"
+    rec = run_record(top, "a")
+    outcomes = [e.get("outcome") for e in rec.get("features", [])] if rec else None
+    if outcomes != ["feature_done"]:
+        return f"A run.json outcomes {outcomes}"
+    setups = rec.get("setups") or []
+    if len(setups) != 1:
+        return f"A run.json setups {setups}"
+    at = datetime.datetime.fromisoformat
+    if not any(at(c["started"]) > at(setups[0]["at"]) for c in rec["calls"]):
+        return "no call of A started after it took the setup"
+    with open(scope, encoding="utf-8") as f:
+        if "- [x] Copy hook:" not in f.read():
+            return "B's live box is not ticked"
+    # A hand made change during a fresh run of A still stops it.
+    shutil.copyfile(os.path.join(FIXTURE, "docs", "scope", "scope.md"), os.path.join(a, "docs", "scope", "scope.md"))
+    git(a, "add", "-A")
+    git(a, "commit", "-q", "-m", "chore: fresh run")
+    before = len(glob.glob(os.path.join(top, "state", "wf", "runs", "a-*")))
+    with open(os.path.join(top, "a2.log"), "w") as log:
+        run_a = subprocess.Popen(["wf", "run", a, "-y", *CAPS], env=env, stdin=subprocess.DEVNULL, stdout=log,
+                                 stderr=subprocess.STDOUT)
+    try:
+        wait(lambda: first_call(top, "a", before), 600, "A's fresh run")
+        with open(os.path.join(conf, "settings.json"), "w") as f:
+            json.dump({"hooks": {}}, f)
+        run_a.wait(timeout=3600)
+    finally:
+        if run_a.poll() is None:
+            run_a.kill()
+    rec = run_record(top, "a")
+    if not rec or rec.get("stop_reason") != "guard_changed":
+        return f"a hand made change did not stop A: {rec and rec.get('stop_reason')}"
+    return None
+
+
 def main():
     if not os.path.isfile(ntfy.path()):
         print(f"FAIL: no ntfy config at {ntfy.path()}, run wf ntfy init")
         return 1
     parallel = sys.argv[1:] == ["--parallel"]
+    beside = sys.argv[1:] == ["--beside"]
     top = tempfile.mkdtemp(prefix="wf-e2e-")
     try:
-        if parallel:
+        if beside:
+            problem = beside_failure(top)
+        elif parallel:
             _, env = setup(top, ("one", "two"))
             problem = parallel_failure(top, env)
         else:
             repos, env = setup(top)
             problem = failure(top, repos[0], env)
-    except (OSError, subprocess.CalledProcessError) as e:
+    except (OSError, subprocess.CalledProcessError, RuntimeError, subprocess.TimeoutExpired) as e:
         problem = f"setup: {e}"
+    finally:
+        # AC-11: the login copy never outlives the check, however it ends.
+        shutil.rmtree(os.path.join(top, "claude"), ignore_errors=True)
     if problem is None:
         shutil.rmtree(top)
         print("PASS")
         return 0
     print(f"FAIL: {problem}")
     # The copy of your ntfy config stays in config/ until you delete the folder.
-    for name in (("one", "two") if parallel else ("repo",)) + ("state", "config"):
+    for name in (("one", "two") if parallel else ("a", "b") if beside else ("repo",)) + ("state", "config"):
         print(f"kept: {os.path.join(top, name)}")
     return 1
 

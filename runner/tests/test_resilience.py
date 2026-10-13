@@ -280,7 +280,7 @@ class TestTimeout(Case):
     def test_unconfirmed(self):
         self.steps([{"write_file": [["docs/scope/scope.md", self.TICKED]], "sleep": 30, "tick": False}])
         rec = self.assert_stopped(self.wf("demo", "-y", "--call-timeout", "0.01"), "call_timeout", calls=1)
-        detail = "still running after 0.01m; ticked before the timeout, recheck: Build it: `/develop loop`; then wf unpark"
+        detail = "still running after 0.01m; ticked before the timeout, recheck: Build it: `/develop loop`"
         self.assertEqual(rec["detail"], detail)
         self.assertEqual(rec["calls"][0]["unconfirmed"], ["Build it: `/develop loop`"])
         park = self.queue()["parks"][0]

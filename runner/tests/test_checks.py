@@ -32,7 +32,7 @@ class TestUnchecked(RunCase):
         self.steps(steps)
         rec = self.assert_stopped(self.wf("c", "-y"), "unchecked", calls=calls)
         self.assertRegex(rec["detail"], rf"^.*`/(test|check verify) a` ticked without a valid {name} line; "
-                                        r"untick it to rerun, or wf unpark to accept$")
+                                        r"untick it to rerun$")
         return rec
 
     # covers: AC-4 (a /test pass with its line goes on; marker and checked_n recorded)
@@ -44,7 +44,7 @@ class TestUnchecked(RunCase):
     def test_test_missing(self):
         rec = self.parked(TEST, [says("all green")], "MUTATION CHECKED", calls=1)
         self.assertEqual(rec["detail"], "Test it: `/test a` ticked without a valid MUTATION CHECKED line; "
-                                        "untick it to rerun, or wf unpark to accept")
+                                        "untick it to rerun")
         self.assertEqual((rec["calls"][0]["marker"], rec["calls"][0]["checked_n"]), (None, None))
         q = json.loads((self.state / "wf" / "queue.json").read_text())
         self.assertEqual([p["reason"] for p in q["parks"]], ["unchecked"])
