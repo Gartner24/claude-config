@@ -2,6 +2,7 @@
 per finding."""
 import json
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -186,6 +187,70 @@ class TestSubmodules(RunCase):
         self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
         self.assertIn(f"stopped: guard_changed: {lib}/.git/hooks/pre-commit changed", r.stdout)
 
+    # covers: spec 0011 AC-9 (a trusted repo checked out as this repo's submodule, dotfiles with its nvim child: the
+    # child's git reads the .git pointer, so a call rewriting it stops the run, not only the parent)
+    def test_child_repo_held(self):
+        nvim = self.repo / "nvim"
+        (self.repo / ".git" / "modules").mkdir()
+        quiet_git("init", "-q", "-b", "work", f"--separate-git-dir={self.repo}/.git/modules/nvim", str(nvim),
+                  cwd=self.repo)
+        (nvim / "docs" / "scope").mkdir(parents=True)
+        (nvim / "docs" / "scope" / "scope.md").write_text(ONE)
+        quiet_git("add", "-A", cwd=nvim)
+        quiet_git("commit", "-qm", "x", cwd=nvim)
+        self.allow(nvim)
+        self.gitlink("nvim")
+        pointer = nvim / ".git"
+        self.steps([{"write_file": [[str(pointer), "gitdir: ../evil\n"]]}, {}, {"tick": False}])
+        r = self.wf("-y")
+        self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
+        self.assertIn(f"stopped: guard_changed: {pointer} changed", r.stdout)
+
+    # covers: spec 0011 AC-9 (commit review: the submodule .git is matched as written and as resolved at start, so a
+    # repo under a symlinked ~/projects still sees a worktree whose resolved common dir lies in its submodule)
+    def test_symlinked_parent(self):
+        text, real = "/home/u/projects/a/lib/.git", "/data/projects/a/lib/.git"
+        h = {"c": SimpleNamespace(path="/home/u/projects/a"), "common": "/data/projects/a/.git",
+             "repo": {"guard": {"submodules": [[text, real]]}}}
+        o = {"c": SimpleNamespace(path="/data/wt"), "common": real, "repo": {}}
+        ns = SimpleNamespace(held=[h, o])
+        with mock.patch.object(run.os.path, "realpath", side_effect=lambda p: p):
+            self.assertFalse(run.Run.own_file(ns, h, f"{text}/hooks/pre-commit"))
+            ns.held = [h]
+            self.assertTrue(run.Run.own_file(ns, h, f"{text}/hooks/pre-commit"))
+
+    # covers: spec 0007 AC-9 (commit review: a submodule folder that is a symlink at start is recorded in both forms)
+    def test_alias_record(self):
+        self.gitlink("lib")
+        out = self.tmp / "out"
+        out.mkdir()
+        (out / ".git").write_text("gitdir: x\n")
+        (self.repo / "lib").symlink_to(out)
+        self.steps([{"tick": False}])
+        r = self.wf("demo", "-y", "--max-calls", "1")
+        self.assertTrue((self.state / "wf" / "runs").exists(), r.stdout + r.stderr)
+        _, rec = self.run_record()
+        self.assertEqual(rec["repos"][0]["guard"]["submodules"], [[f"{self.repo}/lib/.git", f"{out}/.git"]])
+
+    # covers: spec 0007 AC-8 (second review: git ls-files failing refuses, never reads as no submodules; a submodule
+    # config git cannot read refuses as the main config does)
+    def test_git_failures(self):
+        real = shutil.which("git")
+        (self.bin / "git").unlink()
+        self.fake("git", f'#!/bin/sh\ncase " $* " in *" ls-files "*) echo boom >&2; exit 1;; esac\nexec {real} "$@"\n')
+        r = self.wf("demo", "-y")
+        self.assertEqual(r.returncode, 5, r.stdout + r.stderr)
+        self.assertIn("refused: no_sandbox: git ls-files -z --stage failed: boom", r.stdout)
+        (self.bin / "git").unlink()
+        (self.bin / "git").symlink_to(real)
+        mod = self.repo / ".git" / "modules" / "lib"
+        mod.mkdir(parents=True)
+        (mod / "HEAD").write_text("x\n")
+        (mod / "config").write_text("[broken\n")
+        r = self.wf("demo", "-y")
+        self.assertEqual(r.returncode, 5, r.stdout + r.stderr)
+        self.assertIn(f"refused: no_sandbox: git cannot read {mod}/config", r.stdout)
+
     # covers: spec 0007 AC-8 (second review: a submodule hooks folder or modules folder that cannot be listed
     # refuses no_sandbox; one raised a traceback, the other read as no submodule)
     def test_unreadable(self):
@@ -217,19 +282,40 @@ class TestJailAncestor(unittest.TestCase):
             repo.mkdir(parents=True)
             (home / "vault").mkdir()
             (home / ".gitconfig").write_text("x")
+            (repo / ".claude").mkdir()
             h = str(home)
             (home / ".claude" / "settings.json").write_text(json.dumps({"permissions": {"deny": [
                 f"Read(/{h}/**)", f"Read(/{h}/projects)", f"Read(/{h}/vault/**)"]}}))
             ns = SimpleNamespace(c=SimpleNamespace(path=str(repo)), bwrap="/bin/bwrap",
-                                 guard_settings={"sandbox": {"filesystem": {"denyWrite": [f"{h}/.gitconfig"]}}},
+                                 guard_settings={"sandbox": {"filesystem": {"denyWrite": [f"{h}/.gitconfig",
+                                                                                          f"{repo}/.claude"]}}},
                                  browser={"start": "x", "wf_dirs": []})
             with mock.patch.dict(os.environ, {"HOME": h}):
                 argv = run.Run.jail_argv(ns)
-            # The denied folders that hold the repo are hidden first, the repo and read only binds go back on top
-            # (commit review: skipping them showed the app everything you denied).
+            # The denied folders that hold the repo are hidden first, the repo goes back on top with its read only
+            # paths (commit review: skipping them showed the app everything you denied); a read only path elsewhere
+            # in the denied home stays hidden (commit review: binding ~/.gitconfig back showed it).
             self.assertEqual(argv[argv.index("/run") + 1:-5], [
                 "--tmpfs", h, "--tmpfs", f"{h}/projects", "--bind", str(repo), str(repo),
-                "--ro-bind", f"{h}/.gitconfig", f"{h}/.gitconfig", "--tmpfs", f"{h}/vault"])
+                "--ro-bind", f"{repo}/.claude", f"{repo}/.claude", "--tmpfs", f"{h}/vault"])
+
+    # covers: spec 0009 AC-3 step 3 (a denied cache folder that is itself a write bind is hidden, then bound back,
+    # so the app keeps its cache)
+    def test_cache_bind(self):
+        with tempfile.TemporaryDirectory() as d:
+            home = Path(os.path.realpath(d))
+            (home / ".claude").mkdir()
+            (home / ".cache").mkdir()
+            (home / "repo").mkdir()
+            (home / ".claude" / "settings.json").write_text(json.dumps({"permissions": {"deny": [f"Read(/{home}/.cache/**)"]}}))
+            ns = SimpleNamespace(c=SimpleNamespace(path=str(home / "repo")), bwrap="/bin/bwrap",
+                                 guard_settings={"sandbox": {"filesystem": {"denyWrite": []}}},
+                                 browser={"start": "x", "wf_dirs": []})
+            with mock.patch.dict(os.environ, {"HOME": str(home)}):
+                argv = run.Run.jail_argv(ns)
+            self.assertEqual(argv[argv.index("/run") + 1:-5], [
+                "--tmpfs", f"{home}/.cache", "--bind", f"{home}/repo", f"{home}/repo",
+                "--bind", f"{home}/.cache", f"{home}/.cache"])
 
 
 class TestSnapshotScope(unittest.TestCase):
@@ -244,6 +330,13 @@ class TestSnapshotScope(unittest.TestCase):
             (root / "docs" / "specs" / "probes" / "__pycache__" / "p.pyc").write_text("x")
             ns = SimpleNamespace(c=SimpleNamespace(path=str(root), scope_dir="docs/scope"))
             self.assertEqual(sorted(run.Run.snapshot(ns)), ["docs/specs/index.md"])
+            # A check-ignore git cannot answer stops the run, never skips or forces the walk.
+            real = run.wf.git
+            fail = lambda path, *args: (subprocess.CompletedProcess(args, 128, "", "fatal: x") if args[0] == "check-ignore"
+                                        else real(path, *args))
+            with mock.patch.object(run.wf, "git", side_effect=fail):
+                with self.assertRaisesRegex(RuntimeError, "git check-ignore docs/specs/ failed: fatal: x"):
+                    run.Run.snapshot(ns)
 
     # covers: spec 0008 AC-3 (second review: a skip added past the cap of a big test file counts as touched; the
     # diff of the first bytes used to see no change)

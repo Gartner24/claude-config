@@ -771,8 +771,9 @@ class Run:
         write = sorted({repo, common, *(os.path.expanduser(p) for p in CACHE_DIRS)})
         self.common = common
         self.repo["guard"] = {"hosts": hosts, "write_paths": write, "deny_paths": deny, "binaries": binaries,
-                              # Each gitlink's .git as found at start, matched as text later (spec 0011 AC-9).
-                              "submodules": [os.path.join(repo, link, ".git") for link in links],
+                              # Each gitlink's .git as written and as resolved at start (spec 0011 AC-9).
+                              "submodules": [[os.path.join(repo, link, ".git"), os.path.realpath(os.path.join(repo, link, ".git"))]
+                                             for link in links],
                               "guarded_files": {p: file_hash(p) for p in dict.fromkeys(files)}}
         hook = f"{shlex.quote(binaries['python3'])} -c {shlex.quote(AGENT_GUARD)} || exit 2"
         self.guard_settings = {
@@ -830,6 +831,10 @@ class Run:
         # The calls' frozen denyWrite list, as listed: three hand picked paths used to leave a linked worktree's
         # .git pointer and the hook token scripts writable for the app (review finding 1).
         for p in dict.fromkeys(os.path.realpath(p) for p in self.guard_settings["sandbox"]["filesystem"]["denyWrite"]):
+            # One under a hidden folder and outside every write bind stays hidden: binding it back showed the app
+            # ~/.claude.json and your dotfiles inside a folder you denied (commit review). The tmpfs keeps it unwritable.
+            if under(p, holders) and not under(p, binds):
+                continue
             if os.path.exists(p):
                 a += ["--ro-bind", p, p]
         for p in hidden:
@@ -956,13 +961,18 @@ class Run:
             return True
         common, real = os.path.realpath(h["common"]), os.path.realpath(path)
         others = [o for o in self.held if o is not h]
-        # A submodule's .git in the work tree (second review) is this repo's alone too, unless another held repo
-        # reads it. Matched as the text frozen at start, never resolved now: a call could swap the submodule folder
+        # A submodule's .git in the work tree (second review) is this repo's alone too, unless another held repo's
+        # git reads it: one checked out in that submodule folder or above it (dotfiles holding a trusted nvim repo;
+        # matching only repos inside the .git missed it), or one whose common dir lies in it (a worktree of the
+        # submodule). Matched as the text frozen at start, never resolved now: a call could swap the submodule folder
         # for a link to / and make every guarded file on the machine look like this repo's own (commit review).
-        subs = h["repo"].get("guard", {}).get("submodules", [])
-        if under(path, subs) and not any(under(o["c"].path, subs) or under(os.path.realpath(o["common"]), subs)
-                                         for o in others):
-            return True
+        # Each entry is the .git as written and as resolved at start: either side may sit under a symlinked parent
+        # such as ~/projects, and comparing one form with the other missed a shared submodule (commit review).
+        for forms in h["repo"].get("guard", {}).get("submodules", []):
+            if under(path, forms):
+                return not any(under(f, [p]) for o in others for p in (o["c"].path, os.path.realpath(o["c"].path))
+                               for f in forms) and \
+                    not any(under(c, forms) for o in others for c in (o["common"], os.path.realpath(o["common"])))
         return under(real, [common]) and not any(os.path.realpath(o["common"]) == common for o in others)
 
     # -- the queue (spec 0011) -------------------------------------------------
@@ -1947,11 +1957,8 @@ class Run:
             trace = traceback.format_exc()
             sys.stderr.write("\n".join(wf.clean(line) for line in trace.split("\n")))
             if self.folder and os.path.isdir(self.folder):
-                try:
-                    with open(os.path.join(self.folder, "traceback.txt"), "w", encoding="utf-8", errors="replace") as f:
-                        f.write(trace)
-                except OSError as w:
-                    print(f"warning: traceback.txt not written: {w.strerror or w}", file=sys.stderr)
+                with open(os.path.join(self.folder, "traceback.txt"), "w", encoding="utf-8", errors="replace") as f:
+                    f.write(trace)
         finally:
             # AC-3 step 5: a guarded file the app moved wins over the reason the run ended with, Ctrl C included.
             changed = self.cleanup()
