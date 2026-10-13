@@ -18,3 +18,10 @@ _Steps derived from spec 0013 acceptance criteria. `/check verify` runs these; `
 - [ ] `python3 scripts/private-names.py --test` -> AC-1, AC-3, AC-6, AC-8, AC-12
 - [ ] `python3 scripts/private-names.py check` on the branch and on merged `main` -> exit 0 -> AC-9
 - [ ] `./sync.sh` with a planted name in a temp live rule file -> exit 1, tree unchanged -> AC-4
+
+## Value sourcing (added by /develop, 2026-10-12)
+
+- [ ] `filter-expr` on a temp names list with `name==>x` and a plain name -> the `==>` part is the replacement, the plain one gets `***REMOVED***`, longest first -> AC-10
+- [ ] any hit line names the matching `names.txt` line number, never the name, including a name inside a path (masked as `***`) -> AC-4, AC-8
+- [ ] `strip-settings` on the committed `settings.json` with a names list that matches nothing -> output byte for byte equal to the committed file (the old `jq` format) -> AC-3
+- [ ] install in a scratch clone with temp `HOME` and `CLAUDE_LIVE_DIR`: a fragment path under `/home/santiago` lands under the temp `$HOME`; the private `gitignore` line lands in the clone's `.git/info/exclude` once on a rerun; an existing hand written `commit-msg` hook is left alone -> AC-6, AC-7

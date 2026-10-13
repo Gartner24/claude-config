@@ -11,7 +11,7 @@ because the LICENSE covers only the parts authored here.
 | `agents/regression-hunter.md` | Regression hunting: what worked before a diff and stops after |
 | `agents/pr-intent-verifier.md` | Does a PR do what it claims, and nothing else |
 | `skills/intent-router/`, `USAGE.md` | Prompt-to-skill routing table and its scorer |
-| `scripts/check-routing.py`, `scripts/asciify.py` | Repo tooling |
+| `scripts/check-routing.py`, `scripts/asciify.py`, `scripts/private-names.py` | Repo tooling |
 | `hooks/block-destructive.sh` | Destructive-command guard |
 | `runner/` | `wf`, the workflow runner (spec 0001) |
 | `rules/scope-contract.md` | The scope format the runner reads and the skills write (spec 0003) |

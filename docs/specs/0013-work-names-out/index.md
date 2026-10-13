@@ -1,7 +1,7 @@
 # 0013. Work names out of the public repo
 
 **Date**: 2026-10-12
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 

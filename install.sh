@@ -12,7 +12,8 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LIVE="$HOME/.claude"
+# CLAUDE_LIVE_DIR is for the self checks only: they install into a temp live tree.
+LIVE="${CLAUDE_LIVE_DIR:-$HOME/.claude}"
 DRY=0
 [ "${1:-}" = "--dry-run" ] && DRY=1
 
@@ -83,6 +84,60 @@ if [ "$DRY" = 0 ]; then
   mv "$LIVE/settings.json.tmp" "$LIVE/settings.json"
 fi
 [ -e "$LIVE/CLAUDE.md" ] || run cp "$REPO/CLAUDE.md" "$LIVE/CLAUDE.md"
+
+# Spec 0013: sync.sh strips name bearing entries out of both settings files into
+# ~/.claude/private/. Merging them back is what keeps a reinstall from silently dropping
+# the private deny rules. A public reader has no fragment and gets the public settings.
+echo "private settings:"
+for f in settings.json settings.local.json; do
+  frag="$LIVE/private/$f"
+  if [ ! -e "$frag" ]; then
+    note "$f: no private settings fragment, private entries not installed"
+  elif [ "$DRY" = 1 ]; then
+    note "would: python3 scripts/private-names.py merge-settings $LIVE/$f $frag (paths swapped to \$HOME)"
+  else
+    note "$f: merging $frag"
+    sed "s|/home/santiago|$HOME|g" "$frag" | python3 "$REPO/scripts/private-names.py" merge-settings "$LIVE/$f" -
+  fi
+done
+
+# The names list exists only on the author's machine, so this part is this repo only:
+# private ignore lines go to .git/info/exclude (never the public .gitignore) and the
+# commit hooks refuse any commit that would bring a name back.
+echo "private names:"
+if [ -e "$LIVE/private/names.txt" ]; then
+  excl="$(git -C "$REPO" rev-parse --git-path info/exclude)"
+  hooks="$(git -C "$REPO" rev-parse --git-path hooks)"
+  case "$excl" in /*) ;; *) excl="$REPO/$excl"; hooks="$REPO/$hooks" ;; esac
+  add=()
+  if [ -e "$LIVE/private/gitignore" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+      [ -n "$line" ] || continue
+      [ -e "$excl" ] && grep -qxF -- "$line" "$excl" && continue
+      add+=("$line")
+    done < "$LIVE/private/gitignore"
+  fi
+  # the lines themselves hold names, so only their count is printed
+  note "exclude: ${#add[@]} private ignore line(s) to add"
+  if [ "${#add[@]}" -gt 0 ] && [ "$DRY" = 0 ]; then
+    mkdir -p "$(dirname "$excl")"
+    printf '%s\n' "${add[@]}" >> "$excl"
+  fi
+  run mkdir -p "$hooks"
+  for h in pre-commit commit-msg; do
+    dst="$hooks/$h"
+    if [ -L "$dst" ] && [ "$(readlink -f "$dst")" = "$(readlink -f "$REPO/scripts/private-names.py")" ]; then
+      note "$h: already linked"
+    elif [ -e "$dst" ] || [ -L "$dst" ]; then
+      note "hook exists, not replaced: $h"
+    else
+      note "$h -> scripts/private-names.py"
+      run ln -s "$REPO/scripts/private-names.py" "$dst"
+    fi
+  done
+else
+  note "no private names list, exclude lines and commit hooks skipped"
+fi
 
 # Prove it took, rather than reporting success on faith.
 echo "verify:"
