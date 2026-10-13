@@ -1,7 +1,7 @@
 # 0013. Work names out of the public repo
 
 **Date**: 2026-10-12
-**Status**: In Progress
+**Status**: Accepted
 **Amended**: 2026-10-12, AC-7 copies the checker into the commit hooks instead of linking it
 
 ## Summary

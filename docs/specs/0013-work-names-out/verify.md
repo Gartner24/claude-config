@@ -11,7 +11,8 @@ _Steps derived from spec 0013 acceptance criteria. `/check verify` runs these; `
 
 ## Manual steps
 
-- [ ] 1. History (AC-10): the migration plan phases 1 to 5; `check-history` exits 0 in the rewritten copy and in a fresh clone of the new remote. · waits on you
+- [x] 1. History (AC-10): the migration plan phases 1 to 5; `check-history` exits 0 in the rewritten copy and in a fresh clone of the new remote. · waits on you
+  - Run 1, 2026-10-12: rewritten copy `check-history` exit 0 (after adding the spaced forms of two private tool paths to names.txt); old repo deleted, recreated public, `main` pushed; fresh clone of the new remote `check-history` exit 0 and an independent grep over every commit, message and author found 0 names. Folders swapped, the old clone kept as `~/claude-config-old`. PASS
 - [x] 2. Same behavior (AC-11): `jq -S` of the live `settings.json` before and after a fresh `install.sh`, arrays sorted, compare equal.
   - Run 1, 2026-10-12: live settings.json before and after a real install.sh (autoMode deleted from both, arrays sorted) compare equal; the private fragments merged and install verify passed. install.sh still drops the live autoMode section, as before; it was put back by hand from the backup.
 
