@@ -337,14 +337,14 @@ Queued in the batch planning session of 2026-10-12 (personal scope row 24). One 
 `block-destructive.sh` blocked a `git commit` on 2026-10-11 because its message named a deletion command, and again on a scope edit. Inside a quoted string or heredoc that is plain data, spaces and operator characters become `_` before the patterns run; anything that runs a shell or interpreter, and any parse problem, is scanned as today.
 **Done when:** a commit message or heredoc mentioning a deletion command passes, every command blocked today is still blocked, and `bash hooks/block-destructive.sh --test` covers both.
 - [x] Design it (spec): `/architect guard hook false alarms`
-- [ ] Build it: `/develop guard hook false alarms`
-   - [ ] Data region scanner, executor check and raw fallbacks in the repo copy of the hook (AC-1 to AC-4)
-   - [ ] New self checks with the forced blanking switch and a mutation check per allow case (AC-5)
+- [x] Build it: `/develop guard hook false alarms`
+   - [x] Data region scanner, executor check and raw fallbacks in the repo copy of the hook (AC-1 to AC-4)
+   - [x] New self checks with the forced blanking switch and a mutation check per allow case (AC-5)
 - [ ] Verify it: `/check verify guard hook false alarms`
 - [ ] Test it: `/test guard hook false alarms`
 - [ ] Between runs, copy the hook live: `cp ~/claude-config/hooks/block-destructive.sh ~/.claude/hooks/block-destructive.sh`, then make one real commit whose message names a deletion command (AC-6) · waits on you
 - [ ] Sync docs: `/sync guard hook false alarms`
-Spec [0016](../specs/0016-guard-hook-false-alarms.md)
+Spec [0016](../specs/0016-guard-hook-false-alarms/index.md) · code in `hooks/block-destructive.sh`
 Source: personal scope row 10 (`~/projects/docs/scope/scope.md`; hook errors on 2026-10-11); redesign agreed 2026-10-13 after the cross check.
 
 ### 24. Runner resilience · in-progress · auto

@@ -87,14 +87,306 @@ check() {
   return 0
 }
 
+# Spec 0016. The patterns above used to block a commit whose MESSAGE named a deletion
+# command (2026-10-11), stalling unattended runs. SCANNER returns the command unchanged
+# except inside data regions (single quoted strings, double quoted strings with no
+# substitution, the `"$(cat <<'EOF' ... EOF )"` commit form, heredoc bodies), where
+# whitespace and ; & | < > ( ) become `_`, so quoted prose cannot look like a command.
+# It exits nonzero, meaning "check the raw text", when any word could run code (EXEC)
+# or when it cannot parse the command. Blanking only turns characters into `_`, so it
+# can hide a match but never create one; that is why every doubt goes back to raw.
+read -r -d '' SCANNER <<'PY' || true
+import os, re, sys
+
+EXEC = {'sh', 'bash', 'zsh', 'dash', 'ksh', 'fish', 'csh', 'tcsh', 'busybox', 'eval',
+        'exec', 'source', '.', 'ssh', 'su', 'xargs', 'watch', 'tmux', 'screen', 'script',
+        'python', 'python3', 'node', 'perl', 'ruby', 'awk', 'gawk', 'php', 'lua'}
+SEP = set(' \t\n\r;&|(){}<>!`')
+BLANK = set(';&|<>()')
+FIRST = re.compile(r'(\$\(|`)[ \t\n]*([^ \t\n;&|(){}<>!`]*)')
+CAT = re.compile(r'\$\(cat[ \t]+<<(-?)[ \t]*(?:\'([^\'\n]+)\'|"([^"\n$`\\]+)"|\\([\w.-]+)|([\w.-]+))[ \t]*\n')
+
+
+class Raw(Exception):
+    pass
+
+
+s = sys.stdin.buffer.read().decode('utf-8', 'surrogateescape')
+n = len(s)
+out = list(s)
+words, firsts = [], []
+
+
+def blank(a, b):
+    for k in range(a, b):
+        if out[k].isspace() or out[k] in BLANK:
+            out[k] = '_'
+
+
+def first_word(k):
+    m = re.match(r'[ \t\n]*([^ \t\n;&|(){}<>!`]*)', s[k:])
+    firsts.append(re.sub('[\'"\\\\]', '', m.group(1)))
+
+
+def code_firsts(text):
+    # an unquoted heredoc body or a substitution runs whatever follows $( or a backtick
+    for m in FIRST.finditer(text):
+        firsts.append(re.sub('[\'"\\\\]', '', m.group(2)))
+
+
+def backtick_end(k):
+    while k < n:
+        if s[k] == '\\':
+            k += 2
+        elif s[k] == '`':
+            return k
+        else:
+            k += 1
+    raise Raw
+
+
+def body_end(k, delim, strip):
+    # k: start of the first body line. Returns (end of body, index after the delimiter line).
+    start = k
+    while k <= n:
+        e = s.find('\n', k)
+        line = s[k:n if e < 0 else e]
+        if (line.lstrip('\t') if strip else line) == delim:
+            return max(start, k - 1), (n if e < 0 else e + 1)
+        if e < 0:
+            break
+        k = e + 1
+    raise Raw
+
+
+def subst_end(k):
+    # k: just after `$(`. Returns the index after the matching `)`.
+    depth = 1
+    while k < n:
+        c = s[k]
+        if c == '\\':
+            k += 2
+        elif c == "'":
+            j = s.find("'", k + 1)
+            if j < 0:
+                raise Raw
+            k = j + 1
+        elif c == '"':
+            k = dq_end(k + 1, False)[0] + 1
+        elif c == '`':
+            first_word(k + 1)
+            k = backtick_end(k + 1) + 1
+        elif s.startswith('$(', k):
+            first_word(k + 2)
+            depth += 1
+            k += 2
+        elif c == '(':
+            depth += 1
+            k += 1
+        elif c == ')':
+            depth -= 1
+            k += 1
+            if depth == 0:
+                return k
+        elif s.startswith('<<', k):
+            raise Raw
+        elif (c == '#' or s.startswith('case', k)) and (k == 0 or s[k - 1] in ' \t\n;&|('):
+            # a comment or a case pattern can hold an unmatched paren
+            raise Raw
+        else:
+            k += 1
+    raise Raw
+
+
+def dq_end(k, top):
+    # k: just after the opening `"`. Returns (index of the closing `"`, is a data region).
+    m = CAT.match(s, k) if top else None
+    if m:
+        quoted = m.group(5) is None
+        delim = m.group(2) or m.group(3) or m.group(4) or m.group(5)
+        try:
+            end, after = body_end(m.end(), delim, m.group(1) == '-')
+        except Raw:
+            end = None
+        if end is not None:
+            tail = re.match(r'[ \t\n]*\)"', s[after:])
+            if tail:
+                first_word(k + 2)
+                body = s[m.end():end]
+                data = quoted or ('$(' not in body and '`' not in body)
+                if not data:
+                    code_firsts(body)
+                return after + tail.end() - 1, data
+    data = True
+    while k < n:
+        c = s[k]
+        if c == '\\':
+            k += 2
+        elif c == '"':
+            return k, data
+        elif c == '`':
+            data = False
+            first_word(k + 1)
+            k = backtick_end(k + 1) + 1
+        elif s.startswith('$(', k):
+            data = False
+            first_word(k + 2)
+            k = subst_end(k + 2)
+        elif s.startswith('${', k):
+            j = s.find('}', k)
+            if j < 0 or re.search(r'[\'"`]|\$\(', s[k:j]):
+                raise Raw
+            k = j + 1
+        else:
+            k += 1
+    raise Raw
+
+
+def scan():
+    word, pending, i = '', [], 0
+
+    def end_word():
+        nonlocal word
+        if word:
+            words.append(word)
+        word = ''
+
+    while i < n:
+        c = s[i]
+        if c == '\\':
+            if s[i + 1:i + 2] != '\n':
+                word += s[i + 1:i + 2]
+            i += 2
+        elif c == "'":
+            j = s.find("'", i + 1)
+            if j < 0:
+                raise Raw
+            word += s[i + 1:j]
+            blank(i + 1, j)
+            i = j + 1
+        elif c == '$' and s[i + 1:i + 2] == "'":
+            j = i + 2
+            while j < n and s[j] != "'":
+                j += 2 if s[j] == '\\' else 1
+            if j >= n:
+                raise Raw
+            word += s[i + 2:j]
+            i = j + 1
+        elif c == '$' and s[i + 1:i + 2] == '"':
+            j, _ = dq_end(i + 2, False)
+            word += s[i + 2:j]
+            i = j + 1
+        elif c == '"':
+            j, data = dq_end(i + 1, True)
+            if data:
+                blank(i + 1, j)
+            word += s[i + 1:j]
+            i = j + 1
+        elif c == '#' and not word and (i == 0 or s[i - 1] in ' \t\n;&|()<>'):
+            j = s.find('\n', i)
+            i = n if j < 0 else j
+        elif s.startswith('<<<', i):
+            end_word()
+            i += 3
+        elif s.startswith('<<', i):
+            end_word()
+            k = i + 2
+            strip = s[k:k + 1] == '-'
+            k += strip
+            while k < n and s[k] in ' \t':
+                k += 1
+            quoted = True
+            if s[k:k + 1] in ('"', "'"):
+                j = s.find(s[k], k + 1)
+                if j < 0:
+                    raise Raw
+                delim, k = s[k + 1:j], j + 1
+            else:
+                if s[k:k + 1] == '\\':
+                    k += 1
+                else:
+                    quoted = False
+                j = k
+                while j < n and not s[j].isspace() and s[j] not in ';&|()<>':
+                    j += 1
+                delim, k = s[k:j], j
+            if not delim or re.search(r'[\'"\\$`]', delim) or (k < n and s[k] in '\'"\\$`'):
+                raise Raw
+            pending.append((delim, strip, quoted))
+            i = k
+        elif c == '\n':
+            end_word()
+            i += 1
+            for delim, strip, quoted in pending:
+                end, after = body_end(i, delim, strip)
+                body = s[i:end]
+                if quoted or ('$(' not in body and '`' not in body):
+                    blank(i, end)
+                else:
+                    code_firsts(body)
+                i = after
+            pending = []
+        elif c in SEP:
+            end_word()
+            i += 1
+        else:
+            word += c
+            i += 1
+    end_word()
+    if pending:
+        raise Raw
+
+
+try:
+    scan()
+except (Raw, IndexError, RecursionError):
+    sys.exit(3)
+force = sys.argv[1:] == ['force']  # --test only: skip the executor check
+if not force and any(os.path.basename(w) in EXEC for w in words + firsts):
+    sys.exit(4)
+sys.stdout.buffer.write(''.join(out).encode('utf-8', 'surrogateescape'))
+PY
+
+# Prints the text check() should scan: the blanked command, or the raw command on any doubt.
+blank_data() {
+  local cmd="$1" out
+  if [[ "$cmd" != *[\'\"]* && "$cmd" != *'<<'* ]]; then
+    printf '%s' "$cmd"
+  elif out="$(printf '%s' "$cmd" | timeout 2 python3 -I -c "$SCANNER" 2>/dev/null)" && [[ -n "$out" ]]; then
+    printf '%s' "$out"
+  else
+    printf '%s' "$cmd"
+  fi
+}
+
+guard() { check "$(blank_data "$1")"; }
+
 # --test: self-check, no stdin needed
 if [[ "${1:-}" == "--test" ]]; then
   fail=0
   block() { check "$1" >/dev/null 2>&1 && echo "FAIL (allowed): $1" && fail=1 || true; }
   allow() { check "$1" >/dev/null 2>&1 && echo "FAIL (blocked): $1" && fail=1 || true; }
   # `check` returns 2 (block) or 0 (allow). Invert logic:
-  block() { local r; check "$1" >/dev/null 2>&1; r=$?; [[ $r -ne 2 ]] && { echo "FAIL should-block: $1"; fail=1; }; }
-  allow() { local r; check "$1" >/dev/null 2>&1; r=$?; [[ $r -eq 2 ]] && { echo "FAIL should-allow: $1"; fail=1; }; }
+  block() { local r; guard "$1" >/dev/null 2>&1; r=$?; [[ $r -ne 2 ]] && { echo "FAIL should-block: $1"; fail=1; }; }
+  allow() { local r; guard "$1" >/dev/null 2>&1; r=$?; [[ $r -eq 2 ]] && { echo "FAIL should-allow: $1"; fail=1; }; }
+  # Spec 0016 allow case: blocked on the raw text, so it passes only through the blanking.
+  # This is the mutation check kept in the suite: without blank_data it goes red.
+  allow_data() {
+    check "$1" >/dev/null 2>&1 && { echo "FAIL not blocked raw, proves nothing: $1"; fail=1; }
+    allow "$1"
+  }
+  # Still blocked even with the executor check skipped, so a hole in the blanking shows
+  # even where the raw fallback would hide it. The scanner must parse it, or the case
+  # would only be testing the fallback.
+  force_block() {
+    local out
+    block "$1"
+    if ! out="$(printf '%s' "$1" | python3 -I -c "$SCANNER" force)"; then
+      echo "FAIL forced scan did not parse: $1"; fail=1; return
+    fi
+    check "$out" >/dev/null 2>&1 && { echo "FAIL forced blanking let through: $1"; fail=1; }
+    return 0
+  }
   block 'rm -rf /'
   block 'rm -rf ~'
   block 'rm -rf $HOME'
@@ -138,7 +430,56 @@ if [[ "${1:-}" == "--test" ]]; then
   allow 'rm file.txt'
   allow 'git status'
   allow 'ls -la /'
-  # note: `echo "rm -rf /"` is intentionally over-blocked; guard errs toward blocking
+  # spec 0016: quoted prose is data now (this one was over blocked on purpose before)
+  allow 'echo "rm -rf /"'
+  allow_data 'git commit -m "docs: rm -rf / was the bug"'
+  allow_data "git commit -m \"\$(cat <<'EOF'
+fix the guard
+rm -rf ~
+EOF
+)\""
+  allow_data 'cat <<EOF > notes.md
+wipe it with mkfs.ext4 /dev/sda
+EOF'
+  allow_data "sed -i 's/a/mkfs.ext4 x/' f"
+  allow_data 'echo "wipe it with mkfs.ext4 /dev/sdb1"'
+  allow_data "printf '%s\n' 'dd if=/dev/zero of=/dev/sda'"
+  # spec 0016: blocked today, must stay blocked
+  force_block 'cat x >/dev/sda'
+  force_block ': > /home/santiago/f'
+  force_block 'echo hi
+find / -delete'
+  force_block 'rm -rf \
+/'
+  force_block 'rm -rf $(echo /)'
+  force_block 'rm -rf `echo ~`'
+  force_block "rm -rf \$'/'"
+  force_block 'rm -rf "$HOME"'
+  force_block 'rm -rf "/home/x y"'
+  block "bash -c ':(){ :|:& };:'"
+  block "nohup sh -c 'mkfs.ext4 /dev/sdb1'"
+  block "timeout 5 bash -c 'dd if=/dev/zero of=/dev/sda'"
+  block 'cat <<EOF | sh
+mkfs.ext4 /dev/sdb1
+EOF'
+  block "python3 -c \"import os; os.system('mkfs.ext4 /dev/sdb1')\""
+  block 'echo "a; mkfs.ext4 /dev/sdb1" | sh'
+  block 'git commit -m "x; mkfs.ext4 /dev/sdb1'
+  # holes the cross check did not list: a quote inside a comment pairing with a later
+  # one, an unquoted heredoc body that runs $(...), and a quoted executor name
+  force_block "echo hi # don't
+mkfs.ext4 /dev/sdb1 # won't"
+  force_block 'cat <<EOF
+$(mkfs.ext4 /dev/sdb1)
+EOF'
+  force_block "git commit -m \"\$(cat <<EOF
+\$(mkfs.ext4 /dev/sdb1)
+EOF
+)\""
+  block "'bash' -c 'mkfs.ext4 /dev/sdb1'"
+  # no python3 means the raw scan, as before (AC-4)
+  [[ "$(PATH=/nonexistent blank_data 'echo "rm -rf /"' 2>/dev/null)" == 'echo "rm -rf /"' ]] \
+    || { echo "FAIL missing python3 did not fall back to raw"; fail=1; }
   [[ $fail -eq 0 ]] && echo "all self-checks passed" || exit 1
   exit 0
 fi
@@ -153,7 +494,7 @@ if ! CMD="$(jq -r '.tool_input.command // empty' 2>/dev/null)"; then
 fi
 [[ -z "$CMD" ]] && exit 0
 
-if reason="$(check "$CMD")"; then
+if reason="$(guard "$CMD")"; then
   exit 0
 else
   echo "BLOCKED by block-destructive.sh: $reason" >&2
