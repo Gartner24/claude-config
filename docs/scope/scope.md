@@ -465,7 +465,8 @@ Source: [docs/briefs/never-wait-on-each-other.md](../briefs/never-wait-on-each-o
 
 ### 33. Ask, never stop · needs a decision
 A step that needs a protected place (`~/.claude`, the runner's own `runner/`, `.git/hooks`) never parks. With a standing permission for that repo (allowed once, ahead of time) the run just writes it and goes on. Without one, it asks on your phone (yes, no, always), keeps building everything else meanwhile, and resumes that step when you answer.
-**Done when:** a claude-config night run whose features edit `~/.claude` and `runner/` builds them to the end with no stop, given the standing permission; without it you get one phone question and the step resumes on your yes; a change to `~/.claude` from outside the run still stops it.
+The same holds for every other reason a feature is set aside today (blocked, failed checks, caps, on main): it becomes a phone question with a recommended action, the rest keeps building, and your answer resumes it (see the brief).
+**Done when:** a claude-config night run whose features edit `~/.claude` and `runner/` builds them to the end with no stop, given the standing permission; without it you get one phone question and the step resumes on your yes; no park reason ends a feature without a question; a change to `~/.claude` from outside the run still stops that repo.
 - [ ] Design it (spec): `/architect ask never stop`
 Source: [docs/briefs/runner-never-stops.md](../briefs/runner-never-stops.md).
 
