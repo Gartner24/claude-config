@@ -13,7 +13,7 @@ _Steps derived from spec 0016 acceptance criteria. `/check verify` runs these; `
 - [x] Mutation check: drop the executor check in a scratch copy → every executor case fails `should-block` → AC-2, AC-5
 
 ## Manual
-- [ ] Copy the hook live outside any `wf run`: `cp ~/claude-config/hooks/block-destructive.sh ~/.claude/hooks/block-destructive.sh`, then make one real commit in a session whose message names a deletion command → the commit is not blocked → AC-6
+- [x] Copy the hook live outside any `wf run`: `cp ~/claude-config/hooks/block-destructive.sh ~/.claude/hooks/block-destructive.sh`, then make one real commit in a session whose message names a deletion command → the commit is not blocked → AC-6
 
 ## Acceptance-criteria coverage
 - AC-1: command step 2 and the `--test` fast path cases (all old cases with no quotes)
@@ -21,4 +21,4 @@ _Steps derived from spec 0016 acceptance criteria. `/check verify` runs these; `
 - AC-3: command steps 3 and 4, `--test` `allow_data` cases
 - AC-4: command steps 6 and 7
 - AC-5: command step 1 and both mutation checks
-- AC-6: the manual step
+- AC-6: the manual step. 2026-10-13, Claude Code 2.1.296: hook copied live, then the session commit "record the live hook check (a message naming rm -rf passes)" went through.

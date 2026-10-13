@@ -344,7 +344,7 @@ Queued in the batch planning session of 2026-10-12 (personal scope row 24). One 
    - [x] New self checks with the forced blanking switch and a mutation check per allow case (AC-5)
 - [x] Verify it: `/check verify guard hook false alarms`
 - [x] Test it: `/test guard hook false alarms`
-- [ ] Between runs, copy the hook live: `cp ~/claude-config/hooks/block-destructive.sh ~/.claude/hooks/block-destructive.sh`, then make one real commit whose message names a deletion command (AC-6) · waits on you
+- [x] Between runs, copy the hook live: `cp ~/claude-config/hooks/block-destructive.sh ~/.claude/hooks/block-destructive.sh`, then make one real commit whose message names a deletion command (AC-6) · waits on you
 - [ ] Sync docs: `/sync guard hook false alarms`
 Spec [0016](../specs/0016-guard-hook-false-alarms/index.md) · code in `hooks/block-destructive.sh`
 Source: personal scope row 10 (`~/projects/docs/scope/scope.md`; hook errors on 2026-10-11); redesign agreed 2026-10-13 after the cross check.
@@ -360,7 +360,7 @@ Eight runner changes: wait through an API outage, stop on a crash loop, count to
    - [x] Fixture repo and `runner/e2e/run.py` with its fake `wf` test (AC-5)
 - [x] Verify it: `/check verify runner resilience`
 - [x] Test it: `/test runner resilience`
-- [ ] Copy the rule file live: `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` (AC-8) · waits on you
+- [x] Copy the rule file live: `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` (AC-8) · waits on you
 - [x] Run the real end to end with `!`: `python3 runner/e2e/run.py`, record it in `docs/specs/0014-runner-resilience/verify.md` (AC-5, AC-9) · waits on you
 - [ ] Sync docs: `/sync runner resilience`
 Spec [0014](../specs/0014-runner-resilience/index.md) · code in `runner/run.py`, `runner/wf.py`, `runner/e2e/`, tests in `runner/tests/test_resilience.py`
@@ -377,7 +377,7 @@ One always loaded rule file the vendored skills cannot overwrite: verify steps a
    - [x] Probe scripts P1 to P3 written (AC-10)
 - [x] Verify it: `/check verify checks that cannot lie`
 - [x] Test it: `/test checks that cannot lie`
-- [ ] Copy the rule live and link the script: `cp ~/claude-config/rules/check-gates.md ~/.claude/rules/check-gates.md`, then `./install.sh` (AC-1, AC-6) · waits on you
+- [x] Copy the rule live and link the script: `cp ~/claude-config/rules/check-gates.md ~/.claude/rules/check-gates.md`, then `./install.sh` (AC-1, AC-6) · waits on you
 - [ ] Run probes P1 to P3 with `!` and record them in `docs/specs/0015-checks-that-cannot-lie/verify.md` (AC-10) · waits on you
 - [ ] Sync docs: `/sync checks that cannot lie`
 Spec [0015](../specs/0015-checks-that-cannot-lie/index.md) · code in `runner/run.py`, `scripts/spec-paths.py`, `rules/check-gates.md`, `install.sh`, tests in `runner/tests/test_checks.py`, `runner/tests/test_spec_paths.py`
