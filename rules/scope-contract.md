@@ -10,9 +10,11 @@ The runner (`wf`, `next`) reads scope files. Whenever you write a repo's `docs/s
 
 ## Tags and boxes
 - Status tags are `·` segments on the feature heading: `· done`, `· existing`, `· dropped`. Never write `(done)` style tags; old ones stay valid.
-- `· auto` on a heading queues the feature for autopilot: `### 4. Headless step loop · in-progress · auto`. `/architect` adds it at spec capture only when the user asks to queue that feature, never on its own. It counts only on an open feature in a repo with `**Autopilot:** allowed`.
+- `· auto` on a heading queues the feature for autopilot: `### 4. Headless step loop · in-progress · auto`. `/architect` adds it when the spec is accepted in a repo with `**Autopilot:** allowed` (rules/runner-handoff.md), unless the user says to keep that feature manual. It counts only on an open feature in a repo with `**Autopilot:** allowed`.
 - A skipped box is ticked and ends with ` · skipped`: ``- [x] Test it: `/test x` · skipped``. Skipping a parent ticks every box under it the same way. Never skip a whole feature; mark it `· dropped`.
 - A box only you can close (a check on the real claude or your phone, a login, a purchase, someone else's action) ends with ` · waits on you`. Any skill writing a scope box adds it; you tick the box yourself; never put it on a box `wf run` should run.
+- A waiting box that later boxes do not need also ends with ` · later boxes go on`: ``- [ ] Copy the rule file live · waits on you · later boxes go on``. `wf run` and `next` pass over it to the feature's next open box; the feature's final `/sync` waits until you tick it. `/architect` adds it only when no later box of the feature needs that step done first. The tag counts only on the box's own text, never on a note or parent box.
+- A feature's `/sync` box, when it has one, is its last box. `wf run` runs it as the feature's final call, once every other box is ticked.
 
 ## Next box rule (what `next` runs)
 - The first unticked box outside `## Deferred`, HTML comments and fenced blocks. `docs/` wins over `.workflow/` when both exist.

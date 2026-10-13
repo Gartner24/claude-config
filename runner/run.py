@@ -21,6 +21,7 @@ import traceback
 import types
 import urllib.error
 import urllib.request
+import uuid
 import zoneinfo
 
 import ntfy
@@ -191,7 +192,10 @@ PARKS = frozenset(("verify_failed", "blocked", "denied", "debug_touched", "no_pr
                    "app_failed", "design_gate"))
 REPO_STOPS = frozenset(("branch_changed", "autopilot_off", "scope_unreadable"))
 RUN_STOPS = frozenset(("interrupted", "run_limit", "usage_limit", "spawn_failed", "guard_changed", "ping_failed",
-                       "internal_error", "app_port_busy"))
+                       "internal_error", "app_port_busy", "api_outage", "crash_loop"))
+# Spec 0014 AC-2: two features in a row parking the same way stop the run; a timeout never counts.
+CRASH = ("call_error", "denied", "app_failed")
+CRASH_KEY = 60
 # AC-10: call_error is retried by the next run; the box reasons clear when the files change.
 UNRECORDED = frozenset(("call_error", "manual_box", "waiting", "no_command", "no_feature"))
 RECORDED = PARKS - UNRECORDED
@@ -227,6 +231,12 @@ LIMIT = re.compile(r"rate_limit|hit your (session |weekly )?limit|usage limit", 
 RESET = re.compile(r"resets (\d{1,2})(?::(\d{2}))?\s*(am|pm)\s*\(([^)]+)\)", re.I)
 LIMIT_MAX = datetime.timedelta(hours=6)
 LIMIT_MARGIN = datetime.timedelta(minutes=2)
+# Spec 0014 AC-1. Built from Claude Code's known error texts; verify.md holds the probe for the next real outage.
+OUTAGE = re.compile(r"API Error: (5\d\d|Connection error)|overloaded_error|internal_server_error|ECONNRESET|ETIMEDOUT"
+                    r"|ENOTFOUND|EAI_AGAIN|socket hang up", re.I)
+OUTAGE_CAP = 120
+OUTAGE_POLL = 15
+SYNC_BOX_PROMPT = " This call runs the feature's /sync box; when /sync is done, tick that box."
 # Spec 0008 AC-3: what a debug call may not do to tests.
 TEST_DIRS = ("test", "tests", "__tests__", "spec")
 TEST_NAME = re.compile(r"^test_|_test\.|\.test\.|\.spec\.")
@@ -347,8 +357,33 @@ class Feature:
         spec = [b for b in self.boxes if decision_box(b)]
         self.queued = not deferred and not wf.GONE_TAG.search(heading) and bool(wf.AUTO_TAG.search(heading)) \
             and bool(spec) and all(not b.open and not SKIPPED.search(b.text) for b in spec)
-        # None: every box is ticked and /sync is owed.
-        self.next = wf.pick_next(self.boxes)
+        # Spec 0014 AC-7: None when only sync boxes and skippable waiting boxes are left open, or nothing is.
+        self.next = run_next(self.boxes)
+        # AC-7 (a) to (d): the open skippable waiting box, the open sync box, and whether any sync box exists.
+        self.waiting = next((b for b in self.boxes if b.open and wf.skippable(b)), None)
+        self.sync = next((nb for b in self.boxes if b.open and not wf.passed_over(b)
+                          for nb in [wf.next_box(b, self.boxes)] if sync_box(nb.command)), None)
+        self.has_sync = any(sync_box(b.command()) for b in self.boxes)
+
+    def finished(self):
+        """AC-7 (c): every box ticked and a ticked sync box: no call, not in the plan."""
+        return self.next is None and self.waiting is None and self.sync is None and self.has_sync
+
+
+def sync_box(command):
+    """Spec 0014 AC-7: a box whose command's first word is /sync."""
+    return (command or "").split()[:1] == ["/sync"]
+
+
+def run_next(boxes):
+    """Spec 0014 AC-7, AC-8: the first open box that is neither a sync box nor passed over, as a NextBox, else None."""
+    for b in boxes:
+        if not b.open or b.skip or wf.passed_over(b):
+            continue
+        nb = wf.next_box(b, boxes)
+        if not sync_box(nb.command):
+            return nb
+    return None
 
 
 def repo_features(path, scope_dir):
@@ -401,7 +436,8 @@ def box_refusal(nb):
     if nb.feature is None:
         return "no_feature", f"the box is outside any ### feature: {nb.box_text}"
     words = nb.command.split()
-    if words[0] not in ALLOWED and " ".join(words[:2]) not in ALLOWED:
+    # Spec 0014 AC-7: a sync box runs as the feature's final call.
+    if words[0] not in ALLOWED and " ".join(words[:2]) not in ALLOWED and not sync_box(nb.command):
         return "manual_box", f"{nb.command} runs only with you"
     if nb.waiting:
         return "waiting", nb.note
@@ -435,12 +471,14 @@ class Run:
             "caps": {"budget_usd": args.budget, "call_timeout_min": args.call_timeout,
                      "max_calls": args.max_calls, "max_hours": args.max_hours},
             "calls": [], "decisions": [], "waited_s": 0,
-            "limit_wait": None, "limit_waited_s": 0,
+            "limit_wait": None, "limit_waited_s": 0, "outage_waits": [], "outage_waited_s": 0,
         }
         # Spec 0008 AC-6: set by a retryable failure, cleared by any call that does not fail.
         self.retried = False
-        # Set after a usage limit sleep: the next call repeats the limited one.
-        self.limit_rerun = False
+        # Set after a usage limit sleep: the next call repeats the limited one. Spec 0014 AC-1: the same after an
+        # outage wait, which also restarts the app; outage_k counts the outage calls in a row in this run.
+        self.limit_rerun = self.outage_rerun = False
+        self.outage_k = 0
         self.app = self.app_rec = self.app_term_at = None
         # WF_RUN for every process the run starts (spec 0009 AC-3 step 6); set by run().
         self.run_id = None
@@ -1004,7 +1042,7 @@ class Run:
         ran = {e["feature"] for e in self.record["features"] if e["repo"] == repo}
         out = []
         for f in feats:
-            if not f.queued or f.name in ran or f.name in decided:
+            if not f.queued or f.name in ran or f.name in decided or f.finished():
                 continue
             refusal = f.next and box_refusal(f.next)
             if names[f.name] > 1:
@@ -1014,6 +1052,9 @@ class Run:
                 line = f"parked: {f.name}: {p['reason']}: {p['detail'] or ''} (wf unpark to retry)"
             elif refusal:
                 line = f"skip: {f.name}: {refusal[0]}"
+            elif f.next is None and f.waiting:
+                # Spec 0014 AC-7 (a): only your skippable waiting box is left before the sync call.
+                line = f"skip: {f.name}: waiting"
             elif dirty_tree and (live or decided):
                 line = f"skip: {f.name}: dirty with parks"
             else:
@@ -1119,9 +1160,11 @@ class Run:
         if f is None:
             # Not queued any more, so the record would clear at the next pick anyway.
             return
+        # Spec 0014 AC-4: a timeout that ticked boxes has no cap, so a larger --call-timeout never clears it.
+        last = self.record["calls"][self.entry["calls"][-1] - 1] if self.entry and self.entry["calls"] else {}
         rec = {"repo": self.c.path, "feature": self.feature, "section_sha": f.sha, "reason": reason,
                "detail": None if detail is None else str(detail),
-               "cap": getattr(self.args, reason) if reason in CAPPED else None,
+               "cap": getattr(self.args, reason) if reason in CAPPED and not last.get("unconfirmed") else None,
                "run": self.folder, "parked_at": now()}
 
         def write(q):
@@ -1295,18 +1338,31 @@ class Run:
     def save(self):
         if not self.folder:
             return
+        # Spec 0014 AC-3: each feature's and the run's spend, from the call records.
+        calls = self.record["calls"]
+        for e in self.record["features"]:
+            e.update(spent([calls[n - 1] for n in e["calls"]]))
+        self.record.update(spent(calls))
         tmp = os.path.join(self.folder, "run.json.tmp")
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(self.record, f, indent=2)
         os.replace(tmp, os.path.join(self.folder, "run.json"))
 
+    def log(self, text):
+        """Spec 0014 AC-6: one cleaned `<ISO time> <text>` line appended to the run folder's log.txt, flushed at once."""
+        if not self.folder or not os.path.isdir(self.folder):
+            return
+        fd = os.open(os.path.join(self.folder, "log.txt"), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+        with os.fdopen(fd, "a", encoding="utf-8", errors="replace") as f:
+            f.write(f"{now()} {wf.clean(str(text))}\n")
+
     # -- one call ------------------------------------------------------------
 
-    def call(self, seq, command, resume=None, last_box=False, sha=None, browser=False):
+    def call(self, seq, command, resume=None, last_box=False, sha=None, browser=False, synced=False):
         """Run one claude call, or with resume=(session id, prompt) continue that session.
         Returns (call record, parsed JSON or None, timed out, stderr tail, spawn error)."""
         a = self.args
-        prompt = unattended_prompt(self.answers, last_box, sha)
+        prompt = unattended_prompt(self.answers, last_box, sha) + (SYNC_BOX_PROMPT if synced else "")
         if browser:
             # Spec 0009 AC-4 to AC-8: the pinned MCP, its tools minus the AC-6 six, the hook and the prompt sentence.
             prompt += BROWSER_PROMPT.format(self.browser["url"], self.browser["shots"])
@@ -1315,19 +1371,25 @@ class Run:
             allowed = ["--allowedTools", ",".join("mcp__chrome-devtools__" + t for t in BROWSER_TOOLS)]
         else:
             mcp, settings, denied, allowed = MCP_ALLOW, self.settings, self.denied, []
+        # Spec 0014 AC-6: wf names every fresh call's session, so the live transcript path is known at spawn.
+        session = resume[0] if resume else str(uuid.uuid4())
         argv = [self.claude, "-p", resume[1] if resume else command,
-                *(["--resume", resume[0]] if resume else []), "--output-format", "json", "--permission-mode", "auto",
+                *(["--resume", resume[0]] if resume else []), "--output-format", "json",
+                *([] if resume else ["--session-id", session]), "--permission-mode", "auto",
                 "--permission-prompts", "none", "--max-budget-usd", "%g" % a.budget,
                 "--disallowedTools", denied, *allowed, "--append-system-prompt", prompt,
                 "--settings", settings, "--strict-mcp-config", "--mcp-config", mcp]
         base = os.path.join(self.folder, f"call-{seq:02d}")
         rec = {"seq": seq, "kind": None, "command": command, "box_text": None, "started": now(), "duration_s": None,
-               "exit_code": None, "session_id": None, "subtype": None, "is_error": None,
-               "cost_usd": None, "num_turns": None, "next_after": None, "decision": None,
+               "exit_code": None, "session_id": session, "subtype": None, "is_error": None,
+               "cost_usd": None, "tokens": None, "num_turns": None, "next_after": None, "decision": None,
                "resumes": [], "last_box": last_box, "denials": [], "marker": None, "limited": False,
-               "retry_of": None, "touched": None, "app": None, "test_base": sha}
+               "outage": False, "unconfirmed": None, "retry_of": None, "touched": None, "app": None, "test_base": sha}
         t0 = time.monotonic()
         timed_out = False
+        config = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")
+        self.log(f"call {seq} {self.c.name} {self.feature}: {command.split(chr(10))[0]}, "
+                 f"transcript {config}/projects/*/{session}.jsonl")
         with open(base + ".json", "wb") as out, open(base + ".stderr", "wb") as err:
             try:
                 self.proc = subprocess.Popen(argv, cwd=self.c.path, env=call_env(self.run_id), stdin=subprocess.DEVNULL,
@@ -1357,16 +1419,16 @@ class Run:
         rec["exit_code"] = rc if rc >= 0 else None
         data = parse_result(read_bytes(base + ".json"))
         if data:
-            rec.update(session_id=data.get("session_id"), subtype=data.get("subtype"),
+            rec.update(session_id=data.get("session_id") or session, subtype=data.get("subtype"),
                        is_error=data.get("is_error"), cost_usd=data.get("total_cost_usd"),
-                       num_turns=data.get("num_turns"), denials=denials(data))
+                       tokens=usage_tokens(data.get("usage")), num_turns=data.get("num_turns"), denials=denials(data))
         tail = " / ".join(flat(l) for l in read_bytes(base + ".stderr").decode(errors="replace").splitlines()[-5:])
         return rec, data, timed_out, tail, None
 
-    def classify(self, rec, data, timed_out, tail, spawn_error, kind, box, snapshot):
+    def classify(self, rec, data, timed_out, tail, spawn_error, kind, box, snapshot, before=()):
         """Spec 0008 classification order. Returns one action:
-        ("end", reason, detail), ("retry",), ("limit", text), ("decide", (question, options)),
-        or ("next", kind, box, command)."""
+        ("end", reason, detail), ("retry",), ("limit", text), ("outage", detail), ("decide", (question, options)),
+        or ("next", kind, box, command). before: the feature's box states from just before the call."""
         result = str((data or {}).get("result") or "").replace("\r", "")
         subtype = (data or {}).get("subtype")
         error_detail = "; ".join(p for p in (flat(subtype), flat(result[:200]), tail) if p)
@@ -1376,20 +1438,35 @@ class Run:
         if self.interrupted:
             return "end", "interrupted", "Ctrl C or a stop signal"
         if timed_out:
-            return "end", "call_timeout", f"still running after {self.args.call_timeout:g}m"
+            # Spec 0014 AC-4: a killed call never passes silently; whatever it ticked is named for you to recheck.
+            after = box_states(scope[0] if scope else None)
+            rec["unconfirmed"] = [t for i, t, was_open in before if was_open and (i, t, False) in after]
+            detail = f"still running after {self.args.call_timeout:g}m"
+            if rec["unconfirmed"]:
+                detail += "; ticked before the timeout, recheck: " + "; ".join(flat(t)[:80] for t in rec["unconfirmed"]) \
+                    + "; then wf unpark"
+            return "end", "call_timeout", detail
         if spawn_error:
             return "end", "spawn_failed", spawn_error
         if data is not None and "budget" in str(subtype or ""):
             return "end", "budget", flat(subtype)
         if data is None or data.get("is_error") is True or subtype != "success" or rec["exit_code"] != 0:
             detail = error_detail or ("no JSON on stdout" if data is None else f"exit code {rec['exit_code']}")
-            rec["limited"] = bool(LIMIT.search("\n".join((result, str(subtype or ""), tail))))
-            # Rules 5 and 6 rerun or sleep only once the guard passes on this fresh reread.
+            text = "\n".join((result, str(subtype or ""), tail))
+            rec["limited"] = bool(LIMIT.search(text))
+            # Spec 0014 AC-1, rule 5a: a usage limit wins; then a 5xx status or a known outage text.
+            status = (data or {}).get("api_error_status")
+            rec["outage"] = not rec["limited"] and (
+                (isinstance(status, int) and not isinstance(status, bool) and status >= 500) or bool(OUTAGE.search(text)))
+            # Rules 5, 5a and 6 rerun or sleep only once the guard passes on this fresh reread.
             refusal = self.guard(scope)
             if refusal:
                 return ("end", *refusal)
             if rec["limited"]:
-                return "limit", "\n".join((result, str(subtype or ""), tail)), detail
+                return "limit", text, detail
+            if rec["outage"]:
+                # Neither sets nor clears the retry flag.
+                return "outage", detail
             if subtype == "error_max_turns" or self.retried:
                 return "end", "call_error", detail
             self.retried = True
@@ -1424,6 +1501,9 @@ class Run:
                 lines = [l for l in result.split("\n")[:verdict[0] + 1] if l.strip()]
                 return "end", "verify_failed", flat(" ".join(lines[-6:]))[:300]
         if kind == "sync":
+            # Spec 0014 AC-7 (b): a sync box call passes only once its box is ticked.
+            if box is not None and scope[0] is not None and any(b.open and b.text == box.box_text for b in scope[0].boxes):
+                return "end", "no_progress", f"the box is still open: {box.box_text}"
             return "end", "feature_done", None
         if scope[0] is None:
             return "end", "no_feature", f"the heading {self.feature} is gone from the scope"
@@ -1436,11 +1516,18 @@ class Run:
                 return "end", "denied", f"{denied['tool']}: {denied['reason'] or denied['input']}"
             return "end", "no_progress", f"the box is still open: {box.box_text}"
         if nb is None:
+            # Spec 0014 AC-7: (a) your skippable waiting box holds the sync call back; (c) a ticked sync box means
+            # the feature is finished; else (b) its sync box or (d) the automatic /sync.
+            if scope[0].waiting:
+                return "end", "waiting", wf.owed_text(scope[0].waiting)
+            if scope[0].finished():
+                return "end", "feature_done", None
             # Spec 0010 AC-3, rule 14a: only here, so a retried or resumed sync call never checks again.
             problem = self.design_check()
             if problem:
                 return "end", "design_gate", problem
-            return "next", "sync", None, "/sync"
+            sync = scope[0].sync
+            return "next", "sync", sync, sync.command if sync else "/sync"
         refusal = box_refusal(nb)
         if refusal:
             return ("end", *refusal)
@@ -1508,7 +1595,7 @@ class Run:
         question, options = asked
         d = {"id": None, "repo": self.c.path, "feature": self.feature, "branch": self.branch,
              "session_id": rec["session_id"], "call_kind": kind, "command": command,
-             "box_text": box.box_text if kind == "box" else None, "question": question, "options": options,
+             "box_text": box.box_text if kind in ("box", "sync") and box else None, "question": question, "options": options,
              "kind": "panel" if options else "prose", "multi": False, "sent": None, "pings": [], "acks": [],
              "asked": now(), "answer": None, "source": None, "answered": None, "ignored": 0, "run": self.folder,
              "reply": None}
@@ -1522,6 +1609,7 @@ class Run:
         self.queue(add)
         entry = self.entry_for(d, rec["seq"])
         self.save()
+        self.log(f"decision {d['id']} {self.feature}")
         print(f"waiting: {d['id']} {flat(question)}", flush=True)
         for i, o in enumerate(options, 1):
             print(f"  {i} {flat(o)}", flush=True)
@@ -1629,7 +1717,7 @@ class Run:
     def end_wait(self):
         """AC-15: wait for a reply while a held, not ended repo holds an unanswered Decision and --max-wait lasts.
         True when a reply came (pick again), False when the run is done."""
-        t0 = ntfy.boottime()
+        t0, logged = ntfy.boottime(), False
         try:
             while True:
                 if self.interrupted:
@@ -1639,6 +1727,9 @@ class Run:
                 if left <= 0 or not any(
                         d["repo"] in waiting and d["answer"] is None for d in self.queue()["decisions"]):
                     return False
+                if not logged:
+                    self.log("wait answers")
+                    logged = True
                 if self.poll():
                     return True
                 self.nap(min(ntfy.POLL_EVERY, left))
@@ -1685,13 +1776,15 @@ class Run:
         e.update(outcome=None, detail=None)
         # A limit rerun ended by a repo stop used to carry into the next feature, whose loop then skipped its
         # first call setup and died on an unset `last` (internal_error, review M1).
-        self.entry, self.feature, self.retried, self.limit_rerun = e, f.name, False, False
+        self.entry, self.feature, self.retried, self.limit_rerun, self.outage_rerun = e, f.name, False, False, False
         try:
             if d:
                 box = None
-                if d["call_kind"] == "box":
+                # A sync call with a box keeps its box text too (spec 0014 AC-7).
+                if d["call_kind"] == "box" or (d["call_kind"] == "sync" and d["box_text"] is not None):
                     # The record's box text decides progress; the live box only when it is still that box.
-                    box = f.next if f.next and f.next.box_text == d["box_text"] else types.SimpleNamespace(
+                    live = f.next if d["call_kind"] == "box" else f.sync
+                    box = live if live and live.box_text == d["box_text"] else types.SimpleNamespace(
                         feature=f.name, box_text=d["box_text"], command=d["command"], note=None)
                 self.loop(d["call_kind"], box, d["command"], d)
             elif f.next is None:
@@ -1699,7 +1792,7 @@ class Run:
                 problem = self.design_check()
                 if problem:
                     raise Stop("design_gate", problem)
-                self.loop("sync", None, "/sync")
+                self.loop("sync", f.sync, f.sync.command if f.sync else "/sync")
             else:
                 self.loop("box", f.next, f.next.command)
         except Stop as s:
@@ -1725,9 +1818,22 @@ class Run:
         elif e["outcome"] in PARKS:
             self.park(e["outcome"], e["detail"])
             print(f"parked: {f.name}: {e['outcome']}: {flat(e['detail'])}", flush=True)
+            self.log(f"park {f.name}: {e['outcome']}: {flat(e['detail'])}")
         else:
             self.end_repo(e["outcome"], e["detail"])
         self.save()
+        self.crash_loop(e)
+
+    def crash_loop(self, e):
+        """Spec 0014 AC-2: raise Stop crash_loop when entry e and the entry before it (by n, any repo) park two
+        different features with the same crash reason and the same detail key."""
+        if e["outcome"] not in CRASH:
+            return
+        prev = max((x for x in self.record["features"] if x["n"] < e["n"]), key=lambda x: x["n"], default=None)
+        key = lambda x: flat(x["detail"])[:CRASH_KEY].casefold()
+        if prev and prev["outcome"] == e["outcome"] and (prev["repo"], prev["feature"]) != (e["repo"], e["feature"]) \
+                and key(prev) == key(e):
+            raise Stop("crash_loop", f"{e['outcome']}: {flat(e['detail'])} (also in {prev['feature']})")
 
     def loop(self, kind, box, command, resume=None):
         """The feature's calls from (kind, box, command); resume is the answered Decision the first call resumes."""
@@ -1742,14 +1848,16 @@ class Run:
             # Spec 0011 AC-16: per feature.
             if count > a.max_calls:
                 raise Stop("max_calls", f"{a.max_calls} calls made")
-            # Time spent waiting on you or on a usage limit does not count toward --max-hours (AC-9).
-            if ntfy.boottime() - self.t0 - self.record["waited_s"] - self.record["limit_waited_s"] >= a.max_hours * 3600:
+            # Time spent waiting on you, on a usage limit or an outage does not count toward --max-hours (AC-9).
+            r = self.record
+            if ntfy.boottime() - self.t0 - r["waited_s"] - r["limit_waited_s"] - r["outage_waited_s"] >= a.max_hours * 3600:
                 raise Stop("run_limit", f"{a.max_hours:g}h passed")
             changed = self.files_changed()
             if changed:
                 raise Stop("guard_changed", changed)
-            # A resume, retry or limit rerun keeps the values of the call it repeats; /sync is never a last box call.
-            first = retry_of is None and not self.limit_rerun
+            # A resume, retry, limit or outage rerun keeps the values of the call it repeats; /sync is never a last box call.
+            first = retry_of is None and not self.limit_rerun and not self.outage_rerun
+            restart, self.outage_rerun = self.outage_rerun, False
             if first and resume:
                 asked = self.asked_call(resume) or {"last_box": False, "test_base": None}
                 last, base = asked["last_box"], asked["test_base"]
@@ -1765,37 +1873,45 @@ class Run:
                 self.record["limit_wait"]["resumed"] = now()
                 self.limit_rerun = False
             # Spec 0009 AC-3: a browser call starts the app after the debug snapshot, a resume too (the feature
-            # stopped it when it asked); a retry and a limit rerun keep it running.
+            # stopped it when it asked); a retry and a limit rerun keep it running, an outage rerun starts it again.
             if not (self.browser and (kind == "debug" or command.split()[:2] == ["/check", "verify"])):
                 app = None
-            elif first:
+            elif first or restart:
                 app = {"url": self.browser["url"], "logs": [], "ready_s": None, "exit": None}
                 self.start_app(app, f"app-{seq:02d}.log")
+            # Spec 0014 AC-4: the feature's boxes right before the call, to name what a timed out call ticked.
+            scope = self.reread()
+            before = box_states(scope[0] if scope else None)
             rec, data, timed_out, tail, spawn_error = self.call(
-                seq, command, resume and (resume["session_id"], ANSWERED + resume["answer"]), last, base, app is not None)
-            rec.update(kind=kind, box_text=box.box_text if kind == "box" else None,
+                seq, command, resume and (resume["session_id"], ANSWERED + resume["answer"]), last, base, app is not None,
+                kind == "sync" and box is not None)
+            rec.update(kind=kind, box_text=box.box_text if kind in ("box", "sync") and box else None,
                        resumes=[resume["id"]] if resume else [], retry_of=retry_of, app=app, feature=e["n"])
             calls.append(rec)
             e["calls"].append(seq)
             if resume:
                 self.entry_for(resume)["resumed_in"] = seq
-            act = self.classify(rec, data, timed_out, tail, spawn_error, kind, box, snapshot)
+            act = self.classify(rec, data, timed_out, tail, spawn_error, kind, box, snapshot, before)
+            self.outage_k = self.outage_k + 1 if rec["outage"] else 0
             if app and act[0] not in ("retry", "limit"):
                 self.stop_app()
                 sweep(self.run_id)
-            e["counted"] += not rec["limited"]
+            # Spec 0008 AC-8, spec 0014 AC-1: a limited or outage call is not counted.
+            e["counted"] += not (rec["limited"] or rec["outage"])
             self.save()
             reason = act[1] if act[0] == "end" else None
-            shown = "usage_limit" if rec["limited"] else rec["subtype"] or reason or "error"
+            shown = "usage_limit" if rec["limited"] else "api_outage" if rec["outage"] else rec["subtype"] or reason or "error"
             cost = "-" if rec["cost_usd"] is None else f"{rec['cost_usd']:.2f}"
-            after = {"decide": "waiting", "retry": "retry", "limit": "limit wait", "end": "-"}.get(act[0]) or act[3].split("\n")[0]
+            after = {"decide": "waiting", "retry": "retry", "limit": "limit wait", "outage": "outage wait",
+                     "end": "-"}.get(act[0]) or act[3].split("\n")[0]
             # A debug command carries the verify failure on its later lines; the terminal shows the first.
             label = command.split("\n")[0] + (f" (resume {resume['id']})" if resume else "")
             print(f"[{count}/{a.max_calls}] {self.c.name}: {wf.clean(label)} -> {wf.clean(str(shown))}, {cost} USD, "
                   f"{rec['duration_s'] / 60:.1f}m, next: {wf.clean(after)}", flush=True)
+            self.log(f"end {seq} {shown}, {cost} USD, {rec['duration_s'] / 60:.1f}m")
             self.poll()
             # AC-13: the record leaves only once the resume, its retry included, is classified; a run stop keeps it.
-            if resume and act[0] not in ("retry", "limit") and not (act[0] == "end" and act[1] in RUN_STOPS):
+            if resume and act[0] not in ("retry", "limit", "outage") and not (act[0] == "end" and act[1] in RUN_STOPS):
                 self.queue(lambda q: q.update(decisions=[x for x in q["decisions"] if x["id"] != resume["id"]]) or True)
                 if act[0] == "end" and act[1] == "call_error":
                     # Unrecorded, so the next run starts the feature fresh.
@@ -1809,6 +1925,9 @@ class Run:
             retry_of = None
             if act[0] == "limit":
                 self.limit_wait(act[1], act[2])
+                continue
+            if act[0] == "outage":
+                self.outage_wait(act[1])
                 continue
             if act[0] == "decide":
                 self.open_decision(rec, kind, box, command, act[1])
@@ -1830,6 +1949,7 @@ class Run:
         self.save()
         print(f"waiting: usage limit, resets {reset.isoformat(timespec='minutes')}, "
               f"sleeping {seconds / 60:.0f}m", flush=True)
+        self.log(f"wait limit until {reset.isoformat(timespec='minutes')}")
         t0 = ntfy.boottime()
         try:
             self.nap(seconds)
@@ -1843,6 +1963,34 @@ class Run:
         if refusal:
             raise Stop(*refusal)
         self.limit_rerun = True
+
+    def outage_wait(self, detail):
+        """Spec 0014 AC-1: wait min(2 ** (k - 1), 30) minutes before rerunning an outage call, polling for phone
+        answers every OUTAGE_POLL seconds; stop api_outage before a wait that would pass OUTAGE_CAP in this run."""
+        minutes = min(2 ** (self.outage_k - 1), 30)
+        waits = self.record["outage_waits"]
+        if sum(w["minutes"] for w in waits) + minutes > OUTAGE_CAP:
+            raise Stop("api_outage", detail)
+        waits.append({"started": now(), "minutes": minutes, "error": flat(detail)[:300]})
+        self.save()
+        print(f"waiting: API outage, sleeping {minutes}m", flush=True)
+        self.log(f"wait outage {minutes}m: {flat(detail)}")
+        t0, left = ntfy.boottime(), minutes * 60
+        try:
+            # nap() sleeps each slice on the boot clock.
+            while left > 0 and not self.interrupted:
+                self.nap(min(OUTAGE_POLL, left))
+                left -= OUTAGE_POLL
+                self.poll()
+        finally:
+            self.record["outage_waited_s"] = round(self.record["outage_waited_s"] + ntfy.boottime() - t0, 1)
+            self.save()
+        if self.interrupted:
+            raise Stop("interrupted", "Ctrl C or a stop signal")
+        refusal = self.guard(self.reread())
+        if refusal:
+            raise Stop(*refusal)
+        self.outage_rerun = True
 
     def nap(self, seconds):
         """Sleep on the boot clock in POLL slices; a stop signal ends it early. Tests replace it."""
@@ -1921,6 +2069,9 @@ class Run:
             self.run_id = f"{self.c.name if self.target else 'queue'}-{stamp}-{os.getpid()}"
             self.folder = os.path.join(state_dir(), "runs", self.run_id)
             os.makedirs(self.folder, mode=0o700)
+            # Spec 0014 AC-6: printed now too, so `tail -f <folder>/log.txt` works from the first call.
+            print(f"run folder: {self.folder}", flush=True)
+            self.log("start " + ", ".join(h["c"].name for h in self.held))
             for h in self.held:
                 self.use(h)
                 if not self.browser:
@@ -1972,8 +2123,12 @@ class Run:
             outcomes = [e["outcome"] for e in self.record["features"]]
             print(f"queue done: {outcomes.count('feature_done')} done, {sum(o in PARKS for o in outcomes)} parked, "
                   f"{outcomes.count('decision_open')} open")
+            self.log("done")
         else:
             print(f"stopped: {reason}: {wf.clean(str(detail))}")
+            self.log(f"stop {reason}: {flat(detail)}")
+        self.record.update(spent(self.record["calls"]))
+        print(spent_line(self.record))
         print(f"run folder: {self.folder}", flush=True)
         return self.exit_code(reason)
 
@@ -2639,6 +2794,41 @@ def read_decision(result):
         if label and label not in options:
             options.append(label)
     return flat(DECISION.match(lines[at]).group(1).strip().strip("*")), options[:MAX_OPTIONS]
+
+
+def box_states(feature):
+    """Spec 0014 AC-4: a Feature's boxes as (position, text, open), [] for none."""
+    return [(i, b.text, b.open) for i, b in enumerate(feature.boxes)] if feature else []
+
+
+TOKEN_FIELDS = {"input": "input_tokens", "output": "output_tokens", "cache_read": "cache_read_input_tokens",
+                "cache_write": "cache_creation_input_tokens"}
+
+
+def usage_tokens(usage):
+    """Spec 0014 AC-3: a call's {input, output, cache_read, cache_write}, each an int or None; None with no usage object."""
+    if not isinstance(usage, dict):
+        return None
+    return {k: v if isinstance(v, int) and not isinstance(v, bool) else None
+            for k, v in ((k, usage.get(f)) for k, f in TOKEN_FIELDS.items())}
+
+
+def spent(calls):
+    """Spec 0014 AC-3: {cost_usd, tokens, usage_partial} over call records; a null never counts as 0."""
+    costs = [c["cost_usd"] for c in calls if isinstance(c.get("cost_usd"), (int, float)) and not isinstance(c["cost_usd"], bool)]
+    tokens = {k: [c["tokens"][k] for c in calls if c.get("tokens") and c["tokens"][k] is not None] for k in TOKEN_FIELDS}
+    tokens = {k: sum(v) if v else None for k, v in tokens.items()}
+    partial = any(c.get("cost_usd") is None or c.get("tokens") is None or None in c["tokens"].values() for c in calls)
+    return {"cost_usd": round(sum(costs), 6) if costs else None,
+            "tokens": tokens if any(v is not None for v in tokens.values()) else None, "usage_partial": partial}
+
+
+def spent_line(rec):
+    """Spec 0014 AC-3: `spent: <cost> USD, <total> tokens`, `+` after a number when partial, `-` for null."""
+    plus = "+" if rec.get("usage_partial") else ""
+    cost = "-" if rec.get("cost_usd") is None else f"{rec['cost_usd']:.2f}{plus}"
+    total = "-" if rec.get("tokens") is None else f"{sum(v for v in rec['tokens'].values() if v is not None)}{plus}"
+    return f"spent: {cost} USD, {total} tokens"
 
 
 def parse_result(raw):

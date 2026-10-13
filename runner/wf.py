@@ -31,6 +31,9 @@ AUTO_TAG = re.compile(r"·\s*auto\s*(?=·|$)", re.I)
 # manual check once and a wf run looped /develop on it.
 OWED = re.compile(r"·\s*waits on you\s*(?=·|$)", re.I)
 NEAR_OWED = re.compile(r"waits on you", re.I)
+# Spec 0014 AC-8: with OWED, a waiting box later boxes of the feature may pass.
+SKIP_AHEAD = re.compile(r"·\s*later boxes go on\s*(?=·|$)", re.I)
+NEAR_SKIP = re.compile(r"later boxes go on", re.I)
 # C0 and C1 control characters. Scope text and folder names come from repos you
 # may have cloned; an ESC or CR in them used to reach the terminal and fzf as is.
 # Lone surrogates are undecodable bytes in a folder name; printing one used to
@@ -75,6 +78,7 @@ class NextBox:
         self.waiting = self.owed is not None or bool(note and WAITING.search(note))
         texts = dict.fromkeys(b.text for b in (box, note_box) if b)
         self.near_misses = [t for t in texts if NEAR_OWED.search(t) and not OWED.search(t)]
+        self.near_skips = [t for t in texts if NEAR_SKIP.search(t) and not SKIP_AHEAD.search(t)]
 
 
 def uncomment(text):
@@ -194,10 +198,34 @@ def under(box, ancestor):
     return False
 
 
+def skippable(box):
+    """Spec 0014 AC-8: the box's own text carries both tags; a note or parent box never lends them."""
+    return bool(OWED.search(box.text) and SKIP_AHEAD.search(box.text))
+
+
+def passed_over(box):
+    """A skippable box, or a milestone under an open one (passed over with it)."""
+    while box:
+        if box.open and skippable(box):
+            return True
+        box = box.parent
+    return False
+
+
 def pick_next(boxes):
     first = next((b for b in boxes if b.open and not b.skip), None)
     if first is None:
         return None
+    if passed_over(first):
+        # The feature's next open box, else the waiting box itself, stopping as today.
+        later = boxes[boxes.index(first):]
+        first = next((b for b in later if b.open and not b.skip and b.feature == first.feature
+                      and not passed_over(b)), first)
+    return next_box(first, boxes)
+
+
+def next_box(first, boxes):
+    """The NextBox for open box `first`: a milestone runs its parent's command, a top box notes its first open milestone."""
     # ponytail: a milestone is any box with a less indented box above it, so a
     # later sibling milestone still runs the parent command (spec AC-6 intent).
     if first.parent:
@@ -379,6 +407,8 @@ class Candidate:
         self.next = pick_next(boxes)
         for t in self.next.near_misses if self.next else []:
             self.warnings.append(f'"waits on you" is not the marker here, end the box with " · waits on you": {t}')
+        for t in self.next.near_skips if self.next else []:
+            self.warnings.append(f'"later boxes go on" is not the tag here, end the box with " · later boxes go on": {t}')
 
     def display_name(self):
         return f"{self.name} ({self.label})" if self.label else self.name

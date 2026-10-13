@@ -3,6 +3,7 @@
 **Date**: 2026-10-11
 **Status**: Accepted
 **Amended by**: [0012](../0012-waiting-boxes-owed-to-you/index.md) - a new box segment ` · waits on you` for a box only you can close, and its rule file line under `## Tags and boxes`.
+**Amended by**: [0014](../0014-runner-resilience/index.md) - a waiting box may also carry the ` · later boxes go on` segment (`wf run` and `next` pass over it), and a `/sync` box is the last box of its feature; both rule file lines sit under `## Tags and boxes`.
 
 ## Summary
 

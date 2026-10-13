@@ -65,7 +65,7 @@ class TestDoneWhen(QueueCase):
         lines = plan(r.stdout)
         self.assertEqual(lines[:3], ["two on work, 0 changes", "  queued: 1. A", "  queued: 2. B"])
         self.assertIn("parked: 1. A: blocked: test park", lines)
-        self.assertEqual(lines[-3:-1], ["done: 2. B", "queue done: 1 done, 1 parked, 0 open"])
+        self.assertEqual(lines[-4:-2], ["done: 2. B", "queue done: 1 done, 1 parked, 0 open"])
         folder, rec = self.run_record()
         self.assertEqual([(e["n"], e["feature"], e["outcome"], e["detail"], e["calls"]) for e in rec["features"]],
                          [(1, "1. A", "blocked", "test park", [1]), (2, "2. B", "feature_done", None, [2, 3])])
@@ -191,7 +191,7 @@ class TestTreeRule(QueueCase):
         self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
         _, rec = self.run_record()
         self.assertEqual(len(rec["calls"]), 1)
-        self.assertEqual(plan(r.stdout)[-2], "queue done: 0 done, 1 parked, 0 open")
+        self.assertEqual(plan(r.stdout)[-3], "queue done: 0 done, 1 parked, 0 open")
         self.again()
         r = self.wf("tree")
         self.assertEqual(plan(r.stdout)[1:3], ["  parked: 1. A: blocked: test park (wf unpark to retry)",
@@ -379,9 +379,9 @@ class TestDecisionMoveOn(DecisionCase):
             "[1/20] two: /develop b -> success, 0.50 USD, 0.0m, next: /sync", f"answered: {i} Postgres (recommended) (phone)",
             "[2/20] two: /sync -> success, 0.50 USD, 0.0m, next: -"])
         self.assertIn(f"[2/20] two: /develop a (resume {i}) -> success, 0.50 USD, 0.0m, next: /sync", lines)
-        self.assertEqual(lines[-2], "queue done: 2 done, 0 parked, 0 open")
+        self.assertEqual(lines[-3], "queue done: 2 done, 0 parked, 0 open")
         self.assertEqual(self.argv(4)["argv"][:4], ["-p", run.ANSWERED + "Postgres (recommended)", "--resume", "s-1"])
-        self.assertEqual(self.argv(4)["argv"][4:], self.argv(1)["argv"][2:])
+        self.assertEqual(self.argv(4)["argv"][4:], self.argv(1)["argv"][2:4] + self.argv(1)["argv"][6:])
         self.assertEqual([(e["feature"], e["outcome"], e["calls"], e["counted"]) for e in rec["features"]],
                          [("1. A", "feature_done", [1, 4, 5], 3), ("2. B", "feature_done", [2, 3], 2)])
         self.assertEqual((d["call"], d["resumed_in"], d["source"], d["sent"]), (1, 4, "phone", self.ntfy.posts[0]["message"]))
@@ -613,7 +613,7 @@ class TestAcrossRepos(QueueCase):
         r = self.wf("-y")
         self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
         self.assertIn("\nstopped repo ra: autopilot_off: Autopilot is now off\n", r.stdout)
-        self.assertEqual(plan(r.stdout)[-2], "queue done: 1 done, 0 parked, 0 open")
+        self.assertEqual(plan(r.stdout)[-3], "queue done: 1 done, 0 parked, 0 open")
         self.assertEqual(out.read_text(), "held")
         _, rec = self.run_record()
         self.assertEqual([(e["name"], e["ended"]) for e in rec["repos"]], [("ra", "autopilot_off"), ("rb", None)])

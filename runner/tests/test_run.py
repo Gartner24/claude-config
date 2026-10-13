@@ -11,6 +11,7 @@ import sys
 import tempfile
 import time
 import unittest
+import uuid
 from contextlib import redirect_stdout
 from pathlib import Path
 from types import SimpleNamespace
@@ -332,13 +333,20 @@ class TestHappyPath(RunCase):
         self.assertIn("[1/20] demo: /develop loop -> success, 0.50 USD, 0.0m, next: /test loop", r.stdout)
         self.assertIn("[2/20] demo: /test loop -> success, 0.50 USD, 0.0m, next: /sync", r.stdout)
         self.assertIn("[3/20] demo: /sync -> success, 0.50 USD, 0.0m, next: -", r.stdout)
-        self.assertEqual(lines[-3:-1], ["done: 1. Loop", "queue done: 1 done, 0 parked, 0 open"])
+        # Spec 0014 AC-3: the fake reports a cost but no usage, so tokens are unknown and the cost is partial.
+        self.assertEqual(lines[-4:-1], ["done: 1. Loop", "queue done: 1 done, 0 parked, 0 open",
+                                        "spent: 1.50+ USD, - tokens"])
         folder, rec = self.run_record()
         self.assertEqual(lines[-1], f"run folder: {folder}")
+        # Spec 0014 AC-6: printed right after the confirm too.
+        self.assertEqual(lines[5], f"run folder: {folder}")
         self.assertEqual(rec["stop_reason"], "queue_done")
         self.assertEqual(rec["features"], [{"n": 1, "repo": str(self.repo), "feature": "1. Loop", "outcome": "feature_done",
                                             "detail": None, "calls": [1, 2, 3], "counted": 3, "debug_attempts": 0,
-                                            "design": {"base": None, "changed": [], "reports": {}, "problems": []}}])
+                                            "design": {"base": None, "changed": [], "reports": {}, "problems": []},
+                                            "cost_usd": 1.5, "tokens": None, "usage_partial": True}])
+        self.assertEqual((rec["cost_usd"], rec["tokens"], rec["usage_partial"]), (1.5, None, True))
+        self.assertEqual((rec["outage_waits"], rec["outage_waited_s"]), ([], 0))
         self.assertNotIn("design", rec)
         self.assertEqual([c["feature"] for c in rec["calls"]], [1, 1, 1])
         self.assertEqual([c["command"] for c in rec["calls"]], ["/develop loop", "/test loop", "/sync"])
@@ -357,7 +365,7 @@ class TestHappyPath(RunCase):
         self.assertEqual((rec["decisions"], rec["waited_s"]), ([], 0))
         self.assertEqual(sorted(p.name for p in folder.iterdir()),
                          ["call-01.json", "call-01.stderr", "call-02.json", "call-02.stderr",
-                          "call-03.json", "call-03.stderr", "run.json"])
+                          "call-03.json", "call-03.stderr", "log.txt", "run.json"])
         # The other feature's box was never run.
         self.assertIn("- [ ] `/develop other`", (self.repo / "docs/scope/scope.md").read_text())
 
@@ -366,6 +374,10 @@ class TestHappyPath(RunCase):
     def test_argv(self):
         r = self.wf("demo", "-y", "--budget", "2.5", "--max-calls", "1")
         a = self.argv(1)
+        # Spec 0014 AC-6: a fresh call's own uuid4 right after --output-format json; the rest as before.
+        self.assertEqual(a["argv"][4], "--session-id")
+        self.assertEqual(str(uuid.UUID(a["argv"][5], version=4)), a["argv"][5])
+        del a["argv"][4:6]
         self.assertEqual(a["argv"][:11] + a["argv"][12:15] + a["argv"][16:], [
             "-p", "/develop loop", "--output-format", "json", "--permission-mode", "auto",
             "--permission-prompts", "none", "--max-budget-usd", "2.5", "--disallowedTools",
@@ -409,7 +421,7 @@ class TestHappyPath(RunCase):
         self.assertFalse(a["tty"])
         self.assertEqual(a["pgid"], a["pid"])
         self.wf("demo", "-y", "--budget", "20")
-        self.assertEqual(self.argv(2)["argv"][9], "20")
+        self.assertEqual(self.argv(2)["argv"][11], "20")
 
 
 class TestStart(RunCase):
@@ -479,7 +491,8 @@ class TestStart(RunCase):
                 self.make_repo(name, allowed % command)
                 r = self.wf(name, "-y", "--max-calls", "1")
                 self.assertIn(f"[1/1] {name}: {command} -> success", r.stdout)
-        for name, command in [("dev2", "/developer a"), ("sync", "/sync"), ("tst2", "/tests a"),
+        # A /sync box runs as the feature's final call since spec 0014 AC-7 (TestSyncBox); /syncx is still refused.
+        for name, command in [("dev2", "/developer a"), ("sync", "/syncx"), ("tst2", "/tests a"),
                               ("rev", "/check review a"), ("bare", "/check"), ("vrf2", "/check verifyx a")]:
             with self.subTest(command):
                 shutil.rmtree(self.state, ignore_errors=True)
@@ -808,7 +821,7 @@ class TestParking(RunCase):
         write_config(self.tmp / "config", self.ntfy.url, codes=[f"code{i:04d}" for i in range(5)])
 
     def lines(self, r):
-        return [l for l in plan(r.stdout) if not l.startswith("run folder")]
+        return [l for l in plan(r.stdout) if not l.startswith(("run folder", "spent: "))]
 
     # covers: spec 0005 AC-4, AC-6, AC-7, AC-8, AC-10, AC-12 (text decision, ping with buttons, tap, resume, done)
     def test_happy_path(self):
@@ -834,7 +847,7 @@ class TestParking(RunCase):
         a = self.argv(2)
         self.assertEqual(a["argv"][:4],
                          ["-p", "The user answered your DECISION NEEDED question: SQLite", "--resume", "s-1"])
-        self.assertEqual(a["argv"][4:], self.argv(1)["argv"][2:])
+        self.assertEqual(a["argv"][4:], self.argv(1)["argv"][2:4] + self.argv(1)["argv"][6:])
         # spec 0007: a resume gets the same guard argv as the call above, and the same stripped env.
         self.assertEqual((a["exe"], a["env"]["ENABLE_CLAUDEAI_MCP_SERVERS"]), (str(self.bin / "claude"), "false"))
         self.assertEqual(rec["calls"][0]["decision"], "Which storage engine?")
@@ -873,12 +886,17 @@ class TestParking(RunCase):
         self.assertEqual(len(json.loads(self.ntfy_config.read_text())["codes"]), 4)
 
     # covers: spec 0005 AC-10 (no session_id to resume stops call_error before any ping)
+    # Spec 0014 AC-6: a JSON with no session_id keeps the id wf gave the call, so the question opens and resumes it.
     def test_no_session(self):
         self.fake_ntfy()
-        self.steps([ask(drop=["session_id"])])
-        rec = self.assert_stopped(self.wf("demo", "-y", mode="fast"), "call_error", calls=1)
-        self.assertEqual(rec["detail"], "no session_id to resume")
-        self.assertEqual(self.ntfy.posts, [])
+        self.ntfy.replies = ["{id} 2"]
+        self.steps([ask(drop=["session_id"]), {}, {}, {"tick": False}])
+        r = self.wf("demo", "-y", mode="fast")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        given = self.argv(1)["argv"][5]
+        self.assertEqual(self.run_record()[1]["calls"][0]["session_id"], given)
+        self.assertEqual(self.argv(2)["argv"][2:4], ["--resume", given])
+        self.assertNotIn("--session-id", self.argv(2)["argv"])
 
     # covers: spec 0005 AC-7, AC-13 (three failed POSTs stop ping_failed, exit 6)
     def test_ping_failed(self):
@@ -1315,7 +1333,7 @@ class TestGuard(RunCase):
         # AC-7 order decides which path a guard_changed stop names.
         self.assertEqual(list(g["guarded_files"])[4:], [f"{self.repo}/.git/config", f"{self.repo}/.git/config.worktree",
                                                         f"{self.repo}/.git/hooks/pre-push"])
-        self.assertIn('"deniedDomains": ' + json.dumps(g["hosts"]), self.argv(1)["argv"][15])
+        self.assertIn('"deniedDomains": ' + json.dumps(g["hosts"]), self.argv(1)["argv"][17])
         for p in (".gitconfig", ".claude", ".claude.json", ".config/git"):
             self.assertFalse((self.tmp / p).exists(), p)
 
@@ -1344,7 +1362,7 @@ class TestGuard(RunCase):
             self.assertIn(p, g["deny_paths"])
         for p in ("HEAD", "index", "logs/HEAD", "COMMIT_EDITMSG"):
             self.assertFalse(any(x.startswith(str(gd / p)) for x in [*g["guarded_files"], *g["deny_paths"]]), p)
-        settings = json.loads(self.argv(1)["argv"][15])["sandbox"]["filesystem"]
+        settings = json.loads(self.argv(1)["argv"][17])["sandbox"]["filesystem"]
         self.assertTrue(set(guarded) <= set(settings["denyWrite"]))
         self.assertNotIn(str(self.repo / ".git"), settings["denyWrite"])
 
@@ -1380,7 +1398,7 @@ class TestGuard(RunCase):
         for p in (f"{h}/inc/a.conf", f"{h}/inc/c.conf", f"{h}/link.conf", f"{h}/real.conf"):
             self.assertIn(p, g["deny_paths"])
         # Absent at start: both Edit forms.
-        self.assertIn(f"Edit(/{self.repo}/.git/rel/missing.conf/**)", self.argv(1)["argv"][11])
+        self.assertIn(f"Edit(/{self.repo}/.git/rel/missing.conf/**)", self.argv(1)["argv"][13])
         # A config git cannot read leaves the targets unknown: refuse, never run unguarded.
         self.fresh()
         (self.repo / ".git" / "config.worktree").write_text("[broken\n")
@@ -1391,7 +1409,7 @@ class TestGuard(RunCase):
     # covers: spec 0007 AC-5b (the hook from a real call's argv: malformed, empty, remote, local, no interpreter)
     def test_agent_guard(self):
         self.wf("demo", "-y", "--max-calls", "1")
-        hook = json.loads(self.argv(1)["argv"][15])["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+        hook = json.loads(self.argv(1)["argv"][17])["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
         broken = f"/nonexistent/python3 -c {shlex.quote(run.AGENT_GUARD)} || exit 2"
         cases = [(hook, "not json"), (hook, ""),
                  (hook, '{"tool_name": "Agent", "tool_input": {"isolation": "remote", "prompt": "x"}}'),

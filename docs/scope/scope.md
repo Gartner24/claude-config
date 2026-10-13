@@ -351,17 +351,17 @@ Source: personal scope row 10 (`~/projects/docs/scope/scope.md`; hook errors on 
 Eight runner changes: wait through an API outage, stop on a crash loop, count tokens and cost, name the boxes a timed out call ticked, a real end to end fixture, a live log, a `/sync` box that runs, and a waits on you box that lets later boxes go on.
 **Done when:** the spec is built, each behavior has its test, and `python3 runner/e2e/run.py` passes on the real claude.
 - [x] Design it (spec): `/architect runner resilience`
-- [ ] Build it: `/develop runner resilience`
-   - [ ] Tokens and cost, live log with `--session-id` (AC-3, AC-6)
-   - [ ] Timeout unconfirmed boxes, outage waits, crash loop (AC-1, AC-2, AC-4)
-   - [ ] Sync box and skip ahead in `wf.py` and `run.py`, repo copy of `rules/scope-contract.md`, architecture table (AC-7, AC-8)
-   - [ ] Fixture repo and `runner/e2e/run.py` with its fake `wf` test (AC-5)
+- [x] Build it: `/develop runner resilience`
+   - [x] Tokens and cost, live log with `--session-id` (AC-3, AC-6)
+   - [x] Timeout unconfirmed boxes, outage waits, crash loop (AC-1, AC-2, AC-4)
+   - [x] Sync box and skip ahead in `wf.py` and `run.py`, repo copy of `rules/scope-contract.md`, architecture table (AC-7, AC-8)
+   - [x] Fixture repo and `runner/e2e/run.py` with its fake `wf` test (AC-5)
 - [ ] Verify it: `/check verify runner resilience`
 - [ ] Test it: `/test runner resilience`
 - [ ] Copy the rule file live: `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` (AC-8) · waits on you
 - [ ] Run the real end to end with `!`: `python3 runner/e2e/run.py`, record it in `docs/specs/0014-runner-resilience/verify.md` (AC-5, AC-9) · waits on you
 - [ ] Sync docs: `/sync runner resilience`
-Spec [0014](../specs/0014-runner-resilience/index.md)
+Spec [0014](../specs/0014-runner-resilience/index.md) · code in `runner/run.py`, `runner/wf.py`, `runner/e2e/`, tests in `runner/tests/test_resilience.py`
 Source: [~/projects/docs/briefs/runner-ideas-2026-10-12.md](../../../projects/docs/briefs/runner-ideas-2026-10-12.md) (spec A, ideas 1 to 6); personal scope row 24 (skip ahead and `/sync` box notes); personal scope row 18.
 
 ### 25. Checks that cannot lie · in-progress · auto
