@@ -41,8 +41,8 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 25 | Checks that cannot lie | Release 4 | in-progress |
 | 28 | Guard hook false alarms | Release 4 | in-progress |
 | 29 | Several repos at once | Release 4 | in-progress |
-| 13 | Morning report | Release 5 | needs a decision |
-| 30 | Live setup steps in one command | Release 5 | needs a decision |
+| 30 | Live setup steps in one command | Release 5 | in-progress |
+| 13 | Morning report | Release 5 | in-progress |
 | 31 | Guard baseline check before each repo | Deferred | planned |
 | 23 | Questions that teach | Deferred | planned |
 | 15 | Cheap worker tier | Deferred | planned |
@@ -400,19 +400,44 @@ Source: personal scope row 23 (`~/projects/docs/scope/scope.md`; your message of
 
 ## Release 5: nothing left for you in the morning
 
-The 2026-10-13 night run ended at 03:20 with no message and six manual steps over four features. Design both in one `/architect` sitting; the next `wf run` builds them.
+The 2026-10-13 night run ended at 03:20 with no message and six manual steps over four features. Designed together on 2026-10-13 (specs 0018, 0019); the next `wf run` builds 30 first, then 13.
 
-### 13. Morning report · needs a decision
+### 30. Live setup steps in one command · in-progress · auto
+The runner keeps building and gathers every waits-on-you step of the run that copies into `~/.claude`, runs `install.sh` or runs a real claude check, then gives you one command that does them all and ticks their boxes. The unattended calls still never write `~/.claude` themselves. Built before feature 13, which reads its ` · live` tag.
+**Done when:** a run whose features end in live setup steps leaves you one command, and running it does every step, keeps `autoMode`, and ticks the boxes so the next run can `/sync`.
+- [x] Design it (spec): `/architect live setup steps in one command`
+- [ ] Build it: `/develop live setup steps in one command`
+   - [ ] ` · live` tag, shapes, plan and confirm in `runner/finish.py` and `wf finish` (AC-1 to AC-3)
+   - [ ] Phases, backups, logs, failure policy, Ctrl C (AC-4)
+   - [ ] Record in verify.md, tick, commit, end lines, report.seen, exit codes (AC-5 to AC-8)
+   - [ ] `install.sh` keeps `autoMode`, its self checks; repo copies of `rules/scope-contract.md` and `rules/runner-handoff.md` (AC-9, AC-10)
+- [ ] Verify it: `/check verify live setup steps in one command`
+- [ ] Test it: `/test live setup steps in one command`
+- [ ] Copy the scope contract live: `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` (AC-10) · waits on you · live
+- [ ] Copy the handoff rule live: `cp ~/claude-config/rules/runner-handoff.md ~/.claude/rules/runner-handoff.md` (AC-10) · waits on you · live
+- [ ] Install, keeping your autoMode: `./install.sh` (AC-9) · waits on you · live
+- [ ] Sync docs: `/sync live setup steps in one command`
+Spec [0019](../specs/0019-live-setup-steps/index.md) · code in `runner/finish.py`, `runner/wf.py`, `install.sh`, tests in `runner/tests/test_finish.py`, `scripts/private-names.py --test`
+Source: [docs/briefs/morning-report-and-live-steps.md](../briefs/morning-report-and-live-steps.md) (fix A).
+
+### 13. Morning report · in-progress · auto
 When a run ends, for any reason, one phone message: what got built, what waits on you, and the next command. The next `~/.claude` session opens with the same report.
 **Done when:** after a run you get the phone note, and your next `~/.claude` session opens with the report.
-- [ ] Design it (spec): `/architect morning report`
+- [x] Design it (spec): `/architect morning report`
+- [ ] Build it: `/develop morning report`
+   - [ ] `runner/report.py`, `ntfy` title, tags and `scrub_field`, called at the end of a single repo run (AC-1 to AC-4)
+   - [ ] One report for a bare `wf run` parent (AC-1, AC-2)
+   - [ ] `wf report`, `--seen`, `--hook`, killed run line; settings SessionStart entry and the handoff rule line (AC-5 to AC-7)
+   - [ ] `runner/e2e/run.py` report checks (AC-8)
+- [ ] Verify it: `/check verify morning report`
+- [ ] Test it: `/test morning report`
+- [ ] Install the session hook: `./install.sh` (AC-7) · waits on you · live
+- [ ] Copy the handoff rule live: `cp ~/claude-config/rules/runner-handoff.md ~/.claude/rules/runner-handoff.md` (AC-7) · waits on you · live
+- [ ] Real end to end with the report: `python3 runner/e2e/run.py` (AC-8) · waits on you · live
+- [ ] Real parallel end to end with one report: `python3 runner/e2e/run.py --parallel` (AC-8) · waits on you · live
+- [ ] Sync docs: `/sync morning report`
+Spec [0018](../specs/0018-morning-report/index.md) · code in `runner/report.py`, `runner/ntfy.py`, `runner/run.py`, `runner/wf.py`, `runner/e2e/run.py`, tests in `runner/tests/test_report.py`
 Source: [docs/briefs/morning-report-and-live-steps.md](../briefs/morning-report-and-live-steps.md) (fix B); first deferred 2026-10-12, brought back 2026-10-13.
-
-### 30. Live setup steps in one command · needs a decision
-The runner keeps building and gathers every waits-on-you step of the run that copies into `~/.claude`, runs `install.sh` or runs a real claude check, then gives you one command that does them all and ticks their boxes. The unattended calls still never write `~/.claude` themselves.
-**Done when:** a run whose features end in live setup steps leaves you one command, and running it does every step, keeps `autoMode`, and ticks the boxes so the next run can `/sync`.
-- [ ] Design it (spec): `/architect live setup steps in one command`
-Source: [docs/briefs/morning-report-and-live-steps.md](../briefs/morning-report-and-live-steps.md) (fix A).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
