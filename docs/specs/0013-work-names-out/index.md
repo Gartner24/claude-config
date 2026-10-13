@@ -162,7 +162,7 @@ Skateboard: each step leaves a working setup; the rewrite is last, after the bra
 
 ## Follow-up
 
-- [ ] `/sync`: add `python3 scripts/private-names.py --test` to the `AGENTS.md` commands and a gotcha about `~/.claude/private/`.
+- [x] `/sync`: add `python3 scripts/private-names.py --test` to the `AGENTS.md` commands and a gotcha about `~/.claude/private/`.
 
 ## Rationale
 
