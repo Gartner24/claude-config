@@ -7,6 +7,7 @@
 **Amended**: 2026-10-12, second review stack (`c95f181..d20a328`, same brief): AC-9 a file at or under a repo's submodule `.git` path (frozen text) is that repo's own; AC-13 wording, a stale record's feature runs again only if still queued; AC-6 the reread of the standing answers refuses a file that is not regular or is past 16 MiB (spec 0006 AC-3), which stops the repo `guard_changed`
 **Amended by**: [0014](../0014-runner-resilience/index.md) - AC-3 the next box passes over sync boxes and skippable waiting boxes, a `/sync` box runs as the final call; AC-9 run stops gain `api_outage` and `crash_loop`; AC-10 a `call_timeout` whose call ticked boxes parks with `cap` null.
 **Amended by**: [0015](../0015-checks-that-cannot-lie/index.md) - AC-9 park set gains `unchecked`.
+**Amended by**: [0017](../0017-several-repos-at-once/index.md) - AC-1 bare `wf run` runs repos side by side as `wf run <repo> -y` children, AC-5 locks move to the children, AC-6 plan line, AC-19 exit codes for bare `wf run`.
 
 ## Summary
 

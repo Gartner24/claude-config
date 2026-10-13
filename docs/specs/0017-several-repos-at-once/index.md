@@ -1,7 +1,7 @@
 # 0017. Several repos at once
 
 **Date**: 2026-10-13
-**Status**: In Progress
+**Status**: Accepted
 **Paths:** `runner/run.py`, `runner/e2e/run.py`
 **Amends**: [0011](../0011-build-decision-queue/index.md) (AC-1 bare `wf run` runs repos side by side, AC-5 locks move to the children, AC-6 plan line, AC-19 exit codes for bare `wf run`). Builds on [0014](../0014-runner-resilience/index.md) (`runner/e2e/run.py`).
 
