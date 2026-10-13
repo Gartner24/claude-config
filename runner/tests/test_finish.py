@@ -191,6 +191,35 @@ class TestHappyPath(FinishCase):
         self.assertEqual(outside.read_text(), "mine\n")
         self.assertIn("warning: r: 2. Two: no specs/<dir>/index.md link, result not recorded", r.stdout)
 
+    # covers: AC-4, AC-5 (a check named by two features runs once and is recorded in both)
+    def test_shared_check(self):
+        scope = self.repo / "docs" / "scope" / "scope.md"
+        scope.write_text(scope.read_text().replace("0002-y/probes/q.py", "0001-x/probes/p.py"))
+        r = self.wf("-y")
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertEqual((self.probe_dir("0001-x") / "ran").read_text(), "x")
+        for spec in ("0001-x", "0002-y"):
+            self.assertRegex(self.verify(spec), r"`python3 docs/specs/0001-x/probes/p\.py` PASS\n$")
+        self.assertIn("- [x] Probe b:", self.scope())
+
+    # covers: AC-5 (`claude --version` failing records the version as unknown)
+    def test_unknown_version(self):
+        (self.tmp / "bin" / "claude").write_text("#!/bin/sh\necho 'Not logged in'\nexit 1\n")
+        self.assertEqual(self.wf("-y").returncode, 0)
+        self.assertIn(", Claude Code unknown: `python3 docs/specs/0001-x/probes/p.py` PASS", self.verify("0001-x"))
+
+    # covers: AC-7, AC-8 (a failed commit prints git's error, leaves the edits, exits 1)
+    def test_commit_fails(self):
+        hook = self.repo / ".git" / "hooks" / "pre-commit"
+        hook.write_text("#!/bin/sh\necho 'hook says no' >&2\nexit 1\n")
+        hook.chmod(0o755)
+        r = self.wf("-y")
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn("commit failed in r: hook says no", r.stdout)
+        self.assertEqual(self.git(self.repo, "log", "--format=%s").stdout.strip(), "init")
+        self.assertIn("- [x] Copy:", self.scope())
+        self.assertEqual(r.stdout.splitlines()[-1], "next: wf run")
+
 
 class TestFailures(FinishCase):
     # covers: AC-4, AC-8 (a failed copy stops before the installs and checks)
