@@ -178,6 +178,8 @@ def guard_denied(t, r, bin):
     for p in guard_deny(t, r, bin):
         # Only bin and .git exist at start: the absent paths get both forms.
         rules += [f"Edit(/{p}/**)"] if p in (str(bin), f"{r}/.git") else both("Edit", p)
+    # Spec 0020 AC-5: the state folder, absent before the first lock.
+    rules += both("Edit", f"{t}/state/wf")
     return ",".join(rules)
 
 

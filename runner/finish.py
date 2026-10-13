@@ -31,7 +31,8 @@ def refuse(reason, detail):
 
 
 def live_dir():
-    return os.path.realpath(os.path.expanduser(os.environ.get("CLAUDE_LIVE_DIR") or "~/.claude"))
+    """Spec 0020 AC-3: run.live_dir(), resolved, so the swap, the guard and claude read the same folder."""
+    return os.path.realpath(run.live_dir())
 
 
 def inside(path, root):
@@ -310,7 +311,7 @@ class Finish:
         with open(log, "wb") as out:
             try:
                 proc = subprocess.Popen(s.argv, cwd=s.repo.path, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                        start_new_session=True)
+                                        start_new_session=True, env={**os.environ, "CLAUDE_LIVE_DIR": live_dir()})
             except OSError as e:
                 s.code, s.result, s.last = 127, "FAIL", f"{e.strerror or e}"
                 return

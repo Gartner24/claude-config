@@ -77,7 +77,7 @@ class FinishCase(unittest.TestCase):
         claude = bin_ / "claude"
         claude.write_text("#!/bin/sh\necho '2.1.296 (Claude Code)'\n")
         claude.chmod(0o755)
-        self.env = {**os.environ, "HOME": str(self.home), "CLAUDE_LIVE_DIR": str(self.live),
+        self.env = {**os.environ, "HOME": str(self.home), "CLAUDE_CONFIG_DIR": str(self.live),
                     "XDG_STATE_HOME": str(self.state), "XDG_CONFIG_HOME": str(self.tmp / "config"),
                     "PATH": f"{bin_}:{os.environ['PATH']}", "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
                     "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t", "GIT_CONFIG_GLOBAL": "/dev/null"}
@@ -363,7 +363,7 @@ class TestShapes(FinishCase):
                "python3 runner/e2e/run.py --other", "install.sh", "./install.sh -y", "bash ./install.sh", "!",
                "cp 'unclosed"]
         env = os.environ.copy()
-        os.environ.update(CLAUDE_LIVE_DIR=str(self.live), HOME=str(self.home))
+        os.environ.update(CLAUDE_CONFIG_DIR=str(self.live), HOME=str(self.home))
         try:
             for span, phase in good.items():
                 self.assertEqual((finish.shape(root, span) or [None])[0], phase, span)

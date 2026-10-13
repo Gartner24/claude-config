@@ -432,6 +432,51 @@ def state_dir():
     return os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "wf")
 
 
+def live_dir():
+    """Spec 0020 AC-3: the folder claude reads, $CLAUDE_CONFIG_DIR else ~/.claude, so the swap, the guard and
+    claude read the same one. Every place in runner/ that named ~/.claude goes through here."""
+    return os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude")
+
+
+def expand(p):
+    """A `~/` path of the constants above, `~/.claude/` read as live_dir()."""
+    return os.path.join(live_dir(), p[len("~/.claude/"):]) if p.startswith("~/.claude/") else os.path.expanduser(p)
+
+
+def swaps_path():
+    """Spec 0020 AC-4: the ledger of swaps `wf` made, one JSON line each."""
+    return os.path.join(state_dir(), "swaps.jsonl")
+
+
+def ledger():
+    """Spec 0020 AC-5: [(stamp, {path: sha256})] from swaps.jsonl, file order; a line that does not parse is skipped."""
+    out = []
+    try:
+        with open(swaps_path(), encoding="utf-8") as f:
+            for line in f:
+                try:
+                    d = json.loads(line)
+                except ValueError:
+                    continue
+                if isinstance(d, dict) and isinstance(d.get("stamp"), str) and isinstance(d.get("files"), dict):
+                    out.append((d["stamp"], d["files"]))
+    except OSError:
+        pass
+    return out
+
+
+def accepted_by(path, lines):
+    """Spec 0020 AC-5: the newest stamp of a ledger line that maps path (as written or resolved) to its hash now,
+    else None. A folder (an absent denied path that appeared) counts when every file in it is accepted."""
+    if os.path.isdir(path) and not os.path.islink(path):
+        files = [os.path.join(d, n) for d, _, names in os.walk(path) for n in names]
+        stamps = [accepted_by(f, lines) for f in files]
+        return max(stamps) if stamps and all(stamps) else None
+    h, real = file_hash(path), os.path.realpath(path)
+    found = [s for s, files in lines if files.get(path) == h or files.get(real) == h]
+    return max(found) if found and HEX64.fullmatch(h) else None
+
+
 def mcp_cache():
     """Spec 0009 AC-4: the browser MCP's npm cache, in wf's state dir, never ~/.npm."""
     return os.path.join(state_dir(), "npm")
@@ -484,6 +529,8 @@ class Run:
             "calls": [], "decisions": [], "waited_s": 0,
             "limit_wait": None, "limit_waited_s": 0, "outage_waits": [], "outage_waited_s": 0,
             "report": None,
+            # Spec 0020 AC-5: each swap this run took.
+            "setups": [],
         }
         # Spec 0008 AC-6: set by a retryable failure, cleared by any call that does not fail.
         self.retried = False
@@ -717,10 +764,11 @@ class Run:
         self.mcp_browser = mcp_browser(found["env"], found["npx"], found["brave"], cache)
         return None
 
-    def freeze_guard(self):
-        """Spec 0007: build each call's guard once, from what is on disk at start. (no_sandbox, detail), else None."""
-        repo, home = self.c.path, os.path.expanduser("~")
-        binaries = {t: os.path.realpath(shutil.which(t)) for t in ("git", "claude", "python3")}
+    def freeze_guard(self, binaries=None):
+        """Spec 0007: build each call's guard once, from what is on disk at start. (no_sandbox, detail), else None.
+        binaries: the ones resolved at start, kept by a rebuild after a swap (spec 0020 AC-5, spec 0007 AC-6)."""
+        repo, live = self.c.path, live_dir()
+        binaries = binaries or {t: os.path.realpath(shutil.which(t)) for t in ("git", "claude", "python3")}
         wf.GIT = binaries["git"]
         r = wf.git(repo, "rev-parse", "--path-format=absolute", "--git-common-dir", "--git-dir")
         if r.returncode:
@@ -739,7 +787,7 @@ class Run:
             return "no_sandbox", e
         git_files = list(dict.fromkeys(git_files))
         settings_files = [os.path.join(repo, ".claude", "settings.json"), os.path.join(repo, ".claude", "settings.local.json"),
-                          os.path.join(home, ".claude", "settings.json"), os.path.join(home, ".claude", "settings.local.json")]
+                          os.path.join(live, "settings.json"), os.path.join(live, "settings.local.json")]
         settings = []
         for p in settings_files:
             try:
@@ -809,7 +857,7 @@ class Run:
                 return "no_sandbox", e
         git_files = list(dict.fromkeys(git_files))
         files = [*settings_files,
-                 *sorted(glob.glob(os.path.join(home, ".claude", "plugins", "cache", "**", "hooks.json"), recursive=True)),
+                 *sorted(glob.glob(os.path.join(glob.escape(live), "plugins", "cache", "**", "hooks.json"), recursive=True)),
                  os.path.join(common, "config"), *(p for p in git_files if not os.path.isdir(p)), *sub_git[::2],
                  *(p for p in hooks if os.path.isfile(p)), *tokens, *sub_absent]
         deny = deny_paths(repo, common, tokens, git_files)
@@ -833,7 +881,7 @@ class Run:
                         "filesystem": {"allowWrite": write,
                                        "denyWrite": [p for p in deny if p != common] + [os.path.join(common, "config"), hooks_dir,
                                                                                         *sub_git],
-                                       "denyRead": [os.path.expanduser(p) for p in CREDENTIAL_PATHS]}},
+                                       "denyRead": [expand(p) for p in CREDENTIAL_PATHS]}},
             "hooks": {"PreToolUse": [{"matcher": "Agent", "hooks": [{"type": "command", "timeout": 10, "command": hook}]}]}}
         # AC-3 step 5: the jail cannot bind an absent path, so an app could plant .git/hooks/post-commit in a
         # repo that had no hooks folder and it ran at your next commit (finding 9). Only paths a write bind
@@ -847,11 +895,13 @@ class Run:
         self.repo["guard"]["absent_denied"] = list(dict.fromkeys(absent))
         self.settings = json.dumps(self.guard_settings)
         self.denied = ",".join([DENIED, GUARD_DENIED, DESIGN_DENIED,
-                                *(r for p in CREDENTIAL_PATHS for r in path_rules("Read", os.path.expanduser(p))),
+                                *(r for p in CREDENTIAL_PATHS for r in path_rules("Read", expand(p))),
                                 *(r for p in deny for r in path_rules("Edit", p)),
                                 # The whole in place git dir, as the common dir above; the sandbox denies only its
                                 # config and hooks, so a commit in the submodule still works.
-                                *(r for p in sub_in_tree for r in path_rules("Edit", p))])
+                                *(r for p in sub_in_tree for r in path_rules("Edit", p)),
+                                # Spec 0020 AC-5: no call forges a swaps.jsonl line; the Bash sandbox already cannot.
+                                *path_rules("Edit", state_dir())])
         self.claude = binaries["claude"]
         self.bwrap = os.path.realpath(shutil.which("bwrap"))
         return None
@@ -863,7 +913,7 @@ class Run:
         repo, home = self.c.path, os.path.expanduser("~")
         a = [self.bwrap, "--die-with-parent", "--unshare-pid", "--ro-bind", "/", "/", "--dev", "/dev",
              "--proc", "/proc", "--tmpfs", "/tmp", "--tmpfs", "/run"]
-        hidden = [*(os.path.join(home, p[2:]) for p in JAIL_HIDDEN), *user_read_denies(), *self.browser["wf_dirs"]]
+        hidden = [*(expand(p) for p in JAIL_HIDDEN), *user_read_denies(), *self.browser["wf_dirs"]]
         # At the real path, like the binds below: a symlinked ~/.ssh used to fail every app start (review M10).
         hidden = list(dict.fromkeys(os.path.realpath(p) for p in hidden))
         binds = list(dict.fromkeys(os.path.realpath(p) for p in write_binds(repo)))
@@ -983,6 +1033,12 @@ class Run:
         repo is ended here, the repo in use by raising Stop guard_changed for it alone."""
         hits = [(h, path, detail) for h in self.held if h["repo"].get("guard") and not h["repo"]["ended"]
                 for path, detail in moved(h["repo"]["guard"])]
+        # Spec 0020 AC-5: a swap `wf` wrote to the ledger is taken, not a stop; any other move stops as before.
+        lines = ledger() if hits else []
+        stamps = [accepted_by(path, lines) for _, path, _ in hits]
+        if hits and all(stamps):
+            self.take_setup(max(stamps), lines)
+        hits = [x for x, s in zip(hits, stamps) if not s]
         # Spec 0011 AC-6: a call could plant `app start` for the next run, unseen behind -y (review finding H2).
         for h in self.held:
             if h["repo"].get("guard") and not h["repo"]["ended"] and read_answers(h["c"]) != (h["answers"], None):
@@ -1000,6 +1056,42 @@ class Run:
         if mine:
             raise Stop("guard_changed", mine, repo=True)
         return None
+
+    def take_setup(self, stamp, lines):
+        """Spec 0020 AC-5: every moved file is in the ledger, so rebuild each held repo's guard from disk, keeping
+        the start binaries and the old baseline of every path the ledger does not accept. A path new in the
+        rebuilt list must be accepted too (or absent), else Stop guard_changed. Logs `setup <stamp> taken`."""
+        cur = self.repo
+        for h in self.held:
+            if not h["repo"].get("guard") or h["repo"]["ended"]:
+                continue
+            self.use(h)
+            old = h["repo"]["guard"]
+            problem = self.freeze_guard(old["binaries"])
+            excluded = not problem and user_exclusions()
+            if problem or excluded:
+                raise Stop("guard_changed", f"setup {stamp}: {flat(problem[1] if problem else excluded)}")
+            files = self.repo["guard"]["guarded_files"]
+            for p, now_hash in files.items():
+                if accepted_by(p, lines):
+                    continue
+                if p in old["guarded_files"]:
+                    files[p] = old["guarded_files"][p]
+                elif now_hash != "absent":
+                    raise Stop("guard_changed", f"{p} is new in setup {stamp} and not in its swap; "
+                                                "inspect or delete it before opening a session in this repo")
+            if self.browser and self.browser.get("shots"):
+                self.browser_settings = browser_settings(self.guard_settings, old["binaries"]["python3"],
+                                                         self.browser["url"], self.browser["shots"])
+            h.update(self.keep())
+        if cur is None:
+            self.repo = None
+        else:
+            self.use(next(h for h in self.held if h["repo"] is cur))
+        self.record["setups"].append({"stamp": stamp, "at": now()})
+        print(f"setup {stamp} taken", flush=True)
+        self.log(f"setup {stamp} taken")
+        self.save()
 
     def own_file(self, h, path):
         """AC-9: a file only held repo h's calls read: its own .claude settings, or a file under a git common dir
@@ -1403,7 +1495,7 @@ class Run:
                "outage": False, "unconfirmed": None, "retry_of": None, "touched": None, "app": None, "test_base": sha}
         t0 = time.monotonic()
         timed_out = False
-        config = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")
+        config = live_dir()
         self.log(f"call {seq} {self.c.name} {self.feature}: {command.split(chr(10))[0]}, "
                  f"transcript {config}/projects/*/{session}.jsonl")
         with open(base + ".json", "wb") as out, open(base + ".stderr", "wb") as err:
@@ -2478,7 +2570,7 @@ def denial_reason(session_id, tool_use_id):
     if not isinstance(session_id, str) or not re.fullmatch(r"[\w-]+", session_id) \
             or not isinstance(tool_use_id, str) or not tool_use_id:
         return None
-    base = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")
+    base = live_dir()
     try:
         for path in glob.glob(os.path.join(glob.escape(base), "projects", "*", session_id + ".jsonl")):
             with open(path, encoding="utf-8", errors="replace") as f:
@@ -2581,7 +2673,7 @@ def user_read_denies():
     """Spec 0009 AC-3 step 3: the exact paths ~/.claude/settings.json denies with Read(//path) or Read(//path/**),
     so the app jail hides your own secret files without this public repo naming them (review M7)."""
     try:
-        rules = read_json(os.path.expanduser("~/.claude/settings.json")).get("permissions", {}).get("deny", [])
+        rules = read_json(os.path.join(live_dir(), "settings.json")).get("permissions", {}).get("deny", [])
     except (ValueError, OSError, AttributeError):
         return []
     return [m.group(1) for r in rules if isinstance(r, str) and (m := USER_READ_DENY.fullmatch(r))]
@@ -2590,7 +2682,7 @@ def user_read_denies():
 def user_exclusions():
     """AC-8: why a user settings file defeats the sandbox, else None. User exclusions still apply under --settings."""
     for name in ("settings.json", "settings.local.json"):
-        path = os.path.join(os.path.expanduser("~/.claude"), name)
+        path = os.path.join(live_dir(), name)
         try:
             if (read_json(path).get("sandbox") or {}).get("excludedCommands"):
                 return f"{path} sets sandbox.excludedCommands"
@@ -2803,13 +2895,13 @@ def deny_paths(repo, common, tokens, git_files=()):
     """AC-5: what no call may write or edit, sorted. git_files stay listed even under the common dir:
     the write denies drop only the common dir itself."""
     home = os.path.expanduser("~")
-    claude = os.path.join(home, ".claude")
+    claude = live_dir()
     try:
         # `projects` stays writable so memory writes keep working.
         entries = [os.path.join(claude, n) for n in os.listdir(claude) if n != "projects"]
     except FileNotFoundError:
         entries = []
-    deny = [*entries, claude + ".json", os.path.join(repo, ".claude"), common,
+    deny = [*entries, os.path.join(home, ".claude.json"), os.path.join(repo, ".claude"), common,
             *(os.path.expanduser(p) for p in DOTFILES), os.path.join(home, ".local", "share", "claude"),
             # Spec 0020 AC-12: every runner copy, not only the one the wf hook token resolves into.
             os.path.join(home, ".local", "share", "wf")]
