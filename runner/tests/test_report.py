@@ -1,5 +1,6 @@
 """Spec 0018: the morning report at the end of every wf run, wf report, and the session start hook."""
 import datetime
+import importlib.util
 import json
 import os
 import subprocess
@@ -225,6 +226,38 @@ class Unit(unittest.TestCase):
         self.assertEqual(self.wf("--seen"), line)
         self.assertEqual(((state / "report.seen").read_text(), self.wf()), (name, "old\n"))
 
+    # covers: AC-6 (the hook swallows its own errors: an unreadable report.txt still exits 0 with no output)
+    def test_hook_swallows(self):
+        (self.tmp / "state" / "wf" / "report.txt").mkdir()
+        self.assertEqual(self.hook(), "")
+
+    # covers: AC-8 (--parallel PASS needs both children "parent" and one report.txt naming both repos)
+    def test_parallel_e2e_checks(self):
+        spec = importlib.util.spec_from_file_location("e2e_run", Path(report.__file__).parent / "e2e" / "run.py")
+        e2e = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(e2e)
+        top = self.tmp / "top"
+        call = {"started": "2026-10-13T03:00:00+00:00", "duration_s": 60}
+        for name in ("one", "two"):
+            (top / "state" / "wf" / "runs" / name).mkdir(parents=True)
+        txt = top / "state" / "wf" / "report.txt"
+
+        def check(reports, text):
+            for name, rep in zip(("one", "two"), reports):
+                (top / "state" / "wf" / "runs" / name / "run.json").write_text(json.dumps(
+                    {"features": [{"outcome": "feature_done"}], "calls": [call], "report": rep}))
+            if text is None:
+                txt.unlink(missing_ok=True)
+            else:
+                txt.write_text(text)
+            with mock.patch.object(e2e.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)):
+                return e2e.parallel_failure(str(top), {})
+        both = "built: 1. A (one)\nbuilt: 1. A (two)\n"
+        self.assertIsNone(check(["parent", "parent"], both))
+        self.assertEqual(check(["parent", "sent"], both), "run.json report ['parent', 'sent']")
+        self.assertEqual(check(["parent", "parent"], None), "no report.txt")
+        self.assertEqual(check(["parent", "parent"], "built: 1. A (one)\n"), "report.txt does not name both repos")
+
 
 class TestEndOfRun(QueueCase):
     # covers: AC-1, AC-3 (a single repo run writes report.txt and records sent; the note is the phone body)
@@ -258,16 +291,20 @@ class TestEndOfRun(QueueCase):
         self.assertTrue(self.run_record()[1]["report"].startswith("failed: "))
         self.assertIn("\nwarning: report: ", r.stdout)
 
-    # covers: AC-1 (a Ctrl C run still sends: the report ignores the run's stopped flag)
+    # covers: AC-1, AC-4 (a Ctrl C run still sends: the report ignores the run's stopped flag, so a failed first
+    # POST is retried instead of giving up)
     def test_interrupted_sends(self):
         self.make_repo("one", ONE)
         self.steps([{"tick": False, "sleep": 60}])
+        self.report_ntfy.fail_posts = 1
         p = self.start("one", "-y")
         self.wait_for(self.fakes / "argv-1.json", timeout=20)
         p.send_signal(2)
         out, err = p.communicate(timeout=60)
         self.assertEqual(p.returncode, 130, out + err)
         self.assertEqual(self.run_record()[1]["report"], "sent")
+        # The fake keeps the failed POST too: two posts means the retry went out after Ctrl C.
+        self.assertEqual(len([p for p in self.report_ntfy.posts if p["title"] == "wf report"]), 2)
         self.assertTrue((self.state / "wf" / "report.txt").read_text().startswith("wf stopped interrupted "))
 
 

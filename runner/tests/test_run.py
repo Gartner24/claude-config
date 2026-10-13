@@ -453,6 +453,9 @@ class TestStart(RunCase):
         self.assertEqual(self.calls(), [])
         runs = self.state / "wf" / "runs"
         self.assertEqual(list(runs.iterdir()) if runs.exists() else [], [])
+        # Spec 0018 AC-1: a run refused at its start checks or with nothing to run sends no morning report.
+        self.assertFalse((self.state / "wf" / "report.txt").exists())
+        self.assertEqual(self.report_ntfy.posts, [])
 
     # covers: spec 0011 AC-3, AC-4, AC-6 (box checks are per feature skips that exit 0 with nothing to run;
     # repo checks still refuse 5; no call, no run folder)
@@ -517,6 +520,7 @@ class TestStart(RunCase):
                               ("rev", "/check review a"), ("bare", "/check"), ("vrf2", "/check verifyx a")]:
             with self.subTest(command):
                 shutil.rmtree(self.state, ignore_errors=True)
+                self.report_ntfy.posts.clear()
                 for f in self.calls():
                     f.unlink()
                 self.make_repo(name, allowed % command)
