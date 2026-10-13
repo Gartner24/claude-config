@@ -488,7 +488,7 @@ Bare `wf run` would check each repo's protected files just before starting it an
 Source: spec [0017](../specs/0017-several-repos-at-once/index.md) accepted gap; decision `w8d0` of 2026-10-13.
 
 ### 23. Questions that teach · needs a decision
-Deferred 2026-10-12: do it after the runner features are built.
+Deferred 2026-10-12: do it after the runner features are built. Widened 2026-10-13 (your message): not only question panels; everything Claude says to you, in every session and in the runner's reports, is in words you can follow, with a way to learn any idea first.
 Every question panel, in every session, explains the ideas it asks about in plain words and offers a way to learn the idea before you answer. It grows `rules/plain-questions.md`, which already asks for plain wording and a from zero explanation when you say you do not follow. Research comes first, so the design rests on how good teaching inside a question is actually done.
 **Done when:** a question panel in a fresh session explains each idea it asks about in plain words and offers a "learn this first" path, the rule reaches skills that are vendored and overwritten on pull, and the research behind it is recorded in the spec's `rationale.md`.
 - [ ] Research it: `/deep-research how to teach a concept inside a decision question: plain explanations, an option to learn more, without slowing down people who already know it`
