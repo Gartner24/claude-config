@@ -2,6 +2,7 @@
 
 **Date**: 2026-10-11
 **Status**: Accepted
+**Paths:** `runner/run.py`, `runner/wf.py`, `runner/ntfy.py`, `runner/tests/**`
 **Amended**: 2026-10-12, architecture pass ([architecture](../../architecture.md)): AC-10 states the review fix already built (a decision on the last allowed call stops `max_calls` before any ping), and AC-3 notes that spec 0006 appends standing answers to the prompt. No behavior change.
 
 ## What you're agreeing to

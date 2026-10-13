@@ -72,7 +72,7 @@ sys.stderr.write(step.get("stderr", ""))
 if "raw" in step:
     sys.stdout.write(step["raw"])
 else:
-    out = {{"type": "result", "subtype": "success", "is_error": False, "result": "ok",
+    out = {{"type": "result", "subtype": "success", "is_error": False, "result": "ok\\nCAN FAIL CHECKED: 1\\nMUTATION CHECKED: 1",
            "total_cost_usd": 0.5, "session_id": "s-%d" % (n + 1), "num_turns": 3}}
     out.update(step.get("json", {{}}))
     for k in step.get("drop", []):
@@ -401,7 +401,10 @@ class TestHappyPath(RunCase):
             "hardware, and when /check verify ends BLOCKED, stop and end your final message with one line that starts "
             "with BLOCKED: followed by what you need. When /check verify ends in FAIL, end your final message with one "
             "line: VERIFY FAIL: debug when every failure is a bug, or VERIFY FAIL: develop when anything specced is "
-            "missing or not applied. Never run anything that bills: paid APIs, image generation, paid services. "
+            "missing or not applied. When /check verify passes, end your final message with one line: CAN FAIL "
+            "CHECKED: <n>, the number of steps you confirmed would fail on broken code. When /test passes, end your "
+            "final message with one line: MUTATION CHECKED: <n>, the number of added or changed tests you saw go red "
+            "on a mutant. Never run anything that bills: paid APIs, image generation, paid services. "
             "If this step would build or restyle a user interface and no locked design covers it (a design.md, a "
             "brand-system.html, or a .design/tokens.css next to a .design/reference-lock.md, in the folder of that UI "
             "or any parent up to the repo root, or a spec under the specs folder that names this UI's design source "
@@ -731,7 +734,8 @@ class TestClassify(RunCase):
         self.assertEqual(rec["decisions"][0]["question"], "which ]0;db provider?")
         self.assertIn("waiting: %s which ]0;db provider?" % rec["decisions"][0]["id"], r.stdout)
         shutil.rmtree(self.state)
-        self.steps([{"json": {"result": None}}])
+        # Only the first call: a later /test call needs its spec 0015 MUTATION CHECKED line.
+        self.steps([{"json": {"result": None}}, {}])
         self.assertEqual(self.wf("demo", "-y").returncode, 0)
 
     # covers: AC-6 rules 7, 8, scope_unreadable, rule 9, and the cost "-" of AC-11
@@ -1218,9 +1222,9 @@ class TestGuard(RunCase):
         self.assertFalse((self.fakes / "b-ran").exists())
         # rev-parse, the include read of .git/config, ls-files for submodule gitlinks, remote -v, status for the plan's
         # tree rule and changes, status for the first pick, (spec 0009 AC-9) the main and master lookups before the
-        # /test call, then (spec 0010 AC-1) those lookups and ls-files again for the design check, and status for the
-        # pick after the park.
-        self.assertEqual((self.fakes / "git-log").read_text().splitlines(), [str(self.fakes / "git-wrap")] * 13)
+        # /test call, (spec 0015 AC-4) ls-files and check-ignore for its test file snapshot, then (spec 0010 AC-1)
+        # those lookups and ls-files again for the design check, and status for the pick after the park.
+        self.assertEqual((self.fakes / "git-log").read_text().splitlines(), [str(self.fakes / "git-wrap")] * 15)
         _, rec = self.run_record()
         self.assertEqual(rec["repos"][0]["guard"]["binaries"], {"git": str(self.fakes / "git-wrap"),
                                                     "claude": str(self.fakes / "claude-a"),

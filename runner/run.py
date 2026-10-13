@@ -147,6 +147,10 @@ UNATTENDED_PROMPT = (
     "with BLOCKED: followed by what you need. "
     "When /check verify ends in FAIL, end your final message with one line: VERIFY FAIL: debug when every "
     "failure is a bug, or VERIFY FAIL: develop when anything specced is missing or not applied. "
+    # Spec 0015 AC-4.
+    "When /check verify passes, end your final message with one line: CAN FAIL CHECKED: <n>, the number of steps "
+    "you confirmed would fail on broken code. When /test passes, end your final message with one line: "
+    "MUTATION CHECKED: <n>, the number of added or changed tests you saw go red on a mutant. "
     "Never run anything that bills: paid APIs, image generation, paid services. "
     # Spec 0010 AC-5.
     "If this step would build or restyle a user interface and no locked design covers it (a design.md, a "
@@ -189,7 +193,7 @@ TEST_BASE = (" For /test, the feature's changes are the files in git diff --rela
 # a repo stop ends that repo, a run stop ends the run. app_failed and app_port_busy come from spec 0009.
 PARKS = frozenset(("verify_failed", "blocked", "denied", "debug_touched", "no_progress", "call_error", "call_timeout",
                    "budget", "max_calls", "manual_box", "waiting", "no_command", "no_feature",
-                   "app_failed", "design_gate"))
+                   "app_failed", "design_gate", "unchecked"))
 REPO_STOPS = frozenset(("branch_changed", "autopilot_off", "scope_unreadable"))
 RUN_STOPS = frozenset(("interrupted", "run_limit", "usage_limit", "spawn_failed", "guard_changed", "ping_failed",
                        "internal_error", "app_port_busy", "api_outage", "crash_loop"))
@@ -222,6 +226,9 @@ DECISION = re.compile(r"^[ \t>*-]*DECISION NEEDED:\**[ \t]*(\S.*)$")
 OPTION = re.compile(r"^[ \t>*-]*OPTION:\**[ \t]*(\S.*)$")
 BLOCKED = re.compile(r"^[ \t>*-]*BLOCKED:\**[ \t]*(\S.*)$")
 VERIFY_FAIL = re.compile(r"^[ \t>*-]*VERIFY FAIL:\**[ \t]*(\S.*)$")
+# Spec 0015 AC-4: the proof line a ticked /check verify or /test box must end with.
+CAN_FAIL = re.compile(r"^[ \t>*-]*CAN FAIL CHECKED:\**[ \t]*(\d+)")
+MUTATION = re.compile(r"^[ \t>*-]*MUTATION CHECKED:\**[ \t]*(\d+)")
 MAX_OPTIONS = 9
 MAX_DEBUG = 2
 GRACE = 30
@@ -1383,7 +1390,7 @@ class Run:
         rec = {"seq": seq, "kind": None, "command": command, "box_text": None, "started": now(), "duration_s": None,
                "exit_code": None, "session_id": session, "subtype": None, "is_error": None,
                "cost_usd": None, "tokens": None, "num_turns": None, "next_after": None, "decision": None,
-               "resumes": [], "last_box": last_box, "denials": [], "marker": None, "limited": False,
+               "resumes": [], "last_box": last_box, "denials": [], "marker": None, "checked_n": None, "limited": False,
                "outage": False, "unconfirmed": None, "retry_of": None, "touched": None, "app": None, "test_base": sha}
         t0 = time.monotonic()
         timed_out = False
@@ -1500,6 +1507,26 @@ class Run:
                 rec["marker"] = "verify_fail_develop"
                 lines = [l for l in result.split("\n")[:verdict[0] + 1] if l.strip()]
                 return "end", "verify_failed", flat(" ".join(lines[-6:]))[:300]
+        # Spec 0015 AC-4, rule 11a: a ticked verify or test box carries its proof line.
+        gate = kind == "box" and ((CAN_FAIL, "CAN FAIL CHECKED", "can_fail_checked")
+                                  if box.command.split()[:2] == ["/check", "verify"] else
+                                  (MUTATION, "MUTATION CHECKED", "mutation_checked")
+                                  if box.command.split()[0] == "/test" else None)
+        own = gate and next(((i, t) for i, t, was_open in before
+                             if was_open and wf.Box(0, True, t, None, None, False).command() == box.command), None)
+        if own and scope[0] is not None and (*own, False) in box_states(scope[0]):
+            pattern, name, marker = gate
+            line = last_line(pattern, result)
+            n = int(line[1].group(1)) if line else None
+            if n == 0 and pattern is MUTATION:
+                after = self.snapshot()
+                n = None if any(is_test_file(rel) and snapshot.get(rel) != after.get(rel)
+                                for rel in set(snapshot or {}) | set(after)) else 0
+            if n is None or (n == 0 and pattern is CAN_FAIL):
+                return "end", "unchecked", f"{box.box_text} ticked without a valid {name} line; " \
+                                           "untick it to rerun, or wf unpark to accept"
+            rec["marker"] = rec["marker"] or marker
+            rec["checked_n"] = n
         if kind == "sync":
             # Spec 0014 AC-7 (b): a sync box call passes only once its box is ticked.
             if box is not None and scope[0] is not None and any(b.open and b.text == box.box_text for b in scope[0].boxes):
@@ -1869,6 +1896,9 @@ class Run:
                     # AC-13: a debug resume takes a fresh snapshot, but it is not another attempt.
                     snapshot = self.snapshot()
                     e["debug_attempts"] += not resume
+                elif kind == "box" and command.split()[0] == "/test":
+                    # Spec 0015 AC-4: rule 11a asks whether a test file changed during the call.
+                    snapshot = self.snapshot()
             if self.limit_rerun:
                 self.record["limit_wait"]["resumed"] = now()
                 self.limit_rerun = False

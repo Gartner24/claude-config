@@ -67,6 +67,13 @@ for name in wf next; do
     run ln -sfn "$REPO/runner/wf.py" "$BIN/$name"
   fi
 done
+# Spec 0015 AC-6: /sync runs spec-paths to warn about stale accepted specs.
+if [ -e "$BIN/spec-paths" ] && ! [ -L "$BIN/spec-paths" ]; then
+  note "SKIP spec-paths (a real file is already at $BIN/spec-paths)"
+else
+  note "spec-paths -> scripts/spec-paths.py"
+  run ln -sfn "$REPO/scripts/spec-paths.py" "$BIN/spec-paths"
+fi
 
 # settings.json hardcodes absolute paths to hook scripts. Substituting $HOME is
 # what makes this repo installable by anyone, not just its author.
@@ -175,6 +182,9 @@ else
   python3 -m unittest discover -s "$REPO/runner/tests" >/dev/null 2>&1 \
     && note "runner: unittest suite passes" \
     || { echo "  RUNNER SELF-CHECK FAILED - run: python3 -m unittest discover -s runner/tests" >&2; exit 1; }
+  python3 "$REPO/scripts/spec-paths.py" --test >/dev/null 2>&1 \
+    && note "spec-paths: all self-checks passed" \
+    || { echo "  SPEC-PATHS SELF-CHECK FAILED - run: python3 scripts/spec-paths.py --test" >&2; exit 1; }
   missing=0
   while read -r imp; do
     real="${imp/#@\~/$HOME}"

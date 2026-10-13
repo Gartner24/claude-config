@@ -2,6 +2,7 @@
 
 **Date**: 2026-10-11
 **Status**: Accepted
+**Paths:** `runner/wf.py`, `runner/run.py`, `runner/ntfy.py`, `runner/tests/test_*.py`, `runner/tests/fixtures/**`, `install.sh`
 **Amended**: 2026-10-12, architecture pass ([architecture](../architecture.md)): the Release 2 split is flat modules beside `wf.py` (`run.py`, `ntfy.py`), not a `runner/wf/` package. No behavior change.
 
 ## What you're agreeing to

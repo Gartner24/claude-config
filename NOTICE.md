@@ -11,7 +11,7 @@ because the LICENSE covers only the parts authored here.
 | `agents/regression-hunter.md` | Regression hunting: what worked before a diff and stops after |
 | `agents/pr-intent-verifier.md` | Does a PR do what it claims, and nothing else |
 | `skills/intent-router/`, `USAGE.md` | Prompt-to-skill routing table and its scorer |
-| `scripts/check-routing.py`, `scripts/asciify.py`, `scripts/private-names.py` | Repo tooling |
+| `scripts/check-routing.py`, `scripts/asciify.py`, `scripts/private-names.py`, `scripts/spec-paths.py` | Repo tooling |
 | `hooks/block-destructive.sh` | Destructive-command guard |
 | `runner/` | `wf`, the workflow runner (spec 0001) |
 | `rules/scope-contract.md` | The scope format the runner reads and the skills write (spec 0003) |
@@ -20,6 +20,7 @@ because the LICENSE covers only the parts authored here.
 | `rules/standing-answers.md` | Standing answers: skill questions answered the same way every time in interactive sessions |
 | `rules/plain-questions.md` | Plain questions: every question to you opens with what is decided, explains each term, and re-explains from zero on request |
 | `rules/skill-map.md` | Skill map: which skill fits each situation, its rough cost, and who starts it |
+| `rules/check-gates.md` | Check gates: verify steps and tests that can fail, `**Paths:**` on every spec with `/sync` stale warnings, cross checks against the brief (spec 0015) |
 | `rules/review-fix.md` | After a review: which findings are fixed without asking, which are asked, and the two round stopping point |
 | `rules/ecc/*/index.md` (7 files) | Per-language rule indexes - authored here, not upstream. They only `@import` the files below. |
 | `sync.sh`, `CLAUDE.md`, `rules/ecc/common/{code-review,testing}.md` additions | Setup and the hand-earned rules |

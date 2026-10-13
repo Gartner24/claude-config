@@ -2,6 +2,7 @@
 
 **Date**: 2026-10-12
 **Status**: Accepted
+**Paths:** `runner/run.py`, `runner/tests/test_run.py`
 **Amended by**: [0009](../0009-headless-verify-test/index.md) - AC-2 gains the `app start` and `app url` keys and a wider entry pattern (`app start` keeps spaces and case); AC-3 hint lists them.
 **Amended by**: [0011](../0011-build-decision-queue/index.md) - AC-7's `answers:` part moved from the confirm line to its own line in each repo's plan block (0011 AC-6), same text after `answers: `. Every other mention of the confirm line below reads as that plan line. AC-4: a call that changes the section's parsed values now stops the repo `guard_changed` instead of being ignored (0011 AC-6).
 **Amended**: 2026-10-12, second review stack (`docs/briefs/runner-review-stack-2026-10-12.md`): AC-3 refuses a standing answers file that is not a regular file or is past 16 MiB.

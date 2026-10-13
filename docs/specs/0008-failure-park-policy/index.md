@@ -2,6 +2,7 @@
 
 **Date**: 2026-10-12
 **Status**: Accepted
+**Paths:** `runner/run.py`, `runner/ntfy.py`, `runner/tests/test_park.py`
 **Amended by**: [0009](../0009-headless-verify-test/index.md) - AC-1 park set gains `app_failed`, stop set gains `app_port_busy`; AC-3 snapshot is taken before the app starts and after it stops. [0010](../0010-design-enforcement-unattended/index.md) - AC-1 park set gains `design_gate`; the classification order gains rule 14a (the design check before `/sync`).
 **Amended**: 2026-10-12, review stack finding L6 (`docs/briefs/runner-review-stack-2026-10-12.md`): AC-7 strip gains the `_KEY` and `_PAT` endings and `PGPASSWORD`, `DATABASE_URL`, `SENTRY_DSN`; finding M7: six more credential paths.
 **Amended**: 2026-10-12, second review stack (`c95f181..d20a328`, same brief): AC-3 states how the snapshot reads files (first review M4, M13 and its commit reviews; second review: a tracked specs folder is not walked, a test file past the cap counts as touched on any change); AC-10 keeps the whole `internal_error` trace in `traceback.txt` in the run folder.

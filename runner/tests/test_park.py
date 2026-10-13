@@ -39,7 +39,7 @@ class TestParkSets(unittest.TestCase):
         self.assertEqual(run.REPO_STOPS & run.RUN_STOPS, frozenset())
         self.assertEqual(run.PARKS, {"verify_failed", "blocked", "denied", "debug_touched", "no_progress", "call_error",
                                      "call_timeout", "budget", "max_calls", "manual_box", "waiting",
-                                     "no_command", "no_feature", "app_failed", "design_gate"})
+                                     "no_command", "no_feature", "app_failed", "design_gate", "unchecked"})
         self.assertEqual(run.REPO_STOPS, {"branch_changed", "autopilot_off", "scope_unreadable"})
         self.assertEqual(run.RUN_STOPS, {"interrupted", "run_limit", "usage_limit", "spawn_failed", "guard_changed",
                                          "ping_failed", "internal_error", "app_port_busy", "api_outage", "crash_loop"})
@@ -501,8 +501,10 @@ class TestRecord(RunCase):
         self.assertEqual([(c["seq"], c["kind"], c["marker"], c["limited"], c["retry_of"], c["touched"], c["denials"])
                           for c in rec["calls"]],
                          [(1, "box", None, False, None, None, []), (2, "box", "verify_fail_debug", False, 1, None, []),
-                          (3, "debug", None, False, None, [], []), (4, "box", None, False, None, None, []),
-                          (5, "box", None, False, None, None, []), (6, "sync", None, False, None, None, [])])
+                          (3, "debug", None, False, None, [], []), (4, "box", "can_fail_checked", False, None, None, []),
+                          (5, "box", "mutation_checked", False, None, None, []), (6, "sync", None, False, None, None, [])])
+        # Spec 0015 AC-4: the proof line's count, null on every other call.
+        self.assertEqual([c["checked_n"] for c in rec["calls"]], [None, None, None, 1, 1, None])
 
 
 if __name__ == "__main__":

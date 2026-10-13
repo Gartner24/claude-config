@@ -2,6 +2,7 @@
 
 **Date**: 2026-10-12
 **Status**: Accepted
+**Paths:** `runner/run.py`, `runner/wf.py`, `runner/tests/test_queue.py`, `rules/scope-contract.md`
 **Amended**: 2026-10-12, review stack findings H2 and H3 (`docs/briefs/runner-review-stack-2026-10-12.md`): AC-6 per repo `answers:` and `guard:` lines, standing answers read once per run; AC-6 and AC-9 standing answers watched during the run (`guard_changed` repo stop); finding H1: AC-7 pick skips an answered Decision whose feature has a Park that applies; finding L9: AC-13 an answered Decision whose feature is no longer queued is stale; finding L2: AC-12 and the data model, a Decision's `reply`; finding M12: the spec 0010 `design` record moves to the FeatureEntry
 **Amended**: 2026-10-12, second review stack (`c95f181..d20a328`, same brief): AC-9 a file at or under a repo's submodule `.git` path (frozen text) is that repo's own; AC-13 wording, a stale record's feature runs again only if still queued; AC-6 the reread of the standing answers refuses a file that is not regular or is past 16 MiB (spec 0006 AC-3), which stops the repo `guard_changed`
 **Amended by**: [0014](../0014-runner-resilience/index.md) - AC-3 the next box passes over sync boxes and skippable waiting boxes, a `/sync` box runs as the final call; AC-9 run stops gain `api_outage` and `crash_loop`; AC-10 a `call_timeout` whose call ticked boxes parks with `cap` null.

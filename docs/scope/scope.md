@@ -368,17 +368,17 @@ Source: [~/projects/docs/briefs/runner-ideas-2026-10-12.md](../../../projects/do
 One always loaded rule file the vendored skills cannot overwrite: verify steps and tests must be able to fail, every spec lists its files and `/sync` warns on stale ones, and cross checks compare against the brief. Under `wf run` a pass without its check line parks `unchecked`.
 **Done when:** the spec is built, a planted check that cannot fail is rejected, a commit touching an accepted spec's files is flagged by `/sync`, a dropped brief item is named by the cross check, and an update of the vendored skills keeps all three.
 - [x] Design it (spec): `/architect checks that cannot lie`
-- [ ] Build it: `/develop checks that cannot lie`
-   - [ ] `scripts/spec-paths.py` with `--test` and its `install.sh` link (AC-6)
-   - [ ] Rule 11a, the `unchecked` park and prompt lines (AC-4)
-   - [ ] `rules/check-gates.md` repo copy, `NOTICE.md`, `**Paths:**` backfill on specs 0001 to 0015 (AC-1 to AC-3, AC-5, AC-7 to AC-9)
-   - [ ] Probe scripts P1 to P3 written (AC-10)
+- [x] Build it: `/develop checks that cannot lie`
+   - [x] `scripts/spec-paths.py` with `--test` and its `install.sh` link (AC-6)
+   - [x] Rule 11a, the `unchecked` park and prompt lines (AC-4)
+   - [x] `rules/check-gates.md` repo copy, `NOTICE.md`, `**Paths:**` backfill on specs 0001 to 0015 (AC-1 to AC-3, AC-5, AC-7 to AC-9)
+   - [x] Probe scripts P1 to P3 written (AC-10)
 - [ ] Verify it: `/check verify checks that cannot lie`
 - [ ] Test it: `/test checks that cannot lie`
 - [ ] Copy the rule live and link the script: `cp ~/claude-config/rules/check-gates.md ~/.claude/rules/check-gates.md`, then `./install.sh` (AC-1, AC-6) · waits on you
 - [ ] Run probes P1 to P3 with `!` and record them in `docs/specs/0015-checks-that-cannot-lie/verify.md` (AC-10) · waits on you
 - [ ] Sync docs: `/sync checks that cannot lie`
-Spec [0015](../specs/0015-checks-that-cannot-lie/index.md)
+Spec [0015](../specs/0015-checks-that-cannot-lie/index.md) · code in `runner/run.py`, `scripts/spec-paths.py`, `rules/check-gates.md`, `install.sh`, tests in `runner/tests/test_checks.py`, `runner/tests/test_spec_paths.py`
 Source: [~/projects/docs/briefs/runner-ideas-2026-10-12.md](../../../projects/docs/briefs/runner-ideas-2026-10-12.md) (spec B, ideas 7 and 8; item 7 narrowed to changed tests, agreed 2026-10-13); personal scope rows 19 and 12 part 2.
 
 ### 29. Several repos at once · in-progress · auto

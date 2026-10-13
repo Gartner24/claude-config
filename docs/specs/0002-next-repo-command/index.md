@@ -2,6 +2,7 @@
 
 **Date**: 2026-10-11
 **Status**: Accepted
+**Paths:** `runner/wf.py`, `install.sh`, `runner/tests/test_wf.py`, `runner/tests/test_run.py`, `runner/tests/fixtures/**`
 **Amended by**: [0012](../0012-waiting-boxes-owed-to-you/index.md) - AC-6: a box ending ` · waits on you` (or whose note box does) is waiting; `next` prints `waits on you: <text>`, exits 3 and never launches it.
 **Amended**: 2026-10-11, AC-2 reads worktrees from the files instead of `git worktree list` (scope feature 17, build step 6, built in `aa313bc`); 2026-10-11, a picker that fails is not a cancel (AC-4), and a `HEAD` that is not a branch or a commit hash shows `-` in the list and picker branch column (AC-12) (scope feature 18, build step 7, built in `9b0636e`); 2026-10-11, one uncommitted change reads `1 change` on the confirm line (AC-8) (scope feature 19, build step 8, built in `b8402dc`); 2026-10-12, a `#` heading ends `## Deferred` like a `##` heading (AC-5; review stack finding L10, `docs/briefs/runner-review-stack-2026-10-12.md`)
 

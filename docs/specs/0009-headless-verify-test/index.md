@@ -2,6 +2,7 @@
 
 **Date**: 2026-10-12
 **Status**: Accepted
+**Paths:** `runner/run.py`, `runner/tests/test_browser.py`
 **Amended**: 2026-10-12, AC-4 WebRTC switch spelling and `MCP_CACHE` (P5 failure, see rationale.md)
 **Amended**: 2026-10-12, review findings 1 to 7 (`docs/briefs/0009-review-findings.md`): AC-2, AC-3, AC-4, AC-5, AC-7, AC-8, AC-11, Security model, Build plan (see rationale.md)
 **Amended**: 2026-10-12, review findings 8 and 9 (P2 symlinked dotfiles, absent denied paths): AC-3 steps 3 and 5, AC-11 P2, tests, Build plan (see rationale.md)
