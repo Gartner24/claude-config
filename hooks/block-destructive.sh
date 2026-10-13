@@ -282,6 +282,13 @@ def scan():
                 blank(i + 1, j)
             word += s[i + 1:j]
             i = j + 1
+        elif c == '`' or s.startswith('$(', i):
+            # unquoted, its output is split into words and can run as a command:
+            # `$(printf 'mkfs.ext4 /dev/sdb1')` would pass with its quotes blanked
+            raise Raw
+        elif c == '{' and s[i + 1:i + 2] not in ('', '}') and not s[i + 1].isspace():
+            # brace expansion builds words: `{sh,-c,'mkfs.ext4 /dev/sdb1'}`
+            raise Raw
         elif c == '#' and not word and (i == 0 or s[i - 1] in ' \t\n;&|()<>'):
             j = s.find('\n', i)
             i = n if j < 0 else j
@@ -342,7 +349,9 @@ try:
 except (Raw, IndexError, RecursionError):
     sys.exit(3)
 force = sys.argv[1:] == ['force']  # --test only: skip the executor check
-if not force and any(os.path.basename(w) in EXEC for w in words + firsts):
+# a word that is a variable can hold an executor, or run quoted text: `X='...'; $X`
+if not force and any(os.path.basename(w) in EXEC or re.match(r'\$[\w{@*#?!-]', w)
+                     for w in words + firsts):
     sys.exit(4)
 sys.stdout.buffer.write(''.join(out).encode('utf-8', 'surrogateescape'))
 PY
@@ -451,8 +460,8 @@ EOF'
 find / -delete'
   force_block 'rm -rf \
 /'
-  force_block 'rm -rf $(echo /)'
-  force_block 'rm -rf `echo ~`'
+  block 'rm -rf $(echo /)'
+  block 'rm -rf `echo ~`'
   force_block "rm -rf \$'/'"
   force_block 'rm -rf "$HOME"'
   force_block 'rm -rf "/home/x y"'
@@ -477,6 +486,12 @@ EOF'
 EOF
 )\""
   block "'bash' -c 'mkfs.ext4 /dev/sdb1'"
+  # found by the security review of the first build: text that becomes a command
+  block "\$(printf 'mkfs.ext4 /dev/sdb1')"
+  block "\`echo 'mkfs.ext4 /dev/sdb1'\`"
+  block "X='mkfs.ext4 /dev/sdb1'; \$X"
+  block "X='mkfs.ext4 /dev/sdb1'; \"\$X\""
+  block "{sh,-c,'mkfs.ext4 /dev/sdb1'}"
   # no python3 means the raw scan, as before (AC-4)
   [[ "$(PATH=/nonexistent blank_data 'echo "rm -rf /"' 2>/dev/null)" == 'echo "rm -rf /"' ]] \
     || { echo "FAIL missing python3 did not fall back to raw"; fail=1; }
