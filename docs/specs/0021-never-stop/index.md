@@ -1,7 +1,7 @@
 # 0021 · Never stop: a case for every stop
 
 **Date**: 2026-10-13
-**Status**: Proposed
+**Status**: Accepted (2026-10-13, conductor session, recommended answers per docs/briefs/finish-runner-today.md)
 **Paths:** `runner/run.py`, `runner/wf.py`, `runner/report.py`, `runner/ntfy.py`
 **Amends**: [0011](../0011-build-decision-queue/index.md) AC-9 (parks), [0014](../0014-runner-resilience/index.md) AC-2 (crash loop), [0008](../0008-failure-and-park-policy/index.md).
 
