@@ -83,5 +83,8 @@ Notes from the build:
 
 ## Residual
 
+- Push rule bypasses (commit review of `126ecf5`): `git -c alias.p=push p` and a quoted `git "push"` match no glob; the old `git * push*` missed them too, so not a regression. Residual under the spec 0007 Threat model (deliberate escape; the guard is no credentials plus denied hosts) and your "no more hardening rounds" rule.
+- The same review's size cap finding is fixed: the snapshot hashes the whole file in chunks, and only the kept test text is capped.
+
 None needs a decision. One check is owed and only you can run it (it needs the real claude login):
 - M9 push rule probe: `bash docs/specs/0004-headless-step-loop/probes/push-rule.sh`, expected results in that spec's `verify.md`.

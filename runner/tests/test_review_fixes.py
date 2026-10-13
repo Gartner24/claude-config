@@ -161,6 +161,21 @@ class TestGitPaths(unittest.TestCase):
             ns = SimpleNamespace(c=SimpleNamespace(path=str(root), scope_dir=".workflow/scope"))
             self.assertEqual(sorted(run.Run.snapshot(ns)), [".workflow/specs/0001-x/index.md", "tests/test_a.py"])
 
+    # covers: spec 0008 AC-3 (commit review: an edit past the text cap, same size, still changes the hash)
+    def test_past_cap(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = self.repo(os.path.realpath(d))
+            (root / "tests").mkdir()
+            f = root / "tests" / "test_big.py"
+            f.write_text("# pad\n" + "x" * 40)
+            ns = SimpleNamespace(c=SimpleNamespace(path=str(root), scope_dir="docs/scope"))
+            with mock.patch.object(run, "SNAPSHOT_CAP", 8):
+                before = run.Run.snapshot(ns)["tests/test_big.py"]
+                f.write_text("# pad\n" + "x" * 39 + "y")
+                after = run.Run.snapshot(ns)["tests/test_big.py"]
+            self.assertEqual(before[1], "# pad\nxx")
+            self.assertNotEqual(before[0], after[0])
+
     # covers: spec 0008 AC-3 (commit review: a specs folder pointing out of the repo is not walked; a link to
     # /dev/zero and a FIFO are never read, so the snapshot neither hangs nor fills memory)
     def test_workflow_specs_hostile(self):

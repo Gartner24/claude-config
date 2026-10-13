@@ -33,6 +33,9 @@ BAD_BRANCHES = ("main", "master", "no git", "-")
 # denied anyway so a later CLI that offers it cannot hang a run on an unseen panel.
 # Any option before the subcommand, not `git * push*`: that also denied `git stash push` and any commit message with
 # "push" (review M9). Not a list of options either: `git -P push` slipped past -c, -C and -- (commit review).
+# A first line only: an inline alias (`git -c alias.p=push p`) or a quoted `"push"` gets past any glob. The push
+# guard is spec 0007 below the model (no credentials, forge and remote hosts denied); those bypasses are residual.
+# Over match, accepted: `git -c k=v commit -m "fix push"` is denied too.
 DENIED = ("AskUserQuestion,Bash(git push*),Bash(git -* push*),"
           "Bash(gh pr create*),Bash(gh pr merge*),Bash(gh pr ready*),"
           "Bash(gh * pr create*),Bash(gh * pr merge*),Bash(gh * pr ready*)")
@@ -66,7 +69,7 @@ MCP_ALLOW = '{"mcpServers": {}}'
 MCP_PACKAGE = "chrome-devtools-mcp@1.10.1"
 DEAD_PROXY = "127.0.0.1:9"
 APP_READY = 120
-# Spec 0008 AC-3: bytes of one file the debug snapshot reads; a larger one also hashes its size.
+# Spec 0008 AC-3: bytes of one test file's text the debug snapshot keeps; the hash still covers the whole file.
 SNAPSHOT_CAP = 16 * 1024 * 1024
 APP_POLL = 0.5
 # P3's 1.10.1 tool list; the AC-6 six below are never offered to a call.
@@ -1797,8 +1800,15 @@ class Run:
                         if not stat.S_ISREG(st.st_mode):
                             raw = b"special file"
                         else:
-                            raw = f.read(SNAPSHOT_CAP)
-                            raw += b"\0size:%d" % st.st_size if st.st_size > SNAPSHOT_CAP else b""
+                            # The whole file is hashed in chunks, only the kept text is capped: hashing just the
+                            # first SNAPSHOT_CAP bytes let an edit past them at the same size go unseen (commit review).
+                            h, raw = hashlib.sha256(), f.read(SNAPSHOT_CAP)
+                            chunk = raw
+                            while chunk:
+                                h.update(chunk)
+                                chunk = f.read(1 << 20)
+                            out[rel] = (h.hexdigest(), raw.decode(errors="replace") if is_test else None)
+                            continue
             except OSError:
                 # Listed by the index but gone from the tree: absent, so deleted.
                 continue
