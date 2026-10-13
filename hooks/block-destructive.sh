@@ -47,7 +47,7 @@ RM_TARGETS='(^|[[:space:]]|["'"'"'])(/|~|\$HOME|\.\.|\*|\.([[:space:]]|$)|\./([[
 # what turns a deletion catastrophic, and `rm -f ~/.cache/some.lock` is routine cleanup.
 rm_is_destructive() {
   local cmd="$1" seg tok
-  grep -Eqi '(^|[|;&[:space:]])rm([[:space:]]|$)' <<<"$cmd" || return 1
+  grep -Eqi '(^|[|;&[:space:]"'"'"'])rm([[:space:]]|$)' <<<"$cmd" || return 1
   while read -r seg; do
     [[ -z "$seg" ]] && continue
     for tok in $seg; do
@@ -57,7 +57,7 @@ rm_is_destructive() {
         -*) [[ "$tok" == *[rR]* ]] && return 0 ;;
       esac
     done
-  done < <(grep -oEi '(^|[|;&[:space:]])rm[[:space:]]+[^|;&]*' <<<"$cmd")
+  done < <(grep -oEi '(^|[|;&[:space:]"'"'"'])rm[[:space:]]+[^|;&]*' <<<"$cmd")
   return 1
 }
 
@@ -434,6 +434,10 @@ if [[ "${1:-}" == "--test" ]]; then
   block 'rm -Rf /'
   block 'rm -rf "$HOME"'
   block 'rm -rf '"'"'$HOME'"'"''
+  # follow-up of spec 0016: a destructive rm inside a quoted shell string
+  block 'bash -c "rm -rf ~"'
+  block "sh -c 'rm -rf /'"
+  block 'eval "rm -rf ~"'
   block 'find /home/santiago -delete'
   block 'find /home/santiago -exec rm {} ;'
   block 'git clean -xfd'
