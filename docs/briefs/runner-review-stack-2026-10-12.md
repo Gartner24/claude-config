@@ -125,7 +125,7 @@ Verdict WARN (0 critical, 3 high, 9 medium, 11 low). Receipt: `.git/review-stack
 - Jail: a hidden folder that is a write bind or holds one is hidden first, and the binds and read only paths go back on top (spec 0009 AC-3 step 3). With a deny on your whole home, the app sees only the repo, the caches and the read only git and dotfile paths there. (First built as a skip, which the commit review showed exposed the whole denied tree.)
 - Specs walk: only when git ignores the specs folder (`git check-ignore`, spec 0008 AC-3).
 - A test file past 16 MiB keeps no text; any change to it counts as touched (spec 0008 AC-3).
-- A file at or under a repo's submodule `.git` (the text frozen at start) is that repo's own for the repo stop vs run stop split, unless another held repo's path or common dir lies there (spec 0011 AC-9); the guard record gains `submodules` (spec 0007 AC-9).
+- A file at or under a repo's submodule `.git` (the text frozen at start) is that repo's own for the repo stop vs run stop split, unless another held repo is checked out in the submodule folder or above it, or has its common dir there, in either the written or resolved form (spec 0011 AC-9); the guard record gains `submodules` (spec 0007 AC-9).
 - A submodule not checked out has its `.git` hashed as absent, not denied (the sandbox placeholder would break git); a symlinked submodule `.git` refuses `no_sandbox` (spec 0007 AC-2).
 - `read_answers` follows a symlink to a regular file as before, but refuses anything that is not a regular file once opened, and a file past 16 MiB (spec 0006 AC-3).
 
@@ -172,3 +172,10 @@ Driven through the real `wf.py` in scratch folders (scratch HOME and XDG dirs, r
 - [x] L8: an internal error prints `stopped: internal_error: RuntimeError: forced failure`, and `traceback.txt` in the run folder holds the whole trace.
 - [x] Commit review fixes (absent and symlinked submodule `.git`, `own_file` frozen text and shared common dir): `test_review_fixes2.TestSubmodules`, real `wf.py` runs, 7 of 7 ok.
 - S3: no commit after `origin/feat/autonomous-runner` adds the three names (`git log -G` over the range is empty); the final tree matched the pre-rewrite tree byte for byte.
+
+## /test, second round (2026-10-12): 327 tests OK
+
+- Gap audit of the changed code added tests for: `git ls-files` failing, an unreadable submodule config, `git check-ignore` failing, and a denied cache folder that is itself a write bind. Two untested branches were removed instead: a write failure in the run folder wf just made, and the `own_file` check for a repo inside a `.git` folder.
+- Your mid-turn question: dropping `under(o["c"].path, subs)` was not safe, and restoring it would not have helped either: `subs` holds `.git` paths, so a child repo checked out at `dotfiles/nvim` never lies under `dotfiles/nvim/.git`. `test_child_repo_held` (dotfiles plus its trusted nvim child) failed first: only dotfiles stopped. The fix asks whether another held repo sits at or above the submodule folder; the test now passes.
+- Two more commit review findings fixed the same way: `own_file` compares both the written and the resolved form of each submodule `.git` (`test_symlinked_parent`, `test_alias_record`); the jail no longer binds a read only path back inside a denied folder unless it lies in a write bind (`TestJailAncestor.test_argv`, and the real bwrap check now shows `.gitconfig` hidden there).
+- Mutation check: 39 mutants, all red on the named test. The two removed branches have no mutant.

@@ -296,7 +296,7 @@ Every HIGH and MEDIUM finding of the `/review-stack` of `c95f181..d20a328`, plus
 - [x] Build it: `/develop second review stack fixes`
    - [ ] Push rule probe rerun on the real claude, steps 9 to 11: `bash docs/specs/0004-headless-step-loop/probes/push-rule.sh` · waits on you
 - [x] Verify it: `/check verify second review stack fixes`
-- [ ] Test it: `/test second review stack fixes`
+- [x] Test it: `/test second review stack fixes`
 Specs amended: [0004](../specs/0004-headless-step-loop/index.md), [0006](../specs/0006-standing-answers/index.md), [0007](../specs/0007-push-guard/index.md), [0008](../specs/0008-failure-park-policy/index.md), [0009](../specs/0009-headless-verify-test/index.md), [0010](../specs/0010-design-enforcement-unattended/index.md), [0011](../specs/0011-build-decision-queue/index.md) · code in `runner/run.py`
 Source: [docs/briefs/runner-review-stack-2026-10-12.md](../briefs/runner-review-stack-2026-10-12.md) (second review section)
 
