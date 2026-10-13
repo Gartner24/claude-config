@@ -17,7 +17,7 @@ _Steps derived from spec 0017 acceptance criteria. `/check verify` runs these; `
 - [ ] `python3 runner/e2e/run.py --parallel` with `!` (real claude) -> `PASS` -> AC-8
 
 ## Value sourcing
-- [x] repos with work: a repo whose plan shows only `parked:` or `skip:` lines gets no child and `<name>: nothing to run` in the summary; one with only `open:` gets a child (`test_open_only`)
+- [x] repos with work: a repo whose plan shows only `parked:` or `skip:` lines gets no child and `<name>: nothing to run` in the summary (`test_parked_only`); one with only `open:` gets a child (`test_open_only`)
 - [x] child started: a child whose start checks are slow delays the next child until its `run folder:` line (`test_two_repos`, slow git)
 - [x] git common dir, real path: a linked worktree and a nested repo serialize (`test_common_dir_and_nested`)
 - [x] child argv: a child's run.json `caps` equals the parent's `--budget`, `--call-timeout`, `--max-calls`, `--max-hours`, `--max-wait`
@@ -28,4 +28,4 @@ _Steps derived from spec 0017 acceptance criteria. `/check verify` runs these; `
 - [x] exit: 130 on a signal or a 130 child, else 6 on any non zero child, else 0
 
 ## Acceptance-criteria coverage
-- AC-1 test_two_repos, test_open_only, test_locked_child, test_trust_list · AC-2 test_one_at_a_time, test_bad_values · AC-3 test_common_dir_and_nested, test_same_port, test_clashes · AC-4 test_two_repos, test_streaming, test_skip_and_names · AC-5 test_sigint_reaches_both, test_not_started · AC-6 test_locked_child, test_repo_stop, test_skip_and_names · AC-7 test_each_resumes_own, test_guard_scope, test_repo_stop · AC-8 e2e `--parallel` (yours to run)
+- AC-1 test_two_repos, test_open_only, test_parked_only, test_locked_child, test_trust_list · AC-2 test_one_at_a_time, test_bad_values · AC-3 test_common_dir_and_nested, test_same_port, test_clashes · AC-4 test_two_repos, test_streaming, test_skip_and_names · AC-5 test_sigint_reaches_both, test_not_started · AC-6 test_locked_child, test_repo_stop, test_skip_and_names · AC-7 test_each_resumes_own, test_guard_scope, test_repo_stop · AC-8 e2e `--parallel` (yours to run)

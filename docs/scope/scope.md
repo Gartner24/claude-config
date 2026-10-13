@@ -390,7 +390,7 @@ Bare `wf run` becomes a parent that starts today's single repo run once per repo
    - [x] Never together rule, prefixed output and summary, signal forwarding (AC-3, AC-4, AC-5)
    - [x] `runner/e2e/run.py --parallel` (AC-8)
 - [x] Verify it: `/check verify several repos at once`
-- [ ] Test it: `/test several repos at once`
+- [x] Test it: `/test several repos at once`
 - [ ] Run `python3 runner/e2e/run.py --parallel` with `!` and record it in the spec's Follow-up (AC-8) · waits on you
 - [ ] Sync docs: `/sync several repos at once`
 Spec [0017](../specs/0017-several-repos-at-once/index.md) · code in `runner/run.py` (`parallel()`), `runner/wf.py` (`--jobs`), `runner/e2e/run.py` (`--parallel`), tests in `runner/tests/test_parallel.py`

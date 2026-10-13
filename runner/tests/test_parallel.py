@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from test_browser import AppCase  # noqa: E402
 from test_park import GIT_ID  # noqa: E402
-from test_queue import DONE_A, ONE, TICK_A, DecisionCase, QueueCase  # noqa: E402
+from test_queue import DONE_A, ONE, TICK_A, DecisionCase, QueueCase, park  # noqa: E402
 from test_run import plan, run, summary  # noqa: E402
 
 SLOW = {**TICK_A, "sleep": 3}
@@ -260,6 +260,27 @@ class TestExitAndSummary(ParallelCase):
         self.assertEqual(s[0], "  onmain: skipped: branch: main, switch to a work branch first")
         self.assertTrue(s[1].startswith("  x/same: exit 0, done: 1. A | run folder: "), s)
         self.assertTrue(s[2].startswith("  y/same: exit 0, done: 1. A | run folder: "), s)
+
+    # covers: AC-1, AC-6 (a repo whose plan shows only a park has no work: no child, nothing to run in the summary,
+    # and the parent code comes from the children alone)
+    def test_parked_only(self):
+        rp, rb = self.make_repo("rp", ONE), self.make_repo("rb", ONE)
+        self.commit(rp)
+        p = self.state / "wf" / "queue.json"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps({"version": 1, "parks": [park(rp, "1. A", self.section_sha(rp, "1. A"))],
+                                 "decisions": []}))
+        self.trust(rp, rb)
+        self.steps({"rb": [TICK_A, DONE_A]})
+        r = self.wf("-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("  parked: 1. A: blocked: test park (wf unpark to retry)", plan(r.stdout))
+        self.assertIn("jobs: 1 at once", plan(r.stdout))
+        self.assertNotIn("[rp] ", r.stdout)
+        self.assertFalse((self.fakes / "rp-argv-1.json").exists())
+        s = summary(r.stdout)
+        self.assertEqual(s[0], "  rp: nothing to run")
+        self.assertTrue(s[1].startswith("  rb: exit 0, done: 1. A | run folder: "), s)
 
 
 class TestSignals(ParallelCase):
