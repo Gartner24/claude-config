@@ -150,6 +150,6 @@ Skateboard: the rule file alone already makes the skills write the contract; the
 
 - [ ] Research doc section 0 still says each repo scope carries `**Repo:** <path>`; note there that spec 0003 replaced it with the hub `Repos` column.
 - [x] Spec 0002 Follow-up item (hubs, tag style, skipped marker) is answered by this spec; tick it there.
-- [ ] Feature 8: guard against a third party scope that writes `**Autopilot:** allowed` itself (feature 4 shipped without it).
+- [x] Feature 8: guard against a third party scope that writes `**Autopilot:** allowed` itself (feature 4 shipped without it). (closed by spec 0008 AC-9, the trust list)
 
 Decision record (context, options, rationale): [rationale.md](rationale.md). Verify steps: [verify.md](verify.md).

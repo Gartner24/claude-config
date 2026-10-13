@@ -146,8 +146,8 @@ Skateboard: step 1 is the probe gate; step 2 alone already removes every credent
 
 ## Follow-up
 
-- [ ] Root `AGENTS.md` Gotchas: rerun the 0007 `verify.md` probes after a Claude Code upgrade; `/sync` owns this.
-- [ ] Feature 7: add chrome-devtools to `MCP_ALLOW` in `runner/run.py`, isolated profile only, never attached to your running browser, with a self check that refuses an entry that attaches.
+- [x] Root `AGENTS.md` Gotchas: rerun the 0007 `verify.md` probes after a Claude Code upgrade; `/sync` owns this. (closed: AGENTS.md Gotchas)
+- [x] Feature 7: add chrome-devtools to `MCP_ALLOW` in `runner/run.py`, isolated profile only, never attached to your running browser, with a self check that refuses an entry that attaches. (closed by spec 0009: mcp_browser in runner/run.py, test_browser AC-5 refuses attach)
 - [ ] Not in the 2026-10-12 amendment (you asked for no other changes), same class, open: include targets of `~/.gitconfig` and `~/.config/git/config` (those two files are denied but not hashed), a `core.hooksPath` outside `<git common dir>/hooks`, `<git common dir>/info/attributes`.
 
 ## Rationale

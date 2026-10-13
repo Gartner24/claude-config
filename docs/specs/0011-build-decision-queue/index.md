@@ -228,12 +228,12 @@ Skateboard: each step leaves `wf run` usable. Step 1 is already the queue inside
 
 ## Follow-up
 
-- [ ] Spec 0004 follow up "skip waiting boxes instead of refusing" closes with AC-3.
-- [ ] Spec 0005 follow up "turn the in place wait into park and move on" closes with AC-11.
-- [ ] Spec 0008 follow up "feature 10 moves on after a park" closes with AC-9.
+- [x] Spec 0004 follow up "skip waiting boxes instead of refusing" closes with AC-3. (closed by spec 0011 AC-3)
+- [x] Spec 0005 follow up "turn the in place wait into park and move on" closes with AC-11. (closed by spec 0011 AC-11)
+- [x] Spec 0008 follow up "feature 10 moves on after a park" closes with AC-9. (closed by spec 0011 AC-9)
 - [ ] Feature 13 (morning report) reads `run.json` `features` and `queue.json`.
 - [ ] Feature 14 (branch per spec) may lift the dirty repo block and the branch wide design gate cascade; revisit AC-7 then.
-- [ ] Root `AGENTS.md` Commands: `wf queue`, `wf unpark`, bare `wf run`; `/sync` owns this.
+- [x] Root `AGENTS.md` Commands: `wf queue`, `wf unpark`, bare `wf run`; `/sync` owns this. (closed: AGENTS.md Commands)
 
 ## Rationale
 

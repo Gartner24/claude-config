@@ -126,8 +126,8 @@ Skateboard: each step leaves `wf run` working; step 1 already blocks a bad secti
 
 ## Follow-up
 
-- [ ] Root `AGENTS.md`: document the `## Standing answers` section (location, keys, values); `/sync` owns this.
-- [ ] Feature 8 (failure and park policy) covers a cloned scope that ships `**Autopilot:** allowed` together with standing answers.
+- [x] Root `AGENTS.md`: document the `## Standing answers` section (location, keys, values); `/sync` owns this. (closed: AGENTS.md Standing answers and Gotchas)
+- [x] Feature 8 (failure and park policy) covers a cloned scope that ships `**Autopilot:** allowed` together with standing answers. (closed by spec 0008 AC-9)
 ## Rationale
 
 Reasoning and options: see [rationale.md](rationale.md).

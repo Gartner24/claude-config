@@ -216,10 +216,10 @@ Skateboard: milestone 1 is already a usable loop on your own repo (you watch it,
 ## Follow-up
 
 - [x] AC-15 step 1 records the real budget `subtype`: `error_max_budget_usd`, rule 4 holds (verify.md).
-- [ ] Feature 8 (failure and park policy) replaces `no_progress` and `call_error` stops with its retry and park rules, and refuses an `allowed` you did not set yourself.
+- [x] Feature 8 (failure and park policy) replaces `no_progress` and `call_error` stops with its retry and park rules, and refuses an `allowed` you did not set yourself. (closed by spec 0008)
 - [x] Feature 5 replaced the `DECISION NEEDED:` stop with parking and phone pings; the AskUserQuestion deny stays (spec 0005 invariants).
-- [ ] Feature 10 (queue): skip waiting boxes instead of refusing on them.
-- [ ] Root `AGENTS.md` Commands: `wf run` and the state folder; `/sync` owns this.
+- [x] Feature 10 (queue): skip waiting boxes instead of refusing on them. (closed by spec 0011 AC-3)
+- [x] Root `AGENTS.md` Commands: `wf run` and the state folder; `/sync` owns this. (closed: AGENTS.md Commands)
 
 ## Rationale
 

@@ -25,8 +25,8 @@ _Steps derived from spec 0018 acceptance criteria. `/check verify` runs these; `
 - [x] Send goes to the run's loaded ntfy config: `test_report.Unit.test_deliver` checks title `wf report`, priority 3, tags `[]`, no actions, report.txt mode 0600 and report.seen removed → AC-3, AC-4
 
 ## Live (you run these, spec 0019 live steps)
-- [ ] `python3 runner/e2e/run.py` → `PASS`, and a `wf report` note on your phone → AC-8
-- [ ] `python3 runner/e2e/run.py --parallel` → `PASS`, and one note naming both repos → AC-8
+- [x] `python3 runner/e2e/run.py` → `PASS`, and a `wf report` note on your phone → AC-8 (closed 2026-10-13 by wf finish)
+- [x] `python3 runner/e2e/run.py --parallel` → `PASS`, and one note naming both repos → AC-8 (closed 2026-10-13 by wf finish)
 
 ## Acceptance-criteria coverage
 - AC-1: unit suite, test_single, test_crash_and_failed_send, test_interrupted_sends, TestParent, test_parent_rows
