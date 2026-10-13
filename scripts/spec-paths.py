@@ -187,6 +187,11 @@ def self_test():
         write(repo, "docs/specs/0004-new.md", spec("0004", "Accepted", "`src/**`"))
         sh(repo, "commit", "-q", "-am", "spec 4 widened")
         check("own spec never warns", run(repo, "--spec", "4"), (0, [hit.format("src/*.py")]))
+        # Several --spec: counted from the oldest add, so spec 5 added later does not narrow the window.
+        write(repo, "docs/specs/0005-later.md", spec("0005", "Accepted", "`lib/**`"))
+        sh(repo, "add", "-A")
+        sh(repo, "commit", "-q", "-m", "spec 5")
+        check("oldest add of several", run(repo, "--spec", "5", "--spec", "4"), (0, [hit.format("src/*.py")]))
 
         check("bad flag", run(repo, "--spec", "12345")[0], 2)
         check("bad flag word", run(repo, "--nope")[0], 2)
@@ -199,6 +204,19 @@ def self_test():
         sh(wf, "add", "-A", "-f")
         sh(wf, "commit", "-q", "-m", "init")
         check(".workflow/specs", run(wf), (0, ["warning: app/m.js touches accepted spec 0009 W (app/*)"]))
+
+        # A repo whose default branch is master: the merge base falls back to it.
+        ms = os.path.join(tmp, "m")
+        os.makedirs(ms)
+        sh(ms, "init", "-q", "-b", "master")
+        write(ms, "docs/specs/0001-src.md", spec("0001", "Accepted", "`src/*.py`", "Src"))
+        write(ms, "src/a.py", "a\n")
+        sh(ms, "add", "-A")
+        sh(ms, "commit", "-q", "-m", "init")
+        sh(ms, "switch", "-q", "-c", "feat")
+        write(ms, "src/a.py", "b\n")
+        sh(ms, "commit", "-q", "-am", "change")
+        check("branch off master", run(ms), (0, [hit.format("src/*.py")]))
 
         bare = os.path.join(tmp, "nogit")
         os.makedirs(bare)

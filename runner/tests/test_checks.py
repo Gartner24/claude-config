@@ -71,6 +71,13 @@ class TestUnchecked(RunCase):
         self.steps([says("nothing", tick=False)])
         self.assert_stopped(self.wf("c", "-y"), "no_progress", calls=1)
 
+    # covers: AC-4 (a ticked box that ends BLOCKED: is decided by the earlier rule and needs no line)
+    def test_blocked_first(self):
+        self.make_repo("c", TEST)
+        self.steps([says("tried\n**BLOCKED:** sudo needed")])
+        rec = self.assert_stopped(self.wf("c", "-y"), "blocked", calls=1)
+        self.assertEqual((rec["detail"], rec["calls"][0]["marker"]), ("sudo needed", "blocked"))
+
     def test_develop(self):
         rec = self.done(DEVELOP, [says("built"), {}])
         self.assertEqual(rec["calls"][0]["marker"], None)
@@ -115,6 +122,19 @@ class TestUnchecked(RunCase):
         rec = self.run_record()[1]
         self.assertEqual(self.argv(2)["argv"][2:4], ["--resume", "s-1"])
         self.assertEqual(rec["calls"][1]["marker"], "mutation_checked")
+
+
+class TestRuleFile(unittest.TestCase):
+    # covers: AC-1 (the repo copy beats skill text, holds the AC-2, AC-3, AC-5 plus AC-7 and AC-9 sections,
+    # and NOTICE.md lists it as authored)
+    def test_rule_file(self):
+        repo = Path(__file__).resolve().parents[2]
+        text = (repo / "rules" / "check-gates.md").read_text()
+        self.assertEqual(text.splitlines()[0], "# Check gates (beats skill text)")
+        for needle in ("CAN FAIL CHECKED: <n>", "MUTATION CHECKED: <n>", "**Paths:** none", "spec-paths --spec NNNN",
+                       "Specs possibly stale", "## Agreed so far, do not ask again"):
+            self.assertIn(needle, text)
+        self.assertRegex((repo / "NOTICE.md").read_text(), r"(?m)^\| `rules/check-gates\.md` \|")
 
 
 if __name__ == "__main__":

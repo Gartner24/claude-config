@@ -374,7 +374,7 @@ One always loaded rule file the vendored skills cannot overwrite: verify steps a
    - [x] `rules/check-gates.md` repo copy, `NOTICE.md`, `**Paths:**` backfill on specs 0001 to 0015 (AC-1 to AC-3, AC-5, AC-7 to AC-9)
    - [x] Probe scripts P1 to P3 written (AC-10)
 - [x] Verify it: `/check verify checks that cannot lie`
-- [ ] Test it: `/test checks that cannot lie`
+- [x] Test it: `/test checks that cannot lie`
 - [ ] Copy the rule live and link the script: `cp ~/claude-config/rules/check-gates.md ~/.claude/rules/check-gates.md`, then `./install.sh` (AC-1, AC-6) · waits on you
 - [ ] Run probes P1 to P3 with `!` and record them in `docs/specs/0015-checks-that-cannot-lie/verify.md` (AC-10) · waits on you
 - [ ] Sync docs: `/sync checks that cannot lie`
