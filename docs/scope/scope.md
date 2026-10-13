@@ -41,12 +41,14 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 25 | Checks that cannot lie | Release 4 | in-progress |
 | 28 | Guard hook false alarms | Release 4 | in-progress |
 | 29 | Several repos at once | Release 4 | in-progress |
+| 13 | Morning report | Release 5 | needs a decision |
+| 30 | Live setup steps in one command | Release 5 | needs a decision |
+| 31 | Guard baseline check before each repo | Deferred | planned |
 | 23 | Questions that teach | Deferred | planned |
 | 15 | Cheap worker tier | Deferred | planned |
 | 16 | Issues and mixed source of truth | Deferred | planned |
 | 11 | Autopilot offer and batch design | Deferred | planned |
 | 12 | Usage limit planning | Deferred | planned |
-| 13 | Morning report | Deferred | planned |
 | 14 | Draft PR per spec | Deferred | planned |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
@@ -396,8 +398,30 @@ Bare `wf run` becomes a parent that starts today's single repo run once per repo
 Spec [0017](../specs/0017-several-repos-at-once/index.md) · code in `runner/run.py` (`parallel()`), `runner/wf.py` (`--jobs`), `runner/e2e/run.py` (`--parallel`), tests in `runner/tests/test_parallel.py`
 Source: personal scope row 23 (`~/projects/docs/scope/scope.md`; your message of 2026-10-12, multi tasking question).
 
+## Release 5: nothing left for you in the morning
+
+The 2026-10-13 night run ended at 03:20 with no message and six manual steps over four features. Design both in one `/architect` sitting; the next `wf run` builds them.
+
+### 13. Morning report · needs a decision
+When a run ends, for any reason, one phone message: what got built, what waits on you, and the next command. The next `~/.claude` session opens with the same report.
+**Done when:** after a run you get the phone note, and your next `~/.claude` session opens with the report.
+- [ ] Design it (spec): `/architect morning report`
+Source: [docs/briefs/morning-report-and-live-steps.md](../briefs/morning-report-and-live-steps.md) (fix B); first deferred 2026-10-12, brought back 2026-10-13.
+
+### 30. Live setup steps in one command · needs a decision
+The runner keeps building and gathers every waits-on-you step of the run that copies into `~/.claude`, runs `install.sh` or runs a real claude check, then gives you one command that does them all and ticks their boxes. The unattended calls still never write `~/.claude` themselves.
+**Done when:** a run whose features end in live setup steps leaves you one command, and running it does every step, keeps `autoMode`, and ticks the boxes so the next run can `/sync`.
+- [ ] Design it (spec): `/architect live setup steps in one command`
+Source: [docs/briefs/morning-report-and-live-steps.md](../briefs/morning-report-and-live-steps.md) (fix A).
+
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
+
+### 31. Guard baseline check before each repo · planned
+Bare `wf run` would check each repo's protected files just before starting it and skip the repo if anything changed since the plan. Left out of feature 29 on 2026-10-13 (answer `w8d0 2`); the gap is recorded in spec 0017.
+**Done when:** a protected file changed by another repo's call makes the next repo skip with the file named.
+- [ ] Design it (spec): `/architect guard baseline check before each repo`
+Source: spec [0017](../specs/0017-several-repos-at-once/index.md) accepted gap; decision `w8d0` of 2026-10-13.
 
 ### 23. Questions that teach · needs a decision
 Deferred 2026-10-12: do it after the runner features are built.
@@ -430,12 +454,6 @@ Deferred 2026-10-12 (architecture pass): estimates and refusals are not needed; 
 Estimate each step's usage from past sessions, compare it with the 5 hour window and the weekly limit, start right after a reset, sleep through a reset, and refuse a run the week cannot finish.
 **Done when:** a run that does not fit is refused before it starts, and one that hits the 5 hour limit pauses and resumes after the reset.
 - [ ] Design it (spec): `/architect usage limit planning`
-
-### 13. Morning report · needs a decision
-Deferred 2026-10-12 (architecture pass): a report ping is not a real decision, and `run.json` already holds the report.
-What ran, what parked and why, what it cost: a short note on your phone, and the full report shown when your main session starts.
-**Done when:** after a run you get the phone note, and your next `~/.claude` session opens with the report.
-- [ ] Design it (spec): `/architect morning report`
 
 ### 14. Draft PR per spec · needs a decision
 Deferred 2026-10-12 (architecture pass): opening a PR needs a push, which the runner never does.
