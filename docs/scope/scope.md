@@ -465,17 +465,27 @@ You type only `wf`. After one confirm screen it shows the report, applies pendin
 Spec [0020](../specs/0020-one-command-wf/index.md)
 Source: [docs/briefs/never-wait-on-each-other.md](../briefs/never-wait-on-each-other.md).
 
-### 33. Ask, never stop · needs a decision
+### 33. Ask, never stop · in-progress
 A step that needs a protected place (`~/.claude`, the runner's own `runner/`, `.git/hooks`) never parks. With a standing permission for that repo (allowed once, ahead of time) the run just writes it and goes on. Without one, it asks on your phone (yes, no, always), keeps building everything else meanwhile, and resumes that step when you answer.
 The same holds for every other reason a feature is set aside today (blocked, failed checks, caps, on main): it becomes a phone question with a recommended action, the rest keeps building, and your answer resumes it (see the brief).
 **Done when:** a claude-config night run whose features edit `~/.claude` and `runner/` builds them to the end with no stop, given the standing permission; without it you get one phone question and the step resumes on your yes; no park reason ends a feature without a question; a change to `~/.claude` from outside the run still stops that repo.
-- [ ] Design it (spec): `/architect ask never stop`
+- [x] Design it (spec): `/architect ask never stop`
+- [ ] Build it: `/develop ask never stop`
+   - [ ] Case table in code with the AC-1 completeness test
+   - [ ] Feature level questions and resumes F1 to F12, standing permission (AC-2, AC-3, AC-7)
+   - [ ] Repo and run level cases R1 to R3, U2 to U10 (AC-4, AC-5)
+   - [ ] Report: open questions, repo names (AC-6, AC-8)
+   - [ ] Push guard coverage and run folder pruning (AC-9, AC-10)
+- [ ] Verify it: `/check verify ask never stop`
+- [ ] Test it: `/test ask never stop`
+- [ ] Sync docs: `/sync ask never stop`
+Spec [0021](../specs/0021-never-stop/index.md) · code in `runner/run.py`, `runner/report.py`
 Source: [docs/briefs/runner-never-stops.md](../briefs/runner-never-stops.md).
 
-### 34. Report names repos · needs a decision
+### 34. Report names repos · in-progress
 The morning report says `repo-e679` where it means `claude-config`, because it scrubs every repo name. Show the folder name of repos that are not private (the private names list decides), so the next step is readable.
 **Done when:** the phone report for a claude-config run names `claude-config`, and a repo whose name is on the private list is still hidden.
-- [ ] Design it (spec): `/architect report names repos`
+- [x] Design it (spec): built inside feature 33, spec 0021 AC-8
 Source: the 14:51 report of 2026-10-13 ("next: wf finish, then review and merge: repo-e679").
 
 ## Deferred

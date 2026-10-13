@@ -61,6 +61,10 @@ Each becomes a question through the decision queue (spec 0011 AC-11): the featur
 - **AC-4**: R1 makes the branch with no question.
 - **AC-5**: only U1 and R4 end a run or repo without a question; no repo-level reason ends the whole run.
 - **AC-6**: the morning report lists every open question with its recommended answer.
+- **AC-7** (standing permission, F1): a repo's `AGENTS.md` `## Standing answers` may hold `- allow writes: <path>, <path>` (`~` allowed; never a path under `~/.ssh`, `~/.config/gh`, `~/.aws`, credentials files or `~/.claude/private`, which are refused with a warning). Its calls get those paths writable (Edit allow and sandbox `allowWrite`, removed from the deny list), and the guard accepts changes to them made during a call of that run, the same way it accepts a `wf` swap (spec 0020 AC-5): the run hashes the allowed paths after each of its own calls and takes that as the new baseline. A change between calls, or by anything else, still stops that repo. Answering F1 with "always" appends the path to that line.
+- **AC-8** (report names repos, feature 34): the report and the phone note name a repo by its folder name, unless that name matches the private names list (`scripts/private-names.py`), which keeps today's `repo-<hash>`.
+- **AC-9** (push guard coverage, spec 0007 follow-up): the guard also hashes the files `~/.gitconfig` and `~/.config/git/config` include (`include.path`, `includeIf`), a `core.hooksPath` outside the git hooks folder, and `<git common dir>/info/attributes`.
+- **AC-10** (run folders, spec 0014 follow-up): at the end of each run, run folders beyond the newest 50 are deleted, never one a run still holds.
 
 ## Build plan
 1. The case table in code (one dict from reason to action), AC-1 test.
