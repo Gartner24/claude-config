@@ -535,6 +535,19 @@ def selftest():
     ok(tree_state() == before, "AC-4 refused sync leaves the repo byte for byte unchanged")
     ok(not (slive / "private" / "settings.json").exists(), "AC-3 refused sync writes no fragment")
     (slive / "rules" / "r.md").write_text("rule\n")
+    # covers: AC-4, every source is checked, not only rules/
+    for rel, body in (("CLAUDE.md", "# rules\nsee zorblex\n"), ("agents/a.md", "agent\nQuux-Labs\n")):
+        (slive / rel).write_text(body)
+        code, out = run(script=sync_repo / "sync.sh", cwd=sync_repo, extra=sync_env)
+        ok(code == 1 and f"{slive}/{rel}:2: names.txt line" in out and not leaks(out)
+           and tree_state() == before, f"AC-4 sync refuses a name in live {rel}")
+    (slive / "CLAUDE.md").write_text("# rules\n")
+    (slive / "agents" / "a.md").write_text("agent\n")
+    (slive / "settings.json").write_text(json.dumps(dict(settings, env={"X": "zorblex"})))
+    code, out = run(script=sync_repo / "sync.sh", cwd=sync_repo, extra=sync_env)
+    ok(code == 1 and "settings.json (stripped):" in out and not leaks(out) and tree_state() == before,
+       "AC-4 sync refuses a name in a settings string value")
+    (slive / "settings.json").write_text(json.dumps(settings))
     (slive / "private" / "names.txt").unlink()
     code, out = run(script=sync_repo / "sync.sh", cwd=sync_repo, extra=sync_env)
     ok(code == 1 and "private names list missing" in out and tree_state() == before,
@@ -553,6 +566,10 @@ def selftest():
     ok(lfrag.exists() and json.loads(lfrag.read_text()) == {"permissions": {"allow": ["Read(~/quux-labs)"]}},
        "AC-3 sync writes the settings.local fragment")
     ok(not (sync_repo / "private").exists(), "sync copies nothing from private/")
+    # covers: AC-3, the fragment is replaced on every passing sync, never accumulated
+    (slive / "settings.local.json").write_text(json.dumps({"permissions": {"allow": ["Read"]}}))
+    code, _ = run(script=sync_repo / "sync.sh", cwd=sync_repo, extra=sync_env)
+    ok(code == 0 and json.loads(lfrag.read_text()) == {}, "AC-3 a passing sync replaces the fragment")
     (sync_repo / "README.md").write_text("public\nby quux-labs\n")
     code, out = run(script=sync_repo / "sync.sh", cwd=sync_repo, extra=sync_env)
     ok(code == 1 and "README.md:2: names.txt line 4" in out and not leaks(out),
@@ -587,6 +604,45 @@ def selftest():
     ok(files_under(home) == snap, "install --dry-run writes nothing")
     ok((sorted(os.listdir(hooks_dir)) if hooks_dir.is_dir() else []) == hooks_before,
        "install --dry-run leaves the real .git/hooks alone")
+
+    # AC-6, AC-7: a real install, run from a scratch repo so the real .git and ~/.claude stay
+    # untouched. It exits 1 at its own verify step (the scratch repo has no design scripts),
+    # which runs after every spec 0013 part, so outcomes are asserted, not the exit code.
+    irepo = new_repo("install")
+    for d in ("agents", "rules", "hooks", "scripts"):
+        (irepo / d).mkdir()
+    shutil.copy(real_repo / "install.sh", irepo / "install.sh")
+    shutil.copy(SCRIPT, irepo / "scripts" / "private-names.py")
+    for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "scripts/chroma-reaper.sh"):
+        (irepo / f).write_text("#!/bin/sh\n")
+    (irepo / "CLAUDE.md").write_text("# rules\n")
+    (irepo / "settings.json").write_text(json.dumps({"permissions": {"deny": ["Bash(rm:*)", "Read(~/x)"]}}))
+    hooks = irepo / ".git" / "hooks"
+    hooks.mkdir(exist_ok=True)
+    (hooks / "commit-msg").write_text("#!/bin/sh\nexit 0\n")
+    (ilive / "private" / "settings.json").write_text(json.dumps(
+        {"permissions": {"deny": ["Read(/home/santiago/zorblex/**)", "Read(~/x)"]},
+         "skillOverrides": {"zorblex-site": {"on": True}}}))
+    (ilive / "private" / "settings.local.json").write_text(json.dumps({"permissions": {"allow": ["Read(~/quux-labs)"]}}))
+    excl = irepo / ".git" / "info" / "exclude"
+    excl_before = excl.read_text() if excl.exists() else ""
+    code, out = run(script=irepo / "install.sh", extra=ienv)
+    live_s = json.loads((ilive / "settings.json").read_text())
+    ok(live_s.get("permissions", {}).get("deny") == ["Bash(rm:*)", "Read(~/x)", f"Read({home}/zorblex/**)"]
+       and live_s.get("skillOverrides") == {"zorblex-site": {"on": True}},
+       f"AC-6 install merges the fragment, /home/santiago swapped to $HOME, no doubles: {live_s}")
+    ok(json.loads((ilive / "settings.local.json").read_text()) == {"permissions": {"allow": ["Read(~/quux-labs)"]}},
+       "AC-6 install merges the settings.local fragment")
+    ok(excl.read_text() == excl_before + "skills/zorblex-site/\n", "AC-7 install adds the private exclude line")
+    ok((hooks / "pre-commit").is_symlink()
+       and (hooks / "pre-commit").resolve() == (irepo / "scripts" / "private-names.py").resolve(),
+       "AC-7 install links pre-commit to the checker")
+    ok(not (hooks / "commit-msg").is_symlink() and "hook exists, not replaced: commit-msg" in out,
+       "AC-7 install leaves an existing hook alone and says so")
+    ok(not leaks(out), "install output never holds a name")
+    run(script=irepo / "install.sh", extra=ienv)
+    ok(excl.read_text().count("skills/zorblex-site/") == 1, "AC-7 install rerun adds no exclude line twice")
+    ok(json.loads((ilive / "settings.json").read_text()) == live_s, "AC-6 install rerun gives the same settings")
 
     shutil.rmtree(tmp)
     for f in fails:
