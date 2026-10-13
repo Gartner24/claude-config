@@ -312,7 +312,7 @@ Work org and tool names sit in public files on main (`CLAUDE.md`, `HOOKS.md`, `S
 - [x] Reword tracked files: `/develop work names out of the public repo`
    - [x] Every file `python3 scripts/private-names.py check` reports reworded per the AC-9 rule, until it exits 0 (AC-9)
 - [x] Run `./sync.sh` (it writes the private settings fragments under `~/.claude/private/`), confirm it exits 0 and `check` still exits 0 (AC-3, AC-4, AC-5) · waits on you
-- [ ] Run `./install.sh` (fragment merge, exclude lines, `pre-commit` and `commit-msg` hook links), then the AC-11 settings compare from verify.md (AC-6, AC-7, AC-11) · waits on you
+- [x] Run `./install.sh` (fragment merge, exclude lines, `pre-commit` and `commit-msg` hook links), then the AC-11 settings compare from verify.md (AC-6, AC-7, AC-11) · waits on you
 - [ ] Verify it: `/check verify work names out of the public repo`
 - [ ] Test it: `/test work names out of the public repo`
 - [ ] Merge `feat/autonomous-runner` into `main` locally, then rewrite history in a fresh clone per the spec 0013 migration plan phases 1 and 2, `check-history` exits 0 (AC-10) · waits on you

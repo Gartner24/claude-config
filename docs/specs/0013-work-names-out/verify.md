@@ -12,7 +12,8 @@ _Steps derived from spec 0013 acceptance criteria. `/check verify` runs these; `
 ## Manual steps
 
 - [ ] 1. History (AC-10): the migration plan phases 1 to 5; `check-history` exits 0 in the rewritten copy and in a fresh clone of the new remote. · waits on you
-- [ ] 2. Same behavior (AC-11): `jq -S` of the live `settings.json` before and after a fresh `install.sh`, arrays sorted, compare equal.
+- [x] 2. Same behavior (AC-11): `jq -S` of the live `settings.json` before and after a fresh `install.sh`, arrays sorted, compare equal.
+  - Run 1, 2026-10-12: live settings.json before and after a real install.sh (autoMode deleted from both, arrays sorted) compare equal; the private fragments merged and install verify passed. install.sh still drops the live autoMode section, as before; it was put back by hand from the backup.
 
 ## Commands
 
