@@ -124,15 +124,28 @@ def blank(a, b):
             out[k] = '_'
 
 
+def add_first(w):
+    # a variable as the command can name any executor: `$($X)`
+    firsts.append('sh' if VAR.search(w) else re.sub('[\'"\\\\]', '', w))
+
+
 def first_word(k):
-    m = re.match(r'[ \t\n]*([^ \t\n;&|(){}<>!`]*)', s[k:])
-    firsts.append(re.sub('[\'"\\\\]', '', m.group(1)))
+    # bash drops a backslash newline before it reads the word: `$( \<newline>bash`
+    add_first(re.match(r'[ \t\n]*([^ \t\n;&|(){}<>!`]*)', s[k:].replace('\\\n', '')).group(1))
 
 
 def code_firsts(text):
     # an unquoted heredoc body or a substitution runs whatever follows $( or a backtick
-    for m in FIRST.finditer(text):
-        firsts.append(re.sub('[\'"\\\\]', '', m.group(2)))
+    for m in FIRST.finditer(text.replace('\\\n', '')):
+        add_first(m.group(2))
+
+
+def var_at(k):
+    # a `$` at k starts an expansion, even split by backslash newlines: `$\<newline>X`
+    k += 1
+    while s.startswith('\\\n', k):
+        k += 2
+    return k < n and bool(re.match(r'[\w{@*#?!-]', s[k]))
 
 
 def backtick_end(k):
@@ -220,14 +233,14 @@ def dq_end(k, top):
                 if not data:
                     code_firsts(body)
                 # the word is the body: `"$(cat <<'EOF'` + `bash` + ... `)" -c '...'` runs bash
-                return after + tail.end() - 1, data, body, not quoted and bool(VAR.search(body))
+                return after + tail.end() - 1, data, body, not quoted and bool(VAR.search(body.replace('\\\n', '')))
     data = True
     while k < n:
         c = s[k]
         if c == '\\':
             k += 2
         elif c == '"':
-            return k, data, s[start:k], bool(VAR.search(s[start:k]))
+            return k, data, s[start:k], bool(VAR.search(s[start:k].replace('\\\n', '')))
         elif c == '`':
             data = False
             first_word(k + 1)
@@ -345,7 +358,7 @@ def scan():
             end_word()
             i += 1
         else:
-            var |= bool(VAR.match(s, i))
+            var |= c == '$' and var_at(i)
             word += c
             i += 1
     end_word()
@@ -504,6 +517,13 @@ EOF
 bash
 EOF
 )\" -c 'mkfs.ext4 /dev/sdb1'"
+  block "X='mkfs.ext4 /dev/sdb1'; \$\\
+X"
+  block "X='mkfs.ext4 /dev/sdb1'; \"\$\\
+X\""
+  block "X='mkfs.ext4 /dev/sdb1'; cat <<EOF
+\$(\$X)
+EOF"
   # a variable in a quoted heredoc commit body is literal text, not an expansion
   allow_data "git commit -m \"\$(cat <<'EOF'
 rm -rf \"\$HOME\" was never blocked when quoted
