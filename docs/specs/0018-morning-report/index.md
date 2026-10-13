@@ -1,7 +1,7 @@
 # 0018. Morning report
 
 **Date**: 2026-10-13
-**Status**: In Progress
+**Status**: Accepted
 **Paths:** `runner/report.py`, `runner/ntfy.py`, `runner/run.py`, `runner/wf.py`, `runner/e2e/run.py`, `settings.json`, `rules/runner-handoff.md`
 **Amends**: [0005](../0005-decision-parking-phone-pings/index.md) and architecture invariant 4 (one report note at the end of every run joins the question pings), [0017](../0017-several-repos-at-once/index.md) (the parent sends one note for all its children). Uses the `· live` tag of [0019](../0019-live-setup-steps/index.md).
 

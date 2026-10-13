@@ -42,7 +42,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 28 | Guard hook false alarms | Release 4 | done |
 | 29 | Several repos at once | Release 4 | done |
 | 30 | Live setup steps in one command | Release 5 | done |
-| 13 | Morning report | Release 5 | in-progress |
+| 13 | Morning report | Release 5 | done |
 | 32 | One command: wf | Release 6 | in-progress |
 | 31 | Guard baseline check before each repo | Deferred | planned |
 | 23 | Questions that teach | Deferred | planned |
@@ -421,7 +421,7 @@ The runner keeps building and gathers every waits-on-you step of the run that co
 Spec [0019](../specs/0019-live-setup-steps/index.md) · code in `runner/finish.py`, `runner/wf.py`, `install.sh`, tests in `runner/tests/test_finish.py`, `scripts/private-names.py --test`
 Source: [docs/briefs/morning-report-and-live-steps.md](../briefs/morning-report-and-live-steps.md) (fix A).
 
-### 13. Morning report · in-progress · auto
+### 13. Morning report · done · auto
 When a run ends, for any reason, one phone message: what got built, what waits on you, and the next command. The next `~/.claude` session opens with the same report.
 **Done when:** after a run you get the phone note, and your next `~/.claude` session opens with the report.
 - [x] Design it (spec): `/architect morning report`
@@ -436,7 +436,7 @@ When a run ends, for any reason, one phone message: what got built, what waits o
 - [x] Copy the handoff rule live: `cp ~/claude-config/rules/runner-handoff.md ~/.claude/rules/runner-handoff.md` (AC-7) · waits on you · live
 - [x] Real end to end with the report: `python3 runner/e2e/run.py` (AC-8) · waits on you · live
 - [x] Real parallel end to end with one report: `python3 runner/e2e/run.py --parallel` (AC-8) · waits on you · live
-- [ ] Sync docs: `/sync morning report`
+- [x] Sync docs: `/sync morning report`
 Spec [0018](../specs/0018-morning-report/index.md) · code in `runner/report.py`, `runner/ntfy.py`, `runner/run.py`, `runner/wf.py`, `runner/e2e/run.py`, tests in `runner/tests/test_report.py`
 Source: [docs/briefs/morning-report-and-live-steps.md](../briefs/morning-report-and-live-steps.md) (fix B); first deferred 2026-10-12, brought back 2026-10-13.
 

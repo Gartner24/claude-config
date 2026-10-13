@@ -35,6 +35,7 @@ wf queue [repo]                                 # read only plan: queued, parked
 wf unpark <repo> [feature]                      # clear parks and open questions so the next wf run starts them fresh (spec 0011)
 wf allow <repo>                                 # trust list (spec 0008); wf run refuses `untrusted` (exit 5) for a repo not in $XDG_CONFIG_HOME/wf/allowed.json, else ~/.config/wf/allowed.json
 wf finish [target] [-y]                         # run the ` · live` waits-on-you boxes (cp into ~/.claude, ./install.sh, e2e, probes) after one Enter, keep autoMode, tick them, record verify.md, commit (spec 0019); never from an unattended call
+wf report [--seen|--hook]                       # the last wf run's morning report, also sent to the phone at the end of every run (spec 0018); `--hook` is the settings.json SessionStart form, prints only an unseen report; `--seen` stops showing it; report.txt lives in the wf state folder
 wf ntfy init|codes|test                         # phone pings for wf run decisions (spec 0005); config ~/.config/wf/ntfy.json (0600), wf run refuses without it
 ```
 
