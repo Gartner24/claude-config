@@ -450,7 +450,7 @@ You type only `wf`. After one confirm screen it shows the report, applies pendin
 - [x] Design it (spec): `/architect one command wf`
 - [ ] Build it: `/develop one command wf`
    - [x] Runner copy: `install_runner` in `runner/finish.py`, `install.sh` calls it, deny `~/.local/share/wf` (AC-12)
-   - [ ] Locks: holder line by every taker, `wf finish` without repo locks, held repos skipped (AC-9, AC-7)
+   - [x] Locks: holder line by every taker, `wf finish` without repo locks, held repos skipped (AC-9, AC-7)
    - [ ] Runs take a `wf` swap: `live_dir()`, ledger acceptance, live dir guard rebuild, state folder deny (AC-5)
    - [ ] Staged setup and swap: `WF_STAGE` in `install.sh`, stage, journal, ledger, ordered renames, crash finish (AC-3, AC-4)
    - [ ] Retakes by reason, then bare `wf`: screen, order, builds, checks beside them, commit retries (AC-6, AC-1, AC-2, AC-7, AC-8)

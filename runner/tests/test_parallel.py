@@ -224,7 +224,7 @@ class TestDecisions(DecisionCase, ParallelCase):
 
 class TestExitAndSummary(ParallelCase):
     # covers: AC-1, AC-6 (another process takes a repo's lock after the parent let it go: that child is refused
-    # locked, exits 5, and the parent exits 6 with its summary line)
+    # locked), spec 0020 AC-7 (the parent counts it as a running skip, not as exit 6)
     def test_locked_child(self):
         a, b = self.make_repo("ra", ONE), self.make_repo("rb", ONE)
         self.trust(a, b)
@@ -239,12 +239,14 @@ class TestExitAndSummary(ParallelCase):
                 f"while not os.path.exists({str(pid_file)!r}):\n    time.sleep(0.05)\n"]
         self.steps({"ra": [{**TICK_A, "run": [grab]}, DONE_A], "rb": [TICK_A, DONE_A]})
         r = self.wf("-y", "--jobs", "1")
-        self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("\n[rb] refused: locked: another wf run holds this repo: pid 4242 since 2026-10-13T00:00:00+00:00\n",
                       r.stdout)
         s = summary(r.stdout)
         self.assertTrue(s[0].startswith("  ra: exit 0, done: 1. A | run folder: "), s)
-        self.assertEqual(s[1], "  rb: exit 5, - | run folder: -")
+        self.assertEqual(s[1], "  rb: skipped: running: another wf run holds this repo: pid 4242 since "
+                               "2026-10-13T00:00:00+00:00")
+        self.assertNotIn("no record", (self.state / "wf" / "report.txt").read_text())
 
     # covers: AC-4, AC-6 (a skipped repo shows skipped: and leaves the code 0; two repos with one name get
     # <parent>/<name> prefixes)

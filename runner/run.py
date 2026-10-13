@@ -548,25 +548,25 @@ class Run:
         """AC-9. (reason, detail) on refusal, else None. `wf queue` only tests the lock and lets it go (spec 0011 AC-20)."""
         state = state_dir()
         try:
-            if self.peek:
+            # Spec 0020 AC-9: a bare run's plan takes no lock either; each child takes its own at its start.
+            if self.peek or not self.target:
                 fd, who = repo_lock(self.c.path, create=False)
                 if fd is not None:
                     os.close(fd)
-                return who and ("locked", who)
+                return who and ("running" if not self.target else "locked", who)
             for d in (os.path.join(state, "locks"), os.path.join(state, "runs")):
                 os.makedirs(d, mode=0o700, exist_ok=True)
                 if not os.access(d, os.W_OK):
                     raise PermissionError(f"not writable: {d}")
-            self.lock_fd, who = repo_lock(self.c.path)
+            self.lock_fd, who = repo_lock(self.c.path, what=f"wf run {self.c.name}")
         except OSError as e:
             return "state_unwritable", f"{state}: {e.strerror or e}"
         if who:
             # Spec 0011 AC-5: a skip line names the holder bare; the target refusal keeps spec 0004's sentence.
-            if not self.target:
-                return "locked", who
-            pid_start = who.split()
+            words = who.split(maxsplit=2)
             return "locked", "another wf run holds this repo: " + (
-                f"pid {pid_start[0]} since {pid_start[1]}" if len(pid_start) == 2 else who)
+                f"pid {words[0]} since {words[1]}" + (f" ({words[2]})" if len(words) == 3 else "")
+                if len(words) >= 2 else who)
         return None
 
     def global_checks(self):
@@ -1255,7 +1255,7 @@ class Run:
         if self.peek:
             return 0
         if not runnable:
-            refused = any(e["skip"] and e["skip"].split(":")[0] not in ("missing", "hub") for e in self.record["repos"])
+            refused = any(e["skip"] and e["skip"].split(":")[0] not in ("missing", "hub", "running") for e in self.record["repos"])
             return 5 if refused else self.exit_code("queue_done")
         return None
 
@@ -2098,8 +2098,7 @@ class Run:
         self.record["started"] = started
         for h in self.held:
             # Spec 0011 AC-5, AC-9: every lock gets the holder line, every guarded file its baseline at the confirm.
-            os.ftruncate(h["lock_fd"], 0)
-            os.pwrite(h["lock_fd"], f"{os.getpid()} {started}\n".encode(), 0)
+            write_holder(h["lock_fd"], f"wf run {h['c'].name}", started)
             g = h["repo"]["guard"]
             g["guarded_files"] = {p: file_hash(p) for p in g["guarded_files"]}
         reason, detail = "internal_error", None
@@ -2621,13 +2620,21 @@ def moved(guard):
         yield path, f"{path} appeared during the run; inspect or delete it before opening a session in this repo"
 
 
-def repo_lock(path, create=True):
+def repo_lock(path, create=True, what=None):
     """Spec 0004 AC-9 lock of repo path, LOCK_NB: (fd holding it, None), (None, holder line) when a run holds it,
     or (None, None) for create=False and no lock file. Raises OSError."""
-    return lock_file(os.path.join(state_dir(), "locks", hashlib.sha1(path.encode()).hexdigest() + ".lock"), create)
+    return lock_file(os.path.join(state_dir(), "locks", hashlib.sha1(path.encode()).hexdigest() + ".lock"), create, what)
 
 
-def lock_file(lock, create=True):
+def write_holder(fd, what, at=None):
+    """Spec 0020 AC-9: `<pid> <time> <what>` in one write, then cut to its length. A truncate then write used
+    to leave an empty file for a loser to read, which it printed as `unknown`."""
+    line = f"{os.getpid()} {at or now()} {what}\n".encode()
+    os.pwrite(fd, line, 0)
+    os.ftruncate(fd, len(line))
+
+
+def lock_file(lock, create=True, what=None):
     """repo_lock on a lock file path; spec 0018 AC-6 tests every lock through it and lets go at once."""
     try:
         # No O_TRUNC: a losing opener used to wipe the holder's pid line.
@@ -2642,13 +2649,15 @@ def lock_file(lock, create=True):
         who = holder(fd)
         os.close(fd)
         return None, who
+    if what:
+        write_holder(fd, what)
     return fd, None
 
 
 def holder(fd):
-    """Spec 0004 AC-9: the lock holder line's `<pid> <start>`, else "unknown"."""
-    words = os.pread(fd, 200, 0).decode(errors="replace").split()
-    return f"{words[0]} {words[1]}" if len(words) >= 2 else "unknown"
+    """Spec 0004 AC-9, spec 0020 AC-9: the lock holder line `<pid> <start> [<what>]`, else "unknown"."""
+    line = os.pread(fd, 300, 0).decode(errors="replace").split("\n")[0].strip()
+    return line if len(line.split()) >= 2 else "unknown"
 
 
 def file_hash(path):
@@ -2997,6 +3006,9 @@ def parallel(r):
             continue
         line = wf.clean(line.rstrip("\n"))
         print(f"[{j['name']}] {line}", flush=True)
+        # Spec 0020 AC-7: a run took the lock after the plan; that repo is running, not failed.
+        if line.startswith("refused: locked: "):
+            j["skip"] = "running: " + line[len("refused: locked: "):]
         if line.startswith(("done:", "parked:", "stopped:", "nothing to run")):
             j["last"] = line
         if line.startswith("run folder: "):
@@ -3014,7 +3026,7 @@ def parallel(r):
             print(f"  {row['name']}: exit {row['code']}, {row['last']} | run folder: {row['folder']}")
     sys.stdout.flush()
     report.end_of_parent(r, rows)
-    codes = [j["code"] for j in jobs if j["code"] is not None]
+    codes = [j["code"] for j in jobs if j["code"] is not None and not j["skip"]]
     if r.interrupted or 130 in codes:
         return 130
     return 6 if any(codes) else 0
@@ -3056,7 +3068,7 @@ def cmd_unpark(args):
     # Held through the change, so no run starts on this repo between the check and the delete.
     try:
         os.makedirs(os.path.join(state_dir(), "locks"), mode=0o700, exist_ok=True)
-        fd, who = repo_lock(c.path)
+        fd, who = repo_lock(c.path, what="wf unpark")
     except OSError as e:
         return refuse("state_unwritable", f"{state_dir()}: {e.strerror or e}")
     if who:

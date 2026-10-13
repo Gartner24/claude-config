@@ -309,19 +309,19 @@ class TestRefusals(FinishCase):
         self.assertTrue(r.stdout.startswith("refused: untrusted: "), r.stdout)
         self.assertFalse((self.live / "install.count").exists())
 
+    # covers: spec 0020 AC-9 (wf finish takes no repo lock and never refuses because a run holds one)
     def test_locked(self):
         locks = self.state / "wf" / "locks"
         locks.mkdir(parents=True)
-        fd = os.open(locks / (hashlib.sha1(b"/elsewhere").hexdigest() + ".lock"), os.O_RDWR | os.O_CREAT)
+        fd = os.open(locks / (hashlib.sha1(str(self.repo).encode()).hexdigest() + ".lock"), os.O_RDWR | os.O_CREAT)
         try:
             fcntl.flock(fd, fcntl.LOCK_EX)
-            os.write(fd, b"4242 2026-10-13T00:00:00\n")
+            os.write(fd, b"4242 2026-10-13T00:00:00 wf run r\n")
             r = self.wf("-y")
         finally:
             os.close(fd)
-        self.assertEqual(r.returncode, 5)
-        self.assertEqual(r.stdout.strip(), "refused: locked: a wf run is going: 4242 2026-10-13T00:00:00")
-        self.assertEqual((self.live / "rules" / "a.md").read_text(), "old\n")
+        self.assertNotIn("refused", r.stdout)
+        self.assertEqual((self.live / "rules" / "a.md").read_text(), "new\n")
 
     # covers: AC-3 (a missing trusted repo is skipped), AC-7 (main leaves the edits uncommitted)
     def test_missing_and_main(self):

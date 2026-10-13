@@ -594,7 +594,7 @@ class TestAcrossRepos(QueueCase):
         self.assertEqual(plan(r.stdout)[:8], [
             "onmain on main, 1 change", "  skip: branch: main, switch to a work branch first",
             "apoff on work, 1 change", "  skip: autopilot_off: Autopilot is off, the scope header needs **Autopilot:** allowed",
-            "held on work, 1 change", "  skip: locked: 4242 2026-10-11T09:00:00+02:00",
+            "held on work, 1 change", "  skip: running: 4242 2026-10-11T09:00:00+02:00",
             "good on work, 0 changes", "  queued: 1. A"])
         self.assertIn("done: 1. A", r.stdout)
         self.again()
@@ -606,6 +606,26 @@ class TestAcrossRepos(QueueCase):
         self.trust(self.tmp / "gone", self.make_repo("hubrepo", "# Scope: hub\n\n| a | b |\n"))
         r = self.wf("-y")
         self.assertEqual((r.returncode, plan(r.stdout)[-1]), (0, "nothing to run"), r.stdout + r.stderr)
+
+    # covers: spec 0020 AC-1, AC-9 (a held repo is a running skip that leaves the exit code alone, and a bare
+    # plan takes no lock: a cancelled plan leaves no lock file)
+    def test_running_skip_no_plan_lock(self):
+        held = self.make_repo("held", ONE)
+        self.lock(held).parent.mkdir(parents=True, mode=0o700)
+        fd = os.open(self.lock(held), os.O_RDWR | os.O_CREAT, 0o600)
+        self.addCleanup(os.close, fd)
+        run.fcntl.flock(fd, run.fcntl.LOCK_EX)
+        os.write(fd, b"4242 2026-10-11T09:00:00+02:00 wf run held\n")
+        self.trust(held)
+        r = self.wf("-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("\n  skip: running: 4242 2026-10-11T09:00:00+02:00 wf run held\n", r.stdout)
+        good = self.make_repo("good", ONE)
+        self.trust(good)
+        r = subprocess.run([sys.executable, str(WF), "run"], input="x\n", capture_output=True, text=True,
+                           env=self.env, timeout=60)
+        self.assertIn("queued: 1. A", r.stdout)
+        self.assertFalse(self.lock(good).exists())
 
     # covers: AC-9, spec 0017 AC-6, AC-7 (Autopilot turned off in repo A ends A's child; B's child runs to done beside
     # it; the parent exits 6 and the summary shows both)

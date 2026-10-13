@@ -1,7 +1,6 @@
 # `wf finish` (spec 0019): the live setup steps waiting on you, run at your keyboard after one Enter.
 # Unattended calls never write ~/.claude, so these used to pile up as separate boxes run by hand.
 import datetime
-import fcntl
 import filecmp
 import hashlib
 import os
@@ -246,35 +245,6 @@ def covered(args):
     return repos, None
 
 
-def lock_all(repos):
-    """AC-3: refuse while any wf lock is held, then hold every covered repo's. (fds, None) or (None, exit code)."""
-    locks = os.path.join(run.state_dir(), "locks")
-    try:
-        os.makedirs(locks, mode=0o700, exist_ok=True)
-        for name in sorted(os.listdir(locks)):
-            if not name.endswith(".lock"):
-                continue
-            try:
-                fd = os.open(os.path.join(locks, name), os.O_RDONLY)
-            except FileNotFoundError:
-                continue
-            try:
-                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except BlockingIOError:
-                return None, refuse("locked", f"a wf run is going: {run.holder(fd)}")
-            finally:
-                os.close(fd)
-        fds = []
-        for c in repos:
-            fd, who = run.repo_lock(c.path)
-            if who:
-                return None, refuse("locked", f"a wf run is going: {who}")
-            fds.append(fd)
-    except OSError as e:
-        return None, refuse("state_unwritable", f"{run.state_dir()}: {e.strerror or e}")
-    return fds, None
-
-
 def backup(src, dst):
     """Copy src to dst, links kept as links, never overwriting a backup taken earlier."""
     if not os.path.lexists(src) or os.path.lexists(dst):
@@ -456,6 +426,8 @@ def commit(c, files, ran):
 
 def seen():
     try:
+        # The repo locks used to create the state folder first; finish takes none since spec 0020 AC-9.
+        os.makedirs(run.state_dir(), mode=0o700, exist_ok=True)
         open(os.path.join(run.state_dir(), "report.seen"), "a").close()
     except OSError as e:
         print(f"warning: report.seen not written: {e.strerror or e}")
@@ -472,9 +444,6 @@ def cmd_finish(args):
         print()
         return 130
     if repos is None:
-        return rc
-    fds, rc = lock_all(repos)
-    if fds is None:
         return rc
     live, yours = [], []
     for c in repos:

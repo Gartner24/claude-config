@@ -217,9 +217,10 @@ def end_of_parent(r, rows):
     """AC-1, AC-2: one report over a bare wf run's work rows, from their summary fields."""
     sources = []
     for row in rows:
-        if not row["work"]:
+        # A child refused because a run took its repo after the plan (spec 0020 AC-7) did no work to report.
+        if not row["work"] or row.get("skip"):
             continue
-        folder = None if row["folder"] == "-" else row["folder"]
+        folder =None if row["folder"] == "-" else row["folder"]
         sources.append({"path": row["path"], "name": row["name"], "folder": folder, "code": row["code"],
                         "rec": folder and load_record(folder)})
     if sources:

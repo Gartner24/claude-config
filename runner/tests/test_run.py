@@ -620,16 +620,42 @@ class TestStart(RunCase):
             self.assertEqual(os.stat(self.state / "wf" / d).st_mode & 0o777, 0o700)
         lock = next((self.state / "wf" / "locks").iterdir())
         self.assertEqual(os.stat(lock).st_mode & 0o777, 0o600)
-        self.assertRegex(lock.read_text(), r"^\d+ \d{4}-\d\d-\d\dT\d\d:\d\d:\d\d[+-]\d\d:\d\d\n$")
+        self.assertRegex(lock.read_text(), r"^\d+ \d{4}-\d\d-\d\dT\d\d:\d\d:\d\d[+-]\d\d:\d\d wf run fresh\n$")
 
-    # covers: AC-9 (a second real run is refused while the first holds the lock)
+    # covers: spec 0020 AC-9 (the winner writes `<pid> <time> <what>` at once, and a longer old line is cut)
+    def test_holder_line_at_win(self):
+        locks = self.state / "wf" / "locks"
+        locks.mkdir(parents=True, mode=0o700)
+        with mock.patch.dict(os.environ, {"XDG_STATE_HOME": str(self.state)}):
+            lock = locks / (hashlib.sha1(b"/x").hexdigest() + ".lock")
+            lock.write_text("1 2026-01-01T00:00:00+00:00 an old holder line much longer than the new one\n")
+            fd, _ = run.repo_lock("/x", what="wf unpark")
+            try:
+                _, who = run.repo_lock("/x")
+            finally:
+                os.close(fd)
+        self.assertRegex(who, rf"^{os.getpid()} \S+ wf unpark$")
+        self.assertEqual(lock.read_text(), who + "\n")
+
+    # covers: spec 0020 AC-9 (wf unpark takes its lock as `wf unpark`)
+    def test_unpark_names_itself(self):
+        seen = []
+        real = run.repo_lock
+        with mock.patch.object(run, "repo_lock", lambda p, create=True, what=None: seen.append(what) or real(p, create, what)), \
+                mock.patch.dict(os.environ, {"XDG_STATE_HOME": str(self.state), "XDG_CONFIG_HOME": str(self.tmp / "config")}), \
+                mock.patch("sys.stdout"):
+            run.cmd_unpark(mock.Mock(target=str(self.repo), feature=None))
+        self.assertEqual(seen, ["wf unpark"])
+
+    # covers: AC-9 (a second real run is refused while the first holds the lock), spec 0020 AC-9 (the refusal
+    # names what holds it)
     def test_second_run_refused(self):
         self.steps([{"sleep": 30}])
         p = self.start("demo", "-y")
         self.wait_for(self.fakes / "argv-1.json")
         r = subprocess.run(self.cmd("demo", "-y"), capture_output=True, text=True, env=self.env)
         self.assertEqual(r.returncode, 5)
-        self.assertIn(f"refused: locked: another wf run holds this repo: pid {p.pid} since ", r.stdout)
+        self.assertRegex(r.stdout, rf"refused: locked: another wf run holds this repo: pid {p.pid} since \S+ \(wf run demo\)\n")
         p.send_signal(signal.SIGINT)
         p.communicate(timeout=20)
 
