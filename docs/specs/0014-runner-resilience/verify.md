@@ -13,6 +13,7 @@
 ## End to end (build step 9)
 
 - `python3 runner/e2e/run.py`: record the date, Claude Code version, and `PASS` or the `FAIL` line.
+- 2026-10-13, Claude Code 2.1.296: `PASS` (develop, verify, test, sync on the fixture, exit 0).
 
 # Verify: Runner resilience · spec 0014 · updated 2026-10-13
 _Steps derived from spec 0014 acceptance criteria. `/check verify` runs these; `/test` locks the durable ones._
@@ -34,7 +35,7 @@ _Steps derived from spec 0014 acceptance criteria. `/check verify` runs these; `
 
 ## Manual (waits on you)
 - [ ] `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md`, then `diff` shows no output → AC-8
-- [ ] `python3 runner/e2e/run.py` with `!` on the real claude prints `PASS` → AC-5, AC-9
+- [x] `python3 runner/e2e/run.py` with `!` on the real claude prints `PASS` → AC-5, AC-9
 
 ## Acceptance-criteria coverage
 - AC-1 TestOutage, TestOutageApp · AC-2 TestCrashLoop · AC-3 TestTokens, TestHappyPath · AC-4 TestTimeout · AC-5 TestFixture plus the manual end to end · AC-6 TestLiveLog, test_argv, test_no_session · AC-7 TestSyncBox, TestSkipAhead · AC-8 TestSkipAhead plus the manual rule copy · AC-9 probes above (P1 to P3 run before accept) and the outage probe that waits on you

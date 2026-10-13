@@ -361,7 +361,7 @@ Eight runner changes: wait through an API outage, stop on a crash loop, count to
 - [x] Verify it: `/check verify runner resilience`
 - [x] Test it: `/test runner resilience`
 - [ ] Copy the rule file live: `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` (AC-8) · waits on you
-- [ ] Run the real end to end with `!`: `python3 runner/e2e/run.py`, record it in `docs/specs/0014-runner-resilience/verify.md` (AC-5, AC-9) · waits on you
+- [x] Run the real end to end with `!`: `python3 runner/e2e/run.py`, record it in `docs/specs/0014-runner-resilience/verify.md` (AC-5, AC-9) · waits on you
 - [ ] Sync docs: `/sync runner resilience`
 Spec [0014](../specs/0014-runner-resilience/index.md) · code in `runner/run.py`, `runner/wf.py`, `runner/e2e/`, tests in `runner/tests/test_resilience.py`
 Source: [~/projects/docs/briefs/runner-ideas-2026-10-12.md](../../../projects/docs/briefs/runner-ideas-2026-10-12.md) (spec A, ideas 1 to 6); personal scope row 24 (skip ahead and `/sync` box notes); personal scope row 18.
@@ -393,7 +393,7 @@ Bare `wf run` becomes a parent that starts today's single repo run once per repo
    - [x] `runner/e2e/run.py --parallel` (AC-8)
 - [x] Verify it: `/check verify several repos at once`
 - [x] Test it: `/test several repos at once`
-- [ ] Run `python3 runner/e2e/run.py --parallel` with `!` and record it in the spec's Follow-up (AC-8) · waits on you
+- [x] Run `python3 runner/e2e/run.py --parallel` with `!` and record it in the spec's Follow-up (AC-8) · waits on you
 - [ ] Sync docs: `/sync several repos at once`
 Spec [0017](../specs/0017-several-repos-at-once/index.md) · code in `runner/run.py` (`parallel()`), `runner/wf.py` (`--jobs`), `runner/e2e/run.py` (`--parallel`), tests in `runner/tests/test_parallel.py`
 Source: personal scope row 23 (`~/projects/docs/scope/scope.md`; your message of 2026-10-12, multi tasking question).

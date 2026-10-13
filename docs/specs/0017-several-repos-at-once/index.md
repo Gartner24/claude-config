@@ -83,4 +83,5 @@ Options and reasoning: [rationale.md](rationale.md).
 
 ## Follow-up
 
-- [ ] Record the `runner/e2e/run.py --parallel` result here (date, Claude Code version, `PASS` or the `FAIL` line). · waits on you
+- [x] Record the `runner/e2e/run.py --parallel` result here (date, Claude Code version, `PASS` or the `FAIL` line). · waits on you
+  - 2026-10-13, Claude Code 2.1.296: `PASS`. Repos `one` and `two` both ended `done: 1. Add function`, calls interleaved, parent exit 0.

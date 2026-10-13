@@ -14,7 +14,7 @@ _Steps derived from spec 0017 acceptance criteria. `/check verify` runs these; `
 - [x] `test_locked_child` -> lock taken after the parent let it go: `[rb] refused: locked: ...`, `rb: exit 5, - | run folder: -`, parent 6 -> AC-1, AC-6
 - [x] `test_open_only`, `test_each_resumes_own` -> an unanswered decision alone starts a child that re-pings it; two children each resume their own answer -> AC-1, AC-7
 - [x] `test_repo_stop`, `test_guard_scope` -> a repo stop or guard change ends only that child; `~/.claude` settings stop each child -> AC-6, AC-7
-- [ ] `python3 runner/e2e/run.py --parallel` with `!` (real claude) -> `PASS` -> AC-8
+- [x] `python3 runner/e2e/run.py --parallel` with `!` (real claude) -> `PASS` -> AC-8
 
 ## Value sourcing
 - [x] repos with work: a repo whose plan shows only `parked:` or `skip:` lines gets no child and `<name>: nothing to run` in the summary (`test_parked_only`); one with only `open:` gets a child (`test_open_only`)
