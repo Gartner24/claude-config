@@ -315,10 +315,17 @@ Work org and tool names sit in public files on main (`CLAUDE.md`, `HOOKS.md`, `S
 - [x] Run `./install.sh` (fragment merge, exclude lines, `pre-commit` and `commit-msg` hook links), then the AC-11 settings compare from verify.md (AC-6, AC-7, AC-11) · waits on you
 - [x] Verify it: `/check verify work names out of the public repo`
 - [x] Test it: `/test work names out of the public repo`
+- [ ] Swap the two hook links for copies by hand, before the build below: `cp --remove-destination scripts/private-names.py .git/hooks/pre-commit`, same for `commit-msg` (spec 0013 build plan 7a) · waits on you
+- [ ] Copy the hooks instead of linking them: `/develop work names out of the public repo`
+   - [ ] `install.sh` copies and refreshes the hooks per the amended AC-7; `--test` hook fixtures copy the checker, install assertions cover the AC-7 scenario, docstring line 19 says copied, line 2 unchanged (spec 0013 build plan 7b)
+- [ ] Verify the hook copy: `/check verify work names out of the public repo`
+- [ ] Test the hook copy: `/test work names out of the public repo`
+- [ ] Rerun `./install.sh`: both hooks print `refreshed` or `up to date`, and neither is a symlink (spec 0013 build plan 7c, AC-7) · waits on you
+- [ ] Sync docs for feature 21: `/sync work names out of the public repo`
 - [ ] Merge `feat/autonomous-runner` into `main` locally, then rewrite history in a fresh clone per the spec 0013 migration plan phases 1 and 2, `check-history` exits 0 (AC-10) · waits on you
 - [ ] Delete and recreate `Gartner24/claude-config`, push `main`, `check-history` on a fresh clone of the new remote, swap folders (migration plan phases 3 to 5, AC-10) · waits on you
 Spec: [0013](../specs/0013-work-names-out/index.md) · code in `scripts/private-names.py`, `sync.sh`, `install.sh`
-Source: [docs/briefs/work-names-out.md](../briefs/work-names-out.md) (decisions); your message of 2026-10-12 (`/scope` request after the runner branch review).
+Source: [docs/briefs/work-names-out.md](../briefs/work-names-out.md) (decisions); your message of 2026-10-12 (`/scope` request after the runner branch review); your `/architect` amendment of AC-7, 2026-10-12 (hooks copied, not linked, after a `wf run` stopped `guard_changed` on `.git/hooks/commit-msg`).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
