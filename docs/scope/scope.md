@@ -411,7 +411,7 @@ The runner keeps building and gathers every waits-on-you step of the run that co
    - [x] Phases, backups, logs, failure policy, Ctrl C (AC-4)
    - [x] Record in verify.md, tick, commit, end lines, report.seen, exit codes (AC-5 to AC-8)
    - [x] `install.sh` keeps `autoMode`, its self checks; repo copies of `rules/scope-contract.md` and `rules/runner-handoff.md` (AC-9, AC-10)
-- [ ] Verify it: `/check verify live setup steps in one command`
+- [x] Verify it: `/check verify live setup steps in one command`
 - [ ] Test it: `/test live setup steps in one command`
 - [ ] Copy the scope contract live: `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` (AC-10) · waits on you · live
 - [ ] Copy the handoff rule live: `cp ~/claude-config/rules/runner-handoff.md ~/.claude/rules/runner-handoff.md` (AC-10) · waits on you · live
