@@ -525,6 +525,44 @@ EOF"
 rm -rf \"\$HOME\" was never blocked when quoted
 EOF
 )\""
+  # AC-3 forms the cases above do not reach: <<- with tab stripped delimiter, two heredocs
+  # on one line (bodies in operator order), the \EOF and "EOF" commit delimiters
+  allow_data "$(printf 'cat <<-EOF > notes.md\n\tmkfs.ext4 /dev/sda\n\tEOF')"
+  allow_data 'cat <<A - <<B > notes.md
+mkfs.ext4 /dev/sda
+A
+dd if=/dev/zero of=/dev/sda
+B'
+  allow_data "git commit -m \"\$(cat <<\\EOF
+rm -rf ~
+EOF
+)\""
+  allow_data "git commit -m \"\$(cat <<\"EOF\"
+rm -rf ~
+EOF
+)\""
+  # never data: $"..." strings, the rest of the heredoc operator's own line
+  force_block "printf \$\"mkfs.ext4 /dev/sdb1\""
+  force_block 'cat <<EOF > notes.md; mkfs.ext4 /dev/sdb1
+text
+EOF'
+  # AC-4: a heredoc with no end line or an unclosed quote means the raw scan. An unmatched
+  # $( is not its own case: its outer quote is always unclosed too, so it fails the same way
+  raw_block() {
+    block "$1"
+    printf '%s' "$1" | python3 -I -c "$SCANNER" force >/dev/null 2>&1 \
+      && { echo "FAIL scanner parsed, should fall back to raw: $1"; fail=1; }
+    return 0
+  }
+  raw_block 'cat <<EOF
+mkfs.ext4 /dev/sdb1'
+  raw_block 'git commit -m "x; mkfs.ext4 /dev/sdb1'
+  # AC-2: more executors, by basename too
+  block "eval 'mkfs.ext4 /dev/sdb1'"
+  block "echo 'mkfs.ext4 /dev/sdb1' | /bin/sh"
+  block "ssh host 'mkfs.ext4 /dev/sdb1'"
+  block "awk 'BEGIN { system(\"mkfs.ext4 /dev/sdb1\") }'"
+  block "echo 'mkfs.ext4 /dev/sdb1' | xargs -0 env"
   # no python3 means the raw scan, as before (AC-4)
   [[ "$(PATH=/nonexistent blank_data 'echo "rm -rf /"' 2>/dev/null)" == 'echo "rm -rf /"' ]] \
     || { echo "FAIL missing python3 did not fall back to raw"; fail=1; }
