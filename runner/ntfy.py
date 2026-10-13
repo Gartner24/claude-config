@@ -163,6 +163,12 @@ def blocked(cfg, text):
     return any(b.strip() and b.strip().casefold() in low for b in cfg["block"])
 
 
+def scrub_field(cfg, text, limit, fallback):
+    """Spec 0018 AC-4: scrub cut to limit, else fallback when empty or holding a block list entry."""
+    s = scrub(text, limit)
+    return fallback if not s or blocked(cfg, s) else s
+
+
 def repo_label(cfg, repo):
     real = os.path.realpath(repo)
     return cfg["aliases"].get(real) or "repo-" + hashlib.sha1(real.encode()).hexdigest()[:4]
@@ -198,10 +204,11 @@ class Topic:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
             return json.loads(r.read())["id"]
 
-    def publish(self, message, priority, actions=None, stopped=lambda: False):
-        """AC-7: three tries RETRY_GAP apart. The message id, None when stopped, else PingFailed."""
-        body = {"topic": self.cfg["topic"], "title": self.title, "priority": priority,
-                "tags": ["question"], "message": message}
+    def publish(self, message, priority, actions=None, stopped=lambda: False, title=None, tags=("question",)):
+        """AC-7: three tries RETRY_GAP apart. The message id, None when stopped, else PingFailed.
+        Spec 0018 AC-4: the morning report passes its own title and tags."""
+        body = {"topic": self.cfg["topic"], "title": self.title if title is None else title, "priority": priority,
+                "tags": list(tags), "message": message}
         if actions:
             body["actions"] = actions
         for attempt in range(3):

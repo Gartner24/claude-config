@@ -224,7 +224,10 @@ class RunCase(unittest.TestCase):
         self.env = {"HOME": str(self.tmp), "WF_ROOTS": str(self.tmp / "root"), "PATH": str(self.bin),
                     "XDG_STATE_HOME": str(self.state), "FAKE_DIR": str(self.fakes),
                     "XDG_CONFIG_HOME": str(self.tmp / "config")}
-        self.ntfy_config = write_config(self.tmp / "config", "http://127.0.0.1:9", codes=[f"code{i:04d}" for i in range(5)])
+        # Spec 0018: every run sends its morning report; a dead server cost each test 20 seconds of retries.
+        self.report_ntfy = FakeNtfy()
+        self.addCleanup(self.report_ntfy.close)
+        self.ntfy_config = write_config(self.tmp / "config", self.report_ntfy.url, codes=[f"code{i:04d}" for i in range(5)])
 
     def fake(self, name, body):
         p = self.bin / name
@@ -743,6 +746,7 @@ class TestClassify(RunCase):
     def test_decision(self):
         result = "thinking\r\nDECISION NEEDED: first?\r\nmore\r\nDECISION NEEDED:  which \x1b]0;db\x07 provider?\r\n"
         self.steps([{"json": {"result": result}, "tick": False}])
+        self.report_ntfy.fail_posts = 3
         r = self.wf("demo", "-y", mode="fast")
         rec = self.assert_stopped(r, "ping_failed", calls=1)
         self.assertEqual(rec["calls"][0]["decision"], "which ]0;db provider?")
@@ -794,7 +798,8 @@ class TestClassify(RunCase):
         (self.fakes / "count").unlink()
         self.make_repo("two", "# Scope: x\n**Autopilot:** allowed\n### 1. A · auto\n- [x] (spec)\n- [ ] `/develop a`\n")
         self.steps([{}, {"tick": False, "json": {"result": "DECISION NEEDED: merge now?"}}])
-        rec = self.assert_stopped(self.wf("two", "-y", mode="fast"), "ping_failed", calls=2)
+        self.report_ntfy.fail_posts = 3
+        rec =self.assert_stopped(self.wf("two", "-y", mode="fast"), "ping_failed", calls=2)
         self.assertEqual((rec["decisions"][0]["call"], rec["calls"][1]["command"]), (2, "/sync"))
 
 
@@ -924,7 +929,7 @@ class TestParking(RunCase):
         self.steps([ask()])
         rec = self.assert_stopped(self.wf("demo", "-y", mode="fast"), "ping_failed", calls=1)
         self.assertIn("500", rec["detail"])
-        self.assertEqual(len(self.ntfy.posts), 3)
+        self.assertEqual(len(self.ntfy.pings()), 3)
 
     # covers: spec 0011 AC-15 (no reply within --max-wait ends the run queue_done, the question kept, exit 6)
     def test_decision_timeout(self):
@@ -945,7 +950,7 @@ class TestParking(RunCase):
         self.fake_ntfy()
         self.steps([ask()])
         rec = self.assert_stopped(self.wf("demo", "-y", "--max-calls", "1", mode="fast"), "max_calls", calls=1)
-        self.assertEqual(self.ntfy.posts, [])
+        self.assertEqual(self.ntfy.pings(), [])
         self.assertEqual(rec["decisions"], [])
         self.assertEqual(rec["detail"], "1 calls made, none left to resume")
         q = json.loads((self.state / "wf" / "queue.json").read_text())
@@ -956,7 +961,7 @@ class TestParking(RunCase):
         self.fake_ntfy()
         self.steps([ask(edit=[["**Autopilot:** allowed", "**Autopilot:** off"]])])
         self.assert_stopped(self.wf("demo", "-y", mode="fast"), "autopilot_off", calls=1)
-        self.assertEqual(self.ntfy.posts, [])
+        self.assertEqual(self.ntfy.pings(), [])
 
     # covers: spec 0005 AC-10 (the resume gets the cap checks: Autopilot off during the wait, no resume call)
     def test_autopilot_off_during_wait(self):

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # The workflow runner (spec 0001). Stdlib only, so a fresh clone works with no
 # install step. Subcommands: `list`/`next` (spec 0002), `run` (0004, in run.py),
-# `ntfy` (0005, in ntfy.py), `finish` (0019, in finish.py).
+# `ntfy` (0005, in ntfy.py), `finish` (0019, in finish.py), `report` (0018, in report.py).
 import argparse
 import math
 import os
@@ -649,6 +649,10 @@ def build_parser():
     finish = sub.add_parser("finish", help="run the live setup steps waiting on you, after one Enter")
     finish.add_argument("target", nargs="?", help="a path, folder name or scope title; none: every repo on the wf allow list")
     finish.add_argument("-y", "--yes", action="store_true", help="run without the confirm prompt")
+    rep = sub.add_parser("report", help="print the last wf run's morning report")
+    how = rep.add_mutually_exclusive_group()
+    how.add_argument("--seen", action="store_true", help="stop showing the report at session start")
+    how.add_argument("--hook", action="store_true", help="the session start form: prints only an unseen report")
     unpark = sub.add_parser("unpark",help="clear a repo's parked features and open questions")
     unpark.add_argument("target", help="a path, folder name or scope title")
     unpark.add_argument("feature", nargs="?", help="only this feature: its heading, or a unique part of it")
@@ -680,6 +684,9 @@ def main(argv=None):
     if args.command == "finish":
         import finish
         return finish.cmd_finish(args)
+    if args.command == "report":
+        import report
+        return report.cmd_report(args)
     if args.command in ("allow", "queue", "unpark"):
         import run
         return getattr(run, "cmd_" + args.command)(args)

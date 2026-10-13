@@ -198,7 +198,7 @@ class TestDecisions(DecisionCase, ParallelCase):
         lines = plan(r.stdout)
         self.assertIn(f"  open: {d['id']} 1. A: Which storage engine?", lines)
         self.assertIn("jobs: 1 at once", lines)
-        self.assertEqual(self.ntfy.posts[-1], first)
+        self.assertEqual(self.ntfy.pings()[-1], first)
         self.assertEqual(len(self.queue()["decisions"][0]["pings"]), 2)
         self.assertTrue(summary(r.stdout)[0].startswith("  rp: exit 6, "), r.stdout)
 

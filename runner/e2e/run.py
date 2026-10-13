@@ -2,6 +2,7 @@
 # Spec 0014 AC-5: `wf run` end to end in a throwaway copy of fixture/. It makes real claude calls, so you run it
 # yourself with `!` after a Claude Code upgrade or a runner change; install.sh and the unittest suite never do.
 # Spec 0017 AC-8: `--parallel` runs a bare `wf run` over two copies and checks their calls overlapped.
+# Spec 0018 AC-8: both forms also check the morning report, so a PASS sends a real note to your phone.
 import datetime
 import glob
 import json
@@ -59,9 +60,15 @@ def failure(top, repo, env):
     if len(runs) != 1:
         return f"{len(runs)} run.json files"
     with open(runs[0], encoding="utf-8") as f:
-        outcomes = [e.get("outcome") for e in json.load(f).get("features", [])]
+        rec = json.load(f)
+    outcomes = [e.get("outcome") for e in rec.get("features", [])]
     if outcomes != ["feature_done"]:
         return f"run.json outcomes {outcomes}"
+    # Spec 0018 AC-8: the run wrote its morning report and the note reached ntfy.
+    if not os.path.isfile(os.path.join(top, "state", "wf", "report.txt")):
+        return "no report.txt"
+    if rec.get("report") != "sent":
+        return f"run.json report {rec.get('report')!r}"
     with open(os.path.join(repo, "docs", "scope", "scope.md"), encoding="utf-8") as f:
         left = OPEN_BOX.findall(f.read())
     if left:
@@ -93,6 +100,17 @@ def parallel_failure(top, env):
         return f"run.json outcomes {outcomes}"
     if not any(s1 < e2 and s2 < e1 for s1, e1 in spans(recs[0]) for s2, e2 in spans(recs[1])):
         return "no call of one repo ran while a call of the other was running"
+    # Spec 0018 AC-8: the children left the report to the parent, which wrote one naming both repos.
+    reports = [rec.get("report") for rec in recs]
+    if reports != ["parent"] * 2:
+        return f"run.json report {reports}"
+    try:
+        with open(os.path.join(top, "state", "wf", "report.txt"), encoding="utf-8") as f:
+            text = f.read()
+    except FileNotFoundError:
+        return "no report.txt"
+    if "(one)" not in text or "(two)" not in text:
+        return "report.txt does not name both repos"
     return None
 
 

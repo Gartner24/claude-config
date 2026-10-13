@@ -506,7 +506,7 @@ class TestGuardAfterApp(AppCase):
         self.edit(f"exec python3 {self.app_py} {self.port} ok")
         self.steps([ask()])
         self.assert_stopped(self.wf("demo", "-y", mode="fast"), "guard_changed", calls=1, repo=True)
-        self.assertEqual(fake.posts, [])
+        self.assertEqual(fake.pings(), [])
 
     def test_over_ctrl_c(self):
         # Ctrl C while the app boots and ignores SIGTERM: only cleanup() stops it. An app that exits on the

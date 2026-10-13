@@ -504,7 +504,10 @@ open(os.path.join(repo, "test_calc.py"), "w").write(
     "import unittest, calc\\nclass T(unittest.TestCase):\\n    def test_add(self):\\n        self.assertEqual(calc.add(2, 3), 5)\\n")
 folder = os.path.join(os.environ["XDG_STATE_HOME"], "wf", "runs", "x")
 os.makedirs(folder)
-json.dump({{"features": [{{"outcome": "feature_done"}}]}}, open(os.path.join(folder, "run.json"), "w"))
+report = "failed: x" if mode == "unsent" else "sent"
+json.dump({{"features": [{{"outcome": "feature_done"}}], "report": report}}, open(os.path.join(folder, "run.json"), "w"))
+if mode != "no-report-txt":
+    open(os.path.join(os.environ["XDG_STATE_HOME"], "wf", "report.txt"), "w").write("wf done 03:20\\n")
 """
 
     def e2e(self, mode):
@@ -532,6 +535,14 @@ json.dump({{"features": [{{"outcome": "feature_done"}}]}}, open(os.path.join(fol
         self.assertEqual((stat.S_IMODE(cfg.stat().st_mode), cfg.read_text()), (0o600, self.ntfy_config.read_text()))
         self.assertEqual(subprocess.run(["git", "-C", str(left[0] / "repo"), "branch", "--show-current"],
                                         capture_output=True, text=True).stdout, "wf-e2e\n")
+
+    # covers: spec 0018 AC-8 (PASS needs report.txt in the temp state folder and "report": "sent" in run.json)
+    def test_report_checks(self):
+        for mode, line in (("unsent", "FAIL: run.json report 'failed: x'"), ("no-report-txt", "FAIL: no report.txt")):
+            with self.subTest(mode):
+                r, left = self.e2e(mode)
+                self.assertEqual((r.returncode, r.stdout.splitlines()[0]), (1, line), r.stdout + r.stderr)
+                shutil.rmtree(left[-1])
 
     # covers: spec 0014 AC-5 (the fixture scope parses with wf queue as one queued feature)
     def test_fixture_queues(self):

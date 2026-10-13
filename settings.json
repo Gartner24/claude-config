@@ -294,6 +294,14 @@
             "command": "setsid nohup bash /home/santiago/.claude/scripts/chroma-reaper.sh >/dev/null 2>&1 < /dev/null &"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/santiago/.local/bin/wf report --hook"
+          }
+        ]
       }
     ],
     "PostToolUse": [

@@ -502,7 +502,7 @@ class TestReping(DecisionCase):
         r = self.wf("rp", "-y", "--max-wait", "0.0001", mode="fast")
         self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
         self.assertEqual(self.calls(), [])
-        self.assertEqual(self.ntfy.posts[-1], first)
+        self.assertEqual(self.ntfy.pings()[-1], first)
         q = self.queue()["decisions"][0]
         self.assertEqual((q["id"], len(q["pings"]), q["sent"]), (d["id"], 2, d["sent"]))
         self.again()

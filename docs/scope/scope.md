@@ -424,11 +424,11 @@ Source: [docs/briefs/morning-report-and-live-steps.md](../briefs/morning-report-
 When a run ends, for any reason, one phone message: what got built, what waits on you, and the next command. The next `~/.claude` session opens with the same report.
 **Done when:** after a run you get the phone note, and your next `~/.claude` session opens with the report.
 - [x] Design it (spec): `/architect morning report`
-- [ ] Build it: `/develop morning report`
-   - [ ] `runner/report.py`, `ntfy` title, tags and `scrub_field`, called at the end of a single repo run (AC-1 to AC-4)
-   - [ ] One report for a bare `wf run` parent (AC-1, AC-2)
-   - [ ] `wf report`, `--seen`, `--hook`, killed run line; settings SessionStart entry and the handoff rule line (AC-5 to AC-7)
-   - [ ] `runner/e2e/run.py` report checks (AC-8)
+- [x] Build it: `/develop morning report`
+   - [x] `runner/report.py`, `ntfy` title, tags and `scrub_field`, called at the end of a single repo run (AC-1 to AC-4)
+   - [x] One report for a bare `wf run` parent (AC-1, AC-2)
+   - [x] `wf report`, `--seen`, `--hook`, killed run line; settings SessionStart entry and the handoff rule line (AC-5 to AC-7)
+   - [x] `runner/e2e/run.py` report checks (AC-8)
 - [ ] Verify it: `/check verify morning report`
 - [ ] Test it: `/test morning report`
 - [ ] Install the session hook: `./install.sh` (AC-7) · waits on you · live

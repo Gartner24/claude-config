@@ -30,6 +30,8 @@ chat. Build in chat only when the user says so for that feature.
 Run `wf queue` (read only). If anything finished, parked or waits on you since the last run,
 say it first in one short list, with the next command for each: review and merge for finished
 work, the fix for a park, the box for a waits-on-you step.
+When the session opens with a wf morning report, say it first in one short list with its next
+command, then follow *After a wf run ends*.
 
 ## After a wf run ends
 When the user says a run ended, read `wf queue` and the run's `run.json`, then give the morning

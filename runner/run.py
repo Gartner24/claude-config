@@ -28,6 +28,7 @@ import zoneinfo
 from queue import Queue
 
 import ntfy
+import report
 import wf
 
 # Matched on the first two words: a first word alone used to let `/check review` run unattended.
@@ -482,6 +483,7 @@ class Run:
                      "max_calls": args.max_calls, "max_hours": args.max_hours},
             "calls": [], "decisions": [], "waited_s": 0,
             "limit_wait": None, "limit_waited_s": 0, "outage_waits": [], "outage_waited_s": 0,
+            "report": None,
         }
         # Spec 0008 AC-6: set by a retryable failure, cleared by any call that does not fail.
         self.retried = False
@@ -2167,6 +2169,9 @@ class Run:
         self.record.update(spent(self.record["calls"]))
         print(spent_line(self.record))
         print(f"run folder: {self.folder}", flush=True)
+        # Spec 0018 AC-1: the morning report, after the final save; a report failure never changes the exit code.
+        self.record["report"] = report.end_of_run(self)
+        self.save()
         return self.exit_code(reason)
 
 
@@ -2619,7 +2624,11 @@ def moved(guard):
 def repo_lock(path, create=True):
     """Spec 0004 AC-9 lock of repo path, LOCK_NB: (fd holding it, None), (None, holder line) when a run holds it,
     or (None, None) for create=False and no lock file. Raises OSError."""
-    lock = os.path.join(state_dir(), "locks", hashlib.sha1(path.encode()).hexdigest() + ".lock")
+    return lock_file(os.path.join(state_dir(), "locks", hashlib.sha1(path.encode()).hexdigest() + ".lock"), create)
+
+
+def lock_file(lock, create=True):
+    """repo_lock on a lock file path; spec 0018 AC-6 tests every lock through it and lets go at once."""
     try:
         # No O_TRUNC: a losing opener used to wipe the holder's pid line.
         fd = os.open(lock, os.O_RDWR | os.O_CREAT, 0o600) if create else os.open(lock, os.O_RDONLY)
@@ -2967,9 +2976,10 @@ def parallel(r):
             j = next((j for j in waiting if not any(clashes(j, k) for k in running)), None)
             if j:
                 waiting.remove(j)
+                # Spec 0018 AC-1: the parent sends the one report, so no child does.
                 j["proc"] = subprocess.Popen([*argv, j["path"], *caps], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                              stderr=subprocess.STDOUT, encoding="utf-8", errors="replace",
-                                             start_new_session=True)
+                                             start_new_session=True, env={**os.environ, "WF_REPORT": "parent"})
                 running.append(j)
                 # A signal between the spawn and the append above found no child to forward to.
                 if r.interrupted:
@@ -3001,6 +3011,7 @@ def parallel(r):
         else:
             print(f"  {row['name']}: exit {row['code']}, {row['last']} | run folder: {row['folder']}")
     sys.stdout.flush()
+    report.end_of_parent(r, rows)
     codes = [j["code"] for j in jobs if j["code"] is not None]
     if r.interrupted or 130 in codes:
         return 130

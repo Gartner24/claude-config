@@ -88,6 +88,10 @@ class FakeNtfy:
         self.server.shutdown()
         self.server.server_close()
 
+    def pings(self):
+        """The posts without spec 0018's morning report, which ends every run."""
+        return [p for p in self.posts if p.get("title") != "wf report"]
+
 
 def write_config(home, server, codes=("goodcode",), **extra):
     cfg = {"server": server, "topic": TOPIC, "codes": [hashlib.sha256(c.encode()).hexdigest() for c in codes],
