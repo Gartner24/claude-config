@@ -108,3 +108,47 @@ Driven through the real `wf.py` in scratch folders (scratch HOME and XDG dirs, r
 - [x] M9: the push probe on the real claude, run 2 (spec 0004 `verify.md`).
 - [x] H1, L9, L2, M1, M2, M12, L1, L7, L8, L13, M11, M4 and the 3 mutants need injected faults (a phone reply, a usage limit, an app that fails on restart, a held lock); `runner/tests/test_review_fixes.py` drives them, most through real `wf.py` runs: 32 of 32 ok.
 - M3: not reachable through `wf run` today. A scope repo inside a git subfolder is refused `branch: no git` at the start check (`wf` reads `<repo>/.git`), before any design check. The `--relative` fix holds at the function level (`TestGitPaths.test_subfolder`, real git). The refusal itself predates this review.
+
+# Second review stack: c95f181..d20a328 (2026-10-12)
+
+Verdict WARN (0 critical, 3 high, 9 medium, 11 low). Receipt: `.git/review-stack/d20a328f7dc0da796390a019a79a9e949f590ad7`. 306 tests OK at d20a328.
+
+## Agreed so far, do not ask again (second round)
+
+- Fix every HIGH and MEDIUM finding below, plus L8 (cheap), each with a test and a mutation check. The other LOW findings stay as reported.
+- The private secret file names are removed from the unpushed commits by rewriting only the commits after `origin/feat/autonomous-runner`, replaced by generic wording; nothing already pushed is rewritten. They also sit in the pushed `settings.json` (the synced copy of the live one), which this does not touch: that cleanup belongs to deferred feature 21.
+- Then `/check verify`, `/test`, `/sync`; stop before merge or push.
+
+## Assumed (built on your "fix every finding" without an `/architect` run; each is in its spec's second review amendment)
+
+- Push rules: `Bash(git *subtree push*)`, `Bash(git *submodule foreach*push*)`, `Bash(git *lfs push*)` join `DENIED` (spec 0004 AC-4). Whether Claude Code's matcher reads them as intended is the probe rerun owed to you.
+- Jail: a hidden path that is a write bind or holds one is skipped, not refused (spec 0009 AC-3 step 3). A deny on your whole home then hides nothing beyond the fixed list.
+- Specs walk: only when git ignores the specs folder (`git check-ignore`, spec 0008 AC-3).
+- A test file past 16 MiB keeps no text; any change to it counts as touched (spec 0008 AC-3).
+- A file inside a repo's submodule folder is that repo's own for the repo stop vs run stop split (spec 0011 AC-9); the guard record gains `submodules` (spec 0007 AC-9).
+- `read_answers` follows a symlink to a regular file as before, but refuses anything that is not a regular file once opened, and a file past 16 MiB (spec 0006 AC-3).
+
+## Findings (second round)
+
+### HIGH
+- S1 `runner/tests/test_run.py:329`: no test pinned a non-empty `answers:` plan line.
+- S2 `runner/run.py:179`: TEST_BASE lacked `--relative` (the other half of M3).
+- S3 `docs/specs/0009-headless-verify-test/verify.md:211` and this brief: three private secret file names in a public repo.
+
+### MEDIUM
+- S4 `run.py:1891`: `read_answers`, reread after every call, followed a planted FIFO or `/dev/zero` link and hung wf.
+- S5 `run.py:74`: `git subtree push`, `git submodule foreach git push` (and `git lfs push`) no longer denied.
+- S6 `run.py:706`: submodule guard missed in place `.git` folders, `.git` pointers, `config.worktree` and include targets.
+- S7 `run.py:712`: unguarded submodule `listdir`, and `os.walk` without `onerror`.
+- S8 `run.py:776`: a Read deny holding the repo put a tmpfs over the repo bind.
+- S9 `run.py:1784`: the specs walk also ran over tracked `docs/specs`, hashing its ignored files.
+- S10 `run.py:925`, `:965`: `survey()` `- set(live)` and the `decision_lines` parked flag had no test going red.
+- S11 specs 0008 AC-3, 0007 AC-8, 0011 AC-13 lagged the code.
+- S12 `run.py:1808`: an edit past the cap of a big test file was not seen by `touched()`.
+- L8 (first round, partial): the trace reached stderr only.
+
+## Build result (second round)
+
+Every finding above is fixed. Tests in `runner/tests/test_review_fixes2.py` (12) plus updated `test_run.py`, `test_browser.py`, `test_review_fixes.py`. Mutation check: 25 mutants, each one fix reverted alone; 24 went red on the named test. The survivor was a CRLF translation in `read_answers` that the parser never needed, so it was removed. Suite: 318 tests OK.
+
+Owed to you: the push rule probe rerun on the real claude (steps 9 to 11, spec 0004 `verify.md`).

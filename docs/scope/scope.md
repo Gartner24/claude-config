@@ -35,6 +35,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 9 | Design enforcement unattended | Release 2 | done |
 | 10 | Build queue and decision queue | Release 3 | done |
 | 26 | Review stack fixes | Release 3 | done |
+| 27 | Second review stack fixes | Release 3 | in-progress |
 | 21 | Work names out of the public repo | Deferred | planned |
 | 24 | Runner resilience | Deferred | planned |
 | 25 | Checks that cannot lie | Deferred | planned |
@@ -288,6 +289,16 @@ Every HIGH, MEDIUM and LOW finding of the `/review-stack` of `d02d329..c95f181`,
 - [x] Test it: `/test review stack fixes`
 Specs amended: [0011](../specs/0011-build-decision-queue/index.md), [0009](../specs/0009-headless-verify-test/index.md), [0008](../specs/0008-failure-park-policy/index.md) · code in `runner/run.py`, `runner/wf.py`, `runner/ntfy.py`
 Source: [docs/briefs/runner-review-stack-2026-10-12.md](../briefs/runner-review-stack-2026-10-12.md)
+
+### 27. Second review stack fixes · in-progress
+Every HIGH and MEDIUM finding of the `/review-stack` of `c95f181..d20a328`, plus L8, fixed with a test and a mutation check each; the private secret file names rewritten out of the unpushed commits.
+**Done when:** every second round finding in the brief is fixed with a test that goes red without its fix, no unpushed commit names a private secret file, and the suite passes.
+- [x] Build it: `/develop second review stack fixes`
+   - [ ] Push rule probe rerun on the real claude, steps 9 to 11: `bash docs/specs/0004-headless-step-loop/probes/push-rule.sh` · waits on you
+- [ ] Verify it: `/check verify second review stack fixes`
+- [ ] Test it: `/test second review stack fixes`
+Specs amended: [0004](../specs/0004-headless-step-loop/index.md), [0006](../specs/0006-standing-answers/index.md), [0007](../specs/0007-push-guard/index.md), [0008](../specs/0008-failure-park-policy/index.md), [0009](../specs/0009-headless-verify-test/index.md), [0010](../specs/0010-design-enforcement-unattended/index.md), [0011](../specs/0011-build-decision-queue/index.md) · code in `runner/run.py`
+Source: [docs/briefs/runner-review-stack-2026-10-12.md](../briefs/runner-review-stack-2026-10-12.md) (second review section)
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
