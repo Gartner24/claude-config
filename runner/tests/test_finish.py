@@ -151,8 +151,9 @@ class TestHappyPath(FinishCase):
         self.assertIn("install done", out)
         folder = Path(next(l for l in out.splitlines() if l.startswith("backups and logs: "))[18:])
         self.assertEqual((folder / "claude" / "rules" / "a.md").read_text(), "old\n")
-        self.assertTrue((folder / "claude" / "agents" / "link.md").is_symlink())
-        self.assertEqual((folder / "claude" / "settings.json").read_text(), '{"autoMode": {}}')
+        # Spec 0020 AC-4: backups of the changed paths only; the stage kept the link as a link.
+        self.assertFalse((folder / "claude" / "settings.json").exists())
+        self.assertTrue((self.live / "agents" / "link.md").is_symlink())
         self.assertIn("boom", (folder / "step-02.log").read_text())
         v1 = self.verify("0001-x")
         self.assertTrue(v1.startswith("# Verify\n\nold notes\n\n## Live runs (wf finish)\n\n"), v1)

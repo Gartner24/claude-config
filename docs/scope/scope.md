@@ -452,7 +452,7 @@ You type only `wf`. After one confirm screen it shows the report, applies pendin
    - [x] Runner copy: `install_runner` in `runner/finish.py`, `install.sh` calls it, deny `~/.local/share/wf` (AC-12)
    - [x] Locks: holder line by every taker, `wf finish` without repo locks, held repos skipped (AC-9, AC-7)
    - [x] Runs take a `wf` swap: `live_dir()`, ledger acceptance, live dir guard rebuild, state folder deny (AC-5)
-   - [ ] Staged setup and swap: `WF_STAGE` in `install.sh`, stage, journal, ledger, ordered renames, crash finish (AC-3, AC-4)
+   - [x] Staged setup and swap: `WF_STAGE` in `install.sh`, stage, journal, ledger, ordered renames, crash finish (AC-3, AC-4)
    - [ ] Retakes by reason, then bare `wf`: screen, order, builds, checks beside them, commit retries (AC-6, AC-1, AC-2, AC-7, AC-8)
    - [ ] One command texts and rule copies, corpus test, `runner/e2e/run.py --beside` (AC-10, AC-11)
 - [ ] Verify it: `/check verify one command wf`

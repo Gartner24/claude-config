@@ -58,15 +58,22 @@ done
 # runner/, and the SessionStart hook naming wf then made every wf run call's guard deny runner/.
 # `next` is the same file; called by that name it acts as `wf next`.
 echo "runner:"
+# Spec 0020 AC-3: under `wf`, install.sh runs into a stage and writes nothing outside $LIVE; wf swaps
+# the runner copy, the bin links and the git hooks in itself, with the same code.
+if [ -n "${WF_STAGE:-}" ]; then
+  note "staged: bin links and git hooks left to wf"
+else
 BIN="$HOME/.local/bin"
 run mkdir -p "$BIN"
-python3 -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/runner"); import finish; finish.install_runner(sys.argv[1], sys.argv[2], sys.argv[3] == "1")' "$REPO" "$HOME" "$DRY"
+# A scratch copy of this script with no runner/ (the spec 0013 self checks) installs the rest.
+[ -d "$REPO/runner" ] && python3 -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/runner"); import finish; finish.install_runner(sys.argv[1], sys.argv[2], sys.argv[3] == "1")' "$REPO" "$HOME" "$DRY"
 # Spec 0015 AC-6: /sync runs spec-paths to warn about stale accepted specs.
 if [ -e "$BIN/spec-paths" ] && ! [ -L "$BIN/spec-paths" ]; then
   note "SKIP spec-paths (a real file is already at $BIN/spec-paths)"
 else
   note "spec-paths -> scripts/spec-paths.py"
   run ln -sfn "$REPO/scripts/spec-paths.py" "$BIN/spec-paths"
+fi
 fi
 
 # settings.json hardcodes absolute paths to hook scripts. Substituting $HOME is
@@ -159,8 +166,9 @@ if [ -e "$LIVE/private/names.txt" ]; then
   # Copies, never links: a wf run call may edit the tracked checker, and a linked hook
   # used to run that edit outside the sandbox at the next commit (spec 0013 AC-7).
   checker="$REPO/scripts/private-names.py"
-  run mkdir -p "$hooks"
+  [ -n "${WF_STAGE:-}" ] || run mkdir -p "$hooks"
   for h in pre-commit commit-msg; do
+    [ -n "${WF_STAGE:-}" ] && break
     dst="$hooks/$h"
     act=""
     if [ -L "$dst" ]; then
