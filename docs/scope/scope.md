@@ -454,8 +454,8 @@ You type only `wf`. After one confirm screen it shows the report, applies pendin
    - [ ] One command texts and rule copies, corpus test, `runner/e2e/run.py --beside` (AC-10, AC-11)
 - [ ] Verify it: `/check verify one command wf`
 - [ ] Test it: `/test one command wf`
-- [ ] Copy the handoff rule live: `cp ~/claude-config/rules/runner-handoff.md ~/.claude/rules/runner-handoff.md` (AC-10) · waits on you · live
-- [ ] Copy the scope contract live: `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` (AC-10) · waits on you · live
+- [x] Copy the handoff rule live: `cp ~/claude-config/rules/runner-handoff.md ~/.claude/rules/runner-handoff.md` (AC-10) · waits on you · live
+- [x] Copy the scope contract live: `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` (AC-10) · waits on you · live
 - [ ] Real check beside a run: `python3 runner/e2e/run.py --beside` (AC-11) · waits on you · live
 - [ ] Sync docs: `/sync one command wf`
 Spec [0020](../specs/0020-one-command-wf/index.md)
