@@ -43,7 +43,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 29 | Several repos at once | Release 4 | done |
 | 30 | Live setup steps in one command | Release 5 | in-progress |
 | 13 | Morning report | Release 5 | in-progress |
-| 32 | One command: wf | Release 6 | needs a decision |
+| 32 | One command: wf | Release 6 | in-progress |
 | 31 | Guard baseline check before each repo | Deferred | planned |
 | 23 | Questions that teach | Deferred | planned |
 | 15 | Cheap worker tier | Deferred | planned |
@@ -442,10 +442,23 @@ Source: [docs/briefs/morning-report-and-live-steps.md](../briefs/morning-report-
 
 ## Release 6: work non stop
 
-### 32. One command: wf · needs a decision
+### 32. One command: wf · in-progress · auto
 You type only `wf`. After one confirm screen it shows the report, applies pending live setup steps as one atomic swap, runs pending real claude checks, takes back features whose cause is fixed, and starts every repo with work side by side, never waiting on or stopping a run already going. `wf finish`, `wf unpark` and the rest stop being steps you are told to type.
 **Done when:** with a run going in another repo, one `wf` does all five steps, that run keeps going and its next call uses the new setup, a change to `~/.claude` not made by `wf` still stops the run, and no skill, rule or report tells you to type any `wf` subcommand.
-- [ ] Design it (spec): `/architect one command wf`
+- [x] Design it (spec): `/architect one command wf`
+- [ ] Build it: `/develop one command wf`
+   - [ ] Locks: holder line by every taker, `wf finish` without repo locks, held repos skipped (AC-9, AC-7)
+   - [ ] Runs take a `wf` swap: `live_dir()`, ledger acceptance, live dir guard rebuild, state folder deny (AC-5)
+   - [ ] Staged setup and swap: `WF_STAGE` in `install.sh`, stage, journal, ledger, ordered renames, crash finish (AC-3, AC-4)
+   - [ ] Retakes by reason, then bare `wf`: screen, order, builds, checks beside them, commit retries (AC-6, AC-1, AC-2, AC-7, AC-8)
+   - [ ] One command texts and rule copies, corpus test, `runner/e2e/run.py --beside` (AC-10, AC-11)
+- [ ] Verify it: `/check verify one command wf`
+- [ ] Test it: `/test one command wf`
+- [ ] Copy the handoff rule live: `cp ~/claude-config/rules/runner-handoff.md ~/.claude/rules/runner-handoff.md` (AC-10) · waits on you · live
+- [ ] Copy the scope contract live: `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` (AC-10) · waits on you · live
+- [ ] Real check beside a run: `python3 runner/e2e/run.py --beside` (AC-11) · waits on you · live
+- [ ] Sync docs: `/sync one command wf`
+Spec [0020](../specs/0020-one-command-wf/index.md)
 Source: [docs/briefs/never-wait-on-each-other.md](../briefs/never-wait-on-each-other.md).
 
 ## Deferred

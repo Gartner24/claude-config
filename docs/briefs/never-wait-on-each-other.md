@@ -11,6 +11,7 @@
   5. Starts the build of every repo with work, side by side, skipping repos a run already holds (they are not an error).
 - A run already going is never stopped by `wf`: it treats a swap made by `wf` as expected and takes the new setup at its next call (each call is a fresh claude session). Any change to `~/.claude` not made by `wf` still stops it, as today.
 - No lock is held longer than the step that needs it; a refusal names the real holder.
+- Decided in /architect, 2026-10-13 (spec 0020): the swap is per file, renamed in a loop of a few milliseconds with `settings.json` last, so a Claude starting inside that window may see some new and some old files, every file whole (accepted over a whole set swap). A call already running sees the new settings and hooks mid call (probe P1, accepted). The real claude checks run beside the builds, not before them, so nothing waits on them. A second `wf` during a swap skips only the swap and does the rest.
 - Trigger, 2026-10-13: `wf finish` held every repo lock for 30 minutes, `wf unpark` was refused, `wf finish` refused because a run was going, and a hand made wait loop was needed.
 
 ## Open for /architect
