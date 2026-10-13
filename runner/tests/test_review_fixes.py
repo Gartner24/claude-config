@@ -70,6 +70,23 @@ class TestStaleUnqueued(DecisionCase):
         self.assertNotIn("--resume", self.argv(1)["argv"])
         self.assertEqual(self.queue()["decisions"], [])
 
+    # covers: spec 0011 AC-13 (L9: a feature marked `· done` drops its answered Decision too)
+    def test_done(self):
+        repo = self.make_repo("dn", ONE)
+        self.commit(repo)
+        i = self.open_one("dn")["id"]
+        self.set_decision(answer="SQLite", source="phone", answered="2026-10-12T10:00:00+02:00")
+        (repo / "docs/scope/scope.md").write_text(ONE.replace("### 1. A · auto", "### 1. A · done · auto") +
+                                                  "\n### 2. B · auto\n- [x] (spec)\n- [ ] `/develop b`\n")
+        self.commit(repo)
+        self.steps([TICK_B, DONE_B])
+        r = self.wf("dn", "-y", mode="fast")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn(f"  stale: {i} 1. A\n", r.stdout)
+        self.assertEqual([c["argv"][1] for c in map(json.loads, (p.read_text() for p in self.calls()))],
+                         ["/develop b", "/sync"])
+        self.assertEqual(self.queue()["decisions"], [])
+
 
 class TestPaid(unittest.TestCase):
     # covers: spec 0008 AC-7 (L6: _KEY, _PAT endings and the exact names; lookalikes kept)
@@ -397,6 +414,35 @@ class TestReplyId(DecisionCase):
         self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
         _, rec = self.run_record()
         self.assertEqual([(e["id"], e["ignored"]) for e in rec["decisions"]], [("cd34", 0)])
+
+
+class TestReplyField(unittest.TestCase):
+    # covers: spec 0011 AC-17 data model (L2: `reply` may be absent or a string; anything else breaks the file)
+    def test_validation(self):
+        base = {"version": 1, "parks": [], "decisions": [decision("/r", "1. A")]}
+        self.assertIsNone(run.queue_problem(base))
+        for value, want in (("m7", None), (None, None),
+                            (7, "decisions[0] has a bad id, call_kind, kind, source or list"),
+                            (["m7"], "decisions[0] has a bad id, call_kind, kind, source or list")):
+            q = json.loads(json.dumps(base))
+            q["decisions"][0]["reply"] = value
+            self.assertEqual(run.queue_problem(q), want, value)
+
+
+class TestUserReadDenies(unittest.TestCase):
+    # covers: spec 0009 AC-3 step 3 (M7: a broken or oddly shaped settings file hides nothing extra, never crashes)
+    def test_broken(self):
+        for text in ("{broken", "[]", '{"permissions": []}', '{"permissions": {"deny": "Read(//x)"}}',
+                     '{"permissions": {"deny": [7, null, "Read(//a/b)", "Read(//a/*.pem)", "Read(**/c)"]}}'):
+            with tempfile.TemporaryDirectory() as d:
+                Path(d, ".claude").mkdir()
+                Path(d, ".claude", "settings.json").write_text(text)
+                with mock.patch.dict(os.environ, {"HOME": d}):
+                    got = run.user_read_denies()
+                self.assertEqual(got, ["/a/b"] if "Read(//a/b)" in text and text.startswith('{"permissions": {"deny": [')
+                                 else [], text)
+        with tempfile.TemporaryDirectory() as d, mock.patch.dict(os.environ, {"HOME": d}):
+            self.assertEqual(run.user_read_denies(), [])
 
 
 class TestOwedMarkerOnly(unittest.TestCase):

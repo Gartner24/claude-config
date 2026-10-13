@@ -88,3 +88,23 @@ Notes from the build:
 
 None needs a decision, and nothing is owed:
 - M9 push rule probe: PASS on the real claude (run 2, 2026-10-12, `docs/specs/0004-headless-step-loop/verify.md`).
+
+## /check verify (2026-10-12): PASS
+
+Driven through the real `wf.py` in scratch folders (scratch HOME and XDG dirs, real git, bwrap, socat; a stand in `claude` from `runner/tests/test_run.py` `FAKE_CLAUDE`, since this session has no claude login). Script: `verify26.py` in the session scratchpad.
+
+- [x] H3, L12: `wf queue q` prints `answers: run suite yes, app start npm run dev -- --port 3000, app url http://localhost:3000`, no `guard:` line, and creates no state folder.
+- [x] H3: `wf run p` (no tty, cancels exit 130) prints `answers: done yes` and `guard: 9 hosts, 20 files`.
+- [x] H2: a call that plants an `app start` and `app url` in `AGENTS.md` gives `stopped repo w: guard_changed: AGENTS.md standing answers changed during the run`, and no second call runs.
+- [x] L6: with `DATABASE_URL`, `GITHUB_PAT`, `SENTRY_DSN`, `PGPASSWORD`, `STRIPE_KEY`, `REDIS_URL` set, the call env holds only `REDIS_URL`.
+- [x] M8, L11 (and its commit review fix), M9, M7: a repo with remote `[git@git.corp.example:2222]:team/repo.git`, an `ssh://git@[fd00::5]:22` remote and a submodule git dir: `deniedDomains` holds `git.corp.example` and `fd00::5`; `denyWrite` ends with the submodule's `config` and `hooks`; the push rules are `Bash(git push*)`, `Bash(git -* push*)`; `Read` denies cover `~/.npmrc` and `~/.claude/anthropic_api_key`.
+- [x] M6: server `https://[x` gives `refused: no_ntfy: server must start with https://`, exit 5, no traceback.
+- [x] M5: a git that fails `remote -v` gives `refused: no_sandbox: git remote -v failed: boom`, exit 5.
+- [x] L10, L4: `wf queue` shows `queued: 2. Live` under a `# Next up` after `## Deferred` (1. Old stays deferred) and `skip: 3. Phone: waiting` for a box that is only `· waits on you`.
+- [x] L3: `wf run --help` says "hours the run waits at its end for your phone replies".
+- [x] L5: 12 `wf allow` at once, all exit 0, all 12 paths kept, no stray temp files.
+- [x] M13 and both snapshot commit reviews: a debug call that edits an ignored `.workflow/specs/0001-a/index.md` parks `debug_touched` naming it; a debug call that swaps `.workflow/specs` for a symlink to `/` parks the same, in 0.2 s.
+- [x] M7, M10 on your real home: `docs/specs/0009-headless-verify-test/probes/p2-built.py` (updated for the spec 0011 repo entry) starts the real bwrap jail with your symlinked dotfiles; every hidden secret is refused or empty inside it, your own `Read` denies included (three secret files of your own); the planted hook is still caught.
+- [x] M9: the push probe on the real claude, run 2 (spec 0004 `verify.md`).
+- [x] H1, L9, L2, M1, M2, M12, L1, L7, L8, L13, M11, M4 and the 3 mutants need injected faults (a phone reply, a usage limit, an app that fails on restart, a held lock); `runner/tests/test_review_fixes.py` drives them, most through real `wf.py` runs: 32 of 32 ok.
+- M3: not reachable through `wf run` today. A scope repo inside a git subfolder is refused `branch: no git` at the start check (`wf` reads `<repo>/.git`), before any design check. The `--relative` fix holds at the function level (`TestGitPaths.test_subfolder`, real git). The refusal itself predates this review.

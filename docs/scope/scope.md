@@ -34,7 +34,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 7 | Headless verify and test | Release 2 | done |
 | 9 | Design enforcement unattended | Release 2 | done |
 | 10 | Build queue and decision queue | Release 3 | done |
-| 26 | Review stack fixes | Release 3 | in-progress |
+| 26 | Review stack fixes | Release 3 | done |
 | 21 | Work names out of the public repo | Deferred | planned |
 | 24 | Runner resilience | Deferred | planned |
 | 25 | Checks that cannot lie | Deferred | planned |
@@ -275,7 +275,7 @@ A parked feature no longer stops the run: the runner moves to the next queued fe
 Spec [0011](../specs/0011-build-decision-queue/index.md) · code in `runner/run.py`, `runner/wf.py`, `runner/tests/test_queue.py`
 AC-22 manual checks passed 2026-10-12 through real `wf run` and phone taps (`verify.md`).
 
-### 26. Review stack fixes · in-progress
+### 26. Review stack fixes · done
 Every HIGH, MEDIUM and LOW finding of the `/review-stack` of `d02d329..c95f181`, plus the 3 surviving mutants, fixed with a test and a mutation check each.
 **Done when:** every finding in the brief is fixed with a red-then-green test, or listed under its `## Residual` with the decision it needs, and the suite passes.
 - [x] Design it (spec): `/architect review stack fixes`
@@ -284,8 +284,8 @@ Every HIGH, MEDIUM and LOW finding of the `/review-stack` of `d02d329..c95f181`,
    - [x] MEDIUM fixes and the 3 mutants (M1 to M13)
    - [x] LOW fixes (L1 to L13)
    - [x] Push rule probe on the real claude: `bash docs/specs/0004-headless-step-loop/probes/push-rule.sh` (M9) · waits on you
-- [ ] Verify it: `/check verify review stack fixes`
-- [ ] Test it: `/test review stack fixes`
+- [x] Verify it: `/check verify review stack fixes`
+- [x] Test it: `/test review stack fixes`
 Specs amended: [0011](../specs/0011-build-decision-queue/index.md), [0009](../specs/0009-headless-verify-test/index.md), [0008](../specs/0008-failure-park-policy/index.md) · code in `runner/run.py`, `runner/wf.py`, `runner/ntfy.py`
 Source: [docs/briefs/runner-review-stack-2026-10-12.md](../briefs/runner-review-stack-2026-10-12.md)
 

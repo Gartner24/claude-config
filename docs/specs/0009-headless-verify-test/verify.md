@@ -205,3 +205,7 @@ Every AC exercised through the real `wf.py run` on scratch repos (`wf11`), with 
 - [x] AC-9: P8 `test_base` `0b97be9`, P9 `886af04`, `/test` covered the committed files.
 - [x] AC-10: call records carry `app` (`url`, `logs`, `ready_s 0.5`, `exit -15`) and `test_base`; `run.json` `answers` shows the app keys.
 - [x] AC-11: P1 to P11 recorded in this file, P2, P8, P9 rerun today after the last code change.
+
+## P2 rerun after the review stack fixes (2026-10-12): PASS
+
+- [x] `python3 -B probes/p2-built.py`, updated for the spec 0011 repo entry (`hold()`) and with a read check per hidden secret: the jail starts on this machine's symlinked dotfiles (review M10); `~/.ssh`, `~/.config/gh`, `~/.aws`, `~/.gnupg`, `~/.config/BraveSoftware` read empty, `~/.git-credentials`, `~/.claude/.credentials.json` and your own `Read` denies (three secret files of your own) are refused (review M7); writes to `.claude`, the real `~/.gitconfig`, git hooks and the worktree pointer are refused; no OAuth token in the env; the hook planted in a checkout with no hooks folder stops `guard_changed`.
