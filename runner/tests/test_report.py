@@ -270,8 +270,10 @@ class TestEndOfRun(QueueCase):
         folder, record = self.run_record()
         self.assertEqual(record["report"], "sent")
         text = (self.state / "wf" / "report.txt").read_text().splitlines()
-        self.assertEqual(text[1:6], ["built: 2. B", "parked: 1. A: blocked: test park", "live: 3. C: 2 step(s)",
-                                     "yours: 3. C: Check the phone", "next: wf, then review and merge: two"])
+        # Spec 0021 AC-6: the park's open question with its recommended answer.
+        self.assertRegex(text[3], r"^question [a-z0-9]{4}: 1\. A: blocked: test park \(recommended: done, go on\)$")
+        self.assertEqual(text[1:3] + text[4:7], ["built: 2. B", "parked: 1. A: blocked: test park", "live: 3. C: 2 step(s)",
+                                                 "yours: 3. C: Check the phone", "next: wf, then review and merge: two"])
         self.assertEqual(text[-1], f"run folder: {folder}")
         notes = [p for p in self.report_ntfy.posts if p["title"] == "wf report"]
         self.assertEqual(len(notes), 1)
@@ -319,7 +321,10 @@ class TestParent(ParallelCase):
         self.assertEqual({n: x["report"] for n, x in self.run_records().items()}, {"ra": "parent", "rb": "parent"})
         notes = [p for p in self.report_ntfy.posts if p["title"] == "wf report"]
         self.assertEqual(len(notes), 1)
-        la, lb = (ntfy.repo_label(json.loads((self.tmp / "config" / "wf" / "ntfy.json").read_text()), str(x)) for x in (a, b))
+        # The labels as the run saw them: its HOME holds no private names list (spec 0021 AC-8).
+        with mock.patch.dict(os.environ, {"HOME": str(self.tmp)}):
+            la, lb = (ntfy.repo_label(json.loads((self.tmp / "config" / "wf" / "ntfy.json").read_text()), str(x))
+                      for x in (a, b))
         self.assertEqual(notes[0]["message"].splitlines()[1:], [f"built: 1. A ({la})", f"built: 1. A ({lb})",
                                                                 f"next: review and merge: {la}, {lb}"])
         self.assertTrue(notes[0]["message"].startswith("wf done "))

@@ -45,6 +45,24 @@ def scope_items(path):
     return [{"kind": "live", "feature": f, "n": n} for f, n in live.items()] + yours
 
 
+def open_questions(path, items):
+    """Spec 0021 AC-6: every open question of the repo in queue.json, with its recommended answer (its first
+    option), filled into the run's own question items or added after them. An unreadable queue adds nothing."""
+    try:
+        q = run.queue_transact()
+    except run.QueueError:
+        return items
+    asked = [d for d in q["decisions"] if d["repo"] == path and d["answer"] is None and d.get("level") != "run"]
+    by_id = {i.get("id"): i for i in items if i.get("kind") == "question"}
+    for d in asked:
+        item = by_id.get(d["id"])
+        if item is None:
+            item = {"kind": "question", "id": d["id"], "feature": d["feature"]}
+            items.append(item)
+        item.update(question=d["question"], recommended=d["options"][0] if d["options"] else None)
+    return items
+
+
 def collect(sources):
     """AC-2: (items, records) over sources in run order. A source is {path, name, folder, code, rec}: folder None
     with code None is a parent row that never started, folder None with a code a child that printed no folder."""
@@ -70,11 +88,11 @@ def collect(sources):
                         continue
                     item.update(kind="parked", reason=o, detail=e.get("detail"))
                 elif o:
-                    item.update(kind="stopped", reason=o)
+                    item.update(kind="stopped", reason=o, folder=s["folder"])
                 else:
                     continue
                 mine.append(item)
-        mine += scope_items(s["path"])
+        mine = open_questions(s["path"], mine) + scope_items(s["path"])
         for item in mine:
             item.update(repo=s["path"], name=s["name"])
         items += mine
@@ -126,8 +144,16 @@ def item_line(i, multi, phone, cfg):
             text += f": {run.flat(i['detail'])}"
     elif k == "stopped":
         text = f"stopped: {feature}: {field(i['reason'], 40, 'reason')}"
+        # Spec 0021 U10: a runner bug stops only its repo; the report points at its traceback.
+        if not phone and i["reason"] == "internal_error" and i.get("folder"):
+            text += f" (traceback: {os.path.join(i['folder'], 'traceback.txt')})"
     elif k == "question":
         text = f"question {wf.clean(i['id'])}: {feature}"
+        # Spec 0021 AC-6: what it asks and the answer it recommends.
+        if i.get("question"):
+            text += f": {field(i['question'], 80, 'question')}"
+        if i.get("recommended"):
+            text += f" (recommended: {field(i['recommended'], 40, 'answer')})"
     elif k == "live":
         text = f"live: {feature}: {i['n']} step(s)"
     elif k == "yours":

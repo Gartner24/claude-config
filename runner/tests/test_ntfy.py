@@ -204,7 +204,9 @@ class TestScrub(NtfyCase):
         cfg = self.cfg(aliases={repo: "home"}, block=["Acme"])
         self.assertEqual(ntfy.repo_label(cfg, repo), "home")
         other = str(self.tmp / "other")
-        self.assertEqual(ntfy.repo_label(cfg, other), "repo-" + hashlib.sha1(other.encode()).hexdigest()[:4])
+        # No private names list in this HOME, so the name stays hidden (spec 0021 AC-8).
+        with mock.patch.dict(os.environ, {"HOME": str(self.tmp)}):
+            self.assertEqual(ntfy.repo_label(cfg, other), "repo-" + hashlib.sha1(other.encode()).hexdigest()[:4])
         t = ntfy.Topic(cfg, "home", "Acme billing")
         self.assertEqual(t.title, "wf home: feature")
         d = self.decision(options=["Keep ACME api", "Drop it"])

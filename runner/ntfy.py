@@ -169,9 +169,33 @@ def scrub_field(cfg, text, limit, fallback):
     return fallback if not s or blocked(cfg, s) else s
 
 
+def private_names():
+    """Spec 0021 AC-8: the names in the private names list scripts/private-names.py checks (private/names.txt in
+    $CLAUDE_LIVE_DIR, $CLAUDE_CONFIG_DIR and ~/.claude; literal, lower cased, `==>` replacements cut). None when
+    no list can be read or it holds no name: every repo name then stays hidden, as the checker fails closed."""
+    home = os.path.join(os.path.expanduser("~"), ".claude")
+    names = []
+    for d in dict.fromkeys(filter(None, (os.environ.get("CLAUDE_LIVE_DIR"), os.environ.get("CLAUDE_CONFIG_DIR"), home))):
+        try:
+            with open(os.path.join(d, "private", "names.txt"), encoding="utf-8") as f:
+                lines = f.read().splitlines()
+        except (OSError, UnicodeDecodeError):
+            continue
+        names += [l.strip().partition("==>")[0].strip().lower() for l in lines if l.strip() and not l.strip().startswith("#")]
+    names = [n for n in names if n]
+    return names or None
+
+
 def repo_label(cfg, repo):
+    """An alias, else (spec 0021 AC-8) the folder name unless the private names list or the block list holds it,
+    else repo-<hash>."""
     real = os.path.realpath(repo)
-    return cfg["aliases"].get(real) or "repo-" + hashlib.sha1(real.encode()).hexdigest()[:4]
+    if cfg["aliases"].get(real):
+        return cfg["aliases"][real]
+    name, names = os.path.basename(real), private_names()
+    if name and names is not None and not any(n in name.lower() for n in names) and not blocked(cfg, name):
+        return name
+    return "repo-" + hashlib.sha1(real.encode()).hexdigest()[:4]
 
 
 def new_id(taken):

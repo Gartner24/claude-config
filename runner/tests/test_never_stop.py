@@ -1,17 +1,19 @@
 """Spec 0021: never stop, a case for every stop."""
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import run  # noqa: E402
 from test_park import GIT_ID, VERIFY  # noqa: E402
-from test_run import RunCase, ask  # noqa: E402
+from test_run import SCOPE, RunCase, ask  # noqa: E402
 
 ROWS = {*(f"F{n}" for n in range(1, 13)), *(f"R{n}" for n in range(1, 5)), *(f"U{n}" for n in range(1, 11))}
 
@@ -361,6 +363,63 @@ class TestStanding(NeverStopCase):
         got = run.carve([str(d), str(self.tmp / "other")], [str(d / "sub" / "open")])
         self.assertEqual(got, [str(d / "keep"), str(d / "sub" / "shut"), str(self.tmp / "other")])
         self.assertEqual(run.carve([str(d / "keep")], [str(d)]), [])
+
+
+class TestReport(NeverStopCase):
+    def names(self, *names):
+        p = self.tmp / ".claude" / "private" / "names.txt"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("".join(n + "\n" for n in names))
+
+    def body(self):
+        return [p for p in self.report_ntfy.posts if p.get("title") == "wf report"][-1]["message"]
+
+    # covers: AC-6 (the morning report lists every open question with its recommended answer, phone note too)
+    def test_open_questions(self):
+        self.steps([BLOCKED])
+        self.wf("demo", "-y")
+        [d] = self.queue()["decisions"]
+        line = f"question {d['id']}: 1. Loop: blocked: sudo pacman -S stow (recommended: done, go on)"
+        self.assertIn(line, (self.state / "wf" / "report.txt").read_text().splitlines())
+        self.assertIn(line, self.body().splitlines())
+
+    # covers: U10 (a runner bug stops the repo; the report points at its traceback)
+    def test_traceback_in_report(self):
+        self.wf("demo", "-y", mode="boom")
+        folder, _ = self.run_record()
+        self.assertIn(f"stopped: 1. Loop: internal_error (traceback: {folder}/traceback.txt)",
+                      (self.state / "wf" / "report.txt").read_text().splitlines())
+        self.assertTrue((folder / "traceback.txt").exists())
+
+    # covers: AC-8 (the phone note names a repo by its folder name; one on the private list keeps repo-<hash>)
+    def test_repo_names(self):
+        self.names("# a comment", "secretco==>client")
+        self.steps([{}, {}, {"tick": False}])
+        self.wf("demo", "-y")
+        self.assertEqual(self.body().splitlines()[-1], "next: review and merge: demo")
+        self.make_repo("secretco-site", SCOPE)
+        for f in [self.fakes / "count", *self.fakes.glob("argv-*.json")]:
+            f.unlink()
+        shutil.rmtree(self.state / "wf" / "runs")
+        self.wf("secretco-site", "-y")
+        self.assertRegex(self.body().splitlines()[-1], r"^next: review and merge: repo-[0-9a-f]{4}$")
+
+    # covers: AC-8 (alias first; the block list and a missing or empty list hide the name)
+    def test_repo_label(self):
+        cfg = {"aliases": {}, "block": []}
+        env = {"HOME": str(self.tmp), "CLAUDE_CONFIG_DIR": "", "CLAUDE_LIVE_DIR": ""}
+        with mock.patch.dict(os.environ, env):
+            hidden = run.ntfy.repo_label(cfg, str(self.repo))
+            self.assertRegex(hidden, r"^repo-[0-9a-f]{4}$")
+            self.names()
+            self.assertEqual(run.ntfy.repo_label(cfg, str(self.repo)), hidden)
+            self.names("Other")
+            self.assertEqual(run.ntfy.repo_label(cfg, str(self.repo)), "demo")
+            self.names("DEM")
+            self.assertEqual(run.ntfy.repo_label(cfg, str(self.repo)), hidden)
+            self.names("other")
+            self.assertEqual(run.ntfy.repo_label({"aliases": {}, "block": ["emo"]}, str(self.repo)), hidden)
+            self.assertEqual(run.ntfy.repo_label({"aliases": {str(self.repo): "mine"}, "block": []}, str(self.repo)), "mine")
 
 
 class TestRepoAndRun(NeverStopCase):
