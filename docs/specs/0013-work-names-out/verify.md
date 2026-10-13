@@ -17,13 +17,20 @@ _Steps derived from spec 0013 acceptance criteria. `/check verify` runs these; `
 
 ## Commands
 
-- [ ] `python3 scripts/private-names.py --test` -> AC-1, AC-3, AC-6, AC-8, AC-12
+- [x] `python3 scripts/private-names.py --test` -> AC-1, AC-3, AC-6, AC-8, AC-12
+  - Run 1, 2026-10-12, `/check verify`: `private-names: all self checks passed`, exit 0.
 - [ ] `python3 scripts/private-names.py check` on the branch and on merged `main` -> exit 0 -> AC-9
-- [ ] `./sync.sh` with a planted name in a temp live rule file -> exit 1, tree unchanged -> AC-4
+  - Run 1, 2026-10-12, `/check verify`, branch half only: `git ls-files -z | xargs -0 python3 scripts/private-names.py check` exit 0 (real names list read). A bare `check` lists the sandbox's untracked `/dev/null` dotfiles and exits 1 on `unreadable`; those are not repo files. Merged `main` waits on the merge box.
+- [x] `./sync.sh` with a planted name in a temp live rule file -> exit 1, tree unchanged -> AC-4
+  - Run 1, 2026-10-12, `/check verify`, scratch clone plus temp live tree, made up names: clean tree exit 0 with empty `git status --porcelain` and 0600 fragments; a name in `rules/planted.md` prints `.../rules/planted.md:2: names.txt line 2`, exit 1, repo tree hash unchanged; a name in a settings `env` value prints `settings.json (stripped):515: names.txt line 3`, exit 1; no names list prints the AC-1 line three times, exit 1.
 
 ## Value sourcing (added by /develop, 2026-10-12)
 
-- [ ] `filter-expr` on a temp names list with `name==>x` and a plain name -> the `==>` part is the replacement, the plain one gets `***REMOVED***`, longest first -> AC-10
-- [ ] any hit line names the matching `names.txt` line number, never the name, including a name inside a path (masked as `***`) -> AC-4, AC-8
-- [ ] `strip-settings` on the committed `settings.json` with a names list that matches nothing -> output byte for byte equal to the committed file (the old `jq` format) -> AC-3
-- [ ] install in a scratch clone with temp `HOME` and `CLAUDE_LIVE_DIR`: a fragment path under `/home/santiago` lands under the temp `$HOME`; the private `gitignore` line lands in the clone's `.git/info/exclude` once on a rerun; an existing hand written `commit-msg` hook is left alone -> AC-6, AC-7
+- [x] `filter-expr` on a temp names list with `name==>x` and a plain name -> the `==>` part is the replacement, the plain one gets `***REMOVED***`, longest first -> AC-10
+  - Run 1, 2026-10-12, `/check verify`: `regex:(?i)zorblexcorp==>***REMOVED***` then `regex:(?i)quux==>tool`; a `regex:` line is refused, exit 1. In a temp repo `check-history` exit 1 before, `filter-repo` with that file, exit 0 after (three cases and `superquuxer` rewritten, message `msg tool`); a planted binary blob makes it exit 1 again.
+- [x] any hit line names the matching `names.txt` line number, never the name, including a name inside a path (masked as `***`) -> AC-4, AC-8
+  - Run 1, 2026-10-12, `/check verify`: `***-site/a.md: path name: names.txt line 4`; temp repo with hooks linked: clean commit exit 0, staged file `leak.txt:1: names.txt line 4` exit 1 (mixed case name), message `commit message:1: names.txt line 3` exit 1, no names list exit 1. The real repo's `.git/hooks/pre-commit` runs inside the `wf run` sandbox with nothing staged and exits 0, so the names list is readable there (spec Neutral note).
+- [x] `strip-settings` on the committed `settings.json` with a names list that matches nothing -> output byte for byte equal to the committed file (the old `jq` format) -> AC-3
+  - Run 1, 2026-10-12, `/check verify`: the clean sync in the AC-4 scratch clone left `git status --porcelain` empty, so both settings files came out byte for byte equal.
+- [x] install in a scratch clone with temp `HOME` and `CLAUDE_LIVE_DIR`: a fragment path under `/home/santiago` lands under the temp `$HOME`; the private `gitignore` line lands in the clone's `.git/info/exclude` once on a rerun; an existing hand written `commit-msg` hook is left alone -> AC-6, AC-7
+  - Run 1, 2026-10-12, `/check verify`: `--dry-run` wrote nothing; install merged the fragment (path swapped to the temp `$HOME`, `skillOverrides` key in, shared deny item not doubled, every public deny item kept), 1 exclude line, `pre-commit` linked, `hook exists, not replaced: commit-msg`; rerun added 0 exclude lines and 0 deny items; no fragment and no names list print both skip lines. install exits 1 at its own design ledger self check under a temp `HOME` (3 brand board cases need the private brand kit under `~/projects`); with the real `HOME` that check passes 107 of 107. Not a spec 0013 change.
