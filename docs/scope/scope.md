@@ -36,7 +36,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 10 | Build queue and decision queue | Release 3 | done |
 | 26 | Review stack fixes | Release 3 | done |
 | 27 | Second review stack fixes | Release 3 | done |
-| 21 | Work names out of the public repo | Deferred | planned |
+| 21 | Work names out of the public repo | Release 3 | in-progress |
 | 24 | Runner resilience | Deferred | planned |
 | 25 | Checks that cannot lie | Deferred | planned |
 | 23 | Questions that teach | Deferred | planned |
@@ -300,15 +300,24 @@ Every HIGH and MEDIUM finding of the `/review-stack` of `c95f181..d20a328`, plus
 Specs amended: [0004](../specs/0004-headless-step-loop/index.md), [0006](../specs/0006-standing-answers/index.md), [0007](../specs/0007-push-guard/index.md), [0008](../specs/0008-failure-park-policy/index.md), [0009](../specs/0009-headless-verify-test/index.md), [0010](../specs/0010-design-enforcement-unattended/index.md), [0011](../specs/0011-build-decision-queue/index.md) · code in `runner/run.py`
 Source: [docs/briefs/runner-review-stack-2026-10-12.md](../briefs/runner-review-stack-2026-10-12.md) (second review section)
 
-## Deferred
-Out of scope for the current build pass, kept so the plan stays honest.
-
-### 21. Work names out of the public repo · needs a decision
-Deferred 2026-10-12 (architecture pass): the public repo cleanup is not part of the runner goal; do it after the runner features are built.
+### 21. Work names out of the public repo · in-progress
+The merge of the runner branch to main waits on this.
 Work org and tool names sit in public files on main (`CLAUDE.md`, `HOOKS.md`, `SKILLS.md`, `NOTICE.md`, `README.md`, `.gitignore`). They move to one local untracked file, and the public files refer to it instead of naming anything. Root `CLAUDE.md` is the synced copy of `~/.claude/CLAUDE.md`, so `sync.sh` and `install.sh` have to keep the split. Then you decide whether main's history is rewritten too.
 **Done when:** no tracked file on the branch or main names a work org or tool, a fresh `install.sh` plus the local file gives the same behavior as today, `sync.sh` cannot put a name back, and the history decision is recorded (and carried out if the answer is rewrite).
-- [ ] Design it (spec): `/architect work names out of the public repo`
-Source: your message of 2026-10-12 (`/scope` request after the runner branch review).
+- [x] Design it (spec): `/architect work names out of the public repo`
+- [ ] Build it: `/develop work names out of the public repo`
+   - [ ] Checker `scripts/private-names.py` with its self checks (AC-1, AC-3, AC-6, AC-8, AC-10, AC-12)
+   - [ ] Private files in place and the user level import probe P1 passes (AC-1, AC-2) · waits on you
+   - [ ] `sync.sh` strips and refuses, tracked files reworded until `check` is clean (AC-3, AC-4, AC-5, AC-9)
+   - [ ] `install.sh` merges the fragments, adds exclude lines and hook links, same behavior as today (AC-6, AC-7, AC-11)
+   - [ ] History rewritten in a fresh clone, GitHub repo recreated, `main` pushed, `check-history` clean (AC-10) · waits on you
+- [ ] Verify it: `/check verify work names out of the public repo`
+- [ ] Test it: `/test work names out of the public repo`
+Spec: [0013](../specs/0013-work-names-out/index.md)
+Source: [docs/briefs/work-names-out.md](../briefs/work-names-out.md) (decisions); your message of 2026-10-12 (`/scope` request after the runner branch review).
+
+## Deferred
+Out of scope for the current build pass, kept so the plan stays honest.
 
 ### 24. Runner resilience · needs a decision
 Deferred 2026-10-12: after the runner branch lands, in the order the brief sets (landing, 21, then this, then 25).
