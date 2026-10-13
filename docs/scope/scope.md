@@ -39,7 +39,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 21 | Work names out of the public repo | Release 3 | done |
 | 24 | Runner resilience | Release 4 | in-progress |
 | 25 | Checks that cannot lie | Release 4 | in-progress |
-| 28 | Guard hook false alarms | Release 4 | in-progress |
+| 28 | Guard hook false alarms | Release 4 | done |
 | 29 | Several repos at once | Release 4 | in-progress |
 | 30 | Live setup steps in one command | Release 5 | in-progress |
 | 13 | Morning report | Release 5 | in-progress |
@@ -335,7 +335,7 @@ Source: [docs/briefs/work-names-out.md](../briefs/work-names-out.md) (decisions)
 
 Queued in the batch planning session of 2026-10-12 (personal scope row 24). One bare `wf run` builds them in file order. A box that waits on you sets aside only its feature. Until feature 24 is built, a `/sync` box parks `manual_box`, so a feature that reaches its `/sync` box before then waits for the next run.
 
-### 28. Guard hook false alarms · in-progress · auto
+### 28. Guard hook false alarms · done
 `block-destructive.sh` blocked a `git commit` on 2026-10-11 because its message named a deletion command, and again on a scope edit. Inside a quoted string or heredoc that is plain data, spaces and operator characters become `_` before the patterns run; anything that runs a shell or interpreter, and any parse problem, is scanned as today.
 **Done when:** a commit message or heredoc mentioning a deletion command passes, every command blocked today is still blocked, and `bash hooks/block-destructive.sh --test` covers both.
 - [x] Design it (spec): `/architect guard hook false alarms`
@@ -345,7 +345,7 @@ Queued in the batch planning session of 2026-10-12 (personal scope row 24). One 
 - [x] Verify it: `/check verify guard hook false alarms`
 - [x] Test it: `/test guard hook false alarms`
 - [x] Between runs, copy the hook live: `cp ~/claude-config/hooks/block-destructive.sh ~/.claude/hooks/block-destructive.sh`, then make one real commit whose message names a deletion command (AC-6) · waits on you
-- [ ] Sync docs: `/sync guard hook false alarms`
+- [x] Sync docs: `/sync guard hook false alarms`
 Spec [0016](../specs/0016-guard-hook-false-alarms/index.md) · code in `hooks/block-destructive.sh`
 Source: personal scope row 10 (`~/projects/docs/scope/scope.md`; hook errors on 2026-10-11); redesign agreed 2026-10-13 after the cross check.
 

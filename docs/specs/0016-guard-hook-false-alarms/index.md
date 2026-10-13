@@ -1,7 +1,7 @@
 # 0016. Guard hook false alarms
 
 **Date**: 2026-10-13
-**Status**: In Progress
+**Status**: Accepted
 **Paths:** `hooks/block-destructive.sh`
 
 ## Summary
