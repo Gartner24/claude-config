@@ -39,7 +39,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 21 | Work names out of the public repo | Release 3 | done |
 | 24 | Runner resilience | Release 4 | in-progress |
 | 25 | Checks that cannot lie | Release 4 | in-progress |
-| 28 | Guard hook false alarms | Deferred | planned |
+| 28 | Guard hook false alarms | Release 4 | in-progress |
 | 29 | Several repos at once | Deferred | planned |
 | 23 | Questions that teach | Deferred | planned |
 | 15 | Cheap worker tier | Deferred | planned |
@@ -333,6 +333,20 @@ Source: [docs/briefs/work-names-out.md](../briefs/work-names-out.md) (decisions)
 
 Queued in the batch planning session of 2026-10-12 (personal scope row 24). One bare `wf run` builds them in file order. A box that waits on you sets aside only its feature. Until feature 24 is built, a `/sync` box parks `manual_box`, so a feature that reaches its `/sync` box before then waits for the next run.
 
+### 28. Guard hook false alarms · in-progress · auto
+`block-destructive.sh` blocked a `git commit` on 2026-10-11 because its message named a deletion command, and again on a scope edit. Inside a quoted string or heredoc that is plain data, spaces and operator characters become `_` before the patterns run; anything that runs a shell or interpreter, and any parse problem, is scanned as today.
+**Done when:** a commit message or heredoc mentioning a deletion command passes, every command blocked today is still blocked, and `bash hooks/block-destructive.sh --test` covers both.
+- [x] Design it (spec): `/architect guard hook false alarms`
+- [ ] Build it: `/develop guard hook false alarms`
+   - [ ] Data region scanner, executor check and raw fallbacks in the repo copy of the hook (AC-1 to AC-4)
+   - [ ] New self checks with the forced blanking switch and a mutation check per allow case (AC-5)
+- [ ] Verify it: `/check verify guard hook false alarms`
+- [ ] Test it: `/test guard hook false alarms`
+- [ ] Between runs, copy the hook live: `cp ~/claude-config/hooks/block-destructive.sh ~/.claude/hooks/block-destructive.sh`, then make one real commit whose message names a deletion command (AC-6) · waits on you
+- [ ] Sync docs: `/sync guard hook false alarms`
+Spec [0016](../specs/0016-guard-hook-false-alarms.md)
+Source: personal scope row 10 (`~/projects/docs/scope/scope.md`; hook errors on 2026-10-11); redesign agreed 2026-10-13 after the cross check.
+
 ### 24. Runner resilience · in-progress · auto
 Eight runner changes: wait through an API outage, stop on a crash loop, count tokens and cost, name the boxes a timed out call ticked, a real end to end fixture, a live log, a `/sync` box that runs, and a waits on you box that lets later boxes go on.
 **Done when:** the spec is built, each behavior has its test, and `python3 runner/e2e/run.py` passes on the real claude.
@@ -369,12 +383,6 @@ Source: [~/projects/docs/briefs/runner-ideas-2026-10-12.md](../../../projects/do
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
-
-### 28. Guard hook false alarms · needs a decision
-`block-destructive.sh` blocked a `git commit` on 2026-10-11 because the commit message held a power command word, and again on a scope edit whose text mentioned it. In an unattended run that stalls silently. It should match the command being run, not words inside quoted text or heredocs.
-**Done when:** a commit message or heredoc mentioning a power command passes, the real command is still blocked, and `bash hooks/block-destructive.sh --test` covers both.
-- [ ] Design it (spec): `/architect guard hook false alarms`
-Source: personal scope row 10 (`~/projects/docs/scope/scope.md`; hook errors on commit 9bc9d8f and on a scope edit, 2026-10-11).
 
 ### 29. Several repos at once · needs a decision
 `wf run` builds one feature at a time across all trusted repos. Goal: one worker per repo at the same time (each repo already has its own lock and guard baseline). Several features inside one repo at once is a later step that needs feature 14 (a branch per spec) first.
