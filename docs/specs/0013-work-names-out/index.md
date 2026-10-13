@@ -83,13 +83,14 @@ Every hit line is `<where>:<line>: names.txt line <N>`, naming the list line tha
 **Key invariants**:
 - No tracked file, commit message, blob or ref name in this repo, or on its GitHub remote after AC-10, contains a listed name (case insensitive).
 - A missing or empty names list never passes a check.
+- No `wf run` step writes `.git/hooks` or anything under `~/.claude`.
 - Nothing under `~/.claude/private/` is copied by `sync.sh` or written into any repo. `sync.sh` copies named paths only, and none is `private/`.
 - The checker never prints a name, only its `names.txt` line number.
 - The 75 local commits on `feat/autonomous-runner` are never pushed to the old remote. The next push of this repo is the rewritten `main` to the recreated one.
 
 **Security model**: the threat is accidental publication by you or a Claude session (a sync, a hand edit, a commit message). Deliberate bypass (`--no-verify`, editing the hook) is out of scope: `check-history` before the push of AC-10 is the backstop, and any later leak is fixed with this same procedure. Names in `~/.claude/private/` are local plain text, as `CLAUDE.md` is today. Rewriting cannot recall copies someone already took. With 0 forks and 0 stars that risk is accepted (rationale).
 
-**Configuration required**: no env vars. The four files above. `git filter-repo` (installed, checked 2026-10-12).
+**Configuration required**: `CLAUDE_LIVE_DIR` (optional, tests only): the live folder `sync.sh`, `install.sh` and the checker use instead of `~/.claude`. The four files above. `git filter-repo` (installed, checked 2026-10-12).
 
 **Critical test scenarios**:
 - Missing `names.txt`: `check`, `check-staged`, `strip-settings` and `sync.sh` each print the AC-1 line and exit 1. Verifies **AC-1**.
@@ -103,14 +104,19 @@ Every hit line is `<where>:<line>: names.txt line <N>`, naming the list line tha
 
 Skateboard: each step leaves a working setup; the rewrite is last, after the branch is reviewed.
 
-1. Write `scripts/private-names.py` with `check`, `check-staged`, `check-msg`, `check-history`, `filter-expr`, the names parser and `--test`. Satisfies **AC-1**, **AC-8**, **AC-10**, **AC-12**.
-2. Add `strip-settings` and `merge-settings` with their `--test` cases. Satisfies **AC-3**, **AC-6**, **AC-12**.
-3. The session drafts `names.txt` (the categories in the brief, plus a placeholder line for each client site name), `work.md` (the passages moved out of `CLAUDE.md`), `gitignore` and the edited `CLAUDE.md` in its scratchpad. Its sandbox denies writes under `~/.claude`, so you fill in the client site names and copy the files into place. Then run P1, and stop on a failure. Satisfies **AC-1**, **AC-2**.
-4. `sync.sh`: source check before copying, `strip-settings` in place of the bare `jq`, the final repo check. Satisfies **AC-3**, **AC-4**, **AC-5**.
-5. Hand edit `.gitignore`, `HOOKS.md`, `README.md`, `SKILLS.md` and every other file `check` reports to neutral wording (the AC-9 rule), run `./sync.sh`, then `check` until it exits 0. Satisfies **AC-9**.
-6. `install.sh`: fragment merge, exclude lines, hook links, with the `--dry-run` self checks. Satisfies **AC-6**, **AC-7**, **AC-11**.
-7. Tier chain on the branch (`/check verify`, `/test`), `/review`, then merge `feat/autonomous-runner` into `main` locally. No push. Satisfies **AC-9**.
-8. Rewrite in a fresh clone, run `check-history`, then you delete and recreate the GitHub repo and push `main` (migration plan). Satisfies **AC-10**.
+`wf run` builds the code steps. No `wf` step writes `.git/hooks` or anything under `~/.claude`, and no `wf` step runs `sync.sh` or `install.sh` against the real `~/.claude`. Those steps are yours, on their own scope boxes marked ` · waits on you`.
+
+`sync.sh`, `install.sh` and `private-names.py` read the live folder from `CLAUDE_LIVE_DIR` when it is set, else `~/.claude`. The names list is `$CLAUDE_LIVE_DIR/private/names.txt`. Tests point it at a temp tree, so no test touches the real one.
+
+1. (`wf`) Write `scripts/private-names.py`: `check`, `check-staged`, `check-msg`, `check-history`, `filter-expr`, `strip-settings`, `merge-settings`, the names parser and `--test`, on temp files and made up names. Satisfies **AC-1**, **AC-3**, **AC-6**, **AC-8**, **AC-10**, **AC-12**.
+2. (`wf`) `sync.sh`: the source check before copying, `strip-settings` in place of the bare `jq`, the final repo check. `install.sh`: the fragment merge, the exclude lines, the hook links. Each one is tested only on temp live trees and temp git repos through `CLAUDE_LIVE_DIR`, with the `--dry-run` self checks. Satisfies **AC-3** to **AC-7**.
+3. (you) Create `~/.claude/private/`: `names.txt` with the names and shapes from the brief plus the client site names, longest first; `work.md` with the passages moved out of `~/.claude/CLAUDE.md` behind the import line; `gitignore`. Run P1 and stop on a failure. Satisfies **AC-1**, **AC-2**.
+4. (`wf`) Reword every file `check` reports, per the AC-9 rule, until `check` exits 0. If the `wf` jail cannot read `names.txt`, `check` exits 1 with the AC-1 line and the call parks. Satisfies **AC-9**.
+5. (you) Run `./sync.sh`. It writes the settings fragments under `~/.claude/private/`. It must exit 0, and `check` must still exit 0. Satisfies **AC-3**, **AC-4**, **AC-5**.
+6. (you) Run `./install.sh` (fragment merge, exclude lines, hook links), then the AC-11 compare. Satisfies **AC-6**, **AC-7**, **AC-11**.
+7. (`wf`) `/check verify`, then `/test`.
+8. (you) Merge `feat/autonomous-runner` into `main` locally, then run migration plan phases 1 and 2. Satisfies **AC-9**, **AC-10**.
+9. (you) Migration plan phases 3 to 5: delete and recreate the repo, push `main`, check the new remote. Satisfies **AC-10**.
 
 ## Migration plan
 

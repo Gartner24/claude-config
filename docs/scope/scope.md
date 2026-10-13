@@ -300,19 +300,23 @@ Every HIGH and MEDIUM finding of the `/review-stack` of `c95f181..d20a328`, plus
 Specs amended: [0004](../specs/0004-headless-step-loop/index.md), [0006](../specs/0006-standing-answers/index.md), [0007](../specs/0007-push-guard/index.md), [0008](../specs/0008-failure-park-policy/index.md), [0009](../specs/0009-headless-verify-test/index.md), [0010](../specs/0010-design-enforcement-unattended/index.md), [0011](../specs/0011-build-decision-queue/index.md) · code in `runner/run.py`
 Source: [docs/briefs/runner-review-stack-2026-10-12.md](../briefs/runner-review-stack-2026-10-12.md) (second review section)
 
-### 21. Work names out of the public repo · in-progress
-The merge of the runner branch to main waits on this.
+### 21. Work names out of the public repo · in-progress · auto
+The merge of the runner branch to main waits on this. Built by `wf run`; no `wf` step writes `.git/hooks` or `~/.claude` (those steps are yours, marked below).
 Work org and tool names sit in public files on main (`CLAUDE.md`, `HOOKS.md`, `SKILLS.md`, `NOTICE.md`, `README.md`, `.gitignore`). They move to one local untracked file, and the public files refer to it instead of naming anything. Root `CLAUDE.md` is the synced copy of `~/.claude/CLAUDE.md`, so `sync.sh` and `install.sh` have to keep the split. Then you decide whether main's history is rewritten too.
 **Done when:** no tracked file on the branch or main names a work org or tool, a fresh `install.sh` plus the local file gives the same behavior as today, `sync.sh` cannot put a name back, and the history decision is recorded (and carried out if the answer is rewrite).
 - [x] Design it (spec): `/architect work names out of the public repo`
-- [ ] Build it: `/develop work names out of the public repo`
-   - [ ] Checker `scripts/private-names.py` with its self checks (AC-1, AC-3, AC-6, AC-8, AC-10, AC-12)
-   - [ ] Private files in place and the user level import probe P1 passes (AC-1, AC-2) · waits on you
-   - [ ] `sync.sh` strips and refuses, tracked files reworded until `check` is clean (AC-3, AC-4, AC-5, AC-9)
-   - [ ] `install.sh` merges the fragments, adds exclude lines and hook links, same behavior as today (AC-6, AC-7, AC-11)
-   - [ ] History rewritten in a fresh clone, GitHub repo recreated, `main` pushed, `check-history` clean (AC-10) · waits on you
+- [ ] Build the code: `/develop work names out of the public repo`
+   - [ ] Checker `scripts/private-names.py` with its self checks, temp files and made up names only (AC-1, AC-3, AC-6, AC-8, AC-10, AC-12)
+   - [ ] `sync.sh` and `install.sh` changes, tested on temp live trees through `CLAUDE_LIVE_DIR`, never run against the real `~/.claude` or `.git/hooks` (AC-3 to AC-7)
+- [ ] Create `~/.claude/private/` (`names.txt`, `work.md`, `gitignore`), move the name bearing passages of `~/.claude/CLAUDE.md` into `work.md` behind the import line, then run probe P1 from `docs/specs/0013-work-names-out/verify.md` (AC-1, AC-2) · waits on you
+- [ ] Reword tracked files: `/develop work names out of the public repo`
+   - [ ] Every file `python3 scripts/private-names.py check` reports reworded per the AC-9 rule, until it exits 0 (AC-9)
+- [ ] Run `./sync.sh` (it writes the private settings fragments under `~/.claude/private/`), confirm it exits 0 and `check` still exits 0 (AC-3, AC-4, AC-5) · waits on you
+- [ ] Run `./install.sh` (fragment merge, exclude lines, `pre-commit` and `commit-msg` hook links), then the AC-11 settings compare from verify.md (AC-6, AC-7, AC-11) · waits on you
 - [ ] Verify it: `/check verify work names out of the public repo`
 - [ ] Test it: `/test work names out of the public repo`
+- [ ] Merge `feat/autonomous-runner` into `main` locally, then rewrite history in a fresh clone per the spec 0013 migration plan phases 1 and 2, `check-history` exits 0 (AC-10) · waits on you
+- [ ] Delete and recreate `Gartner24/claude-config`, push `main`, `check-history` on a fresh clone of the new remote, swap folders (migration plan phases 3 to 5, AC-10) · waits on you
 Spec: [0013](../specs/0013-work-names-out/index.md)
 Source: [docs/briefs/work-names-out.md](../briefs/work-names-out.md) (decisions); your message of 2026-10-12 (`/scope` request after the runner branch review).
 
