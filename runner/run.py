@@ -13,6 +13,7 @@ import re
 import shlex
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import time
@@ -30,9 +31,9 @@ ALLOWED = ("/develop", "/check verify", "/test", "/debug", "/document")
 BAD_BRANCHES = ("main", "master", "no git", "-")
 # AskUserQuestion is never offered in `claude -p` 2.1.296 (spec 0005 verify.md check 1);
 # denied anyway so a later CLI that offers it cannot hang a run on an unseen panel.
-# Each option form, not `git * push*`: that also denied `git stash push` and any commit message with "push"
-# (review M9); `git -C * push*` alone used to let `git -c k=v push` and `git --no-pager push` pass.
-DENIED = ("AskUserQuestion,Bash(git push*),Bash(git -c * push*),Bash(git -C * push*),Bash(git --* push*),"
+# Any option before the subcommand, not `git * push*`: that also denied `git stash push` and any commit message with
+# "push" (review M9). Not a list of options either: `git -P push` slipped past -c, -C and -- (commit review).
+DENIED = ("AskUserQuestion,Bash(git push*),Bash(git -* push*),"
           "Bash(gh pr create*),Bash(gh pr merge*),Bash(gh pr ready*),"
           "Bash(gh * pr create*),Bash(gh * pr merge*),Bash(gh * pr ready*)")
 # Spec 0007. The prefix list above let `env git push` and `gh api` through (review 2026-10-12),
@@ -65,6 +66,8 @@ MCP_ALLOW = '{"mcpServers": {}}'
 MCP_PACKAGE = "chrome-devtools-mcp@1.10.1"
 DEAD_PROXY = "127.0.0.1:9"
 APP_READY = 120
+# Spec 0008 AC-3: bytes of one file the debug snapshot reads; a larger one also hashes its size.
+SNAPSHOT_CAP = 16 * 1024 * 1024
 APP_POLL = 0.5
 # P3's 1.10.1 tool list; the AC-6 six below are never offered to a call.
 BROWSER_TOOLS = ("click", "close_page", "drag", "emulate", "evaluate_script", "fill", "fill_form", "get_console_message",
@@ -1771,17 +1774,31 @@ class Run:
         # A git failure used to read as an empty tree, so nothing could ever count as touched (review M4).
         listed = git_paths(self.c.path, "ls-files", "-z", "-co", "--exclude-standard")
         specs = os.path.join(os.path.dirname(self.c.scope_dir), "specs") + "/"
-        # .workflow/ is globally ignored, so git never lists its specs; walk the folder itself (review M13).
-        for d, _, names in os.walk(os.path.join(self.c.path, specs)):
-            listed += [os.path.relpath(os.path.join(d, n), self.c.path) for n in names]
+        # .workflow/ is globally ignored, so git never lists its specs; walk the folder itself (review M13). Only when
+        # it really lies in the repo: a call could point it at / and make wf read the whole disk (commit review).
+        top = os.path.join(self.c.path, specs)
+        if under(os.path.realpath(top), [os.path.realpath(self.c.path)]):
+            for d, _, names in os.walk(top):
+                listed += [os.path.relpath(os.path.join(d, n), self.c.path) for n in names]
         out = {}
         for rel in dict.fromkeys(listed):
             is_test = is_test_file(rel)
             if not rel or not (rel.startswith(specs) or is_test):
                 continue
+            path = os.path.join(self.c.path, rel)
             try:
-                with open(os.path.join(self.c.path, rel), "rb") as f:
-                    raw = f.read()
+                # A link is never followed and only a regular file is read, checked on the open file: a planted link
+                # to /dev/zero or a FIFO used to hang wf or fill its memory (commit review).
+                if os.path.islink(path):
+                    raw = b"symlink:" + os.fsencode(os.readlink(path))
+                else:
+                    with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), "rb") as f:
+                        st = os.fstat(f.fileno())
+                        if not stat.S_ISREG(st.st_mode):
+                            raw = b"special file"
+                        else:
+                            raw = f.read(SNAPSHOT_CAP)
+                            raw += b"\0size:%d" % st.st_size if st.st_size > SNAPSHOT_CAP else b""
             except OSError:
                 # Listed by the index but gone from the tree: absent, so deleted.
                 continue
@@ -2357,8 +2374,14 @@ def url_host(url):
         if host.startswith("["):
             return host[1:].split("]", 1)[0] or None
         return host.split(":", 1)[0] or None
-    # scp form: a colon before any slash, as git reads it; an IPv6 literal sits in brackets.
-    m = re.match(r"(?:[^@/]+@)?\[([^\]/]+)\]:", url) or re.match(r"(?:[^@/]+@)?([^/:]+):", url)
+    # scp form: a colon before any slash, as git reads it. Brackets hold an IPv6 literal, or, as git's connect.c
+    # allows, `[user@host:port]`; taking the whole inside used to make that host `user@host:port`, never denied.
+    m = re.match(r"(?:[^@/]+@)?\[([^\]/]+)\]:", url)
+    if m:
+        inside = m.group(1).rsplit("@", 1)[-1]
+        # One colon is host:port; more is an IPv6 address.
+        return (inside.split(":", 1)[0] if inside.count(":") == 1 else inside) or None
+    m = re.match(r"(?:[^@/]+@)?([^/:]+):", url)
     return m.group(1) if m else None
 
 

@@ -35,4 +35,4 @@ Scratch repos built by a throwaway script: Python `app.py`, `**Autopilot:** allo
 
 ## Push rule probe (amendment 2026-10-12, review stack finding M9): OWED
 
-- [ ] `bash docs/specs/0004-headless-step-loop/probes/push-rule.sh` on the real claude: steps 1 and 2 run (one stash, one commit whose message holds "push"), steps 3 to 6 appear under denied commands, the bare remote has 0 branches. Not run yet: this session has no claude login, so you run it with `!`. The unit side is pinned by `test_run.TestHappyPath.test_argv` (the exact `--disallowedTools` string).
+- [ ] `bash docs/specs/0004-headless-step-loop/probes/push-rule.sh` on the real claude: steps 1 and 2 run (one stash, one commit whose message holds "push"), steps 3 to 8 appear under denied commands (8 is `git -p push`, 7 `git -P push`), the bare remote has 0 branches. Not run yet: this session has no claude login, so you run it with `!`. The unit side is pinned by `test_run.TestHappyPath.test_argv` (the exact `--disallowedTools` string).

@@ -3,6 +3,7 @@ import fcntl
 import io
 import json
 import os
+import signal
 import subprocess
 import sys
 import tempfile
@@ -122,6 +123,7 @@ class TestAppStopRepoStop(AppCase):
 class TestGitPaths(unittest.TestCase):
     def repo(self, d):
         root = Path(d)
+        root.mkdir(exist_ok=True)
         quiet_git("init", "-q", "-b", "main", cwd=root)
         (root / "top.txt").write_text("x")
         quiet_git("add", "-A", cwd=root)
@@ -158,6 +160,33 @@ class TestGitPaths(unittest.TestCase):
             (root / "tests" / "test_a.py").write_text("def test_a(): pass\n")
             ns = SimpleNamespace(c=SimpleNamespace(path=str(root), scope_dir=".workflow/scope"))
             self.assertEqual(sorted(run.Run.snapshot(ns)), [".workflow/specs/0001-x/index.md", "tests/test_a.py"])
+
+    # covers: spec 0008 AC-3 (commit review: a specs folder pointing out of the repo is not walked; a link to
+    # /dev/zero and a FIFO are never read, so the snapshot neither hangs nor fills memory)
+    def test_workflow_specs_hostile(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = self.repo(os.path.realpath(d) + "/r")
+            outside = Path(d, "outside")
+            outside.mkdir()
+            (outside / "secret.md").write_text("x")
+            (root / ".gitignore").write_text(".workflow/\n")
+            (root / ".workflow").mkdir()
+            (root / ".workflow" / "specs").symlink_to(outside)
+            ns = SimpleNamespace(c=SimpleNamespace(path=str(root), scope_dir=".workflow/scope"))
+            self.assertEqual(run.Run.snapshot(ns), {})
+            (root / ".workflow" / "specs").unlink()
+            (root / ".workflow" / "specs").mkdir()
+            (root / ".workflow" / "specs" / "zero.md").symlink_to("/dev/zero")
+            os.mkfifo(root / ".workflow" / "specs" / "pipe.md")
+            signal.signal(signal.SIGALRM, lambda *a: (_ for _ in ()).throw(TimeoutError("snapshot hung")))
+            signal.alarm(10)
+            try:
+                snap = run.Run.snapshot(ns)
+            finally:
+                signal.alarm(0)
+            self.assertEqual(sorted(snap), [".workflow/specs/pipe.md", ".workflow/specs/zero.md"])
+            self.assertEqual(snap[".workflow/specs/zero.md"][0], run.hashlib.sha256(b"symlink:/dev/zero").hexdigest())
+            self.assertEqual(snap[".workflow/specs/pipe.md"][0], run.hashlib.sha256(b"special file").hexdigest())
 
 
 class TestFreezeRefusals(RunCase):
@@ -398,6 +427,9 @@ class TestSmallFixes(RunCase):
     def test_url_host(self):
         for url, host in (("ssh://git@[::1]:22/x.git", "::1"), ("https://[fe80::1]/x", "fe80::1"),
                           ("git@[2001:db8::1]:x.git", "2001:db8::1"), ("ssh://git@host:22/x", "host"),
+                          # git's [user@host:port]:path form (commit review): the host alone, never user@host:port.
+                          ("[git@git.corp.example:2222]:team/repo.git", "git.corp.example"),
+                          ("[git.corp.example:2222]:x.git", "git.corp.example"), ("[git@::1]:x.git", "::1"),
                           ("git@github.com:x/y.git", "github.com"), ("/local/path", None)):
             self.assertEqual(run.url_host(url), host, url)
 

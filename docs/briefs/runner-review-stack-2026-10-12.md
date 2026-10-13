@@ -22,7 +22,7 @@ Verdict WARN (0 critical, 4 high, 13 medium, 13 low). Receipt: `.git/review-stac
   - 0007 AC-8 missing `claude` exits 1 is 0011 AC-4, so that part of L13 needs no code change.
 - Second panel 2026-10-12 (fixes whose text an accepted spec quotes), your picks, all recommended:
   - M7: six common secret files (`~/.npmrc`, `~/.config/git/credentials`, `~/.docker/config.json`, `~/.pypirc`, `~/.kube`, `~/.claude/anthropic_api_key`) join `CREDENTIAL_PATHS` (steps and app); the jail also hides every exact path `~/.claude/settings.json` denies with `Read(//...)`.
-  - M9: `Bash(git * push*)` becomes `Bash(git -c * push*)`, `Bash(git -C * push*)`, `Bash(git --* push*)`; spec 0004 argv updated; a real claude probe is owed (you run it with `!`).
+  - M9: `Bash(git * push*)` becomes `Bash(git -* push*)` (first built as `-c`, `-C`, `--` forms; the commit security review found `git -P push` past them, so one rule for any option); spec 0004 argv updated; a real claude probe is owed (you run it with `!`).
   - M8 submodule hooks and config guarded like the main repo's; M10 hidden paths bound at their real path; M12 design record per feature entry.
   - L2 the answering reply's id is stored on the record and skipped on later reads; L10 any `#` or `##` heading ends `## Deferred`.
 - Cross check: another model (standing). Comma inside an `app start` value in the `answers:` line stays ambiguous, accepted.
@@ -79,6 +79,7 @@ Notes from the build:
 - L10: `test_wf` had pinned the old rule on purpose (spec 0002's literal text); it now pins the amended rule.
 - M8: a new hook file in a submodule is stopped by `denyWrite`, an existing one by its hash, same as the main repo's hooks.
 - The 0007 AC-8 part of L13 is spec 0011 AC-4 (exit 1), no code change.
+- The background security review of `0f31657` found 3 issues in these fixes, all fixed with a test and a mutation check (47 mutants, all red; 301 tests OK): the push rule list let `git -P push` through (now `Bash(git -* push*)`); the bracketed scp form `[user@host:port]:path` gave `user@host:port` as the host (now the host alone); the specs walk followed a planted `.workflow/specs` symlink and read links and FIFOs (now walked only inside the repo, links hashed by target text, only regular files read, at most 16 MiB each).
 
 ## Residual
 

@@ -161,7 +161,7 @@ def guard_settings(t, r, bin):
 
 def guard_denied(t, r, bin):
     both = lambda tool, p: [f"{tool}(/{p})", f"{tool}(/{p}/**)"]
-    rules = ["AskUserQuestion,Bash(git push*),Bash(git -c * push*),Bash(git -C * push*),Bash(git --* push*),"
+    rules = ["AskUserQuestion,Bash(git push*),Bash(git -* push*),"
              "Bash(gh pr create*),Bash(gh pr merge*),"
              "Bash(gh pr ready*),Bash(gh * pr create*),Bash(gh * pr merge*),Bash(gh * pr ready*)",
              "Artifact,ArtifactData,ArtifactComments,RemoteTrigger,CronCreate,CronDelete,SendMessage,Skill(schedule)",

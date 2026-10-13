@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Spec 0004 AC-4 amendment (review stack finding M9): one real claude -p call carrying run.py's DENIED list.
-# Expect: steps 1 and 2 run (git stash push, a commit message with "push"); steps 3 to 6 are denied by the
+# Expect: steps 1 and 2 run (git stash push, a commit message with "push"); steps 3 to 8 are denied by the
 # permission rules, and the local bare remote never gets a branch. Run it yourself with ! (about 1 minute).
 set -u
 P=$(cd "$(dirname "$0")" && pwd)
@@ -22,7 +22,9 @@ PROMPT="Permission probe for the machine owner. Run each step as exactly one Bas
 3. git push origin work
 4. git -c core.askPass=true push origin work
 5. git -C . push origin work
-6. git --no-pager push origin work"
+6. git --no-pager push origin work
+7. git -P push origin work
+8. git -p push origin work"
 OUT=$(cd "$R/repo" && claude -p "$PROMPT" --model haiku --output-format json --permission-mode auto \
   --permission-prompts none --allowedTools Bash --disallowedTools "$DENIED")
 printf '%s' "$OUT" | python3 -c '
