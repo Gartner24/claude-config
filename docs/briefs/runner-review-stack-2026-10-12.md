@@ -122,10 +122,11 @@ Verdict WARN (0 critical, 3 high, 9 medium, 11 low). Receipt: `.git/review-stack
 ## Assumed (built on your "fix every finding" without an `/architect` run; each is in its spec's second review amendment)
 
 - Push rules: `Bash(git *subtree push*)`, `Bash(git *submodule foreach*push*)`, `Bash(git *lfs push*)` join `DENIED` (spec 0004 AC-4). Whether Claude Code's matcher reads them as intended is the probe rerun owed to you.
-- Jail: a hidden path that is a write bind or holds one is skipped, not refused (spec 0009 AC-3 step 3). A deny on your whole home then hides nothing beyond the fixed list.
+- Jail: a hidden folder that is a write bind or holds one is hidden first, and the binds and read only paths go back on top (spec 0009 AC-3 step 3). With a deny on your whole home, the app sees only the repo, the caches and the read only git and dotfile paths there. (First built as a skip, which the commit review showed exposed the whole denied tree.)
 - Specs walk: only when git ignores the specs folder (`git check-ignore`, spec 0008 AC-3).
 - A test file past 16 MiB keeps no text; any change to it counts as touched (spec 0008 AC-3).
-- A file inside a repo's submodule folder is that repo's own for the repo stop vs run stop split (spec 0011 AC-9); the guard record gains `submodules` (spec 0007 AC-9).
+- A file at or under a repo's submodule `.git` (the text frozen at start) is that repo's own for the repo stop vs run stop split, unless another held repo's path or common dir lies there (spec 0011 AC-9); the guard record gains `submodules` (spec 0007 AC-9).
+- A submodule not checked out has its `.git` hashed as absent, not denied (the sandbox placeholder would break git); a symlinked submodule `.git` refuses `no_sandbox` (spec 0007 AC-2).
 - `read_answers` follows a symlink to a regular file as before, but refuses anything that is not a regular file once opened, and a file past 16 MiB (spec 0006 AC-3).
 
 ## Findings (second round)
@@ -149,6 +150,25 @@ Verdict WARN (0 critical, 3 high, 9 medium, 11 low). Receipt: `.git/review-stack
 
 ## Build result (second round)
 
-Every finding above is fixed. Tests in `runner/tests/test_review_fixes2.py` (12) plus updated `test_run.py`, `test_browser.py`, `test_review_fixes.py`. Mutation check: 25 mutants, each one fix reverted alone; 24 went red on the named test. The survivor was a CRLF translation in `read_answers` that the parser never needed, so it was removed. Suite: 318 tests OK.
+Every finding above is fixed. Tests in `runner/tests/test_review_fixes2.py` (16) plus updated `test_run.py`, `test_browser.py`, `test_review_fixes.py`. Mutation check: 31 mutants, each one fix reverted alone; 30 went red on the named test. The survivor was a CRLF translation in `read_answers` that the parser never needed, so it was removed. Suite: 322 tests OK.
+
+The background security reviews of the fix commit found 5 issues in these fixes, all fixed with a test and a mutation check: the jail skip exposed the denied tree (now hidden first, binds on top); a submodule not checked out was unwatched (now hashed absent); a symlinked submodule `.git` went unhashed (now refused); `own_file` resolved the submodule folder at check time, so a call could swap it for a link to `/` (now the frozen `.git` text); and it ignored another held repo whose common dir lies in the submodule (now checked).
 
 Owed to you: the push rule probe rerun on the real claude (steps 9 to 11, spec 0004 `verify.md`).
+
+## /check verify, second round (2026-10-12): PASS
+
+Driven through the real `wf.py` in scratch folders (scratch HOME and XDG dirs, real git and bwrap; the stand in `claude` from `runner/tests/test_run.py` `FAKE_CLAUDE`). Script: `verify27.py` in the session scratchpad.
+
+- [x] S1: `wf queue q` prints `answers: run suite yes, app start npm run dev -- --port 3000, app url http://localhost:3000`; `wf run` on an app repo prints `answers: app start <cmd>, app url http://127.0.0.1:<port>` and `guard: 9 hosts, 6 files`.
+- [x] S4: a call that swaps `AGENTS.md` for a FIFO gives `stopped repo demo: guard_changed: AGENTS.md standing answers changed during the run`, one call, in 0.1 s.
+- [x] S5: the call's `--disallowedTools` holds `Bash(git *subtree push*)`, `Bash(git *submodule foreach*push*)`, `Bash(git *lfs push*)`. Whether the real claude denies them is the probe rerun owed to you.
+- [x] S6: with an in place submodule and an absorbed one with an include: `denyWrite` holds both `config` and `hooks`, the pointer, both `config.worktree` and the include target; `Edit(/<repo>/lib/.git/**)` is denied; `submodules` lists both `.git` paths; a call that rewrites the pointer gives `stopped repo demo: guard_changed: <repo>/vend/.git changed`.
+- [x] S7: an unreadable submodule hooks folder and an unreadable folder under `modules` each give `refused: no_sandbox: cannot list <folder>: Permission denied`, exit 5.
+- [x] S8: the real bwrap jail with `Read(//<home>/**)`: the app reads and writes the repo (`repo visible`, `new`), a file elsewhere in the denied home is gone, the denied vault lists empty.
+- [x] S9, S12: on a real repo, the snapshot holds `docs/specs/index.md` and not the ignored `__pycache__/p.pyc`; a skip appended past 16 MiB of a 17 MiB test file gives `touched() == ['tests/test_big.py']`.
+- [x] S2: a real `/test loop` call's prompt says `git diff --relative --name-only --diff-filter=ACMR`.
+- [x] S10: `wf queue` on a parked answered decision shows `resume:`, `parked: 1. A: blocked: test park (wf unpark to retry)` and `nothing to run`.
+- [x] L8: an internal error prints `stopped: internal_error: RuntimeError: forced failure`, and `traceback.txt` in the run folder holds the whole trace.
+- [x] Commit review fixes (absent and symlinked submodule `.git`, `own_file` frozen text and shared common dir): `test_review_fixes2.TestSubmodules`, real `wf.py` runs, 7 of 7 ok.
+- S3: no commit after `origin/feat/autonomous-runner` adds the three names (`git log -G` over the range is empty); the final tree matched the pre-rewrite tree byte for byte.
