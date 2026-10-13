@@ -311,7 +311,7 @@ Work org and tool names sit in public files on main (`CLAUDE.md`, `HOOKS.md`, `S
 - [x] Create `~/.claude/private/` (`names.txt`, `work.md`, `gitignore`), move the name bearing passages of `~/.claude/CLAUDE.md` into `work.md` behind the import line, then run probe P1 from `docs/specs/0013-work-names-out/verify.md` (AC-1, AC-2) · waits on you
 - [x] Reword tracked files: `/develop work names out of the public repo`
    - [x] Every file `python3 scripts/private-names.py check` reports reworded per the AC-9 rule, until it exits 0 (AC-9)
-- [ ] Run `./sync.sh` (it writes the private settings fragments under `~/.claude/private/`), confirm it exits 0 and `check` still exits 0 (AC-3, AC-4, AC-5) · waits on you
+- [x] Run `./sync.sh` (it writes the private settings fragments under `~/.claude/private/`), confirm it exits 0 and `check` still exits 0 (AC-3, AC-4, AC-5) · waits on you
 - [ ] Run `./install.sh` (fragment merge, exclude lines, `pre-commit` and `commit-msg` hook links), then the AC-11 settings compare from verify.md (AC-6, AC-7, AC-11) · waits on you
 - [ ] Verify it: `/check verify work names out of the public repo`
 - [ ] Test it: `/test work names out of the public repo`
