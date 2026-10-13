@@ -130,22 +130,13 @@ def add_first(w):
 
 
 def first_word(k):
-    # bash drops a backslash newline before it reads the word: `$( \<newline>bash`
-    add_first(re.match(r'[ \t\n]*([^ \t\n;&|(){}<>!`]*)', s[k:].replace('\\\n', '')).group(1))
+    add_first(re.match(r'[ \t\n]*([^ \t\n;&|(){}<>!`]*)', s[k:]).group(1))
 
 
 def code_firsts(text):
     # an unquoted heredoc body or a substitution runs whatever follows $( or a backtick
-    for m in FIRST.finditer(text.replace('\\\n', '')):
+    for m in FIRST.finditer(text):
         add_first(m.group(2))
-
-
-def var_at(k):
-    # a `$` at k starts an expansion, even split by backslash newlines: `$\<newline>X`
-    k += 1
-    while s.startswith('\\\n', k):
-        k += 2
-    return k < n and bool(re.match(r'[\w{@*#?!-]', s[k]))
 
 
 def backtick_end(k):
@@ -233,14 +224,14 @@ def dq_end(k, top):
                 if not data:
                     code_firsts(body)
                 # the word is the body: `"$(cat <<'EOF'` + `bash` + ... `)" -c '...'` runs bash
-                return after + tail.end() - 1, data, body, not quoted and bool(VAR.search(body.replace('\\\n', '')))
+                return after + tail.end() - 1, data, body, not quoted and bool(VAR.search(body))
     data = True
     while k < n:
         c = s[k]
         if c == '\\':
             k += 2
         elif c == '"':
-            return k, data, s[start:k], bool(VAR.search(s[start:k].replace('\\\n', '')))
+            return k, data, s[start:k], bool(VAR.search(s[start:k]))
         elif c == '`':
             data = False
             first_word(k + 1)
@@ -260,6 +251,10 @@ def dq_end(k, top):
 
 
 def scan():
+    if '\\\n' in s:
+        # bash joins lines before it reads `$\<newline>(` or `$\<newline>X`, the scanner
+        # does not; quoted text with a line continuation is rare enough to scan raw
+        raise Raw
     word, var, pending, i = '', False, [], 0
 
     def end_word():
@@ -273,8 +268,7 @@ def scan():
     while i < n:
         c = s[i]
         if c == '\\':
-            if s[i + 1:i + 2] != '\n':
-                word += s[i + 1:i + 2]
+            word += s[i + 1:i + 2]
             i += 2
         elif c == "'":
             j = s.find("'", i + 1)
@@ -358,7 +352,7 @@ def scan():
             end_word()
             i += 1
         else:
-            var |= c == '$' and var_at(i)
+            var |= bool(VAR.match(s, i))
             word += c
             i += 1
     end_word()
@@ -478,7 +472,7 @@ EOF'
   force_block ': > /home/santiago/f'
   force_block 'echo hi
 find / -delete'
-  force_block 'rm -rf \
+  block 'rm -rf \
 /'
   block 'rm -rf $(echo /)'
   block 'rm -rf `echo ~`'
@@ -521,6 +515,8 @@ EOF
 X"
   block "X='mkfs.ext4 /dev/sdb1'; \"\$\\
 X\""
+  block "\$\\
+(printf 'mkfs.ext4 /dev/sdb1')"
   block "X='mkfs.ext4 /dev/sdb1'; cat <<EOF
 \$(\$X)
 EOF"
