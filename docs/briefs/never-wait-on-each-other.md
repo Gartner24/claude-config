@@ -12,6 +12,8 @@
 - A run already going is never stopped by `wf`: it treats a swap made by `wf` as expected and takes the new setup at its next call (each call is a fresh claude session). Any change to `~/.claude` not made by `wf` still stops it, as today.
 - No lock is held longer than the step that needs it; a refusal names the real holder.
 - Decided in /architect, 2026-10-13 (spec 0020): the swap is per file, renamed in a loop of a few milliseconds with `settings.json` last, so a Claude starting inside that window may see some new and some old files, every file whole (accepted over a whole set swap). A call already running sees the new settings and hooks mid call (probe P1, accepted). The real claude checks run beside the builds, not before them, so nothing waits on them. A second `wf` during a swap skips only the swap and does the rest.
+- Build, 2026-10-13 (your message): feature 32 is built in chat this one time, not by `wf run`; run the whole tier chain (`/check verify`, `/test`, `/sync`) yourself and stop before merge or push. Milestones done and committed: runner copy (AC-12) and locks (AC-7, AC-9). Next: "Runs take a `wf` swap" (AC-5).
+- The full suite's one red test, `test_spec_paths` on `docs/specs/0021-never-stop/index.md`, belongs to another session's untracked spec 0021; leave it, and never stage `docs/specs/0021-never-stop/`, `docs/briefs/finish-runner-today.md` or that session's scope hunks (feature 23, 33, 34). Stage scope ticks through the index only.
 - Trigger, 2026-10-13: `wf finish` held every repo lock for 30 minutes, `wf unpark` was refused, `wf finish` refused because a run was going, and a hand made wait loop was needed.
 
 ## Open for /architect
