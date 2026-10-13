@@ -40,7 +40,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 24 | Runner resilience | Release 4 | in-progress |
 | 25 | Checks that cannot lie | Release 4 | in-progress |
 | 28 | Guard hook false alarms | Release 4 | in-progress |
-| 29 | Several repos at once | Deferred | planned |
+| 29 | Several repos at once | Release 4 | in-progress |
 | 23 | Questions that teach | Deferred | planned |
 | 15 | Cheap worker tier | Deferred | planned |
 | 16 | Issues and mixed source of truth | Deferred | planned |
@@ -381,14 +381,23 @@ One always loaded rule file the vendored skills cannot overwrite: verify steps a
 Spec [0015](../specs/0015-checks-that-cannot-lie/index.md)
 Source: [~/projects/docs/briefs/runner-ideas-2026-10-12.md](../../../projects/docs/briefs/runner-ideas-2026-10-12.md) (spec B, ideas 7 and 8; item 7 narrowed to changed tests, agreed 2026-10-13); personal scope rows 19 and 12 part 2.
 
+### 29. Several repos at once · in-progress · auto
+Bare `wf run` becomes a parent that starts today's single repo run once per repo with work, side by side: `--jobs N` caps it, repos sharing an app port, git dir or folder never run together, lines are prefixed `[<repo>]` with one summary at the end. Several features inside one repo at once still waits on feature 14.
+**Done when:** the spec is built, and one `wf run` builds features in two repos at the same time (`runner/e2e/run.py --parallel` passes on the real claude).
+- [x] Design it (spec): `/architect several repos at once`
+- [ ] Build it: `/develop several repos at once`
+   - [ ] Parent: has work flag, staggered child start, `--jobs`, exit codes (AC-1, AC-2, AC-6, AC-7)
+   - [ ] Never together rule, prefixed output and summary, signal forwarding (AC-3, AC-4, AC-5)
+   - [ ] `runner/e2e/run.py --parallel` (AC-8)
+- [ ] Verify it: `/check verify several repos at once`
+- [ ] Test it: `/test several repos at once`
+- [ ] Run `python3 runner/e2e/run.py --parallel` with `!` and record it in the spec's Follow-up (AC-8) · waits on you
+- [ ] Sync docs: `/sync several repos at once`
+Spec [0017](../specs/0017-several-repos-at-once.md)
+Source: personal scope row 23 (`~/projects/docs/scope/scope.md`; your message of 2026-10-12, multi tasking question).
+
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
-
-### 29. Several repos at once · needs a decision
-`wf run` builds one feature at a time across all trusted repos. Goal: one worker per repo at the same time (each repo already has its own lock and guard baseline). Several features inside one repo at once is a later step that needs feature 14 (a branch per spec) first.
-**Done when:** a spec is accepted and built, and one `wf run` builds features in two repos at the same time.
-- [ ] Design it (spec): `/architect several repos at once`
-Source: personal scope row 23 (`~/projects/docs/scope/scope.md`; your message of 2026-10-12, multi tasking question).
 
 ### 23. Questions that teach · needs a decision
 Deferred 2026-10-12: do it after the runner features are built.
