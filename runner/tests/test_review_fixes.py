@@ -176,6 +176,24 @@ class TestGitPaths(unittest.TestCase):
             self.assertEqual(before[1], "# pad\nxx")
             self.assertNotEqual(before[0], after[0])
 
+    # covers: spec 0008 AC-3 (commit review: a huge sparse file is never read past the cap, so the snapshot ends fast)
+    def test_sparse(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = self.repo(os.path.realpath(d))
+            (root / "tests").mkdir()
+            with open(root / "tests" / "test_huge.py", "wb") as f:
+                f.truncate(4 << 40)
+            ns = SimpleNamespace(c=SimpleNamespace(path=str(root), scope_dir="docs/scope"))
+            signal.signal(signal.SIGALRM, lambda *a: (_ for _ in ()).throw(TimeoutError("snapshot read the whole file")))
+            signal.alarm(5)
+            try:
+                t0 = time.monotonic()
+                snap = run.Run.snapshot(ns)
+            finally:
+                signal.alarm(0)
+            self.assertLess(time.monotonic() - t0, 3)
+            self.assertEqual(len(snap["tests/test_huge.py"][1]), run.SNAPSHOT_CAP)
+
     # covers: spec 0008 AC-3 (commit review: a specs folder pointing out of the repo is not walked; a link to
     # /dev/zero and a FIFO are never read, so the snapshot neither hangs nor fills memory)
     def test_workflow_specs_hostile(self):

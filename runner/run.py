@@ -69,7 +69,7 @@ MCP_ALLOW = '{"mcpServers": {}}'
 MCP_PACKAGE = "chrome-devtools-mcp@1.10.1"
 DEAD_PROXY = "127.0.0.1:9"
 APP_READY = 120
-# Spec 0008 AC-3: bytes of one test file's text the debug snapshot keeps; the hash still covers the whole file.
+# Spec 0008 AC-3: bytes of one file the debug snapshot reads; a bigger file's hash adds its size, inode and ctime.
 SNAPSHOT_CAP = 16 * 1024 * 1024
 APP_POLL = 0.5
 # P3's 1.10.1 tool list; the AC-6 six below are never offered to a call.
@@ -1800,14 +1800,14 @@ class Run:
                         if not stat.S_ISREG(st.st_mode):
                             raw = b"special file"
                         else:
-                            # The whole file is hashed in chunks, only the kept text is capped: hashing just the
-                            # first SNAPSHOT_CAP bytes let an edit past them at the same size go unseen (commit review).
-                            h, raw = hashlib.sha256(), f.read(SNAPSHOT_CAP)
-                            chunk = raw
-                            while chunk:
-                                h.update(chunk)
-                                chunk = f.read(1 << 20)
-                            out[rel] = (h.hexdigest(), raw.decode(errors="replace") if is_test else None)
+                            raw = f.read(SNAPSHOT_CAP)
+                            # Never read past the cap: a sparse `truncate -s 1T` file used to tie wf up for hours. Past
+                            # it, the key adds size, inode and ctime: any write moves ctime and no call can set it back,
+                            # so an edit after the first SNAPSHOT_CAP bytes is still seen (both commit reviews).
+                            key = raw
+                            if st.st_size > SNAPSHOT_CAP or (len(raw) == SNAPSHOT_CAP and f.read(1)):
+                                key = raw + b"\0oversize:%d:%d:%d" % (st.st_size, st.st_ino, st.st_ctime_ns)
+                            out[rel] = (hashlib.sha256(key).hexdigest(), raw.decode(errors="replace") if is_test else None)
                             continue
             except OSError:
                 # Listed by the index but gone from the tree: absent, so deleted.
