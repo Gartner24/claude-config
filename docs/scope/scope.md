@@ -356,7 +356,7 @@ Eight runner changes: wait through an API outage, stop on a crash loop, count to
    - [x] Timeout unconfirmed boxes, outage waits, crash loop (AC-1, AC-2, AC-4)
    - [x] Sync box and skip ahead in `wf.py` and `run.py`, repo copy of `rules/scope-contract.md`, architecture table (AC-7, AC-8)
    - [x] Fixture repo and `runner/e2e/run.py` with its fake `wf` test (AC-5)
-- [ ] Verify it: `/check verify runner resilience`
+- [x] Verify it: `/check verify runner resilience`
 - [ ] Test it: `/test runner resilience`
 - [ ] Copy the rule file live: `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` (AC-8) · waits on you
 - [ ] Run the real end to end with `!`: `python3 runner/e2e/run.py`, record it in `docs/specs/0014-runner-resilience/verify.md` (AC-5, AC-9) · waits on you
