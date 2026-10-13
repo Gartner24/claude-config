@@ -36,9 +36,11 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 10 | Build queue and decision queue | Release 3 | done |
 | 26 | Review stack fixes | Release 3 | done |
 | 27 | Second review stack fixes | Release 3 | done |
-| 21 | Work names out of the public repo | Release 3 | in-progress |
+| 21 | Work names out of the public repo | Release 3 | done |
 | 24 | Runner resilience | Deferred | planned |
 | 25 | Checks that cannot lie | Deferred | planned |
+| 28 | Guard hook false alarms | Deferred | planned |
+| 29 | Several repos at once | Deferred | planned |
 | 23 | Questions that teach | Deferred | planned |
 | 15 | Cheap worker tier | Deferred | planned |
 | 16 | Issues and mixed source of truth | Deferred | planned |
@@ -343,6 +345,18 @@ Two skill additions for `wf` and chat sessions (brief spec B): `/check verify` a
 **Done when:** the spec is built, a planted check that cannot fail is rejected, a commit touching an accepted spec's files is flagged by `/sync`, and an update of the vendored skills keeps both.
 - [ ] Design it (spec): `/architect checks that cannot lie`
 Source: [~/projects/docs/briefs/runner-ideas-2026-10-12.md](../../../projects/docs/briefs/runner-ideas-2026-10-12.md) (spec B, ideas 7 and 8); personal scope rows 19 and 12 part 2.
+
+### 28. Guard hook false alarms · needs a decision
+`block-destructive.sh` blocked a `git commit` on 2026-10-11 because the commit message held a power command word, and again on a scope edit whose text mentioned it. In an unattended run that stalls silently. It should match the command being run, not words inside quoted text or heredocs.
+**Done when:** a commit message or heredoc mentioning a power command passes, the real command is still blocked, and `bash hooks/block-destructive.sh --test` covers both.
+- [ ] Design it (spec): `/architect guard hook false alarms`
+Source: personal scope row 10 (`~/projects/docs/scope/scope.md`; hook errors on commit 9bc9d8f and on a scope edit, 2026-10-11).
+
+### 29. Several repos at once · needs a decision
+`wf run` builds one feature at a time across all trusted repos. Goal: one worker per repo at the same time (each repo already has its own lock and guard baseline). Several features inside one repo at once is a later step that needs feature 14 (a branch per spec) first.
+**Done when:** a spec is accepted and built, and one `wf run` builds features in two repos at the same time.
+- [ ] Design it (spec): `/architect several repos at once`
+Source: personal scope row 23 (`~/projects/docs/scope/scope.md`; your message of 2026-10-12, multi tasking question).
 
 ### 23. Questions that teach · needs a decision
 Deferred 2026-10-12: do it after the runner features are built.
