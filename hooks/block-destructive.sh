@@ -103,6 +103,7 @@ EXEC = {'sh', 'bash', 'zsh', 'dash', 'ksh', 'fish', 'csh', 'tcsh', 'busybox', 'e
         'python', 'python3', 'node', 'perl', 'ruby', 'awk', 'gawk', 'php', 'lua'}
 SEP = set(' \t\n\r;&|(){}<>!`')
 BLANK = set(';&|<>()')
+VAR = re.compile(r'\$[\w{@*#?!-]')
 FIRST = re.compile(r'(\$\(|`)[ \t\n]*([^ \t\n;&|(){}<>!`]*)')
 CAT = re.compile(r'\$\(cat[ \t]+<<(-?)[ \t]*(?:\'([^\'\n]+)\'|"([^"\n$`\\]+)"|\\([\w.-]+)|([\w.-]+))[ \t]*\n')
 
@@ -199,7 +200,9 @@ def subst_end(k):
 
 
 def dq_end(k, top):
-    # k: just after the opening `"`. Returns (index of the closing `"`, is a data region).
+    # k: just after the opening `"`. Returns (index of the closing `"`, is a data region,
+    # the text the word gets, whether that text expands a variable).
+    start = k
     m = CAT.match(s, k) if top else None
     if m:
         quoted = m.group(5) is None
@@ -216,14 +219,15 @@ def dq_end(k, top):
                 data = quoted or ('$(' not in body and '`' not in body)
                 if not data:
                     code_firsts(body)
-                return after + tail.end() - 1, data
+                # the word is the body: `"$(cat <<'EOF'` + `bash` + ... `)" -c '...'` runs bash
+                return after + tail.end() - 1, data, body, not quoted and bool(VAR.search(body))
     data = True
     while k < n:
         c = s[k]
         if c == '\\':
             k += 2
         elif c == '"':
-            return k, data
+            return k, data, s[start:k], bool(VAR.search(s[start:k]))
         elif c == '`':
             data = False
             first_word(k + 1)
@@ -243,13 +247,15 @@ def dq_end(k, top):
 
 
 def scan():
-    word, pending, i = '', [], 0
+    word, var, pending, i = '', False, [], 0
 
     def end_word():
-        nonlocal word
+        # a word that expands a variable can hold an executor or run quoted text:
+        # `X='mkfs.ext4 /dev/sdb1'; $X`, `m$X`
+        nonlocal word, var
         if word:
-            words.append(word)
-        word = ''
+            words.append('sh' if var else word)
+        word, var = '', False
 
     while i < n:
         c = s[i]
@@ -273,14 +279,16 @@ def scan():
             word += s[i + 2:j]
             i = j + 1
         elif c == '$' and s[i + 1:i + 2] == '"':
-            j, _ = dq_end(i + 2, False)
-            word += s[i + 2:j]
+            j, _, text, v = dq_end(i + 2, False)
+            word += text
+            var |= v
             i = j + 1
         elif c == '"':
-            j, data = dq_end(i + 1, True)
+            j, data, text, v = dq_end(i + 1, True)
             if data:
                 blank(i + 1, j)
-            word += s[i + 1:j]
+            word += text
+            var |= v
             i = j + 1
         elif c == '`' or s.startswith('$(', i):
             # unquoted, its output is split into words and can run as a command:
@@ -337,6 +345,7 @@ def scan():
             end_word()
             i += 1
         else:
+            var |= bool(VAR.match(s, i))
             word += c
             i += 1
     end_word()
@@ -349,9 +358,7 @@ try:
 except (Raw, IndexError, RecursionError):
     sys.exit(3)
 force = sys.argv[1:] == ['force']  # --test only: skip the executor check
-# a word that is a variable can hold an executor, or run quoted text: `X='...'; $X`
-if not force and any(os.path.basename(w) in EXEC or re.match(r'\$[\w{@*#?!-]', w)
-                     for w in words + firsts):
+if not force and any(os.path.basename(w) in EXEC for w in words + firsts):
     sys.exit(4)
 sys.stdout.buffer.write(''.join(out).encode('utf-8', 'surrogateescape'))
 PY
@@ -492,6 +499,16 @@ EOF
   block "X='mkfs.ext4 /dev/sdb1'; \$X"
   block "X='mkfs.ext4 /dev/sdb1'; \"\$X\""
   block "{sh,-c,'mkfs.ext4 /dev/sdb1'}"
+  block "X='kfs.ext4 /dev/sdb1'; m\$X; Y='mkfs.ext4 /dev/sdb1'"
+  block "\"\$(cat <<'EOF'
+bash
+EOF
+)\" -c 'mkfs.ext4 /dev/sdb1'"
+  # a variable in a quoted heredoc commit body is literal text, not an expansion
+  allow_data "git commit -m \"\$(cat <<'EOF'
+rm -rf \"\$HOME\" was never blocked when quoted
+EOF
+)\""
   # no python3 means the raw scan, as before (AC-4)
   [[ "$(PATH=/nonexistent blank_data 'echo "rm -rf /"' 2>/dev/null)" == 'echo "rm -rf /"' ]] \
     || { echo "FAIL missing python3 did not fall back to raw"; fail=1; }
