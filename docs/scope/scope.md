@@ -43,6 +43,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 29 | Several repos at once | Release 4 | done |
 | 30 | Live setup steps in one command | Release 5 | in-progress |
 | 13 | Morning report | Release 5 | in-progress |
+| 32 | Never wait on each other | Release 6 | needs a decision |
 | 31 | Guard baseline check before each repo | Deferred | planned |
 | 23 | Questions that teach | Deferred | planned |
 | 15 | Cheap worker tier | Deferred | planned |
@@ -438,6 +439,14 @@ When a run ends, for any reason, one phone message: what got built, what waits o
 - [ ] Sync docs: `/sync morning report`
 Spec [0018](../specs/0018-morning-report/index.md) · code in `runner/report.py`, `runner/ntfy.py`, `runner/run.py`, `runner/wf.py`, `runner/e2e/run.py`, tests in `runner/tests/test_report.py`
 Source: [docs/briefs/morning-report-and-live-steps.md](../briefs/morning-report-and-live-steps.md) (fix B); first deferred 2026-10-12, brought back 2026-10-13.
+
+## Release 6: work non stop
+
+### 32. Never wait on each other · needs a decision
+`wf finish`, `wf unpark`, runs in other repos and your own sessions all go on at once. `wf finish` holds no repo locks and never refuses because of a run; its real claude checks start at once in temp folders; the live setup change is one atomic swap, and a running run takes the new setup at its next call instead of stopping. The lock refusal names the real holder.
+**Done when:** with a run going in another repo, `wf finish` runs to the end, that run keeps going and its next call uses the new setup, `wf unpark` in a third repo works meanwhile, and a change to `~/.claude` not made by `wf finish` still stops the run.
+- [ ] Design it (spec): `/architect never wait on each other`
+Source: [docs/briefs/never-wait-on-each-other.md](../briefs/never-wait-on-each-other.md).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
