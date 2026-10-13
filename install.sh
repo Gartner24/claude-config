@@ -123,16 +123,33 @@ if [ -e "$LIVE/private/names.txt" ]; then
     mkdir -p "$(dirname "$excl")"
     printf '%s\n' "${add[@]}" >> "$excl"
   fi
+  # Copies, never links: a wf run call may edit the tracked checker, and a linked hook
+  # used to run that edit outside the sandbox at the next commit (spec 0013 AC-7).
+  checker="$REPO/scripts/private-names.py"
   run mkdir -p "$hooks"
   for h in pre-commit commit-msg; do
     dst="$hooks/$h"
-    if [ -L "$dst" ] && [ "$(readlink -f "$dst")" = "$(readlink -f "$REPO/scripts/private-names.py")" ]; then
-      note "$h: already linked"
-    elif [ -e "$dst" ] || [ -L "$dst" ]; then
+    act=""
+    if [ -L "$dst" ]; then
+      [ "$(readlink -f "$dst")" = "$(readlink -f "$checker")" ] && act=refreshed
+    elif [ -f "$dst" ] && [ -x "$dst" ] && cmp -s "$dst" "$checker"; then
+      note "$h: up to date"
+      continue
+    elif [ -f "$dst" ] && [ "$(sed -n 2p "$dst")" = "$(sed -n 2p "$checker")" ]; then
+      act=refreshed
+    elif [ ! -e "$dst" ]; then
+      act=copied
+    fi
+    if [ -z "$act" ]; then
       note "hook exists, not replaced: $h"
+    elif [ "$DRY" = 1 ]; then
+      note "would: $h: $act"
     else
-      note "$h -> scripts/private-names.py"
-      run ln -s "$REPO/scripts/private-names.py" "$dst"
+      # rm first so the copy can never write through a link into the tracked checker
+      rm -f "$dst"
+      cp "$checker" "$dst"
+      chmod 0755 "$dst"
+      note "$h: $act"
     fi
   done
 else

@@ -16,7 +16,7 @@ so a session reading the output cannot copy a name onward into a commit, memory 
   merge-settings <settings> <fragment>  merge a fragment back (`-` reads it from stdin)
   --test                                self checks, temp files and made up names only
 
-Linked as .git/hooks/pre-commit or .git/hooks/commit-msg it runs check-staged or check-msg.
+Copied to .git/hooks/pre-commit or .git/hooks/commit-msg it runs check-staged or check-msg.
 """
 import json
 import os
@@ -429,7 +429,7 @@ def selftest():
     hooks = repo / ".git" / "hooks"
     hooks.mkdir(exist_ok=True)
     for h in ("pre-commit", "commit-msg"):
-        (hooks / h).symlink_to(SCRIPT)
+        shutil.copy(SCRIPT, hooks / h)
 
     def commit(path, body, message):
         (repo / path).parent.mkdir(parents=True, exist_ok=True)
@@ -619,7 +619,9 @@ def selftest():
     (irepo / "settings.json").write_text(json.dumps({"permissions": {"deny": ["Bash(rm:*)", "Read(~/x)"]}}))
     hooks = irepo / ".git" / "hooks"
     hooks.mkdir(exist_ok=True)
-    (hooks / "commit-msg").write_text("#!/bin/sh\nexit 0\n")
+    ichecker = irepo / "scripts" / "private-names.py"
+    # without its execute bit, so the hook's 0755 has to come from install, not from cp
+    ichecker.chmod(0o644)
     (ilive / "private" / "settings.json").write_text(json.dumps(
         {"permissions": {"deny": ["Read(/home/santiago/zorblex/**)", "Read(~/x)"]},
          "skillOverrides": {"zorblex-site": {"on": True}}}))
@@ -634,15 +636,51 @@ def selftest():
     ok(json.loads((ilive / "settings.local.json").read_text()) == {"permissions": {"allow": ["Read(~/quux-labs)"]}},
        "AC-6 install merges the settings.local fragment")
     ok(excl.read_text() == excl_before + "skills/zorblex-site/\n", "AC-7 install adds the private exclude line")
-    ok((hooks / "pre-commit").is_symlink()
-       and (hooks / "pre-commit").resolve() == (irepo / "scripts" / "private-names.py").resolve(),
-       "AC-7 install links pre-commit to the checker")
-    ok(not (hooks / "commit-msg").is_symlink() and "hook exists, not replaced: commit-msg" in out,
-       "AC-7 install leaves an existing hook alone and says so")
+
+    def is_copy(h):
+        p = hooks / h
+        return (not p.is_symlink() and p.read_bytes() == ichecker.read_bytes()
+                and stat.S_IMODE(p.stat().st_mode) == 0o755)
+
+    ok(all(is_copy(h) and f"{h}: copied" in out for h in ("pre-commit", "commit-msg")),
+       "AC-7 install copies both hooks, regular 0755 files equal to the checker")
     ok(not leaks(out), "install output never holds a name")
-    run(script=irepo / "install.sh", extra=ienv)
+    code, out = run(script=irepo / "install.sh", extra=ienv)
     ok(excl.read_text().count("skills/zorblex-site/") == 1, "AC-7 install rerun adds no exclude line twice")
     ok(json.loads((ilive / "settings.json").read_text()) == live_s, "AC-6 install rerun gives the same settings")
+    ok(all(f"{h}: up to date" in out and is_copy(h) for h in ("pre-commit", "commit-msg")),
+       "AC-7 install rerun says up to date")
+    # the old install: a link to the checker, and an older copy recognized by line 2
+    (hooks / "pre-commit").unlink()
+    (hooks / "pre-commit").symlink_to(ichecker)
+    lines = ichecker.read_text().splitlines(keepends=True)
+    (hooks / "commit-msg").write_text("".join(lines[:2]) + "old\n")
+    before_checker = ichecker.read_bytes()
+    code, out = run(script=irepo / "install.sh", extra=ienv)
+    ok(all(f"{h}: refreshed" in out and is_copy(h) for h in ("pre-commit", "commit-msg")),
+       "AC-7 install refreshes a link to the checker and an older copy")
+    ok(ichecker.read_bytes() == before_checker, "AC-7 refreshing a link never writes into the checker")
+    # an identical copy missing its execute bit is refreshed, not up to date
+    (hooks / "pre-commit").chmod(0o644)
+    code, out = run(script=irepo / "install.sh", extra=ienv)
+    ok("pre-commit: refreshed" in out and is_copy("pre-commit"), "AC-7 install restores a lost execute bit")
+    # hand written hook and a link elsewhere are left alone; dry run writes nothing
+    (hooks / "commit-msg").write_text("#!/bin/sh\nexit 0\n")
+    (hooks / "pre-commit").unlink()
+    (hooks / "pre-commit").symlink_to(irepo / "CLAUDE.md")
+    code, out = run(script=irepo / "install.sh", extra=ienv)
+    ok(all(f"hook exists, not replaced: {h}" in out for h in ("pre-commit", "commit-msg"))
+       and (hooks / "commit-msg").read_text() == "#!/bin/sh\nexit 0\n"
+       and os.readlink(hooks / "pre-commit") == str(irepo / "CLAUDE.md"),
+       "AC-7 install leaves a hand written hook and a foreign link alone and says so")
+    (hooks / "pre-commit").unlink()
+    (hooks / "commit-msg").write_text("".join(lines[:2]) + "old\n")
+    snap = files_under(irepo / ".git")
+    old_msg = (hooks / "commit-msg").read_bytes()
+    code, out = run("--dry-run", script=irepo / "install.sh", extra=ienv)
+    ok("would: pre-commit: copied" in out and "would: commit-msg: refreshed" in out
+       and files_under(irepo / ".git") == snap and (hooks / "commit-msg").read_bytes() == old_msg,
+       "AC-7 install --dry-run prints the hook copies and writes nothing")
 
     shutil.rmtree(tmp)
     for f in fails:
