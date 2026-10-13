@@ -102,39 +102,36 @@ class TestPaid(unittest.TestCase):
 
 
 class TestLimitThenRepoStop(QueueCase):
-    # covers: spec 0011 AC-9 (M1: a limit rerun ended by a repo stop no longer leaks into the next repo's feature,
-    # which used to die on an unset value and end the run internal_error)
-    def test_next_repo_runs(self):
-        a = self.repo
-        b = self.make_repo("beta", ONE)
-        self.steps([limited(write_file=[[".claude/settings.json", "{}"]]), {}, {"tick": False}])
-        r = self.wf("-y", mode="limit|2026-10-12T06:00:00-05:00|100000")
+    # covers: spec 0011 AC-9 (M1: a limit rerun ended by a repo stop no longer dies on an unset value and ends the
+    # run internal_error; one repo since spec 0017, where each repo of a bare run is a child of its own)
+    def test_repo_stops(self):
+        self.steps([limited(write_file=[[".claude/settings.json", "{}"]])])
+        r = self.wf("demo", "-y", mode="limit|2026-10-12T06:00:00-05:00|100000")
         # AC-19: a stopped repo is left for you, so not 0.
         self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
         _, rec = self.run_record()
-        self.assertEqual([(e["repo"], e["ended"]) for e in rec["repos"]], [(str(a), "guard_changed"), (str(b), None)])
-        self.assertEqual([(e["repo"], e["outcome"]) for e in rec["features"]],
-                         [(str(a), "guard_changed"), (str(b), "feature_done")])
+        self.assertEqual([(e["repo"], e["ended"]) for e in rec["repos"]], [(str(self.repo), "guard_changed")])
+        self.assertEqual([e["outcome"] for e in rec["features"]], ["guard_changed"])
         self.assertEqual(rec["stop_reason"], "queue_done")
 
 
 class TestAppStopRepoStop(AppCase):
     # covers: spec 0011 AC-9 (M2: a guard change found when the feature's app stops ends only that repo; the stop
-    # sat outside the try and used to end every repo)
+    # sat outside the try and used to end every repo), spec 0017 AC-7 (the other repo's child runs to done)
     def test_other_repo_runs(self):
         plant = "import os; os.makedirs('.claude', exist_ok=True); open('.claude/settings.json', 'w').write('{}')"
         self.app("ok", f'python3 -c "{plant}"; exec python3 {self.app_py} {self.port} ok')
         # Only /sync is owed there, so one call is enough under --max-calls 1.
         other = self.make_repo("other", ONE.replace("- [ ] `/develop a`", "- [x] `/develop a`"))
-        self.steps([{"tick": False, "rc": 1}, {"tick": False}])
+        self.steps({"demo": [{"tick": False, "rc": 1}], "other": [{"tick": False}]})
         r = self.wf("-y", "--max-calls", "1")
         self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
-        self.assertIn("stopped repo demo: guard_changed: ", r.stdout)
-        _, rec = self.run_record()
-        self.assertEqual([(e["repo"], e["outcome"]) for e in rec["features"]],
+        self.assertIn("[demo] stopped repo demo: guard_changed: ", r.stdout)
+        recs = self.run_records()
+        self.assertEqual([(e["repo"], e["outcome"]) for e in recs["demo"]["features"] + recs["other"]["features"]],
                          [(str(self.repo), "guard_changed"), (str(other), "feature_done")])
-        self.assertEqual(rec["repos"][0]["ended"], "guard_changed")
-        self.assertEqual(rec["stop_reason"], "queue_done")
+        self.assertEqual(recs["demo"]["repos"][0]["ended"], "guard_changed")
+        self.assertEqual(recs["demo"]["stop_reason"], "queue_done")
 
 
 class TestGitPaths(unittest.TestCase):

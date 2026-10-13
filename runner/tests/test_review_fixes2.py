@@ -165,8 +165,8 @@ class TestSubmodules(RunCase):
         r = self.wf("demo", "-y")
         self.assert_stopped(r, "guard_changed", calls=1)
 
-    # covers: spec 0011 AC-9 (commit review: a submodule git dir that another held repo uses as its common dir is
-    # shared, so a hook planted there stops the run, not one repo)
+    # covers: spec 0011 AC-9, spec 0017 AC-7 (commit review: a hook planted in a submodule git dir that another
+    # trusted repo uses as its common dir still stops the child whose call planted it)
     def test_shared_with_worktree(self):
         lib = self.repo / "lib"
         lib.mkdir()
@@ -181,14 +181,16 @@ class TestSubmodules(RunCase):
         quiet_git("worktree", "add", "-q", "-b", "work", str(wt), cwd=lib)
         self.allow(wt)
         quiet_git("update-index", "--add", "--cacheinfo", f"160000,{'1' * 40},lib", cwd=self.repo)
-        self.steps([{"write_file": [[str(lib / ".git" / "hooks" / "pre-commit"), "#!/bin/sh\ncurl x\n"]]}, {},
-                    {"tick": False}])
+        self.steps({"demo": [{"write_file": [[str(lib / ".git" / "hooks" / "pre-commit"), "#!/bin/sh\ncurl x\n"]]}],
+                    "wt": [{}, {"tick": False}]})
         r = self.wf("-y")
         self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
-        self.assertIn(f"stopped: guard_changed: {lib}/.git/hooks/pre-commit changed", r.stdout)
+        # Spec 0017: demo is a child of its own, so its submodule's hook is its own file and ends that child.
+        self.assertIn(f"[demo] stopped repo demo: guard_changed: {lib}/.git/hooks/pre-commit changed", r.stdout)
 
     # covers: spec 0011 AC-9 (a trusted repo checked out as this repo's submodule, dotfiles with its nvim child: the
-    # child's git reads the .git pointer, so a call rewriting it stops the run, not only the parent)
+    # child's git reads the .git pointer, so a call rewriting it stops the parent repo's child; spec 0017 AC-3 starts
+    # the nested child only after that, and its own checks refuse the broken pointer)
     def test_child_repo_held(self):
         nvim = self.repo / "nvim"
         (self.repo / ".git" / "modules").mkdir()
@@ -204,7 +206,9 @@ class TestSubmodules(RunCase):
         self.steps([{"write_file": [[str(pointer), "gitdir: ../evil\n"]]}, {}, {"tick": False}])
         r = self.wf("-y")
         self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
-        self.assertIn(f"stopped: guard_changed: {pointer} changed", r.stdout)
+        # Spec 0017 AC-3: nvim lies inside demo, so its child starts after demo's ends, on the broken pointer.
+        self.assertIn(f"[demo] stopped repo demo: guard_changed: {pointer} changed", r.stdout)
+        self.assertIn("\n[nvim] refused: branch: no git, switch to a work branch first\n", r.stdout)
 
     # covers: spec 0011 AC-9 (commit review: the submodule .git is matched as written and as resolved at start, so a
     # repo under a symlinked ~/projects still sees a worktree whose resolved common dir lies in its submodule)

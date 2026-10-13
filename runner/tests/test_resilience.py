@@ -199,29 +199,34 @@ class TestCrashLoop(Case):
         rec = self.assert_stopped(self.wf("demo", "-y", "--call-timeout", "0.01"), "call_timeout", calls=3)
         self.assertEqual([e["outcome"] for e in rec["features"]], ["call_timeout"] * 3)
 
-    # covers: spec 0014 AC-2 (the previous feature may be in another repo; a detail differing in its first 60
-    # characters breaks the chain)
+    # covers: spec 0014 AC-2, spec 0017 (a bare wf run's children each see one repo, so the same park in two repos
+    # is no crash loop; a detail differing in its first 60 characters breaks the chain)
     def test_repos_and_key(self):
         self.make_repo("other", HEAD + feature(1, "X", "`/develop x`"))
         self.steps([DENIED])
-        rec = self.assert_stopped(self.wf("-y"), "crash_loop", calls=2)
-        self.assertEqual(rec["detail"], "denied: Bash: rm -rf build (also in 1. Loop)")
+        r = self.wf("-y")
+        self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
+        self.assertNotIn("crash_loop", r.stdout)
+        self.assertEqual({n: [e["outcome"] for e in rec["features"]] for n, rec in self.run_records().items()},
+                         {"demo": ["denied"], "other": ["denied"]})
         shutil.rmtree(self.state)
         (self.fakes / "count").unlink(missing_ok=True)
+        self.scope(HEAD + feature(1, "A", "`/develop a`") + feature(2, "B", "`/develop b`"))
+        self.commit()
         long = "x" * 60
         self.steps([{"tick": False, "json": {"permission_denials": [
             {"tool_name": "Bash", "tool_input": {"command": long + " one"}, "tool_use_id": "t1"}]}},
             {"tick": False, "json": {"permission_denials": [
                 {"tool_name": "Bash", "tool_input": {"command": long + " two"}, "tool_use_id": "t1"}]}}])
         # Same first 60 characters of "Bash: xxx..." though the commands differ: still a crash loop.
-        rec = self.assert_stopped(self.wf("-y"), "crash_loop", calls=2)
+        rec = self.assert_stopped(self.wf("demo", "-y"), "crash_loop", calls=2)
         shutil.rmtree(self.state)
         (self.fakes / "count").unlink(missing_ok=True)
         self.steps([{"tick": False, "json": {"permission_denials": [
             {"tool_name": "Bash", "tool_input": {"command": "one " + long}, "tool_use_id": "t1"}]}},
             {"tick": False, "json": {"permission_denials": [
                 {"tool_name": "Bash", "tool_input": {"command": "two " + long}, "tool_use_id": "t1"}]}}])
-        rec = self.assert_stopped(self.wf("-y"), "denied", calls=2)
+        rec = self.assert_stopped(self.wf("demo", "-y"), "denied", calls=2)
 
 
 class TestTokens(Case):

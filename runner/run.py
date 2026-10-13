@@ -16,13 +16,16 @@ import signal
 import stat
 import subprocess
 import sys
+import threading
 import time
 import traceback
 import types
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 import zoneinfo
+from queue import Queue
 
 import ntfy
 import wf
@@ -1230,12 +1233,16 @@ class Run:
             if not decisions + items:
                 print("  nothing to run")
             # An open Decision counts too: the run re-pings it and its end wait takes the reply (AC-14, AC-15).
-            runnable = runnable or any(f for f, _ in items) or any(ok for ok, _ in decisions)
+            # Spec 0017 AC-1: the parent starts a child only for a repo with this flag.
+            h["has_work"] = any(f for f, _ in items) or any(ok for ok, _ in decisions)
+            runnable = runnable or h["has_work"]
             sessions = wf.open_sessions(c.path)
             pre = "" if self.target else f"{c.name}: "
             warnings += [pre + w for w in c.warnings + ([f"{sessions} session(s) already open here"] if sessions else [])]
         print(f"caps: {a.budget:g} USD/call, {a.call_timeout:g}m/call, {a.max_calls} calls/feature, "
               f"{a.max_hours:g}h, wait {a.max_wait:g}h")
+        if not self.target and not self.peek:
+            print(f"jobs: {getattr(a, 'jobs', None) or sum(bool(h.get('has_work')) for h in self.held)} at once")
         for w in warnings + self.warnings:
             print(f"warning: {flat(w)}")
         sys.stdout.flush()
@@ -2886,6 +2893,120 @@ def planned(args):
     return r, rc if rc is not None else r.plan()
 
 
+def common_dir(path):
+    """Spec 0017 AC-3: a checkout's git common dir read from its .git file or folder as spec 0002 does, no git call."""
+    try:
+        gd = wf.dot_git(path)
+        cd = os.path.join(gd, "commondir")
+        return os.path.realpath(os.path.join(gd, wf.read(cd).strip()) if os.path.isfile(cd) else gd)
+    except OSError:
+        return None
+
+
+def app_port(url):
+    u = urllib.parse.urlsplit(url)
+    try:
+        return u.port or {"http": 80, "https": 443}.get(u.scheme)
+    except ValueError:
+        return None
+
+
+def clashes(a, b):
+    """Spec 0017 AC-3: two repos that never run at the same time."""
+    return (a["port"] is not None and a["port"] == b["port"]) or (a["common"] is not None and a["common"] == b["common"]) \
+        or under(a["path"], [b["path"]]) or under(b["path"], [a["path"]])
+
+
+def parallel(r):
+    """Spec 0017: bare wf run after its confirm, one child `wf run <repo> -y` per repo with work, side by side.
+    Returns the AC-6 exit code."""
+    a = r.args
+    for h in r.held:
+        # AC-1: each child takes its own lock at its own start checks.
+        if h["lock_fd"] is not None:
+            os.close(h["lock_fd"])
+            h["lock_fd"] = None
+    names = [e["name"] for e in r.record["repos"]]
+    rows, jobs = [], []
+    for e in r.record["repos"]:
+        dup = names.count(e["name"]) > 1
+        row = {"name": f"{os.path.basename(os.path.dirname(e['repo']))}/{e['name']}" if dup else e["name"],
+               "skip": e["skip"], "work": False, "code": None, "last": "-", "folder": "-"}
+        rows.append(row)
+        h = next((h for h in r.held if h["repo"] is e), None)
+        if row["skip"] or not h or not h.get("has_work"):
+            continue
+        url = h["answers"].get("app url")
+        row.update(work=True, path=h["c"].path, common=common_dir(h["c"].path), port=url and app_port(url))
+        jobs.append(row)
+    argv = [sys.executable, "-u", os.path.join(os.path.dirname(os.path.realpath(__file__)), "wf.py"), "run"]
+    caps = ["-y", "--budget", str(a.budget), "--call-timeout", str(a.call_timeout), "--max-calls", str(a.max_calls),
+            "--max-hours", str(a.max_hours), "--max-wait", str(a.max_wait)]
+    limit = a.jobs or len(jobs)
+    lines, running, waiting, starting = Queue(), [], list(jobs), None
+
+    def forward(signum, frame):
+        # AC-5: every signal reaches each running child as its own Ctrl C, the second as its second.
+        r.interrupted = True
+        for j in running:
+            try:
+                os.killpg(j["proc"].pid, signal.SIGINT)
+            except ProcessLookupError:
+                pass
+
+    def read(j):
+        for line in j["proc"].stdout:
+            lines.put((j, line))
+        lines.put((j, None))
+
+    for sig in (signal.SIGINT, signal.SIGHUP, signal.SIGTERM):
+        signal.signal(sig, forward)
+    while running or (waiting and not r.interrupted):
+        # AC-1: one child at a time through its start checks (the shared MCP npm cache, the locks).
+        if starting is None and not r.interrupted and len(running) < limit:
+            j = next((j for j in waiting if not any(clashes(j, k) for k in running)), None)
+            if j:
+                waiting.remove(j)
+                j["proc"] = subprocess.Popen([*argv, j["path"], *caps], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                             stderr=subprocess.STDOUT, encoding="utf-8", errors="replace",
+                                             start_new_session=True)
+                running.append(j)
+                # A signal between the spawn and the append above found no child to forward to.
+                if r.interrupted:
+                    os.killpg(j["proc"].pid, signal.SIGINT)
+                threading.Thread(target=read, args=(j,), daemon=True).start()
+                starting = j
+                continue
+        j, line = lines.get()
+        if line is None:
+            j["code"] = j["proc"].wait()
+            running.remove(j)
+            starting = None if starting is j else starting
+            continue
+        line = wf.clean(line.rstrip("\n"))
+        print(f"[{j['name']}] {line}", flush=True)
+        if line.startswith(("done:", "parked:", "stopped:", "nothing to run")):
+            j["last"] = line
+        if line.startswith("run folder: "):
+            j["folder"] = line[len("run folder: "):]
+            starting = None if starting is j else starting
+    print("summary:")
+    for row in rows:
+        if row["skip"]:
+            print(f"  {row['name']}: skipped: {row['skip']}")
+        elif not row["work"]:
+            print(f"  {row['name']}: nothing to run")
+        elif row["code"] is None:
+            print(f"  {row['name']}: not started")
+        else:
+            print(f"  {row['name']}: exit {row['code']}, {row['last']} | run folder: {row['folder']}")
+    sys.stdout.flush()
+    codes = [j["code"] for j in jobs if j["code"] is not None]
+    if r.interrupted or 130 in codes:
+        return 130
+    return 6 if any(codes) else 0
+
+
 def cmd_run(args):
     try:
         r, rc = planned(args)
@@ -2896,7 +3017,8 @@ def cmd_run(args):
     except KeyboardInterrupt:
         print()
         return 130
-    return r.run()
+    # Spec 0017: bare wf run is a parent of single repo runs.
+    return r.run() if r.target else parallel(r)
 
 
 def cmd_queue(args):

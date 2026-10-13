@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import run  # noqa: E402
 import wf  # noqa: E402
 from test_park import GIT_ID  # noqa: E402
-from test_run import WF, FakeNtfy, RunCase, ask, plan, write_config  # noqa: E402
+from test_run import WF, FakeNtfy, RunCase, ask, plan, summary, write_config  # noqa: E402
 
 TWO = """# Scope: x
 **Autopilot:** allowed
@@ -550,11 +550,18 @@ class TestAcrossRepos(QueueCase):
         self.assertEqual(lines[4:8], [str(bad), f"  skip: scope_unreadable: [Errno 13] Permission denied: "
                                                 f"'{bad}/docs/scope/scope.md'", "alpha on work, 0 changes", "  queued: 1. A"])
         self.assertTrue(lines[8].startswith("caps: "))
-        _, rec = self.run_record()
-        self.assertEqual([(e["repo"], e["skip"] and e["skip"].split(":")[0]) for e in rec["repos"]],
-                         [(f"{self.tmp}/gone", "missing"), (str(hub), "hub"), (str(bad), "scope_unreadable"), (str(a), None)])
-        self.assertEqual([c["command"] for c in rec["calls"]], ["/develop a", "/sync"])
-        self.assertIn("run folder: " + str(self.state / "wf" / "runs" / "queue-"), r.stdout)
+        # Spec 0017 AC-1, AC-4: one child for the one repo with work; the skips stay in the summary.
+        self.assertEqual(lines[9], "jobs: 1 at once")
+        recs = self.run_records()
+        self.assertEqual(list(recs), ["alpha"])
+        self.assertEqual([c["command"] for c in recs["alpha"]["calls"]], ["/develop a", "/sync"])
+        folder = next(x for x in lines if x.startswith("[alpha] run folder: "))[len("[alpha] run folder: "):]
+        self.assertTrue(folder.startswith(str(self.state / "wf" / "runs" / "alpha-")), folder)
+        self.assertEqual(summary(r.stdout), [
+            "  gone: skipped: missing: no folder or no scope",
+            "  hubrepo: skipped: hub: hubrepo is a hub scope with no boxes of its own",
+            f"  bad: skipped: scope_unreadable: [Errno 13] Permission denied: '{bad}/docs/scope/scope.md'",
+            f"  alpha: exit 0, done: 1. A | run folder: {folder}"])
         for text in (None, "{not json"):
             with self.subTest(text):
                 p = self.tmp / "config" / "wf" / "allowed.json"
@@ -600,94 +607,60 @@ class TestAcrossRepos(QueueCase):
         r = self.wf("-y")
         self.assertEqual((r.returncode, plan(r.stdout)[-1]), (0, "nothing to run"), r.stdout + r.stderr)
 
-    # covers: AC-5, AC-9 (Autopilot turned off in repo A ends A only, its lock kept while repo B runs to done)
+    # covers: AC-9, spec 0017 AC-6, AC-7 (Autopilot turned off in repo A ends A's child; B's child runs to done beside
+    # it; the parent exits 6 and the summary shows both)
     def test_repo_stop(self):
         a, b = self.make_repo("ra", ONE), self.make_repo("rb", ONE)
         self.trust(a, b)
-        out = self.fakes / "lock-a"
-        probe = (f"import fcntl, os\nfd = os.open({str(self.lock(a))!r}, os.O_RDWR)\ntry:\n"
-                 f"    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)\n    r = 'free'\nexcept BlockingIOError:\n"
-                 f"    r = 'held'\nopen({str(out)!r}, 'w').write(r)\n")
-        self.steps([{"edit": [["**Autopilot:** allowed", "**Autopilot:** off"]]},
-                    {**TICK_A, "run": [[sys.executable, "-c", probe]]}, DONE_A])
+        self.steps({"ra": [{"edit": [["**Autopilot:** allowed", "**Autopilot:** off"]]}], "rb": [TICK_A, DONE_A]})
         r = self.wf("-y")
         self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
-        self.assertIn("\nstopped repo ra: autopilot_off: Autopilot is now off\n", r.stdout)
-        self.assertEqual(plan(r.stdout)[-3], "queue done: 1 done, 0 parked, 0 open")
-        self.assertEqual(out.read_text(), "held")
-        _, rec = self.run_record()
-        self.assertEqual([(e["name"], e["ended"]) for e in rec["repos"]], [("ra", "autopilot_off"), ("rb", None)])
-        self.assertEqual([(e["repo"], e["outcome"]) for e in rec["features"]],
+        self.assertIn("\n[ra] stopped repo ra: autopilot_off: Autopilot is now off\n", r.stdout)
+        recs = self.run_records()
+        self.assertEqual([(e["repo"], e["outcome"]) for e in recs["ra"]["features"] + recs["rb"]["features"]],
                          [(str(a), "autopilot_off"), (str(b), "feature_done")])
-        self.assertEqual([c["feature"] for c in rec["calls"]], [1, 2, 2])
+        s = summary(r.stdout)
+        self.assertTrue(s[0].startswith("  ra: exit 6, - | run folder: "), s)
+        self.assertTrue(s[1].startswith("  rb: exit 0, done: 1. A | run folder: "), s)
 
-    # covers: AC-9 (guard_changed scope: a repo's own settings end that repo, whether it is the one running or
-    # another; ~/.claude settings and a git config two held worktrees share stop the run)
+    # covers: AC-9, spec 0017 AC-7 (guard_changed scope in children: a repo's own settings end that repo, whether its
+    # own call or a call in a repo running beside it wrote them; ~/.claude settings stop every child on its own)
     def test_guard_scope(self):
         detail = " changed during the run; inspect or delete it before opening a session in this repo"
+
+        def late(path, delay=3):
+            return [sys.executable, "-c", f"import os, time; time.sleep({delay}); os.makedirs(os.path.dirname({path!r}), "
+                                          f"exist_ok=True); open({path!r}, 'w').write('{{}}')"]
+
         with self.subTest("own file of the running repo"):
             a, b = self.make_repo("oa", ONE), self.make_repo("ob", ONE)
             self.trust(a, b)
-            self.steps([{"write_file": [[".claude/settings.json", "{}"]]}, TICK_A, DONE_A])
+            self.steps({"oa": [{"write_file": [[".claude/settings.json", "{}"]]}], "ob": [TICK_A, DONE_A]})
             r = self.wf("-y")
             self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
-            self.assertIn(f"\nstopped repo oa: guard_changed: {a}/.claude/settings.json{detail}\n", r.stdout)
-            self.assertIn("done: 1. A", r.stdout)
-            self.assertEqual(self.run_record()[1]["stop_reason"], "queue_done")
-        with self.subTest("own file of another held repo"):
+            self.assertIn(f"\n[oa] stopped repo oa: guard_changed: {a}/.claude/settings.json{detail}\n", r.stdout)
+            self.assertIn("\n[ob] done: 1. A\n", r.stdout)
+        with self.subTest("own file written by a repo running beside it"):
             self.again()
             a, b = self.make_repo("pa", ONE), self.make_repo("pb", ONE)
             self.trust(a, b)
-            self.steps([{"write_file": [[f"{b}/.claude/settings.local.json", "{}"]]}, DONE_A])
-            r = self.wf("-y")
-            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-            self.assertIn(f"\nstopped repo pb: guard_changed: {b}/.claude/settings.local.json{detail}\n", r.stdout)
-            _, rec = self.run_record()
-            self.assertEqual([(e["name"], e["ended"]) for e in rec["repos"]], [("pa", None), ("pb", "guard_changed")])
-            self.assertEqual([(e["repo"], e["outcome"]) for e in rec["features"]], [(str(a), "feature_done")])
-        with self.subTest("shared git common dir"):
-            self.again()
-            a = self.make_repo("wa", ONE)
-            self.commit(a)
-            w = self.tmp / "root" / "wb"
-            subprocess.run(["git", *GIT_ID, "-C", str(a), "worktree", "add", "-q", "-b", "wtb", str(w)],
-                           check=True, capture_output=True)
-            self.trust(a, w)
-            self.steps([{"write_file": [[".git/config", "{}"]]}, {}])
+            # pb's child takes its baseline at its confirm, before pa's call writes pb's file 3 seconds in.
+            self.steps({"pa": [{"run": [late(f"{b}/.claude/settings.local.json")]}, DONE_A],
+                        "pb": [{"tick": False, "sleep": 6}]})
             r = self.wf("-y")
             self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
-            self.assertIn(f"\nstopped: guard_changed: {a}/.git/config{detail}\n", r.stdout)
+            self.assertIn(f"\n[pb] stopped repo pb: guard_changed: {b}/.claude/settings.local.json{detail}\n", r.stdout)
+            self.assertIn("\n[pa] done: 1. A\n", r.stdout)
         with self.subTest("user settings"):
             self.again()
             a, b = self.make_repo("ua", ONE), self.make_repo("ub", ONE)
             self.trust(a, b)
-            self.steps([{"write_file": [[f"{self.tmp}/.claude/settings.json", "{}"]]}, {}])
+            self.steps({"ua": [{"run": [late(f"{self.tmp}/.claude/settings.json")]}],
+                        "ub": [{"tick": False, "sleep": 6}]})
             r = self.wf("-y")
             self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
-            self.assertIn(f"\nstopped: guard_changed: {self.tmp}/.claude/settings.json{detail}\n", r.stdout)
-            self.assertEqual(len(self.run_record()[1]["calls"]), 1)
-
-
-class TestNestedRepo(QueueCase):
-    # covers: AC-9, spec 0007 AC-7 (the outer repo's last call rewrites a nested held repo's git config: the guard
-    # check at the pick ends the nested repo before wf runs any git there)
-    def test_no_git_after_write(self):
-        outer = self.make_repo("outer", ONE.replace("- [ ] `/develop a`", "- [x] `/develop a`"))
-        inner = self.make_repo("outer/inner", ONE)
-        (self.tmp / "config" / "wf" / "allowed.json").write_text(json.dumps([str(outer), str(inner)]))
-        log = self.fakes / "git-log"
-        (self.bin / "git").unlink()
-        self.fake("git", f'#!/bin/sh\necho "$@" >> {log}\nexec {shutil.which("git")} "$@"\n')
-        mark = [sys.executable, "-c", f"open({str(log)!r}, 'a').write('WRITE\\n')"]
-        config = (inner / ".git" / "config").read_text() + "# moved\n"
-        self.steps([{**DONE_A, "write_file": [[f"{inner}/.git/config", config]], "run": [mark]}])
-        r = self.wf("-y")
-        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn("  sync owed: 1. A\n", r.stdout)
-        self.assertIn(f"\nstopped repo inner: guard_changed: {inner}/.git/config changed during the run; ", r.stdout)
-        self.assertNotIn(f"-C {inner} ", log.read_text().split("WRITE\n", 1)[1])
-        self.assertEqual(len(self.run_record()[1]["calls"]), 1)
-        self.assertIn("done: 1. A", r.stdout)
+            for n in ("ua", "ub"):
+                self.assertIn(f"\n[{n}] stopped: guard_changed: {self.tmp}/.claude/settings.json{detail}\n", r.stdout)
 
 
 class TestExit(QueueCase):

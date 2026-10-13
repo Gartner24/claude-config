@@ -634,6 +634,7 @@ def build_parser():
     run = sub.add_parser("run", help="build the queued features unattended, a fresh claude -p call per box")
     run.add_argument("target", nargs="?", help="a path, folder name or scope title; none: every repo on the wf allow list")
     run.add_argument("-y", "--yes", action="store_true", help="start without the confirm prompt")
+    run.add_argument("--jobs", type=positive(int), help="repos run at once by a bare wf run (default: every repo with work)")
     queue = sub.add_parser("queue", help="print what wf run would do, changing nothing")
     queue.add_argument("target", nargs="?", help="as wf run")
     # wf queue takes the caps too: a cap park shows as cleared under a higher one (spec 0011 AC-3).

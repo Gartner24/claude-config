@@ -24,12 +24,17 @@ import run  # noqa: E402
 import wf  # noqa: E402
 from test_ntfy import FakeNtfy, write_config  # noqa: E402,F401
 
-# Scriptable claude: steps.json holds one step per call (the last repeats).
+# Scriptable claude: steps.json holds one step per call (the last repeats). A dict of lists keyed by the repo folder
+# name gives each repo its own steps, count and `<repo>-argv-<n>.json`, for children running side by side (spec 0017).
 FAKE_CLAUDE = f"""#!{sys.executable}
 import json, os, shutil, signal, subprocess, sys, time
 d = os.environ["FAKE_DIR"]
 steps = json.load(open(os.path.join(d, "steps.json")))
-cnt = os.path.join(d, "count")
+key = ""
+if isinstance(steps, dict):
+    key = os.path.basename(os.getcwd()) + "-"
+    steps = steps[key[:-1]]
+cnt = os.path.join(d, key + "count")
 n = int(open(cnt).read()) if os.path.exists(cnt) else 0
 open(cnt, "w").write(str(n + 1))
 step = steps[min(n, len(steps) - 1)]
@@ -40,7 +45,7 @@ def on_int(s, f):
 signal.signal(signal.SIGINT, on_int)
 json.dump({{"argv": sys.argv[1:], "exe": sys.argv[0], "cwd": os.getcwd(), "tty": os.isatty(0), "pid": os.getpid(),
            "pgid": os.getpgid(0), "env_run_dir": "WF_RUN_DIR" in os.environ, "env": dict(os.environ)}},
-          open(os.path.join(d, f"argv-{{n + 1}}.json"), "w"))
+          open(os.path.join(d, f"{{key}}argv-{{n + 1}}.json"), "w"))
 for path, text in step.get("write_file", []):
     path = os.path.join(os.getcwd(), path)
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -180,6 +185,11 @@ def plan(stdout):
     return [x for x in stdout.splitlines() if not x.startswith(("  answers: ", "  guard: "))]
 
 
+def summary(stdout):
+    """Spec 0017 AC-4: the lines after a bare wf run's `summary:` line."""
+    return stdout.split("\nsummary:\n", 1)[1].splitlines()
+
+
 def alive(pid):
     try:
         os.kill(pid, 0)
@@ -223,7 +233,7 @@ class RunCase(unittest.TestCase):
 
     def reap(self):
         # A failing run can orphan its fake call; never leave one behind.
-        for f in self.fakes.glob("argv-*.json"):
+        for f in self.fakes.glob("*argv-*.json"):
             try:
                 os.kill(json.loads(f.read_text())["pid"], signal.SIGKILL)
             except (ProcessLookupError, ValueError):
@@ -290,6 +300,11 @@ class RunCase(unittest.TestCase):
         runs = list((self.state / "wf" / "runs").iterdir())
         self.assertEqual(len(runs), 1)
         return runs[0], json.loads((runs[0] / "run.json").read_text())
+
+    def run_records(self):
+        """Spec 0017: each child's run.json of a bare wf run, by repo name (run ids are <name>-<date>-<time>-<pid>)."""
+        return {p.name.rsplit("-", 3)[0]: json.loads((p / "run.json").read_text())
+                for p in sorted((self.state / "wf" / "runs").iterdir())}
 
     def assert_stopped(self, r, reason, code=6, calls=None, repo=False):
         """Spec 0011 AC-9: a park ends its feature and the queue goes on, a repo stop ends the repo, a run stop the
