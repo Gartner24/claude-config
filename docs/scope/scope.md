@@ -471,7 +471,7 @@ The same holds for every other reason a feature is set aside today (blocked, fai
 **Done when:** a claude-config night run whose features edit `~/.claude` and `runner/` builds them to the end with no stop, given the standing permission; without it you get one phone question and the step resumes on your yes; no park reason ends a feature without a question; a change to `~/.claude` from outside the run still stops that repo.
 - [x] Design it (spec): `/architect ask never stop`
 - [ ] Build it: `/develop ask never stop`
-   - [ ] Case table in code with the AC-1 completeness test
+   - [x] Case table in code with the AC-1 completeness test
    - [ ] Feature level questions and resumes F1 to F12, standing permission (AC-2, AC-3, AC-7)
    - [ ] Repo and run level cases R1 to R3, U2 to U10 (AC-4, AC-5)
    - [ ] Report: open questions, repo names (AC-6, AC-8)

@@ -201,6 +201,42 @@ PARKS = frozenset(("verify_failed", "blocked", "denied", "debug_touched", "no_pr
 REPO_STOPS = frozenset(("branch_changed", "autopilot_off", "scope_unreadable"))
 RUN_STOPS = frozenset(("interrupted", "run_limit", "usage_limit", "spawn_failed", "guard_changed", "ping_failed",
                        "internal_error", "app_port_busy", "api_outage", "crash_loop"))
+# Spec 0021 AC-1: every reason above, and the `branch` refusal, has exactly one case: (row, options, recommended
+# first). A row with no options never asks: R1 makes the branch, R4 and U1 stop, U3 sleeps to the reset, U9 keeps
+# building, U10 stops that repo with its traceback in the report.
+MORE, SKIP, STOP_REPO = "give it more", "skip", "stop this repo"
+CASES = {
+    "denied": ("F1", ("allow once", "always", SKIP)),
+    "blocked": ("F2", ("done, go on", SKIP)),
+    "verify_failed": ("F3", ("try again", SKIP)),
+    "no_progress": ("F4", ("try again", SKIP)),
+    "debug_touched": ("F5", ("keep the edits and go on", "undo them and try again", SKIP)),
+    "unchecked": ("F6", ("try again", SKIP)),
+    "design_gate": ("F7", ("try again", "accept as is", SKIP)),
+    "budget": ("F8", (MORE, SKIP)),
+    "max_calls": ("F8", (MORE, SKIP)),
+    "call_timeout": ("F8", (MORE, SKIP)),
+    "call_error": ("F9", ("retry", SKIP)),
+    "manual_box": ("F10", ("done", SKIP)),
+    "waiting": ("F10", ("done", SKIP)),
+    "no_command": ("F11", ("skip the box", "skip the feature")),
+    "no_feature": ("F11", ("skip the box", "skip the feature")),
+    "app_failed": ("F12", ("retry", SKIP)),
+    "branch": ("R1", ()),
+    "branch_changed": ("R2", ("go on on the new branch", "switch back", STOP_REPO)),
+    "scope_unreadable": ("R3", ("retry", STOP_REPO)),
+    "autopilot_off": ("R4", ()),
+    "interrupted": ("U1", ()),
+    "run_limit": ("U2", ("keep going", "stop")),
+    "usage_limit": ("U3", ()),
+    "api_outage": ("U4", ("keep waiting", STOP_REPO)),
+    "guard_changed": ("U5", ("accept the new setup and go on", STOP_REPO)),
+    "crash_loop": ("U6", ("retry", STOP_REPO)),
+    "app_port_busy": ("U7", ("retry", STOP_REPO)),
+    "spawn_failed": ("U8", ("retry", STOP_REPO)),
+    "ping_failed": ("U9", ()),
+    "internal_error": ("U10", ()),
+}
 # Spec 0014 AC-2: two features in a row parking the same way stop the run; a timeout never counts.
 CRASH = ("call_error", "denied", "app_failed")
 CRASH_KEY = 60
