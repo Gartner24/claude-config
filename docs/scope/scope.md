@@ -340,7 +340,7 @@ Queued in the batch planning session of 2026-10-12 (personal scope row 24). One 
 - [x] Build it: `/develop guard hook false alarms`
    - [x] Data region scanner, executor check and raw fallbacks in the repo copy of the hook (AC-1 to AC-4)
    - [x] New self checks with the forced blanking switch and a mutation check per allow case (AC-5)
-- [ ] Verify it: `/check verify guard hook false alarms`
+- [x] Verify it: `/check verify guard hook false alarms`
 - [ ] Test it: `/test guard hook false alarms`
 - [ ] Between runs, copy the hook live: `cp ~/claude-config/hooks/block-destructive.sh ~/.claude/hooks/block-destructive.sh`, then make one real commit whose message names a deletion command (AC-6) · waits on you
 - [ ] Sync docs: `/sync guard hook false alarms`
