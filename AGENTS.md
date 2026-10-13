@@ -34,12 +34,13 @@ wf run [repo] [--jobs N]                        # the queued `· auto` features 
 wf queue [repo]                                 # read only plan: queued, parked, open and answered questions (spec 0011)
 wf unpark <repo> [feature]                      # clear parks and open questions so the next wf run starts them fresh (spec 0011)
 wf allow <repo>                                 # trust list (spec 0008); wf run refuses `untrusted` (exit 5) for a repo not in $XDG_CONFIG_HOME/wf/allowed.json, else ~/.config/wf/allowed.json
+wf finish [target] [-y]                         # run the ` · live` waits-on-you boxes (cp into ~/.claude, ./install.sh, e2e, probes) after one Enter, keep autoMode, tick them, record verify.md, commit (spec 0019); never from an unattended call
 wf ntfy init|codes|test                         # phone pings for wf run decisions (spec 0005); config ~/.config/wf/ntfy.json (0600), wf run refuses without it
 ```
 
 ## Specs
 
-`docs/specs/NNNN-title.md` (folder form `NNNN-title/index.md` for split specs): 0001 runner stack, 0002 `next`, 0003 scope contract, 0004 `wf run`, 0005 decision parking and phone pings, 0006 standing answers, 0007 push guard, 0008 failure and park policy, 0009 headless verify and test, 0010 design enforcement, 0011 build and decision queue, 0012 waiting boxes owed to you, 0013 work names out of the public repo, 0014 runner resilience, 0015 checks that cannot lie, 0016 guard hook false alarms, 0017 several repos at once. Every spec top file carries a `**Paths:**` line right after `**Status**:` (`rules/check-gates.md` gate 3).
+`docs/specs/NNNN-title.md` (folder form `NNNN-title/index.md` for split specs): 0001 runner stack, 0002 `next`, 0003 scope contract, 0004 `wf run`, 0005 decision parking and phone pings, 0006 standing answers, 0007 push guard, 0008 failure and park policy, 0009 headless verify and test, 0010 design enforcement, 0011 build and decision queue, 0012 waiting boxes owed to you, 0013 work names out of the public repo, 0014 runner resilience, 0015 checks that cannot lie, 0016 guard hook false alarms, 0017 several repos at once, 0018 morning report, 0019 live setup steps, 0020 one command wf. Every spec top file carries a `**Paths:**` line right after `**Status**:` (`rules/check-gates.md` gate 3).
 
 ## Rules
 

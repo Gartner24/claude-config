@@ -41,7 +41,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 25 | Checks that cannot lie | Release 4 | done |
 | 28 | Guard hook false alarms | Release 4 | done |
 | 29 | Several repos at once | Release 4 | done |
-| 30 | Live setup steps in one command | Release 5 | in-progress |
+| 30 | Live setup steps in one command | Release 5 | done |
 | 13 | Morning report | Release 5 | in-progress |
 | 32 | One command: wf | Release 6 | in-progress |
 | 31 | Guard baseline check before each repo | Deferred | planned |
@@ -403,7 +403,7 @@ Source: personal scope row 23 (`~/projects/docs/scope/scope.md`; your message of
 
 The 2026-10-13 night run ended at 03:20 with no message and six manual steps over four features. Designed together on 2026-10-13 (specs 0018, 0019); the next `wf run` builds 30 first, then 13.
 
-### 30. Live setup steps in one command · in-progress · auto
+### 30. Live setup steps in one command · done · auto
 The runner keeps building and gathers every waits-on-you step of the run that copies into `~/.claude`, runs `install.sh` or runs a real claude check, then gives you one command that does them all and ticks their boxes. The unattended calls still never write `~/.claude` themselves. Built before feature 13, which reads its ` · live` tag.
 **Done when:** a run whose features end in live setup steps leaves you one command, and running it does every step, keeps `autoMode`, and ticks the boxes so the next run can `/sync`.
 - [x] Design it (spec): `/architect live setup steps in one command`
@@ -417,7 +417,7 @@ The runner keeps building and gathers every waits-on-you step of the run that co
 - [x] Copy the scope contract live: `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` (AC-10) · waits on you · live
 - [x] Copy the handoff rule live: `cp ~/claude-config/rules/runner-handoff.md ~/.claude/rules/runner-handoff.md` (AC-10) · waits on you · live
 - [x] Install, keeping your autoMode: `./install.sh` (AC-9) · waits on you · live
-- [ ] Sync docs: `/sync live setup steps in one command`
+- [x] Sync docs: `/sync live setup steps in one command`
 Spec [0019](../specs/0019-live-setup-steps/index.md) · code in `runner/finish.py`, `runner/wf.py`, `install.sh`, tests in `runner/tests/test_finish.py`, `scripts/private-names.py --test`
 Source: [docs/briefs/morning-report-and-live-steps.md](../briefs/morning-report-and-live-steps.md) (fix A).
 
