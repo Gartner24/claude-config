@@ -22,7 +22,7 @@ and reinstalling those frameworks restores them. Two are hand-written and live i
 | `injection-guard.sh` | jjstack | Scans Write/Edit content for prompt injection in .md files |
 | `mcp-reconnect.sh` | jjstack | Reconnects MCP servers on tool failure. Not symlinked into `~/.claude/hooks/` - settings.json calls it at `~/.claude/skills/jjstack/hooks/` |
 | `block-destructive.sh` | **hand-written** (this repo, `hooks/`) | PreToolUse gate on Bash - hard-blocks `rm -rf` against absolute/home/parent/wildcard targets |
-| `review-stack-pre-push` | **hand-written** (this repo, `hooks/`) | **A git hook, not a Claude Code hook.** Symlink it into a repo's `.git/hooks/pre-push` - never a bot-reviewed repo (work-org, tools-org); it refuses to push a commit with no `/review-stack` receipt, or one whose receipt says `BLOCK`. Calls no model |
+| `review-stack-pre-push` | **hand-written** (this repo, `hooks/`) | **A git hook, not a Claude Code hook.** Symlink it into a repo's `.git/hooks/pre-push` - never a bot-reviewed repo (the work orgs listed in your private `work.md`); it refuses to push a commit with no `/review-stack` receipt, or one whose receipt says `BLOCK`. Calls no model |
 | `gate.sh` | **hand-written** (this repo, `skills/design/scripts/`) | **Stop** hook, and the only one registered from SKILL.md frontmatter rather than `settings.json` - `design` and `brand-system` both declare it. Exits 0 immediately unless `~/.claude/.design-active` exists, so it never touches an unrelated session. When a run is open it exits 2 (blocking) with the unclosed ledger rows, at most twice; the third stop releases and marks the run `escaped:true`. An abandoned ledger (>24h) or an unreadable one also releases. Verified by `skills/design/scripts/test-ledger.sh`. |
 | `chroma-reaper.sh` | **hand-written** (this repo, `scripts/`) | Background reaper started once per session; keeps claude-mem's chroma processes from piling up |
 
@@ -47,7 +47,7 @@ removed in commit 82fcf80; the model is chosen at runtime (`/model`, or the sess
 absolute, `$HOME`, parent (`..`), or wildcard path is refused outright and must be run by hand.
 
 **`auto-approve-safe.sh`** (jjstack) - since jjstack 0.4x (upstream #36, 2026-09-09) this is an
-audit log and internal-relay relay only; it approves nothing. The policy is `permissions.deny` in
+audit log and private tool relay only; it approves nothing. The policy is `permissions.deny` in
 settings.json (jjstack's `permissions.policy.json` merged in, `defaultMode` kept at `auto`) plus
 **`permission-floor.py`**, a PreToolUse deny for ten unbounded shapes (root/home targets,
 curl-to-shell, file upload, secret paths, block devices, fork bomb, power, sudo-destructive,

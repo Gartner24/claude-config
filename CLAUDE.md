@@ -131,15 +131,10 @@ target, never by habit:
   (measured USD 5-19 a run). It never launches `ultra` - that is billed and yours to type.
 
 ### Which one, and never two at once
-- **Bot-reviewed repos - origin under `github.com:work-org/` or
-  `github.com:tools-org/` - run NO local `/review`.** Every PR there goes to the
-  team's PR bot (`team-pr-bot`), which runs jjstack's `/review` on the PR and re-reviews
-  each push, so a local `/review` is the same reviewer twice. Fix what the bot raises on the
-  PR and let it re-review; `/code-review` before opening the PR is optional. `/review-stack`
-  only when I ask for it: it is a different reviewer set (the agents below plus a blind
-  lane), an extra lane rather than a duplicate of the bot, and never run proactively. No
-  review-stack pre-push hook in these repos. Decide by `git remote get-url origin`, not the
-  folder name.
+Bot-reviewed repos (which orgs, which bot, what to run there) are defined in the private file:
+
+@~/.claude/private/work.md
+
 - **Everything else - my own and freelance repos - default before landing: `/review`.**
   Budgeted, converges, cheap enough to re-run. When it finishes, copy its final
   `review-YYYY-MM-DD.md` into `docs/reviews/`; no

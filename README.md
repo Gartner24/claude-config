@@ -82,7 +82,7 @@ Plugins (official, auto-update)
 
 Skill frameworks (git checkouts + setup scripts - run gstack's setup BEFORE jjstack's)
   gstack               - project management system (garrytan/gstack)
-  jjstack              - Product/UX layer on top of gstack (tools-org/jjstack)
+  jjstack              - Product/UX layer on top of gstack (source in your private work.md)
   get-shit-done-cc     - PINNED at 1.34.2, hooks only, gsd-* skills deliberately purged
 
 Community skills (installed manually or via npx skills add)

@@ -39,10 +39,10 @@ fixes it if you get the order wrong.
 These are full systems with many sub-skills. **You only need to install jjstack** - it installs gstack automatically as a declared dependency.
 
 ### jjstack (installs gstack automatically)
-**Source:** https://github.com/tools-org/jjstack (public; formerly JesperJurcenoks/jjstack)
+**Source:** listed in your private `work.md` (formerly JesperJurcenoks/jjstack)
 **Install:**
 ```bash
-git clone https://github.com/tools-org/jjstack.git ~/.claude/skills/jjstack
+git clone <jjstack source from your private work.md> ~/.claude/skills/jjstack
 cd ~/.claude/skills/jjstack && ./setup
 ```
 jjstack's setup script checks for gstack and clones + sets it up from `garrytan/gstack` if not present. You do not need to install gstack separately.
@@ -53,7 +53,7 @@ jjstack's setup script checks for gstack and clones + sets it up from `garrytan/
 via Google AGY and DeepSeek/OpenCode, alongside the existing `/codex`), `/consensus`
 (four-vendor panel), `/groom` (dedup and consolidate memories/skills), `/plan-edit`
 (surgical, sectioned plan editing with track-changes diffs), `/qa-build-loop` (replaces the
-removed `/qa-loop` - unattended TDD loop between internal-qa-tool and a code worker),
+removed `/qa-loop` - unattended TDD loop between a private QA tool and a code worker),
 `/reconnect-mcp`, and the session-continuity trio `/save-and-clear`, `/save-and-exit`,
 `/resume-from-clear` plus `/rollover` that ties them together.
 
