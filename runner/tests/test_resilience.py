@@ -457,7 +457,7 @@ class TestSkipAhead(Case):
     def test_next(self):
         def nxt():
             return subprocess.run([sys.executable, str(WF), "next", str(self.repo), "-y"], capture_output=True, text=True,
-                                  env=self.env, timeout=30)
+                                  env=self.env, timeout=30, stdin=subprocess.DEVNULL)
         self.scope(HEAD + feature(1, "A", self.WAIT, "`/test a`"))
         r = nxt()
         self.assertEqual(r.returncode, 4, r.stdout + r.stderr)
