@@ -64,6 +64,11 @@ wf ntfy init|codes|test                         # phone pings for wf run decisio
 - Spec 0010 rests on `design-gate` (a `context: fork` skill) running inside `claude -p` and writing `.design/audit-report.md`; rerun its verify.md P1 and P2 after a Claude Code upgrade. Under `wf run` the prompt line stops a call from even trying `Skill(design)`, so the deny itself is only provable with a direct `claude -p` carrying `run.py`'s deny lists (P3).
 - Every `wf run` call is guarded outside the model (spec 0007): stripped credentials, Claude Code's Bash sandbox, hashed hook and git config files. `wf run` refuses `no_sandbox` without `bwrap` and `socat` on PATH. After a Claude Code upgrade rerun `python3 docs/specs/0007-push-guard/probes/run-wf-probe.py` (about 2 minutes, run it yourself with `!`) and record it in that spec's `verify.md`. The model ignores the probe's step order sometimes; a classifier lockout then hides the sandbox result for later steps. The `DENIED` push rules have their own probe, `bash docs/specs/0004-headless-step-loop/probes/push-rule.sh` (default mode with git allowed, so only deny rules can deny; run it yourself with `!`); rerun it after a Claude Code upgrade and record it in that spec's `verify.md`.
 
+## Standing answers
+
+- run suite: yes
+- done: yes
+
 ## Agent skills
 
 Declined: Agent Skill and MCP discovery for this stack (2026-10-11)
