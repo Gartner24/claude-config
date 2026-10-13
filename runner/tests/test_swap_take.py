@@ -136,12 +136,39 @@ class SwapTake(RunCase):
         (conf / "settings.json").write_text('{"sandbox": {"excludedCommands": ["x"]}}')
         with mock.patch.dict(os.environ, {"HOME": str(self.tmp), "CLAUDE_CONFIG_DIR": str(conf)}):
             self.assertEqual((run.live_dir(), finish.live_dir()), (str(conf), str(conf)))
-            self.assertIn(str(conf / "settings.json"), run.deny_paths(str(self.repo), f"{self.repo}/.git", []))
+            deny = run.deny_paths(str(self.repo), f"{self.repo}/.git", [])
+            self.assertIn(str(conf / "settings.json"), deny)
             self.assertEqual(run.user_exclusions(), f"{conf}/settings.json sets sandbox.excludedCommands")
-            self.assertEqual(run.expand("~/.claude/.credentials.json"), f"{conf}/.credentials.json")
+            # Review (guard coverage): ~/.claude stays denied, guarded and read for exclusions with CLAUDE_CONFIG_DIR set.
+            self.assertIn(str(self.live / "settings.json"), deny)
+            self.assertEqual(run.expand("~/.claude/.credentials.json"),
+                             [f"{conf}/.credentials.json", f"{self.live}/.credentials.json"])
+            (conf / "settings.json").write_text("{}")
+            (self.live / "settings.json").write_text('{"sandbox": {"excludedCommands": ["x"]}}')
+            self.assertEqual(run.user_exclusions(), f"{self.live}/settings.json sets sandbox.excludedCommands")
+            self.assertIsNone(run.config_problem())
+        # Review (parser differential): a relative value resolves differently for wf and for a call in the repo.
+        with mock.patch.dict(os.environ, {"HOME": str(self.tmp), "CLAUDE_CONFIG_DIR": "conf"}):
+            self.assertEqual(run.config_problem(), "CLAUDE_CONFIG_DIR is not an absolute path: conf")
         with mock.patch.dict(os.environ, {"HOME": str(self.tmp)}):
             os.environ.pop("CLAUDE_CONFIG_DIR", None)
             self.assertEqual(run.live_dir(), str(self.tmp / ".claude"))
+            self.assertEqual(run.claude_dirs(), [str(self.tmp / ".claude")])
+
+    # covers: AC-5 review (both settings folders guarded: a change to ~/.claude with CLAUDE_CONFIG_DIR set still stops)
+    def test_home_claude_guarded(self):
+        conf = self.tmp / "conf"
+        conf.mkdir()
+        (conf / "settings.json").write_text("{}")
+        self.env["CLAUDE_CONFIG_DIR"] = str(conf)
+        self.steps([{"write_file": [[str(self.live / "settings.json"), '{"hooks": {}}']]}, {}])
+        r = self.wf("demo", "-y")
+        rec = self.assert_stopped(r, "guard_changed", calls=1)
+        self.assertTrue(rec["detail"].startswith(f"{self.live}/settings.json changed"), rec["detail"])
+        self.env["CLAUDE_CONFIG_DIR"] = "conf"
+        r = self.wf("demo", "-y")
+        self.assertEqual(r.returncode, 5, r.stdout)
+        self.assertIn("refused: no_sandbox: CLAUDE_CONFIG_DIR is not an absolute path: conf", r.stdout)
 
     # covers: AC-5 (link resolved, a folder whose files are all in the ledger, an absent file never)
     def test_accepted_by(self):
@@ -150,7 +177,10 @@ class SwapTake(RunCase):
         (self.tmp / "d").mkdir()
         (self.tmp / "d" / "a").write_text("a")
         lines = [("1", {str(self.tmp / "real"): sha("x")}), ("2", {str(self.tmp / "d" / "a"): sha("a")})]
-        self.assertEqual(run.accepted_by(str(self.tmp / "link"), lines), "1")
+        # Review (parser differential): a link never borrows its target's ledger entry; a resolved parent does.
+        self.assertIsNone(run.accepted_by(str(self.tmp / "link"), lines))
+        (self.tmp / "dirlink").symlink_to(self.tmp)
+        self.assertEqual(run.accepted_by(str(self.tmp / "dirlink" / "real"), lines), "1")
         self.assertEqual(run.accepted_by(str(self.tmp / "d"), lines), "2")
         (self.tmp / "d" / "b").write_text("b")
         self.assertIsNone(run.accepted_by(str(self.tmp / "d"), lines))
