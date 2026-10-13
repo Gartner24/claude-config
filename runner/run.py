@@ -725,13 +725,22 @@ class Run:
             links = [e.split("\t", 1)[1] for e in git_paths(repo, "ls-files", "-z", "--stage") if e.startswith("160000 ")]
         except RuntimeError as e:
             return "no_sandbox", str(e)
-        sub_in_tree = []
+        sub_in_tree, sub_absent = [], []
         for link in links:
             dot_git = os.path.join(repo, link, ".git")
-            if os.path.isdir(dot_git) and not os.path.islink(dot_git):
+            if os.path.islink(dot_git):
+                # Its target's hooks and config would go unguarded, and a link to a folder hashes the same whatever
+                # it points at (commit review): fail closed, it is rare.
+                return "no_sandbox", f"{dot_git} is a symlink, so its git dir cannot be guarded"
+            if os.path.isdir(dot_git):
                 sub_in_tree.append(dot_git)
             elif os.path.lexists(dot_git):
                 git_files.append(dot_git)
+            else:
+                # A submodule not checked out: a call could create its .git with a hook (commit review). Hashed as
+                # absent, so creating it stops the repo; not denied, since the sandbox's empty placeholder for an
+                # absent denied path would read as a broken .git file to git.
+                sub_absent.append(dot_git)
         sub_git = []
         for d in sub_dirs + sub_in_tree:
             sub_hooks = os.path.join(d, "hooks")
@@ -752,7 +761,7 @@ class Run:
         files = [*settings_files,
                  *sorted(glob.glob(os.path.join(home, ".claude", "plugins", "cache", "**", "hooks.json"), recursive=True)),
                  os.path.join(common, "config"), *(p for p in git_files if not os.path.isdir(p)), *sub_git[::2],
-                 *(p for p in hooks if os.path.isfile(p)), *tokens]
+                 *(p for p in hooks if os.path.isfile(p)), *tokens, *sub_absent]
         deny = deny_paths(repo, common, tokens, git_files)
         r = wf.git(repo, "remote", "-v")
         # A failed read used to deny only the built in forges, leaving the repo's own self hosted remote open (M5).
@@ -762,7 +771,8 @@ class Run:
         write = sorted({repo, common, *(os.path.expanduser(p) for p in CACHE_DIRS)})
         self.common = common
         self.repo["guard"] = {"hosts": hosts, "write_paths": write, "deny_paths": deny, "binaries": binaries,
-                              "submodules": [os.path.join(repo, link) for link in links],
+                              # Each gitlink's .git as found at start, matched as text later (spec 0011 AC-9).
+                              "submodules": [os.path.join(repo, link, ".git") for link in links],
                               "guarded_files": {p: file_hash(p) for p in dict.fromkeys(files)}}
         hook = f"{shlex.quote(binaries['python3'])} -c {shlex.quote(AGENT_GUARD)} || exit 2"
         self.guard_settings = {
@@ -802,9 +812,19 @@ class Run:
         repo, home = self.c.path, os.path.expanduser("~")
         a = [self.bwrap, "--die-with-parent", "--unshare-pid", "--ro-bind", "/", "/", "--dev", "/dev",
              "--proc", "/proc", "--tmpfs", "/tmp", "--tmpfs", "/run"]
+        hidden = [*(os.path.join(home, p[2:]) for p in JAIL_HIDDEN), *user_read_denies(), *self.browser["wf_dirs"]]
+        # At the real path, like the binds below: a symlinked ~/.ssh used to fail every app start (review M10).
+        hidden = list(dict.fromkeys(os.path.realpath(p) for p in hidden))
+        binds = list(dict.fromkeys(os.path.realpath(p) for p in write_binds(repo)))
+        # A hidden folder holding a write bind (a Read(//home/u/**) deny) is hidden first and the binds go back on top,
+        # since bwrap mounts in argv order: its tmpfs used to cover the repo and park every app start, and skipping
+        # it showed the app the whole tree you denied (second review and its commit review).
+        holders = [p for p in hidden if os.path.isdir(p) and any(under(b, [p]) for b in binds)]
+        for p in holders:
+            a += ["--tmpfs", p]
         # Every bind at its real path, each once: bwrap refuses a destination that is a symlink, and a
         # symlinked ~/.gitconfig used to fail every app start (P2, finding 8). A missing path is skipped.
-        for p in dict.fromkeys(os.path.realpath(p) for p in write_binds(repo)):
+        for p in binds:
             if os.path.exists(p):
                 a += ["--bind", p, p]
         # The calls' frozen denyWrite list, as listed: three hand picked paths used to leave a linked worktree's
@@ -812,13 +832,8 @@ class Run:
         for p in dict.fromkeys(os.path.realpath(p) for p in self.guard_settings["sandbox"]["filesystem"]["denyWrite"]):
             if os.path.exists(p):
                 a += ["--ro-bind", p, p]
-        hidden = [*(os.path.join(home, p[2:]) for p in JAIL_HIDDEN), *user_read_denies(), *self.browser["wf_dirs"]]
-        binds = [os.path.realpath(p) for p in write_binds(repo)]
-        # At the real path, like the binds above: a symlinked ~/.ssh used to fail every app start (review M10).
-        for p in dict.fromkeys(os.path.realpath(p) for p in hidden):
-            # A deny like Read(//home/u/**) holds the repo: its tmpfs used to cover the repo bind, and every app
-            # start parked app_failed (second review). Such a path stays as the binds left it.
-            if any(under(b, [p]) for b in binds):
+        for p in hidden:
+            if p in holders:
                 continue
             if os.path.isdir(p):
                 a += ["--tmpfs", p]
@@ -941,10 +956,12 @@ class Run:
             return True
         common, real = os.path.realpath(h["common"]), os.path.realpath(path)
         others = [o for o in self.held if o is not h]
-        # A submodule's git files in its work tree folder (second review) are this repo's alone too, unless another
-        # held repo sits inside it and holds the file.
-        subs = [os.path.realpath(s) for s in h["repo"].get("guard", {}).get("submodules", [])]
-        if under(real, subs) and not any(under(real, [os.path.realpath(o["c"].path)]) for o in others):
+        # A submodule's .git in the work tree (second review) is this repo's alone too, unless another held repo
+        # reads it. Matched as the text frozen at start, never resolved now: a call could swap the submodule folder
+        # for a link to / and make every guarded file on the machine look like this repo's own (commit review).
+        subs = h["repo"].get("guard", {}).get("submodules", [])
+        if under(path, subs) and not any(under(o["c"].path, subs) or under(os.path.realpath(o["common"]), subs)
+                                         for o in others):
             return True
         return under(real, [common]) and not any(os.path.realpath(o["common"]) == common for o in others)
 

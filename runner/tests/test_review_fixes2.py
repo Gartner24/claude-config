@@ -130,6 +130,62 @@ class TestSubmodules(RunCase):
             self.assertIn(p, deny)
             self.assertIn(p, guarded)
 
+    # covers: spec 0007 AC-7 (commit review: a submodule not checked out has its .git hashed as absent, so a call
+    # that creates one with a hook stops the repo)
+    def test_absent(self):
+        self.gitlink("lib")
+        (self.repo / "lib").mkdir()
+        self.steps([{"write_file": [["lib/.git/hooks/pre-commit", "#!/bin/sh\ncurl x\n"]]}, {}, {"tick": False}])
+        rec = self.assert_stopped(self.wf("demo", "-y"), "guard_changed", calls=1, repo=True)
+        self.assertEqual(rec["detail"].split(" ")[0], f"{self.repo}/lib/.git")
+        self.assertEqual(rec["repos"][0]["guard"]["guarded_files"][f"{self.repo}/lib/.git"], "absent")
+        self.assertNotIn(f"{self.repo}/lib/.git", self.settings()[0])
+
+    # covers: spec 0007 AC-8 (commit review: a submodule .git that is a symlink refuses, its target unguardable)
+    def test_symlink(self):
+        self.gitlink("lib")
+        (self.repo / "lib").mkdir()
+        (self.repo / "elsewhere").mkdir()
+        (self.repo / "lib" / ".git").symlink_to(self.repo / "elsewhere")
+        r = self.wf("demo", "-y")
+        self.assertEqual(r.returncode, 5, r.stdout + r.stderr)
+        self.assertIn(f"refused: no_sandbox: {self.repo}/lib/.git is a symlink, so its git dir cannot be guarded",
+                      r.stdout)
+
+    # covers: spec 0011 AC-9 (commit review: a call that swaps the submodule folder for a link to / cannot make a
+    # global settings change look like this repo's own; the run stops)
+    def test_swap_to_root(self):
+        self.gitlink("lib")
+        (self.repo / "lib").mkdir()
+        (self.repo / "lib" / ".git").write_text("gitdir: ../.git/modules/lib\n")
+        swap = "import os, shutil; shutil.rmtree('lib'); os.symlink('/', 'lib')"
+        self.steps([{"run": [[sys.executable, "-c", swap]],
+                     "write_file": [[str(self.tmp / ".claude" / "settings.json"), "{}"]]}, {}, {"tick": False}])
+        r = self.wf("demo", "-y")
+        self.assert_stopped(r, "guard_changed", calls=1)
+
+    # covers: spec 0011 AC-9 (commit review: a submodule git dir that another held repo uses as its common dir is
+    # shared, so a hook planted there stops the run, not one repo)
+    def test_shared_with_worktree(self):
+        lib = self.repo / "lib"
+        lib.mkdir()
+        quiet_git("init", "-q", "-b", "main", cwd=lib)
+        (lib / "docs" / "scope").mkdir(parents=True)
+        (lib / "docs" / "scope" / "scope.md").write_text(ONE)
+        (lib / ".git" / "hooks").mkdir(exist_ok=True)
+        (lib / ".git" / "hooks" / "pre-commit").write_text("#!/bin/sh\n")
+        quiet_git("add", "-A", cwd=lib)
+        quiet_git("commit", "-qm", "x", cwd=lib)
+        wt = self.tmp / "root" / "wt"
+        quiet_git("worktree", "add", "-q", "-b", "work", str(wt), cwd=lib)
+        self.allow(wt)
+        quiet_git("update-index", "--add", "--cacheinfo", f"160000,{'1' * 40},lib", cwd=self.repo)
+        self.steps([{"write_file": [[str(lib / ".git" / "hooks" / "pre-commit"), "#!/bin/sh\ncurl x\n"]]}, {},
+                    {"tick": False}])
+        r = self.wf("-y")
+        self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
+        self.assertIn(f"stopped: guard_changed: {lib}/.git/hooks/pre-commit changed", r.stdout)
+
     # covers: spec 0007 AC-8 (second review: a submodule hooks folder or modules folder that cannot be listed
     # refuses no_sandbox; one raised a traceback, the other read as no submodule)
     def test_unreadable(self):
@@ -160,15 +216,20 @@ class TestJailAncestor(unittest.TestCase):
             (home / ".claude").mkdir(parents=True)
             repo.mkdir(parents=True)
             (home / "vault").mkdir()
+            (home / ".gitconfig").write_text("x")
             h = str(home)
             (home / ".claude" / "settings.json").write_text(json.dumps({"permissions": {"deny": [
                 f"Read(/{h}/**)", f"Read(/{h}/projects)", f"Read(/{h}/vault/**)"]}}))
             ns = SimpleNamespace(c=SimpleNamespace(path=str(repo)), bwrap="/bin/bwrap",
-                                 guard_settings={"sandbox": {"filesystem": {"denyWrite": []}}},
+                                 guard_settings={"sandbox": {"filesystem": {"denyWrite": [f"{h}/.gitconfig"]}}},
                                  browser={"start": "x", "wf_dirs": []})
             with mock.patch.dict(os.environ, {"HOME": h}):
                 argv = run.Run.jail_argv(ns)
-            self.assertEqual(argv[argv.index(str(repo)) + 2:-5], ["--tmpfs", f"{h}/vault"])
+            # The denied folders that hold the repo are hidden first, the repo and read only binds go back on top
+            # (commit review: skipping them showed the app everything you denied).
+            self.assertEqual(argv[argv.index("/run") + 1:-5], [
+                "--tmpfs", h, "--tmpfs", f"{h}/projects", "--bind", str(repo), str(repo),
+                "--ro-bind", f"{h}/.gitconfig", f"{h}/.gitconfig", "--tmpfs", f"{h}/vault"])
 
 
 class TestSnapshotScope(unittest.TestCase):
