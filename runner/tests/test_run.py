@@ -125,6 +125,7 @@ sys.path.insert(0, sys.argv[1])
 import ntfy, run, wf
 run.GRACE = float(sys.argv[2])
 ntfy.RETRY_GAP = ntfy.POLL_EVERY = 0.05
+run.SPAWN_GAP = 0.01
 if sys.argv[3] == "boom":
     def boom(raw):
         raise RuntimeError("forced failure")
@@ -327,20 +328,23 @@ class RunCase(unittest.TestCase):
         folder, rec = self.run_record()
         self.assertIsNotNone(rec["ended"])
         last = rec["features"][-1] if rec["features"] else None
-        if reason in run.RUN_STOPS and not repo:
+        # Spec 0021 AC-5: only Ctrl C and the unanswered run limit end a run; every other stop ends the repo.
+        if reason in ("interrupted", "run_limit") and not repo:
             self.assertIn(f"stopped: {reason}", r.stdout)
             self.assertEqual(rec["stop_reason"], reason)
-        else:
+        elif reason in run.PARKS or reason == "decision_open":
             self.assertEqual(rec["stop_reason"], "queue_done")
             self.assertEqual(last["outcome"], reason)
             if reason in run.PARKS:
                 self.assertIn(f"parked: {last['feature']}: {reason}", r.stdout)
-            elif reason == "decision_open":
-                self.assertIn(f"open: {last['detail']} {last['feature']}", r.stdout)
             else:
-                self.assertIn(f"stopped repo {rec['repos'][0]['name']}: {reason}", r.stdout)
-                self.assertEqual(rec["repos"][0]["ended"], reason)
+                self.assertIn(f"open: {last['detail']} {last['feature']}", r.stdout)
             rec["detail"] = last["detail"]
+        else:
+            self.assertEqual(rec["stop_reason"], "queue_done")
+            self.assertIn(f"stopped repo {rec['repos'][0]['name']}: {reason}", r.stdout)
+            self.assertEqual(rec["repos"][0]["ended"], reason)
+            rec["detail"] = last["detail"] if last and last["outcome"] == reason else None
         if calls is not None:
             self.assertEqual(len(rec["calls"]), calls)
         return rec
@@ -494,8 +498,8 @@ class TestStart(RunCase):
                 self.refused(r, reason)
                 if msg:
                     self.assertIn(msg, r.stdout)
-        for name, head, shown in [("main", "ref: refs/heads/main\n", "main"), ("master", "ref: refs/heads/master\n", "master"),
-                                  ("det", "0123456789abcdef" * 2 + "01234567\n", "detached 0123456"),
+        # Spec 0021 R1: main and master are no refusal (test_never_stop covers the branch the run makes).
+        for name, head, shown in [("det", "0123456789abcdef" * 2 + "01234567\n", "detached 0123456"),
                                   ("unknown", "0123456789abcdef\n", "-"), ("nogit", None, "no git")]:
             with self.subTest(name):
                 self.make_repo(name, SCOPE, head=head)
@@ -753,11 +757,15 @@ class TestClassify(RunCase):
     # covers: AC-4, spec 0008 AC-1, AC-6 (claude cannot be started: stop spawn_failed, no retry)
     def test_spawn_error(self):
         self.fake("claude", "#!/nonexistent/interpreter\n")
-        r = self.wf("demo", "-y")
-        rec = self.assert_stopped(r, "spawn_failed", calls=1)
+        r = self.wf("demo", "-y", mode="fast")
+        # Spec 0021 U8: three more tries a minute apart (shortened here), then the repo stops with its question.
+        rec = self.assert_stopped(r, "spawn_failed", calls=4)
         self.assertIn("could not start claude: ", rec["detail"])
         self.assertIsNone(rec["calls"][0]["exit_code"])
         self.assertIn("[1/20] demo: /develop loop -> spawn_failed, - USD", r.stdout)
+        self.assertIn("waiting: claude did not start, try 3 of 3 in 0.01s\n", r.stdout)
+        q = json.loads((self.state / "wf" / "queue.json").read_text())
+        self.assertEqual([(d["reason"], d["options"]) for d in q["decisions"]], [("spawn_failed", ["retry", "stop this repo"])])
 
     # covers: AC-6 rule 3 (an array ending in a result element reads as success)
     def test_array(self):
@@ -1086,8 +1094,11 @@ class TestCaps(RunCase):
 
     # covers: AC-8 (run limit checked before the second call, never cutting a call short)
     def test_run_limit(self):
-        self.steps([{"sleep": 0.6}])
-        self.assert_stopped(self.wf("demo", "-y", "--max-hours", "0.0001"), "run_limit", calls=1)
+        self.steps([{"sleep": 0.6}, {}, {"tick": False}])
+        # Spec 0021 U2: the run asks, the running feature finishes, then it stops before the next one.
+        r = self.wf("demo", "-y", "--max-hours", "0.0001")
+        self.assert_stopped(r, "run_limit", calls=3)
+        self.assertIn("done: 1. Loop", r.stdout)
 
     # covers: AC-8 (SIGINT at the timeout, SIGKILL after the grace)
     def test_call_timeout(self):
@@ -1341,7 +1352,9 @@ class TestGuard(RunCase):
         self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
         self.assertIn(f"\nstopped repo demo: guard_changed: {self.repo}/.claude/settings.local.json changed", r.stdout)
         _, rec = self.run_record()
-        self.assertEqual((rec["stop_reason"], rec["repos"][0]["ended"], len(rec["calls"])), ("queue_done", "guard_changed", 1))
+        # Spec 0021 U5: the stop asks; the reply here answers that newer question, and accept lets the repo go on.
+        self.assertRegex(r.stdout, r"answered: [a-z0-9]{4} demo: accept the new setup and go on\n")
+        self.assertEqual((rec["stop_reason"], rec["repos"][0]["ended"], len(rec["calls"])), ("queue_done", None, 1))
         self.assertEqual((rec["decisions"][0]["answer"], rec["decisions"][0]["resumed_in"]), (None, None))
         q = json.loads((self.state / "wf" / "queue.json").read_text())
         self.assertEqual([d["id"] for d in q["decisions"]], [rec["decisions"][0]["id"]])

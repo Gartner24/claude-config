@@ -259,7 +259,9 @@ class TestExitAndSummary(ParallelCase):
         self.assertIn("\n[x/same] done: 1. A\n", r.stdout)
         self.assertIn("\n[y/same] done: 1. A\n", r.stdout)
         s = summary(r.stdout)
-        self.assertEqual(s[0], "  onmain: skipped: branch: main, switch to a work branch first")
+        # Spec 0021 R1: a repo on main builds on the feat/ branch its child makes.
+        self.assertTrue(s[0].startswith("  onmain: exit 0, done: 1. A | run folder: "), s)
+        self.assertIn("\n[onmain] branch: feat/a from main\n", r.stdout)
         self.assertTrue(s[1].startswith("  x/same: exit 0, done: 1. A | run folder: "), s)
         self.assertTrue(s[2].startswith("  y/same: exit 0, done: 1. A | run folder: "), s)
 

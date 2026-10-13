@@ -84,7 +84,11 @@ def collect(sources):
 
 def head(items, recs):
     kinds = [i["kind"] for i in items]
-    reasons = list(dict.fromkeys(r.get("stop_reason") for r in recs if r.get("stop_reason")))
+    # Spec 0021 AC-5: a repo stop no longer ends the run, so its reason is read from the repo records too.
+    ended = [e["ended"] for r in recs for e in r.get("repos", []) if e.get("ended")]
+    reasons = list(dict.fromkeys(ended + [r.get("stop_reason") for r in recs if r.get("stop_reason")]))
+    if ended and "queue_done" in reasons:
+        reasons.remove("queue_done")
     gone = any(k in ("no record", "no end", "not started") for k in kinds)
     if not gone and recs and reasons == ["queue_done"]:
         status = "done"

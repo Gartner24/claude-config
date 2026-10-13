@@ -473,7 +473,7 @@ The same holds for every other reason a feature is set aside today (blocked, fai
 - [ ] Build it: `/develop ask never stop`
    - [x] Case table in code with the AC-1 completeness test
    - [x] Feature level questions and resumes F1 to F12, standing permission (AC-2, AC-3, AC-7)
-   - [ ] Repo and run level cases R1 to R3, U2 to U10 (AC-4, AC-5)
+   - [x] Repo and run level cases R1 to R3, U2 to U10 (AC-4, AC-5)
    - [ ] Report: open questions, repo names (AC-6, AC-8)
    - [ ] Push guard coverage and run folder pruning (AC-9, AC-10)
 - [ ] Verify it: `/check verify ask never stop`

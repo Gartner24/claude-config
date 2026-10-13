@@ -1,6 +1,7 @@
 """Spec 0021: never stop, a case for every stop."""
 import hashlib
 import json
+import shutil
 import subprocess
 import sys
 import unittest
@@ -360,6 +361,138 @@ class TestStanding(NeverStopCase):
         got = run.carve([str(d), str(self.tmp / "other")], [str(d / "sub" / "open")])
         self.assertEqual(got, [str(d / "keep"), str(d / "sub" / "shut"), str(self.tmp / "other")])
         self.assertEqual(run.carve([str(d / "keep")], [str(d)]), [])
+
+
+class TestRepoAndRun(NeverStopCase):
+    def committed(self, name, text, **kw):
+        repo = self.make_repo(name, text, **kw)
+        for argv in (["add", "-A"], ["commit", "-qm", "base"]):
+            subprocess.run(["git", *GIT_ID, "-C", str(repo), *argv], check=True, capture_output=True)
+        return repo
+
+    def repo_question(self):
+        return [d for d in self.queue()["decisions"] if d.get("level") == "repo"]
+
+    # covers: R1, AC-4 (on main the run makes feat/<slug> from the heading and goes on, no question)
+    def test_main_makes_the_branch(self):
+        repo = self.committed("onmain", TWO, head="ref: refs/heads/main\n")
+        self.steps([{}, {}, {"tick": False}, B_DONE, {"tick": False}])
+        r = self.wf("onmain", "-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("branch: feat/a from main\n", r.stdout)
+        self.assertEqual((repo / ".git" / "HEAD").read_text(), "ref: refs/heads/feat/a\n")
+        self.assertEqual(self.queue()["decisions"], [])
+        # The second feature builds on the branch the first made.
+        self.assertIn("done: 2. B", r.stdout)
+
+    # covers: AC-5, U6 (two features denied the same way stop only the repo, with its question; retry lets it go on)
+    def test_crash_loop_asks(self):
+        self.committed("two", TWO)
+        rm = {"tick": False, "json": {"permission_denials": [{"tool_name": "Bash", "tool_input": {"command": "rm -rf b"}}]}}
+        self.steps([rm])
+        r = self.wf("two", "-y")
+        self.assertIn("stopped repo two: crash_loop: denied: Bash: rm -rf b (also in 1. A)", r.stdout)
+        self.assertNotIn("\nstopped: ", r.stdout)
+        _, rec = self.run_record()
+        self.assertEqual((rec["stop_reason"], rec["repos"][0]["ended"]), ("queue_done", "crash_loop"))
+        [d] = self.repo_question()
+        self.assertEqual((d["reason"], d["options"]), ("crash_loop", ["retry", "stop this repo"]))
+        # Unanswered, the next run leaves the repo alone; retry lets it go on.
+        shutil.rmtree(self.state / "wf" / "runs")
+        r = self.wf("two", "-y")
+        self.assertEqual(len(self.calls()), 2, r.stdout)
+        shutil.rmtree(self.state / "wf" / "runs")
+        self.reply("{id} 1")
+        r = self.wf("two", "-y", "--max-wait", "0.01", mode="fast")
+        self.assertRegex(r.stdout, r"answered: [a-z0-9]{4} two: retry\n")
+        self.assertEqual(self.repo_question(), [])
+
+    # covers: AC-5, U5 (a change outside the run stops only the repo, with a question; accept takes the new setup)
+    def test_guard_change_asks(self):
+        (self.tmp / ".claude").mkdir()
+        settings = self.tmp / ".claude" / "settings.json"
+        settings.write_text("{}")
+        self.steps([{"write_file": [[str(settings), '{"x": 1}']]}])
+        r = self.wf("demo", "-y")
+        self.assertIn("stopped repo demo: guard_changed: ", r.stdout)
+        _, rec = self.run_record()
+        self.assertEqual(rec["stop_reason"], "queue_done")
+        [d] = self.repo_question()
+        self.assertEqual((d["reason"], d["options"], d["feature"]),
+                         ("guard_changed", ["accept the new setup and go on", "stop this repo"], run.REPO_ASK))
+        # The next run waits on that question; its answer, accept, takes the new setup.
+        (self.fakes / "count").unlink()
+        self.steps([{}, {"tick": False}])
+        shutil.rmtree(self.state / "wf" / "runs")
+        self.reply("{id} 1")
+        r = self.wf("demo", "-y", "--max-wait", "0.01", mode="fast")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertRegex(r.stdout, r"answered: [a-z0-9]{4} demo: accept the new setup and go on\n")
+        self.assertIn("done: 1. Loop", r.stdout)
+
+    # covers: U5 (a shared file changed by the last call is seen between features, and still stops only the repo)
+    def test_guard_change_between_features(self):
+        (self.tmp / ".claude").mkdir()
+        settings = self.tmp / ".claude" / "settings.json"
+        settings.write_text("{}")
+        self.steps([{}, {}, {"tick": False, "write_file": [[str(settings), '{"x": 1}']]}])
+        r = self.wf("demo", "-y")
+        self.assertIn("done: 1. Loop", r.stdout)
+        self.assertIn("stopped repo demo: guard_changed: ", r.stdout)
+        self.assertEqual(self.run_record()[1]["stop_reason"], "queue_done")
+
+    # covers: R2 (a branch switched mid run asks; go on on the new branch takes it)
+    def test_branch_changed_go_on(self):
+        self.committed("two", TWO)
+        self.reply("{id} 1")
+        self.steps([{"head": "ref: refs/heads/other\n"}, B_DONE, {"tick": False}])
+        r = self.wf("two", "-y", "--max-wait", "0.01", mode="fast")
+        self.assertIn("stopped repo two: branch_changed: work -> other", r.stdout)
+        self.assertRegex(r.stdout, r"answered: [a-z0-9]{4} two: go on on the new branch\n")
+        _, rec = self.run_record()
+        self.assertEqual((rec["repos"][0]["ended"], rec["repos"][0]["branch"]), (None, "other"))
+        self.assertIn("done: 2. B", r.stdout)
+
+    # covers: U2 (past --max-hours the run asks; the running feature finishes, no new one starts unanswered)
+    def test_run_limit_asks(self):
+        self.committed("two", TWO)
+        self.steps([{"sleep": 0.5}, {}, {"tick": False}, B_DONE, {"tick": False}])
+        r = self.wf("two", "-y", "--max-hours", "0.0001")
+        _, rec = self.run_record()
+        self.assertRegex(r.stdout, r"waiting: [a-z0-9]{4} run_limit: 0.0001h passed; keep going for another 0.0001h\?")
+        self.assertIn("done: 1. A", r.stdout)
+        self.assertNotIn("2. B", r.stdout.split("done: 1. A")[1])
+        self.assertEqual(rec["stop_reason"], "run_limit")
+        # The run's question ends with it.
+        self.assertEqual([d for d in self.queue()["decisions"] if d.get("level") == "run"], [])
+
+    # covers: U2 (keep going adds another --max-hours and the next feature starts)
+    def test_run_limit_keep_going(self):
+        self.committed("two", TWO)
+        self.reply("{id} 1")
+        self.steps([{"sleep": 1.2}, {}, {"tick": False}, B_DONE, {"tick": False}])
+        r = self.wf("two", "-y", "--max-hours", "0.0003", "--max-wait", "0.01", mode="fast")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertRegex(r.stdout, r"answered: [a-z0-9]{4} keep going, 0.0003h more\n")
+        self.assertIn("done: 2. B", r.stdout)
+
+    # covers: U9 (a question whose ping failed is pinged again once its retry time came; one sent is not)
+    def test_ping_retry(self):
+        r = run.Run.__new__(run.Run)
+        pinged = []
+        r.held, r.own, r.first_ping, r.interrupted, r.ping_due = [{"c": SimpleNamespace(path="/r")}], set(), None, False, 0
+        r.queue = lambda change=None: {"decisions": [{"id": "aaaa", "repo": "/r", "answer": None, "pings": []},
+                                                    {"id": "bbbb", "repo": "/r", "answer": None, "pings": ["m1"]}]}
+        r.topic = lambda d: SimpleNamespace(ping=lambda sent, stopped: pinged.append(d["id"]) or "m9")
+        r.update = lambda did, change: None
+        # The poll itself reaches no server: it fails quietly after the retry under test.
+        r.cursor, r.polled, r.poll_failed = None, True, True
+        r.ntfy = {"block": [], "server": "http://127.0.0.1:9", "topic": "t"}
+        self.assertFalse(r.poll())
+        self.assertEqual((pinged, r.ping_due), (["aaaa"], None))
+        r.ping_due = run.ntfy.boottime() + 60
+        r.poll()
+        self.assertEqual(pinged, ["aaaa"])
 
 
 if __name__ == "__main__":

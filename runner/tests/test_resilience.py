@@ -104,11 +104,12 @@ class TestOutage(Case):
         self.assertEqual(rec["outage_waited_s"], 180)
         self.assertEqual(rec["outage_waits"][0]["error"], "success; boom")
 
-    # covers: spec 0014 AC-1 (failures until the cap stop api_outage before the wait that would pass 120 minutes)
+    # covers: spec 0014 AC-1 as amended by spec 0021 U4 (failures until the cap stop the repo api_outage before the
+    # wait that would pass the 12 hour wait cap)
     def test_cap(self):
         self.steps([OUT])
-        rec = self.assert_stopped(self.wfx("demo", "-y"), "api_outage", calls=8)
-        self.assertEqual([w["minutes"] for w in rec["outage_waits"]], [1, 2, 4, 8, 16, 30, 30])
+        rec = self.assert_stopped(self.wfx("demo", "-y"), "api_outage", calls=28)
+        self.assertEqual([w["minutes"] for w in rec["outage_waits"]], [1, 2, 4, 8, 16] + [30] * 22)
         self.assertEqual(rec["detail"], "success; boom")
         self.assertEqual(rec["features"][0]["counted"], 0)
 
@@ -132,8 +133,12 @@ class TestOutage(Case):
         shutil.rmtree(self.state)
         self.scope(SCOPE)
         self.steps([{"tick": False, "rc": 1, "json": {"is_error": True, "result": "usage limit reached, overloaded_error",
-                                                      "api_error_status": 529}}])
-        rec = self.assert_stopped(self.wfx("demo", "-y"), "usage_limit", calls=1)
+                                                      "api_error_status": 529}}, {}, {}, {"tick": False}])
+        # Spec 0021 U3: the limit sleeps and the call runs again.
+        (self.fakes / "count").unlink(missing_ok=True)
+        r = self.wfx("demo", "-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        _, rec = self.run_record()
         self.assertEqual((rec["calls"][0]["limited"], rec["calls"][0]["outage"], rec["outage_waits"]), (True, False, []))
 
     # covers: spec 0014 AC-1 (Autopilot off during a wait stops the repo autopilot_off; Ctrl C stops interrupted)
@@ -177,11 +182,13 @@ class TestCrashLoop(Case):
         self.scope(self.THREE)
         self.commit()
         self.steps([DENIED])
-        rec = self.assert_stopped(self.wf("demo", "-y"), "crash_loop", calls=2)
-        self.assertEqual(rec["detail"], "denied: Bash: rm -rf build (also in 1. A)")
+        r = self.wf("demo", "-y")
+        self.assert_stopped(r, "crash_loop", calls=2)
+        # Spec 0021 U6: only that repo stops, with its question.
+        self.assertIn("stopped repo demo: crash_loop: denied: Bash: rm -rf build (also in 1. A)\n", r.stdout)
         self.assertEqual([p["feature"] for p in self.queue()["parks"]], ["1. A", "2. B"])
         log = (self.run_record()[0] / "log.txt").read_text()
-        self.assertIn(" stop crash_loop: denied: Bash: rm -rf build (also in 1. A)\n", log)
+        self.assertIn(" stop demo crash_loop: denied: Bash: rm -rf build (also in 1. A)\n", log)
 
     # covers: spec 0014 AC-2 (a different outcome between breaks the chain; two timeouts never count)
     def test_no_stop(self):
@@ -265,7 +272,7 @@ class TestTokens(Case):
         u = {"input_tokens": 1, "output_tokens": 2, "cache_read_input_tokens": 3, "cache_creation_input_tokens": 4}
         self.steps([{"json": {"usage": u}}])
         r = self.wf("demo", "-y", mode="boom")
-        self.assertIn("stopped: internal_error", r.stdout)
+        self.assertIn("stopped repo demo: internal_error", r.stdout)
         self.assertEqual(r.stdout.splitlines()[-2], "spent: - USD, - tokens")
         shutil.rmtree(self.state)
         self.scope(SCOPE)

@@ -498,7 +498,8 @@ class TestSmallFixes(RunCase):
     # covers: spec 0008 AC-10 (L8: internal_error keeps one detail line and prints the trace to stderr)
     def test_traceback(self):
         r = self.wf("demo", "-y", mode="boom")
-        self.assertIn("stopped: internal_error: RuntimeError: forced failure", r.stdout)
+        # Spec 0021 U10: a runner bug stops only the repo, with its traceback.
+        self.assertIn("stopped repo demo: internal_error: RuntimeError: forced failure", r.stdout)
         self.assertIn("Traceback (most recent call last):", r.stderr)
         self.assertIn("RuntimeError: forced failure", r.stderr)
 

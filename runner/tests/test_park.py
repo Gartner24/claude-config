@@ -377,24 +377,25 @@ class TestLimit(RunCase):
         self.wf("demo", "-y", "--max-calls", "1", mode=self.mode("2026-10-12T06:21:00-05:00"))
         self.assertEqual(self.slept(), ["120"])
 
-    # covers: AC-8 (a second limit, a far reset, no reset, an unknown zone: stop usage_limit, no further sleep)
+    # covers: AC-8 as amended by spec 0021 U3 (a second limit, a far reset, no reset, an unknown zone: each sleeps,
+    # to the reset or 30 minutes, and the call runs again; a usage limit never ends the run)
     def test_stops(self):
         at = self.mode("2026-10-12T06:00:00-05:00")
-        self.steps([limited(), limited()])
-        rec = self.assert_stopped(self.wf("demo", "-y", mode=at), "usage_limit", calls=2)
-        self.assertEqual(self.slept(), ["1320"])
-        self.assertIn("hit your session limit", rec["detail"])
-        for name, step, mode, detail in [
-                ("far", limited(), self.mode("2026-10-12T23:00:00-05:00"), "resets 2026-10-13T06:20-05:00, more than 6h away"),
-                ("none", limited("usage limit reached"), at, "no readable reset: "),
-                ("zone", limited("hit your limit, resets 6am (Mars/Base)"), at, "no readable reset: ")]:
+        self.steps([limited(), limited(), {}, {}, {"tick": False}])
+        r = self.wf("demo", "-y", mode=at)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.slept(), ["1320", "1320"])
+        self.assertNotIn("stopped", r.stdout)
+        for name, step, mode, slept in [
+                ("far", limited(), self.mode("2026-10-12T23:00:00-05:00"), "26520"),
+                ("none", limited("usage limit reached"), at, "1920"),
+                ("zone", limited("hit your limit, resets 6am (Mars/Base)"), at, "1920")]:
             with self.subTest(name):
                 self.fresh()
-                self.steps([step])
-                rec = self.assert_stopped(self.wf("demo", "-y", mode=mode), "usage_limit", calls=1)
-                self.assertTrue(rec["detail"].startswith(detail), rec["detail"])
-                self.assertEqual(self.slept(), [])
-                self.assertIsNone(rec["limit_wait"])
+                self.steps([step, {}, {}, {"tick": False}])
+                r = self.wf("demo", "-y", mode=mode)
+                self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+                self.assertEqual(self.slept(), [slept])
 
     def start_sleeping(self):
         self.steps([limited(), {}])

@@ -509,7 +509,8 @@ class TestGuardAfterApp(AppCase):
         self.edit(f"exec python3 {self.app_py} {self.port} ok")
         self.steps([ask()])
         self.assert_stopped(self.wf("demo", "-y", mode="fast"), "guard_changed", calls=1, repo=True)
-        self.assertEqual(fake.pings(), [])
+        # The call's question is never pinged; only the repo stop's own (spec 0021 U5) is.
+        self.assertEqual([p["message"].split("\n")[0][6:22] for p in fake.pings()], ["guard_changed: c"])
 
     def test_over_ctrl_c(self):
         # Ctrl C while the app boots and ignores SIGTERM: only cleanup() stops it. An app that exits on the

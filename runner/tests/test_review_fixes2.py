@@ -377,7 +377,8 @@ class TestTraceFile(RunCase):
     # covers: spec 0008 AC-10 (L8: the whole trace of an internal_error is kept in the run folder)
     def test_trace(self):
         r = self.wf("demo", "-y", mode="boom")
-        self.assertIn("stopped: internal_error: RuntimeError: forced failure", r.stdout)
+        # Spec 0021 U10: a runner bug stops only the repo, with its traceback.
+        self.assertIn("stopped repo demo: internal_error: RuntimeError: forced failure", r.stdout)
         folder, _ = self.run_record()
         trace = (folder / "traceback.txt").read_text()
         self.assertTrue(trace.startswith("Traceback (most recent call last):"), trace)

@@ -33,7 +33,9 @@ import wf
 
 # Matched on the first two words: a first word alone used to let `/check review` run unattended.
 ALLOWED = ("/develop", "/check verify", "/test", "/debug", "/document")
-BAD_BRANCHES = ("main", "master", "no git", "-")
+# Spec 0021 R1: main and master are no refusal any more; the run makes the feature branch itself.
+BAD_BRANCHES = ("no git", "-")
+MAIN_BRANCHES = ("main", "master")
 # AskUserQuestion is never offered in `claude -p` 2.1.296 (spec 0005 verify.md check 1);
 # denied anyway so a later CLI that offers it cannot hang a run on an unseen panel.
 # Any option before the subcommand, not `git * push*`: that also denied `git stash push` and any commit message with
@@ -293,13 +295,19 @@ POLL = 0.2
 # Spec 0008 AC-8. Built from the interactive message; verify.md check 3 confirms it at the next real limit.
 LIMIT = re.compile(r"rate_limit|hit your (session |weekly )?limit|usage limit", re.I)
 RESET = re.compile(r"resets (\d{1,2})(?::(\d{2}))?\s*(am|pm)\s*\(([^)]+)\)", re.I)
-LIMIT_MAX = datetime.timedelta(hours=6)
+# Spec 0021 U3: a limit with no readable reset sleeps this long, then the call runs again.
+LIMIT_UNKNOWN = datetime.timedelta(minutes=30)
 LIMIT_MARGIN = datetime.timedelta(minutes=2)
 # Spec 0014 AC-1. Built from Claude Code's known error texts; verify.md holds the probe for the next real outage.
 OUTAGE = re.compile(r"API Error: (5\d\d|Connection error)|overloaded_error|internal_server_error|ECONNRESET|ETIMEDOUT"
                     r"|ENOTFOUND|EAI_AGAIN|socket hang up", re.I)
-OUTAGE_CAP = 120
+# Spec 0021 U4: minutes of outage waits before the repo asks, the 12 hour wait cap (was 120).
+OUTAGE_CAP = 12 * 60
 OUTAGE_POLL = 15
+# Spec 0021 U8: a claude that did not start is tried again this many times, this many seconds apart.
+SPAWN_TRIES, SPAWN_GAP = 3, 60
+# Spec 0021: the feature name of a repo's question (R2, R3, U4 to U8) and of the run's (U2).
+REPO_ASK, RUN_ASK = "(repo)", "(run)"
 SYNC_BOX_PROMPT = " This call runs the feature's /sync box; when /sync is done, tick that box."
 # Spec 0008 AC-3: what a debug call may not do to tests.
 TEST_DIRS = ("test", "tests", "__tests__", "spec")
@@ -676,6 +684,9 @@ class Run:
         # for the feature being run; an answer passed into its calls; when to ping again a failed ping (U9).
         self.more, self.design_ok, self.allow_once, self.hint, self.ping_due = {}, set(), [], None, None
         self.denied_at = None
+        # U2: hours added by `keep going` and the run's question id; U4: outage minutes added by `keep waiting`;
+        # U8: spawn retries in a row.
+        self.extra_hours, self.limit_q, self.outage_more, self.spawn_tries = 0, None, 0, 0
         if c is not None:
             self.add(c)
 
@@ -843,6 +854,7 @@ class Run:
         self.answers = answers
         self.repo["answers"] = dict(answers)
         self.warnings += [f"{c.name}: {w}" for w in allow_paths(c.path, answers.get("allow writes"))[1]]
+        # Spec 0021 R1: main and master pass; branch_off() makes the feature branch at the feature's start.
         if self.branch in BAD_BRANCHES or self.branch.startswith("detached"):
             return "branch", f"{self.branch}, switch to a work branch first"
         # The browser check fetches the MCP and the guard is only for calls; wf queue makes none.
@@ -1180,9 +1192,11 @@ class Run:
             if h["repo"].get("guard") and not h["repo"]["ended"] and read_answers(h["c"]) != (h["answers"], None):
                 hits.append((h, None, f"{ANSWERS_FILE[h['c'].scope_dir]} standing answers changed during the run; "
                                       "check them before the next wf run"))
-        for h, path, detail in hits:
-            if path is not None and not self.own_file(h, path):
-                return detail
+        shared = next((detail for h, path, detail in hits if path is not None and not self.own_file(h, path)), None)
+        if shared:
+            # Spec 0021 U5: a file every repo's calls read stops each held repo, each with its question, never the
+            # run as a whole.
+            hits = [(h, None, shared) for h in self.held if h["repo"].get("guard") and not h["repo"]["ended"]]
         mine = None
         for h, path, detail in hits:
             if h["repo"] is self.repo:
@@ -1294,11 +1308,11 @@ class Run:
         g["absent_denied"] = [p for p in g["absent_denied"] if not under(p, allowed)]
 
     def ask(self, question, options, feature=None, call_kind="box", command="", box_text=None, session="", seq=None,
-            **extra):
+            repo=None, branch=None, **extra):
         """Spec 0011 AC-11, spec 0021 AC-2: keep a question in queue.json, in place of an older one of the same
         feature, and ping it. Returns the Decision. A failed ping leaves it queued for the report and the U9 retry."""
-        d = {"id": None, "repo": self.c.path, "feature": self.feature if feature is None else feature,
-             "branch": self.branch, "session_id": session, "call_kind": call_kind, "command": command,
+        d = {"id": None, "repo": repo or self.c.path, "feature": self.feature if feature is None else feature,
+             "branch": branch or self.branch, "session_id": session, "call_kind": call_kind, "command": command,
              "box_text": box_text, "question": question, "options": list(options),
              "kind": "panel" if options else "prose", "multi": False, "sent": None, "pings": [], "acks": [],
              "asked": now(), "answer": None, "source": None, "answered": None, "ignored": 0, "run": self.folder,
@@ -1533,6 +1547,9 @@ class Run:
     def gone(self, d, q, feats):
         """AC-13 stale, or (spec 0021) a case question whose park no longer applies: its cause changed (a retake,
         a new section, a higher cap), or its box is no longer open (you ticked it), so the feature starts fresh."""
+        if d.get("level"):
+            # A repo's or the run's question: pick() takes its answer, never a feature.
+            return False
         f = next((f for f in feats if f.name == d["feature"]), None)
         if d.get("case") and d["box_text"] and f and not any(b.open and b.text == d["box_text"] for b in f.boxes):
             return True
@@ -1563,9 +1580,18 @@ class Run:
         changed = self.files_changed()
         if changed:
             raise Stop("guard_changed", changed)
+        self.limit_check()
         live, q = [], None
         for h in self.held:
             self.use(h)
+            # Spec 0021 AC-5: a repo stopped with a question waits on it; its answer stops it or lets it go on.
+            asked = next((d for d in self.queue()["decisions"] if d["repo"] == self.c.path and d.get("level") == "repo"),
+                         None)
+            if asked and asked["answer"] is None:
+                continue
+            if asked:
+                self.repo_answer(asked)
+                h.update(self.keep())
             if self.repo["ended"]:
                 continue
             try:
@@ -1596,7 +1622,7 @@ class Run:
         # A resume that parked before its call (app_failed on the restart) used to be picked again until --max-hours.
         q = q or {"decisions": [], "parks": []}
         answered = sorted((d for d in q["decisions"] if d["repo"] in repos and d["answer"] is not None
-                           and self.wanted(d["feature"]) and not self.parked(d, q, repos[d["repo"]][1])), key=asked_at)
+                           and not d.get("level") and self.wanted(d["feature"]) and not self.parked(d, q, repos[d["repo"]][1])), key=asked_at)
         if answered:
             h, feats = repos[answered[0]["repo"]]
             self.use(h)
@@ -1609,10 +1635,95 @@ class Run:
         return None
 
     def end_repo(self, reason, detail, h=None):
-        """AC-9 repo stop: no more calls in that repo (the one in use, or held repo h) this run, its lock kept."""
-        repo, name = (h["repo"], h["c"].name) if h else (self.repo, self.c.name)
+        """AC-9 repo stop: no more calls in that repo (the one in use, or held repo h) this run, its lock kept.
+        Spec 0021 AC-5: with its row's question (R2, R3, U4 to U8); R1, R4, U1 and U10 ask nothing."""
+        repo, name, path, branch = (h["repo"], h["c"].name, h["c"].path, h["branch"]) if h else \
+            (self.repo, self.c.name, self.c.path, self.branch)
         repo["ended"] = reason
         print(f"stopped repo {name}: {reason}: {flat(detail)}", flush=True)
+        options = CASES.get(reason, (None, ()))[1]
+        if options and reason != "run_limit":
+            self.ask(f"{reason}: {flat(detail)}"[:300], options, feature=REPO_ASK, repo=path, branch=branch,
+                     level="repo", reason=reason)
+
+    def repo_answer(self, d):
+        """R2, R3, U4 to U8: take the answer to the repo in use's question. A stop answer keeps the repo stopped
+        for this run; any other runs the row's action and the repo goes on."""
+        self.queue(lambda q: q.update(decisions=[x for x in q["decisions"] if x["id"] != d["id"]]) or True)
+        self.entry_for(d)
+        answer = flat(d["answer"])
+        opt = next((o for o in d["options"] if o.casefold() == answer.casefold()), d["options"][0])
+        print(f"answered: {d['id']} {self.c.name}: {opt}", flush=True)
+        if opt == STOP_REPO:
+            self.repo["ended"] = self.repo["ended"] or d["reason"]
+            return
+        if opt == "go on on the new branch":
+            self.branch = self.repo["branch"] = wf.head_branch(self.c.path)
+        elif opt == "switch back":
+            r = wf.git(self.c.path, "switch", self.branch)
+            if r is None or r.returncode:
+                self.end_repo("branch_changed", f"cannot switch back to {self.branch}: {flat(r and r.stderr)}")
+                return
+        elif opt == "accept the new setup and go on":
+            # U5: what is on disk now is the new baseline, the answers file included.
+            problem = self.repo.get("guard") and self.freeze_guard(self.repo["guard"]["binaries"])
+            answers, bad = read_answers(self.c)
+            if problem or bad:
+                self.end_repo("guard_changed", problem[1] if problem else bad)
+                return
+            self.answers = answers
+            self.repo["answers"] = dict(answers)
+        elif opt == "keep waiting":
+            self.outage_more += OUTAGE_CAP
+        self.repo["ended"] = None
+
+    def branch_off(self, name):
+        """R1 (AC-4): on main or master, switch to feat/<slug of the feature heading>, made from here when new;
+        no question. A failure stops the repo `branch`, as the start check did."""
+        if self.branch not in MAIN_BRANCHES:
+            return
+        slug = re.sub(r"[^a-z0-9]+", "-", re.sub(r"^\s*\d+\.\s*", "", name).casefold()).strip("-") or "feature"
+        new = f"feat/{slug}"
+        r = wf.git(self.c.path, "switch", "-c", new)
+        if r is not None and r.returncode:
+            r = wf.git(self.c.path, "switch", new)
+        if r is None or r.returncode:
+            raise Stop("branch", f"cannot switch {self.branch} to {new}: {flat(r and r.stderr)}")
+        print(f"branch: {new} from {self.branch}", flush=True)
+        self.log(f"branch {new} from {self.branch}")
+        self.branch = self.repo["branch"] = new
+        next(h for h in self.held if h["repo"] is self.repo).update(self.keep())
+
+    def over_limit(self):
+        """--max-hours, plus each `keep going`, passed; waits on you, on a usage limit or an outage do not count."""
+        r = self.record
+        return ntfy.boottime() - self.t0 - r["waited_s"] - r["limit_waited_s"] - r["outage_waited_s"] >= \
+            (self.args.max_hours + self.extra_hours) * 3600
+
+    def limit_question(self):
+        """U2: the run's question, asked once; the Decision as queue.json holds it now, else None."""
+        if self.limit_q is None:
+            h = self.held[0]
+            self.limit_q = self.ask(f"run_limit: {self.args.max_hours + self.extra_hours:g}h passed; keep going for "
+                                    f"another {self.args.max_hours:g}h?", CASES["run_limit"][1], feature=RUN_ASK,
+                                    repo=h["c"].path, branch=h["branch"], level="run")["id"]
+        return next((d for d in self.queue()["decisions"] if d["id"] == self.limit_q), None)
+
+    def limit_check(self):
+        """U2: past --max-hours no new feature starts until you answer keep going; unanswered, the run stops
+        run_limit (a feature already running finished first: the loop only asks)."""
+        if not self.over_limit():
+            return
+        self.poll()
+        d = self.limit_question()
+        if d and d["answer"] is not None and flat(d["answer"]).casefold() == "keep going":
+            self.queue(lambda q: q.update(decisions=[x for x in q["decisions"] if x["id"] != d["id"]]) or True)
+            self.entry_for(d)
+            self.extra_hours += self.args.max_hours
+            self.limit_q = None
+            print(f"answered: {d['id']} keep going, {self.args.max_hours:g}h more", flush=True)
+            return
+        raise Stop("run_limit", f"{self.args.max_hours + self.extra_hours:g}h passed")
 
     def park(self, reason, detail):
         """AC-10: write or replace the feature's Park record, unless the reason is never recorded. True when written."""
@@ -2204,9 +2315,13 @@ class Run:
                 if self.interrupted:
                     raise Stop("interrupted", "Ctrl C or a stop signal")
                 waiting = {h["c"].path for h in self.held if not h["repo"]["ended"]}
+                held = {h["c"].path for h in self.held}
                 left = self.args.max_wait * 3600 - self.end_waited - (ntfy.boottime() - t0)
+                # Spec 0021 AC-5: a stopped repo's own question is waited for too, its answer can resume it.
                 if left <= 0 or not any(
-                        d["repo"] in waiting and d["answer"] is None for d in self.queue()["decisions"]):
+                        d["answer"] is None and d.get("level") != "run" and
+                        (d["repo"] in waiting or (d.get("level") == "repo" and d["repo"] in held))
+                        for d in self.queue()["decisions"]):
                     return False
                 if not logged:
                     self.log("wait answers")
@@ -2260,6 +2375,7 @@ class Run:
         self.entry, self.feature, self.retried, self.limit_rerun, self.outage_rerun = e, f.name, False, False, False
         self.hint, self.denied_at = None, None
         try:
+            self.branch_off(f.name)
             if d and d.get("case"):
                 # Spec 0021 AC-3: the answer to its case question runs the feature again with the row's action.
                 opt = self.take_case(d)
@@ -2289,16 +2405,21 @@ class Run:
             else:
                 self.loop("box", f.next, f.next.command)
         except Stop as s:
-            if s.reason in RUN_STOPS and not s.repo:
+            # Spec 0021 AC-5: only your Ctrl C ends the run here; every other reason ends at most this repo.
+            if s.reason == "interrupted":
                 raise
             e.update(outcome=s.reason, detail=None if s.detail is None else str(s.detail))
+        except Exception as ex:
+            # U10: a runner bug stops only this repo, its traceback in the run folder and the report.
+            self.trace(ex)
+            e.update(outcome="internal_error", detail=flat(traceback.format_exception_only(ex)[-1]))
         # AC-8: no app outlives its feature. Its guard check ran outside the try, so a repo stop there used to
         # end every repo (review M2); it wins over the feature's outcome, as in spec 0009 AC-3 step 5.
         if self.app is not None:
             try:
                 self.stop_app()
             except Stop as s:
-                if s.reason in RUN_STOPS and not s.repo:
+                if s.reason == "interrupted":
                     raise
                 e.update(outcome=s.reason, detail=str(s.detail))
             finally:
@@ -2331,15 +2452,17 @@ class Run:
         self.crash_loop(e)
 
     def crash_loop(self, e):
-        """Spec 0014 AC-2: raise Stop crash_loop when entry e and the entry before it (by n, any repo) park two
-        different features with the same crash reason and the same detail key."""
+        """Spec 0014 AC-2: stop the repo crash_loop when entry e and the entry before it (by n, any repo) park two
+        different features with the same crash reason and the same detail key. Spec 0021 U6: only that repo, with a
+        question, never the run."""
         if e["outcome"] not in CRASH:
             return
         prev = max((x for x in self.record["features"] if x["n"] < e["n"]), key=lambda x: x["n"], default=None)
         key = lambda x: flat(x["detail"])[:CRASH_KEY].casefold()
         if prev and prev["outcome"] == e["outcome"] and (prev["repo"], prev["feature"]) != (e["repo"], e["feature"]) \
                 and key(prev) == key(e):
-            raise Stop("crash_loop", f"{e['outcome']}: {flat(e['detail'])} (also in {prev['feature']})")
+            self.end_repo("crash_loop", f"{e['outcome']}: {flat(e['detail'])} (also in {prev['feature']})")
+            self.log(f"stop {self.c.name} crash_loop: {e['outcome']}: {flat(e['detail'])} (also in {prev['feature']})")
 
     def loop(self, kind, box, command, resume=None):
         """The feature's calls from (kind, box, command); resume is the answered Decision the first call resumes."""
@@ -2355,9 +2478,9 @@ class Run:
             if count > self.cap("max_calls"):
                 raise Stop("max_calls", f"{self.cap('max_calls')} calls made")
             # Time spent waiting on you, on a usage limit or an outage does not count toward --max-hours (AC-9).
-            r = self.record
-            if ntfy.boottime() - self.t0 - r["waited_s"] - r["limit_waited_s"] - r["outage_waited_s"] >= a.max_hours * 3600:
-                raise Stop("run_limit", f"{a.max_hours:g}h passed")
+            # Spec 0021 U2: past it, the run asks and this feature still finishes; pick() starts no new one.
+            if self.over_limit():
+                self.limit_question()
             changed = self.files_changed()
             if changed:
                 raise Stop("guard_changed", changed)
@@ -2441,6 +2564,15 @@ class Run:
                 if nb is not None:
                     kind, box, command = "box", nb, nb.command
                     continue
+            if act[:2] == ("end", "spawn_failed") and self.spawn_tries < SPAWN_TRIES:
+                # Spec 0021 U8: claude did not start; the same call again a minute later, three times, then asked.
+                self.spawn_tries += 1
+                print(f"waiting: claude did not start, try {self.spawn_tries} of {SPAWN_TRIES} in {SPAWN_GAP:g}s",
+                      flush=True)
+                self.nap(SPAWN_GAP)
+                retry_of = seq
+                continue
+            self.spawn_tries = 0
             if act[0] == "end":
                 raise Stop(act[1], act[2])
             if act[0] == "retry":
@@ -2458,15 +2590,10 @@ class Run:
             _, kind, box, command = act
 
     def limit_wait(self, text, detail):
-        """Spec 0008 AC-8: sleep through one usage limit reset per run, else raise Stop."""
-        if self.record["limit_wait"]:
-            raise Stop("usage_limit", detail)
+        """Spec 0008 AC-8, spec 0021 U3: sleep to the reset, every limit and however far it is; a reset that cannot be
+        read sleeps LIMIT_UNKNOWN. A usage limit never ends the run. run.json keeps the latest wait."""
         at = wall_now()
-        reset = parse_reset(text, at)
-        if reset is None:
-            raise Stop("usage_limit", "no readable reset: " + detail)
-        if reset - at > LIMIT_MAX:
-            raise Stop("usage_limit", f"resets {reset.isoformat(timespec='minutes')}, more than 6h away")
+        reset = parse_reset(text, at) or at + LIMIT_UNKNOWN
         seconds = max((reset - at).total_seconds(), 0) + LIMIT_MARGIN.total_seconds()
         lw = self.record["limit_wait"] = {"started": now(), "reset": reset.isoformat(timespec="seconds"),
                                           "resumed": None, "waited_s": 0}
@@ -2479,7 +2606,7 @@ class Run:
             self.nap(seconds)
         finally:
             lw["waited_s"] = round(ntfy.boottime() - t0, 1)
-            self.record["limit_waited_s"] = lw["waited_s"]
+            self.record["limit_waited_s"] = round(self.record["limit_waited_s"] + lw["waited_s"], 1)
             self.save()
         if self.interrupted:
             raise Stop("interrupted", "Ctrl C or a stop signal")
@@ -2493,7 +2620,8 @@ class Run:
         answers every OUTAGE_POLL seconds; stop api_outage before a wait that would pass OUTAGE_CAP in this run."""
         minutes = min(2 ** (self.outage_k - 1), 30)
         waits = self.record["outage_waits"]
-        if sum(w["minutes"] for w in waits) + minutes > OUTAGE_CAP:
+        # Spec 0021 U4: past the wait cap the repo stops with its question; `keep waiting` adds another cap.
+        if sum(w["minutes"] for w in waits) + minutes > OUTAGE_CAP + self.outage_more:
             raise Stop("api_outage", detail)
         waits.append({"started": now(), "minutes": minutes, "error": flat(detail)[:300]})
         self.save()
@@ -2515,6 +2643,16 @@ class Run:
         if refusal:
             raise Stop(*refusal)
         self.outage_rerun = True
+
+    def trace(self, e):
+        """The detail keeps one line; the trace used to be lost with it (review L8). It goes to stderr, each line
+        cleaned like every other printed text, and whole to the run folder's traceback.txt, which outlives the
+        terminal (spec 0021 U10: a repo's internal_error appends its own)."""
+        trace = "".join(traceback.format_exception(e))
+        sys.stderr.write("\n".join(wf.clean(line) for line in trace.split("\n")))
+        if self.folder and os.path.isdir(self.folder):
+            with open(os.path.join(self.folder, "traceback.txt"), "a", encoding="utf-8", errors="replace") as f:
+                f.write(trace)
 
     def nap(self, seconds):
         """Sleep on the boot clock in POLL slices; a stop signal ends it early. Tests replace it."""
@@ -2626,14 +2764,15 @@ class Run:
             reason, detail = s.reason, s.detail
         except Exception as e:
             detail = flat(traceback.format_exception_only(e)[-1])
-            # The detail keeps one line; the trace used to be lost with it (review L8). It goes to stderr, each line
-            # cleaned like every other printed text, and whole to the run folder, which outlives the terminal.
-            trace = traceback.format_exc()
-            sys.stderr.write("\n".join(wf.clean(line) for line in trace.split("\n")))
-            if self.folder and os.path.isdir(self.folder):
-                with open(os.path.join(self.folder, "traceback.txt"), "w", encoding="utf-8", errors="replace") as f:
-                    f.write(trace)
+            self.trace(e)
         finally:
+            if self.limit_q:
+                # U2: the run's own question ends with it.
+                try:
+                    self.queue(lambda q: q.update(decisions=[x for x in q["decisions"] if x["id"] != self.limit_q])
+                               or True)
+                except Stop:
+                    pass
             # AC-3 step 5: a guarded file the app moved wins over the reason the run ended with, Ctrl C included.
             changed = self.cleanup()
             if changed:

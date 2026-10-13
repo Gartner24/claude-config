@@ -589,7 +589,8 @@ class TestAcrossRepos(QueueCase):
     # and the fourth runs; every repo skipped by a refusal exits 5 with nothing to run; skips that are not refusals
     # exit per AC-19)
     def test_repo_checks(self):
-        main = self.make_repo("onmain", ONE, head="ref: refs/heads/main\n")
+        # Spec 0021 R1: main is no refusal any more, a detached head still is.
+        main = self.make_repo("onmain", ONE, head="0123456789abcdef" * 2 + "01234567\n")
         off = self.make_repo("apoff", ONE.replace("allowed", "off"))
         held = self.make_repo("held", ONE)
         good = self.make_repo("good", ONE)
@@ -604,7 +605,7 @@ class TestAcrossRepos(QueueCase):
         r = self.wf("-y")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(plan(r.stdout)[:8], [
-            "onmain on main, 1 change", "  skip: branch: main, switch to a work branch first",
+            "onmain on detached 0123456, -", "  skip: branch: detached 0123456, switch to a work branch first",
             "apoff on work, 1 change", "  skip: autopilot_off: Autopilot is off, the scope header needs **Autopilot:** allowed",
             "held on work, 1 change", "  skip: running: 4242 2026-10-11T09:00:00+02:00",
             "good on work, 0 changes", "  queued: 1. A"])
@@ -692,7 +693,8 @@ class TestAcrossRepos(QueueCase):
             r = self.wf("-y")
             self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
             for n in ("ua", "ub"):
-                self.assertIn(f"\n[{n}] stopped: guard_changed: {self.tmp}/.claude/settings.json{detail}\n", r.stdout)
+                # Spec 0021 U5: a shared file stops each repo with its question, never the run.
+                self.assertIn(f"\n[{n}] stopped repo {n}: guard_changed: {self.tmp}/.claude/settings.json{detail}\n", r.stdout)
 
 
 class TestExit(QueueCase):
