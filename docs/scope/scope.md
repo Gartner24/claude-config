@@ -43,7 +43,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 29 | Several repos at once | Release 4 | done |
 | 30 | Live setup steps in one command | Release 5 | in-progress |
 | 13 | Morning report | Release 5 | in-progress |
-| 32 | Never wait on each other | Release 6 | needs a decision |
+| 32 | One command: wf | Release 6 | needs a decision |
 | 31 | Guard baseline check before each repo | Deferred | planned |
 | 23 | Questions that teach | Deferred | planned |
 | 15 | Cheap worker tier | Deferred | planned |
@@ -442,10 +442,10 @@ Source: [docs/briefs/morning-report-and-live-steps.md](../briefs/morning-report-
 
 ## Release 6: work non stop
 
-### 32. Never wait on each other · needs a decision
-`wf finish`, `wf unpark`, runs in other repos and your own sessions all go on at once. `wf finish` holds no repo locks and never refuses because of a run; its real claude checks start at once in temp folders; the live setup change is one atomic swap, and a running run takes the new setup at its next call instead of stopping. The lock refusal names the real holder.
-**Done when:** with a run going in another repo, `wf finish` runs to the end, that run keeps going and its next call uses the new setup, `wf unpark` in a third repo works meanwhile, and a change to `~/.claude` not made by `wf finish` still stops the run.
-- [ ] Design it (spec): `/architect never wait on each other`
+### 32. One command: wf · needs a decision
+You type only `wf`. After one confirm screen it shows the report, applies pending live setup steps as one atomic swap, runs pending real claude checks, takes back features whose cause is fixed, and starts every repo with work side by side, never waiting on or stopping a run already going. `wf finish`, `wf unpark` and the rest stop being steps you are told to type.
+**Done when:** with a run going in another repo, one `wf` does all five steps, that run keeps going and its next call uses the new setup, a change to `~/.claude` not made by `wf` still stops the run, and no skill, rule or report tells you to type any `wf` subcommand.
+- [ ] Design it (spec): `/architect one command wf`
 Source: [docs/briefs/never-wait-on-each-other.md](../briefs/never-wait-on-each-other.md).
 
 ## Deferred
