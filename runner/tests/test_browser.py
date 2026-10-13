@@ -204,6 +204,9 @@ class AppCase(RunCase):
         (self.repo / "AGENTS.md").write_text(f"## Standing answers\n- app start: {self.start_cmd}\n- app url: {self.url}\n")
 
     def cmd(self, *args, grace=30, mode="-"):
+        # Spec 0021: a park is a phone question; no test waits the 12 hour default for its reply.
+        if "--max-wait" not in args:
+            args = (*args, "--max-wait", "0.0001")
         return [sys.executable, "-c", BROWSER_WRAPPER, str(RUNNER), str(grace), mode, "run", *args]
 
     def probe(self):

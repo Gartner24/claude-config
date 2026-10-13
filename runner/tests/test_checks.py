@@ -27,6 +27,7 @@ class TestUnchecked(RunCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         return self.run_record()[1]
 
+    # Spec 0021 F6: calls counts the one rerun the box gets by itself before it parks.
     def parked(self, scope, steps, name, calls=None):
         self.make_repo("c", scope)
         self.steps(steps)
@@ -42,7 +43,7 @@ class TestUnchecked(RunCase):
 
     # covers: AC-4 (no line parks unchecked, the detail names the box, the park is recorded)
     def test_test_missing(self):
-        rec = self.parked(TEST, [says("all green")], "MUTATION CHECKED", calls=1)
+        rec = self.parked(TEST, [says("all green")], "MUTATION CHECKED", calls=2)
         self.assertEqual(rec["detail"], "Test it: `/test a` ticked without a valid MUTATION CHECKED line; "
                                         "untick it to rerun")
         self.assertEqual((rec["calls"][0]["marker"], rec["calls"][0]["checked_n"]), (None, None))
@@ -57,12 +58,12 @@ class TestUnchecked(RunCase):
                          [("can_fail_checked", 2), ("mutation_checked", 1), (None, None)])
 
     def test_verify_missing(self):
-        self.parked(VERIFY, [says("ok\nMUTATION CHECKED: 4")], "CAN FAIL CHECKED", calls=1)
+        self.parked(VERIFY, [says("ok\nMUTATION CHECKED: 4")], "CAN FAIL CHECKED", calls=2)
 
     # covers: AC-4 (a verify fail needs no line: the debug loop as before; the rerun after it needs its own)
     def test_debug_rerun(self):
-        rec = self.parked(VERIFY, [fail(), {"tick": False}, says("fixed")], "CAN FAIL CHECKED", calls=3)
-        self.assertEqual([c["kind"] for c in rec["calls"]], ["box", "debug", "box"])
+        rec = self.parked(VERIFY, [fail(), {"tick": False}, says("fixed")], "CAN FAIL CHECKED", calls=4)
+        self.assertEqual([c["kind"] for c in rec["calls"]], ["box", "debug", "box", "box"])
         self.assertEqual(rec["calls"][0]["marker"], "verify_fail_debug")
 
     # covers: AC-4 (ticking nothing is no_progress as before; /develop never needs a line)
@@ -92,7 +93,7 @@ class TestUnchecked(RunCase):
         self.assertEqual(rec["calls"][0]["checked_n"], 5)
 
     def test_verify_zero(self):
-        self.parked(VERIFY, [says("CAN FAIL CHECKED: 0")], "CAN FAIL CHECKED", calls=1)
+        self.parked(VERIFY, [says("CAN FAIL CHECKED: 0")], "CAN FAIL CHECKED", calls=2)
 
     # covers: AC-4 (MUTATION CHECKED: 0 passes with no test file changed, parks when one changed)
     def test_mutation_zero(self):
@@ -100,8 +101,9 @@ class TestUnchecked(RunCase):
         self.assertEqual(rec["calls"][0]["checked_n"], 0)
 
     def test_mutation_zero_test_changed(self):
-        self.parked(TEST, [says("MUTATION CHECKED: 0", write_file=[["tests/test_a.py", "def test_a(): pass\n"]])],
-                    "MUTATION CHECKED", calls=1)
+        self.parked(TEST, [says("MUTATION CHECKED: 0", write_file=[["tests/test_a.py", "def test_a(): pass\n"]]),
+                           says("MUTATION CHECKED: 0", write_file=[["tests/test_a.py", "def test_a(): 1\n"]])],
+                    "MUTATION CHECKED", calls=2)
 
     # covers: AC-4 (a milestone tick alone is not the box's progress, so no line is asked)
     def test_milestone(self):

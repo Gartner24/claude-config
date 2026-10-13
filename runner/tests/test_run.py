@@ -272,6 +272,9 @@ class RunCase(unittest.TestCase):
         (self.fakes / "steps.json").write_text(json.dumps(steps))
 
     def cmd(self, *args, grace=30, mode="-"):
+        # Spec 0021: every park is a phone question now, so a test never waits the 12 hour default for a reply.
+        if "--max-wait" not in args:
+            args = (*args, "--max-wait", "0.0001")
         if grace == 30 and mode == "-":
             return [sys.executable, str(WF), "run", *args]
         return [sys.executable, "-c", WRAPPER, str(RUNNER), str(grace), mode, "run", *args]
@@ -347,7 +350,7 @@ class TestHappyPath(RunCase):
     # covers: AC-1, AC-4, AC-5, AC-6, AC-7, AC-10, AC-11, AC-14
     def test_feature_runs_to_sync(self):
         self.steps([{}, {}, {"tick": False}])
-        r = self.wf("demo", "-y")
+        r = self.wf("demo", "-y", "--max-wait", "12")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         lines = r.stdout.splitlines()
         g = self.run_record()[1]["repos"][0]["guard"]
@@ -779,13 +782,15 @@ class TestClassify(RunCase):
                 self.assertEqual([c["retry_of"] for c in rec["calls"]], [None, 1])
 
     # covers: AC-6 rule 6 (\r\n endings, last line wins, control characters stripped), null result;
-    # spec 0005 AC-11 (the line parks a prose decision instead of stopping; here the ping cannot be sent)
+    # spec 0005 AC-11 (the line parks a prose decision instead of stopping; here the ping cannot be sent, and
+    # spec 0021 U9 keeps the run going with the question queued)
     def test_decision(self):
         result = "thinking\r\nDECISION NEEDED: first?\r\nmore\r\nDECISION NEEDED:  which \x1b]0;db\x07 provider?\r\n"
         self.steps([{"json": {"result": result}, "tick": False}])
         self.report_ntfy.fail_posts = 3
         r = self.wf("demo", "-y", mode="fast")
-        rec = self.assert_stopped(r, "ping_failed", calls=1)
+        rec = self.assert_stopped(r, "decision_open", calls=1)
+        self.assertIn(f"warning: ping {rec['decisions'][0]['id']} failed, sent again every 10 minutes", r.stdout)
         self.assertEqual(rec["calls"][0]["decision"], "which ]0;db provider?")
         self.assertEqual(rec["decisions"][0]["question"], "which ]0;db provider?")
         self.assertIn("waiting: %s which ]0;db provider?" % rec["decisions"][0]["id"], r.stdout)
@@ -836,7 +841,7 @@ class TestClassify(RunCase):
         self.make_repo("two", "# Scope: x\n**Autopilot:** allowed\n### 1. A · auto\n- [x] (spec)\n- [ ] `/develop a`\n")
         self.steps([{}, {"tick": False, "json": {"result": "DECISION NEEDED: merge now?"}}])
         self.report_ntfy.fail_posts = 3
-        rec =self.assert_stopped(self.wf("two", "-y", mode="fast"), "ping_failed", calls=2)
+        rec = self.assert_stopped(self.wf("two", "-y", mode="fast"), "decision_open", calls=2)
         self.assertEqual((rec["decisions"][0]["call"], rec["calls"][1]["command"]), (2, "/sync"))
 
 
@@ -959,14 +964,18 @@ class TestParking(RunCase):
         self.assertEqual(self.argv(2)["argv"][2:4], ["--resume", given])
         self.assertNotIn("--session-id", self.argv(2)["argv"])
 
-    # covers: spec 0005 AC-7, AC-13 (three failed POSTs stop ping_failed, exit 6)
+    # covers: spec 0005 AC-7, AC-13, as amended by spec 0021 U9 (three failed POSTs keep the run going, the
+    # question queued with sent null, exit 6)
     def test_ping_failed(self):
         self.fake_ntfy()
         self.ntfy.fail_posts = 3
         self.steps([ask()])
-        rec = self.assert_stopped(self.wf("demo", "-y", mode="fast"), "ping_failed", calls=1)
-        self.assertIn("500", rec["detail"])
+        r = self.wf("demo", "-y", mode="fast")
+        rec = self.assert_stopped(r, "decision_open", calls=1)
+        self.assertIn("failed, sent again every 10 minutes: HTTP Error 500", r.stdout)
         self.assertEqual(len(self.ntfy.pings()), 3)
+        q = json.loads((self.state / "wf" / "queue.json").read_text())
+        self.assertEqual([d["sent"] for d in q["decisions"]], [None])
 
     # covers: spec 0011 AC-15 (no reply within --max-wait ends the run queue_done, the question kept, exit 6)
     def test_decision_timeout(self):
@@ -982,16 +991,18 @@ class TestParking(RunCase):
         q = json.loads((self.state / "wf" / "queue.json").read_text())
         self.assertEqual([(x["id"], x["answer"]) for x in q["decisions"]], [(d["id"], None)])
 
-    # covers: spec 0011 AC-11, AC-16 (the last allowed call parks max_calls: no id, no ping, no record)
+    # covers: spec 0011 AC-11, AC-16 (the last allowed call parks max_calls: its question is never pinged);
+    # spec 0021 F8 (the park itself is asked: give it more or skip)
     def test_last_call_does_not_ping(self):
         self.fake_ntfy()
         self.steps([ask()])
         rec = self.assert_stopped(self.wf("demo", "-y", "--max-calls", "1", mode="fast"), "max_calls", calls=1)
-        self.assertEqual(self.ntfy.pings(), [])
-        self.assertEqual(rec["decisions"], [])
+        self.assertEqual([p["message"].split("\n")[0][6:] for p in self.ntfy.pings()],
+                         ["max_calls: 1 calls made, none left to resume"])
         self.assertEqual(rec["detail"], "1 calls made, none left to resume")
         q = json.loads((self.state / "wf" / "queue.json").read_text())
-        self.assertEqual(([p["reason"] for p in q["parks"]], q["decisions"]), (["max_calls"], []))
+        self.assertEqual(([p["reason"] for p in q["parks"]], [d["case"] for d in q["decisions"]]),
+                         (["max_calls"], ["max_calls"]))
 
     # covers: spec 0004 invariant (an asking call that turned Autopilot off stops before the ping)
     def test_autopilot_off_before_ping(self):
@@ -1006,7 +1017,7 @@ class TestParking(RunCase):
         self.ntfy.hold_polls = 40
         self.ntfy.replies = ["{id} 1"]
         self.steps([ask(), {}])
-        p = self.start("demo", "-y", mode="fast")
+        p = self.start("demo", "-y", "--max-wait", "12", mode="fast")
         end = time.monotonic() + 20
         while not self.ntfy.posts:
             self.assertLess(time.monotonic(), end)
@@ -1027,7 +1038,7 @@ class TestParking(RunCase):
         self.ntfy.hold_polls = 60
         self.ntfy.replies = ["{id} 1"]
         self.steps([ask(), {}, {}, {"tick": False}])
-        r = self.wf("demo", "-y", "--max-hours", "0.0005", mode="fast")
+        r = self.wf("demo", "-y", "--max-hours", "0.0005", "--max-wait", "12", mode="fast")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         _, rec = self.run_record()
         self.assertGreater(rec["waited_s"], 1.8)
@@ -1377,7 +1388,7 @@ class TestGuard(RunCase):
         self.wf("demo", "-y", "--max-calls", "1")
         _, rec = self.run_record()
         g = rec["repos"][0]["guard"]
-        self.assertEqual(list(g), ["hosts", "write_paths", "deny_paths", "binaries", "submodules", "guarded_files",
+        self.assertEqual(list(g), ["hosts", "write_paths", "deny_paths", "binaries", "allowed", "submodules", "guarded_files",
                                    "absent_denied"])
         self.assertEqual(g["submodules"], [])
         # Spec 0009 AC-3 step 5: the repo has no .claude; config.worktree is a guarded file, so left out.
@@ -1527,7 +1538,7 @@ class TestStandingAnswers(RunCase):
     # covers: spec 0006 AC-1, AC-2, AC-3 (each refusal, its line, exit 5, no call, no run folder, first problem wins)
     def test_refusals(self):
         hint = (" (expected: - run suite: yes|ask, - done: yes|ask, - app start: <command>, "
-                "- app url: http://localhost:<port>)")
+                "- app url: http://localhost:<port>, - allow writes: <path>, <path>)")
         cases = [
             ("form", "## Standing answers\n- run suite yes\n", "AGENTS.md:2: not a - key: value entry"),
             ("unknown", "## Standing answers\n- cross check: yes\n", "AGENTS.md:2: unknown key cross check"),

@@ -55,6 +55,9 @@ class Case(RunCase):
         env = {**self.env, **(extra or {})}
         if nap:
             env.update(FAKE_NAP=nap, FAKE_SCOPE=str(self.repo / "docs/scope/scope.md"))
+        # Spec 0021: a park is a phone question; no test waits the 12 hour default for its reply.
+        if "--max-wait" not in args:
+            args = (*args, "--max-wait", "0.0001")
         return subprocess.run([sys.executable, "-c", WRAP, str(RUNNER), "run", *args], capture_output=True, text=True,
                               env=env, timeout=120)
 
@@ -332,6 +335,8 @@ class TestLiveLog(Case):
             f"call 3 demo 1. Loop: /test loop, transcript {config}/projects/*/{ids[2]}.jsonl",
             "end 3 success, 0.50 USD, 0.0m",
             "park 1. Loop: no_progress: the box is still open: Test it: `/test loop`",
+            # Spec 0021 F4: the park's question, then the end wait for its reply.
+            f"decision {rec['decisions'][0]['id']} 1. Loop", "wait answers",
             "done"])
         # The JSON's session id replaces the one wf gave.
         self.assertEqual(rec["calls"][0]["session_id"], "s-1")
@@ -437,7 +442,8 @@ class TestSkipAhead(Case):
         self.assertEqual(self.queue()["parks"], [])
         self.fresh()
         r = self.wf("demo", "-y")
-        self.assertIn("  skip: 1. A: waiting", r.stdout)
+        # Spec 0021 F10: the box only you can do is asked; done ticks it, and ticking it yourself drops the question.
+        self.assertRegex(r.stdout, r"\n  open: [a-z0-9]{4} 1\. A: waiting: Copy the rule file live · later boxes go on\n")
         self.assertEqual(self.calls(), [])
         self.fresh()
         self.scope((self.repo / "docs/scope/scope.md").read_text().replace("- [ ] Copy", "- [x] Copy"))

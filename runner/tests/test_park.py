@@ -59,7 +59,9 @@ class TestParkPrint(RunCase):
             self.steps(steps)
             r = self.wf(name, "-y", "--max-calls", "1")
             self.assert_stopped(r, reason)
-        self.assertIn("parked: 1. A: max_calls: 1 calls made\nqueue done: 0 done, 1 parked, 0 open\n", r.stdout)
+        # Spec 0021 F8: the park is a question.
+        self.assertIn("parked: 1. A: max_calls: 1 calls made\nwaiting: ", r.stdout)
+        self.assertIn("  1 give it more\n  2 skip\nqueue done: 0 done, 1 parked, 0 open\n", r.stdout)
         self.fresh("int")
         self.steps([{"sleep": 30}])
         p = self.start("int", "-y")
@@ -203,7 +205,9 @@ class TestBlocked(RunCase):
         r = self.wf("demo", "-y")
         rec = self.assert_stopped(r, "blocked", calls=1)
         self.assertEqual(rec["detail"], "sudo pacman -S stow")
-        self.assertEqual((rec["calls"][0]["marker"], rec["calls"][0]["decision"], rec["decisions"]), ("blocked", None, []))
+        # Spec 0021 F2: the only question is the park's own.
+        self.assertEqual((rec["calls"][0]["marker"], rec["calls"][0]["decision"], [d["question"] for d in rec["decisions"]]),
+                         ("blocked", None, ["blocked: sudo pacman -S stow"]))
         self.assertIn("parked: 1. Loop: blocked: sudo pacman -S stow", r.stdout)
 
 

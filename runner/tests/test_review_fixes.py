@@ -50,7 +50,9 @@ class TestParkedResume(AppCase):
         self.assertEqual(len(list(self.fakes.glob("argv-*.json"))), 1)
         q = json.loads((self.state / "wf" / "queue.json").read_text())
         self.assertEqual([(p["feature"], p["reason"]) for p in q["parks"]], [("1. A", "app_failed")])
-        self.assertEqual([d["answer"] for d in q["decisions"]], ["Postgres (recommended)"])
+        # Spec 0021 F12: the park's question carries the answer, so its retry resumes that session.
+        self.assertEqual([(d["case"], d["then"]["answer"]) for d in q["decisions"]],
+                         [("app_failed", "Postgres (recommended)")])
 
 
 class TestStaleUnqueued(DecisionCase):

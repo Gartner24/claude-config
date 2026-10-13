@@ -72,7 +72,8 @@ class TestDoneWhen(QueueCase):
         self.assertEqual([(c["command"], c["feature"]) for c in rec["calls"]],
                          [("/develop a", 1), ("/develop b", 2), ("/sync", 2)])
         q = self.queue()
-        self.assertEqual(q["decisions"], [])
+        # Spec 0021 AC-2: the park is asked too.
+        self.assertEqual([(d["feature"], d["case"]) for d in q["decisions"]], [("1. A", "blocked")])
         park = q["parks"][0]
         self.assertEqual(sorted(park), ["cap", "claude", "detail", "feature", "head", "parked_at", "reason", "repo", "run",
                                         "section_sha", "setup"])
@@ -198,10 +199,11 @@ class TestTreeRule(QueueCase):
         self.assertEqual(plan(r.stdout)[-3], "queue done: 0 done, 1 parked, 0 open")
         self.again()
         r = self.wf("tree")
-        self.assertEqual(plan(r.stdout)[1:3], ["  parked: 1. A: blocked: test park (retaken on a new commit)",
-                                                      "  skip: 2. B: dirty with parks"])
-        self.assertEqual(plan(r.stdout)[-1], "nothing to run")
-        self.assertEqual(r.returncode, 6)
+        # Spec 0021 AC-2: its question is listed first; an open question is work (the run pings it again).
+        self.assertRegex(plan(r.stdout)[1], r"^  open: [a-z0-9]{4} 1\. A: blocked: test park$")
+        self.assertEqual(plan(r.stdout)[2:4], ["  parked: 1. A: blocked: test park (retaken on a new commit)",
+                                               "  skip: 2. B: dirty with parks"])
+        self.assertEqual(r.returncode, 130)
         self.commit(repo)
         self.assertFalse(run.dirty(str(repo)))
         self.steps([TICK_B, DONE_B])
@@ -223,7 +225,8 @@ class TestParkMemory(QueueCase):
         self.again()
         r = self.wf("mem", "-y")
         self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
-        self.assertEqual(plan(r.stdout)[1:2], ["  parked: 1. A: blocked: test park (retaken on a new commit)"])
+        self.assertRegex(plan(r.stdout)[1], r"^  open: [a-z0-9]{4} 1\. A: blocked: test park$")
+        self.assertEqual(plan(r.stdout)[2:3], ["  parked: 1. A: blocked: test park (retaken on a new commit)"])
         self.assertEqual(self.calls(), [])
         scope = repo / "docs" / "scope" / "scope.md"
         scope.write_text(scope.read_text().replace("- [ ] `/develop a`", "- [ ] `/develop a` "))
@@ -249,17 +252,18 @@ class TestParkMemory(QueueCase):
         # The plan alone never deletes a record.
         self.assertEqual(len(self.queue()["parks"]), 1)
 
-    # covers: AC-10 (call_error writes no record; the next run retries the feature)
+    # covers: AC-10 (call_error writes no record); spec 0021 F9 (it asks retry or skip; retry runs it again)
     def test_call_error(self):
         self.make_repo("err", TWO)
         self.steps([{"tick": False, "rc": 1}, {"tick": False, "rc": 1}, TICK_B, DONE_B])
         r = self.wf("err", "-y")
         self.assertIn("parked: 1. A: call_error: ", r.stdout)
         self.assertEqual(r.returncode, 6)
-        self.assertIsNone(self.queue())
+        self.assertEqual((self.queue()["parks"], [d["case"] for d in self.queue()["decisions"]]), ([], ["call_error"]))
         self.again()
-        self.steps([TICK_A, DONE_A])
-        r = self.wf("err", "-y")
+        self.report_ntfy.replies = ["{id} 1"]
+        self.steps([TICK_A, DONE_A, TICK_B, DONE_B])
+        r = self.wf("err", "-y", "--max-wait", "0.01", mode="fast")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("done: 1. A", r.stdout)
 
@@ -402,14 +406,16 @@ class TestDecisionMoveOn(DecisionCase):
         self.assertEqual(self.ntfy.posts[1]["message"], f"{i} accepted")
         self.assertEqual(self.queue()["decisions"], [])
 
-    # covers: AC-11 (a first ping failing three times stops the run ping_failed; the record stays with sent null)
+    # covers: AC-11 as amended by spec 0021 U9 (a first ping failing three times keeps the run going; the record
+    # stays with sent null)
     def test_ping_failed(self):
         self.make_repo("pf", ONE)
         self.ntfy.fail_posts = 3
         self.steps([ask()])
         r = self.wf("pf", "-y", mode="fast")
         self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
-        self.assertIn("stopped: ping_failed: ", r.stdout)
+        self.assertIn("failed, sent again every 10 minutes: ", r.stdout)
+        self.assertIn("queue done: 0 done, 0 parked, 1 open", r.stdout)
         d = self.queue()["decisions"][0]
         self.assertEqual((d["sent"], d["pings"], d["feature"]), (None, [], "1. A"))
 
@@ -466,7 +472,9 @@ class TestAcrossRuns(DecisionCase):
         self.assertEqual(len(self.calls()), 2)
         self.assertIn("--resume", self.argv(2)["argv"])
         self.assertIn(f"\nstale: {i} 1. A\nparked: 1. A: call_error: ", r.stdout)
-        self.assertEqual(self.queue(), {"version": 1, "parks": [], "decisions": []})
+        # Spec 0021 F9: no park, its own question instead.
+        q = self.queue()
+        self.assertEqual((q["parks"], [d["case"] for d in q["decisions"]]), ([], ["call_error"]))
 
     # covers: AC-13 (Ctrl C during a resume keeps the record for the next run)
     def test_interrupt_keeps(self):
@@ -488,7 +496,7 @@ class TestAcrossRuns(DecisionCase):
         self.ntfy.hold_polls = 3
         self.ntfy.replies = ["{id} 1"]
         self.steps([ask(), TICK_A, DONE_A])
-        r = self.wf("ew", "-y", mode="fast")
+        r = self.wf("ew", "-y", "--max-wait", "12", mode="fast")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertGreaterEqual(len(self.ntfy.polls), 4)
         _, rec = self.run_record()

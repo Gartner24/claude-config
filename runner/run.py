@@ -174,10 +174,12 @@ UNATTENDED_PROMPT = (
 # Spec 0006: the standing answers section, in the AGENTS.md mapped from the exact scope base.
 ANSWERS_FILE = {"docs/scope": "AGENTS.md", ".workflow/scope": ".workflow/AGENTS.md"}
 # Spec 0009 AC-1: the app keys take any value, kept as written; app url is checked by APP_URL.
-ANSWER_KEYS = {"run suite": ("yes", "ask"), "done": ("yes", "ask"), "app start": None, "app url": None}
+# Spec 0021 AC-7: allow writes takes a comma list of paths, checked by allow_paths().
+ANSWER_KEYS = {"run suite": ("yes", "ask"), "done": ("yes", "ask"), "app start": None, "app url": None,
+               "allow writes": None}
 ANSWER_ENTRY = re.compile(r"^\s*[-*]\s+([^:]+?)\s*:\s*(\S.*?)\s*$")
 ANSWERS_HINT = (" (expected: - run suite: yes|ask, - done: yes|ask, - app start: <command>, "
-                "- app url: http://localhost:<port>)")
+                "- app url: http://localhost:<port>, - allow writes: <path>, <path>)")
 APP_URL = re.compile(r"https?://(localhost|127\.0\.0\.1|\[::1\]):(\d{1,5})(/\S*)?")
 ANSWERS_INTRO = " Standing answers for this repo, use them instead of asking:"
 RUN_SUITE_YES = " Run tests?, Yes, run and fix to green."
@@ -204,24 +206,24 @@ RUN_STOPS = frozenset(("interrupted", "run_limit", "usage_limit", "spawn_failed"
 # Spec 0021 AC-1: every reason above, and the `branch` refusal, has exactly one case: (row, options, recommended
 # first). A row with no options never asks: R1 makes the branch, R4 and U1 stop, U3 sleeps to the reset, U9 keeps
 # building, U10 stops that repo with its traceback in the report.
-MORE, SKIP, STOP_REPO = "give it more", "skip", "stop this repo"
+MORE, SKIP_IT, STOP_REPO = "give it more", "skip", "stop this repo"
 CASES = {
-    "denied": ("F1", ("allow once", "always", SKIP)),
-    "blocked": ("F2", ("done, go on", SKIP)),
-    "verify_failed": ("F3", ("try again", SKIP)),
-    "no_progress": ("F4", ("try again", SKIP)),
-    "debug_touched": ("F5", ("keep the edits and go on", "undo them and try again", SKIP)),
-    "unchecked": ("F6", ("try again", SKIP)),
-    "design_gate": ("F7", ("try again", "accept as is", SKIP)),
-    "budget": ("F8", (MORE, SKIP)),
-    "max_calls": ("F8", (MORE, SKIP)),
-    "call_timeout": ("F8", (MORE, SKIP)),
-    "call_error": ("F9", ("retry", SKIP)),
-    "manual_box": ("F10", ("done", SKIP)),
-    "waiting": ("F10", ("done", SKIP)),
+    "denied": ("F1", ("allow once", "always", SKIP_IT)),
+    "blocked": ("F2", ("done, go on", SKIP_IT)),
+    "verify_failed": ("F3", ("try again", SKIP_IT)),
+    "no_progress": ("F4", ("try again", SKIP_IT)),
+    "debug_touched": ("F5", ("keep the edits and go on", "undo them and try again", SKIP_IT)),
+    "unchecked": ("F6", ("try again", SKIP_IT)),
+    "design_gate": ("F7", ("try again", "accept as is", SKIP_IT)),
+    "budget": ("F8", (MORE, SKIP_IT)),
+    "max_calls": ("F8", (MORE, SKIP_IT)),
+    "call_timeout": ("F8", (MORE, SKIP_IT)),
+    "call_error": ("F9", ("retry", SKIP_IT)),
+    "manual_box": ("F10", ("done", SKIP_IT)),
+    "waiting": ("F10", ("done", SKIP_IT)),
     "no_command": ("F11", ("skip the box", "skip the feature")),
     "no_feature": ("F11", ("skip the box", "skip the feature")),
-    "app_failed": ("F12", ("retry", SKIP)),
+    "app_failed": ("F12", ("retry", SKIP_IT)),
     "branch": ("R1", ()),
     "branch_changed": ("R2", ("go on on the new branch", "switch back", STOP_REPO)),
     "scope_unreadable": ("R3", ("retry", STOP_REPO)),
@@ -237,6 +239,15 @@ CASES = {
     "ping_failed": ("U9", ()),
     "internal_error": ("U10", ()),
 }
+# Spec 0021 F1: an answer may never make one of these writable; `~/.claude/` ones in every claude dir.
+SECRETS = (*CREDENTIAL_PATHS, "~/.gnupg", "~/.claude/private", "~/.claude/.credentials.json")
+# Edit tools whose denial names the path F1 asks to allow.
+FILE_TOOLS = {"Edit": "file_path", "Write": "file_path", "MultiEdit": "file_path", "NotebookEdit": "notebook_path"}
+# Spec 0021 AC-3: an answer passed into the rerun's calls.
+HINT_PROMPT = " The user's answer for this step: {}"
+UNCHECKED_HINT = "you ticked this box without its proof line; do the step again and end with that line"
+# Spec 0021 U9: a ping that failed is sent again this many seconds later.
+PING_RETRY = 600
 # Spec 0014 AC-2: two features in a row parking the same way stop the run; a timeout never counts.
 CRASH = ("call_error", "denied", "app_failed")
 CRASH_KEY = 60
@@ -661,6 +672,10 @@ class Run:
         self.own = set()
         # AC-15: end wait seconds of this run, all waits added.
         self.end_waited = 0.0
+        # Spec 0021: per (repo, feature) this run, cap factors (F8) and designs accepted as is (F7); an F1 allow once
+        # for the feature being run; an answer passed into its calls; when to ping again a failed ping (U9).
+        self.more, self.design_ok, self.allow_once, self.hint, self.ping_due = {}, set(), [], None, None
+        self.denied_at = None
         if c is not None:
             self.add(c)
 
@@ -827,6 +842,7 @@ class Run:
             return "bad_answers", problem + ANSWERS_HINT
         self.answers = answers
         self.repo["answers"] = dict(answers)
+        self.warnings += [f"{c.name}: {w}" for w in allow_paths(c.path, answers.get("allow writes"))[1]]
         if self.branch in BAD_BRANCHES or self.branch.startswith("detached"):
             return "branch", f"{self.branch}, switch to a work branch first"
         # The browser check fetches the MCP and the guard is only for calls; wf queue makes none.
@@ -980,9 +996,14 @@ class Run:
         if r is None or r.returncode:
             return "no_sandbox", "git remote -v failed: " + flat(r and r.stderr)
         hosts = remote_hosts(r.stdout)
-        write = sorted({repo, common, *(os.path.expanduser(p) for p in CACHE_DIRS)})
+        # Spec 0021 AC-7: the standing allow writes paths and an F1 answer's path are writable for every call.
+        allowed = self.allowed()
+        # A secret inside an allowed path (~/.claude/private in ~/.claude) stays denied.
+        kept = [s for s in secrets() if under(s, allowed)]
+        write = sorted({repo, common, *(os.path.expanduser(p) for p in CACHE_DIRS), *allowed})
         self.common = common
         self.repo["guard"] = {"hosts": hosts, "write_paths": write, "deny_paths": deny, "binaries": binaries,
+                              "allowed": list(dict.fromkeys(allowed + [os.path.realpath(a) for a in allowed])),
                               # Each gitlink's .git as written and as resolved at start (spec 0011 AC-9).
                               "submodules": [[os.path.join(repo, link, ".git"), os.path.realpath(os.path.join(repo, link, ".git"))]
                                              for link in links],
@@ -993,8 +1014,9 @@ class Run:
                         "allowUnsandboxedCommands": False,
                         "network": {"allowedDomains": ["*"], "deniedDomains": hosts, "strictAllowlist": True},
                         "filesystem": {"allowWrite": write,
-                                       "denyWrite": [p for p in deny if p != common] + [os.path.join(common, "config"), hooks_dir,
-                                                                                        *sub_git],
+                                       "denyWrite": carve([p for p in deny if p != common] +
+                                                          [os.path.join(common, "config"), hooks_dir, *sub_git], allowed)
+                                       + kept,
                                        "denyRead": [x for p in CREDENTIAL_PATHS for x in expand(p)]}},
             "hooks": {"PreToolUse": [{"matcher": "Agent", "hooks": [{"type": "command", "timeout": 10, "command": hook}]}]}}
         # AC-3 step 5: the jail cannot bind an absent path, so an app could plant .git/hooks/post-commit in a
@@ -1010,10 +1032,10 @@ class Run:
         self.settings = json.dumps(self.guard_settings)
         self.denied = ",".join([DENIED, GUARD_DENIED, DESIGN_DENIED,
                                 *(r for p in CREDENTIAL_PATHS for x in expand(p) for r in path_rules("Read", x)),
-                                *(r for p in deny for r in path_rules("Edit", p)),
+                                *(r for p in carve(deny, allowed) + kept for r in path_rules("Edit", p)),
                                 # The whole in place git dir, as the common dir above; the sandbox denies only its
                                 # config and hooks, so a commit in the submodule still works.
-                                *(r for p in sub_in_tree for r in path_rules("Edit", p)),
+                                *(r for p in carve(sub_in_tree, allowed) for r in path_rules("Edit", p)),
                                 # Spec 0020 AC-5: no call forges a swaps.jsonl line; the Bash sandbox already cannot.
                                 *path_rules("Edit", state_dir())])
         self.claude = binaries["claude"]
@@ -1231,6 +1253,216 @@ class Run:
                     not any(under(c, forms) for o in others for c in (o["common"], os.path.realpath(o["common"])))
         return under(real, [common]) and not any(os.path.realpath(o["common"]) == common for o in others)
 
+    # -- never stop (spec 0021) ------------------------------------------------
+
+    def allowed(self):
+        """AC-7: the repo in use's standing allow writes paths, then this feature's F1 allow once."""
+        return list(dict.fromkeys(allow_paths(self.c.path, self.answers.get("allow writes"))[0] + self.allow_once))
+
+    def cap(self, name):
+        """F8: this feature's --budget, --max-calls or --call-timeout, doubled by each `give it more`."""
+        return getattr(self.args, name) * self.more.get((self.c.path, self.feature), {}).get(name, 1)
+
+    def regard(self):
+        """AC-7: rebuild the repo in use's guard for its allowed paths now. Every guarded file keeps its baseline;
+        one new to the guard must be absent or allowed, else Stop guard_changed for this repo."""
+        h = next(h for h in self.held if h["repo"] is self.repo)
+        old = self.repo["guard"]
+        problem = self.freeze_guard(old["binaries"])
+        if problem:
+            raise Stop("guard_changed", flat(problem[1]), repo=True)
+        g = self.repo["guard"]
+        for p, now_hash in g["guarded_files"].items():
+            if p in old["guarded_files"]:
+                g["guarded_files"][p] = old["guarded_files"][p]
+            elif now_hash != "absent" and not under(p, g["allowed"]):
+                raise Stop("guard_changed", f"{p} is new to the guard; inspect or delete it before opening a session "
+                                            "in this repo", repo=True)
+        if self.browser and self.browser.get("shots"):
+            self.browser_settings = browser_settings(self.guard_settings, old["binaries"]["python3"],
+                                                     self.browser["url"], self.browser["shots"])
+        h.update(self.keep())
+
+    def accept_allowed(self):
+        """AC-7: what the run's own call wrote under an allowed path is the work, so its hash now is the new
+        baseline. A change between calls, or by anything else, still stops the repo at the next check."""
+        g = self.repo["guard"]
+        allowed = g.get("allowed") or []
+        for p in g["guarded_files"]:
+            if under(p, allowed) or under(os.path.realpath(p), allowed):
+                g["guarded_files"][p] = file_hash(p)
+        g["absent_denied"] = [p for p in g["absent_denied"] if not under(p, allowed)]
+
+    def ask(self, question, options, feature=None, call_kind="box", command="", box_text=None, session="", seq=None,
+            **extra):
+        """Spec 0011 AC-11, spec 0021 AC-2: keep a question in queue.json, in place of an older one of the same
+        feature, and ping it. Returns the Decision. A failed ping leaves it queued for the report and the U9 retry."""
+        d = {"id": None, "repo": self.c.path, "feature": self.feature if feature is None else feature,
+             "branch": self.branch, "session_id": session, "call_kind": call_kind, "command": command,
+             "box_text": box_text, "question": question, "options": list(options),
+             "kind": "panel" if options else "prose", "multi": False, "sent": None, "pings": [], "acks": [],
+             "asked": now(), "answer": None, "source": None, "answered": None, "ignored": 0, "run": self.folder,
+             "reply": None, **extra}
+
+        def add(q):
+            # Drawn under the lock: unique in the file and in this run.
+            d["id"] = ntfy.new_id({x["id"] for x in q["decisions"] + self.record["decisions"]})
+            old = next((x for x in q["decisions"] if (x["repo"], x["feature"]) == (d["repo"], d["feature"])), None)
+            if old and old["answer"] is not None and not old.get("case") and "case" in extra:
+                # An answer whose resume parked (app_failed on the restart) is kept: the case answer resumes it.
+                d["then"] = old
+            q["decisions"] = [x for x in q["decisions"] if x is not old] + [d]
+            return True
+
+        self.queue(add)
+        entry = self.entry_for(d, seq)
+        self.save()
+        self.log(f"decision {d['id']} {d['feature']}")
+        print(f"waiting: {d['id']} {flat(question)}", flush=True)
+        for i, o in enumerate(options, 1):
+            print(f"  {i} {flat(o)}", flush=True)
+        try:
+            # ping() fills d["sent"]; the record gets it only once the ping went out.
+            mid = self.topic(d).ping(d, lambda: self.interrupted)
+        except ntfy.PingFailed as e:
+            # U9: the run keeps building; the question stays queued and in the morning report.
+            print(f"warning: ping {d['id']} failed, sent again every {PING_RETRY // 60} minutes: {flat(e)}", flush=True)
+            self.ping_due = self.ping_due or ntfy.boottime() + PING_RETRY
+            return d
+        if mid is None:
+            raise Stop("interrupted", "Ctrl C or a stop signal")
+        self.own.add(mid)
+        self.first_ping = self.first_ping or mid
+        entry["sent"] = d["sent"]
+        self.update(d["id"], lambda r: (r.update(sent=d["sent"]), r["pings"].append(mid)))
+        return d
+
+    def case_box(self):
+        """(text, command) of the feature's next box, else of its skippable waiting box, from the files; (None, "")."""
+        scope = self.reread()
+        f = scope[0] if scope else None
+        if f and f.next:
+            return f.next.box_text, f.next.command or ""
+        if f and f.waiting:
+            return f.waiting.text, f.waiting.command() or ""
+        return None, ""
+
+    def ask_case(self, reason, detail, parked):
+        """AC-2: a feature level reason opens its row's question, options recommended first; the queue goes on.
+        F10 leaves a `· live` box to wf (spec 0019, 0020). Returns the Decision, else None."""
+        text, command = self.case_box()
+        if reason in ("waiting", "manual_box") and text and wf.LIVE.search(text):
+            return None
+        options, question, path = CASES[reason][1], f"{reason}: {flat(detail)}", None
+        if reason == "denied":
+            path = self.denied_at
+            if path and not secret(path):
+                question = f"allow {path} for {self.c.name}? {flat(detail)}"
+            else:
+                # F1 never opens a secret, and a denied command names no path to open.
+                options, path = ("try again", SKIP_IT), None
+        calls = self.entry["calls"]
+        last = self.record["calls"][calls[-1] - 1] if calls else {}
+        return self.ask(question[:300], options, command=command, box_text=text, session=last.get("session_id") or "",
+                        seq=last.get("seq"), case=reason, detail=None if detail is None else str(detail), allow=path,
+                        parked=parked)
+
+    def take_case(self, d):
+        """AC-3: the answered case question d leaves the queue with its feature's Park record. Returns its option;
+        an answer that is no option is a hint for the recommended one."""
+        def drop(q):
+            q["decisions"] = [x for x in q["decisions"] if x["id"] != d["id"]]
+            q["parks"] = [p for p in q["parks"] if (p["repo"], p["feature"]) != (d["repo"], d["feature"])]
+            return True
+
+        self.queue(drop)
+        self.entry_for(d)
+        answer = flat(d["answer"])
+        opt = next((o for o in d["options"] if o.casefold() == answer.casefold()), None)
+        if opt is None:
+            opt, self.hint = d["options"][0], answer
+        print(f"answered: {d['id']} {d['feature']}: {opt}", flush=True)
+        return opt
+
+    def apply_case(self, d, opt, f):
+        """AC-3: the row's action before the feature runs again. Returns the Feature reread from the files."""
+        key, reason = (self.c.path, f.name), d["case"]
+        if opt == MORE:
+            caps = self.more.setdefault(key, {})
+            caps[reason] = caps.get(reason, 1) * 2
+        elif opt == "accept as is":
+            self.design_ok.add(key)
+        elif opt in ("allow once", "always") and d.get("allow"):
+            if opt == "always":
+                self.append_allow(d["allow"])
+            else:
+                self.allow_once = [d["allow"]]
+            self.regard()
+        elif opt in ("done", "skip the box") and d["box_text"]:
+            self.mark_box(f.name, d["box_text"], "x", " · skipped" if opt == "skip the box" else "")
+        elif opt == "undo them and try again":
+            self.hint = f"first undo your edits to these test or spec files: {d.get('detail')}" + \
+                (f"; {self.hint}" if self.hint else "")
+        elif opt == "done, go on":
+            self.hint = self.hint or f"the user did what you asked for: {d.get('detail')}"
+        scope = self.reread()
+        if not scope or scope[0] is None:
+            raise Stop("no_feature", f"the heading {f.name} is gone from the scope")
+        return scope[0]
+
+    def mark_box(self, feature, text, mark, suffix=""):
+        """F6, F10, F11: set the box with this text in the feature's section to `[<mark>]`, suffix added.
+        True when found."""
+        folder = os.path.join(self.c.path, self.c.scope_dir)
+        main = next(os.path.join(folder, n) for n in wf.SCOPE_FILES if os.path.isfile(os.path.join(folder, n)))
+        for path in [main] + (wf.epics(folder, wf.read(main), []) if main.endswith("index.md") else []):
+            rows, pos = wf.read(path).split("\n"), 0
+            for heading, raw, _, _ in wf.sections("\n".join(rows)):
+                start = rows.index(raw[0], pos)
+                pos = start + 1
+                if wf.DISPLAY_TAG.sub("", heading).strip() != feature:
+                    continue
+                for i, line in enumerate(raw):
+                    m = wf.BOX.match(line)
+                    if m and wf.clean(m.group(3)).strip() == text:
+                        rows[start + i] = line[:m.start(2)] + mark + line[m.end(2):] + suffix
+                        with open(path, "w", encoding="utf-8") as out:
+                            out.write("\n".join(rows))
+                        return True
+        return False
+
+    def append_allow(self, path):
+        """F1 `always` (AC-7): add path to the repo's `- allow writes:` line, making the line or the section when
+        missing, and read the standing answers again."""
+        file = os.path.join(self.c.path, ANSWERS_FILE[self.c.scope_dir])
+        home = os.path.expanduser("~")
+        shown = "~" + path[len(home):] if under(path, [home]) else path
+        try:
+            rows = wf.read(file).split("\n")
+        except FileNotFoundError:
+            rows = []
+        head = next((i for i, l in enumerate(rows) if l.strip().casefold() == "## standing answers"), None)
+        if head is None:
+            while rows and not rows[-1].strip():
+                rows.pop()
+            rows += ([""] if rows else []) + ["## Standing answers", "", f"- allow writes: {shown}", ""]
+        else:
+            end = next((i for i in range(head + 1, len(rows)) if rows[i].startswith(("# ", "## "))), len(rows))
+            keys = {i: " ".join(m.group(1).casefold().split()) for i in range(head + 1, end)
+                    for m in [ANSWER_ENTRY.match(rows[i])] if m}
+            at = next((i for i, k in keys.items() if k == "allow writes"), None)
+            if at is not None:
+                rows[at] = rows[at].rstrip() + f", {shown}"
+            else:
+                rows.insert(max(keys, default=head) + 1, f"- allow writes: {shown}")
+        with open(file, "w", encoding="utf-8") as out:
+            out.write("\n".join(rows))
+        answers, problem = read_answers(self.c)
+        if problem:
+            raise Stop("internal_error", f"standing answers after allow writes: {problem}")
+        self.answers = answers
+        self.repo["answers"] = dict(answers)
+
     # -- the queue (spec 0011) -------------------------------------------------
 
     def queue(self, change=None):
@@ -1256,7 +1488,7 @@ class Run:
                 names[f.name] = names.get(f.name, 0) + 1
         live = {p["feature"]: p for p in q["parks"] if p["repo"] == repo and self.applies(p, feats)}
         # A stale Decision leaves its feature queued fresh (AC-13).
-        decided = {d["feature"] for d in q["decisions"] if d["repo"] == repo and not self.stale(d, feats)} - set(live)
+        decided = {d["feature"] for d in q["decisions"] if d["repo"] == repo and not self.gone(d, q, feats)} - set(live)
         ran = {e["feature"] for e in self.record["features"] if e["repo"] == repo}
         out = []
         for f in feats:
@@ -1288,8 +1520,9 @@ class Run:
         return not only or name in only
 
     def parked(self, d, q, feats):
-        """AC-7: Decision d's feature has a Park record that still applies."""
-        return any((p["repo"], p["feature"]) == (d["repo"], d["feature"]) and self.applies(p, feats) for p in q["parks"])
+        """AC-7: Decision d's feature has a Park record that still applies. A case question (spec 0021) is what
+        clears its feature's park, so it never waits on it."""
+        return not d.get("case") and any((p["repo"], p["feature"]) == (d["repo"], d["feature"]) and self.applies(p, feats) for p in q["parks"])
 
     def stale(self, d, feats):
         """AC-13: an answered Decision whose branch moved or whose feature is no longer queued (heading gone, `· auto`
@@ -1297,11 +1530,20 @@ class Run:
         return d["answer"] is not None and (d["branch"] != self.branch or
                                             not any(f.name == d["feature"] and f.queued for f in feats))
 
+    def gone(self, d, q, feats):
+        """AC-13 stale, or (spec 0021) a case question whose park no longer applies: its cause changed (a retake,
+        a new section, a higher cap), or its box is no longer open (you ticked it), so the feature starts fresh."""
+        f = next((f for f in feats if f.name == d["feature"]), None)
+        if d.get("case") and d["box_text"] and f and not any(b.open and b.text == d["box_text"] for b in f.boxes):
+            return True
+        return self.stale(d, feats) or bool(d.get("parked")) and not any(
+            (p["repo"], p["feature"]) == (d["repo"], d["feature"]) and self.applies(p, feats) for p in q["parks"])
+
     def decision_lines(self, q, feats):
         """AC-6: (may resume, plan line) for this repo's Decisions, oldest asked first."""
         out = []
         for d in sorted((d for d in q["decisions"] if d["repo"] == self.c.path), key=asked_at):
-            if self.stale(d, feats):
+            if self.gone(d, q, feats):
                 out.append((False, f"stale: {d['id']} {d['feature']}"))
             else:
                 # AC-7: a parked feature's answer waits for the park to clear; its parked line comes from survey().
@@ -1339,7 +1581,7 @@ class Run:
 
             def clear(q):
                 keep = [p for p in q["parks"] if p["repo"] != self.c.path or self.applies(p, feats)]
-                dropped[:] = [d for d in q["decisions"] if d["repo"] == self.c.path and self.stale(d, feats)]
+                dropped[:] = [d for d in q["decisions"] if d["repo"] == self.c.path and self.gone(d, q, feats)]
                 changed = len(keep) != len(q["parks"]) or bool(dropped)
                 q["parks"] = keep
                 q["decisions"] = [d for d in q["decisions"] if d not in dropped]
@@ -1373,9 +1615,9 @@ class Run:
         print(f"stopped repo {name}: {reason}: {flat(detail)}", flush=True)
 
     def park(self, reason, detail):
-        """AC-10: write or replace the feature's Park record, unless the reason is never recorded."""
+        """AC-10: write or replace the feature's Park record, unless the reason is never recorded. True when written."""
         if reason in UNRECORDED:
-            return
+            return False
         try:
             _, feats = repo_features(self.c.path, self.c.scope_dir)
         except (OSError, StopIteration):
@@ -1383,7 +1625,7 @@ class Run:
         f = next((f for f in feats if f.name == self.feature), None)
         if f is None:
             # Not queued any more, so the record would clear at the next pick anyway.
-            return
+            return False
         # Spec 0014 AC-4: a timeout that ticked boxes has no cap, so a larger --call-timeout never clears it.
         last = self.record["calls"][self.entry["calls"][-1] - 1] if self.entry and self.entry["calls"] else {}
         rec = {"repo": self.c.path, "feature": self.feature, "section_sha": f.sha, "reason": reason,
@@ -1400,6 +1642,7 @@ class Run:
             return True
 
         self.queue(write)
+        return True
 
     def plan(self):
         """AC-6: print the plan, one block per repo in run order. Returns the exit code when there is nothing
@@ -1599,7 +1842,8 @@ class Run:
         """Run one claude call, or with resume=(session id, prompt) continue that session.
         Returns (call record, parsed JSON or None, timed out, stderr tail, spawn error)."""
         a = self.args
-        prompt = unattended_prompt(self.answers, last_box, sha) + (SYNC_BOX_PROMPT if synced else "")
+        prompt = unattended_prompt(self.answers, last_box, sha) + (SYNC_BOX_PROMPT if synced else "") + \
+            (HINT_PROMPT.format(flat(self.hint)) if self.hint else "")
         if browser:
             # Spec 0009 AC-4 to AC-8: the pinned MCP, its tools minus the AC-6 six, the hook and the prompt sentence.
             prompt += BROWSER_PROMPT.format(self.browser["url"], self.browser["shots"])
@@ -1613,7 +1857,7 @@ class Run:
         argv = [self.claude, "-p", resume[1] if resume else command,
                 *(["--resume", resume[0]] if resume else []), "--output-format", "json",
                 *([] if resume else ["--session-id", session]), "--permission-mode", "auto",
-                "--permission-prompts", "none", "--max-budget-usd", "%g" % a.budget,
+                "--permission-prompts", "none", "--max-budget-usd", "%g" % self.cap("budget"),
                 "--disallowedTools", denied, *allowed, "--append-system-prompt", prompt,
                 "--settings", settings, "--strict-mcp-config", "--mcp-config", mcp]
         base = os.path.join(self.folder, f"call-{seq:02d}")
@@ -1637,7 +1881,7 @@ class Run:
             # A signal that landed during the spawn found no process to forward to.
             if self.interrupted:
                 self.signal_call(signal.SIGINT)
-            deadline = t0 + a.call_timeout * 60
+            deadline = t0 + self.cap("call_timeout") * 60
             while True:
                 try:
                     rc = self.proc.wait(timeout=POLL)
@@ -1678,7 +1922,7 @@ class Run:
             # Spec 0014 AC-4: a killed call never passes silently; whatever it ticked is named for you to recheck.
             after = box_states(scope[0] if scope else None)
             rec["unconfirmed"] = [t for i, t, was_open in before if was_open and (i, t, False) in after]
-            detail = f"still running after {self.args.call_timeout:g}m"
+            detail = f"still running after {self.cap('call_timeout'):g}m"
             if rec["unconfirmed"]:
                 detail += "; ticked before the timeout, recheck: " + "; ".join(flat(t)[:80] for t in rec["unconfirmed"])
             return "end", "call_timeout", detail
@@ -1769,6 +2013,8 @@ class Run:
             denied = next((d for d in rec["denials"] if d["tool"] != "AskUserQuestion"), None) or \
                      (rec["denials"] or [None])[0]
             if denied:
+                # Spec 0021 F1: the path its question asks to allow.
+                self.denied_at = denied_path(data)
                 return "end", "denied", f"{denied['tool']}: {denied['reason'] or denied['input']}"
             return "end", "no_progress", f"the box is still open: {box.box_text}"
         if nb is None:
@@ -1798,7 +2044,8 @@ class Run:
         base, changed = frontend_changed(self.c.path)
         reports, problems = design_problems(self.c.path, changed)
         self.entry["design"] = {"base": base, "changed": changed, "reports": reports, "problems": problems}
-        if not problems:
+        # Spec 0021 F7: you accepted this feature's design as is.
+        if not problems or (self.c.path, self.feature) in self.design_ok:
             return None
         listed = ", ".join(f"{p['path']} ({p['problem']})" for p in problems[:5])
         return flat(f"{len(problems)} frontend file(s) not covered by a passing design-gate report: {listed}")[:300]
@@ -1843,43 +2090,14 @@ class Run:
 
     def open_decision(self, rec, kind, box, command, asked):
         """AC-11: keep the question in queue.json, ping it, and end the feature decision_open. Always raises Stop."""
-        if self.entry["counted"] >= self.args.max_calls:
+        if self.entry["counted"] >= self.cap("max_calls"):
             # The resume is a call too (spec 0005 AC-10); with none left, a ping only wakes you for nothing.
-            raise Stop("max_calls", f"{self.args.max_calls} calls made, none left to resume")
+            raise Stop("max_calls", f"{self.cap('max_calls')} calls made, none left to resume")
         if not rec["session_id"]:
             raise Stop("call_error", "no session_id to resume")
-        question, options = asked
-        d = {"id": None, "repo": self.c.path, "feature": self.feature, "branch": self.branch,
-             "session_id": rec["session_id"], "call_kind": kind, "command": command,
-             "box_text": box.box_text if kind in ("box", "sync") and box else None, "question": question, "options": options,
-             "kind": "panel" if options else "prose", "multi": False, "sent": None, "pings": [], "acks": [],
-             "asked": now(), "answer": None, "source": None, "answered": None, "ignored": 0, "run": self.folder,
-             "reply": None}
-
-        def add(q):
-            # Drawn under the lock: unique in the file and in this run.
-            d["id"] = ntfy.new_id({x["id"] for x in q["decisions"] + self.record["decisions"]})
-            q["decisions"].append(d)
-            return True
-
-        self.queue(add)
-        entry = self.entry_for(d, rec["seq"])
-        self.save()
-        self.log(f"decision {d['id']} {self.feature}")
-        print(f"waiting: {d['id']} {flat(question)}", flush=True)
-        for i, o in enumerate(options, 1):
-            print(f"  {i} {flat(o)}", flush=True)
-        try:
-            # ping() fills d["sent"]; the record gets it only once the ping went out.
-            mid = self.topic(d).ping(d, lambda: self.interrupted)
-        except ntfy.PingFailed as e:
-            raise Stop("ping_failed", str(e))
-        if mid is None:
-            raise Stop("interrupted", "Ctrl C or a stop signal")
-        self.own.add(mid)
-        self.first_ping = self.first_ping or mid
-        entry["sent"] = d["sent"]
-        self.update(d["id"], lambda r: (r.update(sent=d["sent"]), r["pings"].append(mid)))
+        d = self.ask(*asked, call_kind=kind, command=command,
+                     box_text=box.box_text if kind in ("box", "sync") and box else None, session=rec["session_id"],
+                     seq=rec["seq"])
         raise Stop("decision_open", d["id"])
 
     def update(self, did, change):
@@ -1895,6 +2113,10 @@ class Run:
     def poll(self):
         """AC-12: read the topic once and store accepted replies on any unanswered Decision in queue.json.
         True when a reply answered one."""
+        # Spec 0021 U9: a question whose ping failed is sent again every PING_RETRY seconds.
+        if self.ping_due is not None and ntfy.boottime() >= self.ping_due:
+            self.ping_due = None
+            self.reping(unsent=True)
         if self.cursor is None and not self.polled:
             waiting = [d for d in self.queue()["decisions"] if d["answer"] is None]
             if waiting:
@@ -1953,15 +2175,18 @@ class Run:
                     self.update(d["id"], lambda r: r["acks"].append(mid))
         return got
 
-    def reping(self):
-        """AC-14: ping every unanswered Decision of a held repo once more, same id, body and buttons."""
+    def reping(self, unsent=False):
+        """AC-14: ping every unanswered Decision of a held repo once more, same id, body and buttons; unsent: only
+        those whose ping never went out (spec 0021 U9). A failed ping is sent again PING_RETRY seconds later."""
         held = {h["c"].path for h in self.held}
-        for d in [d for d in self.queue()["decisions"] if d["answer"] is None and d["repo"] in held]:
+        for d in [d for d in self.queue()["decisions"] if d["answer"] is None and d["repo"] in held
+                  and not (unsent and d["pings"])]:
             sent = dict(d)
             try:
                 mid = self.topic(d).ping(sent, lambda: self.interrupted)
             except ntfy.PingFailed as e:
                 print(f"warning: re-ping {d['id']} failed: {flat(e)}", flush=True)
+                self.ping_due = ntfy.boottime() + PING_RETRY
                 mid = False
             if mid is None:
                 raise Stop("interrupted", "Ctrl C or a stop signal")
@@ -2033,7 +2258,19 @@ class Run:
         # A limit rerun ended by a repo stop used to carry into the next feature, whose loop then skipped its
         # first call setup and died on an unset `last` (internal_error, review M1).
         self.entry, self.feature, self.retried, self.limit_rerun, self.outage_rerun = e, f.name, False, False, False
+        self.hint, self.denied_at = None, None
         try:
+            if d and d.get("case"):
+                # Spec 0021 AC-3: the answer to its case question runs the feature again with the row's action.
+                opt = self.take_case(d)
+                if opt in (SKIP_IT, "skip the feature"):
+                    raise Stop("skipped", f"{d['id']}: {opt}")
+                f, d = self.apply_case(d, opt, f), d.get("then")
+                if d is None and f.finished():
+                    raise Stop("feature_done", None)
+                refusal = d is None and f.next and box_refusal(f.next)
+                if refusal:
+                    raise Stop(*refusal)
             if d:
                 box = None
                 # A sync call with a box keeps its box text too (spec 0014 AC-7).
@@ -2066,15 +2303,28 @@ class Run:
                 e.update(outcome=s.reason, detail=str(s.detail))
             finally:
                 sweep(self.run_id)
+        if self.allow_once:
+            # F1 `allow once` lasts for this feature's run.
+            self.allow_once = []
+            try:
+                self.regard()
+            except Stop as s:
+                e.update(outcome=s.reason, detail=str(s.detail))
+        self.hint = None
         self.save()
         if e["outcome"] == "feature_done":
             print(f"done: {f.name}", flush=True)
         elif e["outcome"] == "decision_open":
             print(f"open: {e['detail']} {f.name}", flush=True)
+        elif e["outcome"] == "skipped":
+            # Spec 0021 AC-3: for this run only; no park and no question, so the next run starts it fresh.
+            print(f"skipped: {f.name}: {e['detail']}", flush=True)
         elif e["outcome"] in PARKS:
-            self.park(e["outcome"], e["detail"])
+            parked = self.park(e["outcome"], e["detail"])
             print(f"parked: {f.name}: {e['outcome']}: {flat(e['detail'])}", flush=True)
             self.log(f"park {f.name}: {e['outcome']}: {flat(e['detail'])}")
+            # Spec 0021 AC-2: never silent, the park is a question with the row's options.
+            self.ask_case(e["outcome"], e["detail"], parked)
         else:
             self.end_repo(e["outcome"], e["detail"])
         self.save()
@@ -2102,8 +2352,8 @@ class Run:
             if self.interrupted:
                 raise Stop("interrupted", "Ctrl C or a stop signal")
             # Spec 0011 AC-16: per feature.
-            if count > a.max_calls:
-                raise Stop("max_calls", f"{a.max_calls} calls made")
+            if count > self.cap("max_calls"):
+                raise Stop("max_calls", f"{self.cap('max_calls')} calls made")
             # Time spent waiting on you, on a usage limit or an outage does not count toward --max-hours (AC-9).
             r = self.record
             if ntfy.boottime() - self.t0 - r["waited_s"] - r["limit_waited_s"] - r["outage_waited_s"] >= a.max_hours * 3600:
@@ -2144,6 +2394,8 @@ class Run:
             rec, data, timed_out, tail, spawn_error = self.call(
                 seq, command, resume and (resume["session_id"], ANSWERED + resume["answer"]), last, base, app is not None,
                 kind == "sync" and box is not None)
+            # Spec 0021 AC-7: before any check reads the guard, this call's own writes under allowed paths are taken.
+            self.accept_allowed()
             rec.update(kind=kind, box_text=box.box_text if kind in ("box", "sync") and box else None,
                        resumes=[resume["id"]] if resume else [], retry_of=retry_of, app=app, feature=e["n"])
             calls.append(rec)
@@ -2151,6 +2403,9 @@ class Run:
             if resume:
                 self.entry_for(resume)["resumed_in"] = seq
             act = self.classify(rec, data, timed_out, tail, spawn_error, kind, box, snapshot, before)
+            if act[0] not in ("retry", "limit", "outage"):
+                # Spec 0021 AC-3: an answer goes into the call it was given for, and its reruns, not later calls.
+                self.hint = None
             self.outage_k = self.outage_k + 1 if rec["outage"] else 0
             if app and act[0] not in ("retry", "limit"):
                 self.stop_app()
@@ -2165,7 +2420,7 @@ class Run:
                      "end": "-"}.get(act[0]) or act[3].split("\n")[0]
             # A debug command carries the verify failure on its later lines; the terminal shows the first.
             label = command.split("\n")[0] + (f" (resume {resume['id']})" if resume else "")
-            print(f"[{count}/{a.max_calls}] {self.c.name}: {wf.clean(label)} -> {wf.clean(str(shown))}, {cost} USD, "
+            print(f"[{count}/{self.cap('max_calls')}] {self.c.name}: {wf.clean(label)} -> {wf.clean(str(shown))}, {cost} USD, "
                   f"{rec['duration_s'] / 60:.1f}m, next: {wf.clean(after)}", flush=True)
             self.log(f"end {seq} {shown}, {cost} USD, {rec['duration_s'] / 60:.1f}m")
             self.poll()
@@ -2176,6 +2431,16 @@ class Run:
                     # Unrecorded, so the next run starts the feature fresh.
                     print(flat(f"stale: {resume['id']} {resume['feature']}"), flush=True)
                 resume = None
+            if act[:2] == ("end", "unchecked") and not e.get("rechecked") and \
+                    self.mark_box(self.feature, box.box_text, " "):
+                # Spec 0021 F6: the step runs once more by itself, its box open again and the missing line asked for.
+                e["rechecked"] = True
+                self.hint = UNCHECKED_HINT
+                scope = self.reread()
+                nb = scope[0].next if scope and scope[0] else None
+                if nb is not None:
+                    kind, box, command = "box", nb, nb.command
+                    continue
             if act[0] == "end":
                 raise Stop(act[1], act[2])
             if act[0] == "retry":
@@ -3041,6 +3306,64 @@ def deny_paths(repo, common, tokens, git_files=()):
         if not under(t, deny):
             deny.append(os.path.dirname(t))
     return sorted(set(deny))
+
+
+def secrets():
+    """Spec 0021 F1, AC-7: every secret path, as written and resolved."""
+    keys = [x for p in SECRETS for x in expand(p)]
+    return list(dict.fromkeys(keys + [os.path.realpath(k) for k in keys]))
+
+
+def secret(path):
+    """A path under a secret. One holding a secret stays allowed; freeze_guard keeps the secrets in it denied."""
+    return any(under(q, secrets()) for q in (path, os.path.realpath(path)))
+
+
+def allow_paths(repo, value):
+    """Spec 0021 AC-7: the paths of an `- allow writes:` value, absolute (`~` expanded, a relative one from the repo),
+    and a warning for each secret path, which is refused."""
+    out, warnings = [], []
+    for raw in (value or "").split(","):
+        p = raw.strip()
+        if not p:
+            continue
+        a = os.path.normpath(os.path.join(repo, os.path.expanduser(p)))
+        if secret(a):
+            warnings.append(f"allow writes: {p} is a secret path, refused")
+            continue
+        out.append(a)
+    return list(dict.fromkeys(out)), warnings
+
+
+def carve(deny, allowed):
+    """Spec 0021 AC-7: the deny list with each allowed path writable. An entry inside an allowed path goes; one
+    holding an allowed path is replaced by its children, carved the same way, so only that path opens."""
+    out = []
+    for d in deny:
+        if under(d, allowed):
+            continue
+        inside = [a for a in allowed if under(a, [d])]
+        if not inside:
+            out.append(d)
+            continue
+        try:
+            children = [os.path.join(d, n) for n in sorted(os.listdir(d))]
+        except OSError:
+            # ponytail: an absent or unreadable folder on the way to an allowed path is left open; the guard's
+            # hashes still see its guarded files.
+            children = []
+        out += carve(children, allowed)
+    return out
+
+
+def denied_path(data):
+    """Spec 0021 F1: the path of the call's first denied file edit, else None."""
+    for d in (data or {}).get("permission_denials") or ():
+        ti = d.get("tool_input") if isinstance(d, dict) else None
+        key = FILE_TOOLS.get(d.get("tool_name")) if isinstance(d, dict) else None
+        if key and isinstance(ti, dict) and isinstance(ti.get(key), str) and os.path.isabs(ti[key]):
+            return os.path.normpath(ti[key])
+    return None
 
 
 def path_rules(tool, path):
