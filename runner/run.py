@@ -220,6 +220,12 @@ OPT_STR, NUM = (str, type(None)), (int, float, type(None))
 # AC-17, the data model: field -> allowed types.
 PARK_FIELDS = {"repo": (str,), "feature": (str,), "section_sha": (str,), "reason": (str,), "detail": OPT_STR,
                "cap": NUM, "run": (str,), "parked_at": (str,)}
+# Spec 0020 AC-6: what the park's cause depended on; a record written before them still loads.
+PARK_SEEN = {"head": OPT_STR, "setup": OPT_STR, "claude": OPT_STR}
+# AC-6: the parks a commit outside the scope and verify.md files takes back, and those a setup or claude change does.
+CODE_PARKS = ("verify_failed", "blocked", "no_progress", "debug_touched", "design_gate", "unchecked", "app_failed")
+SETUP_PARKS = ("denied", "call_timeout")
+OUTSIDE = (".", ":!docs/scope", ":!.workflow", ":!**/verify.md")
 DECISION_FIELDS = {"id": (str,), "repo": (str,), "feature": (str,), "branch": (str,), "session_id": (str,),
                    "call_kind": (str,), "command": (str,), "box_text": OPT_STR, "question": (str,), "options": (list,),
                    "kind": (str,), "multi": (bool,), "sent": OPT_STR, "pings": (list,), "acks": (list,),
@@ -289,6 +295,8 @@ def queue_problem(data):
             keys.add((r["repo"], r["feature"]))
             if kind == "parks" and (not HEX64.fullmatch(r["section_sha"]) or r["reason"] not in RECORDED):
                 return f"parks[{i}] has a bad section_sha or reason"
+            if kind == "parks" and any(k in r and not isinstance(r[k], t) for k, t in PARK_SEEN.items()):
+                return f"parks[{i}] has a bad head, setup or claude"
             if kind == "decisions":
                 lists = (r["options"], r["pings"], r["acks"])
                 # reply may be absent: files written before it existed stay valid.
@@ -492,6 +500,58 @@ def accepted_by(path, lines):
     h, real = file_hash(path), os.path.join(os.path.realpath(os.path.dirname(path)), os.path.basename(path))
     found = [s for s, files in lines if files.get(path) == h or files.get(real) == h]
     return max(found) if found and HEX64.fullmatch(h) else None
+
+
+def newest_setup():
+    """Spec 0020 AC-6: the newest swaps.jsonl stamp, else None."""
+    return max((st for st, _ in ledger()), default=None)
+
+
+def claude_version(binary="claude"):
+    """Spec 0020 AC-6: the first word of `claude --version`, else None (unknown)."""
+    try:
+        r = subprocess.run([binary, "--version"], capture_output=True, text=True, errors="replace", timeout=60,
+                           stdin=subprocess.DEVNULL)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    words = r.stdout.split()
+    return wf.clean(words[0]) if r.returncode == 0 and words else None
+
+
+def cap_park(p):
+    """AC-6: a park left to applies(): budget, max_calls, and call_timeout by its cap."""
+    return p["reason"] in CAPPED and (p["reason"] != "call_timeout" or p["cap"] is not None)
+
+
+def retaken_on(p):
+    """AC-6: what would take park p back, for its `retaken on` line."""
+    if p["reason"] in CODE_PARKS:
+        return "a new commit"
+    if cap_park(p):
+        return "a higher --" + p["reason"].replace("_", "-")
+    return "a setup change or a new Claude Code version"
+
+
+def what_changed(p, newest, version):
+    """AC-6: why park p's cause changed since it was parked: `a new commit`, `setup <stamp>` or
+    `claude <old> -> <new>`, else None. A null head falls back to committer time; a null setup or claude, or an
+    unknown version now, never retakes. Cap parks are left to applies()."""
+    if p["reason"] in CODE_PARKS:
+        if p.get("head"):
+            r = wf.git(p["repo"], "diff", "--quiet", p["head"], "HEAD", "--", *OUTSIDE)
+            return "a new commit" if r is not None and r.returncode == 1 else None
+        r = wf.git(p["repo"], "log", "-1", "--format=%cI", "--", *OUTSIDE)
+        try:
+            later = datetime.datetime.fromisoformat(r.stdout.strip()) > datetime.datetime.fromisoformat(p["parked_at"])
+        except (AttributeError, ValueError, TypeError):
+            return None
+        return "a new commit" if later else None
+    if p["reason"] in SETUP_PARKS and not cap_park(p):
+        if p.get("setup") and newest and newest > p["setup"]:
+            return f"setup {newest}"
+        if p.get("claude") and version and version != p["claude"]:
+            return f"claude {p['claude']} -> {version}"
+    return None
 
 
 def mcp_cache():
@@ -1164,7 +1224,7 @@ class Run:
         ran = {e["feature"] for e in self.record["features"] if e["repo"] == repo}
         out = []
         for f in feats:
-            if not f.queued or f.name in ran or f.name in decided or f.finished():
+            if not f.queued or not self.wanted(f.name) or f.name in ran or f.name in decided or f.finished():
                 continue
             refusal = f.next and box_refusal(f.next)
             if names[f.name] > 1:
@@ -1185,6 +1245,11 @@ class Run:
             out.append((None, line))
         return out
 
+    def wanted(self, name):
+        """Spec 0020 AC-13: a feature this run may build; `--only-feature` (from a pick on the `wf` screen) narrows it."""
+        only = getattr(self.args, "only_feature", None)
+        return not only or name in only
+
     def parked(self, d, q, feats):
         """AC-7: Decision d's feature has a Park record that still applies."""
         return any((p["repo"], p["feature"]) == (d["repo"], d["feature"]) and self.applies(p, feats) for p in q["parks"])
@@ -1203,7 +1268,7 @@ class Run:
                 out.append((False, f"stale: {d['id']} {d['feature']}"))
             else:
                 # AC-7: a parked feature's answer waits for the park to clear; its parked line comes from survey().
-                out.append((not self.parked(d, q, feats),
+                out.append((not self.parked(d, q, feats) and self.wanted(d["feature"]),
                             f"{'open' if d['answer'] is None else 'resume'}: {d['id']} {d['feature']}: {d['question']}"))
                 # AC-20: wf queue lists the options under the question.
                 out += [(False, f"  {n} {o}") for n, o in enumerate(d["options"], 1) if self.peek]
@@ -1252,7 +1317,7 @@ class Run:
         # A resume that parked before its call (app_failed on the restart) used to be picked again until --max-hours.
         q = q or {"decisions": [], "parks": []}
         answered = sorted((d for d in q["decisions"] if d["repo"] in repos and d["answer"] is not None
-                           and not self.parked(d, q, repos[d["repo"]][1])), key=asked_at)
+                           and self.wanted(d["feature"]) and not self.parked(d, q, repos[d["repo"]][1])), key=asked_at)
         if answered:
             h, feats = repos[answered[0]["repo"]]
             self.use(h)
@@ -1288,6 +1353,10 @@ class Run:
                "detail": None if detail is None else str(detail),
                "cap": getattr(self.args, reason) if reason in CAPPED and not last.get("unconfirmed") else None,
                "run": self.folder, "parked_at": now()}
+        # Spec 0020 AC-6: what this park's cause depends on, so `wf` takes it back only when that changed.
+        head = wf.git(self.c.path, "rev-parse", "HEAD")
+        rec.update(head=head.stdout.strip() or None if head is not None and head.returncode == 0 else None,
+                   setup=newest_setup(), claude=claude_version(self.claude or "claude"))
 
         def write(q):
             q["parks"] = [p for p in q["parks"] if (p["repo"], p["feature"]) != (rec["repo"], rec["feature"])] + [rec]
@@ -1305,6 +1374,9 @@ class Run:
                 {"version": 1, "parks": [], "decisions": []}
         except QueueError as e:
             return self.refuse("queue_unreadable", e)
+        # Spec 0020 AC-6: the parks `wf` takes back after its confirm plan as gone.
+        retaken = getattr(self, "retaken", set())
+        q = {**q, "parks": [p for p in q["parks"] if (p["repo"], p["feature"]) not in retaken]}
         runnable, warnings = False, []
         for h in list(self.added):
             self.use(h)
@@ -1347,6 +1419,8 @@ class Run:
             # An open Decision counts too: the run re-pings it and its end wait takes the reply (AC-14, AC-15).
             # Spec 0017 AC-1: the parent starts a child only for a repo with this flag.
             h["has_work"] = any(f for f, _ in items) or any(ok for ok, _ in decisions)
+            # Spec 0020 AC-13: the features the `wf` screen numbers.
+            h["queued"] = [f.name for f, _ in items if f]
             runnable = runnable or h["has_work"]
             sessions = wf.open_sessions(c.path)
             pre = "" if self.target else f"{c.name}: "
@@ -3049,7 +3123,7 @@ def clashes(a, b):
         or under(a["path"], [b["path"]]) or under(b["path"], [a["path"]])
 
 
-def parallel(r):
+def parallel(r, on_signal=None):
     """Spec 0017: bare wf run after its confirm, one child `wf run <repo> -y` per repo with work, side by side.
     Returns the AC-6 exit code."""
     a = r.args
@@ -3069,7 +3143,8 @@ def parallel(r):
         if row["skip"] or not h or not h.get("has_work"):
             continue
         url = h["answers"].get("app url")
-        row.update(work=True, path=h["c"].path, common=common_dir(h["c"].path), port=url and app_port(url))
+        row.update(work=True, path=h["c"].path, common=common_dir(h["c"].path), port=url and app_port(url),
+                   only=h.get("only"))
         jobs.append(row)
     argv = [sys.executable, "-u", os.path.join(os.path.dirname(os.path.realpath(__file__)), "wf.py"), "run"]
     caps = ["-y", "--budget", str(a.budget), "--call-timeout", str(a.call_timeout), "--max-calls", str(a.max_calls),
@@ -3080,6 +3155,8 @@ def parallel(r):
     def forward(signum, frame):
         # AC-5: every signal reaches each running child as its own Ctrl C, the second as its second.
         r.interrupted = True
+        if on_signal:
+            on_signal()
         for j in running:
             try:
                 os.killpg(j["proc"].pid, signal.SIGINT)
@@ -3100,7 +3177,8 @@ def parallel(r):
             if j:
                 waiting.remove(j)
                 # Spec 0018 AC-1: the parent sends the one report, so no child does.
-                j["proc"] = subprocess.Popen([*argv, j["path"], *caps], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                only = [x for n in j["only"] or () for x in ("--only-feature", n)]
+                j["proc"] = subprocess.Popen([*argv, j["path"], *caps, *only], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                              stderr=subprocess.STDOUT, encoding="utf-8", errors="replace",
                                              start_new_session=True, env={**os.environ, "WF_REPORT": "parent"})
                 running.append(j)

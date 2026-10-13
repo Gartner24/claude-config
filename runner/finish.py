@@ -13,8 +13,13 @@ import signal
 import stat
 import subprocess
 import sys
+import threading
 import time
+import types
+from contextlib import redirect_stdout
+from io import StringIO
 
+import report
 import run
 import wf
 
@@ -28,6 +33,10 @@ STAGED = ("agents", "rules", "hooks", "scripts", "commands", "skills", "settings
 SETTINGS_LAST = ("settings.local.json", "settings.json")
 HOOKS = ("pre-commit", "commit-msg")
 KEEP_STAGES = 3
+# Spec 0020 AC-8: a commit hitting a held index.lock.
+COMMIT_TRIES = 3
+COMMIT_GAP = 2
+PICK = re.compile(r"\d+(-\d+)?")
 SIGNALS = (signal.SIGINT, signal.SIGHUP, signal.SIGTERM)
 NEVER_COPIED = ("settings.json", "settings.local.json")
 PHASES = ("copy", "install", "check")
@@ -563,6 +572,18 @@ class Finish:
         self.n = 0
         # The AC-2 line when another wf holds the swap lock.
         self.held = None
+        # Spec 0020 AC-8: beside the builds the checks run in a thread, their output prefixed `[check]`.
+        self.prefix, self.proc = b"", None
+
+    def stop(self):
+        """Spec 0020 AC-8: Ctrl C during the builds: SIGINT to the running check's group, no further check."""
+        self.interrupted = True
+        p = self.proc
+        if p is not None and p.poll() is None:
+            try:
+                os.killpg(p.pid, signal.SIGINT)
+            except ProcessLookupError:
+                pass
 
     def run(self):
         """Spec 0019 AC-4, spec 0020 AC-3: the setup steps staged and swapped, then the checks, only when it passed."""
@@ -637,7 +658,7 @@ class Finish:
     def command(self, s, env=None):
         self.n += 1
         log = s.log = os.path.join(self.folder, f"step-{self.n:02d}.log")
-        print(f"{s.phase}: {s.repo.name}: {wf.clean(s.span)} (log {log})", flush=True)
+        print(f"{self.prefix.decode()}{s.phase}: {s.repo.name}: {wf.clean(s.span)} (log {log})", flush=True)
         os.makedirs(self.folder, exist_ok=True)
         with open(log, "wb") as out:
             try:
@@ -646,9 +667,10 @@ class Finish:
             except OSError as e:
                 s.code, s.result, s.last = 127, "FAIL", f"{e.strerror or e}"
                 return
+            self.proc = proc
             try:
                 for chunk in iter(lambda: proc.stdout.readline(), b""):
-                    sys.stdout.buffer.write(chunk)
+                    sys.stdout.buffer.write(self.prefix + chunk)
                     sys.stdout.flush()
                     out.write(chunk)
                     if chunk.strip():
@@ -665,6 +687,11 @@ class Finish:
                     proc.wait()
                 s.code, s.result = 130, "FAIL"
                 return
+            finally:
+                self.proc = None
+        if self.interrupted:
+            s.code, s.result = 130, "FAIL"
+            return
         s.code = proc.returncode if proc.returncode >= 0 else 128 - proc.returncode
         s.result = "PASS" if s.code == 0 else "FAIL"
 
@@ -748,9 +775,19 @@ def commit(c, files, ran):
     msg = f"chore(wf): wf finish ran {ran} live step(s)"
     # Plain git, not wf.git: the repo's own commit hooks run as they do for you.
     for argv in (["git", "-C", c.path, "add", "--", *rel], ["git", "-C", c.path, "commit", "-m", msg, "--", *rel]):
-        r = subprocess.run(argv, capture_output=True, text=True, errors="replace")
+        for n in range(COMMIT_TRIES + 1):
+            r = subprocess.run(argv, capture_output=True, text=True, errors="replace", stdin=subprocess.DEVNULL)
+            err = wf.clean((r.stderr or r.stdout).strip())
+            # Spec 0020 AC-8: a build beside this one holds git's index lock for a moment.
+            if not r.returncode or "index.lock" not in err:
+                break
+            if n < COMMIT_TRIES:
+                time.sleep(COMMIT_GAP)
+        if r.returncode and "index.lock" in err:
+            print(f"edits left uncommitted in {c.name}: {err}")
+            return False
         if r.returncode:
-            print(f"commit failed in {c.name}: {wf.clean((r.stderr or r.stdout).strip())}")
+            print(f"commit failed in {c.name}: {err}")
             return False
     print(f"committed in {c.name}: {msg}")
     return True
@@ -758,9 +795,7 @@ def commit(c, files, ran):
 
 def seen():
     try:
-        # The repo locks used to create the state folder first; finish takes none since spec 0020 AC-9.
-        os.makedirs(run.state_dir(), mode=0o700, exist_ok=True)
-        open(os.path.join(run.state_dir(), "report.seen"), "a").close()
+        report.mark_seen()
     except OSError as e:
         print(f"warning: report.seen not written: {e.strerror or e}")
 
@@ -829,3 +864,188 @@ def cmd_finish(args):
         return 130
     seen()
     return 0 if passed and ok else 1
+
+
+# -- bare `wf` (spec 0020 AC-1, AC-2, AC-6 to AC-8, AC-13) -----------------------
+
+def picks(text, n):
+    """AC-13: the 1-based numbers in `1 2 4` or `1-3,5`, each on the list of n, else None (cancel)."""
+    out = []
+    for t in re.split(r"[,\s]+", text.strip()):
+        if not PICK.fullmatch(t):
+            return None
+        a, _, b = t.partition("-")
+        lo, hi = int(a), int(b or a)
+        if not 1 <= lo <= hi <= n:
+            return None
+        out += range(lo, hi + 1)
+    return sorted(set(out)) or None
+
+
+def section(name, lines):
+    if lines:
+        print(f"{name}:")
+        for line in lines:
+            print("  " + line)
+
+
+def retakes(args, repos):
+    """AC-6: ([(park, what changed)] to take back, [(park, retaken on)] kept) over the trusted repos' parks."""
+    q = run.queue_transact()
+    paths = {c.path for c in repos}
+    mine = [p for p in q["parks"] if p["repo"] in paths]
+    newest = run.newest_setup()
+    version = run.claude_version() if any(p["reason"] in run.SETUP_PARKS for p in mine) else None
+    back, kept = [], []
+    for p in mine:
+        why = run.what_changed(p, newest, version)
+        # A cap park clears in the build by applies(); `wf` only names it.
+        if why is None and run.cap_park(p) and p["cap"] is not None and getattr(args, p["reason"]) > p["cap"]:
+            why = run.retaken_on(p)
+        (back.append((p, why)) if why else kept.append((p, run.retaken_on(p))))
+    return back, kept
+
+
+def cmd_wf(args):
+    """AC-1: the one command. Refusals, an interrupted swap finished, the screen, one confirm, then report seen,
+    the setup swap, the retakes, the builds side by side and the checks beside them, records, ticks, commits."""
+    if os.environ.get("WF_RUN"):
+        return refuse("unattended", "wf runs only at your keyboard, never inside a wf run call")
+    if not args.yes and not os.isatty(0):
+        return refuse("no_tty", "stdin is not a terminal, pass -y to run without the confirm prompt")
+    try:
+        recover()
+    except OSError as e:
+        print(f"warning: interrupted swap not finished: {e.strerror or e}")
+    try:
+        repos, rc = covered(types.SimpleNamespace(target=None))
+        if repos is None:
+            return rc
+        live, yours = [], []
+        for c in repos:
+            try:
+                more, mine = boxes(c)
+            except (OSError, StopIteration) as e:
+                print(f"skipped: {c.name}: scope unreadable: {wf.clean(str(e))}")
+                continue
+            live += more
+            yours += mine
+        steps = plan_steps(live)
+        fd, who = run.lock_file(swap_lock(), create=False)
+        if fd is not None:
+            os.close(fd)
+        # AC-3: the swap lock matters only when there is a setup step to swap.
+        held = held_line(who) if who and any(s.phase != "check" for s in steps) else None
+        try:
+            back, kept = retakes(args, repos)
+        except run.QueueError as e:
+            return refuse("queue_unreadable", e)
+        # AC-2, AC-7: the build plan bare `wf run` prints, no repo lock kept, the retaken parks planned as gone.
+        r = run.Run(None, args)
+        r.retaken = {(p["repo"], p["feature"]) for p, _ in back}
+        out = StringIO()
+        with redirect_stdout(out):
+            refused = r.bare_checks()
+            if refused is None:
+                r.plan()
+    except KeyboardInterrupt:
+        print()
+        return 130
+    work = [h for h in r.held if h.get("has_work")] if refused is None else []
+    numbered = [(h, name) for h in work for name in h["queued"]]
+    text, seen_path, _ = report.paths()
+    shown = report.read_text(text) if not os.path.exists(seen_path) else None
+    killed = report.killed_line()
+    setup = [s for s in steps if s.phase != "check"]
+    checks = [s for s in steps if s.phase == "check"]
+    line = lambda s: f"{s.phase}: {s.repo.name}: {', '.join(dict.fromkeys(b.feature for b in s.boxes))}: {wf.clean(s.span)}"
+    section("report", (report.shown(shown).split("\n") if shown else []) + ([killed] if killed else []))
+    if not (setup or checks or back or work):
+        if refused is not None:
+            section("build", out.getvalue().rstrip("\n").split("\n"))
+        print("nothing to do")
+        seen()
+        return 0
+    section("setup", [held] if held and setup else [line(s) for s in setup])
+    section("checks", [held] if held and checks else [line(s) for s in checks])
+    name = lambda p: wf.clean(os.path.basename(p["repo"]))
+    section("retake", [f"{name(p)}: {p['feature']}: {p['reason']} ({why})" for p, why in back])
+    section("parked", [f"{name(p)}: {p['feature']}: {p['reason']}: retaken on {on}" for p, on in kept])
+    section("build", [x for x in out.getvalue().rstrip("\n").split("\n") if x] +
+            [f"{n}. {h['c'].name}: {f}" for n, (h, f) in enumerate(numbered, 1)])
+    section("running", [f"{e['name']}: {e['skip'][len('running: '):]}" for e in r.record["repos"]
+                        if (e["skip"] or "").startswith("running: ")])
+    section("yours", [f"{b.repo.name}: {b.feature}: {b.text} ({wf.clean(why)})" for b, why in yours])
+    sys.stdout.flush()
+    chosen = None
+    try:
+        if args.only is not None:
+            chosen = picks(args.only, len(numbered))
+            if chosen is None:
+                print(f"not on the list: {wf.clean(args.only)}")
+                return 130
+        if not args.yes:
+            ask = "Enter for all, numbers to pick (1 2 4 or 1-3,5), anything else cancels: " \
+                if numbered and chosen is None else "Enter to go, anything else cancels: "
+            answer = input(ask)
+            if answer != "":
+                chosen = picks(answer, len(numbered)) if numbered and chosen is None else None
+                if chosen is None:
+                    return 130
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return 130
+    # AC-13: a repo with no picked feature gets no child; the others stay queued.
+    if chosen is not None:
+        wanted = [numbered[i - 1] for i in chosen]
+        for h in work:
+            h["only"] = [f for g, f in wanted if g is h]
+            h["has_work"] = bool(h["only"])
+    seen()
+    f = Finish(steps) if steps else None
+    swapped = not setup
+    if setup and not held:
+        print(f"backups and logs: {f.folder}", flush=True)
+        try:
+            swapped = f.setup()
+        except KeyboardInterrupt:
+            f.interrupted, swapped = True, False
+    # AC-6: under queue.lock only.
+    if back:
+        gone = {(p["repo"], p["feature"], p["parked_at"]) for p, _ in back}
+        try:
+            run.queue_transact(lambda q: q.update(parks=[p for p in q["parks"] if
+                                                          (p["repo"], p["feature"], p["parked_at"]) not in gone]) or True)
+        except run.QueueError as e:
+            print(f"warning: retakes not written: {wf.clean(str(e))}")
+    child = None
+    run_checks = f is not None and checks and swapped and not held
+    if any(h.get("has_work") for h in work):
+        # AC-8: the checks run in the parent beside the children, one at a time.
+        t = None
+        if run_checks:
+            f.prefix = b"[check] "
+            t = threading.Thread(target=f.checks, daemon=True)
+            t.start()
+        child = run.parallel(r, on_signal=f.stop if f else None)
+        if t:
+            t.join()
+    elif run_checks:
+        try:
+            f.checks()
+        except KeyboardInterrupt:
+            f.interrupted = True
+    ok = True
+    for c in repos:
+        mine = [s for s in steps if s.repo is c]
+        files = record(mine, bool(f and f.interrupted)) + tick([b for b in live if b.repo is c])
+        if files:
+            ok = commit(c, list(dict.fromkeys(files)), sum(s.result is not None for s in mine)) and ok
+    failed = [s for s in steps if s.result == "FAIL" or (s.result is None and not held)]
+    for s in failed:
+        print(f"FAIL: {s.repo.name}: {wf.clean(s.span)}" + (f" (log {s.log})" if s.log else " (not run)"))
+    if (f and f.interrupted) or r.interrupted or child == 130:
+        return 130
+    if child:
+        return 6
+    return 1 if failed or not ok else 5 if refused is not None else 0

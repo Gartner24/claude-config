@@ -74,7 +74,11 @@ class TestDoneWhen(QueueCase):
         q = self.queue()
         self.assertEqual(q["decisions"], [])
         park = q["parks"][0]
-        self.assertEqual(sorted(park), ["cap", "detail", "feature", "parked_at", "reason", "repo", "run", "section_sha"])
+        self.assertEqual(sorted(park), ["cap", "claude", "detail", "feature", "head", "parked_at", "reason", "repo", "run",
+                                        "section_sha", "setup"])
+        # Spec 0020 AC-6: HEAD at park time, no swap yet (unknown), the version from `claude --version`.
+        self.assertRegex(park["head"], r"^[0-9a-f]{40}$")
+        self.assertEqual((park["setup"], park["claude"]), (None, "2.1.296"))
         self.assertEqual((park["repo"], park["feature"], park["reason"], park["detail"], park["cap"], park["run"]),
                          (str(repo), "1. A", "blocked", "test park", None, str(folder)))
         self.assertEqual(park["section_sha"], self.section_sha(repo, "1. A"))

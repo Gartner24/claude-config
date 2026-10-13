@@ -35,10 +35,12 @@ class TestEntry(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("usage: wf", r.stdout)
 
-    def test_no_command_prints_usage_and_fails(self):
-        r = run()
-        self.assertEqual(r.returncode, 2)
-        self.assertIn("usage: wf", r.stderr)
+    # Spec 0020 AC-1: bare wf is the one command; without a terminal or -y it refuses before touching anything.
+    def test_no_command_without_tty_refuses(self):
+        r = subprocess.run([sys.executable, str(WF)], capture_output=True, text=True, stdin=subprocess.DEVNULL,
+                           env={k: v for k, v in os.environ.items() if k != "WF_RUN"})
+        self.assertEqual(r.returncode, 5, r.stdout + r.stderr)
+        self.assertTrue(r.stdout.startswith("refused: no_tty: "), r.stdout)
 
     def test_unknown_command_fails(self):
         self.assertNotEqual(run("bogus").returncode, 0)

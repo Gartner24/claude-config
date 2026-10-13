@@ -626,8 +626,22 @@ def positive(kind):
     return parse
 
 
+def caps(p):
+    p.add_argument("--budget", type=positive(float), default=20, help="USD per call (default 20)")
+    p.add_argument("--call-timeout", type=positive(float), default=60, help="minutes per call (default 60)")
+    p.add_argument("--max-calls", type=positive(int), default=20, help="calls per feature (default 20)")
+    p.add_argument("--max-hours", type=positive(float), default=8, help="hours per run (default 8)")
+    p.add_argument("--max-wait", type=positive(float), default=12, help="hours the run waits at its end for your phone replies (default 12)")
+
+
 def build_parser():
-    parser = argparse.ArgumentParser(prog="wf", description="Workflow runner for repo scopes.")
+    parser = argparse.ArgumentParser(prog="wf", description="Workflow runner for repo scopes. Bare `wf` does "
+                                     "everything due after one confirm screen (spec 0020).")
+    # Spec 0020 AC-1, AC-13: bare `wf` takes the wf run caps and picks.
+    parser.add_argument("-y", "--yes", action="store_true", help="go without the confirm prompt")
+    parser.add_argument("--jobs", type=positive(int), help="repos built at once (default: every repo with work)")
+    parser.add_argument("--only", help="build only these numbered features of the screen, e.g. 1,2,4 or 1-3")
+    caps(parser)
     sub = parser.add_subparsers(dest="command", metavar="<command>")
     nxt = sub.add_parser("next", help="open a session running a repo's next scope step")
     nxt.add_argument("target", nargs="?", help="a path, folder name or scope title")
@@ -637,15 +651,13 @@ def build_parser():
     run.add_argument("target", nargs="?", help="a path, folder name or scope title; none: every repo on the wf allow list")
     run.add_argument("-y", "--yes", action="store_true", help="start without the confirm prompt")
     run.add_argument("--jobs", type=positive(int), help="repos run at once by a bare wf run (default: every repo with work)")
+    # Spec 0020 AC-13: the features picked on the `wf` screen, passed to each child; not for you to type.
+    run.add_argument("--only-feature", action="append", help=argparse.SUPPRESS)
     queue = sub.add_parser("queue", help="print what wf run would do, changing nothing")
     queue.add_argument("target", nargs="?", help="as wf run")
     # wf queue takes the caps too: a cap park shows as cleared under a higher one (spec 0011 AC-3).
     for p in (run, queue):
-        p.add_argument("--budget", type=positive(float), default=20, help="USD per call (default 20)")
-        p.add_argument("--call-timeout", type=positive(float), default=60, help="minutes per call (default 60)")
-        p.add_argument("--max-calls", type=positive(int), default=20, help="calls per feature (default 20)")
-        p.add_argument("--max-hours", type=positive(float), default=8, help="hours per run (default 8)")
-        p.add_argument("--max-wait", type=positive(float), default=12, help="hours the run waits at its end for your phone replies (default 12)")
+        caps(p)
     finish = sub.add_parser("finish", help="run the live setup steps waiting on you, after one Enter")
     finish.add_argument("target", nargs="?", help="a path, folder name or scope title; none: every repo on the wf allow list")
     finish.add_argument("-y", "--yes", action="store_true", help="run without the confirm prompt")
@@ -676,8 +688,9 @@ def main(argv=None):
     parser, nxt = build_parser()
     args = parser.parse_args(argv)
     if args.command is None:
-        parser.print_help(sys.stderr)
-        return 2
+        # Spec 0020 AC-1: the one command.
+        import finish
+        return finish.cmd_wf(args)
     if args.command == "run":
         import run
         return run.cmd_run(args)

@@ -310,6 +310,15 @@ def hook():
         print(line)
 
 
+def mark_seen():
+    """AC-5: report.seen holds the newest run folder's name, so the killed run line stops showing too."""
+    newest = newest_run()
+    _, seen, _ = paths()
+    os.makedirs(os.path.dirname(seen), mode=0o700, exist_ok=True)
+    with open(seen, "w", encoding="utf-8") as f:
+        f.write(newest[0] if newest else "")
+
+
 def cmd_report(args):
     if args.hook:
         try:
@@ -319,11 +328,7 @@ def cmd_report(args):
         return 0
     line = killed_line()
     if args.seen:
-        newest = newest_run()
-        _, seen, _ = paths()
-        os.makedirs(os.path.dirname(seen), mode=0o700, exist_ok=True)
-        with open(seen, "w", encoding="utf-8") as f:
-            f.write(newest[0] if newest else "")
+        mark_seen()
     else:
         text = read_text(paths()[0])
         print("no report yet" if text is None else shown(text))

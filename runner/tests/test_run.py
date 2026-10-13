@@ -28,6 +28,10 @@ from test_ntfy import FakeNtfy, write_config  # noqa: E402,F401
 # name gives each repo its own steps, count and `<repo>-argv-<n>.json`, for children running side by side (spec 0017).
 FAKE_CLAUDE = f"""#!{sys.executable}
 import json, os, shutil, signal, subprocess, sys, time
+# Spec 0020 AC-6: a park records `claude --version`; it is not a call.
+if sys.argv[1:] == ["--version"]:
+    print(os.environ.get("FAKE_VERSION", "2.1.296") + " (Claude Code)")
+    sys.exit(0)
 d = os.environ["FAKE_DIR"]
 steps = json.load(open(os.path.join(d, "steps.json")))
 key = ""
@@ -1276,8 +1280,9 @@ class TestGuard(RunCase):
         # rev-parse, the include read of .git/config, ls-files for submodule gitlinks, remote -v, status for the plan's
         # tree rule and changes, status for the first pick, (spec 0009 AC-9) the main and master lookups before the
         # /test call, (spec 0015 AC-4) ls-files and check-ignore for its test file snapshot, then (spec 0010 AC-1)
-        # those lookups and ls-files again for the design check, and status for the pick after the park.
-        self.assertEqual((self.fakes / "git-log").read_text().splitlines(), [str(self.fakes / "git-wrap")] * 15)
+        # those lookups and ls-files again for the design check, (spec 0020 AC-6) rev-parse HEAD for the park record,
+        # and status for the pick after the park.
+        self.assertEqual((self.fakes / "git-log").read_text().splitlines(), [str(self.fakes / "git-wrap")] * 16)
         _, rec = self.run_record()
         self.assertEqual(rec["repos"][0]["guard"]["binaries"], {"git": str(self.fakes / "git-wrap"),
                                                     "claude": str(self.fakes / "claude-a"),
