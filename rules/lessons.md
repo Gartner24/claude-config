@@ -43,6 +43,9 @@ Mutation-check instead. Break the source deliberately, confirm that specific tes
 3. Run the test. It must fail, and it must be the test you wrote.
 4. Restore from the backup and confirm the suite is green again.
 
+For speed, step 3 runs only the test file that covers the fix, never the whole suite per mutant; run
+the full suite once after every mutant is restored.
+
 State in the summary that the check was run. A test that passes against the broken code is not coverage, and this catches the case below.
 
 ### A test that reimplements the logic passes forever

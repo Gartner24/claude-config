@@ -20,6 +20,7 @@ because the LICENSE covers only the parts authored here.
 | `rules/standing-answers.md` | Standing answers: skill questions answered the same way every time in interactive sessions |
 | `rules/plain-questions.md` | Plain questions: every question to you opens with what is decided, explains each term, and re-explains from zero on request |
 | `rules/skill-map.md` | Skill map: which skill fits each situation, its rough cost, and who starts it |
+| `rules/review-fix.md` | After a review: which findings are fixed without asking, which are asked, and the two round stopping point |
 | `rules/ecc/*/index.md` (7 files) | Per-language rule indexes - authored here, not upstream. They only `@import` the files below. |
 | `sync.sh`, `CLAUDE.md`, `rules/ecc/common/{code-review,testing}.md` additions | Setup and the hand-earned rules |
 
