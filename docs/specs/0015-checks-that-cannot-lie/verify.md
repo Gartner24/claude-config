@@ -14,17 +14,17 @@
 _Steps derived from spec 0015 acceptance criteria. `/check verify` runs these; `/test` locks the durable ones._
 
 ## Commands
-- [ ] `python3 -m unittest discover -s runner/tests` -> all pass, `test_checks` included -> AC-4
-- [ ] `python3 -B -m unittest test_checks` from `runner/tests` with the rule 11a park line in `runner/run.py` replaced by `if False:` (backup first, restore after) -> the 5 park tests go red -> AC-4
-- [ ] Same with the changed test file branch forced to 0 -> `test_mutation_zero_test_changed` goes red -> AC-4 (value: test file changed, from the spec 0008 snapshot)
-- [ ] Same with own box detection replaced by "any box state changed" -> `test_milestone` goes red -> AC-4 (value: progress, the box ticked after the call)
-- [ ] `grep -c "CAN FAIL CHECKED\|MUTATION CHECKED" runner/run.py` shows the two prompt sentences and two patterns; `test_run.TestHappyPath.test_argv` pins the prompt text -> AC-4
-- [ ] `python3 scripts/spec-paths.py --test` -> `all passed`; flipping the `--spec` skip or the `Accepted` filter makes it fail -> AC-6 (values: accepted, globs, own specs, changed files on a branch and on main, specs folder)
-- [ ] `python3 scripts/spec-paths.py --spec 9 --spec 0009` in any repo -> same output both ways; `--spec 12345` exits 2; run outside a git repo exits 1 with `spec-paths: ` -> AC-6
-- [ ] `./install.sh --dry-run` -> prints `spec-paths -> scripts/spec-paths.py` and its `ln -sfn` line -> AC-6
-- [ ] `python3 -B -m unittest test_spec_paths` from `runner/tests` -> every spec top file has one `**Paths:**` line right after `**Status**:`, every glob matches a real file; deleting one backfilled line makes it fail with the count -> AC-5, AC-8
-- [ ] `rules/check-gates.md` exists, opens with "beats skill text", holds sections 1 to 4 (AC-2, AC-3, AC-5 plus AC-7, AC-9); `NOTICE.md` lists it and `scripts/spec-paths.py`; no non ASCII character but the middle dot -> AC-1
-- [ ] `git diff --stat` shows no file under a vendored skill (`scope`, `architect`, `develop`, `check`, `test`, `sync` are not in this repo) -> AC-1
+- [x] `python3 -m unittest discover -s runner/tests` -> all pass, `test_checks` included -> AC-4
+- [x] `python3 -B -m unittest test_checks` from `runner/tests` with the rule 11a park line in `runner/run.py` replaced by `if False:` (backup first, restore after) -> the 5 park tests go red -> AC-4
+- [x] Same with the changed test file branch forced to 0 -> `test_mutation_zero_test_changed` goes red -> AC-4 (value: test file changed, from the spec 0008 snapshot)
+- [x] Same with own box detection replaced by "any box state changed" -> `test_milestone` goes red -> AC-4 (value: progress, the box ticked after the call)
+- [x] `grep -c "CAN FAIL CHECKED\|MUTATION CHECKED" runner/run.py` shows the two prompt sentences and two patterns; `test_run.TestHappyPath.test_argv` pins the prompt text -> AC-4
+- [x] `python3 scripts/spec-paths.py --test` -> `all passed`; flipping the `--spec` skip or the `Accepted` filter makes it fail -> AC-6 (values: accepted, globs, own specs, changed files on a branch and on main, specs folder)
+- [x] `python3 scripts/spec-paths.py --spec 9 --spec 0009` in any repo -> same output both ways; `--spec 12345` exits 2; run outside a git repo exits 1 with `spec-paths: ` -> AC-6
+- [x] `./install.sh --dry-run` -> prints `spec-paths -> scripts/spec-paths.py` and its `ln -sfn` line -> AC-6
+- [x] `python3 -B -m unittest test_spec_paths` from `runner/tests` -> every spec top file has one `**Paths:**` line right after `**Status**:`, every glob matches a real file; deleting one backfilled line makes it fail with the count -> AC-5, AC-8
+- [x] `rules/check-gates.md` exists, opens with "beats skill text", holds sections 1 to 4 (AC-2, AC-3, AC-5 plus AC-7, AC-9); `NOTICE.md` lists it and `scripts/spec-paths.py`; no non ASCII character but the middle dot -> AC-1
+- [x] `git diff --stat` shows no file under a vendored skill (`scope`, `architect`, `develop`, `check`, `test`, `sync` are not in this repo) -> AC-1
 
 ## Waits on you
 - [ ] `cp ~/claude-config/rules/check-gates.md ~/.claude/rules/check-gates.md`, then `./install.sh` -> AC-1, AC-6
