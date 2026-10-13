@@ -86,5 +86,5 @@ Notes from the build:
 - Push rule bypasses (commit review of `126ecf5`): `git -c alias.p=push p` and a quoted `git "push"` match no glob; the old `git * push*` missed them too, so not a regression. Residual under the spec 0007 Threat model (deliberate escape; the guard is no credentials plus denied hosts) and your "no more hardening rounds" rule.
 - The same review's size cap finding is fixed, and the next review (of `94a1a84`) caught that hashing the whole file let a sparse `truncate -s 1T` file hang wf. Final rule: read at most 16 MiB per file; a bigger file's hash adds its size, inode and ctime, which any write moves and no call can set back. Tests for both (a 4 TiB sparse file ends in under 3 s), each mutation checked.
 
-None needs a decision. One check is owed and only you can run it (it needs the real claude login):
-- M9 push rule probe: `bash docs/specs/0004-headless-step-loop/probes/push-rule.sh`, expected results in that spec's `verify.md`.
+None needs a decision, and nothing is owed:
+- M9 push rule probe: PASS on the real claude (run 2, 2026-10-12, `docs/specs/0004-headless-step-loop/verify.md`).

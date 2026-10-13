@@ -283,7 +283,7 @@ Every HIGH, MEDIUM and LOW finding of the `/review-stack` of `d02d329..c95f181`,
    - [x] Decision loop, plan answers and guard lines, standing answers watch, stale on unqueue, per call app logs, env strip (H1 to H4, L6, L9)
    - [x] MEDIUM fixes and the 3 mutants (M1 to M13)
    - [x] LOW fixes (L1 to L13)
-   - [ ] Push rule probe on the real claude: `bash docs/specs/0004-headless-step-loop/probes/push-rule.sh` (M9) · waits on you
+   - [x] Push rule probe on the real claude: `bash docs/specs/0004-headless-step-loop/probes/push-rule.sh` (M9) · waits on you
 - [ ] Verify it: `/check verify review stack fixes`
 - [ ] Test it: `/test review stack fixes`
 Specs amended: [0011](../specs/0011-build-decision-queue/index.md), [0009](../specs/0009-headless-verify-test/index.md), [0008](../specs/0008-failure-park-policy/index.md) · code in `runner/run.py`, `runner/wf.py`, `runner/ntfy.py`
