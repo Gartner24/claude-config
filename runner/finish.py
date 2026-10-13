@@ -116,7 +116,9 @@ def spec_of(scope_file, plain, root):
         target = link.split("#", 1)[0]
         if SPEC_LINK.search(target):
             real = os.path.realpath(os.path.join(os.path.dirname(scope_file), target))
-            return os.path.join(os.path.dirname(real), "verify.md") if inside(real, root) else None
+            verify = os.path.join(os.path.dirname(real), "verify.md")
+            # A verify.md planted as a link used to be a write anywhere you can write.
+            return verify if inside(real, root) and not os.path.islink(verify) else None
     return None
 
 

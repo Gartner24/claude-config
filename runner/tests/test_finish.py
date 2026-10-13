@@ -181,6 +181,17 @@ class TestHappyPath(FinishCase):
         self.assertRegex(v, r"- old line\n- \S+, Claude Code 2\.1\.296: `python3 docs/specs/0001-x/probes/p\.py` PASS\n\n## Later\n")
 
 
+    # covers: AC-5 (a verify.md planted as a link is never written through)
+    def test_verify_link(self):
+        outside = self.tmp / "outside.md"
+        outside.write_text("mine\n")
+        v = self.repo / "docs" / "specs" / "0002-y" / "verify.md"
+        v.symlink_to(outside)
+        r = self.wf("-y")
+        self.assertEqual(outside.read_text(), "mine\n")
+        self.assertIn("warning: r: 2. Two: no specs/<dir>/index.md link, result not recorded", r.stdout)
+
+
 class TestFailures(FinishCase):
     # covers: AC-4, AC-8 (a failed copy stops before the installs and checks)
     def test_failed_copy(self):
