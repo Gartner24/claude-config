@@ -416,7 +416,7 @@ The runner keeps building and gathers every waits-on-you step of the run that co
 - [x] Test it: `/test live setup steps in one command`
 - [x] Copy the scope contract live: `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` (AC-10) · waits on you · live
 - [x] Copy the handoff rule live: `cp ~/claude-config/rules/runner-handoff.md ~/.claude/rules/runner-handoff.md` (AC-10) · waits on you · live
-- [ ] Install, keeping your autoMode: `./install.sh` (AC-9) · waits on you · live
+- [x] Install, keeping your autoMode: `./install.sh` (AC-9) · waits on you · live
 - [ ] Sync docs: `/sync live setup steps in one command`
 Spec [0019](../specs/0019-live-setup-steps/index.md) · code in `runner/finish.py`, `runner/wf.py`, `install.sh`, tests in `runner/tests/test_finish.py`, `scripts/private-names.py --test`
 Source: [docs/briefs/morning-report-and-live-steps.md](../briefs/morning-report-and-live-steps.md) (fix A).
@@ -432,10 +432,10 @@ When a run ends, for any reason, one phone message: what got built, what waits o
    - [x] `runner/e2e/run.py` report checks (AC-8)
 - [x] Verify it: `/check verify morning report`
 - [x] Test it: `/test morning report`
-- [ ] Install the session hook: `./install.sh` (AC-7) · waits on you · live
+- [x] Install the session hook: `./install.sh` (AC-7) · waits on you · live
 - [x] Copy the handoff rule live: `cp ~/claude-config/rules/runner-handoff.md ~/.claude/rules/runner-handoff.md` (AC-7) · waits on you · live
-- [ ] Real end to end with the report: `python3 runner/e2e/run.py` (AC-8) · waits on you · live
-- [ ] Real parallel end to end with one report: `python3 runner/e2e/run.py --parallel` (AC-8) · waits on you · live
+- [x] Real end to end with the report: `python3 runner/e2e/run.py` (AC-8) · waits on you · live
+- [x] Real parallel end to end with one report: `python3 runner/e2e/run.py --parallel` (AC-8) · waits on you · live
 - [ ] Sync docs: `/sync morning report`
 Spec [0018](../specs/0018-morning-report/index.md) · code in `runner/report.py`, `runner/ntfy.py`, `runner/run.py`, `runner/wf.py`, `runner/e2e/run.py`, tests in `runner/tests/test_report.py`
 Source: [docs/briefs/morning-report-and-live-steps.md](../briefs/morning-report-and-live-steps.md) (fix B); first deferred 2026-10-12, brought back 2026-10-13.
