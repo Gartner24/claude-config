@@ -183,10 +183,12 @@ ANSWERS_FILE = {"docs/scope": "AGENTS.md", ".workflow/scope": ".workflow/AGENTS.
 # can edit AGENTS.md. The setting lives in allow.json (allow_writes_path()).
 # Spec 0026 AC-1: branches per spec, and push draft PR (off is the same as absent), the value casefolded.
 ANSWER_KEYS = {"run suite": ("yes", "ask"), "done": ("yes", "ask"), "app start": None, "app url": None,
-               "allow writes": None, "branches": ("per spec",), "push": ("draft pr", "off")}
+               "allow writes": None, "branches": ("per spec",), "push": ("draft pr", "off"),
+               # Spec 0027 AC-1: features built at once, each in its own worktree.
+               "parallel": ("1", "2", "3", "4")}
 ANSWER_ENTRY = re.compile(r"^\s*[-*]\s+([^:]+?)\s*:\s*(\S.*?)\s*$")
 ANSWERS_HINT = (" (expected: - run suite: yes|ask, - done: yes|ask, - app start: <command>, "
-                "- app url: http://localhost:<port>, - branches: per spec, - push: draft PR|off)")
+                "- app url: http://localhost:<port>, - branches: per spec, - push: draft PR|off, - parallel: 1-4)")
 APP_URL = re.compile(r"https?://(localhost|127\.0\.0\.1|\[::1\]):(\d{1,5})(/\S*)?")
 ANSWERS_INTRO = " Standing answers for this repo, use them instead of asking:"
 RUN_SUITE_YES = " Run tests?, Yes, run and fix to green."
@@ -206,7 +208,7 @@ TEST_BASE = (" For /test, the feature's changes are the files in git diff --rela
 # a repo stop ends that repo, a run stop ends the run. app_failed and app_port_busy come from spec 0009.
 PARKS = frozenset(("verify_failed", "blocked", "denied", "debug_touched", "no_progress", "call_error", "call_timeout",
                    "budget", "max_calls", "manual_box", "waiting", "no_command", "no_feature",
-                   "app_failed", "design_gate", "unchecked", "issue_changed", "stack_deep"))
+                   "app_failed", "design_gate", "unchecked", "issue_changed", "stack_deep", "paths_overlap"))
 REPO_STOPS = frozenset(("branch_changed", "autopilot_off", "scope_unreadable"))
 # Spec 0026 AC-17: the branch and PR cases, asked by the runner process after a feature is built.
 PR_CASES = frozenset(("squash_failed", "private_names", "attribution", "push_failed", "base_unpushed", "pr_failed",
@@ -239,6 +241,8 @@ CASES = {
     # Spec 0026 AC-4, AC-17: a stack deeper than 3 asks before the branch is made; the PR rows below ask after a
     # feature is built, keyed by its feature, and never hold back another one.
     "stack_deep": ("F14", ("build it off the start branch", "wait for the bottom to merge")),
+    # Spec 0027 AC-6: a feature worktree's edits drifted into a sibling's Paths while both run.
+    "paths_overlap": ("F15", ("wait for the other, then go on", "undo those files and try again", SKIP_IT)),
     "squash_failed": ("P1", ("push the checkpoint commits", "skip the PR")),
     "private_names": ("P2", ("scan again", "push anyway, the repo is private", "skip the PR")),
     "attribution": ("P3", ("skip the PR", "push anyway, it quotes the pattern")),
@@ -284,7 +288,7 @@ CRASH_KEY = 60
 # AC-10: call_error is retried by the next run; the box reasons clear when the files change.
 # Spec 0024: an issue question holds its feature by itself; its baseline lives in the state folder, not a park.
 UNRECORDED = frozenset(("call_error", "manual_box", "waiting", "no_command", "no_feature", "issue_changed",
-                        "stack_deep"))
+                        "stack_deep", "paths_overlap"))
 RECORDED = PARKS - UNRECORDED
 # AC-3: a cap park clears when this run's value for that cap is higher.
 # The reason names the wf run flag: --budget, --max-calls, --call-timeout.
@@ -763,6 +767,8 @@ class Run:
         # Spec 0024 AC-9: the linked issues as read before the call being made, for its prompt.
         self.issue_prompt = ""
         self.record["notes"] = []
+        # Spec 0027 AC-6: the sibling feature a drift question waits for.
+        self.overlap_other = None
         if c is not None:
             self.add(c)
 
@@ -775,9 +781,14 @@ class Run:
         """A RepoEntry in run order for candidate c (None: path had no candidate), made the repo in use.
         Returns its held dict, already in self.held for a candidate; a failed check takes it out."""
         self.c = c
+        if c:
+            c.key = tree_main(c.path) or c.path
         self.branch = wf.head_branch(c.path) if c else None
-        self.repo = {"repo": c.path if c else path, "name": c.name if c else os.path.basename(path),
+        self.repo = {"repo": key_of(c) if c else path, "name": c.name if c else os.path.basename(path),
                      "branch": self.branch, "skip": None, "ended": None}
+        # Spec 0027 AC-3: a feature worktree's records name its main checkout, and the tree beside it.
+        if c and key_of(c) != c.path:
+            self.repo["tree"] = c.path
         self.record["repos"].append(self.repo)
         # Spec 0006 AC-4: repo_checks() overwrites answers; a Run built without it has none.
         # Spec 0009: browser stays None when the repo names no app, so no browser call ever.
@@ -941,8 +952,9 @@ class Run:
         if self.branch in BAD_BRANCHES or self.branch.startswith("detached"):
             return "branch", f"{self.branch}, switch to a work branch first"
         if answers.get("branches") == "per spec":
-            # Spec 0026 AC-2, AC-7: the branch the run comes back to, and origin as it was at the start.
-            self.repo["start_branch"] = self.branch
+            # Spec 0026 AC-2, AC-7: the branch the run comes back to, and origin as it was at the start. A feature
+            # worktree (spec 0027) never switches; its base is cut from the main checkout's branch.
+            self.repo["start_branch"] = wf.head_branch(key_of(c)) if self.repo.get("tree") else self.branch
             r = wf.git(c.path, "config", "--get", "remote.origin.url")
             self.repo["origin_url"] = r.stdout.strip() if r is not None and r.returncode == 0 else None
         # The browser check fetches the MCP and the guard is only for calls; wf queue makes none.
@@ -1415,13 +1427,16 @@ class Run:
             repo=None, branch=None, **extra):
         """Spec 0011 AC-11, spec 0021 AC-2: keep a question in queue.json, in place of an older one of the same
         feature, and ping it. Returns the Decision. A failed ping leaves it queued for the report and the U9 retry."""
-        d = {"id": None, "repo": repo or self.c.path, "feature": self.feature if feature is None else feature,
+        d = {"id": None, "repo": repo or key_of(self.c), "feature": self.feature if feature is None else feature,
              # Spec 0026: a spec branch repo keeps its questions on the start branch, where the next pick reads them.
              "branch": branch or self.repo.get("start_branch") or self.branch, "session_id": session, "call_kind": call_kind, "command": command,
              "box_text": box_text, "question": question, "options": list(options),
              "kind": "panel" if options else "prose", "multi": False, "sent": None, "pings": [], "acks": [],
              "asked": now(), "answer": None, "source": None, "answered": None, "ignored": 0, "run": self.folder,
              "reply": None, **extra}
+        if (self.repo or {}).get("tree") and not extra.get("level"):
+            # Spec 0027 AC-3: asked in a worktree, resumed in the same one.
+            d["tree"] = self.repo["tree"]
 
         def add(q):
             # Drawn under the lock: unique in the file and in this run.
@@ -1487,7 +1502,7 @@ class Run:
         last = self.record["calls"][calls[-1] - 1] if calls else {}
         return self.ask(question[:300], options, command=command, box_text=text, session=last.get("session_id") or "",
                         seq=last.get("seq"), case=reason, detail=None if detail is None else str(detail), allow=path,
-                        parked=parked)
+                        parked=parked, **({"other": self.overlap_other} if reason == "paths_overlap" else {}))
 
     def take_case(self, d):
         """AC-3: the answered case question d leaves the queue with its feature's Park record. Returns its option;
@@ -1528,6 +1543,14 @@ class Run:
         elif opt == "undo them and try again":
             self.hint = f"first undo your edits to these test or spec files: {d.get('detail')}" + \
                 (f"; {self.hint}" if self.hint else "")
+        elif opt == "wait for the other, then go on":
+            # Spec 0027 AC-6: the feature goes on once the other feature's child has exited.
+            while any((a.get("repo"), a.get("feature")) == (key_of(self.c), d.get("other")) for a in read_active()):
+                if self.interrupted:
+                    raise Stop("interrupted", "Ctrl C or a stop signal")
+                self.nap(5)
+        elif opt == "undo those files and try again":
+            self.hint = f"first undo your changes to these files, they belong to another feature: {d.get('detail')}"
         elif opt == GO_ON and reason == "issue_changed":
             self.issue_accept(f.name)
         elif opt == "done, go on":
@@ -1583,7 +1606,7 @@ class Run:
     def survey(self, feats, q, dirty_tree):
         """AC-2, AC-3, AC-7 over this repo's features: [(Feature that may start or None, plan line)], file order.
         A feature this run already ran is left out: a call_error or an unticked /sync must not loop."""
-        repo = self.c.path
+        repo = key_of(self.c)
         names = {}
         for f in feats:
             if f.queued:
@@ -1661,7 +1684,7 @@ class Run:
     def decision_lines(self, q, feats):
         """AC-6: (may resume, plan line) for this repo's Decisions, oldest asked first."""
         out = []
-        for d in sorted((d for d in q["decisions"] if d["repo"] == self.c.path), key=asked_at):
+        for d in sorted((d for d in q["decisions"] if d["repo"] == key_of(self.c)), key=asked_at):
             if self.gone(d, q, feats):
                 out.append((False, f"stale: {d['id']} {d['feature']}"))
             else:
@@ -1688,7 +1711,7 @@ class Run:
         for h in self.held:
             self.use(h)
             # Spec 0021 AC-5: a repo stopped with a question waits on it; its answer stops it or lets it go on.
-            asked = next((d for d in self.queue()["decisions"] if d["repo"] == self.c.path and d.get("level") == "repo"),
+            asked = next((d for d in self.queue()["decisions"] if d["repo"] == key_of(self.c) and d.get("level") == "repo"),
                          None)
             if asked and asked["answer"] is None:
                 continue
@@ -1700,7 +1723,7 @@ class Run:
             if self.answers.get("branches") == "per spec":
                 # Spec 0026 AC-17: an answered PR question is acted on here, never as a feature run.
                 import pr
-                for d in [d for d in self.queue()["decisions"] if d["repo"] == self.c.path and d.get("pr")
+                for d in [d for d in self.queue()["decisions"] if d["repo"] == key_of(self.c) and d.get("pr")
                           and d["answer"] is not None]:
                     pr.answer(self, d)
                 h.update(self.keep())
@@ -1716,8 +1739,8 @@ class Run:
             dropped = []
 
             def clear(q):
-                keep = [p for p in q["parks"] if p["repo"] != self.c.path or self.applies(p, feats)]
-                dropped[:] = [d for d in q["decisions"] if d["repo"] == self.c.path and self.gone(d, q, feats)]
+                keep = [p for p in q["parks"] if p["repo"] != key_of(self.c) or self.applies(p, feats)]
+                dropped[:] = [d for d in q["decisions"] if d["repo"] == key_of(self.c) and self.gone(d, q, feats)]
                 changed = len(keep) != len(q["parks"]) or bool(dropped)
                 q["parks"] = keep
                 q["decisions"] = [d for d in q["decisions"] if d not in dropped]
@@ -1728,7 +1751,7 @@ class Run:
                 print(flat(f"stale: {d['id']} {d['feature']}"), flush=True)
             live.append((h, feats, dirty_tree))
         # AC-7 (1): an answered Decision first, oldest asked first, in any held repo; a dirty tree does not hold it back.
-        repos = {h["c"].path: (h, feats) for h, feats, _ in live}
+        repos = {key_of(h["c"]): (h, feats) for h, feats, _ in live}
         # A resume that parked before its call (app_failed on the restart) used to be picked again until --max-hours.
         q = q or {"decisions": [], "parks": []}
         answered = sorted((d for d in q["decisions"] if d["repo"] in repos and d["answer"] is not None
@@ -1747,8 +1770,8 @@ class Run:
     def end_repo(self, reason, detail, h=None):
         """AC-9 repo stop: no more calls in that repo (the one in use, or held repo h) this run, its lock kept.
         Spec 0021 AC-5: with its row's question (R2, R3, U4 to U8); R1, R4, U1 and U10 ask nothing."""
-        repo, name, path, branch = (h["repo"], h["c"].name, h["c"].path, h["branch"]) if h else \
-            (self.repo, self.c.name, self.c.path, self.branch)
+        repo, name, path, branch = (h["repo"], h["c"].name, key_of(h["c"]), h["branch"]) if h else \
+            (self.repo, self.c.name, key_of(self.c), self.branch)
         repo["ended"] = reason
         print(f"stopped repo {name}: {reason}: {flat(detail)}", flush=True)
         options = CASES.get(reason, (None, ()))[1]
@@ -1764,7 +1787,7 @@ class Run:
         path = getattr(self.args, "plan_guard", None)
         if not path:
             return
-        base = read_baseline(path, self.c.path)
+        base = read_baseline(path, key_of(self.c))
         if base is None:
             # Fails closed: a missing, foreign or malformed baseline is a change, never "nothing moved".
             self.end_repo("guard_changed", f"plan baseline unreadable: {path}")
@@ -1772,14 +1795,49 @@ class Run:
         guard, answers = {"guarded_files": base["guarded_files"], "absent_denied": base["absent_denied"]}, base["answers"]
         lines = ledger()
         # A file this child guards that the plan never hashed (a hook added after the plan) is a change too.
+        own = [self.c.path, os.path.join(self.common or "", "worktrees")] if self.repo.get("tree") else []
+        # A feature worktree (spec 0027) guards its own pointer files, which the plan of its main checkout never saw.
         unseen = [p for p, h in self.repo["guard"]["guarded_files"].items() if p not in guard["guarded_files"]
-                  and h != "absent" and not accepted_by(p, lines)]
+                  and h != "absent" and not accepted_by(p, lines) and not under(p, own)]
         changed = list(dict.fromkeys([*(p for p, _ in moved(guard) if not accepted_by(p, lines)), *unseen]))
         if changed:
             more = f" (and {len(changed) - 1} more)" if len(changed) > 1 else ""
             self.end_repo("guard_changed", f"{changed[0]} changed after the plan, before this repo started{more}")
         elif read_answers(self.c) != (answers, None):
             self.end_repo("guard_changed", "standing answers changed after the plan")
+
+    # -- several features of one repo (spec 0027) ----------------------------------
+
+    def drift(self):
+        """AC-6: in a feature worktree, the first file its branch changed since its base that another running
+        feature's Paths cover, as a question detail; else None."""
+        if not self.repo.get("tree"):
+            return None
+        import pr
+        key = key_of(self.c)
+        rec = pr.find(self, key, self.feature)
+        others = [a for a in read_active() if a.get("repo") == key and a.get("feature") != self.feature]
+        if rec is None or not others:
+            return None
+        r1 = wf.git(self.c.path, "diff", "--name-only", "--relative", rec["base_sha"])
+        r2 = wf.git(self.c.path, "ls-files", "--others", "--exclude-standard")
+        files = [f for r in (r1, r2) if r is not None and r.returncode == 0 for f in r.stdout.splitlines() if f]
+        files = [f for f in files if not pr.shared(f, self.c.scope_dir)]
+        for o in others:
+            hit = pr.hits(files, o.get("globs"))
+            if hit:
+                self.overlap_other = o["feature"]
+                return f"{hit} is in the Paths of {o['feature']}, which is building now"
+        return None
+
+    def sibling_denies(self):
+        """AC-7: Edit denies for the main checkout and every other worktree of the repo, so no call edits a sibling."""
+        if not self.repo.get("tree"):
+            return []
+        key = key_of(self.c)
+        trees = {key, *wf.worktrees(key), *(a.get("tree") for a in read_active() if a.get("repo") == key and a.get("tree"))}
+        return [rule for t in sorted(trees) if t and os.path.realpath(t) != os.path.realpath(self.c.path)
+                for rule in path_rules("Edit", t)]
 
     # -- branches and PRs (spec 0026) ----------------------------------------------
 
@@ -1899,7 +1957,7 @@ class Run:
             h = self.held[0]
             self.limit_q = self.ask(f"run_limit: {self.args.max_hours + self.extra_hours:g}h passed; keep going for "
                                     f"another {self.args.max_hours:g}h?", CASES["run_limit"][1], feature=RUN_ASK,
-                                    repo=h["c"].path, branch=h["branch"], level="run")["id"]
+                                    repo=key_of(h["c"]), branch=h["branch"], level="run")["id"]
         return next((d for d in self.queue()["decisions"] if d["id"] == self.limit_q), None)
 
     def limit_check(self):
@@ -1932,10 +1990,10 @@ class Run:
             return False
         # Spec 0014 AC-4: a timeout that ticked boxes has no cap, so a larger --call-timeout never clears it.
         last = self.record["calls"][self.entry["calls"][-1] - 1] if self.entry and self.entry["calls"] else {}
-        rec = {"repo": self.c.path, "feature": self.feature, "section_sha": f.sha, "reason": reason,
+        rec = {"repo": key_of(self.c), "feature": self.feature, "section_sha": f.sha, "reason": reason,
                "detail": None if detail is None else str(detail),
                "cap": getattr(self.args, reason) if reason in CAPPED and not last.get("unconfirmed") else None,
-               "run": self.folder, "parked_at": now()}
+               "run": self.folder, "parked_at": now(), **({"tree": self.repo["tree"]} if self.repo.get("tree") else {})}
         # Spec 0020 AC-6: what this park's cause depends on, so `wf` takes it back only when that changed.
         head = wf.git(self.c.path, "rev-parse", "HEAD")
         rec.update(head=head.stdout.strip() or None if head is not None and head.returncode == 0 else None,
@@ -1990,13 +2048,21 @@ class Run:
             items = self.survey(feats, q, dirty(c.path))
             # AC-20: wf run deletes these at its first pick; wf queue only says so.
             items += [(None, f"would clear: {p['feature']}") for p in q["parks"]
-                      if self.peek and p["repo"] == c.path and not self.applies(p, feats)]
+                      if self.peek and p["repo"] == key_of(c) and not self.applies(p, feats)]
             print(head)
             # Specs 0006 AC-7, 0007 AC-9, now plan lines (spec 0011 AC-6): the app command that will run, in full.
             print("  " + flat("answers: " + (", ".join(f"{k} {v}" for k, v in self.answers.items()) or "none")))
             if self.repo.get("guard"):
                 g = self.repo["guard"]
                 print(f"  guard: {len(g['hosts'])} hosts, {len(g['guarded_files'])} files")
+            if self.answers.get("parallel") and key_of(c) == c.path:
+                # Spec 0027 AC-5: a feature sharing a Paths glob with an earlier one waits for it.
+                import pr
+                gl = [(f, pr.globs(c.path, c.scope_dir, f.lines)) for f, _ in items if f]
+                for i, (f, g) in enumerate(gl):
+                    other = next(((o, pr.overlap(g, og)) for o, og in gl[:i] if pr.overlap(g, og)), None)
+                    if other:
+                        items.append((None, f"waits: {f.name}: shares {other[1]} with {other[0].name}"))
             for _, line in decisions + items:
                 # flat() drops an option line's own indent.
                 print(("    " if line.startswith("  ") else "  ") + flat(line))
@@ -2007,7 +2073,7 @@ class Run:
             # Spec 0026 AC-11: a PR in review is polled by a run, so it is work too.
             h["has_work"] = any(f for f, _ in items) or any(ok for ok, _ in decisions) or (
                 self.answers.get("push") == "draft pr" and
-                any(p["repo"] == c.path and p["state"] in ("draft", "ready", "approved") for p in q.get("prs", [])))
+                any(p["repo"] == key_of(c) and p["state"] in ("draft", "ready", "approved") for p in q.get("prs", [])))
             # Spec 0020 AC-13: the features the `wf` screen numbers.
             h["queued"] = [f.name for f, _ in items if f]
             runnable = runnable or h["has_work"]
@@ -2042,7 +2108,7 @@ class Run:
             q = queue_transact()
         except QueueError:
             return 6
-        held = {h["c"].path for h in self.held}
+        held = {key_of(h["c"]) for h in self.held}
         left = any(r["repo"] in held for r in q["parks"] + q["decisions"])
         return 0 if not left and all(e["outcome"] == "feature_done" for e in self.record["features"]) else 6
 
@@ -2161,6 +2227,8 @@ class Run:
             allowed = ["--allowedTools", ",".join("mcp__chrome-devtools__" + t for t in BROWSER_TOOLS)]
         else:
             mcp, settings, denied, allowed = MCP_ALLOW, self.settings, self.denied, []
+        # Spec 0027 AC-7: the siblings as they are right before this call.
+        denied = ",".join([denied, *self.sibling_denies()])
         # Spec 0014 AC-6: wf names every fresh call's session, so the live transcript path is known at spawn.
         session = resume[0] if resume else str(uuid.uuid4())
         argv = [self.claude, "-p", resume[1] if resume else command,
@@ -2403,7 +2471,7 @@ class Run:
             self.note(f"no linked issue: {self.feature}")
             return
         gh = shutil.which("gh")
-        state = read_issue_state(self.c.path)
+        state = read_issue_state(key_of(self.c))
         mine = state.setdefault(self.feature, {})
         spec_t, changes, blocks = self.spec_time(self.feature), [], []
         for owner, name, n in found:
@@ -2439,7 +2507,7 @@ class Run:
             if diff:
                 changes.append((key, n, view, diff))
         try:
-            write_issue_state(self.c.path, state)
+            write_issue_state(key_of(self.c), state)
         except OSError as e:
             self.note(f"issue baselines not saved: {e.strerror or e}")
         self.issue_prompt = "".join(blocks)
@@ -2452,19 +2520,19 @@ class Run:
             self.note(f"issue {key} changed after the spec: {path}")
             mine[key]["pending"] = issue_now(view, mine[key].get("bots") or ())
         try:
-            write_issue_state(self.c.path, state)
+            write_issue_state(key_of(self.c), state)
         except OSError as e:
             self.note(f"issue baselines not saved: {e.strerror or e}")
         raise Stop("issue_changed", "; ".join(f"{key} changed after the spec: {short}" for key, _, _, (short, _) in changes))
 
     def issue_accept(self, feature):
         """AC-7 go on as is: the issue as read when it was asked becomes the new baseline; a later change asks again."""
-        state = read_issue_state(self.c.path)
+        state = read_issue_state(key_of(self.c))
         for key, base in state.get(feature, {}).items():
             pending = base.pop("pending", None)
             if pending:
                 state[feature][key] = {**pending, "spec_t": base.get("spec_t")}
-        write_issue_state(self.c.path, state)
+        write_issue_state(key_of(self.c), state)
 
     def guard(self, scope):
         """(reason, detail) when the next call may not start, else None. Runs after every call and
@@ -2594,7 +2662,7 @@ class Run:
     def reping(self, unsent=False):
         """AC-14: ping every unanswered Decision of a held repo once more, same id, body and buttons; unsent: only
         those whose ping never went out (spec 0021 U9). A failed ping is sent again PING_RETRY seconds later."""
-        held = {h["c"].path for h in self.held}
+        held = {key_of(h["c"]) for h in self.held}
         for d in [d for d in self.queue()["decisions"] if d["answer"] is None and d["repo"] in held
                   and not (unsent and d["pings"])]:
             sent = dict(d)
@@ -2619,8 +2687,8 @@ class Run:
             while True:
                 if self.interrupted:
                     raise Stop("interrupted", "Ctrl C or a stop signal")
-                waiting = {h["c"].path for h in self.held if not h["repo"]["ended"]}
-                held = {h["c"].path for h in self.held}
+                waiting = {key_of(h["c"]) for h in self.held if not h["repo"]["ended"]}
+                held = {key_of(h["c"]) for h in self.held}
                 left = self.args.max_wait * 3600 - self.end_waited - (ntfy.boottime() - t0)
                 # Spec 0021 AC-5: a stopped repo's own question is waited for too, its answer can resume it.
                 q = self.queue()
@@ -2673,10 +2741,11 @@ class Run:
         """Spec 0011 AC-8: one feature's calls until it is done, parks, opens a decision or its repo stops, starting
         with the resume of the answered Decision d when given (AC-13). A run stop propagates."""
         # AC-18: a resumed feature reuses its entry from this run, and its counts (AC-16).
-        e = next((x for x in self.record["features"] if d and (x["repo"], x["feature"]) == (self.c.path, f.name)), None)
+        e = next((x for x in self.record["features"] if d and (x["repo"], x["feature"]) == (key_of(self.c), f.name)), None)
         if e is None:
-            e = {"n": len(self.record["features"]) + 1, "repo": self.c.path, "feature": f.name,
-                 "outcome": None, "detail": None, "calls": [], "counted": 0, "debug_attempts": 0, "design": None}
+            e = {"n": len(self.record["features"]) + 1, "repo": key_of(self.c), "feature": f.name,
+                 "outcome": None, "detail": None, "calls": [], "counted": 0, "debug_attempts": 0, "design": None,
+                 **({"tree": self.repo["tree"]} if self.repo.get("tree") else {})}
             self.record["features"].append(e)
         e.update(outcome=None, detail=None)
         # A limit rerun ended by a repo stop used to carry into the next feature, whose loop then skipped its
@@ -2866,6 +2935,10 @@ class Run:
             # Spec 0008 AC-8, spec 0014 AC-1: a limited or outage call is not counted.
             e["counted"] += not (rec["limited"] or rec["outage"])
             self.save()
+            # Spec 0027 AC-6: never two features on the same Paths at once.
+            drift = self.drift()
+            if drift:
+                raise Stop("paths_overlap", drift)
             reason = act[1] if act[0] == "end" else None
             shown = "usage_limit" if rec["limited"] else "api_outage" if rec["outage"] else rec["subtype"] or reason or "error"
             cost = "-" if rec["cost_usd"] is None else f"{rec['cost_usd']:.2f}"
@@ -3215,6 +3288,8 @@ def read_answers(c):
         return None, f"{rel}: app start and app url go together"
     if found.get("push") == "draft pr" and "branches" not in found:
         return None, f"{rel}: push needs branches: per spec"
+    if "parallel" in found and "branches" not in found:
+        return None, f"{rel}: parallel needs branches: per spec"
     return {k: found[k] for k in ANSWER_KEYS if k in found}, None
 
 
@@ -3405,12 +3480,40 @@ def read_allowed():
     return data, None
 
 
+def trees_root():
+    """Spec 0027 AC-2: where feature worktrees live; no call writes there (not a cache, not the state folder)."""
+    return os.path.join(os.path.expanduser("~"), ".local", "share", "wf-trees")
+
+
+def tree_folder(main):
+    real = os.path.realpath(main)
+    return os.path.join(trees_root(), f"{os.path.basename(real)}-{hashlib.sha1(real.encode()).hexdigest()[:6]}")
+
+
+def tree_path(main, branch):
+    return os.path.join(tree_folder(main), branch.replace("/", "-"))
+
+
+def tree_main(path):
+    """Spec 0027 AC-3: the main checkout of a feature worktree under its repo's wf-trees folder, else None."""
+    real = os.path.realpath(path)
+    if not under(real, [os.path.realpath(trees_root())]):
+        return None
+    common = common_dir(real)
+    main = common and os.path.dirname(common)
+    return os.path.realpath(main) if main and under(real, [os.path.realpath(tree_folder(main))]) else None
+
+
 def untrusted(path):
-    """Spec 0008 AC-9: why this repo may not run unattended, else None."""
+    """Spec 0008 AC-9: why this repo may not run unattended, else None. Spec 0027 AC-3: a feature worktree is trusted
+    through its main checkout."""
     paths, problem = read_allowed()
     if problem:
         return problem
     real = os.path.realpath(path)
+    main = tree_main(real)
+    if main and main in paths:
+        return None
     return None if real in paths else f"{real} is not listed, run wf allow {shlex.quote(real)} if it is yours"
 
 
@@ -4087,6 +4190,11 @@ def parse_result(raw):
     return data if isinstance(data, dict) else None
 
 
+def key_of(c):
+    """Spec 0027 AC-3: the path a candidate's records name: its main checkout for a feature worktree."""
+    return getattr(c, "key", None) or c.path
+
+
 def github_origin(repo):
     """Spec 0024 AC-2: (owner, name) of the repo's origin when it is on github.com, else None."""
     r = wf.git(repo, "remote", "get-url", "origin")
@@ -4355,9 +4463,101 @@ def app_port(url):
 
 
 def clashes(a, b):
-    """Spec 0017 AC-3: two repos that never run at the same time."""
+    """Spec 0017 AC-3: two repos that never run at the same time. Spec 0027 AC-4: two worktrees of one parallel repo
+    share a git common dir and may run together, unless their Paths overlap or they share an app port."""
+    if a.get("tree") and b.get("tree") and a["key"] == b["key"]:
+        import pr
+        return (a["port"] is not None and a["port"] == b["port"]) or pr.overlap(a["globs"], b["globs"]) is not None
     return (a["port"] is not None and a["port"] == b["port"]) or (a["common"] is not None and a["common"] == b["common"]) \
         or under(a["path"], [b["path"]]) or under(b["path"], [a["path"]])
+
+
+def tree_jobs(r, h, name, port):
+    """Spec 0027 AC-2, AC-3: a child row per feature of parallel repo h: the picked queued features, those holding a
+    question, and (spec 0026) those in review, each with its worktree made or reused. A worktree that cannot be made
+    is a skip row naming why."""
+    import pr
+    r.use(h)
+    key = key_of(h["c"])
+    try:
+        _, feats = repo_features(h["c"].path, h["c"].scope_dir)
+    except (OSError, StopIteration):
+        feats = []
+    by = {f.name: f for f in feats}
+    q = queue_transact()
+    want = list(h.get("only") or h["queued"])
+    want += [d["feature"] for d in q["decisions"] if d["repo"] == key and not d.get("level") and d["feature"] in by
+             and (not h.get("only") or d["feature"] in h["only"])]
+    if h["answers"].get("push") == "draft pr" and not h.get("only"):
+        want += [p["feature"] for p in q.get("prs", []) if p["repo"] == key and p["state"] in pr.POLLED]
+    out = []
+    for fname in dict.fromkeys(want):
+        row = {"name": f"{name}: {fname}", "skip": None, "work": True, "code": None, "last": "-", "folder": "-"}
+        f = by.get(fname)
+        if f is None:
+            row["skip"] = "not in the scope any more"
+            out.append(row)
+            continue
+        try:
+            tree, _ = pr.make_tree(r, f)
+        except Stop as s:
+            row["skip"] = flat(f"{s.reason}: {s.detail}")
+            out.append(row)
+            continue
+        row.update(path=tree, key=key, tree=tree, feature=fname, common=common_dir(tree), port=port, only=[fname],
+                   held=h, globs=pr.globs(h["c"].path, h["c"].scope_dir, f.lines),
+                   limit=int(h["answers"]["parallel"]))
+        out.append(row)
+    return out
+
+
+def active_path():
+    return os.path.join(state_dir(), "active.json")
+
+
+def read_active():
+    """Spec 0027 AC-6: the running feature children, [{repo, feature, tree, globs}]."""
+    try:
+        with open(active_path(), encoding="utf-8") as f:
+            data = json.load(f)
+        return [a for a in data if isinstance(a, dict)] if isinstance(data, list) else []
+    except (OSError, ValueError):
+        return []
+
+
+def set_active(j, on):
+    """Spec 0027 AC-6: add or drop child row j in active.json, under queue.lock."""
+    def change(q):
+        items = [a for a in read_active() if (a.get("repo"), a.get("feature")) != (j["key"], j["feature"])]
+        if on:
+            items.append({"repo": j["key"], "feature": j["feature"], "tree": j["tree"], "globs": j["globs"]})
+        tmp = active_path() + ".tmp"
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(items, f)
+        os.replace(tmp, active_path())
+        return False
+
+    try:
+        queue_transact(change)
+    except (QueueError, OSError):
+        pass
+
+
+def tree_cleanup(r, jobs):
+    """Spec 0027 AC-8: after the children, each worktree whose PR merged or closed, or whose feature built nothing,
+    goes; the report lines of those kept."""
+    import pr
+    notes = []
+    for j in jobs:
+        if not j.get("tree"):
+            continue
+        r.use(j["held"])
+        rec = pr.find(r, j["key"], j["feature"])
+        line = rec and pr.remove_tree(r, rec)
+        if line:
+            notes.append(line)
+    return notes
 
 
 def write_baseline(h):
@@ -4423,6 +4623,14 @@ def parallel(r, on_signal=None, start=None):
         if row["skip"] or not h or not h.get("has_work"):
             continue
         url = h["answers"].get("app url")
+        if h["answers"].get("parallel") and key_of(h["c"]) == h["c"].path:
+            # Spec 0027 AC-2, AC-3: one child per feature, each in its own worktree; this row is their repo.
+            rows.pop()
+            for t in tree_jobs(r, h, row["name"], url and app_port(url)):
+                rows.append(t)
+                if not t["skip"]:
+                    jobs.append(t)
+            continue
         row.update(work=True, path=h["c"].path, common=common_dir(h["c"].path), port=url and app_port(url),
                    only=h.get("only"), held=h)
         jobs.append(row)
@@ -4461,13 +4669,18 @@ def parallel(r, on_signal=None, start=None):
         while running or (waiting and not r.interrupted):
             # AC-1: one child at a time through its start checks (the shared MCP npm cache, the locks).
             if starting is None and not r.interrupted and len(running) < limit:
-                j = next((j for j in waiting if not any(clashes(j, k) for k in running)), None)
+                # Spec 0027 AC-4: at most <parallel> children of one repo; Paths overlap keeps two apart.
+                j = next((j for j in waiting if not any(clashes(j, k) for k in running)
+                          and (not j.get("tree") or sum(k.get("key") == j["key"] for k in running) < j["limit"])),
+                         None)
                 if j:
                     waiting.remove(j)
                     # Spec 0018 AC-1: the parent sends the one report, so no child does.
                     only = [x for n in j["only"] or () for x in ("--only-feature", n)]
                     # Spec 0025 AC-1: the plan's baseline, written right before this child starts.
                     baselines.append(write_baseline(j["held"]))
+                    if j.get("tree"):
+                        set_active(j, True)
                     only += ["--plan-guard", baselines[-1]]
                     j["proc"] = subprocess.Popen([*argv, j["path"], *caps, *only], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                                  stderr=subprocess.STDOUT, encoding="utf-8", errors="replace",
@@ -4483,6 +4696,8 @@ def parallel(r, on_signal=None, start=None):
             if line is None:
                 j["code"] = j["proc"].wait()
                 running.remove(j)
+                if j.get("tree"):
+                    set_active(j, False)
                 starting = None if starting is j else starting
                 continue
             line = wf.clean(line.rstrip("\n"))
@@ -4496,6 +4711,9 @@ def parallel(r, on_signal=None, start=None):
                 j["folder"] = line[len("run folder: "):]
                 starting = None if starting is j else starting
     finally:
+        for j in jobs:
+            if j.get("tree") and j.get("proc") is not None:
+                set_active(j, False)
         # Spec 0025 AC-1: however the parent ends, Ctrl C included.
         for p in baselines:
             try:
@@ -4512,8 +4730,11 @@ def parallel(r, on_signal=None, start=None):
             print(f"  {row['name']}: not started")
         else:
             print(f"  {row['name']}: exit {row['code']}, {row['last']} | run folder: {row['folder']}")
+    notes = tree_cleanup(r, jobs)
+    for n in notes:
+        print(n)
     sys.stdout.flush()
-    report.end_of_parent(r, rows)
+    report.end_of_parent(r, rows, notes)
     codes = [j["code"] for j in jobs if j["code"] is not None and not j["skip"]]
     if r.interrupted or 130 in codes:
         return 130
@@ -4530,8 +4751,10 @@ def cmd_run(args):
     except KeyboardInterrupt:
         print()
         return 130
-    # Spec 0017: bare wf run is a parent of single repo runs.
-    return r.run() if r.target else parallel(r)
+    # Spec 0017: bare wf run is a parent of single repo runs. Spec 0027: so is wf run on a parallel repo.
+    if r.target and not (r.answers.get("parallel") and key_of(r.c) == r.c.path):
+        return r.run()
+    return parallel(r)
 
 
 def cmd_queue(args):

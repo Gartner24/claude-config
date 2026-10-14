@@ -271,7 +271,7 @@ def load_record(folder):
     return rec if isinstance(rec, dict) and rec else None
 
 
-def end_of_parent(r, rows):
+def end_of_parent(r, rows, notes=()):
     """AC-1, AC-2: one report over a bare wf run's work rows, from their summary fields."""
     sources = []
     for row in rows:
@@ -279,8 +279,13 @@ def end_of_parent(r, rows):
         if not row["work"] or row.get("skip"):
             continue
         folder =None if row["folder"] == "-" else row["folder"]
-        sources.append({"path": row["path"], "name": row["name"], "folder": folder, "code": row["code"],
-                        "rec": folder and load_record(folder)})
+        # Spec 0027 AC-9: a feature worktree row reports under its main checkout, named `<repo>: <feature>`.
+        sources.append({"path": row.get("key") or row["path"], "name": row["name"], "folder": folder,
+                        "code": row["code"], "rec": folder and load_record(folder)})
+    if sources and notes:
+        # Spec 0027 AC-8: worktrees kept with uncommitted changes.
+        rec = sources[-1]["rec"] = dict(sources[-1]["rec"] or {})
+        rec["notes"] = list(rec.get("notes") or []) + list(notes)
     if sources:
         deliver(sources, r.ntfy)
 

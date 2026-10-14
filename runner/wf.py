@@ -398,6 +398,8 @@ def load_scope(folder, warnings):
 class Candidate:
     def __init__(self, path, scope_dir, warnings):
         self.path, self.scope_dir, self.warnings = path, scope_dir, warnings
+        # Spec 0027 AC-3: the path records name; wf run sets the main checkout's for a feature worktree.
+        self.key = path
         self.name = clean(os.path.basename(path))
         self.label = worktree_label(path)
         self.text, boxes = load_scope(os.path.join(path, scope_dir), self.warnings)

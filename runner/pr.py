@@ -250,8 +250,8 @@ def plan_line(rec):
 def start_feature(r, f, d=None):
     """At a feature's start in a branches per spec repo: its spec branch, reused or made from its base, recorded
     `building`, and checked out. Raises Stop stack_deep for a chain longer than 3."""
-    repo, start = r.c.path, r.repo["start_branch"]
-    rec = find(r, repo, f.name)
+    repo, start, key = r.c.path, r.repo["start_branch"], run.key_of(r.c)
+    rec = find(r, key, f.name)
     off = d is not None and d.get("case") == "stack_deep" and \
         run.flat(d.get("answer")).casefold() == "build it off the start branch"
     if d is not None and d.get("case") == "stack_deep" and not off:
@@ -261,7 +261,7 @@ def start_feature(r, f, d=None):
         name = branch_name(f.name, spec)
         base, stacked = start, None
         n = None if off else stacks_on(spec_file(repo, r.c.scope_dir, f.lines))
-        recs = records(r, repo)
+        recs = records(r, key)
         below = next((p for p in recs if n and p["spec"] == n and p["state"] not in ("merged", "closed")), None)
         if below and not merged(r, below["branch"], start):
             base, stacked = below["branch"], n
@@ -277,7 +277,7 @@ def start_feature(r, f, d=None):
         base_sha = out(wf.git(repo, "rev-parse", base))
         if base_sha is None:
             raise run.Stop("branch_changed", f"cannot read the base {base}")
-        rec = {"repo": repo, "feature": f.name, "spec": spec, "branch": name, "base": base, "base_sha": base_sha,
+        rec = {"repo": key, "feature": f.name, "spec": spec, "branch": name, "base": base, "base_sha": base_sha,
                "stacked_on": stacked, "pr": None, "number": None, "state": "building", "seen": [], "rounds": 0,
                "pushed_sha": None}
     switch(r, rec["branch"], rec["base_sha"])
@@ -304,6 +304,9 @@ def back(r):
     """AC-2: back on the start branch after a feature, when the tree is clean; else the repo stops with its R2
     question and the report says where it was left."""
     start = r.repo.get("start_branch")
+    if r.repo.get("tree"):
+        # Spec 0027 AC-2: a feature worktree stays on its spec branch; the main checkout is never switched.
+        return
     if not start or wf.head_branch(r.c.path) == start:
         r.branch = r.repo["branch"] = start or r.branch
         r.keep_held()
@@ -360,7 +363,7 @@ def squash(r, f, rec):
 def built(r, f, e):
     """After feature_done in a branches per spec repo: guard check, squash, state local, and the push and draft PR
     when the repo opted in. Every failure is a question; the run goes on."""
-    rec = find(r, r.c.path, f.name)
+    rec = find(r, run.key_of(r.c), f.name)
     if rec is None:
         return
     changed = r.files_changed()
@@ -654,8 +657,10 @@ def poll(r, force=False):
                 continue
             r.use(h)
             follow_stacks(r)
-            for rec in records(r, r.c.path):
-                if rec["state"] in POLLED:
+            only = getattr(r.args, "only_feature", None) or ()
+            for rec in records(r, run.key_of(r.c)):
+                # Spec 0027 AC-8: a worktree child polls only its own feature's PR, and runs its rounds there.
+                if rec["state"] in POLLED and (not r.repo.get("tree") or rec["feature"] in only):
                     poll_one(r, rec)
     finally:
         if cur is not None:
@@ -816,7 +821,7 @@ def fix_round(r, rec, name, comments):
             r.pr_ask(rec, "review_ask", f"PR #{rec['number']} @{c['author']}: {run.flat(c['body'])[:120]}: proposed: "
                                         f"{run.flat(reply)[:120]}", comment=c, reply=reply)
     finally:
-        if start and wf.head_branch(repo) != start and not run.dirty(repo):
+        if start and not r.repo.get("tree") and wf.head_branch(repo) != start and not run.dirty(repo):
             wf.git(repo, "switch", start)
             r.branch = r.repo["branch"] = start
             r.keep_held()
@@ -857,11 +862,11 @@ def review_answer(r, rec, d, opt, text):
 
 def follow_stacks(r):
     """AC-16: a stacked branch whose base moved or merged is rebased onto it, bottom first; a pushed one asks first."""
-    recs = records(r, r.c.path)
+    recs = records(r, run.key_of(r.c))
     for rec in sorted((p for p in recs if p.get("stacked_on") and p["state"] in ("building", "local") + POLLED),
                       key=lambda p: depth(recs, p)):
         base = next((p for p in recs if p["spec"] == rec["stacked_on"]), None)
-        if base is None:
+        if base is None or (r.repo.get("tree") and rec["feature"] not in (getattr(r.args, "only_feature", None) or ())):
             continue
         onto = r.repo["start_branch"] if base["state"] == "merged" else base["branch"]
         tip = out(wf.git(r.c.path, "rev-parse", onto))
@@ -906,3 +911,114 @@ def rebase(r, rec, onto, force=False):
             gh(r.gh, "pr", "edit", str(rec["number"]), "--base", onto, "--repo", origin_repo(r) or "")
     save(r, rec)
     act(r, rec, "rebase", onto=onto, commit=rec["pushed_sha"])
+
+
+# -- several features of one repo at once (spec 0027) --------------------------------
+
+# AC-5: files every feature's /sync and checks touch, left out of the overlap test.
+SHARED = ("AGENTS.md", "CLAUDE.md", "verify.md")
+PATHS_LINE = re.compile(r"^\*\*Paths:\*\*(.*)$", re.M)
+
+
+def globs(repo, scope_dir, lines):
+    """AC-5: the backticked spans of the feature's spec top file's **Paths:** line, shared files left out; None (it
+    overlaps every feature) with no spec link, no Paths line or no globs."""
+    top = spec_file(repo, scope_dir, lines)
+    try:
+        m = PATHS_LINE.search(wf.read(top)) if top else None
+    except OSError:
+        m = None
+    found = re.findall(r"`([^`]+)`", m.group(1)) if m else []
+    kept = [g for g in found if not shared(g, scope_dir)]
+    return kept or None
+
+
+def shared(path, scope_dir):
+    return os.path.basename(path.rstrip("/")) in SHARED or run.under(path, [scope_dir])
+
+
+def overlap(a, b):
+    """AC-5: the first glob of a that meets one of b (fnmatch either way, or a folder prefix), "*" when either is
+    None, else None."""
+    if a is None or b is None:
+        return "*"
+    for x in a:
+        for y in b:
+            if fnmatch(x, y) or fnmatch(y, x) or run.under(x, [y]) or run.under(y, [x]):
+                return x
+    return None
+
+
+def fnmatch(a, b):
+    import fnmatch as fm
+    return fm.fnmatchcase(a, b)
+
+
+def hits(files, gl):
+    """AC-6: the first changed file a glob list covers, else None (None globs cover everything)."""
+    for f in files:
+        if gl is None or any(fnmatch(f, g) or run.under(f, [g]) for g in gl):
+            return f
+    return None
+
+
+def make_tree(r, f):
+    """AC-2: the feature's spec branch (made from its base with no switch) and its linked worktree, reused when it
+    exists, made with wf's hooks off git. The main checkout is never switched. Returns (tree, record). Raises Stop
+    stack_deep like a branch made in place."""
+    repo, start, key = r.c.path, r.branch, run.key_of(r.c)
+    rec = find(r, key, f.name)
+    if rec is None or rec["state"] in ("merged", "closed"):
+        _, spec = spec_link(f.lines)
+        name = branch_name(f.name, spec)
+        base, stacked = start, None
+        n = stacks_on(spec_file(repo, r.c.scope_dir, f.lines))
+        recs = records(r, key)
+        below = next((p for p in recs if n and p["spec"] == n and p["state"] not in ("merged", "closed")), None)
+        if below and not merged(r, below["branch"], start):
+            base, stacked = below["branch"], n
+            if depth(recs, {"feature": f.name, "stacked_on": n}) > MAX_DEPTH:
+                raise run.Stop("stack_deep", f"{name} would be more than {MAX_DEPTH} branches deep")
+        base_sha = out(wf.git(repo, "rev-parse", base))
+        if base_sha is None:
+            raise run.Stop("branch_changed", f"cannot read the base {base}")
+        rec = {"repo": key, "feature": f.name, "spec": spec, "branch": name, "base": base, "base_sha": base_sha,
+               "stacked_on": stacked, "pr": None, "number": None, "state": "building", "seen": [], "rounds": 0,
+               "pushed_sha": None}
+    path = run.tree_path(key, rec["branch"])
+    have = {os.path.realpath(t) for t in wf.worktrees(key)}
+    if os.path.realpath(path) not in have:
+        exists = wf.git(repo, "rev-parse", "--verify", "--quiet", f"refs/heads/{rec['branch']}")
+        if exists is None or exists.returncode:
+            res = wf.git(repo, "branch", rec["branch"], rec["base_sha"])
+            if res is None or res.returncode:
+                raise run.Stop("branch_changed", f"cannot make {rec['branch']}: {run.flat(res and res.stderr)}")
+        os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
+        res = wf.git(repo, "worktree", "add", path, rec["branch"])
+        if res is None or res.returncode:
+            raise run.Stop("branch_changed", f"cannot add the worktree {path}: {run.flat(res and res.stderr)}")
+    rec["tree"] = path
+    save(r, rec)
+    return path, rec
+
+
+def remove_tree(r, rec):
+    """AC-8: a worktree whose PR merged or closed, or whose feature ended with no commit, goes (never --force);
+    a dirty one stays. Returns a report line, else None."""
+    path = rec.get("tree")
+    if not path or not os.path.isdir(path):
+        return None
+    done = rec["state"] in ("merged", "closed")
+    empty = rec["state"] == "building" and \
+        (out(wf.git(r.c.path, "rev-list", "--count", f"{rec['base_sha']}..{rec['branch']}")) or "0") == "0"
+    if not (done or empty):
+        return None
+    if run.dirty(path):
+        return f"kept {path}: uncommitted changes"
+    res = wf.git(r.c.path, "worktree", "remove", path)
+    wf.git(r.c.path, "worktree", "prune")
+    if res is None or res.returncode:
+        return f"kept {path}: {run.flat(res and res.stderr)[:120]}"
+    rec.pop("tree", None)
+    save(r, rec)
+    return None
