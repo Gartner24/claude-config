@@ -4,6 +4,7 @@
   "permissions": {
     "deny": [
       "Bash(*wf auto on*)",
+      "Bash(*wf.py auto on*)",
       "Bash(wf auto on:*)",
       "Bash(fdisk *)",
       "Bash(halt *)",
@@ -16,6 +17,7 @@
       "Bash(sudo mkfs*)",
       "Bash(sudo rm *)",
       "Edit(//home/santiago/.aws/**)",
+      "Edit(//home/santiago/.local/state/wf/auto.json)",
       "Edit(//home/santiago/.bash_profile)",
       "Edit(//home/santiago/.bashrc)",
       "Edit(//home/santiago/.profile)",
