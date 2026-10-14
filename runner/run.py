@@ -1163,10 +1163,10 @@ class Run:
             # Spec 0027 AC-7, security review: the shared common dir stays writable for this worktree's commits, but
             # no other worktree's admin folder, the main checkout or another spec branch's ref is.
             # The main checkout holds the common dir, so its write deny is carved around it.
+            # One list feeds both the sandbox and the Edit denies (security review: incomplete write guard).
             trees, git_parts = tree_siblings(self.repo["tree"], key_of(self.c), common, git_dir)
-            self.guard_settings["sandbox"]["filesystem"]["denyWrite"] += \
-                carve(trees, [common, os.path.realpath(common)]) + git_parts
-            self.repo["guard"]["siblings"] = trees + git_parts
+            self.repo["guard"]["siblings"] = carve(trees, [common, os.path.realpath(common)]) + git_parts
+            self.guard_settings["sandbox"]["filesystem"]["denyWrite"] += self.repo["guard"]["siblings"]
         self.settings = json.dumps(self.guard_settings)
         self.denied = ",".join([DENIED, GUARD_DENIED, DESIGN_DENIED,
                                 *(r for p in CREDENTIAL_PATHS for x in expand(p) for r in path_rules("Read", x)),
@@ -1839,16 +1839,6 @@ class Run:
                 return f"{hit} is in the Paths of {o['feature']}, which is building now"
         return None
 
-    def sibling_denies(self):
-        """AC-7: Edit denies for the main checkout and every other worktree of the repo, so no call edits a sibling."""
-        if not self.repo.get("tree"):
-            return []
-        key = key_of(self.c)
-        trees = {key, *wf.worktrees(key), *(a.get("tree") for a in read_active() if a.get("repo") == key and a.get("tree"))}
-        paths = {x for t in trees if t and os.path.realpath(t) != os.path.realpath(self.c.path)
-                 for x in (t, os.path.realpath(t))}
-        return [rule for t in sorted(paths) for rule in path_rules("Edit", t)]
-
     # -- branches and PRs (spec 0026) ----------------------------------------------
 
     def keep_held(self):
@@ -2237,10 +2227,6 @@ class Run:
             allowed = ["--allowedTools", ",".join("mcp__chrome-devtools__" + t for t in BROWSER_TOOLS)]
         else:
             mcp, settings, denied, allowed = MCP_ALLOW, self.settings, self.denied, []
-        # Spec 0027 AC-7: the siblings as they are right before this call.
-        extra = self.sibling_denies()
-        if extra:
-            denied = ",".join([denied, *extra])
         # Spec 0014 AC-6: wf names every fresh call's session, so the live transcript path is known at spawn.
         session = resume[0] if resume else str(uuid.uuid4())
         argv = [self.claude, "-p", resume[1] if resume else command,

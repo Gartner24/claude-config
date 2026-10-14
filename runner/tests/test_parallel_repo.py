@@ -137,7 +137,7 @@ class TestSameRepo(RepoCase):
             self.assertFalse([f for f in changed if f.endswith(".txt") and f != f"{x}.txt"], changed)
         denied = json.loads((self.fakes / "feat-0001-a-argv-1.json").read_text())["argv"]
         rules = denied[denied.index("--disallowedTools") + 1].split(",")
-        self.assertIn(f"Edit(/{self.repo}/**)", rules)
+        self.assertIn(f"Edit(/{self.repo / 'AGENTS.md'})", rules)
         self.assertIn(f"Edit(/{self.trees / 'feat-0002-b'}/**)", rules)
         self.assertNotIn(f"Edit(/{self.trees / 'feat-0001-a'}/**)", rules)
         # Security review: the sandbox denies the main checkout (carved around its .git, which commits need), every
@@ -152,6 +152,14 @@ class TestSameRepo(RepoCase):
         self.assertIn(str(self.repo / ".git" / "refs" / "heads" / "work"), fs)
         self.assertNotIn(str(self.repo / ".git" / "refs" / "heads" / "feat" / "0001-a"), fs)
         self.assertIn(f"Edit(/{admin / 'feat-0002-b'}/**)", rules)
+        # Security review (incomplete write guard): every sibling path is in both lists, as written and resolved.
+        g = ra["repos"][0]["guard"]["siblings"]
+        self.assertTrue(g)
+        for p in g:
+            self.assertIn(os.path.realpath(p), g)
+            self.assertIn(p, fs)
+            for rule in run.path_rules("Edit", p):
+                self.assertIn(rule, rules)
         self.assertEqual(json.loads((self.state / "wf" / "active.json").read_text()), [])
 
     # covers: security review (spec 0025 with 0027): a worktree child's own pointer file changed after the parent
@@ -205,12 +213,6 @@ class TestSameRepo(RepoCase):
         self.assertEqual(trees, [str(link), str(self.repo)])
         self.assertIn(f"{git}/refs/heads/work", parts)
         self.assertNotIn(f"{git}/refs/heads/feat/x", parts)
-        c = types.SimpleNamespace(path=str(tree), key=str(link))
-        with mock.patch.dict(os.environ, {"XDG_STATE_HOME": str(self.tmp / "state")}):
-            rules = run.Run.sibling_denies(types.SimpleNamespace(repo={"tree": str(tree)}, c=c))
-        self.assertIn(f"Edit(/{link}/**)", rules)
-        self.assertIn(f"Edit(/{self.repo}/**)", rules)
-        self.assertFalse([x for x in rules if "feat-x" in x], rules)
 
     # covers: AC-3 (a worktree of a trusted repo is trusted; one elsewhere is not)
     def test_trust(self):
