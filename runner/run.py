@@ -263,7 +263,7 @@ CASES = {
     "review_ask": ("P7", ("send that reply", "fix it", "I will answer it myself")),
     "review_never": ("P8", ()),
     "review_rounds": ("P9", ("5 more rounds", "leave it for you")),
-    "approved": ("P10", ("I merged it", "later")),
+    "approved": ("P10", ("merge now", "later", "I merged it")),
     "rebase": ("P11", ("rebase and force push with lease", "leave it for you")),
     "rebase_conflict": ("P12", ("leave it for you", "try again")),
     "branch": ("R1", ()),
@@ -994,9 +994,11 @@ class Run:
         # Spec 0021 R1: main and master pass; branch_off() makes the feature branch at the feature's start.
         if self.branch in BAD_BRANCHES or self.branch.startswith("detached"):
             return "branch", f"{self.branch}, switch to a work branch first"
-        if answers.get("branches") == "per spec":
+        import pr
+        if answers.get("branches") == "per spec" or pr.flag(self, "adopt"):
             # Spec 0026 AC-2, AC-7: the branch the run comes back to, and origin as it was at the start. A feature
-            # worktree (spec 0027) never switches; its base is cut from the main checkout's branch.
+            # worktree (spec 0027) never switches; its base is cut from the main checkout's branch. Spec 0031 AC-1:
+            # an adopting repo pushes review fixes too.
             self.repo["start_branch"] = wf.head_branch(key_of(c)) if self.repo.get("tree") else self.branch
             r = wf.git(c.path, "config", "--get", "remote.origin.url")
             self.repo["origin_url"] = r.stdout.strip() if r is not None and r.returncode == 0 else None
@@ -1665,7 +1667,7 @@ class Run:
         ran = {e["feature"] for e in self.record["features"] if e["repo"] == repo}
         # Spec 0026 AC-2, AC-3: a feature built on its own spec branch is never queued again from here.
         recs = [p for p in q.get("prs", []) if p["repo"] == repo] if self.answers.get("branches") == "per spec" else []
-        held_back = {p["feature"]: p for p in recs if p["state"] in ("local", "draft", "ready", "approved")}
+        held_back = {p["feature"]: p for p in recs if p["state"] in ("local", "draft", "ready", "approved", "merged")}
         out = []
         for f in feats:
             if f.name in held_back and f.queued and self.wanted(f.name):
@@ -1770,9 +1772,10 @@ class Run:
                 h.update(self.keep())
             if self.repo["ended"]:
                 continue
-            if self.answers.get("branches") == "per spec":
-                # Spec 0026 AC-17: an answered PR question is acted on here, never as a feature run.
-                import pr
+            import pr
+            if self.answers.get("branches") == "per spec" or pr.adopting(self):
+                # Spec 0026 AC-17: an answered PR question is acted on here, never as a feature run (spec 0031
+                # AC-1: in an adopting repo too).
                 for d in [d for d in self.queue()["decisions"] if d["repo"] == key_of(self.c) and d.get("pr")
                           and d["answer"] is not None]:
                     pr.answer(self, d)
@@ -1923,9 +1926,8 @@ class Run:
                  repo=rec["repo"], case=case, pr=True, learn=plain.PLAIN.get(case, (None, None))[1], **extra)
 
     def pr_poll(self, force=False):
-        """AC-11: review polling of every opted in held repo; a failure is a report line, never a stop."""
-        if not any(h["answers"].get("push") == "draft pr" for h in self.held):
-            return
+        """AC-11: review polling of every opted in held repo (spec 0031 AC-1: push: draft PR or adopt in pr.json,
+        decided per repo in pr.poll); a failure is a report line, never a stop."""
         import pr
         try:
             pr.poll(self, force)
@@ -2107,8 +2109,20 @@ class Run:
                 print(head)
                 print("  skip: " + entry["skip"])
                 continue
+            import pr
+            watched = pr.watching(self)
+            if watched and pr.adopting(self) and not self.peek and getattr(self, "adopt_now", True):
+                # Spec 0031 AC-2: a real run reads your open PRs at plan time; never wf queue or the fingerprint.
+                try:
+                    pr.adopt(self)
+                    q = {**q, "prs": self.queue().get("prs", [])}
+                except Exception as ex:
+                    self.warnings.append(f"{c.name}: open PRs not read: {flat(ex)[:120]}")
             decisions = self.decision_lines(q, feats)
             items = self.survey(feats, q, dirty(c.path))
+            # Spec 0031 AC-2: an adopted PR has no scope feature; its plan line says it is watched.
+            items += [(None, f"watching: {p['feature']} ({p['state']})") for p in q.get("prs", [])
+                      if p["repo"] == key_of(c) and p.get("adopted") and p["state"] in pr.POLLED]
             # AC-20: wf run deletes these at its first pick; wf queue only says so.
             items += [(None, f"would clear: {p['feature']}") for p in q["parks"]
                       if self.peek and p["repo"] == key_of(c) and not self.applies(p, feats)]
@@ -2135,7 +2149,7 @@ class Run:
             # Spec 0017 AC-1: the parent starts a child only for a repo with this flag.
             # Spec 0026 AC-11: a PR in review is polled by a run, so it is work too.
             h["has_work"] = any(f for f, _ in items) or any(ok for ok, _ in decisions) or (
-                self.answers.get("push") == "draft pr" and
+                watched and
                 any(p["repo"] == key_of(c) and p["state"] in ("draft", "ready", "approved") for p in q.get("prs", [])))
             # Spec 0020 AC-13: the features the `wf` screen numbers.
             h["queued"] = [f.name for f, _ in items if f]
@@ -2770,20 +2784,21 @@ class Run:
                 left = self.args.max_wait * 3600 - self.end_waited - (ntfy.boottime() - t0)
                 # Spec 0021 AC-5: a stopped repo's own question is waited for too, its answer can resume it.
                 q = self.queue()
-                # Spec 0026 AC-11: a held repo with a ready PR counts like an open question until --max-wait.
-                if left <= 0 or not any(
+                # Spec 0031 AC-5 (amends 0026 AC-11): a ready or approved PR of a held repo that has not ended is
+                # watched with no --max-wait cutoff, until it is merged or closed, or Ctrl C.
+                watched = any(p["state"] in ("ready", "approved") and p["repo"] in waiting for p in q.get("prs", []))
+                if not watched and (left <= 0 or not any(
                         d["answer"] is None and d.get("level") != "run" and
                         (d["repo"] in waiting or (d.get("level") == "repo" and d["repo"] in held))
-                        for d in q["decisions"]) and not any(p["state"] == "ready" and p["repo"] in waiting
-                                                             for p in q.get("prs", [])):
+                        for d in q["decisions"])):
                     return False
                 self.pr_poll()
                 if not logged:
-                    self.log("wait answers")
+                    self.log("wait answers" + (", watching PRs" if watched else ""))
                     logged = True
                 if self.poll():
                     return True
-                self.nap(min(ntfy.POLL_EVERY, left))
+                self.nap(min(ntfy.POLL_EVERY, left) if left > 0 else ntfy.POLL_EVERY)
         finally:
             spent = ntfy.boottime() - t0
             self.end_waited += spent

@@ -112,12 +112,19 @@ def fingerprint():
             back, _ = finish.retakes(args, repos)
             r = run.Run(None, args)
             r.retaken = {(p["repo"], p["feature"]) for p, _ in back}
+            # Spec 0031 AC-2: the fingerprint never calls GitHub.
+            r.adopt_now = False
             if r.bare_checks() is not None:
                 return ""
             r.plan()
+            prs = run.queue_transact().get("prs", [])
     except (run.QueueError, run.Stop, OSError):
         return ""
     pairs = sorted([h["c"].path, f] for h in r.held if h.get("has_work") for f in h["queued"])
+    # Spec 0031 AC-6: a watched PR is work, so a session finding wf idle (after a reboot) starts it again.
+    held = {run.key_of(h["c"]) for h in r.held}
+    pairs += sorted([p["repo"], f"PR #{p['number']}"] for p in prs if p["state"] in ("ready", "approved")
+                    and p["repo"] in held)
     return hashlib.sha256(json.dumps(pairs).encode()).hexdigest() if pairs else ""
 
 

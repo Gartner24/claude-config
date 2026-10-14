@@ -316,6 +316,16 @@ class TestFingerprint(ParallelCase):
             self.assertEqual(first, again)
             (a / "docs" / "scope" / "scope.md").write_text(ONE.replace("### 1. A · auto", "### 1. A · done · auto"))
             self.assertEqual(auto.fingerprint(), "")
+            # Spec 0031 AC-6: a watched PR (ready or approved) is work; merged is not.
+            rec = {"repo": os.path.realpath(a), "feature": "PR #4: x", "spec": None, "branch": "fix-x", "base": "work",
+                   "base_sha": "0" * 40, "stacked_on": None, "pr": None, "number": 4, "state": "ready", "seen": [],
+                   "rounds": 0, "pushed_sha": "0" * 40, "adopted": True}
+            q = run.state_dir() + "/queue.json"
+            os.makedirs(run.state_dir(), exist_ok=True)
+            for state, empty in (("ready", False), ("approved", False), ("merged", True)):
+                with open(q, "w") as f:
+                    json.dump({"version": 1, "parks": [], "decisions": [], "prs": [{**rec, "state": state}]}, f)
+                self.assertEqual(auto.fingerprint() == "", empty, state)
 
 
 class TestAutoOff(RunCase):

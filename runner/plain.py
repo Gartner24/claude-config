@@ -85,7 +85,8 @@ PLAIN = {
                       "The reviewer and the build traded fixes five times without finishing. Allow five more rounds, "
                       "or leave the rest to you."),
     "approved": ("the review request was approved",
-                 "A reviewer said yes. Only you merge it into the main line; say when you did, or later."),
+                 "A reviewer said yes. Merge now joins it to the main line for you, and only your tap does that. "
+                 "Later leaves it waiting; I merged it says you already did."),
     "rebase": ("the branch it builds on moved",
                "The work below this one changed, so this branch must be moved on top of it again and resent. "
                "Do that now, or leave it for you."),

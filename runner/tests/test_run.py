@@ -126,6 +126,10 @@ import ntfy, run, wf
 run.GRACE = float(sys.argv[2])
 ntfy.RETRY_GAP = ntfy.POLL_EVERY = 0.05
 run.SPAWN_GAP = 0.01
+if sys.argv[3] == "pr":
+    # Spec 0031: PR polls as often as phone polls, so a watched PR's merge ends the run in a test.
+    import pr
+    pr.POLL_GAP = 0.05
 if sys.argv[3] == "boom":
     def boom(raw):
         raise RuntimeError("forced failure")

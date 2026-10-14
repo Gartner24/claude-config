@@ -21,6 +21,11 @@ BOT_WAIT = 30 * 60
 OPEN_STATES = ("local", "draft", "ready", "approved")
 POLLED = ("draft", "ready", "approved")
 MEMBERS = ("OWNER", "MEMBER", "COLLABORATOR")
+# Spec 0031: the states a run keeps watching with no --max-wait cutoff; the merge question's one merging answer.
+WATCHED = ("ready", "approved")
+MERGE_NOW = "merge now"
+SHA = re.compile(r"[0-9a-f]{40}")
+ADOPT_FIELDS = "number,title,headRefName,baseRefName,headRefOid,isDraft,isCrossRepository,url"
 SPEC_DIR = re.compile(r"(?:^|/)specs/(\d{4})-[^/]*/index\.md$|(?:^|/)specs/(\d{4})-[^/]*\.md$")
 STACKS = re.compile(r"^\*\*Stacks on:\*\*\s*(\d{4})\b", re.M)
 AGREE = re.compile(r"^## What you're agreeing to\s*$")
@@ -46,10 +51,14 @@ class Refused(Exception):
     pass
 
 
-def allowed(args):
-    """AC-9: the allow list. args: the gh argv after the binary."""
+def allowed(args, merging=False):
+    """AC-9: the allow list. args: the gh argv after the binary. Spec 0031 AC-9: `pr merge` only from merge(), with
+    a method and the approved head, never --admin, --auto or --delete-branch."""
     a = list(args)
     flags = {x for x in a if x.startswith("-")}
+    if a[:2] == ["pr", "merge"]:
+        return merging and len(a) == 8 and a[2].isdigit() and a[3] == "--repo" and \
+            a[5] in ("--squash", "--merge", "--rebase") and a[6] == "--match-head-commit" and bool(SHA.fullmatch(a[7]))
     if a[:2] == ["pr", "create"]:
         return "--draft" in a
     if a[:2] in (["pr", "view"], ["pr", "list"], ["repo", "view"]):
@@ -66,10 +75,10 @@ def allowed(args):
     return False
 
 
-def gh(binary, *args, timeout=GH_TIMEOUT):
+def gh(binary, *args, timeout=GH_TIMEOUT, merging=False):
     """AC-9: the one way this module runs gh, in the runner process with your login. Raises Refused for anything off
-    the allow list (merge, ready, a create without --draft, graphql, any other write)."""
-    if not allowed(args):
+    the allow list (ready, a create without --draft, graphql, any other write, a merge outside merge())."""
+    if not allowed(args, merging):
         raise Refused("gh " + " ".join(args[:3]))
     if not binary:
         return subprocess.CompletedProcess(args, 127, "", "gh missing")
@@ -242,6 +251,9 @@ def plan_line(rec):
         return f"built, not pushed: {rec['feature']} on {rec['branch']}"
     if rec["state"] in ("draft", "ready", "approved"):
         return f"in review: {rec['feature']}: PR #{rec['number']} ({rec['state']})"
+    if rec["state"] == "merged":
+        # Spec 0031: its ticks reach this branch only when you pull the merge; it is never built again before.
+        return f"merged: {rec['feature']}: PR #{rec['number']}, pull {rec['base']} to see it done"
     return None
 
 
@@ -580,6 +592,10 @@ def answer(r, d):
     r.queue(lambda q: q.update(decisions=[x for x in q["decisions"] if x["id"] != d["id"]]) or True)
     r.entry_for(d)
     rec = find(r, d["repo"], d["feature"])
+    if d["case"] == "approved":
+        # Spec 0031 AC-8: never the recommended fallback; only the exact label merges.
+        print(f"answered: {d['id']} {d['feature']}: {run.flat(d['answer'])[:60]}", flush=True)
+        return rec and approved_answer(r, rec, d["answer"])
     text = run.flat(d["answer"])
     opt = next((o for o in d["options"] if o.casefold() == text.casefold()), d["options"][0] if d["options"] else None)
     print(f"answered: {d['id']} {d['feature']}: {opt}", flush=True)
@@ -602,9 +618,6 @@ def answer(r, d):
         rec["cap"] = rec.get("cap", ROUNDS) + ROUNDS if opt == "5 more rounds" else 0
         rec.pop("asked_rounds", None)
         return save(r, rec)
-    if case == "approved" and opt == "I merged it":
-        rec["state"] = "merged"
-        return save(r, rec)
     if case == "rebase" and opt.startswith("rebase"):
         return rebase(r, rec, d.get("onto"), force=True)
     if case == "rebase_conflict" and opt == "try again":
@@ -615,16 +628,169 @@ def answer(r, d):
     return e
 
 
+# -- merge on your yes (spec 0031 AC-7 to AC-9) ---------------------------------------
+
+def approved_answer(r, rec, answer):
+    """AC-8: merge now (the exact label) merges, I merged it records it, anything else is later."""
+    if answer == MERGE_NOW:
+        return merge(r, rec)
+    if answer == "I merged it":
+        rec["state"] = "merged"
+        return save(r, rec)
+    if answer != "later":
+        r.note(f"PR #{rec['number']}: your reply was not an option, nothing merged")
+
+
+def ask_merge(r, rec, why=""):
+    r.pr_ask(rec, "approved", f"merge PR #{rec['number']} now?" + (f" The last try failed: {why}" if why else ""))
+
+
+def merge(r, rec):
+    """AC-9: the one merge, by the wf process: the PR still open at the approved head, the repo's first allowed
+    method, --match-head-commit. A failure asks the merge question again."""
+    name, binary = origin_repo(r), r.gh
+    view, why = gh_json(binary, "pr", "view", str(rec["number"]), "--repo", name or "", "--json", "state,headRefOid")
+    if not isinstance(view, dict):
+        return ask_merge(r, rec, f"the PR could not be read: {why}")
+    if view.get("state") in ("MERGED", "CLOSED"):
+        rec["state"] = view["state"].casefold()
+        return save(r, rec)
+    head = rec.get("approved_head")
+    if not head or view.get("headRefOid") != head:
+        # New commits since the approval: judged again on the new head.
+        rec["state"] = "ready"
+        save(r, rec)
+        return r.note(f"PR #{rec['number']}: new commits since the approval, nothing merged")
+    allow, why = gh_json(binary, "repo", "view", name, "--json", "squashMergeAllowed,mergeCommitAllowed,rebaseMergeAllowed")
+    allow = allow if isinstance(allow, dict) else {}
+    method = next((m for m, k in (("--squash", "squashMergeAllowed"), ("--merge", "mergeCommitAllowed"),
+                                  ("--rebase", "rebaseMergeAllowed")) if allow.get(k) is True), None)
+    if method is None:
+        return ask_merge(r, rec, f"no merge method allowed: {why or 'none'}")
+    try:
+        res = gh(binary, "pr", "merge", str(rec["number"]), "--repo", name, method, "--match-head-commit", head,
+                 merging=True)
+    except Refused as e:
+        return ask_merge(r, rec, str(e))
+    if res.returncode:
+        return ask_merge(r, rec, run.flat(res.stderr or res.stdout)[:150] or f"exit {res.returncode}")
+    rec["state"] = "merged"
+    save(r, rec)
+    act(r, rec, "merge", number=rec["number"], method=method[2:], commit=head)
+    r.note(f"merged: PR #{rec['number']} ({method[2:]})")
+    print(f"merged: PR #{rec['number']}", flush=True)
+
+
+# -- adopt your open PRs (spec 0031 AC-1 to AC-3) ---------------------------------------
+
+def adopting(r):
+    """AC-1: pr.json's entry for this repo says adopt: true (the boolean only)."""
+    return flag(r, "adopt")
+
+
+def watching(r):
+    """AC-1: the repo's PR records are polled: push: draft PR, adopt in pr.json, or (spec 0032 AC-1) review
+    requests in pr.json."""
+    return r.answers.get("push") == "draft pr" or adopting(r) or flag(r, "review_requests")
+
+
+def adopt(r):
+    """AC-2: every open PR of yours on this repo not yet recorded becomes a record; a local record of wf's own whose
+    branch you pushed and opened by hand takes its PR. Never main, master, the default branch or a fork."""
+    name = origin_repo(r)
+    if not name or private_config(name).get("adopt") is not True:
+        return
+    me = (out(gh(r.gh, "api", "user", "--jq", ".login")) or "").strip()
+    found, why = gh_json(r.gh, "pr", "list", "--repo", name, "--state", "open", "--author", me or "@me",
+                         "--json", ADOPT_FIELDS, "--limit", "100") if me else (None, "no gh login")
+    if not isinstance(found, list):
+        r.note(f"open PRs not read: {why}")
+        return
+    never = set(run.MAIN_BRANCHES) | {default_branch(r)}
+    key = run.key_of(r.c)
+
+    def write(q):
+        recs = q.setdefault("prs", [])
+        for p in found:
+            if not isinstance(p, dict):
+                continue
+            n, head, sha = p.get("number"), p.get("headRefName"), p.get("headRefOid")
+            if not isinstance(n, int) or not isinstance(head, str) or not isinstance(sha, str) or head in never \
+                    or p.get("isCrossRepository") or not isinstance(p.get("baseRefName"), str):
+                continue
+            mine = [x for x in recs if x["repo"] == key and (x["number"] == n or x["branch"] == head)]
+            if any(x["number"] == n for x in mine):
+                continue
+            state = "draft" if p.get("isDraft") else "ready"
+            local = next((x for x in mine if x["state"] == "local" and x["number"] is None), None)
+            if local:
+                local.update(pr=p.get("url"), number=n, state=state, pushed_sha=sha)
+                continue
+            if mine:
+                continue
+            recs.append({"repo": key, "feature": f"PR #{n}: {run.flat(p.get('title'))[:60]}", "spec": None,
+                         "branch": head, "base": p["baseRefName"], "base_sha": sha, "stacked_on": None,
+                         "pr": p.get("url") if isinstance(p.get("url"), str) else None, "number": n, "state": state,
+                         "seen": [], "rounds": 0, "pushed_sha": sha, "adopted": True})
+            print(f"adopted: PR #{n} on {head}", flush=True)
+        return True
+    r.queue(write)
+
+
+def sync_branch(r, rec, head):
+    """AC-3: the local branch at the PR head before a round on an adopted PR: fetched, made or fast forwarded. False
+    (a report line) when it diverged or is ahead, or the fetch failed."""
+    repo, b = r.c.path, rec["branch"]
+    res = wf.git(repo, "fetch", "--quiet", "origin", f"+refs/heads/{b}:refs/remotes/origin/{b}")
+    if res is None or res.returncode or not head or not out(wf.git(repo, "rev-parse", "--verify", "--quiet",
+                                                                   f"{head}^{{commit}}")):
+        r.note(f"PR #{rec['number']}: the PR branch could not be fetched")
+        return False
+    local = out(wf.git(repo, "rev-parse", "--verify", "--quiet", f"refs/heads/{b}"))
+    if local is None:
+        res = wf.git(repo, "branch", b, head)
+    elif local != head and merged(r, local, head):
+        res = wf.git(repo, "merge", "--ff-only", "--quiet", head) if wf.head_branch(repo) == b else \
+            wf.git(repo, "branch", "-f", b, head)
+    elif local != head:
+        r.note(f"PR #{rec['number']}: the branch here differs from the PR on GitHub")
+        return False
+    if res is None or res.returncode:
+        r.note(f"PR #{rec['number']}: {run.flat(res and res.stderr)[:120]}")
+        return False
+    rec["pushed_sha"] = head
+    return True
+
+
+def withdraw(r, rec):
+    """AC-5: a merged or closed PR's open merge question goes."""
+    r.queue(lambda q: q.update(decisions=[d for d in q["decisions"] if not (
+        d.get("pr") and d["repo"] == rec["repo"] and d["feature"] == rec["feature"] and d.get("case") == "approved")])
+        or True)
+
+
 # -- review loop (AC-11 to AC-16) ---------------------------------------------------
 
-def private_config(name):
-    """AC-15: ~/.claude/private/pr.json's entry for owner/name or owner/*, else {}. Never in a repo."""
+def private_data():
     try:
         with open(os.path.join(run.live_dir(), "private", "pr.json"), encoding="utf-8") as fh:
             data = json.load(fh)
     except (OSError, ValueError):
         return {}
-    if not isinstance(data, dict) or not name:
+    return data if isinstance(data, dict) else {}
+
+
+def flag(r, key):
+    """Spec 0031 AC-1, spec 0032 AC-1: this repo's pr.json entry has key: true. No git read unless some entry has it."""
+    if not any(isinstance(v, dict) and v.get(key) is True for v in private_data().values()):
+        return False
+    return private_config(origin_repo(r)).get(key) is True
+
+
+def private_config(name):
+    """AC-15: ~/.claude/private/pr.json's entry for owner/name or owner/*, else {}. Never in a repo."""
+    data = private_data()
+    if not name:
         return {}
     e = data.get(name) or data.get(name.split("/")[0] + "/*") or {}
     return e if isinstance(e, dict) else {}
@@ -653,9 +819,14 @@ def poll(r, force=False):
     cur = r.repo
     try:
         for h in list(r.held):
-            if h["repo"].get("ended") or h["answers"].get("push") != "draft pr":
+            if h["repo"].get("ended"):
                 continue
             r.use(h)
+            # Spec 0031 AC-1, AC-2: adopt in pr.json opts a repo in too; its open PRs are read at each poll.
+            if not watching(r):
+                continue
+            if not r.repo.get("tree"):
+                adopt(r)
             follow_stacks(r)
             only = getattr(r.args, "only_feature", None) or ()
             for rec in records(r, run.key_of(r.c)):
@@ -677,6 +848,7 @@ def poll_one(r, rec):
     if view.get("state") in ("MERGED", "CLOSED"):
         rec["state"] = view["state"].casefold()
         save(r, rec)
+        withdraw(r, rec)
         return
     if view.get("isDraft"):
         rec["state"] = "draft"
@@ -688,8 +860,10 @@ def poll_one(r, rec):
     reviews = reviews if isinstance(reviews, list) else []
     if rec["state"] != "approved" and is_approved(reviews, cfg.get("approvers"), view.get("reviewDecision")):
         rec["state"] = "approved"
+        # Spec 0031 AC-7: the head the approval is for; merge() refuses any other.
+        rec["approved_head"] = view.get("headRefOid")
         save(r, rec)
-        r.pr_ask(rec, "approved", f"PR #{rec['number']} is approved; merge it, then tell me")
+        ask_merge(r, rec)
         return
     save(r, rec)
     if rec["state"] != "ready" or rec.get("left"):
@@ -712,6 +886,8 @@ def poll_one(r, rec):
             save(r, rec)
             r.pr_ask(rec, "review_rounds", f"PR #{rec['number']}: {rec['rounds']} review rounds done")
         return
+    if rec.get("adopted") and not sync_branch(r, rec, view.get("headRefOid")):
+        return save(r, rec)
     fix_round(r, rec, name, comments)
 
 
@@ -817,9 +993,11 @@ def fix_round(r, rec, name, comments):
         rec["rounds"] += 1
         save(r, rec)
         if asks:
-            c, reply = asks[0]
-            r.pr_ask(rec, "review_ask", f"PR #{rec['number']} @{c['author']}: {run.flat(c['body'])[:120]}: proposed: "
-                                        f"{run.flat(reply)[:120]}", comment=c, reply=reply)
+            # Spec 0031 AC-4: asked comments are seen, so no new call judges them again; one question at a time.
+            rec["seen"] += [c["id"] for c, _ in asks]
+            rec["asks"] = rec.get("asks", []) + [{"comment": c, "reply": reply} for c, reply in asks]
+            save(r, rec)
+            next_ask(r, rec)
     finally:
         if start and not r.repo.get("tree") and wf.head_branch(repo) != start and not run.dirty(repo):
             wf.git(repo, "switch", start)
@@ -844,20 +1022,36 @@ def post(r, rec, name, c, text):
     act(r, rec, "reply", comment=c["id"])
 
 
+def next_ask(r, rec):
+    """Spec 0031 AC-4: the first kept ask becomes the review_ask question."""
+    if not rec.get("asks"):
+        return
+    a = rec["asks"][0]
+    c, reply = a["comment"], a["reply"]
+    r.pr_ask(rec, "review_ask", f"PR #{rec['number']} @{c['author']}: {run.flat(c['body'])[:120]}: proposed: "
+                                f"{run.flat(reply)[:120]}", comment=c, reply=reply)
+
+
 def review_answer(r, rec, d, opt, text):
-    """AC-13: send that reply (scanned first), fix it (your text is the next round's hint), or yours."""
+    """AC-13: send that reply (scanned first), fix it (your text is the next round's hint), or yours. Spec 0031
+    AC-4: then the next kept ask."""
     c = d.get("comment") or {}
+    rec["asks"] = [a for a in rec.get("asks", []) if a["comment"].get("id") != c.get("id")]
     if opt == "send that reply":
         reply = f"{d.get('reply')} @{c.get('author')}"
         hit = scans(r, rec, None, [("reply", reply)])
         if hit:
+            save(r, rec)
             return r.pr_ask(rec, hit[0], f"PR #{rec['number']}: {hit[1]}")
         post(r, rec, origin_repo(r), c, reply)
     elif opt == "fix it":
         rec["hint"] = text if text.casefold() != opt.casefold() else "fix it as the comment asks"
-    else:
+        # The next round includes it again.
+        rec["seen"] = [s for s in rec["seen"] if s != c.get("id")]
+    elif c.get("id") not in rec["seen"]:
         rec["seen"].append(c.get("id"))
     save(r, rec)
+    next_ask(r, rec)
 
 
 def follow_stacks(r):
