@@ -44,7 +44,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 30 | Live setup steps in one command | Release 5 | done |
 | 13 | Morning report | Release 5 | done |
 | 32 | One command: wf | Release 6 | done |
-| 33 | Ask, never stop | Release 6 | in-progress |
+| 33 | Ask, never stop | Release 6 | done |
 | 34 | Report names repos | Release 6 | in-progress |
 | 35 | Several features of one repo at once | Release 6 | in-progress |
 | 36 | Telegram instead of ntfy | Release 6 | in-progress |
@@ -479,7 +479,7 @@ You type only `wf`. After one confirm screen it shows the report, applies pendin
 Spec [0020](../specs/0020-one-command-wf/index.md)
 Source: [docs/briefs/never-wait-on-each-other.md](../briefs/never-wait-on-each-other.md).
 
-### 33. Ask, never stop · in-progress · auto
+### 33. Ask, never stop · done · auto
 A step that needs a protected place (`~/.claude`, the runner's own `runner/`, `.git/hooks`) never parks. With a standing permission for that repo (allowed once, ahead of time) the run just writes it and goes on. Without one, it asks on your phone (yes, no, always), keeps building everything else meanwhile, and resumes that step when you answer.
 The same holds for every other reason a feature is set aside today (blocked, failed checks, caps, on main): it becomes a phone question with a recommended action, the rest keeps building, and your answer resumes it (see the brief).
 **Done when:** a claude-config night run whose features edit `~/.claude` and `runner/` builds them to the end with no stop, given the standing permission; without it you get one phone question and the step resumes on your yes; no park reason ends a feature without a question; a change to `~/.claude` from outside the run still stops that repo.
@@ -492,7 +492,7 @@ The same holds for every other reason a feature is set aside today (blocked, fai
    - [x] Push guard coverage and run folder pruning (AC-9, AC-10)
 - [x] Verify it: `/check verify ask never stop`
 - [x] Test it: `/test ask never stop`
-- [ ] Sync docs: `/sync ask never stop`
+- [x] Sync docs: `/sync ask never stop`
 Spec [0021](../specs/0021-never-stop/index.md) · code in `runner/run.py`, `runner/report.py`
 Source: [docs/briefs/runner-never-stops.md](../briefs/runner-never-stops.md).
 
