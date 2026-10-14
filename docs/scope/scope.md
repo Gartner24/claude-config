@@ -582,7 +582,7 @@ Everything Claude tells you uses words you can follow; every question panel ends
 - [ ] Verify it: `/check verify understand everything`
 - [ ] Test it: `/test understand everything`
 - [x] Copy the rule live: `cp ~/claude-config/rules/plain-questions.md ~/.claude/rules/plain-questions.md` · waits on you · live
-- [ ] Real check of the LEARN line: `python3 docs/specs/0028-understand-everything/probes/learn-line.py` · waits on you · live
+- [x] Real check of the LEARN line: `python3 docs/specs/0028-understand-everything/probes/learn-line.py` · waits on you · live
 - [x] A panel is refused without "Learn this first" in a real session (P3) · waits on you
 - [ ] Sync docs: `/sync understand everything`
 Spec [0028](../specs/0028-understand-everything/index.md) · Source: your messages 2026-10-12 and 2026-10-13.
