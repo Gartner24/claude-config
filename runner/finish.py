@@ -182,7 +182,8 @@ def shape(root, span):
         return "copy", {"src": src, "dst": dst, "rel": rel}
     if t == ["./install.sh"] and repo_file(root, "install.sh"):
         return "install", {"argv": t}
-    if t in (["python3", "runner/e2e/run.py"], ["python3", "runner/e2e/run.py", "--parallel"]) \
+    # Specs 0017, 0020 AC-11, 0027 AC-10: the e2e flags a live box may name.
+    if t[:2] == ["python3", "runner/e2e/run.py"] and t[2:] in ([], ["--parallel"], ["--beside"], ["--same-repo"]) \
             and repo_file(root, t[1]):
         return "check", {"argv": t}
     if len(t) == 2 and (t[0], os.path.splitext(t[1])[1]) in (("python3", ".py"), ("bash", ".sh")) \

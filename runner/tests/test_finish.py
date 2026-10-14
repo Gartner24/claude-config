@@ -355,6 +355,7 @@ class TestShapes(FinishCase):
         (self.repo / "runner" / "e2e" / "run.py").write_text("")
         good = {"cp rules/a.md ~/.claude/rules/a.md": "copy", "./install.sh": "install",
                 "python3 runner/e2e/run.py": "check", "python3 runner/e2e/run.py --parallel": "check",
+                "python3 runner/e2e/run.py --beside": "check", "python3 runner/e2e/run.py --same-repo": "check",
                 "python3 docs/specs/0001-x/probes/p.py": "check"}
         bad = ["rm -rf x", "cp -f rules/a.md ~/.claude/rules/a.md", "cp rules/a.md ~/.claude/rules/b.md",
                "cp rules/a.md ~/.claude/a.md", "cp settings.json ~/.claude/settings.json",
