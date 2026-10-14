@@ -154,6 +154,16 @@ class TestExplain(NeverStopCase):
             self.assertEqual(r.explain("1. M", "box"), {})
             self.assertEqual(stops, [("guard_changed", before or after)])
             self.assertEqual(len(made), calls_made)
+        # A call that crashes is still followed by the check.
+        checks = iter([None, "hook.sh changed"])
+        r.files_changed = lambda: next(checks)
+        stops.clear()
+
+        def crash(*a, **k):
+            raise RuntimeError("boom")
+        r.call = crash
+        self.assertEqual(r.explain("1. M", "box"), {})
+        self.assertEqual(stops, [("guard_changed", "hook.sh changed")])
 
     # covers: security review 2026-10-14 (a verify.md symlinked outside the repo is never read into the call; the
     # call gets no tools; a line that looks like a secret is dropped)

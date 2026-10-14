@@ -1835,16 +1835,20 @@ class Run:
             g.setdefault("permissions", {})["deny"] = list(dict.fromkeys(
                 g.get("permissions", {}).get("deny", []) + list(EXPLAIN_DENY)))
             iso["settings"] = json.dumps(g)
-            rec_, data, _, _, spawn_error = self.call(seq, prompt, isolated=iso, label="explain")
-            rec_.update(kind="explain", box_text=box_text, resumes=[], retry_of=None, app=None, feature=feature)
-            # Its own list: a feature's calls stay its build steps; the run's spend still counts it.
-            self.record.setdefault("explains", []).append(rec_)
-            self.save()
-            # Security review: the guarded files are checked after this call too, so a change made during it is
-            # never left for a later call that may not come.
-            changed = self.files_changed()
-            if changed:
-                self.end_repo("guard_changed", changed)
+            try:
+                rec_, data, _, _, spawn_error = self.call(seq, prompt, isolated=iso, label="explain")
+                rec_.update(kind="explain", box_text=box_text, resumes=[], retry_of=None, app=None, feature=feature)
+                # Its own list: a feature's calls stay its build steps; the run's spend still counts it.
+                self.record.setdefault("explains", []).append(rec_)
+                self.save()
+            finally:
+                # Security review: the guarded files are checked after this call however it ended (a crash too), so
+                # a change made during it is never left for a later call that may not come.
+                changed = self.files_changed()
+                if changed:
+                    self.end_repo("guard_changed", changed)
+                    data = None
+            if data is None and changed:
                 return {}
         except Exception as ex:
             self.log(f"explain: {flat(ex)[:120]}")
