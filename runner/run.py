@@ -3552,8 +3552,33 @@ def test_base(repo):
         r = wf.git(repo, "rev-parse", "--verify", "--quiet", f"refs/heads/{b}")
         if r and r.returncode == 0:
             m = wf.git(repo, "merge-base", "HEAD", b)
-            return (m.stdout.strip() or None) if m.returncode == 0 else None
+            # Spec 0040 AC-3: a shallow clone of a branch cut from another branch shares no commit with main in its
+            # depth; no base made every frontend file of the repo count (93 files parked a one component feature).
+            return (m.stdout.strip() or None) if m.returncode == 0 else nearest_base(repo)
     return None
+
+
+def nearest_base(repo):
+    """Spec 0040 AC-3: the merge base with another branch that has the fewest commits up to HEAD, else None. HEAD's own
+    branch, its namesakes on remotes, its upstream, */HEAD and any branch holding HEAD are skipped: their merge base
+    would be HEAD or a commit of this branch, and committed work would go unchecked."""
+    head = wf.git(repo, "symbolic-ref", "--quiet", "--short", "HEAD")
+    name = head.stdout.strip() if head and head.returncode == 0 else ""
+    up = wf.git(repo, "rev-parse", "--symbolic-full-name", "@{upstream}")
+    up = up.stdout.strip() if up and up.returncode == 0 else ""
+    refs = wf.git(repo, "for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes")
+    best = None
+    for ref in refs.stdout.split() if refs and refs.returncode == 0 else ():
+        if ref in (f"refs/heads/{name}", up) or ref.endswith("/HEAD") or \
+                (name and ref.startswith("refs/remotes/") and ref.split("/", 3)[3:] == [name]):
+            continue
+        if wf.git(repo, "merge-base", "--is-ancestor", "HEAD", ref).returncode == 0:
+            continue
+        m = wf.git(repo, "merge-base", "HEAD", ref)
+        n = m.returncode == 0 and wf.git(repo, "rev-list", "--count", f"{m.stdout.strip()}..HEAD")
+        if n and n.returncode == 0 and (best is None or int(n.stdout) < best[0]):
+            best = (int(n.stdout), m.stdout.strip())
+    return best and best[1]
 
 
 def is_frontend(rel):

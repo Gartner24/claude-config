@@ -135,6 +135,37 @@ class TestChanged(RunCase):
         git(r, "checkout", "-q", "work")
         self.assertEqual(run.frontend_changed(str(r)), (None, ["committed.tsx", "new.css", "old.tsx"]))
 
+    # covers: spec 0040 AC-3 (main shares no commit with the branch, as in a shallow clone: the base is the nearest
+    # merge base with another branch, so only the branch's own files count; its pushed namesake, a branch holding
+    # HEAD and a farther branch are not picked)
+    def test_nearest_base(self):
+        r = self.make_repo("n", UI)
+        sha = lambda ref: subprocess.run(["git", "-C", str(r), "rev-parse", ref], capture_output=True,
+                                         text=True).stdout.strip()
+        git(r, "checkout", "-qb", "beta")
+        (r / "old.tsx").write_text("x")
+        git(r, "add", "-A")
+        git(r, "commit", "-qm", "beta base")
+        git(r, "branch", "-q", "far")
+        (r / "beta.tsx").write_text("x")
+        git(r, "add", "-A")
+        git(r, "commit", "-qm", "beta work")
+        git(r, "checkout", "-qb", "work")
+        (r / "committed.tsx").write_text("x")
+        git(r, "add", "-A")
+        git(r, "commit", "-qm", "work")
+        # Pushed before the last commit: an ancestor of HEAD, yet this branch's own work.
+        git(r, "update-ref", "refs/remotes/origin/work", "HEAD")
+        (r / "second.tsx").write_text("x")
+        git(r, "add", "-A")
+        git(r, "commit", "-qm", "work 2")
+        git(r, "branch", "-q", "stacked")
+        git(r, "checkout", "-q", "--orphan", "main")
+        git(r, "commit", "-qm", "unrelated main")
+        git(r, "checkout", "-q", "work")
+        self.assertEqual(run.frontend_changed(str(r)), (sha("beta"), ["committed.tsx", "second.tsx"]))
+        self.assertEqual(run.test_base(str(r)), sha("beta"))
+
     # covers: AC-1 (a git failure raises; an empty list would let /sync run unchecked)
     def test_git_failure(self):
         plain = self.tmp / "not-a-repo"
