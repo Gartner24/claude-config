@@ -208,7 +208,7 @@ PARKS = frozenset(("verify_failed", "blocked", "denied", "debug_touched", "no_pr
                    "app_failed", "design_gate", "unchecked"))
 REPO_STOPS = frozenset(("branch_changed", "autopilot_off", "scope_unreadable"))
 RUN_STOPS = frozenset(("interrupted", "run_limit", "usage_limit", "spawn_failed", "guard_changed", "ping_failed",
-                       "internal_error", "app_port_busy", "api_outage", "crash_loop"))
+                       "internal_error", "app_port_busy", "api_outage", "crash_loop", "auto_off"))
 # Spec 0021 AC-1: every reason above, and the `branch` refusal, has exactly one case: (row, options, recommended
 # first). A row with no options never asks: R1 makes the branch, R4 and U1 stop, U3 sleeps to the reset, U9 keeps
 # building, U10 stops that repo with its traceback in the report.
@@ -244,6 +244,8 @@ CASES = {
     "spawn_failed": ("U8", ("retry", STOP_REPO)),
     "ping_failed": ("U9", ()),
     "internal_error": ("U10", ()),
+    # Spec 0030 AC-9: you turned autonomous mode off; stays a stop, asks nothing.
+    "auto_off": ("U11", ()),
 }
 # Spec 0021 F1: an answer may never make one of these writable; `~/.claude/` ones in every claude dir.
 SECRETS = (*CREDENTIAL_PATHS, "~/.gnupg", "~/.claude/private", "~/.claude/.credentials.json")
@@ -498,6 +500,17 @@ def now():
 
 def flat(text):
     return wf.clean(" ".join(str(text or "").split()))
+
+
+def auto_off():
+    """Spec 0030 AC-9: a run wf auto start began (WF_AUTO) ends when auto.json says off; unreadable counts as on."""
+    if not os.environ.get("WF_AUTO"):
+        return False
+    try:
+        with open(os.path.join(state_dir(), "auto.json"), encoding="utf-8") as f:
+            return json.load(f).get("on") is False
+    except (OSError, ValueError, AttributeError):
+        return False
 
 
 def state_dir():
@@ -1585,6 +1598,8 @@ class Run:
         # config.worktree under a shared common dir, a repo nested in its folder). No repo is in use, so a
         # change to one repo's own files ends that repo and only a shared or global file stops the run.
         self.repo = None
+        if auto_off():
+            raise Stop("auto_off", "autonomous mode turned off")
         changed = self.files_changed()
         if changed:
             raise Stop("guard_changed", changed)
@@ -2324,6 +2339,8 @@ class Run:
             while True:
                 if self.interrupted:
                     raise Stop("interrupted", "Ctrl C or a stop signal")
+                if auto_off():
+                    raise Stop("auto_off", "autonomous mode turned off")
                 waiting = {h["c"].path for h in self.held if not h["repo"]["ended"]}
                 held = {h["c"].path for h in self.held}
                 left = self.args.max_wait * 3600 - self.end_waited - (ntfy.boottime() - t0)

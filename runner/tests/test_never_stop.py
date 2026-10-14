@@ -15,7 +15,7 @@ import run  # noqa: E402
 from test_park import GIT_ID, VERIFY  # noqa: E402
 from test_run import SCOPE, RunCase, ask  # noqa: E402
 
-ROWS = {*(f"F{n}" for n in range(1, 13)), *(f"R{n}" for n in range(1, 5)), *(f"U{n}" for n in range(1, 11))}
+ROWS = {*(f"F{n}" for n in range(1, 13)), *(f"R{n}" for n in range(1, 5)), *(f"U{n}" for n in range(1, 12))}
 
 TWO = """# Scope: two
 **Autopilot:** allowed
@@ -50,8 +50,8 @@ class TestCaseTable(unittest.TestCase):
                 self.assertEqual(len(set(options)), len(options))
                 if reason in run.PARKS:
                     self.assertTrue(row.startswith("F") and len(options) >= 2)
-        # Only R1, R4, U1, U3, U9 and U10 never ask.
-        self.assertEqual(sorted(r for r, o in run.CASES.values() if not o), ["R1", "R4", "U1", "U10", "U3", "U9"])
+        # Only R1, R4, U1, U3, U9, U10 and U11 (spec 0030) never ask.
+        self.assertEqual(sorted(r for r, o in run.CASES.values() if not o), ["R1", "R4", "U1", "U10", "U11", "U3", "U9"])
 
 
 class NeverStopCase(RunCase):

@@ -318,14 +318,15 @@ def shown(text):
 
 
 def locks_held():
-    locks = os.path.join(run.state_dir(), "locks")
+    """The number of repo locks a run holds (spec 0030 AC-6 counts them)."""
+    locks, n = os.path.join(run.state_dir(), "locks"), 0
     for f in sorted(os.listdir(locks)) if os.path.isdir(locks) else []:
         fd, who = run.lock_file(os.path.join(locks, f), create=False)
         if fd is not None:
             os.close(fd)
         elif who is not None:
-            return True
-    return False
+            n += 1
+    return n
 
 
 def hook():
