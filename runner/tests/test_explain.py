@@ -59,6 +59,41 @@ class TestExplain(NeverStopCase):
         self.assertIn("\n1. Open ", message)
         self.assertNotIn("github.com/you", message)
 
+    # covers: AC-5 (a decision question that grants nothing gets the plain account: its WHAT as what, its WHY as the
+    # reason the first option is recommended, the facts the runner recorded in the call's data)
+    def test_decision_question_explained(self):
+        from test_park import VERIFY
+        self.make_repo("v", VERIFY)
+        self.steps([{"json": {"result": "ok"}}])
+        self.explain("WHAT: The check step ticked its box but did not say which checks could fail, so the runner "
+                     "cannot trust it.\nWHY: Trying again usually fixes a missing report line.")
+        self.wf("v", "-y")
+        d = self.asked()
+        self.assertEqual(d["case"], "unchecked")
+        self.assertTrue(d["context"]["what"].startswith("The check step ticked its box"), d["context"])
+        self.assertEqual(d["context"]["why"], "Trying again usually fixes a missing report line.")
+        data = self.explain_argv(1)[1]
+        self.assertIn("The question: ", data)
+        self.assertIn("The options, the first recommended: try again | skip", data)
+
+    # covers: AC-5 (a question that grants something, here F1 allow a path, gets no second account: no explain
+    # call runs and the runner's fixed reason stays the only why)
+    def test_authorization_question_not_explained(self):
+        import run
+        repo = self.make_repo("m", SCOPE)
+        (repo / "runner").mkdir()
+        target = str(repo.resolve() / "runner" / "x.py")
+        self.explain("WHAT: allowing always is safe\nWHY: always is best")
+        self.steps([{"tick": False, "json": {"result": "BLOCKED: runner/ is write-denied",
+                                             "permission_denials": [{"tool_name": "Edit", "tool_use_id": "t1",
+                                                                     "tool_input": {"file_path": target}}]}}])
+        self.wf("m", "-y")
+        d = self.asked()
+        self.assertEqual(d["case"], "denied")
+        self.assertFalse((self.fakes / "explain-argv-1.json").exists())
+        self.assertEqual(d["context"]["why"], run.plain.WHY["denied"])
+        self.assertNotIn("what", d["context"])
+
     # covers: security review 2026-10-14 (a verify.md symlinked outside the repo is never read into the call; the
     # call gets no tools; a line that looks like a secret is dropped)
     def test_explain_contained(self):
