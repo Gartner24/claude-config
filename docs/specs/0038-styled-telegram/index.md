@@ -1,7 +1,7 @@
 # 0038 · Styled Telegram messages
 
-**Status**: Accepted
 **Date**: 2026-10-14
+**Status**: Accepted
 **Paths:** `runner/telegram.py`, `runner/tests/test_telegram.py`
 **Amends**: [0029](../0029-telegram/index.md) AC-4 (the question message), [0033](../0033-context-in-messages/index.md) AC-4 (the from: block)
 
