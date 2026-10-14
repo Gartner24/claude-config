@@ -47,7 +47,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 33 | Ask, never stop | Release 6 | done |
 | 34 | Report names repos | Release 6 | in-progress |
 | 35 | Several features of one repo at once | Release 6 | in-progress |
-| 36 | Telegram instead of ntfy | Release 6 | in-progress |
+| 36 | Telegram instead of ntfy | Release 6 | done |
 | 37 | Autonomous mode | Release 6 | in-progress |
 | 31 | Guard baseline check between repos | Release 6 | done |
 | 23 | Understand everything | Release 6 | in-progress |
@@ -587,15 +587,15 @@ Everything Claude tells you uses words you can follow; every question panel ends
 - [ ] Sync docs: `/sync understand everything`
 Spec [0028](../specs/0028-understand-everything/index.md) · Source: your messages 2026-10-12 and 2026-10-13.
 
-### 36. Telegram instead of ntfy · in-progress · auto
+### 36. Telegram instead of ntfy · done · auto
 Questions come to your own Telegram bot with buttons, and you can reply in your own words; longer reports, very long ones as a file; the bot key is in one file only you can read; without it, ntfy works as today.
 **Done when:** a run's question and report arrive in Telegram and a tap or a typed reply answers the question.
 - [x] Design it (spec): `/architect telegram`
 - [x] Build it: `/develop telegram`
 - [x] Verify it: `/check verify telegram`
 - [x] Test it: `/test telegram`
-- [ ] Make the bot with @BotFather, then `wf telegram init` and `wf telegram test` · waits on you
-- [ ] Sync docs: `/sync telegram`
+- [x] Make the bot with @BotFather, then `wf telegram init` and `wf telegram test` · waits on you
+- [x] Sync docs: `/sync telegram`
 Spec [0029](../specs/0029-telegram/index.md) · Source: personal scope row 26.
 
 ### 37. Autonomous mode · in-progress · auto
