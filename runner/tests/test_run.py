@@ -147,7 +147,9 @@ sys.exit(wf.main(sys.argv[4:]))
 CREDENTIALS = (".config/gh", ".ssh", ".git-credentials", ".netrc", ".aws", ".config/gcloud", ".azure", ".npmrc",
                ".config/git/credentials", ".docker/config.json", ".pypirc", ".kube", ".claude/anthropic_api_key",
                # Spec 0021 AC-7: wf's config folder as ~/.config/wf and as $XDG_CONFIG_HOME/wf (the test's config/).
-               ".config/wf", "config/wf")
+               ".config/wf", "config/wf",
+               # Spec 0023 AC-7: the claude-fb proxy key folder.
+               ".config/claude-fb")
 FORGE_HOSTS = ["*.bitbucket.org", "*.github.com", "*.githubusercontent.com", "*.gitlab.com", "*.sr.ht",
                "bitbucket.org", "codeberg.org", "github.com", "gitlab.com"]
 

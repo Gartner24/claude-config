@@ -168,6 +168,16 @@ def item_line(i, multi, phone, cfg, wide=False):
     return text + (f" ({name})" if multi else "")
 
 
+def cheap_line(recs):
+    """Spec 0023 AC-11: one line when the run made any fb-ask job, else none."""
+    fb = [c["fb"] for r in recs for c in r.get("calls", []) if c.get("fb")]
+    if not fb:
+        return []
+    bad = [x for x in fb if x != "ok"]
+    why = ", ".join(f"{wf.clean(x)} x{bad.count(x)}" for x in dict.fromkeys(bad))
+    return [f"cheap tier: {len(fb)} jobs, {len(bad)} fell back" + (f" ({why})" if why else "")]
+
+
 def label(cfg, i):
     return ntfy.scrub_field(cfg, ntfy.repo_label(cfg, i["repo"]), 40, "repo")
 
@@ -176,7 +186,8 @@ def render(sources, cfg):
     """(full report, phone body) for these sources (AC-2 to AC-4)."""
     items, recs = collect(sources)
     top, multi = head(items, recs), len(sources) > 1
-    full = [top] + [item_line(i, multi, False, cfg) for i in items] + [next_line(items, lambda i: i["name"])]
+    full = [top] + [item_line(i, multi, False, cfg) for i in items] + cheap_line(recs) + \
+        [next_line(items, lambda i: i["name"])]
     full += [f"run folder: {s['folder']}" for s in sources if s["folder"]]
     tail, dropped = next_line(items, lambda i: label(cfg, i)), 0
     if "chat_id" in cfg:
