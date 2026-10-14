@@ -592,7 +592,7 @@ Questions come to your own Telegram bot with buttons, and you can reply in your 
 **Done when:** a run's question and report arrive in Telegram and a tap or a typed reply answers the question.
 - [x] Design it (spec): `/architect telegram`
 - [x] Build it: `/develop telegram`
-- [ ] Verify it: `/check verify telegram`
+- [x] Verify it: `/check verify telegram`
 - [ ] Test it: `/test telegram`
 - [ ] Make the bot with @BotFather, then `wf telegram init` and `wf telegram test` · waits on you
 - [ ] Sync docs: `/sync telegram`
