@@ -265,6 +265,8 @@ CASES = {
     "stack_deep": ("F14", ("build it off the start branch", "wait for the bottom to merge")),
     # Spec 0027 AC-6: a feature worktree's edits drifted into a sibling's Paths while both run.
     "paths_overlap": ("F15", ("wait for the other, then go on", "undo those files and try again", SKIP_IT)),
+    # A `· live` box the run reached: it runs the repo's live steps itself on your tap, else they wait for your wf.
+    "live_step": ("F16", ("run it now", "not now")),
     "squash_failed": ("P1", ("push the checkpoint commits", "skip the PR")),
     "private_names": ("P2", ("scan again", "push anyway, the repo is private", "skip the PR")),
     "attribution": ("P3", ("skip the PR", "push anyway, it quotes the pattern")),
@@ -367,6 +369,8 @@ MUTATION = re.compile(r"^[ \t>*-]*MUTATION CHECKED:\**[ \t]*(\d+)")
 MAX_OPTIONS = 9
 MAX_DEBUG = 2
 GRACE = 30
+# F16: seconds a `wf finish` the run starts for its live steps may take (install.sh runs the whole self-test suite).
+LIVE_TIMEOUT = 1800
 POLL = 0.2
 # Spec 0008 AC-8. Built from the interactive message; verify.md check 3 confirms it at the next real limit.
 LIMIT = re.compile(r"rate_limit|hit your (session |weekly )?limit|usage limit", re.I)
@@ -1564,10 +1568,18 @@ class Run:
         """AC-2: a feature level reason opens its row's question, options recommended first; the queue goes on.
         F10 leaves a `· live` box to wf (spec 0019, 0020). Returns the Decision, else None."""
         text, command = self.case_box()
+        steps = []
         if reason in ("waiting", "manual_box") and text and wf.LIVE.search(text):
-            return None
+            # A live box: the run offers to run the repo's live steps itself (`wf finish`), on your tap.
+            steps = self.live_steps()
+            if not steps:
+                return None
+            reason, detail = "live_step", "; ".join(steps)
         # Spec 0028 AC-12: the plain words, the detail with its codes read as words, and a learn line.
         options, question, path = CASES[reason][1], plain_question(reason, self.feature, detail), None
+        if reason == "live_step":
+            question = f"run these setup steps for {self.c.name} now? " + " ".join(
+                f"{i}) {s}" for i, s in enumerate(steps, 1)) + (f" (last try: {self.live_failed})" if getattr(self, "live_failed", None) else "")
         if reason == "issue_changed":
             # Spec 0024 AC-6: `<owner>/<repo>#<n> changed after the spec: <short diff>`, already plain words.
             question = plain.detail(flat(detail))
@@ -1647,6 +1659,13 @@ class Run:
             self.issue_accept(f.name)
         elif opt == "done, go on":
             self.hint = self.hint or f"the user did what you asked for: {d.get('detail')}"
+        elif opt == "run it now" and reason == "live_step":
+            # F16: it writes your live setup, so only your own tap counts (Telegram, or an ntfy one time code).
+            import pr
+            if pr.strong(self, d):
+                self.run_live()
+            else:
+                self.live_failed = "on ntfy this needs one of your one time codes"
         scope = self.reread()
         if not scope or scope[0] is None:
             raise Stop("no_feature", f"the heading {f.name} is gone from the scope")
@@ -1672,6 +1691,33 @@ class Run:
                             out.write("\n".join(rows))
                         return True
         return False
+
+    def live_steps(self):
+        """F16: the live steps `wf finish` would run in this repo now, as their commands; [] when none passes its
+        shape check (spec 0019 AC-1)."""
+        import finish
+        try:
+            live, _ = finish.boxes(self.c)
+        except (OSError, StopIteration):
+            return []
+        return list(dict.fromkeys(wf.clean(s.span) for s in finish.plan_steps(live)))
+
+    def run_live(self):
+        """F16 `run it now`: `wf finish <repo> -y` from this runner copy, outside every call's sandbox, its output
+        in the run folder. The swap it makes is taken at the next call (spec 0020 AC-6). True when it passed."""
+        log = os.path.join(self.folder, f"live-{len(os.listdir(self.folder)):03d}.log")
+        env = {k: v for k, v in os.environ.items() if k not in ("WF_RUN", "WF_STAGE", "CLAUDE_LIVE_DIR")}
+        self.log(f"live steps {self.c.name}, log {log}")
+        with open(log, "wb") as out:
+            try:
+                rc = subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "wf.py"),
+                                     "finish", self.c.path, "-y"], stdin=subprocess.DEVNULL, stdout=out,
+                                    stderr=subprocess.STDOUT, env=env, timeout=LIVE_TIMEOUT).returncode
+            except (OSError, subprocess.TimeoutExpired) as e:
+                rc = flat(e)
+        self.live_failed = None if rc == 0 else f"wf finish ended {rc}, see {log}"
+        self.log(f"live steps {self.c.name}: " + (self.live_failed or "passed"))
+        return rc == 0
 
     def append_allow(self, path):
         """F1 `always` (AC-7): add path to the repo's standing allow writes in allow.json, which no call reads or
@@ -2922,7 +2968,7 @@ class Run:
         # A limit rerun ended by a repo stop used to carry into the next feature, whose loop then skipped its
         # first call setup and died on an unset `last` (internal_error, review M1).
         self.entry, self.feature, self.retried, self.limit_rerun, self.outage_rerun = e, f.name, False, False, False
-        self.hint, self.denied_at = None, None
+        self.hint, self.denied_at, self.live_failed = None, None, None
         try:
             if self.answers.get("branches") == "per spec":
                 import pr
@@ -2938,7 +2984,7 @@ class Run:
                 # Spec 0021 AC-3: the answer to its case question runs the feature again with the row's action.
                 opt = self.take_case(d)
                 # Spec 0024 AC-7: update the spec first skips the feature for this run and keeps the old baseline.
-                if opt in (SKIP_IT, "skip the feature", UPDATE_SPEC, "wait for the bottom to merge"):
+                if opt in (SKIP_IT, "skip the feature", UPDATE_SPEC, "wait for the bottom to merge", "not now"):
                     raise Stop("skipped", f"{d['id']}: {opt}")
                 f, d = self.apply_case(d, opt, f), d.get("then")
                 if d is None and f.finished():

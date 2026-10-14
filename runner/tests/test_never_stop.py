@@ -17,7 +17,7 @@ from test_run import SCOPE, RunCase, ask  # noqa: E402
 
 # Spec 0024 AC-11 adds F13.
 # Spec 0026 AC-17 adds F14 and P1 to P12, spec 0027 AC-6 F15, spec 0030 AC-9 U11.
-ROWS = {*(f"F{n}" for n in range(1, 16)), *(f"R{n}" for n in range(1, 5)), *(f"U{n}" for n in range(1, 12)),
+ROWS = {*(f"F{n}" for n in range(1, 17)), *(f"R{n}" for n in range(1, 5)), *(f"U{n}" for n in range(1, 12)),
         *(f"P{n}" for n in range(1, 17))}
 
 TWO = """# Scope: two
@@ -41,7 +41,8 @@ class TestCaseTable(unittest.TestCase):
     def test_every_reason_has_a_row(self):
         reasons = run.PARKS | run.REPO_STOPS | run.RUN_STOPS | run.PR_CASES
         self.assertEqual(sorted(reasons - set(run.CASES)), [], "reasons with no case row")
-        self.assertEqual(sorted(set(run.CASES) - reasons), ["branch"])
+        # live_step (F16) is asked in place of a waiting park on a `· live` box, never parked itself.
+        self.assertEqual(sorted(set(run.CASES) - reasons), ["branch", "live_step"])
         self.assertEqual({row for row, _ in run.CASES.values()}, ROWS)
 
     # covers: AC-2 (a feature level row always asks, its options fit a phone button and the panel)
@@ -230,6 +231,28 @@ class TestRows(NeverStopCase):
         self.assertIn("parked: 1. L: waiting", r.stdout)
         self.assertNotIn("\nwaiting: ", r.stdout)
         self.assertEqual(self.queue()["decisions"], [])
+
+    # covers: F16 (a live step the run reaches is asked; a plain reply on ntfy runs nothing, a coded `run it now`
+    # runs wf finish: the file is copied live, the box ticked, and the feature goes on)
+    def test_live_step_run_now(self):
+        repo = self.make_repo("lv", "# Scope: lv\n**Autopilot:** allowed\n### 1. L · auto\n- [x] (spec)\n- [ ] `/develop l`\n"
+                                    "- [ ] Copy it: `cp rules/x.md ~/.claude/rules/x.md` · waits on you · live\n"
+                                    "- [ ] `/test l`\n")
+        (repo / "rules").mkdir()
+        (repo / "rules" / "x.md").write_text("the rule\n")
+        live = self.tmp / ".claude" / "rules" / "x.md"
+        self.reply("{id} 1")
+        self.steps([{}])
+        r = self.wf("lv", "-y", "--max-wait", "0.01", mode="fast")
+        self.assertIn("\nwaiting: ", r.stdout)
+        self.assertIn("cp rules/x.md ~/.claude/rules/x.md", r.stdout)
+        self.assertFalse(live.exists(), r.stdout)
+        self.reply("{id} code0001 run it now")
+        self.steps([{}, {"tick": False}])
+        r = self.wf("lv", "-y", "--max-wait", "0.01", mode="fast")
+        self.assertEqual(live.read_text(), "the rule\n", r.stdout + r.stderr)
+        self.assertIn("- [x] Copy it:", (repo / "docs" / "scope" / "scope.md").read_text())
+        self.assertIn("/test l", [self.argv(n)["argv"][1] for n in range(1, len(self.calls()) + 1)])
 
     # covers: F11 (a box with no command: skip the box ticks it `· skipped` and the feature goes on)
     def test_skip_the_box(self):

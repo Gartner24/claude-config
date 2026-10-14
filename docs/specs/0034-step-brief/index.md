@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-14
 **Status**: Proposed
-**Paths:** `runner/run.py`, `runner/tests/test_brief.py`, `docs/architecture.md`
+**Paths:** `runner/run.py`, `runner/tests/test_brief.py`
 **Amends**: none. Builds on [0024](../0024-issues-source-of-truth/index.md) (the same read, cap and fence pattern, used for linked issues) and [0021](../0021-never-stop/index.md) (a missing brief never stops anything).
 
 ## What you're agreeing to

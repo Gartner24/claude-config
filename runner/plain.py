@@ -43,6 +43,9 @@ PLAIN = {
     "waiting": ("the next step is waiting on you",
                 "The plan marks this step as yours, for example a check on your phone. Say done when it is done, "
                 "or skip it for now."),
+    "live_step": ("a setup step can run now",
+                  "Some steps copy a finished file into your live setup, the folder every Claude session reads. "
+                  "The build can do it for you now, like a mover placing furniture you already picked."),
     "no_command": ("the next step has no command to run",
                    "Each step in the plan names the command that does it. This one names none, so the build cannot "
                    "tell what to run. Skip the step, or skip the whole feature."),
@@ -171,6 +174,7 @@ WHY = {
     "call_error": "a model error is usually passing; a retry costs one call",
     "manual_box": "it goes on once you have done that box yourself",
     "waiting": "it goes on once you have done that box yourself",
+    "live_step": "running it now lets the feature finish tonight instead of waiting for your next wf",
     "no_command": "skipping the box keeps the rest of the feature going",
     "no_feature": "skipping the box keeps the rest of the feature going",
     "app_failed": "the app often starts on a second try",

@@ -540,13 +540,15 @@ if mode != "no-report-txt":
         self.assertEqual((r.returncode, r.stdout), (0, "PASS\n"), r.stderr)
         self.assertEqual(left, [])
         calls = (self.fakes / "wf-calls").read_text().splitlines()
-        self.assertTrue(calls[0].startswith("allow ") and calls[1].endswith(" -y --max-calls 10 --max-hours 1"), calls)
+        self.assertTrue(calls[0].startswith("allow ") and calls[1].endswith(" -y --max-calls 10 --max-hours 1 --max-wait 0.25"), calls)
         r, left = self.e2e("fail")
         self.assertEqual(r.returncode, 1)
         self.assertEqual(len(left), 1)
         self.assertEqual(r.stdout.splitlines(), ["FAIL: wf exit 6"] + [f"kept: {left[0] / n}" for n in ("repo", "state", "config")])
         cfg = left[0] / "config" / "wf" / "ntfy.json"
-        self.assertEqual((stat.S_IMODE(cfg.stat().st_mode), cfg.read_text()), (0o600, self.ntfy_config.read_text()))
+        # The silent fake ntfy on this machine, never a copy of your config (no ping reaches your phone).
+        self.assertEqual(stat.S_IMODE(cfg.stat().st_mode), 0o600)
+        self.assertTrue(json.loads(cfg.read_text())["server"].startswith("http://127.0.0.1:"))
         self.assertEqual(subprocess.run(["git", "-C", str(left[0] / "repo"), "branch", "--show-current"],
                                         capture_output=True, text=True).stdout, "wf-e2e\n")
 
