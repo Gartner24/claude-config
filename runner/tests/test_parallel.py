@@ -1,5 +1,6 @@
 """Spec 0017: bare `wf run` as a parent of single repo runs, side by side."""
 import datetime
+import hashlib
 import json
 import os
 import shutil
@@ -321,6 +322,120 @@ class TestSignals(ParallelCase):
         self.assertEqual(p.returncode, 130, out + err)
         self.assertEqual(summary(out)[2], "  rc: not started")
         self.assertFalse((self.fakes / "rc-argv-1.json").exists())
+
+
+class TestPlanBaseline(ParallelCase):
+    """Spec 0025: a child started later checks its guard against the plan's, not its own start."""
+
+    def setUp(self):
+        super().setUp()
+        self.a, self.b = self.make_repo("ra", ONE), self.make_repo("rb", ONE)
+        self.trust(self.a, self.b)
+        # A hook script every repo's guard hashes, from ~/.claude/settings.json; ra's calls may write its folder
+        # (spec 0021 AC-7), so only rb sees the change, and only through the plan's baseline.
+        hooks = self.tmp / "hooks"
+        hooks.mkdir()
+        self.hook = hooks / "h.sh"
+        self.hook.write_text("#!/bin/sh\n")
+        (self.tmp / ".claude").mkdir()
+        (self.tmp / ".claude" / "settings.json").write_text(json.dumps({"hooks": {"PreToolUse": [
+            {"matcher": "Bash", "hooks": [{"type": "command", "command": str(self.hook)}]}]}}))
+        (self.tmp / "config" / "wf" / "allow.json").write_text(json.dumps({str(self.a): [str(hooks)]}))
+
+    def baselines(self):
+        d = self.state / "wf" / "baselines"
+        return sorted(d.iterdir()) if d.exists() else []
+
+    def change(self, *more):
+        return {"ra": [{**TICK_A, "write_file": [[str(self.hook), "#!/bin/sh\necho changed\n"], *more]}, DONE_A],
+                "rb": [TICK_A, DONE_A]}
+
+    def asked(self, r, detail):
+        self.assertIn(f"\n[rb] stopped repo rb: guard_changed: {detail}\n", r.stdout)
+
+    # covers: AC-2, AC-3, AC-4 (ra's call changes a hook both guards hash: rb asks naming it before any call;
+    # accept builds rb), AC-1 (the baseline files are gone after a normal end)
+    def test_change_asks_then_accept(self):
+        self.steps(self.change())
+        self.reply("{id} 1")
+        r = self.wf("-y", "--jobs", "1", "--max-wait", "0.01")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.asked(r, f"{self.hook} changed after the plan, before this repo started")
+        self.assertRegex(r.stdout, r"\n\[rb\] answered: [a-z0-9]{4} rb: accept the new setup and go on\n")
+        self.assertIn("\n[rb] done: 1. A\n", r.stdout)
+        recs = self.run_records()
+        self.assertEqual([e["outcome"] for e in recs["rb"]["features"]], ["feature_done"])
+        self.assertEqual(self.queue()["decisions"], [])
+        self.assertEqual(self.baselines(), [])
+
+    # covers: AC-3 (no call in rb while it asks), AC-4 (stop this repo ends rb; ra's result is untouched and the
+    # summary lists both)
+    def test_stop_this_repo(self):
+        self.steps(self.change())
+        self.reply("{id} 2")
+        r = self.wf("-y", "--jobs", "1", "--max-wait", "0.01")
+        self.asked(r, f"{self.hook} changed after the plan, before this repo started")
+        self.assertRegex(r.stdout, r"\n\[rb\] answered: [a-z0-9]{4} rb: stop this repo\n")
+        self.assertFalse((self.fakes / "rb-argv-1.json").exists())
+        recs = self.run_records()
+        self.assertEqual(([e["outcome"] for e in recs["ra"]["features"]], recs["rb"]["features"]), (["feature_done"], []))
+        self.assertEqual(recs["rb"]["repos"][0]["ended"], "guard_changed")
+        s = summary(r.stdout)
+        self.assertTrue(s[0].startswith("  ra: exit 0, done: 1. A | run folder: "), s)
+        self.assertTrue(s[1].startswith("  rb: exit "), s)
+        self.assertEqual(len(s), 2)
+
+    # covers: AC-2, AC-5 (the same change as a swap wf wrote to swaps.jsonl asks nothing and prints nothing more)
+    def test_swap_asks_nothing(self):
+        new = "#!/bin/sh\necho changed\n"
+        line = json.dumps({"stamp": "20261013-000000", "files": {str(self.hook): hashlib.sha256(new.encode()).hexdigest()}})
+        self.steps(self.change([str(self.state / "wf" / "swaps.jsonl"), line + "\n"]))
+        r = self.wf("-y", "--jobs", "1")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("guard_changed", r.stdout)
+        self.assertIn("\n[rb] done: 1. A\n", r.stdout)
+        self.assertIsNone(self.queue())
+
+    # covers: AC-2 (standing answers changed between the plan and rb's start ask)
+    def test_answers_changed(self):
+        self.steps({"ra": [{**TICK_A, "write_file": [[str(self.b / "AGENTS.md"), "## Standing answers\n- run suite: yes\n"]]},
+                           DONE_A], "rb": [TICK_A, DONE_A]})
+        r = self.wf("-y", "--jobs", "1")
+        self.asked(r, "standing answers changed after the plan")
+        self.assertFalse((self.fakes / "rb-argv-1.json").exists())
+
+    # covers: AC-1 (wf run <repo> without the flag behaves as before: no plan check, no question), AC-2 (a missing
+    # baseline file is one change)
+    def test_no_flag_and_missing(self):
+        self.hook.write_text("#!/bin/sh\necho changed before\n")
+        self.steps({"rb": [TICK_A, DONE_A]})
+        r = self.wf("rb", "-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("guard_changed", r.stdout)
+        self.again()
+        (self.fakes / "rb-count").unlink()
+        (self.b / "docs/scope/scope.md").write_text(ONE)
+        r = self.wf("rb", "-y", "--plan-guard", str(self.tmp / "gone.json"))
+        self.assertIn(f"stopped repo rb: guard_changed: plan baseline unreadable: {self.tmp / 'gone.json'}\n", r.stdout)
+
+    # covers: AC-1 (the file exists, 0600 in a 0700 folder, while a child runs; gone after SIGINT)
+    def test_files_and_sigint(self):
+        self.steps({"ra": [{"tick": False, "sleep": 60}], "rb": [TICK_A, DONE_A]})
+        p = self.start("-y", "--jobs", "1")
+        self.wait_for(self.fakes / "ra-argv-1.json", timeout=20)
+        [f] = self.baselines()
+        self.assertEqual((f.stat().st_mode & 0o777, f.parent.stat().st_mode & 0o777), (0o600, 0o700))
+        self.assertEqual(f.name, f"{p.pid}-{hashlib.sha1(str(self.a).encode()).hexdigest()}.json")
+        data = json.loads(f.read_text())
+        self.assertEqual(sorted(data), ["absent_denied", "answers", "guarded_files"])
+        self.assertIn(str(self.hook), data["guarded_files"])
+        p.send_signal(signal.SIGINT)
+        out, err = p.communicate(timeout=60)
+        self.assertEqual(p.returncode, 130, out + err)
+        self.assertEqual(self.baselines(), [])
+
+    def reply(self, *texts):
+        self.report_ntfy.replies = list(texts)
 
 
 if __name__ == "__main__":
