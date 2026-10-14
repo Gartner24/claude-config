@@ -494,6 +494,26 @@ class TestRunChannel(test_run.RunCase):
         self.assertTrue(any(t.endswith(f"\nGot your answer to question {d['id']}: SQLite. Resuming.") for t in texts))
         self.assertEqual(self.bot.sent("answerCallbackQuery"), [{"callback_query_id": "cq1000"}])
 
+    # covers: spec 0040 AC-1 (telegram.json set up while the run waits on an ntfy question: the run switches, logs
+    # it once, sends the open question again on Telegram, and a tap there resumes it)
+    def test_switch_while_waiting(self):
+        self.bot.taps = ["{id} 2"]
+        self.steps([test_run.ask(), {}, {}, {"tick": False}])
+        p = self.start("demo", "-y", "--max-wait", "0.01", mode="fast")
+        end = time.monotonic() + 20
+        while not any(re.match(r"^[a-z0-9]{4}: ", m["message"]) for m in self.report_ntfy.messages):
+            self.assertLess(time.monotonic(), end, "no question on ntfy")
+            time.sleep(0.05)
+        write_cfg(self.tmp / "config")
+        out, err = p.communicate(timeout=60)
+        self.assertEqual(p.returncode, 0, out + err)
+        folder, rec = self.run_record()
+        d = rec["decisions"][0]
+        self.assertEqual((d["answer"], d["source"]), ("SQLite", "phone"))
+        log = (folder / "log.txt").read_text()
+        self.assertEqual(log.count("phone channel now Telegram, open questions sent again there"), 1, log)
+        self.assertTrue(any(t.startswith(f"<b>Question {d['id']} (") for t in (p_["text"] for p_ in self.bot.sent())))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -5,6 +5,7 @@
 **Paths:** `runner/run.py`, `runner/tests/test_design.py`
 **Amends**: [0007](../0007-push-guard/index.md) AC-5 deny list gains `Skill(design)` and `Skill(brand-system)`. [0008](../0008-failure-park-policy/index.md) AC-1 park set gains `design_gate`; its classification order gains rule 14a.
 **Amended**: 2026-10-12, review stack finding M12 (`docs/briefs/runner-review-stack-2026-10-12.md`): AC-7 `design` moves from the top of `run.json` to each feature entry, since one run now holds several features (spec 0011)
+**Amended by**: [0040](../0040-runs-adapt-to-setup-changes/index.md) - AC-1: when `main` (else `master`) shares no commit with HEAD (a shallow clone), the base is the nearest merge base with another branch.
 
 ## Summary
 

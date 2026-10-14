@@ -9,6 +9,7 @@
 **Amended**: 2026-10-12, findings 10 to 13 (final round): AC-3 step 5, AC-11 P2, Threat model, Security model, tests, Build plan (see rationale.md)
 **Amended**: 2026-10-12, for spec 0011 (review stack finding H4, `docs/briefs/runner-review-stack-2026-10-12.md`): AC-3 step 3 log name, AC-10 `app` object, Feature design, tests; findings M7 and M10: AC-3 step 3 hidden paths (more secret files, your own `Read` denies, each at its real path). A resume is its own call under spec 0011, so it gets its own app log and record object
 **Amended**: 2026-10-12, second review stack (`c95f181..d20a328`, same brief): AC-9 `/test` base sentence gains `--relative` (a scope repo in a git subfolder got paths from the git top); AC-3 step 3 hides a hidden folder that is or holds a write bind before the binds, so they go back on top
+**Amended by**: [0040](../0040-runs-adapt-to-setup-changes/index.md) - AC-9: the same nearest merge base when `main` (else `master`) shares no commit with HEAD.
 
 ## Summary
 

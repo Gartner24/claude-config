@@ -686,6 +686,15 @@ def accepted_by(path, lines):
     return max(found) if found and HEX64.fullmatch(h) else None
 
 
+def channel_stamp():
+    """Spec 0040 AC-1: telegram.json's (mtime, size, inode), else None when it is absent."""
+    try:
+        st = os.lstat(telegram.path())
+    except OSError:
+        return None
+    return st.st_mtime_ns, st.st_size, st.st_ino
+
+
 def newest_setup():
     """Spec 0020 AC-6: the newest swaps.jsonl stamp, else None."""
     return max((st for st, _ in ledger()), default=None)
@@ -810,6 +819,8 @@ class Run:
         self.cursor = self.first_ping = None
         self.polled = self.poll_failed = False
         self.own = set()
+        # Spec 0040 AC-1: telegram.json as seen when the channel was last chosen.
+        self.channel_seen = None
         # AC-15: end wait seconds of this run, all waits added.
         self.end_waited = 0.0
         # Spec 0021: per (repo, feature) this run, cap factors (F8) and designs accepted as is (F7); an F1 allow once
@@ -924,6 +935,7 @@ class Run:
             return 1
         try:
             # Spec 0029 AC-2: the module that sends, polls and takes; self.ntfy keeps its config, either channel.
+            self.channel_seen = channel_stamp()
             self.phone, self.ntfy = telegram.channel()
         except telegram.Refused as e:
             return None if self.peek else self.refuse(*e.args)
@@ -1496,6 +1508,8 @@ class Run:
             repo=None, branch=None, **extra):
         """Spec 0011 AC-11, spec 0021 AC-2: keep a question in queue.json, in place of an older one of the same
         feature, and ping it. Returns the Decision. A failed ping leaves it queued for the report and the U9 retry."""
+        # Spec 0040 AC-1: before this question is queued, so a switch sends it once, on the new channel.
+        self.recheck_channel()
         if "context" not in extra and self.c is not None:
             # Spec 0033 AC-1: where the question comes from, built by the runner; did, why and steps from the call.
             step = f"{box_text} `{command}`" if box_text and command and command not in box_text else \
@@ -2758,9 +2772,35 @@ class Run:
 
         self.queue(write)
 
+    def recheck_channel(self):
+        """Spec 0040 AC-1: the channel is chosen again when telegram.json appeared, changed or went away since it was
+        last chosen (one lstat, so every poll can afford it). On a switch the old channel is read once more, so a
+        reply already sent there still counts, then every open question is sent again on the new one. A file that
+        does not load keeps the channel in use: a run never stops over a phone setup made after it started."""
+        stamp = channel_stamp()
+        if stamp == self.channel_seen:
+            return
+        self.channel_seen = stamp
+        try:
+            phone, cfg = telegram.channel()
+        except telegram.Refused as e:
+            self.log(f"phone channel kept: {e.args[0]}: {flat(e.args[1])}")
+            return
+        if phone is self.phone:
+            self.ntfy = cfg
+            return
+        self.poll()
+        self.phone, self.ntfy = phone, cfg
+        # The cursor and ping ids are the old channel's; poll() starts the new one from the oldest open question.
+        self.cursor = self.first_ping = None
+        self.polled = self.poll_failed = False
+        self.log(f"phone channel now {'Telegram' if phone is telegram else 'ntfy'}, open questions sent again there")
+        self.reping()
+
     def poll(self):
         """AC-12: read the topic once and store accepted replies on any unanswered Decision in queue.json.
         True when a reply answered one."""
+        self.recheck_channel()
         # Spec 0021 U9: a question whose ping failed is sent again every PING_RETRY seconds.
         if self.ping_due is not None and ntfy.boottime() >= self.ping_due:
             self.ping_due = None
