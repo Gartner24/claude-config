@@ -1,7 +1,7 @@
 # 0030 · Autonomous mode: the session drives the runner
 
 **Date**: 2026-10-13
-**Status**: In Progress
+**Status**: Accepted (built 376d029)
 **Paths:** `runner/auto.py`, `runner/wf.py`, `runner/run.py`, `runner/tests/test_auto.py`, `skills/auto/SKILL.md`, `settings.json`, `AGENTS.md`
 **Amends**: [0021](../0021-never-stop/index.md) (new run level row U11 `auto_off`), architecture invariant 5 (starting a run), [0020](../0020-one-command-wf/index.md) (who may run `wf -y`).
 
