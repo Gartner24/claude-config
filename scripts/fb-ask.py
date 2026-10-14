@@ -122,10 +122,11 @@ def origin_ok(path, prefixes):
     """A path in no git repo passes; a repo passes only with an origin under an fb-ok.txt line. The folder name
     is never read: a clone of a client repo can be named anything."""
     d = path if os.path.isdir(path) else os.path.dirname(os.path.abspath(path))
-    top = git(d, "rev-parse", "--show-toplevel")
-    if top is None:
+    # --absolute-git-dir, not --show-toplevel: inside .git (or a bare repo) there is no work tree, and a
+    # client's .git/COMMIT_EDITMSG used to pass as "no repo".
+    if git(d, "rev-parse", "--absolute-git-dir") is None:
         return True
-    origin = git(top, "config", "--get", "remote.origin.url")
+    origin = git(d, "config", "--get", "remote.origin.url")
     if not origin:
         return False
     o = normalize(origin)
@@ -498,6 +499,10 @@ def self_test():
         with open(cfile, "w") as f:
             f.write("log")
         ok(fell(fb("summarize", "--file", cfile, cwd=mine), "client_repo", 4), "AC-5 a --file in a client repo")
+        gfile = os.path.join(client, ".git", "COMMIT_EDITMSG")
+        with open(gfile, "w") as f:
+            f.write("msg")
+        ok(fell(fb("commit-msg", "--file", gfile, cwd=plain), "client_repo", 4), "AC-5 a --file in a client .git")
         with open(os.path.join(live, "private", "fb-ok.txt"), "w") as f:
             f.write("github.com/m\n")
         ok(fell(fb("summarize", cwd=mine), "client_repo", 4), "AC-5 a prefix matches whole path segments")
