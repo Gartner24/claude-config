@@ -7,6 +7,7 @@ import re
 import tempfile
 
 import ntfy
+import plain
 import run
 import telegram
 import wf
@@ -116,14 +117,15 @@ def head(items, recs):
     if not gone and recs and reasons == ["queue_done"]:
         status = "done"
     else:
-        status = " ".join(["stopped", ", ".join("internal_error (crash)" if r == "internal_error" else r for r in reasons)]).strip()
+        # Spec 0028 AC-13: reasons in plain words; the codes stay in run.json and log.txt.
+        status = " ".join(["stopped", ", ".join(plain.words(r) for r in reasons)]).strip()
     ended = [datetime.datetime.fromisoformat(r["ended"]) for r in recs if r.get("ended")]
     # ponytail: no run left an end time (every child died before it), so the parent's own clock stands in.
     at = max(ended).astimezone() if ended else datetime.datetime.now()
     calls = [c for r in recs for c in r.get("calls", [])]
     spent = run.spent_line(run.spent(calls))[len("spent: "):]
-    return (f"wf {status} {at:%H:%M}: {kinds.count('built')} built, {kinds.count('parked')} parked, "
-            f"{kinds.count('question')} open, {spent}")
+    return (f"wf {status} {at:%H:%M}: {kinds.count('built')} built, {kinds.count('parked')} stuck, "
+            f"{kinds.count('question')} questions, {spent}")
 
 
 def approved(path):
@@ -140,10 +142,10 @@ def next_line(items, name):
     kinds = {i["kind"] for i in items}
     # Spec 0026 AC-10: a draft PR is marked ready and an approved one merged by you; the runner never does either.
     ready = [f"PR #{i['pr']['number']}" for i in items if i["kind"] == "built" and (i.get("pr") or {}).get("number")]
-    plain = [name(i) for i in items if i["kind"] == "built" and not (i.get("pr") or {}).get("number")]
+    no_pr = [name(i) for i in items if i["kind"] == "built" and not (i.get("pr") or {}).get("number")]
     steps = ([f"mark ready: {', '.join(ready)}"] if ready else []) + \
         [f"merge PR #{i['number']}" for i in items if i["kind"] == "approved"] + \
-        ([f"review and merge: {', '.join(dict.fromkeys(plain))}"] if plain else [])
+        ([f"review and merge: {', '.join(dict.fromkeys(no_pr))}"] if no_pr else [])
     if "live" in kinds:
         return "next: wf" + (f", then {', '.join(steps)}" if steps else "")
     if kinds & {"parked", "stopped", "question", "yours", "no record", "no end", "not started"}:
@@ -155,7 +157,7 @@ def next_line(items, name):
 def item_line(i, multi, phone, cfg, wide=False):
     """One AC-2 item line. phone: AC-4 labels and scrubbed fields, no detail; else AC-3 real names and details.
     wide: spec 0029 AC-9's longer reason and question cuts for Telegram."""
-    reason, question = (80, 300) if wide else (40, 80)
+    reason, question = (80, 300) if wide else (60, 80)
     field = (lambda t, n, fb: ntfy.scrub_field(cfg, t, n, fb)) if phone else (lambda t, n, fb: wf.clean(str(t)))
     name = label(cfg, i) if phone else i["name"]
     k, feature = i["kind"], field(i.get("feature"), 40, "feature")
@@ -165,14 +167,15 @@ def item_line(i, multi, phone, cfg, wide=False):
         if pr.get("number"):
             text += f": PR #{pr['number']}" if phone else f": draft PR {wf.clean(str(pr.get('url')))}"
     elif k == "parked":
-        text = f"parked: {feature}: {field(i['reason'], reason, 'reason')}"
+        # Spec 0028 AC-13: plain prefixes and reason words, details with their codes read as words.
+        text = f"stuck: {feature}: {field(plain.words(i['reason']), reason, 'reason')}"
         if not phone and i["detail"]:
-            text += f": {run.flat(i['detail'])}"
+            text += f": {plain.detail(run.flat(i['detail']))}"
     elif k == "stopped":
-        text = f"stopped: {feature}: {field(i['reason'], reason, 'reason')}"
-        # Spec 0021 U10: a runner bug stops only its repo; the report points at its traceback.
+        text = f"stopped: {feature}: {field(plain.words(i['reason']), reason, 'reason')}"
+        # Spec 0021 U10: a runner bug stops only its repo; the report points at its error details.
         if not phone and i["reason"] == "internal_error" and i.get("folder"):
-            text += f" (traceback: {os.path.join(i['folder'], 'traceback.txt')})"
+            text += f" (error details: {os.path.join(i['folder'], 'traceback.txt')})"
     elif k == "question":
         text = f"question {wf.clean(i['id'])}: {feature}"
         # Spec 0021 AC-6: what it asks and the answer it recommends.
@@ -181,17 +184,17 @@ def item_line(i, multi, phone, cfg, wide=False):
         if i.get("recommended"):
             text += f" (recommended: {field(i['recommended'], 40, 'answer')})"
     elif k == "live":
-        text = f"live: {feature}: {i['n']} step(s)"
+        text = f"setup steps: {feature}: {i['n']} step(s)"
     elif k == "yours":
-        text = f"yours: {feature}: {field(i['text'], 80, 'step')}"
+        text = f"for you: {feature}: {field(i['text'], 80, 'step')}"
     elif k == "no record":
         text = f"no record: {name}: exit {i['code']}"
     elif k == "note":
-        text = field(i["text"], 120, "note")
+        text = field(plain.detail(i["text"]), 120, "note")
     elif k == "approved":
         text = f"approved: PR #{i['number']}"
     else:
-        text = f"{k}: {name}"
+        text = f"{'did not finish' if k == 'no end' else k}: {name}"
     return text + (f" ({name})" if multi else "")
 
 
@@ -369,14 +372,15 @@ def shown(text):
 
 
 def locks_held():
-    locks = os.path.join(run.state_dir(), "locks")
+    """The number of repo locks a run holds (spec 0030 AC-6 counts them)."""
+    locks, n = os.path.join(run.state_dir(), "locks"), 0
     for f in sorted(os.listdir(locks)) if os.path.isdir(locks) else []:
         fd, who = run.lock_file(os.path.join(locks, f), create=False)
         if fd is not None:
             os.close(fd)
         elif who is not None:
-            return True
-    return False
+            n += 1
+    return n
 
 
 def hook():

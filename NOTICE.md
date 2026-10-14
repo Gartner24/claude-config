@@ -13,12 +13,14 @@ because the LICENSE covers only the parts authored here.
 | `skills/intent-router/`, `USAGE.md` | Prompt-to-skill routing table and its scorer |
 | `scripts/check-routing.py`, `scripts/asciify.py`, `scripts/private-names.py`, `scripts/spec-paths.py`, `scripts/fb-ask.py` | Repo tooling |
 | `hooks/block-destructive.sh` | Destructive-command guard |
+| `hooks/plain-panel.py` | Panel check: every question offers "Learn this first", at most 3 real options, no jargon (spec 0028) |
 | `runner/` | `wf`, the workflow runner (spec 0001) |
+| `skills/auto/` | `/auto on`, `/auto off`: autonomous mode, the session drives `wf` (spec 0030) |
 | `rules/scope-contract.md` | The scope format the runner reads and the skills write (spec 0003) |
 | `rules/spec-gate.md` | Spec gate: the agreeing section, probe before accept, small change fast path, `docs/architecture.md` |
 | `rules/handoff.md` | Handoff override: replaces the skills' bare "/clear" line with `/rollover` or `/save-and-clear` |
 | `rules/standing-answers.md` | Standing answers: skill questions answered the same way every time in interactive sessions |
-| `rules/plain-questions.md` | Plain questions: every question to you opens with what is decided, explains each term, and re-explains from zero on request |
+| `rules/plain-questions.md` | Plain words: everything said to you in plain words, a "Learn this first" option on every panel, and an explanation from zero on request (spec 0028) |
 | `rules/skill-map.md` | Skill map: which skill fits each situation, its rough cost, and who starts it |
 | `rules/check-gates.md` | Check gates: verify steps and tests that can fail, `**Paths:**` on every spec with `/sync` stale warnings, cross checks against the brief (spec 0015) |
 | `rules/review-fix.md` | After a review: which findings are fixed without asking, which are asked, and the two round stopping point |

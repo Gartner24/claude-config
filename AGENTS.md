@@ -24,6 +24,7 @@ python3 scripts/check-routing.py                # after editing USAGE.md or a sk
 python3 scripts/gen-agent-index.py --check      # after touching agents/ (drop --check to regenerate)
 python3 scripts/asciify.py --check              # ASCII-only lint on repo-owned markdown
 bash hooks/block-destructive.sh --test          # guard hook self-checks
+python3 hooks/plain-panel.py --test             # panel hook self checks (spec 0028): "Learn this first" last, at most 3 real options, no jargon
 bash skills/design/scripts/test-ledger.sh       # design ledger + Stop hook assertions
 node skills/design/scripts/build-ramp.mjs --check
 python3 -m unittest discover -s runner/tests    # wf runner self checks (install.sh runs these)
@@ -39,6 +40,7 @@ wf finish [target] [-y]                         # run the ` · live` waits-on-yo
 wf report [--seen|--hook]                       # the last wf run's morning report, also sent to the phone at the end of every run (spec 0018); `--hook` is the settings.json SessionStart form, prints only an unseen report; `--seen` stops showing it; report.txt lives in the wf state folder
 wf ntfy init|codes|test                         # phone pings for wf run decisions (spec 0005); config ~/.config/wf/ntfy.json (0600), wf run refuses without it
 wf telegram init|test                           # your Telegram bot instead of ntfy (spec 0029): init asks for the BotFather token (hidden), binds your chat with a /start code, writes ~/.config/wf/telegram.json (0600); test sends one question
+wf auto on|off|status|start|wait|hook|bar          # autonomous mode (spec 0030): `/auto on` (user only, `wf auto on` refuses under WF_RUN) makes that folder's sessions start `wf -y` as the `wf-auto` user unit and relay its questions; `off` lets the running build finish its current features, `off now` stops the unit; `hook` is the SessionStart and UserPromptSubmit hook, `bar` wraps jjstack's status line; state in <state>/auto.json
 ```
 
 ## Specs
@@ -47,7 +49,7 @@ wf telegram init|test                           # your Telegram bot instead of n
 
 ## Rules
 
-- Two kinds of file. `skills/` and `commands/` are symlinked into `~/.claude`, so editing here is live. `CLAUDE.md`, `settings*.json`, `agents/`, `rules/`, `hooks/block-destructive.sh`, `hooks/review-stack-pre-push`, `scripts/chroma-reaper.sh` are copies: edit the live file in `~/.claude`, then `./sync.sh`. An edit made here is overwritten on the next sync.
+- Two kinds of file. `skills/` and `commands/` are symlinked into `~/.claude`, so editing here is live. `CLAUDE.md`, `settings*.json`, `agents/`, `rules/`, `hooks/block-destructive.sh`, `hooks/review-stack-pre-push`, `hooks/plain-panel.py`, `scripts/chroma-reaper.sh` are copies: edit the live file in `~/.claude`, then `./sync.sh`. An edit made here is overwritten on the next sync.
 - `runner/` is a third kind: `wf`, the workflow runner (spec 0001). `install.sh` symlinks `runner/wf.py` to `~/.local/bin/wf` and `~/.local/bin/next` (called as `next`, it acts as `wf next`), so edit it here. Python 3 stdlib only, tests are `unittest`, external commands go through `subprocess` with argument lists, never a shell string.
 - This repo is public. No client or employer names, repo names, domains, or env-file names. `sync.sh` strips `autoMode` from settings.json; client skills are gitignored.
 - Do not edit vendored trees: `agents/` (27 of 31 from ECC), `rules/ecc/` (except the 7 `index.md` and the local additions in `common/code-review.md`, `common/testing.md`), `skills/anti-ai-writing/`. Provenance lives in `NOTICE.md`; update it when adding an authored or redistributed path.

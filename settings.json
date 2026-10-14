@@ -3,6 +3,9 @@
   "includeCoAuthoredBy": false,
   "permissions": {
     "deny": [
+      "Bash(*wf auto on*)",
+      "Bash(*wf.py auto on*)",
+      "Bash(wf auto on:*)",
       "Bash(fdisk *)",
       "Bash(halt *)",
       "Bash(mkfs*)",
@@ -14,6 +17,7 @@
       "Bash(sudo mkfs*)",
       "Bash(sudo rm *)",
       "Edit(//home/santiago/.aws/**)",
+      "Edit(//home/santiago/.local/state/wf/auto.json)",
       "Edit(//home/santiago/.bash_profile)",
       "Edit(//home/santiago/.bashrc)",
       "Edit(//home/santiago/.profile)",
@@ -302,6 +306,24 @@
             "command": "/home/santiago/.local/bin/wf report --hook"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/santiago/.local/bin/wf auto hook"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/santiago/.local/bin/wf auto hook"
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -336,6 +358,16 @@
       }
     ],
     "PreToolUse": [
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/santiago/.claude/hooks/plain-panel.py",
+            "timeout": 5
+          }
+        ]
+      },
       {
         "matcher": "Bash",
         "hooks": [
@@ -451,7 +483,8 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "bash /home/santiago/.claude/skills/jjstack/bin/statusline.sh"
+    "command": "/home/santiago/.local/bin/wf auto bar",
+    "refreshInterval": 5
   },
   "enabledPlugins": {
     "claude-mem@thedotmack": false,

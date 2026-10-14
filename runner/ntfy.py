@@ -252,6 +252,10 @@ class Topic:
         if blocked(self.cfg, question):
             question = "question waiting, see terminal"
         lines, actions = [f"{d['id']}: {question}"], []
+        # Spec 0028 AC-11: the short explanation right under the question, scrubbed like a report field.
+        learn = scrub_field(self.cfg, " ".join(str(d.get("learn") or "").split()), 300, "")
+        if learn:
+            lines.append(f"learn: {learn}")
         for n, label in enumerate(d["options"], 1):
             label = scrub(label, 100)
             # A label that was all paths or code used to send a blank button.

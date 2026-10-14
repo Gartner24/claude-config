@@ -258,6 +258,10 @@ class Topic(ntfy.Topic):
         if ntfy.blocked(self.cfg, question):
             question = "question waiting, see terminal"
         lines, rows = [f"{d['id']}: {question}"], []
+        # Spec 0028 AC-11: the short explanation right under the question, as on ntfy.
+        learn = ntfy.scrub_field(self.cfg, " ".join(str(d.get("learn") or "").split()), 300, "")
+        if learn:
+            lines.append(f"learn: {learn}")
         for n, label in enumerate(d["options"], 1):
             label = ntfy.scrub(label, 200)
             if not label or ntfy.blocked(self.cfg, label):

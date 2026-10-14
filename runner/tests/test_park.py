@@ -44,7 +44,8 @@ class TestParkSets(unittest.TestCase):
                                      "issue_changed", "stack_deep", "paths_overlap"})
         self.assertEqual(run.REPO_STOPS, {"branch_changed", "autopilot_off", "scope_unreadable"})
         self.assertEqual(run.RUN_STOPS, {"interrupted", "run_limit", "usage_limit", "spawn_failed", "guard_changed",
-                                         "ping_failed", "internal_error", "app_port_busy", "api_outage", "crash_loop"})
+                                         "ping_failed", "internal_error", "app_port_busy", "api_outage", "crash_loop",
+                                         "auto_off"})
         self.assertEqual(run.PARKS - run.RECORDED, {"call_error", "manual_box", "waiting", "no_command", "no_feature",
                                                      "issue_changed", "stack_deep", "paths_overlap"})
 
@@ -210,7 +211,7 @@ class TestBlocked(RunCase):
         self.assertEqual(rec["detail"], "sudo pacman -S stow")
         # Spec 0021 F2: the only question is the park's own.
         self.assertEqual((rec["calls"][0]["marker"], rec["calls"][0]["decision"], [d["question"] for d in rec["decisions"]]),
-                         ("blocked", None, ["blocked: sudo pacman -S stow"]))
+                         ("blocked", None, ["the step needs something only you can do in 1. Loop. sudo pacman -S stow"]))
         self.assertIn("parked: 1. Loop: blocked: sudo pacman -S stow", r.stdout)
 
 

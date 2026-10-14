@@ -563,7 +563,7 @@ def selftest():
     (slive / "settings.local.json").write_text(json.dumps({"permissions": {"allow": ["Read(~/quux-labs)", "Read"]}}))
     (slive / "agents" / "a.md").write_text("agent\n")
     (slive / "rules" / "r.md").write_text("rule\n")
-    for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "scripts/chroma-reaper.sh"):
+    for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py", "scripts/chroma-reaper.sh"):
         (slive / f).write_text("#!/bin/sh\n")
     sh("git", "add", "-A", cwd=sync_repo)
     sh("git", "commit", "-q", "--no-verify", "-m", "start", cwd=sync_repo)
@@ -660,7 +660,7 @@ def selftest():
         (irepo / d).mkdir()
     shutil.copy(real_repo / "install.sh", irepo / "install.sh")
     shutil.copy(SCRIPT, irepo / "scripts" / "private-names.py")
-    for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "scripts/chroma-reaper.sh"):
+    for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py", "scripts/chroma-reaper.sh"):
         (irepo / f).write_text("#!/bin/sh\n")
     (irepo / "CLAUDE.md").write_text("# rules\n")
     (irepo / "settings.json").write_text(json.dumps({"permissions": {"deny": ["Bash(rm:*)", "Read(~/x)"]}}))

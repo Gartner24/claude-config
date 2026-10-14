@@ -1,7 +1,7 @@
 # 0028 · Understand everything: plain words, and learn any idea first
 
 **Date**: 2026-10-13
-**Status**: Proposed
+**Status**: Accepted (built 8b7fd19)
 **Paths:** `rules/plain-questions.md`, `hooks/plain-panel.py`, `settings.json`, `install.sh`, `sync.sh`, `NOTICE.md`, `runner/plain.py`, `runner/run.py`, `runner/ntfy.py`, `runner/report.py`, `runner/tests/test_plain.py`
 **Amends**: [0005](../0005-decision-parking-phone-pings/index.md) (the ping body gains a `learn:` line, the prompt a `LEARN:` line), [0011](../0011-build-decision-queue/index.md) (a Decision gains `learn` and `jargon`), [0018](../0018-morning-report/index.md) AC-2 and AC-4 (item words and reasons in plain words), [0021](../0021-never-stop/index.md) AC-2 (case questions in plain words with a learn line).
 
