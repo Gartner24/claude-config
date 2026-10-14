@@ -3,6 +3,7 @@
 import datetime
 import fcntl
 import getpass
+import html
 import json
 import os
 import re
@@ -237,19 +238,51 @@ def fetch(cfg):
         os.close(fd)
 
 
+LINKED = re.compile(r"^((?:spec|issue|PR): (?:#\d+ )?)(https://\S+)$")
+
+
+def styled_block(block):
+    """Spec 0038 AC-2: the from: block as escaped HTML; a spec, issue or PR link is an anchor whose text is its
+    href, and the step's unverified words go in a collapsed quote."""
+    e, out, quote = html.escape, [], []
+    for line in block.split("\n"):
+        m = LINKED.match(line)
+        if quote or line == context.UNVERIFIED:
+            quote.append(line)
+        elif line == "from:":
+            out.append("<b>from:</b>")
+        elif m:
+            out.append(f'{e(m.group(1))}<a href="{e(m.group(2))}">{e(m.group(2))}</a>')
+        else:
+            out.append(e(line))
+    if quote:
+        out.append(f"<b>{e(quote[0])}</b>\n<blockquote expandable>{e(chr(10).join(q[2:] for q in quote[1:]))}</blockquote>")
+    return "\n".join(out)
+
+
 class Topic(ntfy.Topic):
     """ntfy.Topic's title and wait(); sending, polling and taking go through the bot."""
 
     def publish(self, message, priority, actions=None, stopped=lambda: False, title=None, tags=("question",),
-                markup=None):
-        """AC-5: the title is the first line, priority 2 or lower is silent, actions and tags are ignored."""
+                markup=None, styled=None):
+        """AC-5: the title is the first line, priority 2 or lower is silent, actions and tags are ignored.
+        Spec 0038: styled, the same message as escaped HTML, is sent instead, and as message once more if refused."""
         title = self.title if title is None else title
         p = {"chat_id": self.cfg["chat_id"], "text": ntfy.cut(f"{title}\n{message}" if title else message, MAX)}
         if priority <= 2:
             p["disable_notification"] = True
         if markup:
             p["reply_markup"] = markup
-        mid = retry(self.cfg, lambda: str(api(self.cfg["token"], "sendMessage", p)["message_id"]), stopped)
+
+        def send():
+            if styled:
+                try:
+                    return str(api(self.cfg["token"], "sendMessage", {**p, "text": styled, "parse_mode": "HTML"})
+                               ["message_id"])
+                except ApiError:
+                    pass
+            return str(api(self.cfg["token"], "sendMessage", p)["message_id"])
+        mid = retry(self.cfg, send, stopped)
         if mid:
             self.own.add(mid)
         return mid
@@ -277,8 +310,11 @@ class Topic(ntfy.Topic):
         panel = d["kind"] == "panel"
         lines.append("tap a button, or reply to this message" if panel else "reply to this message with your answer")
         d["sent"] = "\n".join(lines)
+        e = html.escape
+        styled = [f"<b>{e(lines[0])}</b>", f"<b>{e(question)}</b>"] + ([f"<i>{e(lines[2])}</i>"] if learn else []) + \
+            ([styled_block(block)] if block else []) + [e(x) for x in lines[len(lines) - len(rows) - 1:]] + [e(self.title)]
         return self.publish(d["sent"] + "\n" + self.title, 4, stopped=stopped, title="",
-                            markup={"inline_keyboard": rows} if panel and rows else None)
+                            markup={"inline_keyboard": rows} if panel and rows else None, styled="\n".join(styled))
 
     def poll(self, cursor):
         """AC-7: fetch, then the log lines after a `u<N>` cursor, else every line."""

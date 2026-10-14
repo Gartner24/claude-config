@@ -53,7 +53,7 @@ class FakeBot:
                         # Pending taps arrive once a question was sent, carrying its id.
                         # Spec 0033 AC-5: question messages start with the labeled id.
                         pings = [m_.group(1) for _, m, p in fake.calls if m == "sendMessage"
-                                 for m_ in [re.match(r"^Question ([a-z0-9]{4}) \(", p["text"])] if m_]
+                                 for m_ in [re.match(r"^(?:<b>)?Question ([a-z0-9]{4}) \(", p["text"])] if m_]
                         if pings and fake.taps:
                             fake.updates += [tap_update(1000 + len(fake.updates), t.format(id=pings[-1]))
                                              for t in fake.taps]
@@ -187,10 +187,11 @@ class TestSend(TelegramCase):
         self.assertEqual(t.ping(d, lambda: False), "101")
         p = self.bot.sent()[0]
         self.assertEqual(p["chat_id"], CHAT)
-        self.assertNotIn("parse_mode", p)
+        self.assertEqual(p["parse_mode"], "HTML")
         self.assertEqual(d["sent"], "Question ab12 (its name, so your reply finds it):\nShip it?\n1 yes\n2 no\n3 later\n4 see\n5 option 5\n"
                                     "tap a button, or reply to this message")
-        self.assertTrue(p["text"].startswith(d["sent"] + "\n"))
+        self.assertTrue(p["text"].startswith("<b>Question ab12 (its name, so your reply finds it):</b>\n<b>Ship it?</b>\n"
+                                             "1 yes\n"), p["text"])
         self.assertEqual(p["reply_markup"]["inline_keyboard"],
                          [[{"text": f"{n} {l}", "callback_data": f"ab12 {n}"}]
                           for n, l in enumerate(["yes", "no", "later", "see", "option 5"], 1)])
@@ -201,6 +202,41 @@ class TestSend(TelegramCase):
         p = self.bot.sent()[1]
         self.assertNotIn("reply_markup", p)
         self.assertEqual(d["sent"], "Question ab12 (its name, so your reply finds it):\nquestion waiting, see terminal\nreply to this message with your answer")
+
+    # covers: spec 0038 AC-1, AC-2, AC-4 (every inserted value escaped, runner links are anchors whose text is the
+    # href, the unverified words in a collapsed quote, d["sent"] stays plain)
+    def test_styled(self):
+        from unittest import mock
+        t = telegram.Topic(self.cfg, "demo", "loop")
+        d = self.decision(options=['<a href=x>ok', "no & <b>"])
+        d.update(question="Ship <i>it & go?", learn="a <tag> & more", case="denied", allow="/r/x", context={
+            "repo": "demo", "feature": "1. <b>Loop", "spec": "https://github.com/o/r/blob/main/a.md",
+            "pr": {"number": 7, "url": "https://github.com/o/r/pull/7"}, "did": "see <script>x"})
+        with mock.patch.object(ntfy, "private_names", return_value=["zzz"]):
+            t.ping(d, lambda: False)
+        html_ = self.bot.sent()[0]["text"]
+        self.assertNotIn("<i>it", html_)
+        self.assertIn("<b>Ship &lt;i&gt;it &amp; go?</b>", html_)
+        self.assertIn("\nfeature: 1. &lt;b&gt;Loop\n", html_)
+        self.assertIn("<blockquote expandable>see &lt;script&gt;x</blockquote>", html_)
+        self.assertIn("\n1 &lt;a href=x&gt;ok\n2 no &amp; &lt;b&gt;\n", html_)
+        self.assertIn("<i>learn: a &lt;tag&gt; &amp; more</i>", html_)
+        self.assertIn('spec: <a href="https://github.com/o/r/blob/main/a.md">https://github.com/o/r/blob/main/a.md</a>', html_)
+        self.assertIn('PR: #7 <a href="https://github.com/o/r/pull/7">https://github.com/o/r/pull/7</a>', html_)
+        self.assertIn("<blockquote expandable>", html_)
+        self.assertEqual(re.findall(r"<a href", html_), ["<a href"] * 2)
+        self.assertTrue(d["sent"].startswith("Question ab12 (its name, so your reply finds it):\nShip <i>it & go?"))
+
+    # covers: spec 0038 AC-5 (a refused HTML message goes once more as plain text)
+    def test_styled_fallback(self):
+        self.bot.fail = 1
+        t = telegram.Topic(self.cfg, "demo", "loop")
+        d = self.decision()
+        self.assertEqual(t.ping(d, lambda: False), "101")
+        first, second = self.bot.sent()
+        self.assertEqual(first.get("parse_mode"), "HTML")
+        self.assertNotIn("parse_mode", second)
+        self.assertTrue(second["text"].startswith(d["sent"] + "\n"))
 
     # covers: spec 0029 AC-4 (question cut at 1000, label at 200)
     def test_cuts(self):
@@ -448,10 +484,13 @@ class TestRunChannel(test_run.RunCase):
         self.assertEqual((d["answer"], d["source"]), ("SQLite", "phone"))
         self.assertEqual(self.argv(2)["argv"][1], "The user answered your DECISION NEEDED question: SQLite")
         texts = [p["text"] for p in self.bot.sent()]
-        self.assertTrue(texts[0].startswith(f"Question {d['id']} (its name, so your reply finds it):\nWhich storage engine?\n"))
+        # Spec 0038: the question message is styled HTML.
+        self.assertTrue(texts[0].startswith(f"<b>Question {d['id']} (its name, so your reply finds it):</b>\n"
+                                            "<b>Which storage engine?</b>\n"), texts[0])
         self.assertIn("\n1 Postgres (recommended)\n2 SQLite\n", texts[0])
         # Spec 0033 AC-4: the from block, with the repo and feature.
-        self.assertIn("\nfrom:\nrepo: demo\nfeature: 1. Loop\n", texts[0])
+        # No names list in the test home: the repo shows by its hashed label (security review, information disclosure).
+        self.assertRegex(texts[0], r"\n<b>from:</b>\nrepo: repo-[0-9a-f]{4}\nfeature: 1\. Loop\n")
         self.assertTrue(any(t.endswith(f"\nGot your answer to question {d['id']}: SQLite. Resuming.") for t in texts))
         self.assertEqual(self.bot.sent("answerCallbackQuery"), [{"callback_query_id": "cq1000"}])
 
