@@ -148,6 +148,9 @@ def telegram_block(cfg, d, room):
     steps = [] if gated else [step_line(cfg, s) for s in c.get("steps") or []]
     steps = [f"{i}. {s}" for i, s in enumerate((s for s in steps if s), 1)]
     did = field(cfg, c.get("did"), DID_MAX)
+    # Spec 0042 AC-3: what a step only you can do is, in plain words, right under where it comes from.
+    what = "" if gated else field(cfg, c.get("what"), 500)
+    head += [f"what this is: {what}"] if what else []
     while True:
         if gated:
             # The runner's facts first; the call's words last, quoted and marked unverified.
@@ -177,7 +180,9 @@ def ntfy_lines(cfg, d):
     gated = auth(d)
     why = field(cfg, plain.WHY.get(d.get("case")) if gated else c.get("why"), 200)
     steps = [] if gated else [field(cfg, s, 200) for s in c.get("steps") or []]
-    return out + ([f"why: {why}"] if why else []) + [f"{i}. {s}" for i, s in enumerate((s for s in steps if s), 1)]
+    what = "" if gated else field(cfg, c.get("what"), 300)
+    return out + ([f"what: {what}"] if what else []) + ([f"why: {why}"] if why else []) + \
+        [f"{i}. {s}" for i, s in enumerate((s for s in steps if s), 1)]
 
 
 def blocked_steps(r, feature, box_text, command, blocked, steps):
