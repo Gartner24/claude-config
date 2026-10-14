@@ -51,7 +51,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 37 | Autonomous mode | Release 6 | in-progress |
 | 31 | Guard baseline check between repos | Release 6 | done |
 | 23 | Understand everything | Release 6 | in-progress |
-| 15 | Cheap worker tier | Release 6 | in-progress |
+| 15 | Cheap worker tier | Release 6 | done |
 | 16 | Issues and mixed source of truth | Release 6 | done |
 | 11 | Autopilot offer and batch design | Deferred | dropped |
 | 12 | Usage limit planning | Release 6 | in-progress |
@@ -560,17 +560,17 @@ A repo that opts in with `- parallel: <n>` builds up to n features at once, each
 - [ ] Sync docs: `/sync several features of one repo at once`
 Spec [0027](../specs/0027-same-repo-parallel/index.md) · Source: personal scope row 23.
 
-### 15. Cheap worker tier · in-progress · auto
+### 15. Cheap worker tier · done · auto
 Boring reading jobs go to the free claude-fb models through `fb-ask` (text only, six job kinds); never client or work repos; falls back to normal Claude at once when the free models are down. Used today for the summary a failed check hands to `/debug`.
 **Done when:** a failed check's debug step gets an `fb-ask` summary in an allowed repo, and a repo not on your list never reaches it.
 - [x] Design it (spec): `/architect cheap worker tier`
 - [x] Build it: `/develop cheap worker tier`
 - [x] Verify it: `/check verify cheap worker tier`
 - [x] Test it: `/test cheap worker tier`
-- [ ] Create `~/.claude/private/fb-ok.txt` (your own repo origins) and `~/.claude/private/fb-ask.conf` · waits on you
+- [x] Create `~/.claude/private/fb-ok.txt` (your own repo origins) and `~/.claude/private/fb-ask.conf` · waits on you
 - [x] Copy the rule live: `cp ~/claude-config/rules/cheap-worker.md ~/.claude/rules/cheap-worker.md` · waits on you · live
-- [ ] Probes P1 to P3 (the claude-fb proxy) · waits on you
-- [ ] Sync docs: `/sync cheap worker tier`
+- [x] Probes P1 to P3 (the claude-fb proxy) · waits on you
+- [x] Sync docs: `/sync cheap worker tier`
 Spec [0023](../specs/0023-cheap-worker-tier/index.md) · Source: your message 2026-10-13 (agreed, not optional).
 
 ### 23. Understand everything · in-progress · auto
