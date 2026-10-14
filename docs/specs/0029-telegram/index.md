@@ -4,6 +4,7 @@
 **Status**: Accepted (built c3a3f58)
 **Paths:** `runner/telegram.py`, `runner/run.py`, `runner/report.py`, `runner/wf.py`, `runner/tests/test_telegram.py`, `runner/tests/test_report.py`, `AGENTS.md`
 **Amends**: [0005](../0005-decision-parking-phone-pings/index.md) AC-1, AC-2, AC-7, AC-8 (the channel, when `telegram.json` exists), [0018](../0018-morning-report/index.md) AC-4 (the phone note), [0021](../0021-never-stop/index.md) U9 (the same retry, any channel).
+**Amended by**: [0040](../0040-runs-adapt-to-setup-changes/index.md) - AC-2: the channel is chosen again during a run when `telegram.json` appears, changes or goes away; open questions are sent again on the new channel.
 
 ## What you're agreeing to
 - The runner's questions and its morning report come to you in a Telegram chat with your own bot, instead of ntfy.

@@ -89,6 +89,33 @@ class SwapTake(RunCase):
                 self.assertIn(detail, rec["detail"])
                 self.assertEqual(rec["setups"], [])
 
+    # covers: spec 0040 AC-2 (a park from the run's own write deny records its path; once a taken setup no longer
+    # denies it, the run retakes the feature, withdraws its open question and builds it again in the same run)
+    def test_write_deny_park_retaken(self):
+        # A settings hook in the repo's tools/ folder makes the guard deny the whole folder (spec 0007 hook_tokens).
+        (self.repo / "tools").mkdir()
+        (self.repo / "tools" / "h.sh").write_text("#!/bin/sh\n")
+        old = json.dumps({"hooks": {"Stop": [{"hooks": [{"type": "command", "command": f"bash {self.repo}/tools/h.sh"}]}]}})
+        (self.live / "settings.json").write_text(old)
+        self.ledger({str(self.live / "settings.json"): sha(self.new), str(self.hook): sha("#!/bin/sh\n")})
+        target = str(self.repo / "tools" / "x.py")
+        denied = {**self.swap_step(), "tick": False,
+                  "json": {"permission_denials": [{"tool_name": "Edit", "tool_use_id": "t1",
+                                                   "tool_input": {"file_path": target}}]}}
+        self.steps([denied, {}, {}, {"tick": False}])
+        r = self.wf("demo", "-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        folder, rec = self.run_record()
+        log = (folder / "log.txt").read_text()
+        self.assertIn("park 1. Loop: denied:", log)
+        self.assertIn(f"setup {STAMP} taken", log)
+        self.assertIn(f"retaken 1. Loop: {target} no longer denied", log)
+        self.assertRegex(r.stdout, r"\nstale: [a-z0-9]{4} 1\. Loop\n")
+        self.assertEqual(len(rec["calls"]), 4)
+        self.assertEqual([(e["feature"], e["outcome"]) for e in rec["features"]], [("1. Loop", "feature_done")])
+        q = json.loads((self.state / "wf" / "queue.json").read_text())
+        self.assertEqual((q["parks"], q["decisions"]), ([], []))
+
     # covers: AC-5 (a repo git hook moved beside an accepted swap is not taken: the repo stops)
     def test_repo_hook_beside_swap(self):
         hooks = self.repo / ".git" / "hooks"

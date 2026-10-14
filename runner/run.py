@@ -342,7 +342,7 @@ OPT_STR, NUM = (str, type(None)), (int, float, type(None))
 PARK_FIELDS = {"repo": (str,), "feature": (str,), "section_sha": (str,), "reason": (str,), "detail": OPT_STR,
                "cap": NUM, "run": (str,), "parked_at": (str,)}
 # Spec 0020 AC-6: what the park's cause depended on; a record written before them still loads.
-PARK_SEEN = {"head": OPT_STR, "setup": OPT_STR, "claude": OPT_STR}
+PARK_SEEN = {"head": OPT_STR, "setup": OPT_STR, "claude": OPT_STR, "denied_path": OPT_STR}
 # AC-6: the parks a commit outside the scope and verify.md files takes back, and those a setup or claude change does.
 CODE_PARKS = ("verify_failed", "blocked", "no_progress", "debug_touched", "design_gate", "unchecked", "app_failed")
 SETUP_PARKS = ("denied", "call_timeout")
@@ -690,6 +690,15 @@ def accepted_by(path, lines):
     return max(found) if found and HEX64.fullmatch(h) else None
 
 
+def channel_stamp():
+    """Spec 0040 AC-1: telegram.json's (mtime, size, inode), else None when it is absent."""
+    try:
+        st = os.lstat(telegram.path())
+    except OSError:
+        return None
+    return st.st_mtime_ns, st.st_size, st.st_ino
+
+
 def newest_setup():
     """Spec 0020 AC-6: the newest swaps.jsonl stamp, else None."""
     return max((st for st, _ in ledger()), default=None)
@@ -772,6 +781,9 @@ def progress_key(nb):
 class Run:
     # Spec 0029 AC-2: start() sets the chosen channel; ntfy until then.
     phone = ntfy
+    # Spec 0040 AC-1: telegram.json as seen when start() chose the channel; UNSET (a Run that never chose one, as in
+    # tests building one by hand) never rechecks, so it cannot pick up your real telegram.json.
+    channel_seen = UNSET = object()
 
     def __init__(self, c, args):
         """c: the one target repo, or None for bare `wf run` (spec 0011 AC-1), whose repos come through add()."""
@@ -814,6 +826,8 @@ class Run:
         self.cursor = self.first_ping = None
         self.polled = self.poll_failed = False
         self.own = set()
+        # Spec 0040 AC-2: (repo, feature) whose write deny park this run took back, so it may run once more.
+        self.again = set()
         # AC-15: end wait seconds of this run, all waits added.
         self.end_waited = 0.0
         # Spec 0021: per (repo, feature) this run, cap factors (F8) and designs accepted as is (F7); an F1 allow once
@@ -928,6 +942,7 @@ class Run:
             return 1
         try:
             # Spec 0029 AC-2: the module that sends, polls and takes; self.ntfy keeps its config, either channel.
+            self.channel_seen = channel_stamp()
             self.phone, self.ntfy = telegram.channel()
         except telegram.Refused as e:
             return None if self.peek else self.refuse(*e.args)
@@ -1500,6 +1515,8 @@ class Run:
             repo=None, branch=None, **extra):
         """Spec 0011 AC-11, spec 0021 AC-2: keep a question in queue.json, in place of an older one of the same
         feature, and ping it. Returns the Decision. A failed ping leaves it queued for the report and the U9 retry."""
+        # Spec 0040 AC-1: before this question is queued, so a switch sends it once, on the new channel.
+        self.recheck_channel()
         if "context" not in extra and self.c is not None:
             # Spec 0033 AC-1: where the question comes from, built by the runner; did, why and steps from the call.
             step = f"{box_text} `{command}`" if box_text and command and command not in box_text else \
@@ -1750,9 +1767,15 @@ class Run:
 
     def applies(self, p, feats):
         """AC-3: a Park record still holds while its feature is queued with the same section and the cap not raised."""
-        if not any(f.queued and f.name == p["feature"] and f.sha == p["section_sha"] for f in feats):
+        if not any(f.queued and f.name == p["feature"] and f.sha == p["section_sha"] for f in feats) or self.freed(p):
             return False
         return not (p["reason"] in CAPPED and p["cap"] is not None and getattr(self.args, p["reason"]) > p["cap"])
+
+    def freed(self, p):
+        """Spec 0040 AC-2: park p's write deny is gone from its repo's guard as built now (at start, or rebuilt by a
+        taken setup). No guard (wf queue): not freed."""
+        g = next((h["repo"].get("guard") for h in self.held if key_of(h["c"]) == p["repo"]), None)
+        return bool(p.get("denied_path") and g and not edit_denied(p["denied_path"], g))
 
     def survey(self, feats, q, dirty_tree):
         """AC-2, AC-3, AC-7 over this repo's features: [(Feature that may start or None, plan line)], file order.
@@ -1765,7 +1788,9 @@ class Run:
         live = {p["feature"]: p for p in q["parks"] if p["repo"] == repo and self.applies(p, feats)}
         # A stale Decision leaves its feature queued fresh (AC-13).
         decided = {d["feature"] for d in q["decisions"] if d["repo"] == repo and not self.gone(d, q, feats)} - set(live)
-        ran = {e["feature"] for e in self.record["features"] if e["repo"] == repo}
+        # Spec 0040 AC-2: a feature whose write deny park was taken back this run may run once more.
+        ran = {e["feature"] for e in self.record["features"] if e["repo"] == repo} - \
+            {f for r, f in self.again if r == repo}
         # Spec 0026 AC-2, AC-3: a feature built on its own spec branch is never queued again from here.
         recs = [p for p in q.get("prs", []) if p["repo"] == repo] if self.answers.get("branches") == "per spec" else []
         held_back = {p["feature"]: p for p in recs if p["state"] in ("local", "draft", "ready", "approved", "merged")}
@@ -1890,9 +1915,10 @@ class Run:
                 self.end_repo(*refusal)
                 continue
             dirty_tree = dirty(self.c.path)
-            dropped = []
+            dropped, freed = [], []
 
             def clear(q):
+                freed[:] = [p for p in q["parks"] if p["repo"] == key_of(self.c) and self.freed(p)]
                 keep = [p for p in q["parks"] if p["repo"] != key_of(self.c) or self.applies(p, feats)]
                 dropped[:] = [d for d in q["decisions"] if d["repo"] == key_of(self.c) and self.gone(d, q, feats)]
                 changed = len(keep) != len(q["parks"]) or bool(dropped)
@@ -1901,6 +1927,11 @@ class Run:
                 return changed
 
             q = self.queue(clear)
+            for p in freed:
+                # Spec 0040 AC-2: its open question went with it (dropped below, as stale).
+                self.again.add((p["repo"], p["feature"]))
+                print(flat(f"retaken: {p['feature']}: {p['denied_path']} no longer denied"), flush=True)
+                self.log(f"retaken {p['feature']}: {p['denied_path']} no longer denied")
             for d in dropped:
                 print(flat(f"stale: {d['id']} {d['feature']}"), flush=True)
             live.append((h, feats, dirty_tree))
@@ -2178,6 +2209,10 @@ class Run:
         head = wf.git(self.c.path, "rev-parse", "HEAD")
         rec.update(head=head.stdout.strip() or None if head is not None and head.returncode == 0 else None,
                    setup=newest_setup(), claude=claude_version(self.claude or "claude"))
+        # Spec 0040 AC-2: the run's own write deny refused the edit, so a setup without that deny takes it back. A
+        # park recorded before the first swaps.jsonl line has a null setup, which no stamp ever took back.
+        if reason in ("denied", "blocked") and self.denied_at and edit_denied(self.denied_at, self.repo["guard"]):
+            rec["denied_path"] = self.denied_at
 
         def write(q):
             q["parks"] = [p for p in q["parks"] if (p["repo"], p["feature"]) != (rec["repo"], rec["feature"])] + [rec]
@@ -2817,9 +2852,35 @@ class Run:
 
         self.queue(write)
 
+    def recheck_channel(self):
+        """Spec 0040 AC-1: the channel is chosen again when telegram.json appeared, changed or went away since it was
+        last chosen (one lstat, so every poll can afford it). On a switch the old channel is read once more, so a
+        reply already sent there still counts, then every open question is sent again on the new one. A file that
+        does not load keeps the channel in use: a run never stops over a phone setup made after it started."""
+        stamp = channel_stamp()
+        if self.channel_seen is Run.UNSET or stamp == self.channel_seen:
+            return
+        self.channel_seen = stamp
+        try:
+            phone, cfg = telegram.channel()
+        except telegram.Refused as e:
+            self.log(f"phone channel kept: {e.args[0]}: {flat(e.args[1])}")
+            return
+        if phone is self.phone:
+            self.ntfy = cfg
+            return
+        self.poll()
+        self.phone, self.ntfy = phone, cfg
+        # The cursor and ping ids are the old channel's; poll() starts the new one from the oldest open question.
+        self.cursor = self.first_ping = None
+        self.polled = self.poll_failed = False
+        self.log(f"phone channel now {'Telegram' if phone is telegram else 'ntfy'}, open questions sent again there")
+        self.reping()
+
     def poll(self):
         """AC-12: read the topic once and store accepted replies on any unanswered Decision in queue.json.
         True when a reply answered one."""
+        self.recheck_channel()
         # Spec 0021 U9: a question whose ping failed is sent again every PING_RETRY seconds.
         if self.ping_due is not None and ntfy.boottime() >= self.ping_due:
             self.ping_due = None
@@ -2971,7 +3032,10 @@ class Run:
         """Spec 0011 AC-8: one feature's calls until it is done, parks, opens a decision or its repo stops, starting
         with the resume of the answered Decision d when given (AC-13). A run stop propagates."""
         # AC-18: a resumed feature reuses its entry from this run, and its counts (AC-16).
-        e = next((x for x in self.record["features"] if d and (x["repo"], x["feature"]) == (key_of(self.c), f.name)), None)
+        # Spec 0040 AC-2: so does a feature retaken after its write deny park, once.
+        again = (key_of(self.c), f.name) in self.again
+        self.again.discard((key_of(self.c), f.name))
+        e = next((x for x in self.record["features"] if (d or again) and (x["repo"], x["feature"]) == (key_of(self.c), f.name)), None)
         if e is None:
             e = {"n": len(self.record["features"]) + 1, "repo": key_of(self.c), "feature": f.name,
                  "outcome": None, "detail": None, "calls": [], "counted": 0, "debug_attempts": 0, "design": None,
@@ -3548,8 +3612,33 @@ def test_base(repo):
         r = wf.git(repo, "rev-parse", "--verify", "--quiet", f"refs/heads/{b}")
         if r and r.returncode == 0:
             m = wf.git(repo, "merge-base", "HEAD", b)
-            return (m.stdout.strip() or None) if m.returncode == 0 else None
+            # Spec 0040 AC-3: a shallow clone of a branch cut from another branch shares no commit with main in its
+            # depth; no base made every frontend file of the repo count (93 files parked a one component feature).
+            return (m.stdout.strip() or None) if m.returncode == 0 else nearest_base(repo)
     return None
+
+
+def nearest_base(repo):
+    """Spec 0040 AC-3: the merge base with another branch that has the fewest commits up to HEAD, else None. HEAD's own
+    branch, its namesakes on remotes, its upstream, */HEAD and any branch holding HEAD are skipped: their merge base
+    would be HEAD or a commit of this branch, and committed work would go unchecked."""
+    head = wf.git(repo, "symbolic-ref", "--quiet", "--short", "HEAD")
+    name = head.stdout.strip() if head and head.returncode == 0 else ""
+    up = wf.git(repo, "rev-parse", "--symbolic-full-name", "@{upstream}")
+    up = up.stdout.strip() if up and up.returncode == 0 else ""
+    refs = wf.git(repo, "for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes")
+    best = None
+    for ref in refs.stdout.split() if refs and refs.returncode == 0 else ():
+        if ref in (f"refs/heads/{name}", up) or ref.endswith("/HEAD") or \
+                (name and ref.startswith("refs/remotes/") and ref.split("/", 3)[3:] == [name]):
+            continue
+        if wf.git(repo, "merge-base", "--is-ancestor", "HEAD", ref).returncode == 0:
+            continue
+        m = wf.git(repo, "merge-base", "HEAD", ref)
+        n = m.returncode == 0 and wf.git(repo, "rev-list", "--count", f"{m.stdout.strip()}..HEAD")
+        if n and n.returncode == 0 and (best is None or int(n.stdout) < best[0]):
+            best = (int(n.stdout), m.stdout.strip())
+    return best and best[1]
 
 
 def is_frontend(rel):
@@ -4303,6 +4392,11 @@ def opened(p, g):
     never writable in neither form. A guard with no `never` list opens nothing."""
     return "never" in g and any(under(q, g.get("allowed") or []) for q in (p, os.path.realpath(p))) \
         and not refused(p, g["never"])
+
+
+def edit_denied(path, g):
+    """Spec 0040 AC-2: guard g's deny paths hold path, as written or resolved, and no allow entry opens it."""
+    return any(under(q, g["deny_paths"]) for q in (path, os.path.realpath(path))) and not opened(path, g)
 
 
 def allow_writes_path():
