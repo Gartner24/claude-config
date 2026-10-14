@@ -24,3 +24,5 @@ Each step drives the real `wf run` or `wf queue` (`python3 runner/wf.py`) on a s
 - [x] The real `gh` with github.com denied by this session's sandbox: both features build all four calls, notes and report say `issue acme/widgets#7 not read: Post "https://api.github.com/graphql": Forbidden` (and #8). An edit history answering `HTTP 502: Bad Gateway` gives the note `issue acme/widgets#7 not read: edit history: HTTP 502: Bad Gateway` and the current body as baseline. -> AC-8. can fail: an unreadable issue stops the feature (it parks).
 
 Not run here: P2 on a throwaway issue (the scope box that waits on you).
+
+- 2026-10-14, Claude Code 2.1.299, on the private sandbox repo wf-scratch (made for these checks, safe to delete): P2 PASS: a throwaway issue edited twice; userContentEdits returned all three full bodies in diff (newest first), so AC-5 keeps its design.

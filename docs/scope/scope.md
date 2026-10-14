@@ -521,7 +521,7 @@ In repos set to `issues` or `mixed`, `wf` rereads the linked issue before every 
 - [x] Build it: `/develop issues and mixed source of truth`
 - [x] Verify it: `/check verify issues and mixed source of truth`
 - [x] Test it: `/test issues and mixed source of truth`
-- [ ] Probe P2 on a throwaway issue (it edits the issue): see the spec's verify.md · waits on you
+- [x] Probe P2 on a throwaway issue (it edits the issue): see the spec's verify.md · waits on you
 - [ ] Sync docs: `/sync issues and mixed source of truth`
 Spec [0024](../specs/0024-issues-source-of-truth/index.md) · Source: your message 2026-10-13 (agreed, not optional).
 
@@ -545,7 +545,7 @@ One branch per spec (stacked only when the spec says so, at most 3 deep), one sq
 - [x] Test it: `/test branch and PR flow`
 - [x] Copy the rule live: `cp ~/claude-config/rules/branch-pr.md ~/.claude/rules/branch-pr.md` · waits on you · live
 - [x] Add the branch-pr pointer line to `~/.claude/CLAUDE.md` · waits on you
-- [ ] Probes P7 and P8 on a scratch GitHub repo (they post) · waits on you
+- [x] Probes P7 and P8 on a scratch GitHub repo (they post) · waits on you
 - [ ] Sync docs: `/sync branch and PR flow`
 Spec [0026](../specs/0026-branch-pr-flow/index.md) · Source: personal scope rows 11 and 27; your message 2026-10-13.
 
@@ -618,7 +618,7 @@ wf adopts the open PRs you list in pr.json, runs the review loop on them, watche
 - [ ] Verify it: `/check verify adopt open prs`
 - [ ] Test it: `/test adopt open prs`
 - [x] Write `~/.claude/private/pr.json` for the repos to adopt · waits on you · later boxes go on
-- [ ] Probes P3 and P4 on a scratch GitHub repo (they post) · waits on you · later boxes go on
+- [x] Probes P3 and P4 on a scratch GitHub repo (they post) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync adopt open prs`
 Spec [0031](../specs/0031-adopt-open-prs/index.md) · Source: your message 2026-10-13 (the gap after the draft PR until approved and merged).
 
@@ -629,7 +629,7 @@ A PR review requested of you becomes a question: wf drafts the review in an isol
 - [x] Build it: `/develop review requests`
 - [ ] Verify it: `/check verify review requests`
 - [ ] Test it: `/test review requests`
-- [ ] Probes P3 to P5 on a scratch GitHub repo (they post) · waits on you · later boxes go on
+- [x] Probes P3 to P5 on a scratch GitHub repo (they post) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync review requests`
 Spec [0032](../specs/0032-review-requests/index.md) · Source: your message 2026-10-13 (watch for review requests to me).
 

@@ -73,3 +73,6 @@ Rerun 2026-10-14 on a6042ce: every step above, all as listed.
 
 ## Acceptance criteria coverage
 - AC-1 met · AC-2 met · AC-3 met · AC-4 met · AC-5 met · AC-6 met · AC-7 met · AC-8 met · AC-9 met · AC-10 met · AC-11 met · AC-12 met · AC-13 met · AC-14 met · AC-15 met · AC-16 met · AC-17 met · AC-18 met · AC-19 met in repo, live copies wait on you · AC-20 met
+
+- 2026-10-14, Claude Code 2.1.299, on the private sandbox repo wf-scratch (made for these checks, safe to delete): P7 PASS: POST pulls/1/comments/<id>/replies answered 201 Created; the reply lists in_reply_to_id = the comment's id.
+- 2026-10-14, Claude Code 2.1.299, on the private sandbox repo wf-scratch (made for these checks, safe to delete): P8 FINDING: a stacked PR (b on a) is CLOSED by GitHub when its base PR merges with `gh pr merge --delete-branch`; with the repo setting delete_branch_on_merge=true and a merge without that flag, GitHub retargets the stacked PR to main and keeps it open. The runner never passes --delete-branch (pr.py merge), so its own merges keep stacks; a person deleting the base by hand closes them.
