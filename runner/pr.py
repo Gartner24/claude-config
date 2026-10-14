@@ -355,6 +355,9 @@ def squash(r, f, rec):
     res = git(g, repo, "commit", "-q", "-m", subject, *(["-m", body] if body else []))
     if res.returncode:
         git(g, repo, "reset", "--soft", head)
+        # The tree change squash staged (the scope tick) used to stay staged, so back() ended the repo (AC-17).
+        if git(g, repo, "diff", "--cached", "--quiet").returncode == 1:
+            git(g, repo, "commit", "-q", "-m", f"chore: wf checkpoint {rec['branch']}")
         r.pr_ask(rec, "squash_failed", f"{rec['feature']}: the squash commit failed: {run.flat(res.stderr or res.stdout)}")
         return None
     return True
@@ -706,6 +709,9 @@ def poll_one(r, rec):
     comments = new_comments(r, rec, name, reviews, bot)
     if comments is None or not comments:
         return
+    if any((d["repo"], d["feature"]) == (rec["repo"], rec["feature"]) for d in r.queue()["decisions"]):
+        # A round here used to replace the feature's queued question, answered or not, so "send that reply" was lost.
+        return
     if rec["rounds"] >= rec.get("cap", ROUNDS):
         if not rec.get("asked_rounds"):
             rec["asked_rounds"] = True
@@ -819,7 +825,7 @@ def fix_round(r, rec, name, comments):
         if asks:
             c, reply = asks[0]
             r.pr_ask(rec, "review_ask", f"PR #{rec['number']} @{c['author']}: {run.flat(c['body'])[:120]}: proposed: "
-                                        f"{run.flat(reply)[:120]}", comment=c, reply=reply)
+                                        f"{run.flat(reply)[:120]}", comment=c, proposed=reply)
     finally:
         if start and not r.repo.get("tree") and wf.head_branch(repo) != start and not run.dirty(repo):
             wf.git(repo, "switch", start)
@@ -848,7 +854,8 @@ def review_answer(r, rec, d, opt, text):
     """AC-13: send that reply (scanned first), fix it (your text is the next round's hint), or yours."""
     c = d.get("comment") or {}
     if opt == "send that reply":
-        reply = f"{d.get('reply')} @{c.get('author')}"
+        # Not d["reply"]: that key is the phone message id that answered it, so the post used to say `m5 @bob`.
+        reply = f"{d.get('proposed')} @{c.get('author')}"
         hit = scans(r, rec, None, [("reply", reply)])
         if hit:
             return r.pr_ask(rec, hit[0], f"PR #{rec['number']}: {hit[1]}")

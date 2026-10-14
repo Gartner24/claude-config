@@ -187,6 +187,22 @@ class TestFlow(PrCase):
                       (self.state / "wf" / "report.txt").read_text())
         self.assertNotIn("feat/0001-a", self.git("branch", "--list", repo=self.origin))
 
+    # covers: AC-5 (a refused squash restores the old head and asks), AC-17 (the uncommitted scope tick it staged used
+    # to end the repo through back(): branch_changed)
+    def test_squash_refused(self):
+        hook = self.repo / ".git" / "hooks" / "commit-msg"
+        hook.parent.mkdir(exist_ok=True)
+        hook.write_text("#!/bin/sh\nread first < \"$1\"\ncase \"$first\" in \"feat: A\"*) exit 1;; esac\nexit 0\n")
+        hook.chmod(0o755)
+        self.steps([build(extra_run=[["git", "commit", "-q", "--allow-empty", "-m", "wip 2"]]), DONE_A])
+        r = self.wf("prr", "-y")
+        self.assertNotIn("branch_changed", r.stdout + r.stderr)
+        self.assertIn("done: 1. A\n", r.stdout)
+        [d] = self.queue()["decisions"]
+        self.assertEqual(d["case"], "squash_failed")
+        self.assertEqual(self.git("status", "--porcelain"), "")
+        self.assertEqual(self.git("log", "--format=%s", "work..feat/0001-a").splitlines()[1:], ["wip 2", "wip"])
+
     # covers: AC-6 (an attribution trailer in a commit is a question and nothing leaves; a private name in a public
     # repo asks scan again first)
     def test_scans(self):
@@ -375,6 +391,24 @@ class TestReview(PrCase):
         self.assertEqual(d["question"], "a reviewer asked a question on the review request in 1. A. PR #7 @bob: Why not X?: proposed: Not needed, see AC-2.")
         self.assertIn("ignored: comment by an outside account on PR #7", (self.state / "wf" / "report.txt").read_text())
         self.assertEqual((self.repo / ".git" / "HEAD").read_text(), "ref: refs/heads/work\n")
+
+    # covers: AC-13 ("send that reply" from the phone posts the proposed reply; the start poll used to run a new round
+    # whose question replaced the answered one, and the post used the phone message id as its text)
+    def test_send_that_reply(self):
+        self.ready()
+        self.wf("prr", "-y")
+        import shutil
+        shutil.rmtree(self.state / "wf" / "runs")
+        (self.fakes / "review-prompt.txt").unlink()
+        (self.fakes / "gh-argv.jsonl").unlink()
+        self.report_ntfy.replies = ["{id} 1"]
+        r = self.wf("prr", "-y", "--max-wait", "0.01", mode="fast")
+        self.assertFalse((self.fakes / "review-prompt.txt").exists(), r.stdout)
+        posts = [c for c in self.gh_calls() if c[:3] == ["api", "-X", "POST"]]
+        self.assertEqual(posts, [["api", "-X", "POST", "repos/acme/widgets/issues/7/comments", "-f",
+                                  "body=> Why not X?\n\nNot needed, see AC-2. @bob"]])
+        self.assertIn("c12", self.rec()["seen"])
+        self.assertEqual(self.queue()["decisions"], [])
 
     # covers: AC-12 (wf believes only the commits: a FIXED line naming no new commit is an ask, nothing is pushed)
     def test_fixed_without_commit(self):
