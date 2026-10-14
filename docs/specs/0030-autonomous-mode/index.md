@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-13
 **Status**: Proposed
-**Paths:** `runner/auto.py`, `runner/wf.py`, `runner/run.py`, `runner/tests/test_auto.py`, `skills/auto/SKILL.md`, `settings.json`, `AGENTS.md`, `docs/architecture.md`
+**Paths:** `runner/auto.py`, `runner/wf.py`, `runner/run.py`, `runner/tests/test_auto.py`, `skills/auto/SKILL.md`, `settings.json`, `AGENTS.md`
 **Amends**: [0021](../0021-never-stop/index.md) (new run level row U11 `auto_off`), architecture invariant 5 (starting a run), [0020](../0020-one-command-wf/index.md) (who may run `wf -y`).
 
 ## What you're agreeing to

@@ -30,8 +30,10 @@ class TestPathsCorpus(unittest.TestCase):
             globs = re.findall(r"`([^`]+)`", value)
             if not globs:
                 bad.append(f"{rel}: no globs")
+            # A spec not yet built (Proposed, In Progress) may name the files its build will create.
+            unbuilt = re.match(r"\*\*Status\*\*:\s*(Proposed|In Progress)", lines[status[0]])
             for g in globs:
-                if g.startswith("docs/") or not any(fnmatch.fnmatchcase(f, g) for f in tracked):
+                if g.startswith("docs/") or not unbuilt and not any(fnmatch.fnmatchcase(f, g) for f in tracked):
                     bad.append(f"{rel}: {g} matches no tracked file or is under docs/")
         self.assertEqual(len(bad), 0, f"{len(bad)} offender(s):\n" + "\n".join(bad))
 

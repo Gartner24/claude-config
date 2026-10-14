@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-13
 **Status**: Proposed
-**Paths:** `runner/telegram.py`, `runner/run.py`, `runner/report.py`, `runner/wf.py`, `runner/tests/test_telegram.py`, `runner/tests/test_report.py`, `AGENTS.md`, `docs/architecture.md`
+**Paths:** `runner/telegram.py`, `runner/run.py`, `runner/report.py`, `runner/wf.py`, `runner/tests/test_telegram.py`, `runner/tests/test_report.py`, `AGENTS.md`
 **Amends**: [0005](../0005-decision-parking-phone-pings/index.md) AC-1, AC-2, AC-7, AC-8 (the channel, when `telegram.json` exists), [0018](../0018-morning-report/index.md) AC-4 (the phone note), [0021](../0021-never-stop/index.md) U9 (the same retry, any channel).
 
 ## What you're agreeing to
