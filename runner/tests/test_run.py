@@ -359,8 +359,8 @@ class TestHappyPath(RunCase):
         lines = r.stdout.splitlines()
         g = self.run_record()[1]["repos"][0]["guard"]
         # Spec 0011 AC-6: the guard line counts what run.json records (9 forge hosts, the guarded files).
-        self.assertEqual((len(g["hosts"]), len(g["guarded_files"])), (9, 6))
-        self.assertEqual(lines[:5], ["demo on work, 1 change", "  answers: none", "  guard: 9 hosts, 6 files",
+        self.assertEqual((len(g["hosts"]), len(g["guarded_files"])), (9, 7))
+        self.assertEqual(lines[:5], ["demo on work, 1 change", "  answers: none", "  guard: 9 hosts, 7 files",
                                      "  queued: 1. Loop", "caps: 20 USD/call, 60m/call, 20 calls/feature, 8h, wait 12h"])
         self.assertIn("[1/20] demo: /develop loop -> success, 0.50 USD, 0.0m, next: /test loop", r.stdout)
         self.assertIn("[2/20] demo: /test loop -> success, 0.50 USD, 0.0m, next: /sync", r.stdout)
@@ -1303,8 +1303,8 @@ class TestGuard(RunCase):
         # tree rule and changes, status for the first pick, (spec 0009 AC-9) the main and master lookups before the
         # /test call, (spec 0015 AC-4) ls-files and check-ignore for its test file snapshot, then (spec 0010 AC-1)
         # those lookups and ls-files again for the design check, (spec 0020 AC-6) rev-parse HEAD for the park record,
-        # and status for the pick after the park.
-        self.assertEqual((self.fakes / "git-log").read_text().splitlines(), [str(self.fakes / "git-wrap")] * 16)
+        # and status for the pick after the park; (spec 0021 AC-9) the core.hooksPath read of .git/config.
+        self.assertEqual((self.fakes / "git-log").read_text().splitlines(), [str(self.fakes / "git-wrap")] * 17)
         _, rec = self.run_record()
         self.assertEqual(rec["repos"][0]["guard"]["binaries"], {"git": str(self.fakes / "git-wrap"),
                                                     "claude": str(self.fakes / "claude-a"),
@@ -1415,10 +1415,13 @@ class TestGuard(RunCase):
             f"{self.tmp}/.claude/settings.json": "absent", f"{self.tmp}/.claude/settings.local.json": "absent",
             f"{self.repo}/.git/config": hashlib.sha256(config).hexdigest(),
             f"{self.repo}/.git/config.worktree": "absent",
-            f"{self.repo}/.git/hooks/pre-push": hashlib.sha256(b"#!/bin/sh\n").hexdigest()})
+            f"{self.repo}/.git/hooks/pre-push": hashlib.sha256(b"#!/bin/sh\n").hexdigest(),
+            # Spec 0021 AC-9.
+            f"{self.repo}/.git/info/attributes": "absent"})
         # AC-7 order decides which path a guard_changed stop names.
         self.assertEqual(list(g["guarded_files"])[4:], [f"{self.repo}/.git/config", f"{self.repo}/.git/config.worktree",
-                                                        f"{self.repo}/.git/hooks/pre-push"])
+                                                        f"{self.repo}/.git/hooks/pre-push",
+                                                        f"{self.repo}/.git/info/attributes"])
         self.assertIn('"deniedDomains": ' + json.dumps(g["hosts"]), self.argv(1)["argv"][17])
         for p in (".gitconfig", ".claude", ".claude.json", ".config/git"):
             self.assertFalse((self.tmp / p).exists(), p)

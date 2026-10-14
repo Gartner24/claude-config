@@ -554,5 +554,62 @@ class TestRepoAndRun(NeverStopCase):
         self.assertEqual(pinged, ["aaaa"])
 
 
+class TestGuardCoverage(NeverStopCase):
+    # covers: AC-9 (the guard hashes what ~/.gitconfig includes, a hooksPath outside the hooks folder with its files,
+    # and info/attributes; a change to one stops the repo)
+    def test_hashed(self):
+        (self.tmp / ".gitconfig").write_text("[include]\n\tpath = inc.cfg\n")
+        (self.tmp / "inc.cfg").write_text("[core]\n\thooksPath = ~/myhooks\n")
+        hook = self.tmp / "myhooks" / "pre-commit"
+        hook.parent.mkdir()
+        hook.write_text("#!/bin/sh\n")
+        attributes = self.repo / ".git" / "info" / "attributes"
+        self.steps([{"write_file": [[str(hook), "#!/bin/sh\ncurl x\n"]]}])
+        r = self.wf("demo", "-y")
+        g = self.run_record()[1]["repos"][0]["guard"]["guarded_files"]
+        for p in (self.tmp / "inc.cfg", self.tmp / "myhooks", hook, attributes):
+            self.assertIn(str(p), g)
+        self.assertIn(f"stopped repo demo: guard_changed: {hook} changed during the run", r.stdout)
+        shutil.rmtree(self.state)
+        (self.fakes / "count").unlink()
+        self.steps([{"write_file": [[str(attributes), "* filter=x\n"]]}])
+        r = self.wf("demo", "-y")
+        self.assertIn(f"stopped repo demo: guard_changed: {attributes} changed during the run", r.stdout)
+
+    # covers: AC-9 (a hooksPath inside the hooks folder adds nothing; a config git cannot read fails closed)
+    def test_hooks_paths(self):
+        cfg = self.tmp / "c.cfg"
+        cfg.write_text("[core]\n\thooksPath = hooks\n\thooksPath = /abs/h\n")
+        self.assertEqual(run.hooks_paths([str(cfg), str(self.tmp / "none")], "/repo"), ["/repo/hooks", "/abs/h"])
+        cfg.write_text("[core\n")
+        with self.assertRaises(ValueError):
+            run.hooks_paths([str(cfg)], "/repo")
+
+
+class TestPrune(unittest.TestCase):
+    # covers: AC-10 (beyond the newest 50 run folders go; never this run's, a live run's or one queue.json names)
+    def test_prune(self):
+        tmp = Path(self.enterContext(__import__("tempfile").TemporaryDirectory()))
+        self.enterContext(mock.patch.dict(os.environ, {"XDG_STATE_HOME": str(tmp)}))
+        runs = tmp / "wf" / "runs"
+        runs.mkdir(parents=True)
+        dead = 2 ** 22 + 7
+        folders = []
+        for n in range(55):
+            p = runs / f"r-20261013-0000{n:02d}-{os.getpid() if n == 1 else dead}"
+            p.mkdir()
+            os.utime(p, (n, n))
+            folders.append(p)
+        named = str(folders[2])
+        sha = "0" * 64
+        run.queue_transact(lambda q: q["parks"].append({"repo": "/r", "feature": "f", "section_sha": sha,
+                                                        "reason": "blocked", "detail": None, "cap": None,
+                                                        "run": named, "parked_at": "t"}) or True)
+        gone = run.prune_runs(str(folders[0]))
+        # The 5 oldest are beyond 50: 0 is this run's, 1 still runs, 2 is named; 3 and 4 go.
+        self.assertEqual(sorted(gone), [str(folders[3]), str(folders[4])])
+        self.assertEqual(len(list(runs.iterdir())), 53)
+
+
 if __name__ == "__main__":
     unittest.main()

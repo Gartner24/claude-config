@@ -304,6 +304,8 @@ OUTAGE = re.compile(r"API Error: (5\d\d|Connection error)|overloaded_error|inter
 # Spec 0021 U4: minutes of outage waits before the repo asks, the 12 hour wait cap (was 120).
 OUTAGE_CAP = 12 * 60
 OUTAGE_POLL = 15
+# Spec 0021 AC-10: run folders kept at the end of each run.
+RUNS_KEPT = 50
 # Spec 0021 U8: a claude that did not start is tried again this many times, this many seconds apart.
 SPAWN_TRIES, SPAWN_GAP = 3, 60
 # Spec 0021: the feature name of a repo's question (R2, R3, U4 to U8) and of the run's (U2).
@@ -922,11 +924,12 @@ class Run:
             pointer = os.path.join(repo, ".git")
             git_files += [pointer, os.path.realpath(pointer), os.path.join(git_dir, "commondir"), os.path.join(git_dir, "gitdir")]
         git_files.append(os.path.join(git_dir, "config.worktree"))
+        configs = [os.path.join(common, "config"), os.path.join(git_dir, "config.worktree")]
         try:
-            git_files += include_targets([os.path.join(common, "config"), os.path.join(git_dir, "config.worktree")])
+            repo_includes = include_targets(configs)
         except ValueError as e:
             return "no_sandbox", e
-        git_files = list(dict.fromkeys(git_files))
+        git_files = list(dict.fromkeys(git_files + repo_includes))
         settings_files = [os.path.join(repo, ".claude", "settings.json"), os.path.join(repo, ".claude", "settings.local.json"),
                           *(os.path.join(d, n) for d in claude_dirs() for n in ("settings.json", "settings.local.json"))]
         settings = []
@@ -997,11 +1000,25 @@ class Run:
             except ValueError as e:
                 return "no_sandbox", e
         git_files = list(dict.fromkeys(git_files))
+        # Spec 0021 AC-9: what the user git configs include, a core.hooksPath outside the hooks folder (the folder
+        # and its files) and the common dir's info/attributes, which git reads at your next commit too.
+        user_git = [os.path.join(os.path.expanduser("~"), ".gitconfig"),
+                    os.path.join(os.path.expanduser("~"), ".config", "git", "config")]
+        try:
+            user_includes = include_targets(user_git)
+            # Config files only: git_files also holds a linked worktree's .git pointer, which git cannot read as one.
+            outside = [p for p in hooks_paths([*configs, *repo_includes, *user_git, *user_includes], repo)
+                       if not under(os.path.realpath(p), [os.path.realpath(hooks_dir)])]
+        except ValueError as e:
+            return "no_sandbox", e
+        pushed = [*user_includes, *outside, *(os.path.join(p, n) for p in outside if os.path.isdir(p)
+                                              for n in sorted(os.listdir(p)) if os.path.isfile(os.path.join(p, n))),
+                  os.path.join(common, "info", "attributes")]
         files = [*settings_files,
                  *(p for d in claude_dirs() for p in sorted(glob.glob(os.path.join(glob.escape(d), "plugins", "cache", "**",
                                                                                  "hooks.json"), recursive=True))),
                  os.path.join(common, "config"), *(p for p in git_files if not os.path.isdir(p)), *sub_git[::2],
-                 *(p for p in hooks if os.path.isfile(p)), *tokens, *sub_absent]
+                 *(p for p in hooks if os.path.isfile(p)), *tokens, *sub_absent, *pushed]
         deny = deny_paths(repo, common, tokens, git_files)
         r = wf.git(repo, "remote", "-v")
         # A failed read used to deny only the built in forges, leaving the repo's own self hosted remote open (M5).
@@ -2795,6 +2812,8 @@ class Run:
         # Spec 0018 AC-1: the morning report, after the final save; a report failure never changes the exit code.
         self.record["report"] = report.end_of_run(self)
         self.save()
+        for p in prune_runs(self.folder):
+            print(f"pruned: {p}", flush=True)
         return self.exit_code(reason)
 
 
@@ -3397,6 +3416,47 @@ def include_targets(configs):
     for c in configs:
         walk(c)
     return out
+
+
+def prune_runs(own):
+    """Spec 0021 AC-10: delete the run folders beyond the newest RUNS_KEPT, never this run's own, one whose run is
+    still going (its pid, the folder name's last part, alive) or one a question or park in queue.json names."""
+    runs = os.path.join(state_dir(), "runs")
+    try:
+        q = queue_transact()
+        names = os.listdir(runs)
+    except (OSError, QueueError):
+        return []
+    named = {os.path.realpath(x["run"]) for x in q["decisions"] + q["parks"]}
+
+    def mtime(p):
+        try:
+            return os.path.getmtime(p)
+        except OSError:
+            return 0
+
+    gone = []
+    for p in sorted((os.path.join(runs, n) for n in names), key=mtime, reverse=True)[RUNS_KEPT:]:
+        pid = os.path.basename(p).rsplit("-", 1)[-1]
+        if p == own or os.path.realpath(p) in named or (pid.isdigit() and report.alive(int(pid))):
+            continue
+        shutil.rmtree(p, ignore_errors=True)
+        gone.append(p)
+    return gone
+
+
+def hooks_paths(configs, repo):
+    """Spec 0021 AC-9: every core.hooksPath these git config files set, as absolute paths (a relative one from the
+    repo, where git runs hooks). Raises ValueError when git cannot read one, so the guard fails closed."""
+    out = []
+    for f in configs:
+        if not os.path.isfile(f):
+            continue
+        r = wf.git("/", "config", "--file", f, "--get-all", "core.hooksPath")
+        if r is None or r.returncode not in (0, 1):
+            raise ValueError(f"git cannot read {f}: {flat(r and r.stderr)}")
+        out += [os.path.normpath(os.path.join(repo, os.path.expanduser(v))) for v in r.stdout.splitlines() if v]
+    return list(dict.fromkeys(out))
 
 
 def under(path, dirs):
