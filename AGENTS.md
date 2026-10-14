@@ -40,6 +40,8 @@ wf finish [target] [-y]                         # run the ` · live` waits-on-yo
 wf report [--seen|--hook]                       # the last wf run's morning report, also sent to the phone at the end of every run (spec 0018); `--hook` is the settings.json SessionStart form, prints only an unseen report; `--seen` stops showing it; report.txt lives in the wf state folder
 wf ntfy init|codes|test                         # phone pings for wf run decisions (spec 0005); config ~/.config/wf/ntfy.json (0600), wf run refuses without it
 wf telegram init|test                           # your Telegram bot instead of ntfy (spec 0029): init asks for the BotFather token (hidden), binds your chat with a /start code, writes ~/.config/wf/telegram.json (0600); test sends one question
+wf telegram fetch|timer on|off                  # keep Telegram answers while wf is off (spec 0039): fetch saves new updates once into the update log a run reads (same lock as a run), timer on writes and enables the wf-telegram-fetch user timer (every 5 minutes), off removes it
+wf questions                                    # read only: every open question, its options (first recommended) and links (spec 0039); bare `wf` lists them first and lets you answer each at the keyboard, Enter skips, `-y` only lists
 wf auto on|off|status|start|wait|hook|bar          # autonomous mode (spec 0030): `/auto on` (user only, `wf auto on` refuses under WF_RUN) makes that folder's sessions start `wf -y` as the `wf-auto` user unit and relay its questions; `off` lets the running build finish its current features, `off now` stops the unit; `hook` is the SessionStart and UserPromptSubmit hook, `bar` wraps jjstack's status line; state in <state>/auto.json
 ```
 

@@ -675,8 +675,9 @@ def chose(d, label):
 def strong(r, d):
     """Security review (authorization): an answer that merges, posts or clears a gate. Telegram reads only your own
     chat (spec 0029); ntfy's topic can be posted to by anyone who knows it, so there only a reply carrying one of
-    your one time codes counts (ntfy.take marks it `coded`)."""
-    return "chat_id" in (getattr(r, "ntfy", None) or {}) or d.get("coded") is True
+    your one time codes counts (ntfy.take marks it `coded`). Spec 0039 AC-4: an answer typed on the `wf` screen is
+    yours too."""
+    return "chat_id" in (getattr(r, "ntfy", None) or {}) or d.get("coded") is True or d.get("source") == "keyboard"
 
 
 def approved_answer(r, rec, d):
