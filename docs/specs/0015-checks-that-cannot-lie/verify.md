@@ -31,7 +31,7 @@ _Steps derived from spec 0015 acceptance criteria. `/check verify` runs these; `
 - [x] `git diff --stat` shows no file under a vendored skill (`scope`, `architect`, `develop`, `check`, `test`, `sync` are not in this repo) -> AC-1
 
 ## Waits on you
-- [ ] `cp ~/claude-config/rules/check-gates.md ~/.claude/rules/check-gates.md`, then `./install.sh` -> AC-1, AC-6
+- [x] `cp ~/claude-config/rules/check-gates.md ~/.claude/rules/check-gates.md`, then `./install.sh` -> AC-1, AC-6 (closed 2026-10-13 by wf finish)
 - [x] Run with `!`: `python3 docs/specs/0015-checks-that-cannot-lie/probes/p1-verify-can-fail.py`, `p2-sync-stale.py`, `p3-brief-check.py`; each prints PASS lines; record under "Probes after build" -> AC-2, AC-3, AC-7, AC-9, AC-10
 
 ## Acceptance-criteria coverage

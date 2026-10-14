@@ -208,11 +208,11 @@ Milestones 1 to 4 are built (031e031, 3de3847, 5962833) for the first design. Th
 
 - [x] AC-14 check 1 ran 2026-10-11: AskUserQuestion is not offered in `-p`, so this spec moved to the text path (Option 5).
 - [x] Spec 0004 AC-5 and AC-6 rule 6 are amended by this spec (new prompt, `DECISION NEEDED:` parks); `/develop` notes the amendment in 0004 when it builds milestone 6.
-- [ ] Feature 6 (standing answers) can grow the prompt's fixed answers into per repo answers.
-- [ ] Feature 10 (queue) turns the in place wait into park and move on, reusing `run.json` decisions and `--resume`.
+- [x] Feature 6 (standing answers) can grow the prompt's fixed answers into per repo answers. (closed by spec 0011 AC-6)
+- [x] Feature 10 (queue) turns the in place wait into park and move on, reusing `run.json` decisions and `--resume`. (closed by spec 0011 AC-11)
 - [ ] After any Claude Code upgrade, rerun the verify.md check 1 probe (`claude -p` with `--tools AskUserQuestion`, asked to pick Postgres or SQLite with that tool). If AskUserQuestion is offered, reopen the panel path with `/architect decision parking and phone pings`; git history holds the hook at 5962833 (Option 1).
-- [ ] Feature 13 (morning report) reuses `ntfy.py` to send the run summary.
-- [ ] Root `AGENTS.md` Commands: `wf ntfy init|codes|test` and the config file; `/sync` owns this.
+- [x] Feature 13 (morning report) reuses `ntfy.py` to send the run summary. (closed by spec 0018)
+- [x] Root `AGENTS.md` Commands: `wf ntfy init|codes|test` and the config file; `/sync` owns this. (closed: AGENTS.md Commands)
 
 ## Rationale
 

@@ -62,5 +62,5 @@ Context, options considered and rationale: [rationale.md](rationale.md). Verify 
 
 ## Follow-up
 
-- [ ] `bash -c "rm -rf ~"` passes today because `rm_is_destructive` does not treat a quote as a left boundary; enroll a fix if wanted.
+- [x] `bash -c "rm -rf ~"` passes today because `rm_is_destructive` does not treat a quote as a left boundary; enroll a fix if wanted. (fixed e9f00eb)
 - [ ] The Bash shape hook may have the same quoted text problem; enroll it only if it bites.

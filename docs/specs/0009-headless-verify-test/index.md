@@ -187,7 +187,7 @@ Skateboard: each step leaves `wf run` usable. Specs 0006, 0007 and 0008 are buil
 
 ## Follow-up
 
-- [ ] Root `AGENTS.md` and the standing answers docs: document `app start` and `app url`; `/sync` owns this.
+- [x] Root `AGENTS.md` and the standing answers docs: document `app start` and `app url`; `/sync` owns this. (closed: AGENTS.md Gotchas)
 - [ ] `--allowedUrlPattern` (chrome-devtools-mcp, Chrome 149+, Brave 154 qualifies) could later add another layer under the dead proxy; not needed now.
 - [ ] If third party assets turn out to break most verifies, revisit with an allow list of asset hosts through `--proxy-bypass-list` (a new decision, `/architect`).
 
