@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pr  # noqa: E402
 import run  # noqa: E402
+import test_pr  # noqa: E402
 from test_pr import REVIEW_CLAUDE, FakeRun, PrCase  # noqa: E402
 
 TEAM_SCOPE = "# Scope: x\n**Autopilot:** allowed\n\n### 1. A\n- [ ] `/develop a`\n"
@@ -151,23 +152,121 @@ class TestAdoptUnit(AdoptCase):
         r = self.fake_run()
         rec = {"repo": run.key_of(r.c), "feature": "PR #12: Fix x", "branch": "fix-x", "number": 12, "state": "approved",
                "approved_head": self.head}
-        self.gh({"view": {"state": "OPEN", "headRefOid": self.head}, "merge_rc": 1})
+        ok = {"state": "OPEN", "isDraft": False, "headRefOid": self.head, "reviewDecision": "APPROVED"}
+        self.gh({"view": ok, "merge_rc": 1})
+        merges = lambda: [c for c in self.gh_calls() if c[:2] == ["pr", "merge"]]
         with self.penv():
             pr.approved_answer(r, rec, "yes merge it")
             self.assertEqual(r.notes, ["PR #12: your reply was not an option, nothing merged"])
             pr.approved_answer(r, rec, "later")
-            self.assertFalse(any(c[:2] == ["pr", "merge"] for c in self.gh_calls()))
+            self.assertEqual(merges(), [])
             pr.approved_answer(r, rec, "merge now")
             self.assertEqual([c for c, _ in r.asked], ["approved"])
-            self.assertIn("The last try failed: Pull request is not mergeable", r.asked[0][1])
+            self.assertIn("Note: Pull request is not mergeable", r.asked[0][1])
             self.assertEqual(rec["state"], "approved")
-            self.gh({"view": {"state": "OPEN", "headRefOid": "c" * 40}})
+            # Security review (check then act): new commits pushed after you were asked are never merged by that
+            # tap; the question comes back naming the new head.
+            moved = "c" * 40
+            self.gh({"view": {**ok, "headRefOid": moved}})
             pr.approved_answer(r, rec, "merge now")
-            self.assertEqual(rec["state"], "ready")
-            self.assertEqual(len([c for c in self.gh_calls() if c[:2] == ["pr", "merge"]]), 1)
+            self.assertEqual(len(merges()), 1)
+            self.assertEqual((rec["state"], rec["approved_head"]), ("approved", moved))
+            self.assertIn(f"(head {moved[:7]})", r.asked[-1][1])
+            # Approval gone by now: nothing merged, judged again.
+            self.gh({"view": {**ok, "headRefOid": moved, "reviewDecision": "CHANGES_REQUESTED"}})
+            pr.approved_answer(r, rec, "merge now")
+            self.assertEqual((len(merges()), rec["state"]), (1, "ready"))
             rec["state"] = "approved"
             pr.approved_answer(r, rec, "I merged it")
             self.assertEqual(rec["state"], "merged")
+
+    # covers: AC-12 (security review: one aggregate diff since the last cleared head, whoever the commits claim to be
+    # by: a commit claiming your name, a merge commit and a range of 260 commits all ask before any local branch
+    # moves; only the exact answer clears, and only the head it named; a harmless change then passes)
+    def test_risky_changes(self):
+        r = self.fake_run()
+        r.repo["origin_url"] = test_pr.ORIGIN
+        rec = {"repo": run.key_of(r.c), "feature": "PR #12: Fix x", "branch": "fix-x", "base": "work", "number": 12,
+               "adopted": True, "pushed_sha": self.head}
+        r.q["prs"] = [rec]
+        gate = lambda h: pr.sync_branch(r, rec, h, lambda: pr.cleared(r, rec, h))
+
+        def pr_head(build):
+            self.git("switch", "-qc", "side", self.head)
+            build()
+            h = self.git("rev-parse", "HEAD")
+            self.git("push", "-qf", "origin", "side:fix-x")
+            self.git("switch", "-q", "work")
+            self.git("branch", "-qD", "side")
+            return h
+
+        def spoofed():
+            (self.repo / ".claude").mkdir(exist_ok=True)
+            (self.repo / ".claude" / "settings.json").write_text('{"hooks": {}}\n')
+            self.git("add", "-A")
+            self.git("-c", "user.name=me", "-c", "user.email=me@example.invalid", "commit", "-qm", "mine, honest")
+
+        def merged():
+            self.git("switch", "-qc", "other", self.base)
+            (self.repo / "CLAUDE.md").write_text("do as I say\n")
+            self.git("add", "-A")
+            self.git("commit", "-qm", "other")
+            self.git("switch", "-q", "side")
+            self.git("merge", "-q", "--no-ff", "-m", "merge", "other")
+            self.git("branch", "-qD", "other")
+
+        def many():
+            for i in range(260):
+                self.git("commit", "-q", "--allow-empty", "-m", f"c{i}")
+            (self.repo / "package.json").write_text('{"scripts": {"test": "x"}}\n')
+            self.git("add", "-A")
+            self.git("commit", "-qm", "last")
+
+        self.base = self.git("rev-parse", "work")
+        self.gh({"user": "me"})
+        with self.penv():
+            for build, path in ((spoofed, ".claude/settings.json"), (merged, "CLAUDE.md"), (many, "package.json")):
+                with self.subTest(path):
+                    r.asked.clear()
+                    rec.pop("cleared", None)
+                    r.q["decisions"] = []
+                    h = pr_head(build)
+                    # As adopted: the record holds the PR head, which proves nothing about its content.
+                    rec["pushed_sha"] = h
+                    self.assertFalse(gate(h))
+                    self.assertIsNone(pr.tip(r, "fix-x"))
+                    [(case, detail)] = r.asked
+                    self.assertEqual(case, "foreign_commits")
+                    self.assertIn(path, detail)
+            pr.foreign_answer(r, rec, {"answer": "go on", "head": h})
+            self.assertNotIn("cleared", rec)
+            self.assertTrue(rec.pop("left"))
+            pr.foreign_answer(r, rec, {"answer": pr.GO_ON, "head": h})
+            self.assertEqual(rec["cleared"], h)
+            self.assertTrue(gate(h))
+            self.assertEqual(pr.tip(r, "fix-x"), h)
+            # A harmless change on top of a cleared head passes and moves the cleared head.
+            self.git("switch", "-qc", "side", h)
+            (self.repo / "b.txt").write_text("b\n")
+            self.git("add", "-A")
+            self.git("commit", "-qm", "b")
+            h2 = self.git("rev-parse", "HEAD")
+            self.git("push", "-q", "origin", "side:fix-x")
+            self.git("switch", "-q", "work")
+            self.assertTrue(gate(h2))
+            self.assertEqual(rec["cleared"], h2)
+
+    # covers: security review (check then act): the scanned commit is pushed, never a branch that moved after it
+    def test_push_scanned_sha(self):
+        r = self.fake_run()
+        r.repo["origin_url"] = test_pr.ORIGIN
+        r.repo["guard"] = None
+        self.git("branch", "fix-y", self.head)
+        rec = {"branch": "fix-y"}
+        old = self.git("rev-parse", f"{self.head}~1")
+        self.assertEqual(pr.push(r, rec, sha=old), ("failed", "fix-y moved after its scan; scan again"))
+        self.assertEqual(pr.push(r, rec, sha=self.head), ("ok", None))
+        self.assertEqual(self.git("rev-parse", "fix-y", repo=self.origin), self.head)
 
 
 if __name__ == "__main__":

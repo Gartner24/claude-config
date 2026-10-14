@@ -37,6 +37,8 @@ LINE_START = (0, 2, 4)
 REVIEW_LINE = re.compile(r"^[ \t>*-]*REVIEW (FIXED|ASK|NEVER):\**[ \t]*(\S+)[ \t]*(.*)$")
 # AC-9: every gh command line this module may run.
 API_GET = re.compile(r"repos/[\w.-]+/[\w.-]+/(pulls/\d+/(comments|reviews)|issues/\d+/comments)")
+REVIEW_POST = re.compile(r"repos/[\w.-]+/[\w.-]+/pulls/\d+/reviews")
+REPO = re.compile(r"[\w.-]+/[\w.-]+")
 API_POST = re.compile(r"repos/[\w.-]+/[\w.-]+/(pulls/\d+/comments/\d+/replies|issues/\d+/comments)")
 SORT = ("Sort each comment: fix now when the change is local, changes no accepted spec text and no behavior the user "
         "would notice, and adds no value without a source; ask when it would change spec text, pick between behaviors, "
@@ -51,11 +53,18 @@ class Refused(Exception):
     pass
 
 
-def allowed(args, merging=False):
+def allowed(args, merging=False, posting=False):
     """AC-9: the allow list. args: the gh argv after the binary. Spec 0031 AC-9: `pr merge` only from merge(), with
-    a method and the approved head, never --admin, --auto or --delete-branch."""
+    a method and the approved head, never --admin, --auto or --delete-branch. Spec 0032 AC-9: the review request
+    search, and one review post only from reviews.post."""
     a = list(args)
     flags = {x for x in a if x.startswith("-")}
+    if a[:2] == ["search", "prs"]:
+        return len(a) == 11 and a[2:6] == ["--review-requested=@me", "--state", "open", "--repo"] and \
+            bool(REPO.fullmatch(a[6])) and a[7] == "--json" and a[9] == "--limit" and a[10].isdigit()
+    if a[:3] == ["api", "-X", "POST"] and len(a) >= 5 and a[4] == "--input":
+        return posting and len(a) == 6 and bool(REVIEW_POST.fullmatch(a[3])) and os.path.isabs(a[5]) and \
+            bool(re.fullmatch(r"review-\d+\.json", os.path.basename(a[5])))
     if a[:2] == ["pr", "merge"]:
         return merging and len(a) == 8 and a[2].isdigit() and a[3] == "--repo" and \
             a[5] in ("--squash", "--merge", "--rebase") and a[6] == "--match-head-commit" and bool(SHA.fullmatch(a[7]))
@@ -75,10 +84,11 @@ def allowed(args, merging=False):
     return False
 
 
-def gh(binary, *args, timeout=GH_TIMEOUT, merging=False):
+def gh(binary, *args, timeout=GH_TIMEOUT, merging=False, posting=False):
     """AC-9: the one way this module runs gh, in the runner process with your login. Raises Refused for anything off
-    the allow list (ready, a create without --draft, graphql, any other write, a merge outside merge())."""
-    if not allowed(args, merging):
+    the allow list (ready, a create without --draft, graphql, any other write, a merge outside merge(), a review
+    post outside reviews.post())."""
+    if not allowed(args, merging, posting):
         raise Refused("gh " + " ".join(args[:3]))
     if not binary:
         return subprocess.CompletedProcess(args, 127, "", "gh missing")
@@ -499,17 +509,25 @@ def hook_refused(r, res):
         and "failed to push" in res.stderr
 
 
-def push(r, rec, branch=None, lease=None):
-    """AC-7: `git push --porcelain origin refs/heads/<b>:refs/heads/<b>`, plain git so the pre-push hook runs; a
-    force only as AC-16's lease. ("ok"|"hook"|"refused"|"failed", detail)."""
+def tip(r, branch):
+    """The commit a branch points at now: what the scans read and what push() sends."""
+    return out(wf.git(r.c.path, "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}^{{commit}}"))
+
+
+def push(r, rec, branch=None, lease=None, sha=None):
+    """AC-7: `git push --porcelain origin <scanned sha>:refs/heads/<b>`, plain git so the pre-push hook runs; a
+    force only as AC-16's lease. Security review (check then act): the exact commit the scans read is pushed, and
+    a branch that moved since is not pushed. ("ok"|"hook"|"refused"|"failed", detail)."""
     b = branch or rec["branch"]
     if b in run.MAIN_BRANCHES or b == default_branch(r):
         return "refused", f"{b} is a main branch"
     url = out(wf.git(r.c.path, "config", "--get", "remote.origin.url"))
     if url != r.repo.get("origin_url"):
         return "refused", "origin changed since the run started"
+    if not sha or tip(r, b) != sha:
+        return "failed", f"{b} moved after its scan; scan again"
     argv = ["push", "--porcelain", *([f"--force-with-lease=refs/heads/{b}:{lease}"] if lease else []), "origin",
-            f"refs/heads/{b}:refs/heads/{b}"]
+            f"{sha}:refs/heads/{b}"]
     res = git(gitbin(r), r.c.path, *argv)
     if res.returncode == 0:
         return "ok", None
@@ -537,6 +555,7 @@ def publish(r, rec, e=None, skip=(), base_too=False, default_base=False):
     f = r.feature_named(rec["feature"])
     subject, body = message(r, f, rec)
     frm = rec["pushed_sha"] or rec["base_sha"]
+    head = tip(r, rec["branch"])
     hit = scans(r, rec, frm, [("PR title", subject), ("PR body", body)], skip)
     if hit:
         reason, detail = hit
@@ -551,19 +570,20 @@ def publish(r, rec, e=None, skip=(), base_too=False, default_base=False):
         if not base_too:
             return r.pr_ask(rec, "base_unpushed", f"{rec['feature']}: {rec['base']} is not on origin")
         base_rec = {**rec, "branch": rec["base"]}
+        base_head = tip(r, rec["base"])
         hit = scans(r, base_rec, out(wf.git(r.c.path, "merge-base", rec["base"], default_branch(r))), [], skip)
         if hit:
             return r.pr_ask(rec, hit[0], f"{rec['feature']}: {rec['base']}: {hit[1]}")
-        state, detail = push(r, rec, rec["base"])
+        state, detail = push(r, rec, rec["base"], sha=base_head)
         if state != "ok":
             return r.pr_ask(rec, "push_failed", f"{rec['feature']}: push {rec['base']}: {detail or state}")
-    state, detail = push(r, rec)
+    state, detail = push(r, rec, sha=head)
     if state == "hook":
         # AC-7 as amended: never past the hook; the branch stays local for your review.
         return local(r, rec, e, f"branch {rec['branch']} kept local, review then push")
     if state != "ok":
         return r.pr_ask(rec, "push_failed", f"{rec['feature']}: {detail}")
-    rec["pushed_sha"] = out(wf.git(r.c.path, "rev-parse", rec["branch"]))
+    rec["pushed_sha"] = head
     act(r, rec, "push", commit=rec["pushed_sha"])
     found, why = gh_json(binary, "pr", "list", "--repo", name, "--head", rec["branch"], "--state", "open",
                          "--json", "number,url")
@@ -591,7 +611,15 @@ def answer(r, d):
     """AC-17: an answered PR question, taken out of the queue and acted on. Never a feature run."""
     r.queue(lambda q: q.update(decisions=[x for x in q["decisions"] if x["id"] != d["id"]]) or True)
     r.entry_for(d)
+    import reviews
+    if d["case"] in reviews.CASES:
+        # Spec 0032: a review request's answer; the posting answer is checked there, never the fallback.
+        print(f"answered: {d['id']} {d['feature']}: {run.flat(d['answer'])[:60]}", flush=True)
+        return reviews.answer(r, d)
     rec = find(r, d["repo"], d["feature"])
+    if d["case"] == "foreign_commits":
+        print(f"answered: {d['id']} {d['feature']}: {run.flat(d['answer'])[:60]}", flush=True)
+        return rec and foreign_answer(r, rec, d)
     if d["case"] == "approved":
         # Spec 0031 AC-8: never the recommended fallback; only the exact label merges.
         print(f"answered: {d['id']} {d['feature']}: {run.flat(d['answer'])[:60]}", flush=True)
@@ -642,25 +670,41 @@ def approved_answer(r, rec, answer):
 
 
 def ask_merge(r, rec, why=""):
-    r.pr_ask(rec, "approved", f"merge PR #{rec['number']} now?" + (f" The last try failed: {why}" if why else ""))
+    # The question names the head it is about; merge() merges only that head.
+    head = str(rec.get("approved_head") or "")[:7]
+    r.pr_ask(rec, "approved", f"merge PR #{rec['number']} now?" + (f" (head {head})" if head else "") +
+             (f" Note: {why}" if why else ""))
 
 
 def merge(r, rec):
     """AC-9: the one merge, by the wf process: the PR still open at the approved head, the repo's first allowed
     method, --match-head-commit. A failure asks the merge question again."""
     name, binary = origin_repo(r), r.gh
-    view, why = gh_json(binary, "pr", "view", str(rec["number"]), "--repo", name or "", "--json", "state,headRefOid")
+    view, why = gh_json(binary, "pr", "view", str(rec["number"]), "--repo", name or "", "--json",
+                        "state,isDraft,headRefOid,reviewDecision")
     if not isinstance(view, dict):
         return ask_merge(r, rec, f"the PR could not be read: {why}")
     if view.get("state") in ("MERGED", "CLOSED"):
         rec["state"] = view["state"].casefold()
         return save(r, rec)
-    head = rec.get("approved_head")
-    if not head or view.get("headRefOid") != head:
-        # New commits since the approval: judged again on the new head.
+    if view.get("isDraft"):
+        rec["state"] = "draft"
+        save(r, rec)
+        return r.note(f"PR #{rec['number']}: it is a draft again, nothing merged")
+    # Security review (check then act): the approval is judged again now, on the head GitHub shows now.
+    reviews, _ = gh_json(binary, "api", f"repos/{name}/pulls/{rec['number']}/reviews", "--paginate")
+    approved = is_approved(reviews if isinstance(reviews, list) else [], private_config(name).get("approvers"),
+                           view.get("reviewDecision"))
+    head, now = rec.get("approved_head"), view.get("headRefOid")
+    if not approved:
         rec["state"] = "ready"
         save(r, rec)
-        return r.note(f"PR #{rec['number']}: new commits since the approval, nothing merged")
+        return r.note(f"PR #{rec['number']}: no longer approved, nothing merged")
+    if not head or now != head:
+        # New commits since you were asked: a fresh question names the new head; only a new tap merges it.
+        rec["approved_head"] = now
+        save(r, rec)
+        return ask_merge(r, rec, f"new commits since you were asked, the head is now {str(now)[:7]}")
     allow, why = gh_json(binary, "repo", "view", name, "--json", "squashMergeAllowed,mergeCommitAllowed,rebaseMergeAllowed")
     allow = allow if isinstance(allow, dict) else {}
     method = next((m for m, k in (("--squash", "squashMergeAllowed"), ("--merge", "mergeCommitAllowed"),
@@ -708,6 +752,8 @@ def adopt(r):
         return
     never = set(run.MAIN_BRANCHES) | {default_branch(r)}
     key = run.key_of(r.c)
+    tips = {p.get("headRefName"): tip(r, p["headRefName"]) for p in found
+            if isinstance(p, dict) and isinstance(p.get("headRefName"), str)}
 
     def write(q):
         recs = q.setdefault("prs", [])
@@ -725,6 +771,9 @@ def adopt(r):
             local = next((x for x in mine if x["state"] == "local" and x["number"] is None), None)
             if local:
                 local.update(pr=p.get("url"), number=n, state=state, pushed_sha=sha)
+                if tips.get(head) == sha:
+                    # AC-12: the PR head is the branch wf built here, so its content is already cleared.
+                    local["cleared"] = sha
                 continue
             if mine:
                 continue
@@ -737,14 +786,17 @@ def adopt(r):
     r.queue(write)
 
 
-def sync_branch(r, rec, head):
+def sync_branch(r, rec, head, gate=lambda: True):
     """AC-3: the local branch at the PR head before a round on an adopted PR: fetched, made or fast forwarded. False
-    (a report line) when it diverged or is ahead, or the fetch failed."""
+    (a report line) when it diverged or is ahead, or the fetch failed. gate (the foreign commits check) runs on the
+    fetched objects before any local branch or file moves."""
     repo, b = r.c.path, rec["branch"]
     res = wf.git(repo, "fetch", "--quiet", "origin", f"+refs/heads/{b}:refs/remotes/origin/{b}")
     if res is None or res.returncode or not head or not out(wf.git(repo, "rev-parse", "--verify", "--quiet",
                                                                    f"{head}^{{commit}}")):
         r.note(f"PR #{rec['number']}: the PR branch could not be fetched")
+        return False
+    if not gate():
         return False
     local = out(wf.git(repo, "rev-parse", "--verify", "--quiet", f"refs/heads/{b}"))
     if local is None:
@@ -760,6 +812,65 @@ def sync_branch(r, rec, head):
         return False
     rec["pushed_sha"] = head
     return True
+
+
+# Spec 0031 AC-12 (security review, untrusted code): files whose change by someone else can make a call or a git
+# hook run their code on your machine: claude config and instructions, git hook managers, package scripts, test
+# and build config.
+RISKY = re.compile(r"(^|/)(\.claude/|CLAUDE\.md$|CLAUDE\.local\.md$|AGENTS\.md$|\.mcp\.json$|\.husky/|\.githooks/|"
+                   r"\.git-hooks/|\.gitattributes$|\.gitmodules$|lefthook[^/]*\.ya?ml$|\.pre-commit-config\.yaml$|"
+                   r"package\.json$|Makefile$|makefile$|GNUmakefile$|justfile$|Justfile$|pyproject\.toml$|"
+                   r"setup\.(py|cfg)$|tox\.ini$|pytest\.ini$|conftest\.py$|noxfile\.py$|\.envrc$|"
+                   r"[^/]*\.config\.(js|cjs|mjs|ts|cts|mts)$|tsconfig[^/]*\.json$)")
+GO_ON = "I reviewed them, go on"
+
+
+def risky_changes(r, rec, head):
+    """AC-12: (from, risky paths) of the content change from the last head this tool pushed or you cleared (first
+    time: the merge base with the PR's base branch) to head, whoever authored it: one aggregate diff, so merge
+    commits and any number of commits count, and no author name can clear anything. None when it cannot be read."""
+    repo = r.c.path
+    frm = rec.get("cleared")
+    if not frm:
+        base = rec.get("base") or default_branch(r)
+        wf.git(repo, "fetch", "--quiet", "origin", f"+refs/heads/{base}:refs/remotes/origin/{base}")
+        frm = out(wf.git(repo, "merge-base", f"refs/remotes/origin/{base}", head))
+    names = out(wf.git(repo, "diff", "--no-ext-diff", "--no-textconv", "--no-renames", "--name-only", frm, head)) \
+        if frm else None
+    if names is None:
+        return None
+    return frm, [f for f in names.split("\n") if f and RISKY.search(f)]
+
+
+def cleared(r, rec, head):
+    """AC-12: True when no RISKY path changed since the last cleared head; else one question (never repeated while
+    open) naming the paths and, for information only, the commits' authors. Nothing runs on that head before."""
+    got = risky_changes(r, rec, head)
+    if got is not None and not got[1]:
+        rec["cleared"] = head
+        return True
+    if any(d.get("case") == "foreign_commits" and d["repo"] == rec["repo"] and d["feature"] == rec["feature"]
+           for d in r.queue()["decisions"]):
+        return False
+    if got is None:
+        detail = f"PR #{rec['number']}: what changed on it could not be read, so nothing runs on it"
+    else:
+        frm, paths = got
+        who = sorted(set((out(wf.git(r.c.path, "log", "--format=%an", f"{frm}..{head}")) or "").split("\n")) - {""})
+        detail = (f"PR #{rec['number']}: since {frm[:7]}, {', '.join(paths[:5])}"
+                  + (f" and {len(paths) - 5} more" if len(paths) > 5 else "") + " changed"
+                  + (f"; commits say they are by {', '.join(who[:3])}" if who else ""))
+    r.pr_ask(rec, "foreign_commits", detail[:250], head=head)
+    return False
+
+
+def foreign_answer(r, rec, d):
+    """AC-12: only the exact label clears, and only the head the question named; skip this PR leaves it to you."""
+    if d["answer"] == GO_ON and isinstance(d.get("head"), str):
+        rec["cleared"] = d["head"]
+    else:
+        rec["left"] = True
+    save(r, rec)
 
 
 def withdraw(r, rec):
@@ -827,6 +938,9 @@ def poll(r, force=False):
                 continue
             if not r.repo.get("tree"):
                 adopt(r)
+                # Spec 0032 AC-2: review requests, at the same pace.
+                import reviews
+                reviews.poll(r)
             follow_stacks(r)
             only = getattr(r.args, "only_feature", None) or ()
             for rec in records(r, run.key_of(r.c)):
@@ -886,7 +1000,10 @@ def poll_one(r, rec):
             save(r, rec)
             r.pr_ask(rec, "review_rounds", f"PR #{rec['number']}: {rec['rounds']} review rounds done")
         return
-    if rec.get("adopted") and not sync_branch(r, rec, view.get("headRefOid")):
+    # Security review (untrusted code): nothing runs on an adopted head holding someone else's risky change until you
+    # cleared it. The fetch only moves refs, with git's hooks off.
+    if rec.get("adopted") and not sync_branch(r, rec, view.get("headRefOid"),
+                                             lambda: cleared(r, rec, view.get("headRefOid"))):
         return save(r, rec)
     fix_round(r, rec, name, comments)
 
@@ -976,15 +1093,19 @@ def fix_round(r, rec, name, comments):
                 asks.append((c, rest))
         if fixed:
             replies = [(c, f"Fixed in {sha[:7]}. @{c['author']}") for c, sha in fixed]
+            head = tip(r, rec["branch"])
             hit = scans(r, rec, rec["pushed_sha"], [("reply", t) for _, t in replies])
             if hit:
                 save(r, rec)
                 return r.pr_ask(rec, hit[0], f"PR #{rec['number']}: {hit[1]}")
-            state, detail = push(r, rec)
+            state, detail = push(r, rec, sha=head)
             if state != "ok":
                 save(r, rec)
                 return r.pr_ask(rec, "push_failed", f"PR #{rec['number']}: {detail or 'kept local by the pre-push hook'}")
-            rec["pushed_sha"] = out(wf.git(repo, "rev-parse", rec["branch"]))
+            rec["pushed_sha"] = head
+            if rec.get("adopted") and rec.get("cleared") == before:
+                # AC-12: what this round added is wf's own work on a cleared head.
+                rec["cleared"] = head
             act(r, rec, "push", commit=rec["pushed_sha"])
             for c, text in replies:
                 post(r, rec, name, c, text)
@@ -1092,15 +1213,16 @@ def rebase(r, rec, onto, force=False):
     if onto == r.repo["start_branch"]:
         rec["stacked_on"] = None
     if force and old_pushed:
+        head = tip(r, rec["branch"])
         hit = scans(r, rec, rec["base_sha"], [])
         if hit:
             save(r, rec)
             return r.pr_ask(rec, hit[0], f"{rec['branch']}: {hit[1]}")
-        state, detail = push(r, rec, lease=old_pushed)
+        state, detail = push(r, rec, lease=old_pushed, sha=head)
         if state != "ok":
             save(r, rec)
             return r.pr_ask(rec, "push_failed", f"{rec['branch']}: {detail or 'kept local by the pre-push hook'}")
-        rec["pushed_sha"] = out(wf.git(repo, "rev-parse", rec["branch"]))
+        rec["pushed_sha"] = head
         if rec["number"] and onto == r.repo["start_branch"]:
             gh(r.gh, "pr", "edit", str(rec["number"]), "--base", onto, "--repo", origin_repo(r) or "")
     save(r, rec)

@@ -83,6 +83,8 @@ DOTFILES = ("~/.gitconfig", "~/.config/git", "~/.config/gh", "~/.bashrc", "~/.ba
             "~/.zshrc", "~/.zshenv", "~/.zprofile")
 SANDBOX_TOOLS = ("bwrap", "socat", "git", "claude", "python3")
 MCP_ALLOW = '{"mcpServers": {}}'
+# Spec 0032 AC-4: the only tools a review_request call has.
+ISOLATED_TOOLS = "Read,Grep,Glob"
 # Spec 0009. Raising the version reruns probes P2 to P7 and updates BROWSER_TOOLS.
 MCP_PACKAGE = "chrome-devtools-mcp@1.10.1"
 DEAD_PROXY = "127.0.0.1:9"
@@ -223,7 +225,8 @@ PARKS = frozenset(("verify_failed", "blocked", "denied", "debug_touched", "no_pr
 REPO_STOPS = frozenset(("branch_changed", "autopilot_off", "scope_unreadable"))
 # Spec 0026 AC-17: the branch and PR cases, asked by the runner process after a feature is built.
 PR_CASES = frozenset(("squash_failed", "private_names", "attribution", "push_failed", "base_unpushed", "pr_failed",
-                      "review_ask", "review_never", "review_rounds", "approved", "rebase", "rebase_conflict"))
+                      "review_ask", "review_never", "review_rounds", "approved", "rebase", "rebase_conflict",
+                      "review_request", "review_draft", "review_edit", "foreign_commits"))
 RUN_STOPS = frozenset(("interrupted", "run_limit", "usage_limit", "spawn_failed", "guard_changed", "ping_failed",
                        "internal_error", "app_port_busy", "api_outage", "crash_loop", "auto_off"))
 # Spec 0021 AC-1: every reason above, and the `branch` refusal, has exactly one case: (row, options, recommended
@@ -266,6 +269,12 @@ CASES = {
     "approved": ("P10", ("merge now", "later", "I merged it")),
     "rebase": ("P11", ("rebase and force push with lease", "leave it for you")),
     "rebase_conflict": ("P12", ("leave it for you", "try again")),
+    # Spec 0032: a review asked of you; the draft; your replacement text. Only "post as my review" posts.
+    "review_request": ("P13", ("draft a review", "skip")),
+    "review_draft": ("P14", ("post as my review", "edit first", "don't post")),
+    "review_edit": ("P15", ()),
+    # Spec 0031 AC-12 (security review): someone else's commit on an adopted PR touches files that can run code.
+    "foreign_commits": ("P16", ("skip this PR", "I reviewed them, go on")),
     "branch": ("R1", ()),
     "branch_changed": ("R2", ("go on on the new branch", "switch back", STOP_REPO)),
     "scope_unreadable": ("R3", ("retry", STOP_REPO)),
@@ -1773,7 +1782,7 @@ class Run:
             if self.repo["ended"]:
                 continue
             import pr
-            if self.answers.get("branches") == "per spec" or pr.adopting(self):
+            if self.answers.get("branches") == "per spec" or pr.watching(self):
                 # Spec 0026 AC-17: an answered PR question is acted on here, never as a feature run (spec 0031
                 # AC-1: in an adopting repo too).
                 for d in [d for d in self.queue()["decisions"] if d["repo"] == key_of(self.c) and d.get("pr")
@@ -1939,20 +1948,21 @@ class Run:
             self.trace(ex)
             self.note(f"PR poll: internal_error: {flat(traceback.format_exception_only(ex)[-1])}")
 
-    def review_call(self, rec, prompt):
-        """AC-12: one call of kind review with a box call's caps, guard and prompt base. Returns its result lines."""
+    def review_call(self, rec, prompt, kind="review", isolated=None):
+        """AC-12: one call of kind review with a box call's caps, guard and prompt base. Returns its result lines.
+        Spec 0032 AC-5: kind review_request runs isolated (Run.call)."""
         changed = self.files_changed()
         if changed:
             raise Stop("guard_changed", changed)
         self.feature = rec["feature"]
         seq = len(self.record["calls"]) + 1
-        rec_, data, timed_out, tail, spawn_error = self.call(seq, prompt)
+        rec_, data, timed_out, tail, spawn_error = self.call(seq, prompt, isolated=isolated)
         self.accept_allowed()
-        rec_.update(kind="review", box_text=None, resumes=[], retry_of=None, app=None, feature=None)
+        rec_.update(kind=kind, box_text=None, resumes=[], retry_of=None, app=None, feature=None)
         self.record["calls"].append(rec_)
         self.save()
         cost = "-" if rec_["cost_usd"] is None else f"{rec_['cost_usd']:.2f}"
-        print(f"[review] {self.c.name}: PR #{rec['number']} -> {rec_['subtype'] or spawn_error or 'error'}, {cost} USD",
+        print(f"[{kind}] {self.c.name}: PR #{rec['number']} -> {rec_['subtype'] or spawn_error or 'error'}, {cost} USD",
               flush=True)
         self.feature = None
         changed = self.files_changed()
@@ -2290,7 +2300,7 @@ class Run:
 
     # -- one call ------------------------------------------------------------
 
-    def call(self, seq, command, resume=None, last_box=False, sha=None, browser=False, synced=False):
+    def call(self, seq, command, resume=None, last_box=False, sha=None, browser=False, synced=False, isolated=None):
         """Run one claude call, or with resume=(session id, prompt) continue that session.
         Returns (call record, parsed JSON or None, timed out, stderr tail, spawn error)."""
         a = self.args
@@ -2302,6 +2312,11 @@ class Run:
             mcp, settings = self.mcp_browser, self.browser_settings
             denied = ",".join([self.denied, *("mcp__chrome-devtools__" + t for t in BROWSER_DENIED)])
             allowed = ["--allowedTools", ",".join("mcp__chrome-devtools__" + t for t in BROWSER_TOOLS)]
+        elif isolated:
+            # Spec 0032 AC-4: someone else's PR as data in a clean folder: only your user settings, no hooks, no MCP
+            # server, Read, Grep and Glob only.
+            mcp, settings, denied = MCP_ALLOW, isolated["settings"], self.denied
+            allowed = ["--tools", ISOLATED_TOOLS, "--setting-sources", "user"]
         else:
             mcp, settings, denied, allowed = MCP_ALLOW, self.settings, self.denied, []
         # Spec 0027 AC-7, security review (stale state): a worktree added or removed since the last call rebuilds
@@ -2309,7 +2324,7 @@ class Run:
         sib = self.siblings_now()
         if self.repo.get("tree") and sib != self.repo["guard"].get("siblings"):
             self.set_siblings(sib)
-            return self.call(seq, command, resume, last_box, sha, browser, synced)
+            return self.call(seq, command, resume, last_box, sha, browser, synced, isolated)
         # Spec 0014 AC-6: wf names every fresh call's session, so the live transcript path is known at spawn.
         session = resume[0] if resume else str(uuid.uuid4())
         argv = [self.claude, "-p", resume[1] if resume else command,
@@ -2331,7 +2346,7 @@ class Run:
                  f"transcript {config}/projects/*/{session}.jsonl")
         with open(base + ".json", "wb") as out, open(base + ".stderr", "wb") as err:
             try:
-                self.proc = subprocess.Popen(argv, cwd=self.c.path, env=call_env(self.run_id), stdin=subprocess.DEVNULL,
+                self.proc = subprocess.Popen(argv, cwd=isolated["cwd"] if isolated else self.c.path, env=call_env(self.run_id), stdin=subprocess.DEVNULL,
                                              stdout=out, stderr=err, start_new_session=True)
             except OSError as e:
                 rec["duration_s"] = round(time.monotonic() - t0, 1)

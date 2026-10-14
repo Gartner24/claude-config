@@ -18,7 +18,7 @@ from test_run import SCOPE, RunCase, ask  # noqa: E402
 # Spec 0024 AC-11 adds F13.
 # Spec 0026 AC-17 adds F14 and P1 to P12, spec 0027 AC-6 F15, spec 0030 AC-9 U11.
 ROWS = {*(f"F{n}" for n in range(1, 16)), *(f"R{n}" for n in range(1, 5)), *(f"U{n}" for n in range(1, 12)),
-        *(f"P{n}" for n in range(1, 13))}
+        *(f"P{n}" for n in range(1, 17))}
 
 TWO = """# Scope: two
 **Autopilot:** allowed
@@ -54,7 +54,9 @@ class TestCaseTable(unittest.TestCase):
                 if reason in run.PARKS:
                     self.assertTrue(row.startswith("F") and len(options) >= 2)
         # Only R1, R4, U1, U3, U9, U10, U11 (spec 0030) and (spec 0026) P8 never ask.
-        self.assertEqual(sorted(r for r, o in run.CASES.values() if not o), ["P8", "R1", "R4", "U1", "U10", "U11", "U3", "U9"])
+        self.assertEqual(sorted(r for r, o in run.CASES.values() if not o),
+                         # Spec 0032 P15 asks for free text (a prose question), the others never ask.
+                         ["P15", "P8", "R1", "R4", "U1", "U10", "U11", "U3", "U9"])
 
 
 class NeverStopCase(RunCase):

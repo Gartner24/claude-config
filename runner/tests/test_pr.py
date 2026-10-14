@@ -43,6 +43,13 @@ if a[:2] == ["repo", "view"]:
     if "visibility" in a:
         say({{"visibility": cfg.get("visibility", "PUBLIC")}})
     say(cfg.get("methods", {{"squashMergeAllowed": True, "mergeCommitAllowed": True, "rebaseMergeAllowed": True}}))
+if a[:2] == ["search", "prs"]:
+    say(cfg.get("requests", []))
+if a[:2] == ["pr", "view"] and a[2] in cfg.get("byn", {{}}):
+    say(cfg["byn"][a[2]])
+if a[:3] == ["api", "-X", "POST"] and cfg.get("post_rc"):
+    sys.stderr.write("HTTP 422: Line could not be resolved")
+    sys.exit(1)
 if a[:2] == ["pr", "view"]:
     # Spec 0031: views is a sequence, one per view call (the last repeats), so a watched PR can merge.
     p = os.path.join(d, "gh-views")
@@ -58,6 +65,8 @@ if a[:2] == ["api", "-X"]:
     say({{}})
 if a[:1] == ["api"]:
     p = a[1]
+    if p.endswith("/commits"):
+        say(cfg.get("commits", []))
     say(cfg.get("reviews", []) if p.endswith("/reviews") else cfg.get("inline", []) if "/pulls/" in p else cfg.get("convo", []))
 sys.exit(99)
 """

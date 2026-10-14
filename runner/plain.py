@@ -87,6 +87,18 @@ PLAIN = {
     "approved": ("the review request was approved",
                  "A reviewer said yes. Merge now joins it to the main line for you, and only your tap does that. "
                  "Later leaves it waiting; I merged it says you already did."),
+    "foreign_commits": ("someone else changed files that can run code on this PR",
+                        "Another person's commit on your PR changes files that tools load and run, like the model's "
+                        "settings or hooks (scripts that run on events) or package scripts. Nothing runs on it until "
+                        "you have looked at those commits."),
+    "review_request": ("a review was asked of you",
+                       "Someone asked you to review their PR (a request to join code). Draft a review lets a model "
+                       "read the change as plain text, with no way to run or post anything, and write a draft for you."),
+    "review_draft": ("your draft review is ready",
+                     "The draft is above. Post as my review publishes it under your name, exactly as shown; edit "
+                     "first lets you replace its summary; don't post drops it. Nothing is posted without your tap."),
+    "review_edit": ("send the text for your review",
+                    "Reply with the summary you want; it replaces the drafted one and you see the draft again."),
     "rebase": ("the branch it builds on moved",
                "The work below this one changed, so this branch must be moved on top of it again and resent. "
                "Do that now, or leave it for you."),
