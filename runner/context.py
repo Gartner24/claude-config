@@ -89,8 +89,9 @@ def safe(cfg, text, limit, paths=False):
     and paths, a blocked step's commands)."""
     t = " ".join(str(text or "").split())
     s = ntfy.cut(wf.clean(t), limit) if paths else ntfy.scrub(t, limit)
-    low = s.casefold()
-    if not s or ntfy.blocked(cfg, s) or any(n in low for n in ntfy.private_names() or ()):
+    low, names = s.casefold(), ntfy.private_names()
+    # No readable names list: links and paths carry owner and repo names, so they stay hidden (fail closed).
+    if not s or ntfy.blocked(cfg, s) or (names is None and paths) or any(n in low for n in names or ()):
         return ""
     return s
 
@@ -114,8 +115,10 @@ def telegram_block(cfg, d, room):
     """AC-4: the from: block for a Telegram question, at most room characters (did cut first, then steps)."""
     c = d.get("context") or {}
     head = ["from:"]
-    for key, name, n in (("repo", "repo", 80), ("feature", "feature", 120)):
-        v = field(cfg, c.get(key), n)
+    # The alias or hashed label ntfy uses, never the raw folder name of a private repo.
+    repo = ntfy.repo_label(cfg, d["repo"]) if d.get("repo") else c.get("repo")
+    for name, v, n in (("repo", repo, 80), ("feature", c.get("feature"), 120)):
+        v = field(cfg, v, n)
         if v:
             head.append(f"{name}: {v}")
     spec = c.get("spec")

@@ -56,6 +56,25 @@ class TestUnit(unittest.TestCase):
         self.assertLessEqual(len(small), 400)
         self.assertIn("why recommended: it is faster", small)
 
+    # covers: security review (information disclosure): no readable names list hides every link (they carry owner
+    # and repo names), and a private repo shows as its hashed label on the repo line, never its folder name
+    def test_private_repo_hidden(self):
+        import ntfy
+        from unittest import mock
+        d = {"repo": "/w/quuxcorp-cms", "context": {"repo": "quuxcorp-cms", "feature": "1. Loop",
+                                                    "spec": "https://github.com/acme/widgets/blob/work/a.md",
+                                                    "issues": ["https://github.com/acme/widgets/issues/4"]}}
+        with mock.patch.object(ntfy, "private_names", return_value=None):
+            block = context.telegram_block(CFG, d, 4000)
+            self.assertNotIn("https://", block)
+            self.assertNotIn("quuxcorp", block)
+            self.assertIn("\nfeature: 1. Loop", block)
+        with mock.patch.object(ntfy, "private_names", return_value=["quuxcorp"]):
+            block = context.telegram_block(CFG, d, 4000)
+            self.assertIn(f"\nrepo: {ntfy.repo_label(CFG, '/w/quuxcorp-cms')}\n", block)
+            self.assertNotIn("quuxcorp", block)
+            self.assertIn("\nspec: https://github.com/acme/widgets/blob/work/a.md", block)
+
     # covers: security review (steered authorization: in a question that grants something, the call's why never
     # shows as the reason, its steps never show, its words come last quoted as unverified, after the runner's facts)
     def test_auth_block(self):
