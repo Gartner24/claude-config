@@ -233,6 +233,18 @@ class TestPlan(unittest.TestCase):
         self.assertEqual(p["start"], at("2026-10-14T05:02:00+00:00"))
         self.assertEqual(p["lines"][-1], f"5h window nearly used: starts at {usage.at_text(p['start'])}")
 
+    def test_five_hour_checks_each_repo(self):
+        # This used to check only the first picked feature: a second repo's 8% first call ran on 6% left.
+        ratio = {"five_hour": 2.0, "seven_day": 1.0}
+        small = feature("### 2. B · auto\n- [x] (spec)\n- [ ] `/test b`\n- [ ] Sync: `/sync b`\n")
+        p = usage.plan([("/r1", small), ("/r2", FEAT)], account(94, 20), EST, ratio)
+        self.assertEqual(p["start"], at("2026-10-14T05:02:00+00:00"))
+        self.assertEqual(p["lines"][-1], f"5h window nearly used: starts at {usage.at_text(p['start'])}")
+        # A later feature in the same repo is not a first call: it waits for its turn, the run starts now.
+        p = usage.plan([("/r1", small), ("/r1", FEAT)], account(94, 20), EST, ratio)
+        self.assertIsNone(p["start"])
+        self.assertEqual(p["lines"][-1], "fits, starts now")
+
     def test_unknown(self):
         ratio = {"five_hour": 2.0, "seven_day": 1.0}
         for u, est, r, why in (((None, "usage service: 503"), EST, ratio, "usage service: 503"),
