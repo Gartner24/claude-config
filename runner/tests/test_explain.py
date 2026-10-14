@@ -122,7 +122,7 @@ class TestExplain(NeverStopCase):
         r.files_changed = lambda: None
         r.settings = json.dumps({})
         seen = []
-        r.call = lambda seq, prompt, isolated=None: (seen.append(prompt) or ({}, {"result": "WHAT: x"}, False, "", None))
+        r.call = lambda seq, prompt, isolated=None, label=None: (seen.append(prompt) or ({}, {"result": "WHAT: x"}, False, "", None))
         r.save = lambda: None
         r.log = lambda *a: None
         r.explain("1. M", "box", {"question": "q", "options": ["a"], "detail": None, "did": None,
@@ -131,6 +131,29 @@ class TestExplain(NeverStopCase):
         self.assertIn("The last change to notes.md", seen[0])
         self.assertNotIn("--output=x.md", seen[0].split("The last change to notes.md")[0][-200:])
         self.assertNotIn("The last change to --output", seen[0])
+
+    # covers: security review 2026-10-14 (fail closed: a guarded file changed before or during the explain call stops
+    # the repo with its question, as a build call's check would; nothing of that call is used)
+    def test_explain_fails_closed(self):
+        from types import SimpleNamespace
+        import run
+        for before, after, calls_made in ((None, "settings.json changed", 1), ("hook.sh changed", None, 0)):
+            r = run.Run.__new__(run.Run)
+            r.c = SimpleNamespace(path=str(self.tmp), scope_dir="docs/scope")
+            r.folder, r.record, r.feature = str(self.tmp), {"calls": []}, "1. M"
+            r.reread = lambda: None
+            checks = iter([before, after])
+            r.files_changed = lambda: next(checks)
+            r.settings = json.dumps({})
+            made, stops = [], []
+            r.call = lambda seq, prompt, isolated=None, label=None: (made.append(1) or ({}, {"result": "WHAT: x"}, False,
+                                                                                        "", None))
+            r.save = lambda: None
+            r.log = lambda *a: None
+            r.end_repo = lambda reason, detail, h=None: stops.append((reason, detail))
+            self.assertEqual(r.explain("1. M", "box"), {})
+            self.assertEqual(stops, [("guard_changed", before or after)])
+            self.assertEqual(len(made), calls_made)
 
     # covers: security review 2026-10-14 (a verify.md symlinked outside the repo is never read into the call; the
     # call gets no tools; a line that looks like a secret is dropped)

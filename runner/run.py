@@ -1822,8 +1822,10 @@ class Run:
                 f"BEGIN PLAN-DATA-{n}\n{text}\nEND PLAN-DATA-{n}\n"
             folder = os.path.join(self.folder, f"explain-{len(self.record.get('explains', [])) + 1}")
             os.makedirs(folder, mode=0o700, exist_ok=True)
-            if self.files_changed():
-                # The next build call's own check stops the repo for it; an explanation is never worth a stop.
+            changed = self.files_changed()
+            if changed:
+                # Fail closed, as a build call's check would: the repo stops with its own question (U5).
+                self.end_repo("guard_changed", changed)
                 return {}
             # Its own range, so its call-NNNN files never collide with a build call's.
             seq = 1001 + len(self.record.get("explains", []))
@@ -1838,6 +1840,12 @@ class Run:
             # Its own list: a feature's calls stay its build steps; the run's spend still counts it.
             self.record.setdefault("explains", []).append(rec_)
             self.save()
+            # Security review: the guarded files are checked after this call too, so a change made during it is
+            # never left for a later call that may not come.
+            changed = self.files_changed()
+            if changed:
+                self.end_repo("guard_changed", changed)
+                return {}
         except Exception as ex:
             self.log(f"explain: {flat(ex)[:120]}")
             return {}
