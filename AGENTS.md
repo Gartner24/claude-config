@@ -30,6 +30,7 @@ python3 -m unittest discover -s runner/tests    # wf runner self checks (install
 python3 runner/e2e/run.py                       # real claude end to end on a temp fixture repo (spec 0014); run it yourself with `!` after a Claude Code upgrade or runner change, prints PASS or FAIL: <check>; `--parallel` checks two real repos build side by side (spec 0017)
 python3 scripts/private-names.py --test         # private names checker self checks (spec 0013); `check` scans the repo, exits 0 when clean
 python3 scripts/spec-paths.py --test            # stale spec warner self checks (spec 0015); install.sh links it as ~/.local/bin/spec-paths, which /sync runs as `spec-paths --spec NNNN`
+fb-ask <task> [--file PATH] < input             # cheap worker tier (spec 0023): summarize|triage|extract|classify|commit-msg on the free claude-fb models, exit 3/4 = do it yourself (`rules/cheap-worker.md`); `fb-ask --test` self checks, install.sh links it to ~/.local/bin
 wf run [repo] [--jobs N]                        # the queued `· auto` features of one repo, or of every trusted repo with no name (spec 0011); with no name it starts one `wf run <repo> -y` child per repo with work, side by side, `--jobs` caps them (spec 0017); locks, run records and queue.json in $XDG_STATE_HOME/wf, else ~/.local/state/wf
 wf queue [repo]                                 # read only plan: queued, parked, open and answered questions (spec 0011)
 wf unpark <repo> [feature]                      # clear parks and open questions so the next wf run starts them fresh (spec 0011)
