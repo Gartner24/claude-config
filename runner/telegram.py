@@ -2,6 +2,7 @@
 # as self.phone. Scrubbing, ids and naps stay ntfy's. Stdlib only. Tests patch API to a local fake Bot API.
 import datetime
 import fcntl
+import getpass
 import json
 import os
 import re
@@ -20,6 +21,8 @@ ASKED = re.compile(r"^([a-z0-9]{4}):")
 TIMEOUT = 10
 MAX = 4096
 KEEP = 48 * 3600
+LONG_POLL = 25
+INIT_WAIT = 300
 HINT = "reply to a question message (swipe it), or start with its 4 letter id"
 # The run catches ntfy's exceptions; one class each keeps run.py's except lines as they are.
 Invalid = ntfy.Invalid
@@ -325,3 +328,100 @@ def asked(d):
         return int(datetime.datetime.fromisoformat(d["asked"]).timestamp())
     except (KeyError, TypeError, ValueError):
         return 0
+
+
+# -- wf telegram init | test (AC-10) --------------------------------------------
+
+def wait_start(token, code):
+    """The chat id of the first private `/start <code>`, long polling for INIT_WAIT seconds; None when none came.
+    The code keeps anyone who guesses the bot's name in those minutes from binding their own chat."""
+    end, offset = time.monotonic() + INIT_WAIT, None
+    while time.monotonic() < end:
+        params = {"timeout": max(0, min(LONG_POLL, int(end - time.monotonic()))), "allowed_updates": ["message"]}
+        if offset is not None:
+            params["offset"] = offset
+        try:
+            updates = api(token, "getUpdates", params, wait=params["timeout"])
+        except ApiError:
+            time.sleep(min(2, max(0, end - time.monotonic())))
+            continue
+        for u in updates if isinstance(updates, list) else []:
+            offset = max(offset or 0, u.get("update_id", 0) + 1)
+            m = u.get("message") or {}
+            if (m.get("chat") or {}).get("type") == "private" and str(m.get("text") or "").strip() == f"/start {code}":
+                # Confirmed, so the first wf run does not log it and answer it with the hint.
+                quiet({"token": token}, "getUpdates", {"offset": offset, "timeout": 0})
+                return m["chat"]["id"]
+    return None
+
+
+def cmd_init(rotate):
+    p = path()
+    if os.path.lexists(p) and not rotate:
+        print(f"{p} exists, use wf telegram init --rotate to replace it")
+        return 2
+    # getpass: never on the command line, in shell history or a process list.
+    token = getpass.getpass("bot token from BotFather (not shown): ").strip()
+    if not TOKEN.match(token):
+        print("refused: that is not a bot token (digits, a colon, then the key BotFather gave you)")
+        return 2
+    try:
+        name = wf.clean(str(api(token, "getMe").get("username") or ""))
+        # getUpdates refuses while a webhook is set.
+        api(token, "deleteWebhook")
+    except (ApiError, AttributeError) as e:
+        print(f"refused: no_telegram: {redact(e, token)}")
+        return 5
+    code = "".join(secrets.choice(ntfy.CODE_CHARS) for _ in range(6))
+    print(f"bot: @{name}")
+    print(f"open https://t.me/{name}?start={code}")
+    print(f"or send /start {code} to @{name}", flush=True)
+    try:
+        chat = wait_start(token, code)
+    except KeyboardInterrupt:
+        print()
+        return 130
+    if type(chat) is not int:
+        print(f"no /start {code} received")
+        return 6
+    keep = {"aliases": {}, "block": []}
+    try:
+        old = ntfy.load(need_codes=False)
+        keep = {k: old[k] for k in keep}
+    except Invalid:
+        pass
+    try:
+        api(token, "sendMessage", {"chat_id": chat, "text": "wf connected"})
+    except ApiError as e:
+        print(f"warning: {e}")
+    ntfy.write({"token": token, "chat_id": chat, **keep}, p)
+    print(f"saved {p}")
+    return 0
+
+
+def cmd_test():
+    try:
+        cfg = load()
+    except Invalid as e:
+        print(f"refused: no_telegram: {e}")
+        return 5
+    t = Topic(cfg, "test", "telegram test")
+    d = {"id": ntfy.new_id(set()), "kind": "panel", "question": "Did this message reach your phone?",
+         "options": ["yes", "no"], "multi": False, "answer": None, "ignored": 0,
+         "asked": datetime.datetime.now().astimezone().isoformat(timespec="seconds")}
+    try:
+        first = t.ping(d, lambda: False)
+        print(f"sent {d['id']}, waiting up to 5 minutes for a tap or a reply", flush=True)
+        end = t.wait([d], first, INIT_WAIT, lambda: False, lambda d: None,
+                     lambda w: print(f"warning: {w}", flush=True))
+    except PingFailed as e:
+        print(f"stopped: ping_failed: {e}")
+        return 6
+    except KeyboardInterrupt:
+        print()
+        return 130
+    if end == "answered":
+        print(f"accepted: {d['answer']}")
+        return 0
+    print("no reply")
+    return 6

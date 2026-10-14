@@ -1,14 +1,17 @@
 import ast
 import fcntl
+import io
 import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import threading
 import time
 import unittest
+from contextlib import redirect_stdout
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest import mock
@@ -17,6 +20,7 @@ RUNNER = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RUNNER))
 import ntfy  # noqa: E402
 import telegram  # noqa: E402
+import test_ntfy  # noqa: E402
 
 TOKEN = "123456789:" + "A" * 35
 CHAT = 4242
@@ -321,6 +325,80 @@ class TestTake(TelegramCase):
         self.assertEqual(t.wait([d], first, 5, lambda: False, lambda d: None, lambda w: None), "answered")
         self.assertEqual(d["answer"], "no")
         self.assertTrue(self.bot.sent()[-1]["disable_notification"])
+
+
+class TestInit(TelegramCase):
+    def setUp(self):
+        super().setUp()
+        self.cfg_path.unlink()
+        for name, value in (("INIT_WAIT", 1), ("LONG_POLL", 0)):
+            p = mock.patch.object(telegram, name, value)
+            p.start()
+            self.addCleanup(p.stop)
+
+    def init(self, token=TOKEN, rotate=False):
+        out = io.StringIO()
+        with mock.patch.object(telegram.getpass, "getpass", return_value=token), \
+                mock.patch.object(telegram.secrets, "choice", return_value="k"), redirect_stdout(out):
+            code = telegram.cmd_init(rotate)
+        return code, out.getvalue()
+
+    # covers: spec 0029 AC-10 (getMe, deleteWebhook, link and code, only a private exact /start binds the chat,
+    # aliases and block from ntfy.json, wf connected, 0600 file, the token never printed)
+    def test_init(self):
+        test_ntfy.write_config(self.tmp / "config", "https://ntfy.sh", codes=["a1234567"])
+        nc = json.loads((self.tmp / "config" / "wf" / "ntfy.json").read_text())
+        nc.update(aliases={"/r": "home"}, block=["acme"])
+        ntfy.write(nc)
+        self.bot.updates = [msg_update(1, "/start kkkkkj", chat=77, sender=77),
+                            msg_update(2, "/start kkkkkk", chat=-5, sender=88),
+                            msg_update(3, "/start kkkkkk", chat=555, sender=555)]
+        for u in self.bot.updates:
+            u["message"]["chat"]["type"] = "group" if u["update_id"] == 2 else "private"
+        code, out = self.init()
+        self.assertEqual(code, 0, out)
+        self.assertEqual(out.splitlines()[:3], ["bot: @wf_test_bot", "open https://t.me/wf_test_bot?start=kkkkkk",
+                                                "or send /start kkkkkk to @wf_test_bot"])
+        self.assertEqual(out.splitlines()[-1], f"saved {telegram.path()}")
+        self.assertNotIn(TOKEN, out)
+        self.assertEqual(json.loads(Path(telegram.path()).read_text()),
+                         {"token": TOKEN, "chat_id": 555, "aliases": {"/r": "home"}, "block": ["acme"]})
+        self.assertEqual(os.stat(telegram.path()).st_mode & 0o777, 0o600)
+        self.assertEqual([m for _, m, _ in self.bot.calls][:2], ["getMe", "deleteWebhook"])
+        self.assertEqual(self.bot.sent(), [{"chat_id": 555, "text": "wf connected"}])
+        self.assertEqual(self.bot.sent("getUpdates")[-1]["offset"], 4)
+        self.assertEqual(self.init()[0], 2)
+        self.assertEqual(self.init(rotate=True)[0], 0)
+
+    # covers: spec 0029 AC-10 (a malformed token is refused before any call; no /start in time writes nothing)
+    def test_refused(self):
+        code, out = self.init(token="12345:short")
+        self.assertEqual((code, self.bot.calls), (2, []))
+        self.assertNotIn("12345:short", out)
+        code, out = self.init()
+        self.assertEqual((code, out.splitlines()[-1]), (6, "no /start kkkkkk received"))
+        self.assertFalse(Path(telegram.path()).exists())
+
+    # covers: spec 0029 AC-10 (wf telegram test: one question, a tap, accepted: <answer>)
+    def test_test(self):
+        write_cfg(self.tmp / "config")
+        self.bot.taps = ["{id} 1"]
+        out = io.StringIO()
+        with mock.patch.object(ntfy, "POLL_EVERY", 0.01), redirect_stdout(out):
+            self.assertEqual(telegram.cmd_test(), 0)
+        self.assertEqual(out.getvalue().splitlines()[-1], "accepted: yes")
+        self.assertEqual(self.bot.sent()[0]["reply_markup"]["inline_keyboard"][1][0]["text"], "2 no")
+
+    # covers: spec 0029 AC-10 (wf telegram init|test are wired; test refuses without a file)
+    def test_cli(self):
+        r = subprocess.run([sys.executable, str(RUNNER / "wf.py"), "telegram", "test"], capture_output=True, text=True,
+                           stdin=subprocess.DEVNULL, env={**os.environ, "HOME": str(self.tmp)})
+        self.assertEqual((r.returncode, r.stdout.split(": ")[:2]), (5, ["refused", "no_telegram"]))
+        write_cfg(self.tmp / "config")
+        r = subprocess.run([sys.executable, str(RUNNER / "wf.py"), "telegram", "init"], capture_output=True, text=True,
+                           stdin=subprocess.DEVNULL, env={**os.environ, "HOME": str(self.tmp)})
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("use wf telegram init --rotate", r.stdout)
 
 
 import test_run  # noqa: E402  (as a module, so its own test classes do not run twice)
