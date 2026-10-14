@@ -369,8 +369,8 @@ MUTATION = re.compile(r"^[ \t>*-]*MUTATION CHECKED:\**[ \t]*(\d+)")
 MAX_OPTIONS = 9
 MAX_DEBUG = 2
 GRACE = 30
-# F16: seconds a `wf finish` the run starts for its live steps may take (install.sh runs the whole self-test suite).
-LIVE_TIMEOUT = 1800
+# F16: the live dir folders a run copies into on your tap; hooks, scripts and settings stay for your `wf`.
+LIVE_DIRS = ("rules", "agents", "commands", "skills")
 POLL = 0.2
 # Spec 0008 AC-8. Built from the interactive message; verify.md check 3 confirms it at the next real limit.
 LIMIT = re.compile(r"rate_limit|hit your (session |weekly )?limit|usage limit", re.I)
@@ -1571,9 +1571,10 @@ class Run:
         steps = []
         if reason in ("waiting", "manual_box") and text and wf.LIVE.search(text):
             # A live box: the run offers to run the repo's live steps itself (`wf finish`), on your tap.
-            steps = self.live_steps()
-            if not steps:
+            plan = self.live_plan()
+            if not plan or text not in {b.text for _, _, st in plan for b in st.boxes}:
                 return None
+            steps = [c for c, _, _ in plan]
             reason, detail = "live_step", "; ".join(steps)
         # Spec 0028 AC-12: the plain words, the detail with its codes read as words, and a learn line.
         options, question, path = CASES[reason][1], plain_question(reason, self.feature, detail), None
@@ -1606,7 +1607,8 @@ class Run:
         return self.ask(question[:300], options, command=command, box_text=text, session=last.get("session_id") or "",
                         seq=last.get("seq"), case=reason, detail=None if detail is None else str(detail), allow=path,
                         parked=parked, learn=plain.PLAIN.get(reason, (None, None))[1],
-                        **({"other": self.overlap_other} if reason == "paths_overlap" else {}))
+                        **({"other": self.overlap_other} if reason == "paths_overlap" else {}),
+                        **({"live": [[c, h] for c, h, _ in plan]} if reason == "live_step" else {}))
 
     def take_case(self, d):
         """AC-3: the answered case question d leaves the queue with its feature's Park record. Returns its option;
@@ -1623,6 +1625,9 @@ class Run:
         opt = next((o for o in d["options"] if o.casefold() == answer.casefold()), None)
         if opt is None and d.get("case") == "denied":
             opt = SKIP_IT
+        elif opt is None and d.get("case") == "live_step":
+            # F16 (security review): free text never runs a live step.
+            opt = "not now"
         elif opt is None:
             opt, self.hint = d["options"][0], answer
         print(f"answered: {d['id']} {d['feature']}: {opt}", flush=True)
@@ -1663,7 +1668,7 @@ class Run:
             # F16: it writes your live setup, so only your own tap counts (Telegram, or an ntfy one time code).
             import pr
             if pr.strong(self, d):
-                self.run_live()
+                self.run_live(d)
             else:
                 self.live_failed = "on ntfy this needs one of your one time codes"
         scope = self.reread()
@@ -1692,32 +1697,40 @@ class Run:
                         return True
         return False
 
-    def live_steps(self):
-        """F16: the live steps `wf finish` would run in this repo now, as their commands; [] when none passes its
-        shape check (spec 0019 AC-1)."""
+    def live_plan(self):
+        """F16 (security review): [(command, sha256 of its source, Step)] for this feature's live copy steps into the
+        live dir's instruction folders (LIVE_DIRS), never an executable file; installs, checks and every other
+        target stay for your `wf`, since their files may come from this run's calls."""
         import finish
         try:
             live, _ = finish.boxes(self.c)
         except (OSError, StopIteration):
             return []
-        return list(dict.fromkeys(wf.clean(s.span) for s in finish.plan_steps(live)))
+        mine = [b for b in live if wf.DISPLAY_TAG.sub("", b.heading).strip() == self.feature]
+        return [(wf.clean(s.span), file_hash(s.src), s) for s in finish.plan_steps(mine)
+                if s.phase == "copy" and s.rel.split(os.sep)[0] in LIVE_DIRS and not os.access(s.src, os.X_OK)]
 
-    def run_live(self):
-        """F16 `run it now`: `wf finish <repo> -y` from this runner copy, outside every call's sandbox, its output
-        in the run folder. The swap it makes is taken at the next call (spec 0020 AC-6). True when it passed."""
-        log = os.path.join(self.folder, f"live-{len(os.listdir(self.folder)):03d}.log")
-        env = {k: v for k, v in os.environ.items() if k not in ("WF_RUN", "WF_STAGE", "CLAUDE_LIVE_DIR")}
-        self.log(f"live steps {self.c.name}, log {log}")
-        with open(log, "wb") as out:
-            try:
-                rc = subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "wf.py"),
-                                     "finish", self.c.path, "-y"], stdin=subprocess.DEVNULL, stdout=out,
-                                    stderr=subprocess.STDOUT, env=env, timeout=LIVE_TIMEOUT).returncode
-            except (OSError, subprocess.TimeoutExpired) as e:
-                rc = flat(e)
-        self.live_failed = None if rc == 0 else f"wf finish ended {rc}, see {log}"
+    def run_live(self, d):
+        """F16 `run it now`: exactly the steps the question named, each source unchanged since it was asked
+        (security review, check then act), staged and swapped as `wf finish` does; the boxes ticked and committed.
+        The swap is taken at the next call (spec 0020 AC-6). True when every step passed."""
+        import finish
+        plan = self.live_plan()
+        if not d.get("live") or [[c, h] for c, h, _ in plan] != d["live"]:
+            self.live_failed = "the steps or their files changed since you were asked"
+            return False
+        steps = [s for _, _, s in plan]
+        self.log(f"live steps {self.c.name}: {', '.join(c for c, _, _ in plan)}")
+        f = finish.Finish(steps)
+        f.run()
+        files = finish.tick([b for s in steps for b in s.boxes])
+        if files:
+            finish.commit(self.c, list(dict.fromkeys(files)), len(steps))
+        ok = all(s.result == "PASS" for s in steps)
+        self.live_failed = None if ok else (f.held or "; ".join(f"{s.span}: {flat(s.last)}" for s in steps
+                                                                if s.result != "PASS"))[:200]
         self.log(f"live steps {self.c.name}: " + (self.live_failed or "passed"))
-        return rc == 0
+        return ok
 
     def append_allow(self, path):
         """F1 `always` (AC-7): add path to the repo's standing allow writes in allow.json, which no call reads or

@@ -254,6 +254,40 @@ class TestRows(NeverStopCase):
         self.assertIn("- [x] Copy it:", (repo / "docs" / "scope" / "scope.md").read_text())
         self.assertIn("/test l", [self.argv(n)["argv"][1] for n in range(1, len(self.calls()) + 1)])
 
+    def live_repo(self, name, span, src, body="the rule\n"):
+        repo = self.make_repo(name, f"# Scope: {name}\n**Autopilot:** allowed\n### 1. L · auto\n- [x] (spec)\n"
+                                    f"- [ ] `/develop l`\n- [ ] Copy it: `{span}` · waits on you · live\n- [ ] `/test l`\n")
+        (repo / src).parent.mkdir(parents=True)
+        (repo / src).write_text(body)
+        return repo
+
+    # covers: F16 security review (check then act: a source changed after the question runs nothing and asks again;
+    # free text, even with a one time code, runs nothing)
+    def test_live_step_changed_or_free_text(self):
+        repo = self.live_repo("lc", "cp rules/x.md ~/.claude/rules/x.md", "rules/x.md")
+        live = self.tmp / ".claude" / "rules" / "x.md"
+        self.steps([{}])
+        self.wf("lc", "-y", "--max-wait", "0.01", mode="fast")
+        (repo / "rules" / "x.md").write_text("changed after you were asked\n")
+        self.reply("{id} code0001 run it now")
+        self.steps([{}])
+        r = self.wf("lc", "-y", "--max-wait", "0.01", mode="fast")
+        self.assertFalse(live.exists(), r.stdout)
+        self.assertIn("changed since you were asked", r.stdout)
+        self.reply("{id} code0002 sure go ahead")
+        self.steps([{}])
+        r = self.wf("lc", "-y", "--max-wait", "0.01", mode="fast")
+        self.assertFalse(live.exists(), r.stdout)
+        self.assertIn(": not now", r.stdout)
+
+    # covers: F16 security review (a copy into hooks, an install or a check is never offered: it waits for your wf)
+    def test_live_step_hook_not_offered(self):
+        self.live_repo("lh", "cp hooks/h.sh ~/.claude/hooks/h.sh", "hooks/h.sh", "#!/bin/sh\n")
+        self.steps([{}])
+        r = self.wf("lh", "-y")
+        self.assertIn("parked: 1. L: waiting", r.stdout)
+        self.assertEqual(self.queue()["decisions"], [])
+
     # covers: F11 (a box with no command: skip the box ticks it `· skipped` and the feature goes on)
     def test_skip_the_box(self):
         self.make_repo("n", "# Scope: n\n**Autopilot:** allowed\n### 1. N · auto\n- [x] (spec)\n- [ ] `/develop n`\n"
