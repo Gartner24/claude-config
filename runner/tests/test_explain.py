@@ -48,6 +48,26 @@ class TestExplain(NeverStopCase):
         self.assertIn("\n1. Open ", message)
         self.assertNotIn("github.com/you", message)
 
+    # covers: security review 2026-10-14 (a verify.md symlinked outside the repo is never read into the call; the
+    # call gets no tools; a line that looks like a secret is dropped)
+    def test_explain_contained(self):
+        repo = self.make_repo("m", SCOPE.replace("- [x] (spec)", "- [x] (spec)\nSpec [0001](../specs/0001-m/index.md)"))
+        spec = repo / "docs" / "specs" / "0001-m"
+        spec.mkdir(parents=True)
+        (spec / "index.md").write_text("# 0001 · M\n\nthe spec text\n")
+        outside = self.tmp / "secret.txt"
+        outside.write_text("OUTSIDE-MARKER-42\n")
+        (spec / "verify.md").symlink_to(outside)
+        leak = {"tick": False, "json": {"result": "WHAT: fine\nSTEP: use ghp_" + "a" * 36 + " to log in\nSTEP: two"}}
+        self.steps([{}, leak])
+        self.wf("m", "-y")
+        prompt = self.argv(2)["argv"][1]
+        self.assertIn("the spec text", prompt)
+        self.assertNotIn("OUTSIDE-MARKER-42", prompt)
+        deny = self.settings(2)["permissions"]["deny"]
+        self.assertTrue({"Bash", "Read", "WebFetch"} <= set(deny), deny)
+        self.assertEqual(self.asked()["context"]["steps"], ["two"])
+
     # covers: AC-4 (a question queued without context, as before spec 0033, is rebuilt once before it is sent again:
     # the plain words, the explanation, stored)
     def test_old_question_rebuilt(self):

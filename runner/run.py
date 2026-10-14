@@ -161,6 +161,8 @@ EXPLAIN_PROMPT = (
     "folder), the exact command or text to type or the button to tap, and how they know it worked.\n")
 EXPLAIN_LINE = re.compile(r"^[ \t>*-]*(WHAT|WHY|STEP):\**[ \t]*(?:\d+[.)][ \t]*)?(\S.*)$")
 EXPLAIN_MAX = 20000
+EXPLAIN_DENY = ("Bash", "Read", "Edit", "Write", "Glob", "Grep", "WebFetch", "WebSearch", "Agent", "NotebookEdit",
+                "Skill", "mcp__*")
 UNATTENDED_PROMPT = (
     "You are running unattended inside wf run, and AskUserQuestion is not available. "
     "Decide these panels yourself with the fixed answer: Doc type, the option marked (recommended); "
@@ -1766,8 +1768,11 @@ class Run:
             parts = [f"The step: {box_text}", "The feature's section of the plan:\n" + "\n".join(f.lines if f else [])]
             if spec:
                 parts.append("The spec:\n" + wf.read(spec))
-                verify = os.path.join(os.path.dirname(spec), "verify.md")
-                if os.path.basename(spec) == "index.md" and os.path.isfile(verify):
+                # Security review: read by this unsandboxed process, so only a regular file really inside the repo
+                # (a verify.md symlinked to a secret elsewhere is never read).
+                verify = os.path.realpath(os.path.join(os.path.dirname(spec), "verify.md"))
+                if os.path.basename(spec) == "index.md" and under(verify, [os.path.realpath(self.c.path)]) \
+                        and os.path.isfile(verify) and not os.path.islink(os.path.join(os.path.dirname(spec), "verify.md")):
                     parts.append("The spec's verify notes:\n" + wf.read(verify))
             text = norm("\n\n".join(parts))[:EXPLAIN_MAX]
             n = 0
@@ -1780,7 +1785,13 @@ class Run:
             if changed:
                 raise Stop("guard_changed", changed)
             seq = len(self.record["calls"]) + 1
-            rec_, data, _, _, spawn_error = self.call(seq, prompt, isolated=reviews.isolated(self, folder))
+            iso = reviews.isolated(self, folder)
+            # Security review: no tools at all, so the call can only rewrite the text it was handed.
+            g = json.loads(iso["settings"])
+            g.setdefault("permissions", {})["deny"] = list(dict.fromkeys(
+                g.get("permissions", {}).get("deny", []) + list(EXPLAIN_DENY)))
+            iso["settings"] = json.dumps(g)
+            rec_, data, _, _, spawn_error = self.call(seq, prompt, isolated=iso)
             rec_.update(kind="explain", box_text=box_text, resumes=[], retry_of=None, app=None, feature=feature)
             self.record["calls"].append(rec_)
             self.save()
@@ -1797,6 +1808,9 @@ class Run:
             if not m:
                 continue
             key, val = m.group(1).casefold(), flat(m.group(2))
+            if reviews.SECRET.search(val):
+                # Security review (exfiltration): a line that looks like a secret never reaches the phone.
+                continue
             if key == "step":
                 out["steps"].append(val)
             else:
