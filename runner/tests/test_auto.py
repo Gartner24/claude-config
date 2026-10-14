@@ -1,6 +1,7 @@
 """Spec 0030: autonomous mode, the session drives the runner."""
 import io
 import json
+import re
 import os
 import stat
 import subprocess
@@ -168,6 +169,9 @@ class TestHook(AutoCase):
     def test_typed_switch(self):
         typed = lambda text, env=None: self.cli("hook", stdin=json.dumps(
             {"hook_event_name": "UserPromptSubmit", "cwd": str(self.folder), "prompt": text}))
+        live = mock.patch.object(auto, "interactive", return_value=True)
+        live.start()
+        self.addCleanup(live.stop)
         self.assertEqual(typed("please /auto on")[1], "")
         self.assertEqual(self.cli("status")[1], "autonomous: off\n")
         with mock.patch.dict(os.environ, {"WF_RUN": "x"}):
@@ -178,6 +182,29 @@ class TestHook(AutoCase):
         self.assertTrue(auto.driving(auto.load(), str(self.folder)))
         self.assertIn("autonomous: off", typed("/auto off")[1])
         self.assertFalse(auto.load()["on"])
+
+    # covers: security review 2026-10-14 (a /auto on prompt from `claude -p`, which Claude could start from Bash,
+    # switches nothing; the walk finds the nearest claude process above shells; no claude above: refused)
+    def test_typed_switch_needs_interactive(self):
+        with mock.patch.object(auto, "interactive", return_value=False):
+            self.cli("hook", stdin=json.dumps({"hook_event_name": "UserPromptSubmit", "cwd": str(self.folder),
+                                               "prompt": "/auto on"}))
+        self.assertEqual(self.cli("status")[1], "autonomous: off\n")
+        procs = {10: (["sh", "-c", "wf auto hook"], 9), 9: (["claude", "-c"], 1),
+                 20: (["sh", "-c", "wf auto hook"], 19), 19: (["claude", "-p", "/auto on"], 1),
+                 30: (["sh", "-c", "x"], 1)}
+        real = open
+
+        def fake(path, *a, **k):
+            m = re.fullmatch(r"/proc/(\d+)/(cmdline|stat)", str(path))
+            if not m:
+                return real(path, *a, **k)
+            args, parent = procs[int(m.group(1))]
+            if m.group(2) == "cmdline":
+                return io.BytesIO("\0".join(args).encode() + b"\0")
+            return io.StringIO(f"{m.group(1)} (x) S {parent} 0 0")
+        with mock.patch("builtins.open", fake):
+            self.assertEqual([auto.interactive(p) for p in (10, 20, 30)], [True, False, False])
 
     # covers: security review 2026-10-13 (build written text reaches the session only as one quoted, cut line with no
     # control characters, under the data head; it can never add a line of its own)

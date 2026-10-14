@@ -131,6 +131,27 @@ def fingerprint():
 SWITCH = ("/auto on", "/auto off", "/auto off now")
 
 
+def interactive(pid=None):
+    """Security review 2026-10-14: the nearest Claude Code process above this hook is an interactive session, not
+    `claude -p`/`--print`, which Claude itself could start from Bash with "/auto on" as its prompt. False when no
+    claude process is found within a few parents or its command line cannot be read."""
+    pid = pid or os.getppid()
+    for _ in range(6):
+        try:
+            with open(f"/proc/{pid}/cmdline", "rb") as f:
+                args = f.read().decode(errors="replace").split("\0")
+            with open(f"/proc/{pid}/stat", encoding="utf-8") as f:
+                parent = int(f.read().rsplit(")", 1)[1].split()[1])
+        except (OSError, ValueError, IndexError):
+            return False
+        if any(os.path.basename(a) == "claude" for a in args[:2]):
+            return not any(a in ("-p", "--print") or a.startswith("--print=") for a in args)
+        if parent <= 1:
+            return False
+        pid = parent
+    return False
+
+
 def wf_path():
     """The wf this process runs as (~/.local/bin/wf links to the newest runner copy, spec 0020 AC-12)."""
     me = sys.argv[0]
@@ -244,7 +265,7 @@ def hook():
         return
     folder = data.get("cwd") or os.getcwd()
     typed = " ".join(str(data.get("prompt") or "").split()) if data.get("hook_event_name") == "UserPromptSubmit" else ""
-    if typed in SWITCH:
+    if typed in SWITCH and interactive():
         # /auto on|off typed by you: the switch runs here, as you. The skill cannot run it, since the deny rule that
         # keeps Claude from ever turning it on checks a skill's command too (spec 0030 probe P4, 2026-10-14).
         on(folder) if typed == "/auto on" else off(typed == "/auto off now")
