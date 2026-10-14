@@ -565,7 +565,7 @@ Boring reading jobs go to the free claude-fb models through `fb-ask` (text only,
 **Done when:** a failed check's debug step gets an `fb-ask` summary in an allowed repo, and a repo not on your list never reaches it.
 - [x] Design it (spec): `/architect cheap worker tier`
 - [x] Build it: `/develop cheap worker tier`
-- [ ] Verify it: `/check verify cheap worker tier`
+- [x] Verify it: `/check verify cheap worker tier`
 - [ ] Test it: `/test cheap worker tier`
 - [ ] Create `~/.claude/private/fb-ok.txt` (your own repo origins) and `~/.claude/private/fb-ask.conf` · waits on you
 - [x] Copy the rule live: `cp ~/claude-config/rules/cheap-worker.md ~/.claude/rules/cheap-worker.md` · waits on you · live
