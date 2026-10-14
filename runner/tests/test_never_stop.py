@@ -15,7 +15,8 @@ import run  # noqa: E402
 from test_park import GIT_ID, VERIFY  # noqa: E402
 from test_run import SCOPE, RunCase, ask  # noqa: E402
 
-ROWS = {*(f"F{n}" for n in range(1, 13)), *(f"R{n}" for n in range(1, 5)), *(f"U{n}" for n in range(1, 11))}
+# Spec 0024 AC-11 adds F13.
+ROWS = {*(f"F{n}" for n in range(1, 14)), *(f"R{n}" for n in range(1, 5)), *(f"U{n}" for n in range(1, 11))}
 
 TWO = """# Scope: two
 **Autopilot:** allowed
