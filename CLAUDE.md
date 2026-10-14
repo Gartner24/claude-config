@@ -38,6 +38,7 @@
 State lives in repo files, never only in chat: `AGENTS.md`, `docs/scope/`, `docs/specs/`,
 `design.md`, `docs/reviews/`. In bot-reviewed team repos the same tree lives under a
 gitignored `.workflow/`. Full guide: ~/Documents/workflow-research/05-new-workflow.md.
+Branches and PRs follow `rules/branch-pr.md`: one branch per spec, stacked only on `**Stacks on:**`, one commit per feature, draft PRs only.
 
 ### Route by situation
 - Session start in a repo: run `/scope` with no argument and state where things stand.
