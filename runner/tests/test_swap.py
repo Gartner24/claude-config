@@ -258,7 +258,7 @@ class TestInstallStage(unittest.TestCase):
             (repo / d).mkdir(parents=True)
         shutil.copy(RUNNER.parent / "install.sh", repo / "install.sh")
         shutil.copy(RUNNER / "finish.py", repo / "runner" / "finish.py")
-        for f in ("run.py", "wf.py", "ntfy.py", "report.py"):
+        for f in ("run.py", "wf.py", "ntfy.py", "report.py", "telegram.py"):
             shutil.copy(RUNNER / f, repo / "runner" / f)
         for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "scripts/chroma-reaper.sh"):
             (repo / f).write_text("#!/bin/sh\n")
