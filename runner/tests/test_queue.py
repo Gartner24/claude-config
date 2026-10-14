@@ -200,7 +200,7 @@ class TestTreeRule(QueueCase):
         self.again()
         r = self.wf("tree")
         # Spec 0021 AC-2: its question is listed first; an open question is work (the run pings it again).
-        self.assertRegex(plan(r.stdout)[1], r"^  open: [a-z0-9]{4} 1\. A: blocked: test park$")
+        self.assertRegex(plan(r.stdout)[1], r"^  open: [a-z0-9]{4} 1\. A: the step needs something only you can do in 1\. A\. test park$")
         self.assertEqual(plan(r.stdout)[2:4], ["  parked: 1. A: blocked: test park (retaken on a new commit)",
                                                "  skip: 2. B: dirty with parks"])
         self.assertEqual(r.returncode, 130)
@@ -225,7 +225,7 @@ class TestParkMemory(QueueCase):
         self.again()
         r = self.wf("mem", "-y")
         self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
-        self.assertRegex(plan(r.stdout)[1], r"^  open: [a-z0-9]{4} 1\. A: blocked: test park$")
+        self.assertRegex(plan(r.stdout)[1], r"^  open: [a-z0-9]{4} 1\. A: the step needs something only you can do in 1\. A\. test park$")
         self.assertEqual(plan(r.stdout)[2:3], ["  parked: 1. A: blocked: test park (retaken on a new commit)"])
         self.assertEqual(self.calls(), [])
         scope = repo / "docs" / "scope" / "scope.md"

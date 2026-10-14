@@ -208,7 +208,7 @@ class TestBlocked(RunCase):
         self.assertEqual(rec["detail"], "sudo pacman -S stow")
         # Spec 0021 F2: the only question is the park's own.
         self.assertEqual((rec["calls"][0]["marker"], rec["calls"][0]["decision"], [d["question"] for d in rec["decisions"]]),
-                         ("blocked", None, ["blocked: sudo pacman -S stow"]))
+                         ("blocked", None, ["the step needs something only you can do in 1. Loop. sudo pacman -S stow"]))
         self.assertIn("parked: 1. Loop: blocked: sudo pacman -S stow", r.stdout)
 
 

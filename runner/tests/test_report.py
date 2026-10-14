@@ -65,11 +65,13 @@ class Unit(unittest.TestCase):
         full, body = report.render([self.source(p, r)], CFG)
         at = datetime.datetime.fromisoformat(r["ended"]).astimezone().strftime("%H:%M")
         self.assertEqual(full.splitlines(), [
-            f"wf done {at}: 1 built, 1 parked, 0 open, 0.50 USD, 15 tokens", "built: 2. B",
-            "parked: 1. A: blocked: test park", "live: 3. C: 2 step(s)", "yours: 3. C: Check the phone",
+            f"wf done {at}: 1 built, 1 stuck, 0 questions, 0.50 USD, 15 tokens", "built: 2. B",
+            "stuck: 1. A: the step needs something only you can do: test park", "setup steps: 3. C: 2 step(s)",
+            "for you: 3. C: Check the phone",
             "next: wf, then review and merge: demo", "run folder: /f"])
         label = ntfy.repo_label(CFG, p)
-        self.assertEqual(body.splitlines(), full.splitlines()[:2] + ["parked: 1. A: blocked"] + full.splitlines()[3:5]
+        self.assertEqual(body.splitlines(), full.splitlines()[:2] + ["stuck: 1. A: the step needs something only you can do"]
+                         + full.splitlines()[3:5]
                          + [f"next: wf, then review and merge: {label}"])
 
     # covers: AC-2 (internal_error reads crash; distinct reasons in run order; question ids; stopped lines;
@@ -82,10 +84,13 @@ class Unit(unittest.TestCase):
                    self.source(e, None, folder=None)]
         full, _ = report.render(sources, CFG)
         lines = full.splitlines()
-        self.assertTrue(lines[0].startswith("wf stopped internal_error (crash), queue_done "), lines[0])
-        self.assertTrue(lines[0].endswith(": 0 built, 0 parked, 1 open, - USD, - tokens"), lines[0])
-        self.assertEqual(lines[1:7], ["stopped: 1. B: branch_changed (b)", "question k3x9: 1. A (a)",
-                                      "no record: c: exit 1 (c)", "no end: d (d)", "not started: e (e)", "next: wf"])
+        # Spec 0028 AC-13: reasons and prefixes in plain words.
+        self.assertTrue(lines[0].startswith("wf stopped the build tool itself hit a bug, all queued work is done "),
+                        lines[0])
+        self.assertTrue(lines[0].endswith(": 0 built, 0 stuck, 1 questions, - USD, - tokens"), lines[0])
+        self.assertEqual(lines[1:7], ["stopped: 1. B: the code was switched to another branch (b)",
+                                      "question k3x9: 1. A (a)", "no record: c: exit 1 (c)", "did not finish: d (d)",
+                                      "not started: e (e)", "next: wf"])
 
     # covers: AC-1, AC-2 (the parent's sources come from its summary rows: work rows only, folder - with a code is
     # no record, without one not started, a folder's run.json read for its features)
@@ -127,7 +132,8 @@ class Unit(unittest.TestCase):
         lines = body.splitlines()
         self.assertEqual(len(lines), 12)
         self.assertLessEqual(len(body), 1000)
-        self.assertEqual(lines[1:10], ["parked: feature: blocked"] + [f"parked: {n}. Parked: blocked" for n in range(16, 24)])
+        why = "the step needs something only you can do"
+        self.assertEqual(lines[1:10], [f"stuck: feature: {why}"] + [f"stuck: {n}. Parked: {why}" for n in range(16, 24)])
         self.assertEqual(lines[-2:], ["+21 more on the wf screen", "next: wf"])
         # Nine yours lines of about 130 characters fit the line cap but not the 1000 characters.
         boxes = "".join(f"- [ ] {n} " + "word " * 30 + "· waits on you\n" for n in range(9))
@@ -135,7 +141,7 @@ class Unit(unittest.TestCase):
         _, body = report.render([self.source(q, rec([]))], CFG)
         lines = body.splitlines()
         self.assertLessEqual(len(body), 1000)
-        self.assertLessEqual(len(lines[1]), len("yours: ") + 40 + 2 + 80, lines[1])
+        self.assertLessEqual(len(lines[1]), len("for you: ") + 40 + 2 + 80, lines[1])
         self.assertTrue(lines[1].endswith("..."), lines[1])
         self.assertEqual(lines[-2:], [f"+{9 - (len(lines) - 3)} more on the wf screen", "next: wf"])
         self.assertGreater(len(lines), 5)
@@ -271,13 +277,15 @@ class TestEndOfRun(QueueCase):
         self.assertEqual(record["report"], "sent")
         text = (self.state / "wf" / "report.txt").read_text().splitlines()
         # Spec 0021 AC-6: the park's open question with its recommended answer.
-        self.assertRegex(text[3], r"^question [a-z0-9]{4}: 1\. A: blocked: test park \(recommended: done, go on\)$")
-        self.assertEqual(text[1:3] + text[4:7], ["built: 2. B", "parked: 1. A: blocked: test park", "live: 3. C: 2 step(s)",
-                                                 "yours: 3. C: Check the phone", "next: wf, then review and merge: two"])
+        self.assertRegex(text[3], r"^question [a-z0-9]{4}: 1\. A: the step needs something only you can do in 1\. A\. test park "
+                                  r"\(recommended: done, go on\)$")
+        self.assertEqual(text[1:3] + text[4:7], ["built: 2. B",
+                                                 "stuck: 1. A: the step needs something only you can do: test park",
+                                                 "setup steps: 3. C: 2 step(s)", "for you: 3. C: Check the phone", "next: wf, then review and merge: two"])
         self.assertEqual(text[-1], f"run folder: {folder}")
         notes = [p for p in self.report_ntfy.posts if p["title"] == "wf report"]
         self.assertEqual(len(notes), 1)
-        self.assertEqual(notes[0]["message"].splitlines()[2], "parked: 1. A: blocked")
+        self.assertEqual(notes[0]["message"].splitlines()[2], "stuck: 1. A: the step needs something only you can do")
 
     # covers: AC-1 (internal_error still writes and sends); AC-3 (a failing POST warns, records failed, keeps the code)
     def test_crash_and_failed_send(self):
@@ -285,7 +293,7 @@ class TestEndOfRun(QueueCase):
         r = self.wf("demo", "-y", mode="boom")
         self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
         self.assertEqual(self.run_record()[1]["report"], "sent")
-        self.assertIn(" stopped internal_error (crash) ", (self.state / "wf" / "report.txt").read_text().splitlines()[0])
+        self.assertIn(" stopped the build tool itself hit a bug ", (self.state / "wf" / "report.txt").read_text().splitlines()[0])
         self.again()
         self.report_ntfy.fail_posts = 3
         r = self.wf("demo", "-y", mode="boom")
@@ -307,7 +315,7 @@ class TestEndOfRun(QueueCase):
         self.assertEqual(self.run_record()[1]["report"], "sent")
         # The fake keeps the failed POST too: two posts means the retry went out after Ctrl C.
         self.assertEqual(len([p for p in self.report_ntfy.posts if p["title"] == "wf report"]), 2)
-        self.assertTrue((self.state / "wf" / "report.txt").read_text().startswith("wf stopped interrupted "))
+        self.assertTrue((self.state / "wf" / "report.txt").read_text().startswith("wf stopped you stopped the build "))
 
 
 class TestParent(ParallelCase):

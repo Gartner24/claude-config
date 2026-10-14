@@ -7,6 +7,7 @@ import re
 import tempfile
 
 import ntfy
+import plain
 import run
 import wf
 
@@ -111,14 +112,15 @@ def head(items, recs):
     if not gone and recs and reasons == ["queue_done"]:
         status = "done"
     else:
-        status = " ".join(["stopped", ", ".join("internal_error (crash)" if r == "internal_error" else r for r in reasons)]).strip()
+        # Spec 0028 AC-13: reasons in plain words; the codes stay in run.json and log.txt.
+        status = " ".join(["stopped", ", ".join(plain.words(r) for r in reasons)]).strip()
     ended = [datetime.datetime.fromisoformat(r["ended"]) for r in recs if r.get("ended")]
     # ponytail: no run left an end time (every child died before it), so the parent's own clock stands in.
     at = max(ended).astimezone() if ended else datetime.datetime.now()
     calls = [c for r in recs for c in r.get("calls", [])]
     spent = run.spent_line(run.spent(calls))[len("spent: "):]
-    return (f"wf {status} {at:%H:%M}: {kinds.count('built')} built, {kinds.count('parked')} parked, "
-            f"{kinds.count('question')} open, {spent}")
+    return (f"wf {status} {at:%H:%M}: {kinds.count('built')} built, {kinds.count('parked')} stuck, "
+            f"{kinds.count('question')} questions, {spent}")
 
 
 def next_line(items, name):
@@ -139,14 +141,15 @@ def item_line(i, multi, phone, cfg):
     if k == "built":
         text = f"built: {feature}"
     elif k == "parked":
-        text = f"parked: {feature}: {field(i['reason'], 40, 'reason')}"
+        # Spec 0028 AC-13: plain prefixes and reason words, details with their codes read as words.
+        text = f"stuck: {feature}: {field(plain.words(i['reason']), 60, 'reason')}"
         if not phone and i["detail"]:
-            text += f": {run.flat(i['detail'])}"
+            text += f": {plain.detail(run.flat(i['detail']))}"
     elif k == "stopped":
-        text = f"stopped: {feature}: {field(i['reason'], 40, 'reason')}"
-        # Spec 0021 U10: a runner bug stops only its repo; the report points at its traceback.
+        text = f"stopped: {feature}: {field(plain.words(i['reason']), 60, 'reason')}"
+        # Spec 0021 U10: a runner bug stops only its repo; the report points at its error details.
         if not phone and i["reason"] == "internal_error" and i.get("folder"):
-            text += f" (traceback: {os.path.join(i['folder'], 'traceback.txt')})"
+            text += f" (error details: {os.path.join(i['folder'], 'traceback.txt')})"
     elif k == "question":
         text = f"question {wf.clean(i['id'])}: {feature}"
         # Spec 0021 AC-6: what it asks and the answer it recommends.
@@ -155,13 +158,13 @@ def item_line(i, multi, phone, cfg):
         if i.get("recommended"):
             text += f" (recommended: {field(i['recommended'], 40, 'answer')})"
     elif k == "live":
-        text = f"live: {feature}: {i['n']} step(s)"
+        text = f"setup steps: {feature}: {i['n']} step(s)"
     elif k == "yours":
-        text = f"yours: {feature}: {field(i['text'], 80, 'step')}"
+        text = f"for you: {feature}: {field(i['text'], 80, 'step')}"
     elif k == "no record":
         text = f"no record: {name}: exit {i['code']}"
     else:
-        text = f"{k}: {name}"
+        text = f"{'did not finish' if k == 'no end' else k}: {name}"
     return text + (f" ({name})" if multi else "")
 
 

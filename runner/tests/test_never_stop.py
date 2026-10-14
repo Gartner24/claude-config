@@ -93,8 +93,10 @@ class TestFeatureQuestions(NeverStopCase):
         [d] = self.queue()["decisions"]
         self.assertEqual((d["feature"], d["case"], d["options"], d["answer"]), ("1. A", "blocked", ["done, go on", "skip"], None))
         self.assertEqual((d["detail"], d["box_text"], d["command"]), ("sudo pacman -S stow", "Build it: `/develop a`", "/develop a"))
-        self.assertIn(f"waiting: {d['id']} blocked: sudo pacman -S stow\n  1 done, go on\n  2 skip\n", r.stdout)
-        self.assertIn(f"{d['id']}: blocked: sudo pacman -S stow\n1 done, go on\n2 skip", self.report_ntfy.pings()[0]["message"])
+        self.assertIn(f"waiting: {d['id']} the step needs something only you can do in 1. A. sudo pacman -S stow\n"
+                      "  1 done, go on\n  2 skip\n", r.stdout)
+        self.assertIn(f"{d['id']}: the step needs something only you can do in 1. A. sudo pacman -S stow\nlearn: "
+                      f"{run.plain.PLAIN['blocked'][1]}\n1 done, go on\n2 skip", self.report_ntfy.pings()[0]["message"])
         # The recorded park stays, so wf can still take it back by its cause (spec 0020 AC-6).
         self.assertEqual([p["reason"] for p in self.queue()["parks"]], ["blocked"])
 
@@ -537,7 +539,8 @@ class TestReport(NeverStopCase):
         self.steps([BLOCKED])
         self.wf("demo", "-y")
         [d] = self.queue()["decisions"]
-        line = f"question {d['id']}: 1. Loop: blocked: sudo pacman -S stow (recommended: done, go on)"
+        line = (f"question {d['id']}: 1. Loop: the step needs something only you can do in 1. Loop. sudo pacman -S stow "
+                "(recommended: done, go on)")
         self.assertIn(line, (self.state / "wf" / "report.txt").read_text().splitlines())
         self.assertIn(line, self.body().splitlines())
 
@@ -545,7 +548,7 @@ class TestReport(NeverStopCase):
     def test_traceback_in_report(self):
         self.wf("demo", "-y", mode="boom")
         folder, _ = self.run_record()
-        self.assertIn(f"stopped: 1. Loop: internal_error (traceback: {folder}/traceback.txt)",
+        self.assertIn(f"stopped: 1. Loop: the build tool itself hit a bug (error details: {folder}/traceback.txt)",
                       (self.state / "wf" / "report.txt").read_text().splitlines())
         self.assertTrue((folder / "traceback.txt").exists())
 
