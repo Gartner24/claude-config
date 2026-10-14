@@ -39,11 +39,14 @@ class TestParkSets(unittest.TestCase):
         self.assertEqual(run.REPO_STOPS & run.RUN_STOPS, frozenset())
         self.assertEqual(run.PARKS, {"verify_failed", "blocked", "denied", "debug_touched", "no_progress", "call_error",
                                      "call_timeout", "budget", "max_calls", "manual_box", "waiting",
-                                     "no_command", "no_feature", "app_failed", "design_gate", "unchecked"})
+                                     "no_command", "no_feature", "app_failed", "design_gate", "unchecked",
+                                     # Spec 0024 AC-11.
+                                     "issue_changed"})
         self.assertEqual(run.REPO_STOPS, {"branch_changed", "autopilot_off", "scope_unreadable"})
         self.assertEqual(run.RUN_STOPS, {"interrupted", "run_limit", "usage_limit", "spawn_failed", "guard_changed",
                                          "ping_failed", "internal_error", "app_port_busy", "api_outage", "crash_loop"})
-        self.assertEqual(run.PARKS - run.RECORDED, {"call_error", "manual_box", "waiting", "no_command", "no_feature"})
+        self.assertEqual(run.PARKS - run.RECORDED, {"call_error", "manual_box", "waiting", "no_command", "no_feature",
+                                                     "issue_changed"})
 
 
 class TestParkPrint(RunCase):
