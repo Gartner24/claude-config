@@ -340,7 +340,7 @@ OPT_STR, NUM = (str, type(None)), (int, float, type(None))
 PARK_FIELDS = {"repo": (str,), "feature": (str,), "section_sha": (str,), "reason": (str,), "detail": OPT_STR,
                "cap": NUM, "run": (str,), "parked_at": (str,)}
 # Spec 0020 AC-6: what the park's cause depended on; a record written before them still loads.
-PARK_SEEN = {"head": OPT_STR, "setup": OPT_STR, "claude": OPT_STR}
+PARK_SEEN = {"head": OPT_STR, "setup": OPT_STR, "claude": OPT_STR, "denied_path": OPT_STR}
 # AC-6: the parks a commit outside the scope and verify.md files takes back, and those a setup or claude change does.
 CODE_PARKS = ("verify_failed", "blocked", "no_progress", "debug_touched", "design_gate", "unchecked", "app_failed")
 SETUP_PARKS = ("denied", "call_timeout")
@@ -821,6 +821,8 @@ class Run:
         self.own = set()
         # Spec 0040 AC-1: telegram.json as seen when the channel was last chosen.
         self.channel_seen = None
+        # Spec 0040 AC-2: (repo, feature) whose write deny park this run took back, so it may run once more.
+        self.again = set()
         # AC-15: end wait seconds of this run, all waits added.
         self.end_waited = 0.0
         # Spec 0021: per (repo, feature) this run, cap factors (F8) and designs accepted as is (F7); an F1 allow once
@@ -1705,9 +1707,15 @@ class Run:
 
     def applies(self, p, feats):
         """AC-3: a Park record still holds while its feature is queued with the same section and the cap not raised."""
-        if not any(f.queued and f.name == p["feature"] and f.sha == p["section_sha"] for f in feats):
+        if not any(f.queued and f.name == p["feature"] and f.sha == p["section_sha"] for f in feats) or self.freed(p):
             return False
         return not (p["reason"] in CAPPED and p["cap"] is not None and getattr(self.args, p["reason"]) > p["cap"])
+
+    def freed(self, p):
+        """Spec 0040 AC-2: park p's write deny is gone from its repo's guard as built now (at start, or rebuilt by a
+        taken setup). No guard (wf queue): not freed."""
+        g = next((h["repo"].get("guard") for h in self.held if key_of(h["c"]) == p["repo"]), None)
+        return bool(p.get("denied_path") and g and not edit_denied(p["denied_path"], g))
 
     def survey(self, feats, q, dirty_tree):
         """AC-2, AC-3, AC-7 over this repo's features: [(Feature that may start or None, plan line)], file order.
@@ -1720,7 +1728,9 @@ class Run:
         live = {p["feature"]: p for p in q["parks"] if p["repo"] == repo and self.applies(p, feats)}
         # A stale Decision leaves its feature queued fresh (AC-13).
         decided = {d["feature"] for d in q["decisions"] if d["repo"] == repo and not self.gone(d, q, feats)} - set(live)
-        ran = {e["feature"] for e in self.record["features"] if e["repo"] == repo}
+        # Spec 0040 AC-2: a feature whose write deny park was taken back this run may run once more.
+        ran = {e["feature"] for e in self.record["features"] if e["repo"] == repo} - \
+            {f for r, f in self.again if r == repo}
         # Spec 0026 AC-2, AC-3: a feature built on its own spec branch is never queued again from here.
         recs = [p for p in q.get("prs", []) if p["repo"] == repo] if self.answers.get("branches") == "per spec" else []
         held_back = {p["feature"]: p for p in recs if p["state"] in ("local", "draft", "ready", "approved", "merged")}
@@ -1845,9 +1855,10 @@ class Run:
                 self.end_repo(*refusal)
                 continue
             dirty_tree = dirty(self.c.path)
-            dropped = []
+            dropped, freed = [], []
 
             def clear(q):
+                freed[:] = [p for p in q["parks"] if p["repo"] == key_of(self.c) and self.freed(p)]
                 keep = [p for p in q["parks"] if p["repo"] != key_of(self.c) or self.applies(p, feats)]
                 dropped[:] = [d for d in q["decisions"] if d["repo"] == key_of(self.c) and self.gone(d, q, feats)]
                 changed = len(keep) != len(q["parks"]) or bool(dropped)
@@ -1856,6 +1867,11 @@ class Run:
                 return changed
 
             q = self.queue(clear)
+            for p in freed:
+                # Spec 0040 AC-2: its open question went with it (dropped below, as stale).
+                self.again.add((p["repo"], p["feature"]))
+                print(flat(f"retaken: {p['feature']}: {p['denied_path']} no longer denied"), flush=True)
+                self.log(f"retaken {p['feature']}: {p['denied_path']} no longer denied")
             for d in dropped:
                 print(flat(f"stale: {d['id']} {d['feature']}"), flush=True)
             live.append((h, feats, dirty_tree))
@@ -2133,6 +2149,10 @@ class Run:
         head = wf.git(self.c.path, "rev-parse", "HEAD")
         rec.update(head=head.stdout.strip() or None if head is not None and head.returncode == 0 else None,
                    setup=newest_setup(), claude=claude_version(self.claude or "claude"))
+        # Spec 0040 AC-2: the run's own write deny refused the edit, so a setup without that deny takes it back. A
+        # park recorded before the first swaps.jsonl line has a null setup, which no stamp ever took back.
+        if reason in ("denied", "blocked") and self.denied_at and edit_denied(self.denied_at, self.repo["guard"]):
+            rec["denied_path"] = self.denied_at
 
         def write(q):
             q["parks"] = [p for p in q["parks"] if (p["repo"], p["feature"]) != (rec["repo"], rec["feature"])] + [rec]
@@ -2952,7 +2972,10 @@ class Run:
         """Spec 0011 AC-8: one feature's calls until it is done, parks, opens a decision or its repo stops, starting
         with the resume of the answered Decision d when given (AC-13). A run stop propagates."""
         # AC-18: a resumed feature reuses its entry from this run, and its counts (AC-16).
-        e = next((x for x in self.record["features"] if d and (x["repo"], x["feature"]) == (key_of(self.c), f.name)), None)
+        # Spec 0040 AC-2: so does a feature retaken after its write deny park, once.
+        again = (key_of(self.c), f.name) in self.again
+        self.again.discard((key_of(self.c), f.name))
+        e = next((x for x in self.record["features"] if (d or again) and (x["repo"], x["feature"]) == (key_of(self.c), f.name)), None)
         if e is None:
             e = {"n": len(self.record["features"]) + 1, "repo": key_of(self.c), "feature": f.name,
                  "outcome": None, "detail": None, "calls": [], "counted": 0, "debug_attempts": 0, "design": None,
@@ -4284,6 +4307,11 @@ def opened(p, g):
     never writable in neither form. A guard with no `never` list opens nothing."""
     return "never" in g and any(under(q, g.get("allowed") or []) for q in (p, os.path.realpath(p))) \
         and not refused(p, g["never"])
+
+
+def edit_denied(path, g):
+    """Spec 0040 AC-2: guard g's deny paths hold path, as written or resolved, and no allow entry opens it."""
+    return any(under(q, g["deny_paths"]) for q in (path, os.path.realpath(path))) and not opened(path, g)
 
 
 def allow_writes_path():
