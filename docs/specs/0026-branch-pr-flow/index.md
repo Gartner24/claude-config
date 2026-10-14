@@ -1,7 +1,7 @@
 # 0026 · Branch and PR flow
 
 **Date**: 2026-10-13
-**Status**: Proposed
+**Status**: In Progress
 **Paths:** `runner/pr.py`, `runner/run.py`, `runner/wf.py`, `runner/report.py`, `runner/finish.py`, `runner/tests/test_pr.py`, `scripts/private-names.py`, `rules/branch-pr.md`, `CLAUDE.md`
 **Amends**: [0007](../0007-push-guard/index.md) and architecture invariants 1, 4 and 5 (calls still never push; the runner process may push a feature branch and open a draft PR in an opted in repo), [0011](../0011-build-decision-queue/index.md) (`queue.json` gains `prs`), [0018](../0018-morning-report/index.md) AC-2 (built lines carry the PR), [0020](../0020-one-command-wf/index.md) AC-12 (the runner copy also carries `scripts/private-names.py`), [0021](../0021-never-stop/index.md) AC-1 (new case rows). Closes scope feature 14 "Draft PR per spec".
 

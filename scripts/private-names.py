@@ -11,6 +11,9 @@ so a session reading the output cannot copy a name onward into a commit, memory 
   check-staged                          staged blobs and path names (the pre-commit hook)
   check-msg <file>                      one commit message (the commit-msg hook)
   check-history                         every object, path, message and ref name in the repo
+  check-range <from> <to>               the commits in from..to about to be pushed: messages, author and
+                                        committer names and emails, added or changed blobs, path names, and
+                                        <to> as the branch name (spec 0026 AC-6)
   filter-expr <out>                     case insensitive `git filter-repo --replace-text` lines
   strip-settings <in> <out> <fragment>  move name bearing settings entries into a fragment
   merge-settings <settings> <fragment>  merge a fragment back (`-` reads it from stdin)
@@ -194,6 +197,24 @@ def cmd_check_history():
         for _, n in hits:
             print(f"{mask(ref, names)}: ref name: names.txt line {n}")
         bad += len(hits)
+    return 1 if bad else 0
+
+
+def cmd_check_range(start, end):
+    """Spec 0026 AC-6: what a push of start..end would publish. Output as every other command: names.txt line
+    numbers, never a name."""
+    names = load_names()
+    bad = 0
+    for _, n in scan(end, names):
+        print(f"{mask(end, names)}: branch name: names.txt line {n}")
+        bad += 1
+    for sha in git("rev-list", f"{start}..{end}").decode().split():
+        head = git("log", "-1", "--format=%an%n%ae%n%cn%n%ce%n%B", sha).decode("utf-8", errors="replace")
+        bad += report(f"commit {sha[:12]}", scan(head, names), names)
+        changed = git("diff-tree", "-r", "--no-commit-id", "--root", "--diff-filter=ACMR", "--name-only", "-z", sha)
+        for path in filter(None, changed.decode("utf-8", errors="replace").split("\0")):
+            bad += report_path(path, names)
+            bad += check_bytes(f"commit {sha[:12]} {path}", git("show", f"{sha}:{path}"), names)
     return 1 if bad else 0
 
 
@@ -498,6 +519,32 @@ def selftest():
         sh("git", "reflog", "expire", "--expire=now", "--all", cwd=hist)
         sh("git", "gc", "-q", "--prune=now", cwd=hist)
 
+    # spec 0026 AC-6: check-range scans only start..end: messages, authors, blobs, paths and the branch name
+    rng = new_repo("range")
+
+    def range_commit(path, body, message, author="t"):
+        (rng / path).parent.mkdir(parents=True, exist_ok=True)
+        (rng / path).write_text(body)
+        sh("git", "add", "-A", cwd=rng)
+        sh("git", "commit", "-q", "--no-verify", f"--author={author} <a@example.invalid>", "-m", message, cwd=rng)
+        return sh("git", "rev-parse", "HEAD", cwd=rng).stdout.strip()
+
+    old = range_commit("a.txt", "zorblex before the range\n", "start")
+    sh("git", "checkout", "-q", "-b", "feat/x", cwd=rng)
+    range_commit("b.txt", "clean\n", "clean change")
+    code, out = run("check-range", old, "feat/x", cwd=rng)
+    ok(code == 0, f"spec 0026 check-range ignores what lies before the range: {out.strip()}")
+    for label, args in (("blob", ("c.txt", "Zorblex\n", "c")), ("message", ("d.txt", "x\n", "about quux-labs")),
+                        ("path", ("zorblex/e.txt", "x\n", "e")), ("author", ("f.txt", "x\n", "f", "Zorblex Bot"))):
+        snap = sh("git", "rev-parse", "HEAD", cwd=rng).stdout.strip()
+        range_commit(*args)
+        code, out = run("check-range", old, "feat/x", cwd=rng)
+        ok(code == 1 and "names.txt line" in out and not leaks(out), f"spec 0026 check-range hit in a {label}")
+        sh("git", "reset", "-q", "--hard", snap, cwd=rng)
+    sh("git", "checkout", "-q", "-b", "feat/zorblex-x", cwd=rng)
+    code, out = run("check-range", old, "feat/zorblex-x", cwd=rng)
+    ok(code == 1 and "branch name: names.txt line 3" in out and not leaks(out), "spec 0026 check-range branch name")
+
     # AC-3 to AC-5: sync.sh on a temp repo and a temp live tree
     sync_repo = new_repo("sync")
     (sync_repo / "scripts").mkdir()
@@ -710,6 +757,7 @@ def main(argv):
         return cmd_check_msg(argv[1])
     cmds = {"check": (cmd_check, None), "check-staged": (cmd_check_staged, 0),
             "check-msg": (cmd_check_msg, 1), "check-history": (cmd_check_history, 0),
+            "check-range": (cmd_check_range, 2),
             "filter-expr": (cmd_filter_expr, 1), "strip-settings": (cmd_strip_settings, 3),
             "merge-settings": (cmd_merge_settings, 2), "--test": (selftest, 0)}
     if len(argv) < 2 or argv[1] not in cmds:

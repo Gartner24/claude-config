@@ -1559,7 +1559,7 @@ class TestStandingAnswers(RunCase):
     # covers: spec 0006 AC-1, AC-2, AC-3 (each refusal, its line, exit 5, no call, no run folder, first problem wins)
     def test_refusals(self):
         hint = (" (expected: - run suite: yes|ask, - done: yes|ask, - app start: <command>, "
-                "- app url: http://localhost:<port>)")
+                "- app url: http://localhost:<port>, - branches: per spec, - push: draft PR|off)")
         cases = [
             ("form", "## Standing answers\n- run suite yes\n", "AGENTS.md:2: not a - key: value entry"),
             ("unknown", "## Standing answers\n- cross check: yes\n", "AGENTS.md:2: unknown key cross check"),

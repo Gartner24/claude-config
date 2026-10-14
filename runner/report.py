@@ -17,7 +17,7 @@ HOOK_HEAD = "wf morning report (shows in every session until you run wf):"
 FOLDER = re.compile(r"^(.+)-(\d{8}-\d{6})-(\d+)$")
 # Item kinds in AC-2 order; parked and stopped share a slot, kept in feature order.
 # Spec 0024: a run's notes (an issue not read, a feature with no linked issue) come last.
-ORDER = ("built", "parked", "question", "live", "yours", "no record", "no end", "not started", "note")
+ORDER = ("built", "parked", "question", "live", "yours", "no record", "no end", "not started", "approved", "note")
 SLOT = {"stopped": "parked"}
 
 
@@ -82,6 +82,8 @@ def collect(sources):
                 o, item = e.get("outcome"), {"feature": e.get("feature") or ""}
                 if o == "feature_done":
                     item["kind"] = "built"
+                    # Spec 0026 AC-10: the draft PR the runner opened for it.
+                    item["pr"] = e.get("pr")
                 elif o == "decision_open":
                     item.update(kind="question", id=e.get("detail") or "")
                 elif o in run.PARKS:
@@ -94,7 +96,7 @@ def collect(sources):
                     continue
                 mine.append(item)
             mine += [{"kind": "note", "text": t} for t in (rec or {}).get("notes") or []]
-        mine = open_questions(s["path"], mine) + scope_items(s["path"])
+        mine = open_questions(s["path"], mine) + scope_items(s["path"]) + approved(s["path"])
         for item in mine:
             item.update(repo=s["path"], name=s["name"])
         items += mine
@@ -123,14 +125,30 @@ def head(items, recs):
             f"{kinds.count('question')} open, {spent}")
 
 
+def approved(path):
+    """Spec 0026 AC-10: the approved PRs of the repo, for the next line."""
+    try:
+        q = run.queue_transact()
+    except run.QueueError:
+        return []
+    return [{"kind": "approved", "number": p["number"]} for p in q.get("prs", [])
+            if p["repo"] == path and p["state"] == "approved" and p["number"]]
+
+
 def next_line(items, name):
     kinds = {i["kind"] for i in items}
-    built = ", ".join(dict.fromkeys(name(i) for i in items if i["kind"] == "built"))
+    # Spec 0026 AC-10: a draft PR is marked ready and an approved one merged by you; the runner never does either.
+    ready = [f"PR #{i['pr']['number']}" for i in items if i["kind"] == "built" and (i.get("pr") or {}).get("number")]
+    plain = [name(i) for i in items if i["kind"] == "built" and not (i.get("pr") or {}).get("number")]
+    steps = ([f"mark ready: {', '.join(ready)}"] if ready else []) + \
+        [f"merge PR #{i['number']}" for i in items if i["kind"] == "approved"] + \
+        ([f"review and merge: {', '.join(dict.fromkeys(plain))}"] if plain else [])
     if "live" in kinds:
-        return "next: wf" + (f", then review and merge: {built}" if built else "")
+        return "next: wf" + (f", then {', '.join(steps)}" if steps else "")
     if kinds & {"parked", "stopped", "question", "yours", "no record", "no end", "not started"}:
-        return "next: wf"
-    return f"next: review and merge: {built}" if built else "next: wf"
+        merge = [x for x in steps if x.startswith("merge PR")]
+        return "next: wf" + (f", {', '.join(merge)}" if merge else "")
+    return f"next: {', '.join(steps)}" if steps else "next: wf"
 
 
 def item_line(i, multi, phone, cfg):
@@ -140,6 +158,9 @@ def item_line(i, multi, phone, cfg):
     k, feature = i["kind"], field(i.get("feature"), 40, "feature")
     if k == "built":
         text = f"built: {feature}"
+        pr = i.get("pr") or {}
+        if pr.get("number"):
+            text += f": PR #{pr['number']}" if phone else f": draft PR {wf.clean(str(pr.get('url')))}"
     elif k == "parked":
         text = f"parked: {feature}: {field(i['reason'], 40, 'reason')}"
         if not phone and i["detail"]:
@@ -164,6 +185,8 @@ def item_line(i, multi, phone, cfg):
         text = f"no record: {name}: exit {i['code']}"
     elif k == "note":
         text = field(i["text"], 120, "note")
+    elif k == "approved":
+        text = f"approved: PR #{i['number']}"
     else:
         text = f"{k}: {name}"
     return text + (f" ({name})" if multi else "")

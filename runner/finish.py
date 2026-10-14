@@ -21,7 +21,6 @@ from io import StringIO
 
 import report
 import run
-import usage
 import wf
 
 SPAN = re.compile(r"`([^`]+)`")
@@ -59,12 +58,22 @@ def inside(path, root):
     return path == root or path.startswith(root + os.sep)
 
 
+def runner_checker(src):
+    """Spec 0026 AC-6: the private names checker beside runner/, which the runner copy carries; None when absent."""
+    p = os.path.join(os.path.dirname(os.path.abspath(src)), "scripts", "private-names.py")
+    return p if os.path.isfile(p) else None
+
+
 def runner_fp(src):
-    """Spec 0020 AC-12: 12 hex of the sha256 over name, NUL, bytes, NUL of each runner/*.py in name order."""
+    """Spec 0020 AC-12: 12 hex of the sha256 over name, NUL, bytes, NUL of each runner/*.py in name order, then
+    (spec 0026 AC-6) scripts/private-names.py the same way."""
     h = hashlib.sha256()
     for name in sorted(n for n in os.listdir(src) if n.endswith(".py")):
         with open(os.path.join(src, name), "rb") as f:
             h.update(name.encode() + b"\0" + f.read() + b"\0")
+    if runner_checker(src):
+        with open(runner_checker(src), "rb") as f:
+            h.update(b"scripts/private-names.py\0" + f.read() + b"\0")
     return h.hexdigest()[:12]
 
 
@@ -85,6 +94,8 @@ def install_runner(repo, home, dry=False):
         for name in sorted(os.listdir(src)):
             if name.endswith(".py"):
                 shutil.copy2(os.path.join(src, name), tmp)
+        if runner_checker(src):
+            shutil.copy2(runner_checker(src), os.path.join(tmp, "private-names.py"))
         os.rename(tmp, dst)
     for link, target in runner_links(home, dst):
         if dry:
@@ -444,6 +455,8 @@ def swap(folder, stamp, stage, repos):
             runners.append(dst)
             # The ledger names every file of the copy, so a run accepts the new hook token's real path.
             files.update({os.path.join(dst, n): run.file_hash(os.path.join(src, n)) for n in names})
+            if runner_checker(src):
+                files[os.path.join(dst, "private-names.py")] = run.file_hash(runner_checker(src))
             if not os.path.isdir(dst):
                 first[dst] = ("tree", src, dst, names)
             for link, target in runner_links(home, dst) + spec_paths_link(c.path, home):
@@ -477,6 +490,8 @@ def swap(folder, stamp, stage, repos):
                 os.makedirs(aside)
                 for n in names:
                     shutil.copy2(os.path.join(src, n), aside)
+                if runner_checker(src):
+                    shutil.copy2(runner_checker(src), os.path.join(aside, "private-names.py"))
             elif kind == "link":
                 os.symlink(src, aside)
             else:
@@ -915,6 +930,8 @@ def usage_fit(numbered, chosen=None):
     percent for every numbered line it covers; None with nothing numbered. Any failure reads as unknown, starts now."""
     if not numbered:
         return None
+    # Imported here: install.sh loads this module from a runner folder that may not hold usage.py yet.
+    import usage
     idx = list(range(len(numbered))) if not chosen else [i - 1 for i in chosen]
     try:
         picked = []
@@ -1017,7 +1034,7 @@ def cmd_wf(args):
                 return 130
         if not args.yes and start is not None:
             # AC-8: a run that does not fit waits, never refuses; numbers pick, now starts at once.
-            answer = input(f"Enter waits and starts at {usage.at_text(start)}, numbers to pick (1 2 4 or 1-3,5), "
+            answer = input(f"Enter waits and starts at {start.astimezone().strftime('%a %H:%M')}, numbers to pick (1 2 4 or 1-3,5), "
                            "now starts at once, anything else cancels: ")
             if answer.strip().casefold() == "now":
                 start = None

@@ -181,11 +181,12 @@ ANSWERS_FILE = {"docs/scope": "AGENTS.md", ".workflow/scope": ".workflow/AGENTS.
 # Spec 0009 AC-1: the app keys take any value, kept as written; app url is checked by APP_URL.
 # Spec 0021 AC-7: allow writes is still accepted so an old line does not refuse the file, but never read: a call
 # can edit AGENTS.md. The setting lives in allow.json (allow_writes_path()).
+# Spec 0026 AC-1: branches per spec, and push draft PR (off is the same as absent), the value casefolded.
 ANSWER_KEYS = {"run suite": ("yes", "ask"), "done": ("yes", "ask"), "app start": None, "app url": None,
-               "allow writes": None}
+               "allow writes": None, "branches": ("per spec",), "push": ("draft pr", "off")}
 ANSWER_ENTRY = re.compile(r"^\s*[-*]\s+([^:]+?)\s*:\s*(\S.*?)\s*$")
 ANSWERS_HINT = (" (expected: - run suite: yes|ask, - done: yes|ask, - app start: <command>, "
-                "- app url: http://localhost:<port>)")
+                "- app url: http://localhost:<port>, - branches: per spec, - push: draft PR|off)")
 APP_URL = re.compile(r"https?://(localhost|127\.0\.0\.1|\[::1\]):(\d{1,5})(/\S*)?")
 ANSWERS_INTRO = " Standing answers for this repo, use them instead of asking:"
 RUN_SUITE_YES = " Run tests?, Yes, run and fix to green."
@@ -205,8 +206,11 @@ TEST_BASE = (" For /test, the feature's changes are the files in git diff --rela
 # a repo stop ends that repo, a run stop ends the run. app_failed and app_port_busy come from spec 0009.
 PARKS = frozenset(("verify_failed", "blocked", "denied", "debug_touched", "no_progress", "call_error", "call_timeout",
                    "budget", "max_calls", "manual_box", "waiting", "no_command", "no_feature",
-                   "app_failed", "design_gate", "unchecked", "issue_changed"))
+                   "app_failed", "design_gate", "unchecked", "issue_changed", "stack_deep"))
 REPO_STOPS = frozenset(("branch_changed", "autopilot_off", "scope_unreadable"))
+# Spec 0026 AC-17: the branch and PR cases, asked by the runner process after a feature is built.
+PR_CASES = frozenset(("squash_failed", "private_names", "attribution", "push_failed", "base_unpushed", "pr_failed",
+                      "review_ask", "review_never", "review_rounds", "approved", "rebase", "rebase_conflict"))
 RUN_STOPS = frozenset(("interrupted", "run_limit", "usage_limit", "spawn_failed", "guard_changed", "ping_failed",
                        "internal_error", "app_port_busy", "api_outage", "crash_loop"))
 # Spec 0021 AC-1: every reason above, and the `branch` refusal, has exactly one case: (row, options, recommended
@@ -232,6 +236,21 @@ CASES = {
     "app_failed": ("F12", ("retry", SKIP_IT)),
     # Spec 0024 AC-6: the linked issue changed after the spec; the feature waits, the rest builds.
     "issue_changed": ("F13", ("update the spec first", "go on as is")),
+    # Spec 0026 AC-4, AC-17: a stack deeper than 3 asks before the branch is made; the PR rows below ask after a
+    # feature is built, keyed by its feature, and never hold back another one.
+    "stack_deep": ("F14", ("build it off the start branch", "wait for the bottom to merge")),
+    "squash_failed": ("P1", ("push the checkpoint commits", "skip the PR")),
+    "private_names": ("P2", ("scan again", "push anyway, the repo is private", "skip the PR")),
+    "attribution": ("P3", ("skip the PR", "push anyway, it quotes the pattern")),
+    "push_failed": ("P4", ("retry", "skip the PR")),
+    "base_unpushed": ("P5", ("push the base too", "open it against the default", "skip the PR")),
+    "pr_failed": ("P6", ("retry", "skip the PR")),
+    "review_ask": ("P7", ("send that reply", "fix it", "I will answer it myself")),
+    "review_never": ("P8", ()),
+    "review_rounds": ("P9", ("5 more rounds", "leave it for you")),
+    "approved": ("P10", ("I merged it", "later")),
+    "rebase": ("P11", ("rebase and force push with lease", "leave it for you")),
+    "rebase_conflict": ("P12", ("leave it for you", "try again")),
     "branch": ("R1", ()),
     "branch_changed": ("R2", ("go on on the new branch", "switch back", STOP_REPO)),
     "scope_unreadable": ("R3", ("retry", STOP_REPO)),
@@ -264,7 +283,8 @@ CRASH = ("call_error", "denied", "app_failed")
 CRASH_KEY = 60
 # AC-10: call_error is retried by the next run; the box reasons clear when the files change.
 # Spec 0024: an issue question holds its feature by itself; its baseline lives in the state folder, not a park.
-UNRECORDED = frozenset(("call_error", "manual_box", "waiting", "no_command", "no_feature", "issue_changed"))
+UNRECORDED = frozenset(("call_error", "manual_box", "waiting", "no_command", "no_feature", "issue_changed",
+                        "stack_deep"))
 RECORDED = PARKS - UNRECORDED
 # AC-3: a cap park clears when this run's value for that cap is higher.
 # The reason names the wf run flag: --budget, --max-calls, --call-timeout.
@@ -285,6 +305,11 @@ PARK_SEEN = {"head": OPT_STR, "setup": OPT_STR, "claude": OPT_STR}
 CODE_PARKS = ("verify_failed", "blocked", "no_progress", "debug_touched", "design_gate", "unchecked", "app_failed")
 SETUP_PARKS = ("denied", "call_timeout")
 OUTSIDE = (".", ":!docs/scope", ":!.workflow", ":!**/verify.md")
+# Spec 0026 AC-2: one record per spec branch, kept between runs.
+PR_STATES = ("building", "local", "draft", "ready", "approved", "merged", "closed")
+PR_FIELDS = {"repo": (str,), "feature": (str,), "spec": OPT_STR, "branch": (str,), "base": (str,), "base_sha": (str,),
+             "stacked_on": OPT_STR, "pr": OPT_STR, "number": (int, type(None)), "state": (str,), "seen": (list,),
+             "rounds": (int,), "pushed_sha": OPT_STR}
 DECISION_FIELDS = {"id": (str,), "repo": (str,), "feature": (str,), "branch": (str,), "session_id": (str,),
                    "call_kind": (str,), "command": (str,), "box_text": OPT_STR, "question": (str,), "options": (list,),
                    "kind": (str,), "multi": (bool,), "sent": OPT_STR, "pings": (list,), "acks": (list,),
@@ -392,6 +417,18 @@ def queue_problem(data):
     ids = [d["id"] for d in data["decisions"]]
     if len(ids) != len(set(ids)):
         return "two decisions share an id"
+    # Spec 0026: files written before prs existed stay valid.
+    prs = data.get("prs", [])
+    if not isinstance(prs, list):
+        return "prs is not a list"
+    keys = set()
+    for i, r in enumerate(prs):
+        if not isinstance(r, dict) or any(k not in r or not isinstance(r[k], t) or isinstance(r[k], bool)
+                                          for k, t in PR_FIELDS.items()) or r["state"] not in PR_STATES:
+            return f"prs[{i}] is missing a field or has a bad value"
+        if (r["repo"], r["feature"]) in keys:
+            return f"two prs for {r['feature']} in {r['repo']}"
+        keys.add((r["repo"], r["feature"]))
     return None
 
 
@@ -720,6 +757,9 @@ class Run:
         # U2: hours added by `keep going` and the run's question id; U4: outage minutes added by `keep waiting`;
         # U8: spawn retries in a row.
         self.extra_hours, self.limit_q, self.outage_more, self.spawn_tries = 0, None, 0, 0
+        # Spec 0026 AC-9: gh resolved once, at start, to an absolute path; the last PR poll on the boot clock.
+        found = shutil.which("gh")
+        self.gh, self.pr_polled = found and os.path.realpath(found), -1e9
         # Spec 0024 AC-9: the linked issues as read before the call being made, for its prompt.
         self.issue_prompt = ""
         self.record["notes"] = []
@@ -879,7 +919,9 @@ class Run:
             return "hub", f"{c.name} is a hub scope with no boxes of its own"
         autopilot = wf.header_values(c.text)["autopilot"]
         # Spec 0024 AC-1: read with Autopilot; anything but issues or mixed never calls GitHub.
-        self.repo["source"] = wf.header_values(c.text)["source of truth"]
+        source = wf.header_values(c.text)["source of truth"]
+        if source != "scope":
+            self.repo["source"] = source
         if autopilot != "allowed":
             return "autopilot_off", f"Autopilot is {autopilot}, the scope header needs **Autopilot:** allowed"
         # Bare form: the repo came from the trust list itself.
@@ -898,6 +940,11 @@ class Run:
         # Spec 0021 R1: main and master pass; branch_off() makes the feature branch at the feature's start.
         if self.branch in BAD_BRANCHES or self.branch.startswith("detached"):
             return "branch", f"{self.branch}, switch to a work branch first"
+        if answers.get("branches") == "per spec":
+            # Spec 0026 AC-2, AC-7: the branch the run comes back to, and origin as it was at the start.
+            self.repo["start_branch"] = self.branch
+            r = wf.git(c.path, "config", "--get", "remote.origin.url")
+            self.repo["origin_url"] = r.stdout.strip() if r is not None and r.returncode == 0 else None
         # The browser check fetches the MCP and the guard is only for calls; wf queue makes none.
         if self.peek:
             return self.take_lock()
@@ -1369,7 +1416,8 @@ class Run:
         """Spec 0011 AC-11, spec 0021 AC-2: keep a question in queue.json, in place of an older one of the same
         feature, and ping it. Returns the Decision. A failed ping leaves it queued for the report and the U9 retry."""
         d = {"id": None, "repo": repo or self.c.path, "feature": self.feature if feature is None else feature,
-             "branch": branch or self.branch, "session_id": session, "call_kind": call_kind, "command": command,
+             # Spec 0026: a spec branch repo keeps its questions on the start branch, where the next pick reads them.
+             "branch": branch or self.repo.get("start_branch") or self.branch, "session_id": session, "call_kind": call_kind, "command": command,
              "box_text": box_text, "question": question, "options": list(options),
              "kind": "panel" if options else "prose", "multi": False, "sent": None, "pings": [], "acks": [],
              "asked": now(), "answer": None, "source": None, "answered": None, "ignored": 0, "run": self.folder,
@@ -1544,11 +1592,25 @@ class Run:
         # A stale Decision leaves its feature queued fresh (AC-13).
         decided = {d["feature"] for d in q["decisions"] if d["repo"] == repo and not self.gone(d, q, feats)} - set(live)
         ran = {e["feature"] for e in self.record["features"] if e["repo"] == repo}
+        # Spec 0026 AC-2, AC-3: a feature built on its own spec branch is never queued again from here.
+        recs = [p for p in q.get("prs", []) if p["repo"] == repo] if self.answers.get("branches") == "per spec" else []
+        held_back = {p["feature"]: p for p in recs if p["state"] in ("local", "draft", "ready", "approved")}
         out = []
         for f in feats:
+            if f.name in held_back and f.queued and self.wanted(f.name):
+                import pr
+                out.append((None, pr.plan_line(held_back[f.name])))
+                continue
             if not f.queued or not self.wanted(f.name) or f.name in ran or f.name in decided or f.finished():
                 continue
             refusal = f.next and box_refusal(f.next)
+            waits = None
+            if recs or self.answers.get("branches") == "per spec":
+                import pr
+                waits = pr.stack_line(self, f, feats, recs)
+            if waits:
+                out.append((None, waits))
+                continue
             if names[f.name] > 1:
                 line = f"skip: {f.name}: ambiguous_feature"
             elif f.name in live:
@@ -1587,8 +1649,8 @@ class Run:
     def gone(self, d, q, feats):
         """AC-13 stale, or (spec 0021) a case question whose park no longer applies: its cause changed (a retake,
         a new section, a higher cap), or its box is no longer open (you ticked it), so the feature starts fresh."""
-        if d.get("level"):
-            # A repo's or the run's question: pick() takes its answer, never a feature.
+        if d.get("level") or d.get("pr"):
+            # A repo's or the run's question, or a PR's (spec 0026): pick() takes its answer, never a feature.
             return False
         f = next((f for f in feats if f.name == d["feature"]), None)
         if d.get("case") and d["box_text"] and f and not any(b.open and b.text == d["box_text"] for b in f.boxes):
@@ -1621,6 +1683,7 @@ class Run:
         if changed:
             raise Stop("guard_changed", changed)
         self.limit_check()
+        self.pr_poll()
         live, q = [], None
         for h in self.held:
             self.use(h)
@@ -1634,6 +1697,13 @@ class Run:
                 h.update(self.keep())
             if self.repo["ended"]:
                 continue
+            if self.answers.get("branches") == "per spec":
+                # Spec 0026 AC-17: an answered PR question is acted on here, never as a feature run.
+                import pr
+                for d in [d for d in self.queue()["decisions"] if d["repo"] == self.c.path and d.get("pr")
+                          and d["answer"] is not None]:
+                    pr.answer(self, d)
+                h.update(self.keep())
             try:
                 text, feats = repo_features(self.c.path, self.c.scope_dir)
             except (OSError, StopIteration):
@@ -1662,7 +1732,7 @@ class Run:
         # A resume that parked before its call (app_failed on the restart) used to be picked again until --max-hours.
         q = q or {"decisions": [], "parks": []}
         answered = sorted((d for d in q["decisions"] if d["repo"] in repos and d["answer"] is not None
-                           and not d.get("level") and self.wanted(d["feature"]) and not self.parked(d, q, repos[d["repo"]][1])), key=asked_at)
+                           and not d.get("level") and not d.get("pr") and self.wanted(d["feature"]) and not self.parked(d, q, repos[d["repo"]][1])), key=asked_at)
         if answered:
             h, feats = repos[answered[0]["repo"]]
             self.use(h)
@@ -1710,6 +1780,62 @@ class Run:
             self.end_repo("guard_changed", f"{changed[0]} changed after the plan, before this repo started{more}")
         elif read_answers(self.c) != (answers, None):
             self.end_repo("guard_changed", "standing answers changed after the plan")
+
+    # -- branches and PRs (spec 0026) ----------------------------------------------
+
+    def keep_held(self):
+        """The repo in use's held dict takes its current attributes (a branch switch)."""
+        h = next((h for h in self.held if h["repo"] is self.repo), None)
+        if h is not None:
+            h.update(self.keep())
+
+    def feature_named(self, name):
+        try:
+            _, feats = repo_features(self.c.path, self.c.scope_dir)
+        except (OSError, StopIteration):
+            return None
+        return next((f for f in feats if f.name == name), None)
+
+    def pr_ask(self, rec, case, detail, options=None, **extra):
+        """AC-17: a PR question for rec's feature, recommended first; it never holds back another feature."""
+        self.ask(f"{case}: {flat(detail)}"[:300], options or CASES[case][1], feature=rec["feature"], repo=rec["repo"],
+                 case=case, pr=True, **extra)
+
+    def pr_poll(self, force=False):
+        """AC-11: review polling of every opted in held repo; a failure is a report line, never a stop."""
+        if not any(h["answers"].get("push") == "draft pr" for h in self.held):
+            return
+        import pr
+        try:
+            pr.poll(self, force)
+        except Stop as s:
+            if s.reason == "interrupted":
+                raise
+            self.note(f"PR poll: {s.reason}: {flat(s.detail)}")
+        except Exception as ex:
+            self.trace(ex)
+            self.note(f"PR poll: internal_error: {flat(traceback.format_exception_only(ex)[-1])}")
+
+    def review_call(self, rec, prompt):
+        """AC-12: one call of kind review with a box call's caps, guard and prompt base. Returns its result lines."""
+        changed = self.files_changed()
+        if changed:
+            raise Stop("guard_changed", changed)
+        self.feature = rec["feature"]
+        seq = len(self.record["calls"]) + 1
+        rec_, data, timed_out, tail, spawn_error = self.call(seq, prompt)
+        self.accept_allowed()
+        rec_.update(kind="review", box_text=None, resumes=[], retry_of=None, app=None, feature=None)
+        self.record["calls"].append(rec_)
+        self.save()
+        cost = "-" if rec_["cost_usd"] is None else f"{rec_['cost_usd']:.2f}"
+        print(f"[review] {self.c.name}: PR #{rec['number']} -> {rec_['subtype'] or spawn_error or 'error'}, {cost} USD",
+              flush=True)
+        self.feature = None
+        changed = self.files_changed()
+        if changed:
+            raise Stop("guard_changed", changed)
+        return str((data or {}).get("result") or "").split("\n")
 
     def repo_answer(self, d):
         """R2, R3, U4 to U8: take the answer to the repo in use's question. A stop answer keeps the repo stopped
@@ -1878,7 +2004,10 @@ class Run:
                 print("  nothing to run")
             # An open Decision counts too: the run re-pings it and its end wait takes the reply (AC-14, AC-15).
             # Spec 0017 AC-1: the parent starts a child only for a repo with this flag.
-            h["has_work"] = any(f for f, _ in items) or any(ok for ok, _ in decisions)
+            # Spec 0026 AC-11: a PR in review is polled by a run, so it is work too.
+            h["has_work"] = any(f for f, _ in items) or any(ok for ok, _ in decisions) or (
+                self.answers.get("push") == "draft pr" and
+                any(p["repo"] == c.path and p["state"] in ("draft", "ready", "approved") for p in q.get("prs", [])))
             # Spec 0020 AC-13: the features the `wf` screen numbers.
             h["queued"] = [f.name for f, _ in items if f]
             runnable = runnable or h["has_work"]
@@ -2494,11 +2623,15 @@ class Run:
                 held = {h["c"].path for h in self.held}
                 left = self.args.max_wait * 3600 - self.end_waited - (ntfy.boottime() - t0)
                 # Spec 0021 AC-5: a stopped repo's own question is waited for too, its answer can resume it.
+                q = self.queue()
+                # Spec 0026 AC-11: a held repo with a ready PR counts like an open question until --max-wait.
                 if left <= 0 or not any(
                         d["answer"] is None and d.get("level") != "run" and
                         (d["repo"] in waiting or (d.get("level") == "repo" and d["repo"] in held))
-                        for d in self.queue()["decisions"]):
+                        for d in q["decisions"]) and not any(p["state"] == "ready" and p["repo"] in waiting
+                                                             for p in q.get("prs", [])):
                     return False
+                self.pr_poll()
                 if not logged:
                     self.log("wait answers")
                     logged = True
@@ -2551,12 +2684,16 @@ class Run:
         self.entry, self.feature, self.retried, self.limit_rerun, self.outage_rerun = e, f.name, False, False, False
         self.hint, self.denied_at = None, None
         try:
-            self.branch_off(f.name)
+            if self.answers.get("branches") == "per spec":
+                import pr
+                pr.start_feature(self, f, d)
+            else:
+                self.branch_off(f.name)
             if d and d.get("case"):
                 # Spec 0021 AC-3: the answer to its case question runs the feature again with the row's action.
                 opt = self.take_case(d)
                 # Spec 0024 AC-7: update the spec first skips the feature for this run and keeps the old baseline.
-                if opt in (SKIP_IT, "skip the feature", UPDATE_SPEC):
+                if opt in (SKIP_IT, "skip the feature", UPDATE_SPEC, "wait for the bottom to merge"):
                     raise Stop("skipped", f"{d['id']}: {opt}")
                 f, d = self.apply_case(d, opt, f), d.get("then")
                 if d is None and f.finished():
@@ -2609,6 +2746,20 @@ class Run:
             except Stop as s:
                 e.update(outcome=s.reason, detail=str(s.detail))
         self.hint = None
+        if self.answers.get("branches") == "per spec" and not self.repo["ended"]:
+            # Spec 0026 AC-5 to AC-8: one commit, then the push and draft PR; then back on the start branch.
+            import pr
+            try:
+                if e["outcome"] == "feature_done":
+                    pr.built(self, f, e)
+                pr.back(self)
+            except Stop as s:
+                if s.reason == "interrupted":
+                    raise
+                e.update(outcome=s.reason, detail=str(s.detail))
+            except Exception as ex:
+                self.trace(ex)
+                e.update(outcome="internal_error", detail=flat(traceback.format_exception_only(ex)[-1]))
         self.save()
         if e["outcome"] == "feature_done":
             print(f"done: {f.name}", flush=True)
@@ -2945,6 +3096,7 @@ class Run:
             self.poll()
             self.sample_usage()
             self.plan_check()
+            self.pr_poll(force=True)
             while True:
                 if self.interrupted:
                     raise Stop("interrupted", "Ctrl C or a stop signal")
@@ -3061,6 +3213,8 @@ def read_answers(c):
         found[key] = value
     if ("app start" in found) != ("app url" in found):
         return None, f"{rel}: app start and app url go together"
+    if found.get("push") == "draft pr" and "branches" not in found:
+        return None, f"{rel}: push needs branches: per spec"
     return {k: found[k] for k in ANSWER_KEYS if k in found}, None
 
 

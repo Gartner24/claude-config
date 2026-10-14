@@ -51,6 +51,16 @@ class TestRunnerCopy(unittest.TestCase):
         self.assertEqual(sorted(os.listdir(self.share)), sorted([fp, fp2]))
         self.assertEqual(os.path.realpath(self.bin / "wf"), str(self.share / fp2 / "wf.py"))
 
+    # covers: spec 0026 AC-6 (the copy carries scripts/private-names.py, which joins the fingerprint)
+    def test_carries_checker(self):
+        fp = self.install()
+        (self.repo / "scripts").mkdir()
+        (self.repo / "scripts" / "private-names.py").write_text("# checker\n")
+        fp2 = self.install()
+        self.assertNotEqual(fp2, fp)
+        self.assertEqual((self.share / fp2 / "private-names.py").read_text(), "# checker\n")
+        self.assertEqual(sorted(os.listdir(self.share / fp2)), ["private-names.py", "run.py", "wf.py"])
+
     def test_fingerprint_frames_name_and_bytes(self):
         # Unframed, run.py "x = 1\n" + wf.py "print('wf')\n" hashes like one run.py holding both.
         a = finish.runner_fp(str(self.repo / "runner"))

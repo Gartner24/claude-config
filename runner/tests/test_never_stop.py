@@ -16,7 +16,9 @@ from test_park import GIT_ID, VERIFY  # noqa: E402
 from test_run import SCOPE, RunCase, ask  # noqa: E402
 
 # Spec 0024 AC-11 adds F13.
-ROWS = {*(f"F{n}" for n in range(1, 14)), *(f"R{n}" for n in range(1, 5)), *(f"U{n}" for n in range(1, 11))}
+# Spec 0026 AC-17 adds F14 and P1 to P12.
+ROWS = {*(f"F{n}" for n in range(1, 15)), *(f"R{n}" for n in range(1, 5)), *(f"U{n}" for n in range(1, 11)),
+        *(f"P{n}" for n in range(1, 13))}
 
 TWO = """# Scope: two
 **Autopilot:** allowed
@@ -37,7 +39,7 @@ BLOCKED = {"tick": False, "json": {"result": "BLOCKED: sudo pacman -S stow"}}
 class TestCaseTable(unittest.TestCase):
     # covers: AC-1 (every reason in PARKS, REPO_STOPS, RUN_STOPS has exactly one row; every row of the spec is used)
     def test_every_reason_has_a_row(self):
-        reasons = run.PARKS | run.REPO_STOPS | run.RUN_STOPS
+        reasons = run.PARKS | run.REPO_STOPS | run.RUN_STOPS | run.PR_CASES
         self.assertEqual(sorted(reasons - set(run.CASES)), [], "reasons with no case row")
         self.assertEqual(sorted(set(run.CASES) - reasons), ["branch"])
         self.assertEqual({row for row, _ in run.CASES.values()}, ROWS)
@@ -51,8 +53,8 @@ class TestCaseTable(unittest.TestCase):
                 self.assertEqual(len(set(options)), len(options))
                 if reason in run.PARKS:
                     self.assertTrue(row.startswith("F") and len(options) >= 2)
-        # Only R1, R4, U1, U3, U9 and U10 never ask.
-        self.assertEqual(sorted(r for r, o in run.CASES.values() if not o), ["R1", "R4", "U1", "U10", "U3", "U9"])
+        # Only R1, R4, U1, U3, U9, U10 and (spec 0026) P8 never ask.
+        self.assertEqual(sorted(r for r, o in run.CASES.values() if not o), ["P8", "R1", "R4", "U1", "U10", "U3", "U9"])
 
 
 class NeverStopCase(RunCase):
