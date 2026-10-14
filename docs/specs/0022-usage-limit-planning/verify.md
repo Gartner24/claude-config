@@ -25,3 +25,5 @@ Scratch drivers in `$TMPDIR/v0022/` (not committed). They run the real `usage.py
 - [x] `Screen.test_report_seen_before_wait`: with an unseen report, `report.seen` exists while the builds wait; Ctrl C in the wait exits 130 -> AC-9. can fail: `seen()` moves after the wait.
 - [x] `LimitAccount.test_more`: a full 5h window with a later reset sleeps 10920 s, both full sleeps to the later (week) reset 259320 s, a full window earlier than the text and a window at 98 keep the text's 1320 s -> AC-10. can fail: the earliest full reset is taken, or the 99 threshold moves.
 - P4 (the real `wf` screen against the status line bars): waits on you; the account read is not reachable from this sandbox (credentials are read denied).
+
+- 2026-10-14 13:30, P4 done by Claude in the conductor session: `usage.read()` gave 5h 23%, week 16%; the jjstack status line printed 5h 23%, week 16% at the same minute. Match: PASS.

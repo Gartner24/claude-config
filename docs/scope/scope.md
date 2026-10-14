@@ -532,7 +532,7 @@ The `wf` screen says whether tonight's picks fit your 5 hour window and your wee
 - [x] Build it: `/develop usage limit planning`
 - [x] Verify it: `/check verify usage limit planning`
 - [x] Test it: `/test usage limit planning`
-- [ ] Compare the first real `wf` screen with the status line bars (P4) · waits on you
+- [x] Compare the first real `wf` screen with the status line bars (P4) · waits on you
 - [ ] Sync docs: `/sync usage limit planning`
 Spec [0022](../specs/0022-usage-limit-planning/index.md) · Source: your message 2026-10-13 (agreed, not optional).
 
@@ -544,7 +544,7 @@ One branch per spec (stacked only when the spec says so, at most 3 deep), one sq
 - [x] Verify it: `/check verify branch and PR flow`
 - [x] Test it: `/test branch and PR flow`
 - [x] Copy the rule live: `cp ~/claude-config/rules/branch-pr.md ~/.claude/rules/branch-pr.md` · waits on you · live
-- [ ] Add the branch-pr pointer line to `~/.claude/CLAUDE.md` · waits on you
+- [x] Add the branch-pr pointer line to `~/.claude/CLAUDE.md` · waits on you
 - [ ] Probes P7 and P8 on a scratch GitHub repo (they post) · waits on you
 - [ ] Sync docs: `/sync branch and PR flow`
 Spec [0026](../specs/0026-branch-pr-flow/index.md) · Source: personal scope rows 11 and 27; your message 2026-10-13.
@@ -567,9 +567,9 @@ Boring reading jobs go to the free claude-fb models through `fb-ask` (text only,
 - [x] Build it: `/develop cheap worker tier`
 - [ ] Verify it: `/check verify cheap worker tier`
 - [ ] Test it: `/test cheap worker tier`
-- [ ] Create `~/.claude/private/fb-ok.txt` (your own repo origins) and `~/.claude/private/fb-ask.conf` · waits on you
+- [x] Create `~/.claude/private/fb-ok.txt` (your own repo origins) and `~/.claude/private/fb-ask.conf` · waits on you
 - [x] Copy the rule live: `cp ~/claude-config/rules/cheap-worker.md ~/.claude/rules/cheap-worker.md` · waits on you · live
-- [ ] Probes P1 to P3 (the claude-fb proxy) · waits on you
+- [x] Probes P1 to P3 (the claude-fb proxy) · waits on you
 - [ ] Sync docs: `/sync cheap worker tier`
 Spec [0023](../specs/0023-cheap-worker-tier/index.md) · Source: your message 2026-10-13 (agreed, not optional).
 
@@ -583,7 +583,7 @@ Everything Claude tells you uses words you can follow; every question panel ends
 - [ ] Test it: `/test understand everything`
 - [x] Copy the rule live: `cp ~/claude-config/rules/plain-questions.md ~/.claude/rules/plain-questions.md` · waits on you · live
 - [ ] Real check of the LEARN line: `python3 docs/specs/0028-understand-everything/probes/learn-line.py` · waits on you · live
-- [ ] A panel is refused without "Learn this first" in a real session (P3) · waits on you
+- [x] A panel is refused without "Learn this first" in a real session (P3) · waits on you
 - [ ] Sync docs: `/sync understand everything`
 Spec [0028](../specs/0028-understand-everything/index.md) · Source: your messages 2026-10-12 and 2026-10-13.
 
@@ -594,7 +594,7 @@ Questions come to your own Telegram bot with buttons, and you can reply in your 
 - [x] Build it: `/develop telegram`
 - [ ] Verify it: `/check verify telegram`
 - [ ] Test it: `/test telegram`
-- [ ] Make the bot with @BotFather, then `wf telegram init` and `wf telegram test` · waits on you
+- [x] Make the bot with @BotFather, then `wf telegram init` and `wf telegram test` · waits on you
 - [ ] Sync docs: `/sync telegram`
 Spec [0029](../specs/0029-telegram/index.md) · Source: personal scope row 26.
 
@@ -617,7 +617,7 @@ wf adopts the open PRs you list in pr.json, runs the review loop on them, watche
 - [x] Build it: `/develop adopt open prs`
 - [ ] Verify it: `/check verify adopt open prs`
 - [ ] Test it: `/test adopt open prs`
-- [ ] Write `~/.claude/private/pr.json` for the repos to adopt · waits on you · later boxes go on
+- [x] Write `~/.claude/private/pr.json` for the repos to adopt · waits on you · later boxes go on
 - [ ] Probes P3 and P4 on a scratch GitHub repo (they post) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync adopt open prs`
 Spec [0031](../specs/0031-adopt-open-prs/index.md) · Source: your message 2026-10-13 (the gap after the draft PR until approved and merged).
@@ -661,7 +661,7 @@ Open questions show on the wf screen to answer at the keyboard; `wf questions` l
 - [x] Build it: `/develop questions while off`
 - [ ] Verify it: `/check verify questions while off`
 - [ ] Test it: `/test questions while off`
-- [ ] Turn the timer on: `wf telegram timer on` · waits on you · later boxes go on
+- [x] Turn the timer on: `wf telegram timer on` · waits on you · later boxes go on
 - [ ] Sync docs: `/sync questions while off`
 Spec [0039](../specs/0039-questions-while-off/index.md) · Source: your message 2026-10-14 02:20.
 

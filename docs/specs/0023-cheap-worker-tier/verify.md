@@ -1,0 +1,2 @@
+
+- 2026-10-14, done by Claude in the conductor session: fb-ok.txt (claude-config, dotfiles) and fb-ask.conf written. P1: without the key the proxy serves nothing (HTTP 500, not the 401 expected; no model list). P2: `fb-ask summarize` answered through fb-safe in 1.7 s, the key read only inside fb-ask. P3: proxy stopped, then `fb-ask summarize` started it and answered in 4.2 s total (limit 20 s). PASS, with the P1 status note.
