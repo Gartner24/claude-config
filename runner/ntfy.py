@@ -270,7 +270,7 @@ class Topic:
         with urllib.request.urlopen(url, timeout=TIMEOUT) as r:
             return [json.loads(l) for l in r.read().decode().splitlines() if l.strip()]
 
-    def take(self, text, ds):
+    def take(self, text, ds, msg=None):
         """AC-8 for one message. The decision it answered, or None."""
         tokens = {sha(t) for t in text.split() if len(t) == 8}
         valid = burn(self.cfg, tokens) if tokens else set()
@@ -320,7 +320,7 @@ class Topic:
                     cursor = msg.get("id", cursor)
                     if msg.get("event") != "message" or msg.get("id") in self.own:
                         continue
-                    d = self.take(str(msg.get("message") or ""), ds)
+                    d = self.take(str(msg.get("message") or ""), ds, msg)
                     if d:
                         on_answer(d)
                         try:

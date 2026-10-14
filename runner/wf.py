@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # The workflow runner (spec 0001). Stdlib only, so a fresh clone works with no
 # install step. Subcommands: `list`/`next` (spec 0002), `run` (0004, in run.py),
-# `ntfy` (0005, in ntfy.py), `finish` (0019, in finish.py), `report` (0018, in report.py).
+# `ntfy` (0005, in ntfy.py), `finish` (0019, in finish.py), `report` (0018, in report.py),
+# `telegram` (0029, in telegram.py).
 import argparse
 import math
 import os
@@ -683,6 +684,11 @@ def build_parser():
     init.add_argument("--rotate", action="store_true", help="replace the topic and codes of an existing config")
     nsub.add_parser("codes", help="replace the one time codes")
     nsub.add_parser("test", help="send one ping and wait up to 5 minutes for the reply")
+    tg = sub.add_parser("telegram", help="set up and test your Telegram bot for wf run (spec 0029)")
+    tsub = tg.add_subparsers(dest="action", metavar="<action>", required=True)
+    tinit = tsub.add_parser("init", help="ask for the bot token, find your chat, save telegram.json")
+    tinit.add_argument("--rotate", action="store_true", help="replace an existing telegram.json")
+    tsub.add_parser("test", help="send one question and wait up to 5 minutes for the answer")
     return parser, nxt
 
 
@@ -718,6 +724,9 @@ def main(argv=None):
         if args.action == "init":
             return ntfy.cmd_init(args.rotate)
         return ntfy.cmd_codes() if args.action == "codes" else ntfy.cmd_test()
+    if args.command == "telegram":
+        import telegram
+        return telegram.cmd_init(args.rotate) if args.action == "init" else telegram.cmd_test()
     if args.list and (args.target or args.yes):
         nxt.error("--list takes no argument and no -y")
     return cmd_next(args)

@@ -8,6 +8,7 @@ import tempfile
 
 import ntfy
 import run
+import telegram
 import wf
 
 MAX_LINES = 12
@@ -151,8 +152,10 @@ def next_line(items, name):
     return f"next: {', '.join(steps)}" if steps else "next: wf"
 
 
-def item_line(i, multi, phone, cfg):
-    """One AC-2 item line. phone: AC-4 labels and scrubbed fields, no detail; else AC-3 real names and details."""
+def item_line(i, multi, phone, cfg, wide=False):
+    """One AC-2 item line. phone: AC-4 labels and scrubbed fields, no detail; else AC-3 real names and details.
+    wide: spec 0029 AC-9's longer reason and question cuts for Telegram."""
+    reason, question = (80, 300) if wide else (40, 80)
     field = (lambda t, n, fb: ntfy.scrub_field(cfg, t, n, fb)) if phone else (lambda t, n, fb: wf.clean(str(t)))
     name = label(cfg, i) if phone else i["name"]
     k, feature = i["kind"], field(i.get("feature"), 40, "feature")
@@ -162,11 +165,11 @@ def item_line(i, multi, phone, cfg):
         if pr.get("number"):
             text += f": PR #{pr['number']}" if phone else f": draft PR {wf.clean(str(pr.get('url')))}"
     elif k == "parked":
-        text = f"parked: {feature}: {field(i['reason'], 40, 'reason')}"
+        text = f"parked: {feature}: {field(i['reason'], reason, 'reason')}"
         if not phone and i["detail"]:
             text += f": {run.flat(i['detail'])}"
     elif k == "stopped":
-        text = f"stopped: {feature}: {field(i['reason'], 40, 'reason')}"
+        text = f"stopped: {feature}: {field(i['reason'], reason, 'reason')}"
         # Spec 0021 U10: a runner bug stops only its repo; the report points at its traceback.
         if not phone and i["reason"] == "internal_error" and i.get("folder"):
             text += f" (traceback: {os.path.join(i['folder'], 'traceback.txt')})"
@@ -174,7 +177,7 @@ def item_line(i, multi, phone, cfg):
         text = f"question {wf.clean(i['id'])}: {feature}"
         # Spec 0021 AC-6: what it asks and the answer it recommends.
         if i.get("question"):
-            text += f": {field(i['question'], 80, 'question')}"
+            text += f": {field(i['question'], question, 'question')}"
         if i.get("recommended"):
             text += f" (recommended: {field(i['recommended'], 40, 'answer')})"
     elif k == "live":
@@ -192,6 +195,16 @@ def item_line(i, multi, phone, cfg):
     return text + (f" ({name})" if multi else "")
 
 
+def cheap_line(recs):
+    """Spec 0023 AC-11: one line when the run made any fb-ask job, else none."""
+    fb = [c["fb"] for r in recs for c in r.get("calls", []) if c.get("fb")]
+    if not fb:
+        return []
+    bad = [x for x in fb if x != "ok"]
+    why = ", ".join(f"{wf.clean(x)} x{bad.count(x)}" for x in dict.fromkeys(bad))
+    return [f"cheap tier: {len(fb)} jobs, {len(bad)} fell back" + (f" ({why})" if why else "")]
+
+
 def label(cfg, i):
     return ntfy.scrub_field(cfg, ntfy.repo_label(cfg, i["repo"]), 40, "repo")
 
@@ -200,11 +213,15 @@ def render(sources, cfg):
     """(full report, phone body) for these sources (AC-2 to AC-4)."""
     items, recs = collect(sources)
     top, multi = head(items, recs), len(sources) > 1
-    full = [top] + [item_line(i, multi, False, cfg) for i in items] + [next_line(items, lambda i: i["name"])]
+    full = [top] + [item_line(i, multi, False, cfg) for i in items] + cheap_line(recs) + \
+        [next_line(items, lambda i: i["name"])]
     full += [f"run folder: {s['folder']}" for s in sources if s["folder"]]
+    tail, dropped = next_line(items, lambda i: label(cfg, i)), 0
+    if "chat_id" in cfg:
+        # Spec 0029 AC-9: every item, no cap; telegram.send_report splits it or attaches it as a file.
+        return "\n".join(full) + "\n", "\n".join([top] + [item_line(i, multi, True, cfg, True) for i in items] + [tail])
     lines = [item_line(i, multi, True, cfg) for i in items]
     kinds = [i["kind"] for i in items]
-    tail, dropped = next_line(items, lambda i: label(cfg, i)), 0
 
     def body():
         more = [f"+{dropped} more on the wf screen"] if dropped else []
@@ -236,7 +253,9 @@ def save(text):
 
 
 def send(cfg, body):
-    """AC-4: one note, 'sent' only on a returned message id."""
+    """AC-4: one note, 'sent' only on a returned message id. Spec 0029 AC-9: every Telegram message and file."""
+    if "chat_id" in cfg:
+        return "sent" if telegram.send_report(cfg, body) else "failed: no message id"
     mid = ntfy.Topic(cfg, "", "").publish(body, 3, stopped=lambda: False, title="wf report", tags=[])
     return "sent" if mid else "failed: no message id"
 

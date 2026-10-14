@@ -74,6 +74,13 @@ else
   note "spec-paths -> scripts/spec-paths.py"
   run ln -sfn "$REPO/scripts/spec-paths.py" "$BIN/spec-paths"
 fi
+# Spec 0023 AC-13: the cheap worker tier.
+if [ -e "$BIN/fb-ask" ] && ! [ -L "$BIN/fb-ask" ]; then
+  note "SKIP fb-ask (a real file is already at $BIN/fb-ask)"
+else
+  note "fb-ask -> scripts/fb-ask.py"
+  run ln -sfn "$REPO/scripts/fb-ask.py" "$BIN/fb-ask"
+fi
 fi
 
 # settings.json hardcodes absolute paths to hook scripts. Substituting $HOME is
@@ -219,6 +226,9 @@ else
   python3 "$REPO/scripts/spec-paths.py" --test >/dev/null 2>&1 \
     && note "spec-paths: all self-checks passed" \
     || { echo "  SPEC-PATHS SELF-CHECK FAILED - run: python3 scripts/spec-paths.py --test" >&2; exit 1; }
+  python3 "$REPO/scripts/fb-ask.py" --test </dev/null >/dev/null 2>&1 \
+    && note "fb-ask: all self-checks passed" \
+    || { echo "  FB-ASK SELF-CHECK FAILED - run: python3 scripts/fb-ask.py --test" >&2; exit 1; }
   missing=0
   while read -r imp; do
     real="${imp/#@\~/$HOME}"

@@ -147,7 +147,9 @@ sys.exit(wf.main(sys.argv[4:]))
 CREDENTIALS = (".config/gh", ".ssh", ".git-credentials", ".netrc", ".aws", ".config/gcloud", ".azure", ".npmrc",
                ".config/git/credentials", ".docker/config.json", ".pypirc", ".kube", ".claude/anthropic_api_key",
                # Spec 0021 AC-7: wf's config folder as ~/.config/wf and as $XDG_CONFIG_HOME/wf (the test's config/).
-               ".config/wf", "config/wf")
+               ".config/wf", "config/wf",
+               # Spec 0023 AC-7: the claude-fb proxy key folder.
+               ".config/claude-fb")
 FORGE_HOSTS = ["*.bitbucket.org", "*.github.com", "*.githubusercontent.com", "*.gitlab.com", "*.sr.ht",
                "bitbucket.org", "codeberg.org", "github.com", "gitlab.com"]
 
@@ -596,7 +598,7 @@ class TestStart(RunCase):
         self.assertIn("readable or writable by others", r.stdout)
         self.assertFalse((self.state / "wf" / "locks").exists())
         self.ntfy_config.unlink()
-        self.assertIn("is missing, run wf ntfy init", self.wf("demo", "-y").stdout)
+        self.assertIn("no telegram.json or ntfy.json, run wf telegram init", self.wf("demo", "-y").stdout)
         write_config(self.tmp / "config", "http://127.0.0.1:9", codes=["a1234567"] * 4)
         r = self.wf("demo", "-y", "--max-calls", "1")
         self.assertIn("\nwarning: 4 one time codes left, run wf ntfy codes\n", r.stdout)

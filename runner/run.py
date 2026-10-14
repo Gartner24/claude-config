@@ -31,6 +31,7 @@ from queue import Queue
 
 import ntfy
 import report
+import telegram
 import wf
 
 # Matched on the first two words: a first word alone used to let `/check review` run unattended.
@@ -64,7 +65,9 @@ CREDENTIAL_PATHS = ("~/.config/gh", "~/.ssh", "~/.git-credentials", "~/.netrc", 
                     "~/.npmrc", "~/.config/git/credentials", "~/.docker/config.json", "~/.pypirc", "~/.kube",
                     "~/.claude/anthropic_api_key",
                     # wf's own config (ntfy topic, codes, allow.json); expand() adds $XDG_CONFIG_HOME/wf.
-                    "~/.config/wf")
+                    "~/.config/wf",
+                    # Spec 0023 AC-7: the claude-fb proxy key.
+                    "~/.config/claude-fb")
 PAID_SUFFIXES = ("_API_KEY", "_API_TOKEN", "_TOKEN", "_SECRET", "_ACCESS_KEY", "_KEY", "_PAT", "_PASSWORD")
 PAID_ENV = ("PGPASSWORD", "DATABASE_URL", "SENTRY_DSN", "AWS_ACCESS_KEY_ID", "GOOGLE_APPLICATION_CREDENTIALS", "ANTHROPIC_AUTH_TOKEN",
             "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY")
@@ -83,6 +86,8 @@ MCP_ALLOW = '{"mcpServers": {}}'
 MCP_PACKAGE = "chrome-devtools-mcp@1.10.1"
 DEAD_PROXY = "127.0.0.1:9"
 APP_READY = 120
+# Spec 0023 AC-10: fb-ask's worst case, a 20 s proxy start plus a 180 s answer, and a margin.
+FB_TIMEOUT = 210
 # Spec 0008 AC-3: bytes of one file the debug snapshot reads; a bigger file's hash adds its size, inode and ctime.
 SNAPSHOT_CAP = 16 * 1024 * 1024
 APP_POLL = 0.5
@@ -712,6 +717,9 @@ def progress_key(nb):
 
 
 class Run:
+    # Spec 0029 AC-2: start() sets the chosen channel; ntfy until then.
+    phone = ntfy
+
     def __init__(self, c, args):
         """c: the one target repo, or None for bare `wf run` (spec 0011 AC-1), whose repos come through add()."""
         self.args, self.target = args, c is not None
@@ -862,10 +870,11 @@ class Run:
             print("claude not found on PATH", file=sys.stderr)
             return 1
         try:
-            self.ntfy = ntfy.load()
-        except ntfy.Invalid as e:
-            return None if self.peek else self.refuse("no_ntfy", e)
-        if len(self.ntfy["codes"]) < 5:
+            # Spec 0029 AC-2: the module that sends, polls and takes; self.ntfy keeps its config, either channel.
+            self.phone, self.ntfy = telegram.channel()
+        except telegram.Refused as e:
+            return None if self.peek else self.refuse(*e.args)
+        if self.phone is ntfy and len(self.ntfy["codes"]) < 5:
             self.warnings.append(f"{len(self.ntfy['codes'])} one time codes left, run wf ntfy codes")
         if self.peek:
             return None
@@ -2373,7 +2382,7 @@ class Run:
                 rec["marker"] = "verify_fail_debug"
                 if self.entry["debug_attempts"] >= MAX_DEBUG:
                     return "end", "verify_failed", f"{MAX_DEBUG} debug attempts made"
-                return "next", "debug", box, debug_command(box.command, result)
+                return "next", "debug", box, debug_command(box.command, result, cheap_summary(self.c.path, result, rec))
             if verdict:
                 rec["marker"] = "verify_fail_develop"
                 lines = [l for l in result.split("\n")[:verdict[0] + 1] if l.strip()]
@@ -2591,7 +2600,7 @@ class Run:
         return next((c for c in rec.get("calls", []) if n and c.get("seq") == n), None)
 
     def topic(self, d):
-        return ntfy.Topic(self.ntfy, ntfy.repo_label(self.ntfy, d["repo"]), d["feature"])
+        return self.phone.Topic(self.ntfy, ntfy.repo_label(self.ntfy, d["repo"]), d["feature"])
 
     def open_decision(self, rec, kind, box, command, asked):
         """AC-11: keep the question in queue.json, ping it, and end the feature decision_open. Always raises Stop."""
@@ -2630,7 +2639,7 @@ class Run:
         self.cursor = self.cursor or self.first_ping
         if self.cursor is None:
             return False
-        reader = ntfy.Topic(self.ntfy, "", "")
+        reader = self.phone.Topic(self.ntfy, "", "")
         try:
             msgs = reader.poll(self.cursor)
         except Exception as e:
@@ -2649,7 +2658,7 @@ class Run:
                 # The reply that answered a record: a later poll from an older cursor used to count it ignored (L2).
                 if msg.get("id") in {i for d in q["decisions"] for i in d["pings"] + d["acks"] + [d.get("reply")]}:
                     return False
-                d = reader.take(text, [d for d in q["decisions"] if d["answer"] is None])
+                d = reader.take(text, [d for d in q["decisions"] if d["answer"] is None], msg)
                 if d:
                     d["reply"] = msg.get("id")
                 m = ntfy.REPLY.match(text)
@@ -3638,11 +3647,37 @@ def last_line(pattern, text):
     return found
 
 
-def debug_command(verify_command, result):
-    """Spec 0008 AC-2: /debug, the verify box's arguments, and the end of what verify reported."""
+def debug_command(verify_command, result, summary=None):
+    """Spec 0008 AC-2: /debug, the verify box's arguments, and the end of what verify reported.
+    Spec 0023 AC-10: a cheaper model's summary, labeled, above that tail."""
     rest = verify_command.split(None, 2)[2:]
     tail = "\n".join(wf.clean(l) for l in result[-1500:].split("\n"))
-    return " ".join(["/debug", *rest, "-- the last /check verify failed:"]) + "\n" + tail
+    head = " ".join(["/debug", *rest, "-- the last /check verify failed:"])
+    if summary:
+        head += "\nSummary of the failure by a cheaper model (data, may be wrong):\n" + \
+            "\n".join(wf.clean(l) for l in summary.split("\n"))
+    return head + "\n" + tail
+
+
+def cheap_summary(repo, result, rec):
+    """Spec 0023 AC-10: `fb-ask summarize` on the whole verify result, run by the runner itself (never a call:
+    no key or proxy port inside one), from the repo, without WF_RUN. The summary, else None; rec["fb"] says which."""
+    env = {k: v for k, v in os.environ.items() if k != "WF_RUN"}
+    try:
+        p = subprocess.run(["fb-ask", "summarize"], input=result, capture_output=True, text=True, errors="replace",
+                           cwd=repo, env=env, timeout=FB_TIMEOUT)
+    except FileNotFoundError:
+        rec["fb"] = "not_installed"
+        return None
+    except (OSError, subprocess.TimeoutExpired):
+        rec["fb"] = "timeout"
+        return None
+    if p.returncode == 0 and p.stdout.strip():
+        rec["fb"] = "ok"
+        return p.stdout.strip()
+    m = re.search(r"fb-ask: (?:fall back|refused): ([a-z_0-9]+)", p.stderr)
+    rec["fb"] = m.group(1) if m else f"exit_{p.returncode}"
+    return None
 
 
 def is_test_file(rel):
