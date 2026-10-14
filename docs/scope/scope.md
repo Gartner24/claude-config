@@ -67,6 +67,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 46 | Missed-skill detector | Release 8 | planned |
 | 47 | Context monitor that fires | Release 8 | planned |
 | 48 | Readable layout for ~/.claude and claude-config | Release 8 | planned |
+| 49 | Fast runner | Release 8 | in-progress |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -731,6 +732,22 @@ Spec [0035](../specs/0035-readable-layout/index.md) · Source: personal scope ro
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
+
+### 49. Fast runner · in-progress
+Features build, check and test 4 at a time on their own branches, the branches are combined at the end with clashes resolved, one plan file stays the truth, the suite runs in about a minute, and Telegram questions read clearly.
+**Done when:** a `wf` run of features 39 to 48 runs 4 at once, combines its branches into one draft PR, and every question kind reads clearly on your phone.
+- [x] Design it (spec): `/architect fast runner`
+- [ ] Build it: `/develop fast runner`
+  - [ ] Fast suite command and the suite prompt sentence (AC-7, AC-8)
+  - [ ] No same file wait, the shared plan, plan free commits (AC-2, AC-4, AC-5, AC-6)
+  - [ ] Combine step with its draft PR (AC-3)
+  - [ ] Telegram question text, every kind shown to you (AC-9, AC-10)
+- [ ] Verify it: `/check verify fast runner`
+- [ ] Test it: `/test fast runner`
+- [ ] Merge into feat/release-4, set the switches, scan and push feat/release-4 (AC-1, AC-11)
+- [ ] Run `wf` on 39 to 48 and compare the elapsed time (AC-12) · waits on you
+- [ ] Sync docs: `/sync fast runner`
+Spec [0043](../specs/0043-fast-runner/index.md) · Source: [brief](../briefs/fast-runner.md).
 
 ### 11. Autopilot offer and batch design · dropped
 Covered by `rules/runner-handoff.md` (batch first: every feature that needs a decision gets its `/architect` before the hand-off to the runner) and by choosing tonight's features on the `wf` screen (spec 0020 AC-13).

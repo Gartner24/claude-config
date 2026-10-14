@@ -4,6 +4,7 @@
 **Status**: Accepted
 **Paths:** `runner/run.py`, `runner/context.py`, `runner/tests/test_explain.py`
 **Amends**: [0033](../0033-context-in-messages/index.md) AC-4, AC-6 (steps only for a blocked call), [0021](../0021-never-stop/index.md) F10 (a waiting box's question)
+**Amended by**: [0043](../0043-fast-runner/index.md) AC-9 (Telegram keeps paths, a longer explanation, no plan tags or filler lines)
 
 ## What you're agreeing to
 - A step only you can do is asked in plain words: "Feature 16 needs one step only you can do: ...".
