@@ -2,7 +2,7 @@
 # The workflow runner (spec 0001). Stdlib only, so a fresh clone works with no
 # install step. Subcommands: `list`/`next` (spec 0002), `run` (0004, in run.py),
 # `ntfy` (0005, in ntfy.py), `finish` (0019, in finish.py), `report` (0018, in report.py),
-# `telegram` (0029, in telegram.py).
+# `telegram` (0029, in telegram.py), `questions` (0039, in questions.py).
 import argparse
 import math
 import os
@@ -691,6 +691,11 @@ def build_parser():
     tinit = tsub.add_parser("init", help="ask for the bot token, find your chat, save telegram.json")
     tinit.add_argument("--rotate", action="store_true", help="replace an existing telegram.json")
     tsub.add_parser("test", help="send one question and wait up to 5 minutes for the answer")
+    # Spec 0039 AC-6, AC-7: keep answers tapped while wf is off.
+    tsub.add_parser("fetch", help="save new Telegram updates for the next wf, once, silently")
+    timer = tsub.add_parser("timer", help="a user timer running wf telegram fetch every 5 minutes")
+    timer.add_argument("state", choices=("on", "off"))
+    sub.add_parser("questions", help="list the open questions with their links, changing nothing (spec 0039)")
     return parser, nxt
 
 
@@ -731,7 +736,14 @@ def main(argv=None):
         return ntfy.cmd_codes() if args.action == "codes" else ntfy.cmd_test()
     if args.command == "telegram":
         import telegram
+        if args.action == "fetch":
+            return telegram.cmd_fetch()
+        if args.action == "timer":
+            return telegram.cmd_timer(args.state)
         return telegram.cmd_init(args.rotate) if args.action == "init" else telegram.cmd_test()
+    if args.command == "questions":
+        import questions
+        return questions.cmd_questions()
     if args.list and (args.target or args.yes):
         nxt.error("--list takes no argument and no -y")
     return cmd_next(args)

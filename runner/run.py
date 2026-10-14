@@ -451,7 +451,7 @@ def queue_problem(data):
                 lists = (r["options"], r["pings"], r["acks"])
                 # reply may be absent: files written before it existed stay valid.
                 if not QUEUE_ID.fullmatch(r["id"]) or r["call_kind"] not in ("box", "debug", "sync") \
-                        or r["kind"] not in ("panel", "prose") or r["source"] not in (None, "phone") \
+                        or r["kind"] not in ("panel", "prose") or r["source"] not in (None, "phone", "keyboard") \
                         or not isinstance(r.get("reply"), OPT_STR) or not isinstance(r.get("learn"), OPT_STR) \
                         or not isinstance(r.get("jargon", []), list) \
                         or not all(isinstance(x, str) for l in lists for x in l):

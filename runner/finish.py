@@ -960,6 +960,10 @@ def cmd_wf(args):
         recover()
     except OSError as e:
         print(f"warning: interrupted swap not finished: {e.strerror or e}")
+    # Spec 0039 AC-1, AC-2: open questions first, answered before the plan reads the queue.
+    import questions
+    if questions.screen(args.yes) == 130:
+        return 130
     try:
         repos, rc = covered(types.SimpleNamespace(target=None))
         if repos is None:

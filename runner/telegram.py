@@ -8,6 +8,8 @@ import json
 import os
 import re
 import secrets
+import shutil
+import subprocess
 import sys
 import tempfile
 import time
@@ -332,16 +334,21 @@ class Topic(ntfy.Topic):
                         and (not isinstance(when, (int, float)) or asked(d) <= when)), None)
         if not d:
             return None
-        rest, labels, answer = m.group(2), d["options"], None
-        if labels and re.fullmatch(r"\d+(,\d+)*", rest):
-            picks = [int(x) for x in rest.split(",")]
-            if (len(picks) == 1 or d["multi"]) and len(set(picks)) == len(picks) \
-                    and all(1 <= p <= len(labels) for p in picks):
-                answer = ", ".join(labels[p - 1] for p in picks)
-        if answer is None:
-            answer = next((l for l in labels if l.strip().casefold() == rest.strip().casefold()), rest)
-        d.update(answer=answer, source="phone", answered=datetime.datetime.now().astimezone().isoformat(timespec="seconds"))
+        d.update(answer=answer_text(d, m.group(2)), source="phone",
+                 answered=datetime.datetime.now().astimezone().isoformat(timespec="seconds"))
         return d
+
+
+def answer_text(d, rest):
+    """AC-8: numbers pick labels, a label matches ignoring case, else the text itself. Spec 0039 AC-2: the
+    keyboard answer on the `wf` screen parses the same way."""
+    labels = d["options"]
+    if labels and re.fullmatch(r"\d+(,\d+)*", rest):
+        picks = [int(x) for x in rest.split(",")]
+        if (len(picks) == 1 or d["multi"]) and len(set(picks)) == len(picks) \
+                and all(1 <= p <= len(labels) for p in picks):
+            return ", ".join(labels[p - 1] for p in picks)
+    return next((l for l in labels if l.strip().casefold() == rest.strip().casefold()), rest)
 
 
 def chunks(body):
@@ -442,6 +449,74 @@ def cmd_init(rotate):
         print(f"warning: {e}")
     ntfy.write({"token": token, "chat_id": chat, **keep}, p)
     print(f"saved {p}")
+    return 0
+
+
+def cmd_fetch():
+    """Spec 0039 AC-6: one fetch for the timer, silent. fetch() holds telegram.lock, so it never races a run's."""
+    if not os.path.lexists(path()):
+        return 0
+    try:
+        fetch(load())
+    except (Invalid, ApiError) as e:
+        print(f"wf telegram fetch: {wf.clean(str(e))}", file=sys.stderr)
+        return 1
+    return 0
+
+
+UNIT = "wf-telegram-fetch"
+
+
+def unit_dir():
+    return os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"), "systemd", "user")
+
+
+def systemctl(*args):
+    """The error text of a failed `systemctl --user`, else None."""
+    try:
+        r = subprocess.run(["systemctl", "--user", *args], capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return str(e)
+    return (r.stderr or r.stdout or f"exit {r.returncode}").strip() if r.returncode else None
+
+
+def cmd_timer(action):
+    """Spec 0039 AC-7: a user timer that saves Telegram updates every 5 minutes while no wf runs."""
+    files = [os.path.join(unit_dir(), UNIT + x) for x in (".service", ".timer")]
+    if action == "off":
+        err = systemctl("disable", "--now", UNIT + ".timer")
+        for f in files:
+            if os.path.lexists(f):
+                os.unlink(f)
+        err = systemctl("daemon-reload") or err
+        if err:
+            print(f"systemctl: {wf.clean(err)}")
+            return 1
+        print("timer off")
+        return 0
+    if os.environ.get("WF_RUN"):
+        print("refused: unattended: wf telegram timer runs only at your terminal, not inside wf run")
+        return 5
+    if not os.path.lexists(path()):
+        print(f"refused: no_telegram: {path()} is missing, run wf telegram init")
+        return 5
+    # systemd's own quoting; the state folder of this shell, so the timer writes the log a run reads.
+    q = lambda s: '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    wf_path = shutil.which("wf") or os.path.realpath(wf.__file__)
+    env = "".join(f"Environment={q(f'{k}={os.environ[k]}')}\n" for k in ("XDG_STATE_HOME", "XDG_CONFIG_HOME")
+                  if os.environ.get(k))
+    os.makedirs(unit_dir(), exist_ok=True)
+    with open(files[0], "w", encoding="utf-8") as f:
+        f.write("[Unit]\nDescription=wf: keep Telegram answers while wf is off (spec 0039)\n\n[Service]\nType=oneshot\n"
+                f"{env}ExecStart={q(sys.executable)} {q(wf_path)} telegram fetch\n")
+    with open(files[1], "w", encoding="utf-8") as f:
+        f.write("[Unit]\nDescription=wf: fetch Telegram answers every 5 minutes\n\n[Timer]\nOnBootSec=1min\n"
+                f"OnUnitActiveSec=5min\n\n[Install]\nWantedBy=timers.target\n")
+    err = systemctl("daemon-reload") or systemctl("enable", "--now", UNIT + ".timer")
+    if err:
+        print(f"systemctl: {wf.clean(err)}")
+        return 1
+    print(f"timer on: {files[1]}")
     return 0
 
 
