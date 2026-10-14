@@ -220,7 +220,8 @@ else
   node "$REPO/skills/design/scripts/build-ramp.mjs" --check >/dev/null 2>&1 \
     && note "colour ramp: solver targets and emitted pairs meet AA" \
     || { echo "  RAMP SELF-CHECK FAILED - generated palettes may ship below AA" >&2; exit 1; }
-  python3 -m unittest discover -s "$REPO/runner/tests" >/dev/null 2>&1 \
+  # The suite builds its own temp homes; the stage or live dir this install writes must not leak into it.
+  env -u WF_STAGE -u CLAUDE_LIVE_DIR python3 -m unittest discover -s "$REPO/runner/tests" </dev/null >/dev/null 2>&1 \
     && note "runner: unittest suite passes" \
     || { echo "  RUNNER SELF-CHECK FAILED - run: python3 -m unittest discover -s runner/tests" >&2; exit 1; }
   python3 "$REPO/scripts/spec-paths.py" --test >/dev/null 2>&1 \
