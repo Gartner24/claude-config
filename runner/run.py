@@ -342,7 +342,7 @@ OPT_STR, NUM = (str, type(None)), (int, float, type(None))
 PARK_FIELDS = {"repo": (str,), "feature": (str,), "section_sha": (str,), "reason": (str,), "detail": OPT_STR,
                "cap": NUM, "run": (str,), "parked_at": (str,)}
 # Spec 0020 AC-6: what the park's cause depended on; a record written before them still loads.
-PARK_SEEN = {"head": OPT_STR, "setup": OPT_STR, "claude": OPT_STR, "denied_path": OPT_STR}
+PARK_SEEN = {"head": OPT_STR, "setup": OPT_STR, "claude": OPT_STR, "denied_path": OPT_STR, "setups_seen": (int,)}
 # AC-6: the parks a commit outside the scope and verify.md files takes back, and those a setup or claude change does.
 CODE_PARKS = ("verify_failed", "blocked", "no_progress", "debug_touched", "design_gate", "unchecked", "app_failed")
 SETUP_PARKS = ("denied", "call_timeout")
@@ -1778,7 +1778,18 @@ class Run:
         """Spec 0040 AC-2: park p's write deny is gone from its repo's guard as built now (at start, or rebuilt by a
         taken setup). No guard (wf queue): not freed."""
         g = next((h["repo"].get("guard") for h in self.held if key_of(h["c"]) == p["repo"]), None)
-        return bool(p.get("denied_path") and g and not edit_denied(p["denied_path"], g))
+        if not g:
+            return False
+        if p.get("denied_path"):
+            return not edit_denied(p["denied_path"], g)
+        # A blocked park with no recorded denial (the call only said so in its text) gets one more try once a setup
+        # newer than its park exists: in this run, one taken after it parked (a second block records the new count,
+        # so it never loops); from an earlier run, a newer ledger line than the one it parked under.
+        if p.get("reason") != "blocked":
+            return False
+        if p.get("run") == self.folder:
+            return len(self.record["setups"]) > p.get("setups_seen", 0)
+        return newest_setup() not in (None, p.get("setup"))
 
     def survey(self, feats, q, dirty_tree):
         """AC-2, AC-3, AC-7 over this repo's features: [(Feature that may start or None, plan line)], file order.
@@ -1933,8 +1944,9 @@ class Run:
             for p in freed:
                 # Spec 0040 AC-2: its open question went with it (dropped below, as stale).
                 self.again.add((p["repo"], p["feature"]))
-                print(flat(f"retaken: {p['feature']}: {p['denied_path']} no longer denied"), flush=True)
-                self.log(f"retaken {p['feature']}: {p['denied_path']} no longer denied")
+                why = f"{p['denied_path']} no longer denied" if p.get("denied_path") else "the setup changed"
+                print(flat(f"retaken: {p['feature']}: {why}"), flush=True)
+                self.log(f"retaken {p['feature']}: {why}")
             for d in dropped:
                 print(flat(f"stale: {d['id']} {d['feature']}"), flush=True)
             live.append((h, feats, dirty_tree))
@@ -2216,6 +2228,7 @@ class Run:
         # park recorded before the first swaps.jsonl line has a null setup, which no stamp ever took back.
         if reason in ("denied", "blocked") and self.denied_at and edit_denied(self.denied_at, self.repo["guard"]):
             rec["denied_path"] = self.denied_at
+        rec["setups_seen"] = len(self.record["setups"])
 
         def write(q):
             q["parks"] = [p for p in q["parks"] if (p["repo"], p["feature"]) != (rec["repo"], rec["feature"])] + [rec]

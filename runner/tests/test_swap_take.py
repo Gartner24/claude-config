@@ -116,6 +116,33 @@ class SwapTake(RunCase):
         q = json.loads((self.state / "wf" / "queue.json").read_text())
         self.assertEqual((q["parks"], q["decisions"]), ([], []))
 
+    def text_blocked(self):
+        return {**self.swap_step(), "tick": False,
+                "json": {"result": "runner/ is write denied here\nBLOCKED: run ./install.sh live first"}}
+
+    # covers: spec 0040 AC-2 (a block the call only stated in text, with no recorded denial, is tried once more after
+    # a newer setup is taken)
+    def test_text_block_retaken_once(self):
+        self.ledger({str(self.live / "settings.json"): sha(self.new), str(self.hook): sha("#!/bin/sh\n")})
+        self.steps([self.text_blocked(), {}, {}, {"tick": False}])
+        r = self.wf("demo", "-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        folder, rec = self.run_record()
+        log = (folder / "log.txt").read_text()
+        self.assertIn("park 1. Loop: blocked:", log)
+        self.assertIn("retaken 1. Loop: the setup changed", log)
+        self.assertEqual([(e["feature"], e["outcome"]) for e in rec["features"]], [("1. Loop", "feature_done")])
+
+    # covers: spec 0040 AC-2 (blocked again after its retry, it parks with the new setup and is not tried again)
+    def test_text_block_no_loop(self):
+        self.ledger({str(self.live / "settings.json"): sha(self.new), str(self.hook): sha("#!/bin/sh\n")})
+        again = {"tick": False, "json": {"result": "still no\nBLOCKED: run ./install.sh live first"}}
+        self.steps([self.text_blocked(), again, {}, {}])
+        r = self.wf("demo", "-y")
+        folder, rec = self.run_record()
+        self.assertEqual(len(rec["calls"]), 2, (folder / "log.txt").read_text())
+        self.assertEqual((folder / "log.txt").read_text().count("retaken 1. Loop"), 1)
+
     # covers: AC-5 (a repo git hook moved beside an accepted swap is not taken: the repo stops)
     def test_repo_hook_beside_swap(self):
         hooks = self.repo / ".git" / "hooks"
