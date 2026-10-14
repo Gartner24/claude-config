@@ -52,7 +52,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 31 | Guard baseline check between repos | Release 6 | done |
 | 23 | Understand everything | Release 6 | in-progress |
 | 15 | Cheap worker tier | Release 6 | in-progress |
-| 16 | Issues and mixed source of truth | Release 6 | in-progress |
+| 16 | Issues and mixed source of truth | Release 6 | done |
 | 11 | Autopilot offer and batch design | Deferred | dropped |
 | 12 | Usage limit planning | Release 6 | in-progress |
 | 14 | Branch and PR flow | Release 6 | in-progress |
@@ -514,15 +514,15 @@ A repo that starts later in a bare `wf` checks its protected files are unchanged
 - [x] Sync docs: `/sync guard baseline check between repos`
 Spec [0025](../specs/0025-guard-baseline-between-repos/index.md) · Source: spec 0017 accepted gap; decision `w8d0` of 2026-10-13.
 
-### 16. Issues and mixed source of truth · in-progress · auto
+### 16. Issues and mixed source of truth · done · auto
 In repos set to `issues` or `mixed`, `wf` rereads the linked issue before every step and hands its text to the step as quoted data; a change after the spec was accepted asks you with the diff, and the rest builds.
 **Done when:** an issue edited after its spec asks with the diff shown, and a repo set to scope never calls GitHub.
 - [x] Design it (spec): `/architect issues and mixed source of truth`
 - [x] Build it: `/develop issues and mixed source of truth`
 - [x] Verify it: `/check verify issues and mixed source of truth`
 - [x] Test it: `/test issues and mixed source of truth`
-- [ ] Probe P2 on a throwaway issue (it edits the issue): see the spec's verify.md · waits on you
-- [ ] Sync docs: `/sync issues and mixed source of truth`
+- [x] Probe P2 on a throwaway issue (it edits the issue): see the spec's verify.md · waits on you
+- [x] Sync docs: `/sync issues and mixed source of truth`
 Spec [0024](../specs/0024-issues-source-of-truth/index.md) · Source: your message 2026-10-13 (agreed, not optional).
 
 ### 12. Usage limit planning · in-progress · auto
