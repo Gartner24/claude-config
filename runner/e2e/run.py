@@ -156,6 +156,10 @@ def config_dir(top):
         if os.path.isfile(src):
             shutil.copyfile(src, os.path.join(conf, name))
             os.chmod(os.path.join(conf, name), 0o600)
+    # The steps run /develop, /check and /test, so the temp dir links your skills and instructions (read only here).
+    for name in ("skills", "commands", "agents", "rules", "CLAUDE.md"):
+        if os.path.exists(os.path.join(live, name)):
+            os.symlink(os.path.join(live, name), os.path.join(conf, name))
     hook = os.path.join(conf, "hooks", "h.sh")
     with open(hook, "w") as f:
         f.write("#!/bin/sh\nexit 0\n")
