@@ -140,7 +140,32 @@ class TestSameRepo(RepoCase):
         self.assertIn(f"Edit(/{self.repo}/**)", rules)
         self.assertIn(f"Edit(/{self.trees / 'feat-0002-b'}/**)", rules)
         self.assertNotIn(f"Edit(/{self.trees / 'feat-0001-a'}/**)", rules)
+        # Security review: the sandbox denies the main checkout (carved around its .git, which commits need), every
+        # sibling worktree, their admin folders and other spec branches' refs; its own stay writable.
+        fs = json.loads(denied[denied.index("--settings") + 1])["sandbox"]["filesystem"]["denyWrite"]
+        admin = self.repo / ".git" / "worktrees"
+        self.assertIn(str(self.repo / "AGENTS.md"), fs)
+        self.assertNotIn(str(self.repo), fs)
+        self.assertIn(str(self.trees / "feat-0002-b"), fs)
+        self.assertIn(str(admin / "feat-0002-b"), fs)
+        self.assertNotIn(str(admin / "feat-0001-a"), fs)
+        self.assertIn(str(self.repo / ".git" / "refs" / "heads" / "work"), fs)
+        self.assertNotIn(str(self.repo / ".git" / "refs" / "heads" / "feat" / "0001-a"), fs)
+        self.assertIn(f"Edit(/{admin / 'feat-0002-b'}/**)", rules)
         self.assertEqual(json.loads((self.state / "wf" / "active.json").read_text()), [])
+
+    # covers: security review (spec 0025 with 0027): a worktree child's own pointer file changed after the parent
+    # made the worktree, before the child started, asks guard_changed; its baseline is its own, never skipped
+    def test_tree_baseline(self):
+        b = self.trees / "feat-0002-b"
+        first = step("a", sleep=0)
+        first[0]["write_file"].append([str(b / ".git"), f"gitdir: {self.repo}/.git/worktrees/feat-0002-b\n\n"])
+        self.steps({"feat-0001-a": first, "feat-0002-b": step("b", sleep=0), "feat-0003-c": step("c", sleep=0)})
+        r = self.wf("-y", "--jobs", "1")
+        q = json.loads((self.state / "wf" / "queue.json").read_text())
+        [d] = [d for d in q["decisions"] if d.get("reason") == "guard_changed"]
+        self.assertIn(f"{b}/.git changed after the plan, before this repo started", d["question"], r.stdout)
+        self.assertFalse((self.fakes / "feat-0002-b-argv-1.json").exists(), "B made no call")
 
     # covers: AC-6 (A's call writes into B's Paths while B runs: A asks paths_overlap, wait recommended; B goes on)
     def test_drift(self):
@@ -152,6 +177,40 @@ class TestSameRepo(RepoCase):
         self.assertEqual((d["feature"], d["options"][0], d["other"], d["tree"]),
                          ("1. A", "wait for the other, then go on", "2. B", str(self.trees / "feat-0001-a")), r.stdout)
         self.assertEqual(self.by_feature()["2. B"][1]["outcome"], "feature_done")
+
+    # covers: security review: when the parent cannot build a worktree's guard (an unreadable config.worktree) and a
+    # call repairs it before that child starts, the child's own files the plan never hashed still ask
+    def test_tree_guard_unbuilt(self):
+        b = self.trees / "feat-0002-b"
+        self.git("worktree", "add", "-q", "-b", "feat/0002-b", str(b))
+        bad = self.repo / ".git" / "worktrees" / "feat-0002-b" / "config.worktree"
+        bad.write_text("[broken\n")
+        first = step("a", sleep=0)
+        first[0]["rm"] = [str(bad)]
+        self.steps({"feat-0001-a": first, "feat-0002-b": step("b", sleep=0), "feat-0003-c": step("c", sleep=0)})
+        r = self.wf("-y", "--jobs", "1")
+        q = json.loads((self.state / "wf" / "queue.json").read_text())
+        [d] = [d for d in q["decisions"] if d.get("reason") == "guard_changed"]
+        self.assertIn(f"{b}/.git changed after the plan, before this repo started", d["question"], r.stdout)
+        self.assertFalse((self.fakes / "feat-0002-b-argv-1.json").exists(), "B made no call")
+
+    # covers: security review (AC-7 siblings as written and resolved)
+    def test_siblings_resolved(self):
+        link = self.tmp / "link"
+        link.symlink_to(self.repo)
+        tree = self.trees / "feat-x"
+        self.git("worktree", "add", "-q", "-b", "feat/x", str(tree))
+        git = str(self.repo / ".git")
+        trees, parts = run.tree_siblings(str(tree), str(link), git, f"{git}/worktrees/feat-x")
+        self.assertEqual(trees, [str(link), str(self.repo)])
+        self.assertIn(f"{git}/refs/heads/work", parts)
+        self.assertNotIn(f"{git}/refs/heads/feat/x", parts)
+        c = types.SimpleNamespace(path=str(tree), key=str(link))
+        with mock.patch.dict(os.environ, {"XDG_STATE_HOME": str(self.tmp / "state")}):
+            rules = run.Run.sibling_denies(types.SimpleNamespace(repo={"tree": str(tree)}, c=c))
+        self.assertIn(f"Edit(/{link}/**)", rules)
+        self.assertIn(f"Edit(/{self.repo}/**)", rules)
+        self.assertFalse([x for x in rules if "feat-x" in x], rules)
 
     # covers: AC-3 (a worktree of a trusted repo is trusted; one elsewhere is not)
     def test_trust(self):

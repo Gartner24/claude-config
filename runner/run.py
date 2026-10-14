@@ -1,6 +1,7 @@
 # `wf run` (spec 0004): one feature, unattended, a fresh `claude -p` per box.
 # Imported lazily by wf.py so `next` pays nothing for it. Tests patch the
 # constants here, never on wf: a `wf.py` run as a script is a second module.
+import copy
 import datetime
 import difflib
 import fcntl
@@ -1158,6 +1159,14 @@ class Run:
             if not os.path.exists(r) and under(r, binds) and r not in guarded and p not in guarded:
                 absent.append(r)
         self.repo["guard"]["absent_denied"] = list(dict.fromkeys(absent))
+        if self.repo.get("tree"):
+            # Spec 0027 AC-7, security review: the shared common dir stays writable for this worktree's commits, but
+            # no other worktree's admin folder, the main checkout or another spec branch's ref is.
+            # The main checkout holds the common dir, so its write deny is carved around it.
+            trees, git_parts = tree_siblings(self.repo["tree"], key_of(self.c), common, git_dir)
+            self.guard_settings["sandbox"]["filesystem"]["denyWrite"] += \
+                carve(trees, [common, os.path.realpath(common)]) + git_parts
+            self.repo["guard"]["siblings"] = trees + git_parts
         self.settings = json.dumps(self.guard_settings)
         self.denied = ",".join([DENIED, GUARD_DENIED, DESIGN_DENIED,
                                 *(r for p in CREDENTIAL_PATHS for x in expand(p) for r in path_rules("Read", x)),
@@ -1166,7 +1175,8 @@ class Run:
                                 # config and hooks, so a commit in the submodule still works.
                                 *(r for p in carve(sub_in_tree, allowed) for r in path_rules("Edit", p)),
                                 # Spec 0020 AC-5: no call forges a swaps.jsonl line; the Bash sandbox already cannot.
-                                *path_rules("Edit", state_dir())])
+                                *path_rules("Edit", state_dir()),
+                                *(r for p in self.repo["guard"].get("siblings", []) for r in path_rules("Edit", p))])
         self.claude = binaries["claude"]
         self.bwrap = os.path.realpath(shutil.which("bwrap"))
         return None
@@ -1787,18 +1797,17 @@ class Run:
         path = getattr(self.args, "plan_guard", None)
         if not path:
             return
-        base = read_baseline(path, key_of(self.c))
+        base = read_baseline(path, self.c.path)
         if base is None:
             # Fails closed: a missing, foreign or malformed baseline is a change, never "nothing moved".
             self.end_repo("guard_changed", f"plan baseline unreadable: {path}")
             return
         guard, answers = {"guarded_files": base["guarded_files"], "absent_denied": base["absent_denied"]}, base["answers"]
         lines = ledger()
-        # A file this child guards that the plan never hashed (a hook added after the plan) is a change too.
-        own = [self.c.path, os.path.join(self.common or "", "worktrees")] if self.repo.get("tree") else []
-        # A feature worktree (spec 0027) guards its own pointer files, which the plan of its main checkout never saw.
+        # A file this child guards that the plan never hashed (a hook added after the plan) is a change too; a
+        # feature worktree's own files (spec 0027) the parent hashed when it made the worktree.
         unseen = [p for p, h in self.repo["guard"]["guarded_files"].items() if p not in guard["guarded_files"]
-                  and h != "absent" and not accepted_by(p, lines) and not under(p, own)]
+                  and h != "absent" and not accepted_by(p, lines)]
         changed = list(dict.fromkeys([*(p for p, _ in moved(guard) if not accepted_by(p, lines)), *unseen]))
         if changed:
             more = f" (and {len(changed) - 1} more)" if len(changed) > 1 else ""
@@ -1836,8 +1845,9 @@ class Run:
             return []
         key = key_of(self.c)
         trees = {key, *wf.worktrees(key), *(a.get("tree") for a in read_active() if a.get("repo") == key and a.get("tree"))}
-        return [rule for t in sorted(trees) if t and os.path.realpath(t) != os.path.realpath(self.c.path)
-                for rule in path_rules("Edit", t)]
+        paths = {x for t in trees if t and os.path.realpath(t) != os.path.realpath(self.c.path)
+                 for x in (t, os.path.realpath(t))}
+        return [rule for t in sorted(paths) for rule in path_rules("Edit", t)]
 
     # -- branches and PRs (spec 0026) ----------------------------------------------
 
@@ -2228,7 +2238,9 @@ class Run:
         else:
             mcp, settings, denied, allowed = MCP_ALLOW, self.settings, self.denied, []
         # Spec 0027 AC-7: the siblings as they are right before this call.
-        denied = ",".join([denied, *self.sibling_denies()])
+        extra = self.sibling_denies()
+        if extra:
+            denied = ",".join([denied, *extra])
         # Spec 0014 AC-6: wf names every fresh call's session, so the live transcript path is known at spawn.
         session = resume[0] if resume else str(uuid.uuid4())
         argv = [self.claude, "-p", resume[1] if resume else command,
@@ -3480,6 +3492,28 @@ def read_allowed():
     return data, None
 
 
+def tree_siblings(tree, main, common, git_dir):
+    """Spec 0027 AC-7: what a worktree's calls may not write: the main checkout, every other worktree and its admin
+    folder under the common dir, and every other spec branch's loose ref; as written and resolved."""
+    trees = [main, *(t for t in wf.worktrees(main) if os.path.realpath(t) != os.path.realpath(tree))]
+    out = []
+    admin = os.path.join(common, "worktrees")
+    try:
+        out += [os.path.join(admin, n) for n in sorted(os.listdir(admin))
+                if os.path.realpath(os.path.join(admin, n)) != os.path.realpath(git_dir)]
+    except OSError:
+        pass
+    own = wf.head_branch(tree)
+    heads = os.path.join(common, "refs", "heads")
+    for d, _, names in os.walk(heads):
+        for n in names:
+            p = os.path.join(d, n)
+            if os.path.relpath(p, heads) != own:
+                out.append(p)
+    both = lambda ps: list(dict.fromkeys(ps + [os.path.realpath(p) for p in ps]))
+    return both(trees), both(out)
+
+
 def trees_root():
     """Spec 0027 AC-2: where feature worktrees live; no call writes there (not a cache, not the state folder)."""
     return os.path.join(os.path.expanduser("~"), ".local", "share", "wf-trees")
@@ -4506,9 +4540,27 @@ def tree_jobs(r, h, name, port):
             continue
         row.update(path=tree, key=key, tree=tree, feature=fname, common=common_dir(tree), port=port, only=[fname],
                    held=h, globs=pr.globs(h["c"].path, h["c"].scope_dir, f.lines),
-                   limit=int(h["answers"]["parallel"]))
+                   limit=int(h["answers"]["parallel"]), tree_files=tree_guard(r, h, tree))
         out.append(row)
     return out
+
+
+def tree_guard(r, h, tree):
+    """Spec 0027 AC-7 with spec 0025 AC-1, security review: the guarded files a child in worktree tree will hash,
+    built as its own freeze_guard builds them, right after the worktree is made or reused; {} when it cannot be
+    built, so the child finds those files unseen and asks."""
+    saved = {k: getattr(r, k) for k in ("c", "repo", "common", "guard_settings")}
+    try:
+        r.c = copy.copy(h["c"])
+        r.c.path = tree
+        r.repo = {"tree": tree}
+        problem = r.freeze_guard(h["repo"]["guard"]["binaries"])
+        return {} if problem else dict(r.repo["guard"]["guarded_files"])
+    except (OSError, KeyError, ValueError):
+        return {}
+    finally:
+        for k, v in saved.items():
+            setattr(r, k, v)
 
 
 def active_path():
@@ -4560,18 +4612,20 @@ def tree_cleanup(r, jobs):
     return notes
 
 
-def write_baseline(h):
+def write_baseline(h, path=None, extra=None):
     """Spec 0025 AC-1: held repo h's plan guard record and standing answers in <state>/baselines (0700), one 0600
-    file per parent and repo. Returns its path; a failed write leaves it missing, which the child asks about."""
+    file per parent and child path (spec 0027: a worktree child's own, with its worktree's files in extra).
+    Returns its path; a failed write leaves it missing, which the child asks about."""
     folder = os.path.join(state_dir(), "baselines")
-    path = os.path.join(folder, f"{os.getpid()}-{hashlib.sha1(os.path.realpath(h['c'].path).encode()).hexdigest()}.json")
+    key = hashlib.sha1(os.path.realpath(path or h["c"].path).encode()).hexdigest()
+    path = os.path.join(folder, f"{os.getpid()}-{key}.json")
     g = h["repo"]["guard"]
     try:
         os.makedirs(folder, mode=0o700, exist_ok=True)
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         os.fchmod(fd, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump({"guarded_files": g["guarded_files"], "absent_denied": g["absent_denied"],
+            json.dump({"guarded_files": {**(extra or {}), **g["guarded_files"]}, "absent_denied": g["absent_denied"],
                        "answers": h["answers"]}, f)
     except OSError:
         pass
@@ -4678,7 +4732,7 @@ def parallel(r, on_signal=None, start=None):
                     # Spec 0018 AC-1: the parent sends the one report, so no child does.
                     only = [x for n in j["only"] or () for x in ("--only-feature", n)]
                     # Spec 0025 AC-1: the plan's baseline, written right before this child starts.
-                    baselines.append(write_baseline(j["held"]))
+                    baselines.append(write_baseline(j["held"], j["path"], j.get("tree_files")))
                     if j.get("tree"):
                         set_active(j, True)
                     only += ["--plan-guard", baselines[-1]]
