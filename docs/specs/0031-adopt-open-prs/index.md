@@ -1,0 +1,45 @@
+# 0031 · Adopt your open PRs, watch them until done, merge on your yes
+
+**Date**: 2026-10-13
+**Status**: Proposed
+**Paths:** `runner/pr.py`, `runner/run.py`, `runner/auto.py`, `runner/plain.py`, `runner/tests/test_adopt.py`, `runner/tests/test_pr.py`, `runner/tests/test_run.py`, `rules/branch-pr.md`, `docs/architecture.md`, `docs/specs/0026-branch-pr-flow/index.md`
+**Amends**: [0026](../0026-branch-pr-flow/index.md) AC-9 (one allow listed merge), AC-11 (no `--max-wait` cutoff while a PR is watched), AC-12 (asked comments are not judged twice), AC-15 (the approval question merges on your tap), standard rule 6, and architecture invariants 1 and 5; [0030](../0030-autonomous-mode/index.md) AC-5 and AC-8 (watched PRs count as work in the fingerprint).
+
+## What you're agreeing to
+- In a repo you list in your private PR settings with adopt on, `wf` also looks after the open PRs you opened by hand, the same way it looks after its own.
+- While any of your PRs waits for review or merge, the run keeps checking it every 10 minutes and only wakes a model when someone leaves a new comment; it ends when every one is merged or closed, or when you press Ctrl C.
+- When a PR is approved your phone asks "merge PR #N now?"; only a tap on "merge now" (or that exact reply) merges it, and `wf` itself does the merge, never a model.
+- Repos with a review bot keep working as today: each fix waits for the bot's review of the new code.
+- Nothing is added to the repos themselves; the switch lives only in your private settings file.
+
+## Acceptance criteria
+Today: PR records are made only by `wf`'s own branch flow (`runner/pr.py:250-286`), review polling covers only repos whose standing answers say `push: draft PR` (`runner/pr.py:656`), the end wait gives up at `--max-wait` even with a ready PR (`runner/run.py:2770-2779`), the approval question only records that you merged (`runner/pr.py:605-607`, `runner/run.py:266`), and the `gh` allow list refuses every merge (`runner/pr.py:49-66`).
+
+- **AC-1** (opt in): `~/.claude/private/pr.json`'s entry for the repo (`pr.private_config`, `runner/pr.py:620`, `<owner>/<name>` or `<owner>/*`) may carry `"adopt": true`. Only the boolean `true` counts. Nothing in a repo turns adoption on or off. A repo with `adopt: true` or `push: draft PR` is a watched repo: its PR records are polled (0026 AC-11) and its answered PR questions are acted on in `pick()` (`runner/run.py:1773`), even without `branches: per spec`.
+- **AC-2** (adopt): in a watched repo with `adopt: true`, `wf` reads `gh api user --jq .login`, then `gh pr list --repo <owner/name> --state open --author <login> --json number,title,headRefName,baseRefName,headRefOid,isDraft,isCrossRepository,url --limit 100`, at plan time of a run (never in `wf queue`, never in `wf auto`'s fingerprint) and at every review poll (at most every 10 minutes). Each PR not already recorded (by number or branch) becomes a `prs` record `{repo, feature: "PR #<n>: <title, flat, 60 chars>", spec: null, branch: headRefName, base: baseRefName, base_sha: headRefOid, stacked_on: null, pr: url, number, state: "draft"|"ready" from isDraft, seen: [], rounds: 0, pushed_sha: headRefOid, adopted: true}`. A record of `wf`'s own in state `local` with no number whose branch matches (you pushed a kept local branch and opened its PR by hand) takes that PR's number, URL, state and head instead. Never adopted: a head branch that is `main`, `master` or the default branch of origin, a PR from a fork (`isCrossRepository`), a PR whose number is already in a record of any state. A failed read is one report line, never a stop.
+- **AC-3** (same loop): adopted records follow 0026 AC-11 to AC-16 unchanged, with one addition before a fix round: `wf` fetches the PR head (`git fetch origin +refs/heads/<b>:refs/remotes/origin/<b>`), makes the local branch at the PR head when missing, fast forwards it when it is behind, and sets `pushed_sha` to the head. A local branch that has diverged from or is ahead of the PR head is left alone and the round waits with the report line `PR #<n>: the branch here differs from the PR on GitHub`.
+- **AC-4** (asked once): 0026 AC-12 marks every ASK comment of a round seen and keeps the rest of the asks in the record (`asks`); the first is asked, and each answer asks the next without a new call. "fix it" takes the comment out of `seen`, so the next round includes it with your text as the hint. A model call starts only for comments not seen before.
+- **AC-5** (watch until done): the end wait (`runner/run.py:2758`) keeps going with no `--max-wait` cutoff while a held repo that has not ended has a PR record in state `ready` or `approved`; it polls PRs at most every 10 minutes (`pr.POLL_GAP`) and the phone as today. Open questions with no watched PR keep the `--max-wait` cutoff. The run ends `queue_done` when no watched PR and no waited question is left, or on Ctrl C. When a poll sees a PR merged or closed, its open `approved` question is withdrawn from the queue.
+- **AC-6** (autonomous mode): `auto.fingerprint` adds one pair `[repo, "PR #<n>"]` per record in state `ready` or `approved` of a held repo, so the plan counts watched PRs as work (`h["has_work"]`, `runner/run.py:2137`) and a session that finds `wf` idle after a reboot starts it again.
+- **AC-7** (merge question): on approval (0026 AC-15) the record stores the PR head as `approved_head` and the question reads `merge PR #<n> now?`, options "merge now" (recommended), "later", "I merged it" (CASES row P10).
+- **AC-8** (merge only on your yes): the merge runs only when the stored answer is exactly the option label `merge now` (a tap, its number, or a reply equal to the label, which the phone channel stores as the label). Any other free text never merges: it counts as "later" with the report line `PR #<n>: your reply was not an option, nothing merged`. "I merged it" sets `merged`; "later" leaves the PR watched.
+- **AC-9** (the one merge): the merge is `gh pr merge <n> --repo <owner/name> --squash|--merge|--rebase --match-head-commit <approved_head>`, run by the `wf` process. The method is the first of squash, merge, rebase that `gh repo view <owner/name> --json squashMergeAllowed,mergeCommitAllowed,rebaseMergeAllowed` allows. The allow list (`pr.allowed`) refuses `pr merge` unless the caller is `pr.merge` (a `merging` flag no other path sets), the number is digits, the method is one of the three and the head is a 40 character hex commit; `--admin`, `--auto` and `--delete-branch` are always refused. Before merging, `gh pr view` must show the PR open with head equal to `approved_head`; a moved head sets the record back to `ready` (approval is judged again on the new head), a closed or merged PR records that state. A merge that fails asks the same question again with the reason. Success sets `merged` and adds a `merge` entry to `run.json` `prs`.
+- **AC-10** (bot reviewed repos): 0026 AC-15's bot wait is unchanged for adopted and own PRs.
+- **AC-11** (words): `plain.PLAIN["approved"]` explains merge now, later and I merged it in plain words. `docs/architecture.md` invariants 1 and 5, `rules/branch-pr.md` rule 6 and spec 0026 ("What you're agreeing to", rule 6, AC-9, AC-15, AC-20) say `wf` merges only on your explicit "merge now".
+
+## Build plan
+1. Spec and rationale (this folder).
+2. Adoption, watched repos, branch sync, asked once (AC-1, AC-2, AC-3, AC-4); tests with a fake `gh` in `runner/tests/test_adopt.py`.
+3. Watch until done and autonomous mode (AC-5, AC-6); `run.py` end wait, `auto.py` fingerprint; existing 0026 review tests end by the fake `gh` reporting the PR merged.
+4. Merge on your yes (AC-7, AC-8, AC-9, AC-10); allow list tests; plain words, architecture, rule 6, spec 0026 amendment (AC-11).
+5. Live: `cp rules/branch-pr.md ~/.claude/rules/branch-pr.md`, and one real merge on a scratch repo of yours after P1 to P3 · waits on you · live.
+
+## Probes
+Read only; none posts.
+- **P1** `gh pr merge --help` lists `--squash`, `--merge`, `--rebase`, `--match-head-commit`, `--repo` (run 2026-10-13, all present; it also says a branch with a merge queue turns the call into auto merge or queueing, which still needs your tap first).
+- **P2** `gh pr list --json` lists `isCrossRepository`, `headRefName`, `baseRefName`, `headRefOid`, `isDraft` (run 2026-10-13, all present).
+- **P3** `gh repo view cli/cli --json squashMergeAllowed,mergeCommitAllowed,rebaseMergeAllowed` prints three booleans (needs network; before the live merge).
+- **P4** (posts, unconfirmed until the live check) a merge with a stale `--match-head-commit` is refused by GitHub.
+
+## Follow-up
+- The machine stays awake (inhibitor) for as long as a PR is watched; releasing it during a pure watch is a later change.
