@@ -37,6 +37,7 @@ wf allow <repo>                                 # trust list (spec 0008); wf run
 wf finish [target] [-y]                         # run the ` · live` waits-on-you boxes (cp into ~/.claude, ./install.sh, e2e, probes) after one Enter, keep autoMode, tick them, record verify.md, commit (spec 0019); never from an unattended call
 wf report [--seen|--hook]                       # the last wf run's morning report, also sent to the phone at the end of every run (spec 0018); `--hook` is the settings.json SessionStart form, prints only an unseen report; `--seen` stops showing it; report.txt lives in the wf state folder
 wf ntfy init|codes|test                         # phone pings for wf run decisions (spec 0005); config ~/.config/wf/ntfy.json (0600), wf run refuses without it
+wf auto on|off|status|start|wait|hook|bar          # autonomous mode (spec 0030): `/auto on` (user only, `wf auto on` refuses under WF_RUN) makes that folder's sessions start `wf -y` as the `wf-auto` user unit and relay its questions; `off` lets the running build finish its current features, `off now` stops the unit; `hook` is the SessionStart and UserPromptSubmit hook, `bar` wraps jjstack's status line; state in <state>/auto.json
 ```
 
 ## Specs

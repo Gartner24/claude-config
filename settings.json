@@ -3,6 +3,8 @@
   "includeCoAuthoredBy": false,
   "permissions": {
     "deny": [
+      "Bash(*wf auto on*)",
+      "Bash(wf auto on:*)",
       "Bash(fdisk *)",
       "Bash(halt *)",
       "Bash(mkfs*)",
@@ -302,6 +304,24 @@
             "command": "/home/santiago/.local/bin/wf report --hook"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/santiago/.local/bin/wf auto hook"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/santiago/.local/bin/wf auto hook"
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -451,7 +471,8 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "bash /home/santiago/.claude/skills/jjstack/bin/statusline.sh"
+    "command": "/home/santiago/.local/bin/wf auto bar",
+    "refreshInterval": 5
   },
   "enabledPlugins": {
     "claude-mem@thedotmack": false,

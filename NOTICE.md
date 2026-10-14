@@ -14,6 +14,7 @@ because the LICENSE covers only the parts authored here.
 | `scripts/check-routing.py`, `scripts/asciify.py`, `scripts/private-names.py`, `scripts/spec-paths.py` | Repo tooling |
 | `hooks/block-destructive.sh` | Destructive-command guard |
 | `runner/` | `wf`, the workflow runner (spec 0001) |
+| `skills/auto/` | `/auto on`, `/auto off`: autonomous mode, the session drives `wf` (spec 0030) |
 | `rules/scope-contract.md` | The scope format the runner reads and the skills write (spec 0003) |
 | `rules/spec-gate.md` | Spec gate: the agreeing section, probe before accept, small change fast path, `docs/architecture.md` |
 | `rules/handoff.md` | Handoff override: replaces the skills' bare "/clear" line with `/rollover` or `/save-and-clear` |
