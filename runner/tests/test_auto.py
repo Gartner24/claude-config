@@ -182,6 +182,41 @@ class TestHook(AutoCase):
         self.assertTrue(auto.driving(auto.load(), str(self.folder)))
         self.assertIn("autonomous: off", typed("/auto off")[1])
         self.assertFalse(auto.load()["on"])
+        self.assertEqual(self.systemctl(), [])
+
+    # covers: AC-2 via the typed switch (/auto on turns on in the prompt's folder, not the hook's working folder;
+    # /auto off now also stops the unit)
+    def test_typed_switch_folder_and_off_now(self):
+        prompt = lambda text: self.cli("hook", stdin=json.dumps(
+            {"hook_event_name": "UserPromptSubmit", "cwd": str(self.other), "prompt": text}))
+        with mock.patch.object(auto, "interactive", return_value=True):
+            prompt("/auto on")
+            self.assertEqual(auto.load()["folder"], str(self.other))
+            self.assertIn("autonomous: off, build stopped", prompt("/auto off now")[1])
+        self.assertFalse(auto.load()["on"])
+        self.assertEqual(self.systemctl(), [["--user", "stop", "wf-auto"]])
+
+    # covers: security review 2026-10-14 (a walk deeper than four plain shells never reaches a verdict of True)
+    def test_interactive_gives_up_after_four_shells(self):
+        v = os.path.realpath(os.path.expanduser(auto.CLAUDE_VERSIONS))
+        procs = {1: ("/usr/bin/bash", 2), 2: ("/usr/bin/bash", 3), 3: ("/usr/bin/bash", 4), 4: ("/usr/bin/bash", 5),
+                 5: (f"{v}/2.1.299", 0)}
+        real_open, real_path = open, os.path.realpath
+
+        def fake_open(path, *a, **k):
+            m = re.fullmatch(r"/proc/(\d+)/(cmdline|stat)", str(path))
+            if not m:
+                return real_open(path, *a, **k)
+            if m.group(2) == "cmdline":
+                return io.BytesIO(b"x\0")
+            return io.StringIO(f"{m.group(1)} (x) S {procs[int(m.group(1))][1]} 0 0")
+
+        def fake_path(path):
+            m = re.fullmatch(r"/proc/(\d+)/exe", str(path))
+            return procs[int(m.group(1))][0] if m else real_path(path)
+        with mock.patch("builtins.open", fake_open), mock.patch("os.path.realpath", fake_path):
+            self.assertTrue(auto.interactive(2))
+            self.assertFalse(auto.interactive(1))
 
     # covers: security review 2026-10-14 (a /auto on prompt from `claude -p`, which Claude could start from Bash,
     # switches nothing; the walk finds the nearest claude process above shells; no claude above: refused)
@@ -277,6 +312,16 @@ class TestWait(AutoCase):
         self.cli("off")
         self.assertEqual(self.wait(), "off\n")
 
+    # covers: AC-8 (two new questions are told one per wait, in order, and neither twice)
+    def test_questions_one_at_a_time(self):
+        self.cli("on")
+        self.queue(decision("/r", "1. A", did="ab12"), decision("/r", "2. B", did="cd34"))
+        self.assertEqual(self.wait(), "question ab12\n")
+        self.assertEqual(self.wait(), "question cd34\n")
+        self.assertEqual(self.state()["relayed"], ["ab12", "cd34"])
+        self.cli("off")
+        self.assertEqual(self.wait(), "off\n")
+
     # covers: AC-8 (work only when idle with a plan that is not empty and differs from started; never exits else)
     def test_work(self):
         self.cli("on")
@@ -330,6 +375,14 @@ class TestStart(AutoCase):
         self.cli("on")
         with mock.patch.dict(os.environ, {"WF_RUN": "x"}):
             self.assertEqual(self.cli("start"), (5, "refused: user_only\n"))
+
+    # covers: AC-5 (an unset XDG folder is not passed to the unit)
+    def test_start_without_config_home(self):
+        self.cli("on")
+        with mock.patch.object(auto, "fingerprint", lambda: ""):
+            self.assertEqual(self.cli("start"), (0, "wf started\n"))
+        argv = json.loads((self.fakes / "systemd-run.json").read_text())
+        self.assertEqual([a.split("=")[0] for a in argv if "=" in a], ["PATH", "WF_AUTO", "XDG_STATE_HOME"])
 
 
 class TestBar(AutoCase):
@@ -406,7 +459,7 @@ class TestAutoOff(RunCase):
         self.assertEqual(rec["stop_reason"], "auto_off")
 
     def test_broken_or_not_auto(self):
-        for text, env in (("{broken", "1"), ('{"on": false}', None)):
+        for text, env in (("{broken", "1"), ('{"on": false}', None), ('{"on": true}', "1"), ("[]", "1")):
             with self.subTest(text):
                 self.auto(text)
                 if env:
@@ -415,6 +468,9 @@ class TestAutoOff(RunCase):
                     self.env.pop("WF_AUTO", None)
                 with mock.patch.dict(os.environ, self.env, clear=True):
                     self.assertFalse(run.auto_off())
+        self.auto('{"on": false}')
+        with mock.patch.dict(os.environ, {**self.env, "WF_AUTO": "1"}, clear=True):
+            self.assertTrue(run.auto_off())
 
     # covers: AC-9 (end_wait checks each poll)
     def test_end_wait(self):

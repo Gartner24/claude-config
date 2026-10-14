@@ -604,7 +604,7 @@ Spec [0029](../specs/0029-telegram/index.md) · Source: personal scope row 26.
 - [x] Design it (spec): `/architect autonomous mode`
 - [x] Build it: `/develop autonomous mode`
 - [x] Verify it: `/check verify autonomous mode`
-- [ ] Test it: `/test autonomous mode`
+- [x] Test it: `/test autonomous mode`
 - [x] Install the hooks, skill and status bar: `./install.sh` · waits on you · live
 - [ ] Probes P1 to P4 in a real session (`/clear`, closing the window, idle bar refresh, the skill argument) · waits on you
 - [ ] Sync docs: `/sync autonomous mode`
