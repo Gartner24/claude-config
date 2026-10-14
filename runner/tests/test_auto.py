@@ -199,7 +199,10 @@ class TestHook(AutoCase):
                  # A print mode claude renamed (argv[0] not claude) between the hook and an interactive one: the walk
                  # stops at it, it never passes through to the interactive session above.
                  60: (sh, ["sh", "-c", "wf auto hook"], 61), 61: (claude, ["x", "-p", "/auto on"], 9),
-                 70: (sh, ["sh", "-c", "wf auto hook"], 71), 71: (other, ["claude", "-c"], 9)}
+                 70: (sh, ["sh", "-c", "wf auto hook"], 71), 71: (other, ["claude", "-c"], 9),
+                 # An interactive claude (under a pseudo terminal) that a claude started: refused.
+                 80: (sh, ["sh", "-c", "wf auto hook"], 81), 81: (claude, ["claude", "/auto on"], 82),
+                 82: (sh, ["zsh", "-c", "script -qc claude"], 9)}
         real_open, real_path = open, os.path.realpath
 
         def fake_open(path, *a, **k):
@@ -215,8 +218,8 @@ class TestHook(AutoCase):
             m = re.fullmatch(r"/proc/(\d+)/exe", str(path))
             return procs[int(m.group(1))][0] if m else real_path(path)
         with mock.patch("builtins.open", fake_open), mock.patch("os.path.realpath", fake_path):
-            self.assertEqual([auto.interactive(p) for p in (10, 20, 30, 40, 50, 60, 70)],
-                             [True, False, False, False, False, False, False])
+            self.assertEqual([auto.interactive(p) for p in (10, 20, 30, 40, 50, 60, 70, 80)],
+                             [True, False, False, False, False, False, False, False])
 
     # covers: security review 2026-10-13 (build written text reaches the session only as one quoted, cut line with no
     # control characters, under the data head; it can never add a line of its own)

@@ -159,9 +159,28 @@ def interactive(pid=None):
         if os.path.dirname(exe) != versions:
             return False
         # Short flags combine (`-cp`), so any short flag group holding p counts, and any --print form.
-        return not any(re.fullmatch(r"-[A-Za-z]*p[A-Za-z]*", a) or a == "--print" or a.startswith("--print=")
-                       for a in args[1:])
+        if any(re.fullmatch(r"-[A-Za-z]*p[A-Za-z]*", a) or a == "--print" or a.startswith("--print=")
+               for a in args[1:]):
+            return False
+        # A Claude started by Claude (even interactive, under a pseudo terminal) has a Claude above it; yours,
+        # started from your terminal, has none.
+        return not claude_above(parent, versions)
     return False
+
+
+def claude_above(pid, versions):
+    """True when pid or any ancestor up to init is a Claude binary, or the chain cannot be read (fail closed)."""
+    for _ in range(64):
+        if pid <= 1:
+            return False
+        try:
+            if os.path.dirname(os.path.realpath(f"/proc/{pid}/exe")) == versions:
+                return True
+            with open(f"/proc/{pid}/stat", encoding="utf-8") as f:
+                pid = int(f.read().rsplit(")", 1)[1].split()[1])
+        except (OSError, ValueError, IndexError):
+            return True
+    return True
 
 
 def wf_path():
