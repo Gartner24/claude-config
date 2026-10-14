@@ -8,8 +8,10 @@ import signal
 import subprocess
 import sys
 import time
+import types
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from test_browser import AppCase  # noqa: E402
@@ -436,6 +438,62 @@ class TestPlanBaseline(ParallelCase):
 
     def reply(self, *texts):
         self.report_ntfy.replies = list(texts)
+
+
+class TestBaselineFile(unittest.TestCase):
+    """Spec 0025, security review: a baseline that is not this parent's file for this repo fails closed."""
+
+    def setUp(self):
+        import tempfile
+        self.tmp = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, self.tmp)
+        env = mock.patch.dict(os.environ, {"XDG_STATE_HOME": str(self.tmp)})
+        env.start()
+        self.addCleanup(env.stop)
+        self.repo = str(self.tmp / "repo")
+        self.dir = self.tmp / "wf" / "baselines"
+        self.dir.mkdir(parents=True, mode=0o700)
+        self.good = {"guarded_files": {"/x": "a" * 64}, "absent_denied": [], "answers": {}}
+
+    def write(self, data, name=None, mode=0o600):
+        p = self.dir / (name or f"{os.getppid()}-{hashlib.sha1(self.repo.encode()).hexdigest()}.json")
+        p.write_text(data if isinstance(data, str) else json.dumps(data))
+        p.chmod(mode)
+        return str(p)
+
+    def test_cases(self):
+        self.assertEqual(run.read_baseline(self.write(self.good), self.repo), self.good)
+        self.assertIsNone(run.read_baseline(self.write(self.good, mode=0o644), self.repo))
+        for bad in ({**self.good, "guarded_files": {}}, {**self.good, "answers": None}, [1], "not json",
+                    {**self.good, "guarded_files": {"/x": 1}}):
+            with self.subTest(bad):
+                self.assertIsNone(run.read_baseline(self.write(bad), self.repo))
+        # Another parent's file, or the right name outside the state folder.
+        self.write(self.good)
+        self.assertIsNone(run.read_baseline(self.write(self.good, name=f"1-{hashlib.sha1(self.repo.encode()).hexdigest()}.json"),
+                                            self.repo))
+        other = self.tmp / os.path.basename(self.write(self.good))
+        other.write_text(json.dumps(self.good))
+        self.assertIsNone(run.read_baseline(str(other), self.repo))
+        # A link in its place.
+        p = self.write(self.good)
+        os.remove(p)
+        os.symlink(other, p)
+        self.assertIsNone(run.read_baseline(p, self.repo))
+
+    def test_unseen_file_is_a_change(self):
+        r = run.Run.__new__(run.Run)
+        path = self.write({**self.good, "guarded_files": {str(self.tmp / "h"): "absent"}})
+        new = self.tmp / "new-hook"
+        new.write_text("x")
+        r.args = types.SimpleNamespace(plan_guard=path)
+        r.c = types.SimpleNamespace(path=self.repo)
+        r.repo = {"guard": {"guarded_files": {str(self.tmp / "h"): "absent", str(new): run.file_hash(str(new))}}}
+        asked = []
+        r.end_repo = lambda reason, detail: asked.append((reason, detail))
+        with mock.patch.object(run, "read_answers", return_value=({}, None)):
+            r.plan_check()
+        self.assertEqual(asked, [("guard_changed", f"{new} changed after the plan, before this repo started")])
 
 
 if __name__ == "__main__":
