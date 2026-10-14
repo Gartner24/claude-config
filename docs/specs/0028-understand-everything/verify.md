@@ -40,3 +40,7 @@ Not run yet: `wf` runs it as a live step after build step 5.
 
 ## P3 hook refuses a panel (interactive)
 Not run yet: a waits on you box after the install.
+
+## Live runs (wf finish)
+
+- 2026-10-14, Claude Code 2.1.300: `python3 docs/specs/0028-understand-everything/probes/learn-line.py` PASS

@@ -582,7 +582,7 @@ Everything Claude tells you uses words you can follow; every question panel ends
 - [x] Verify it: `/check verify understand everything`
 - [x] Test it: `/test understand everything`
 - [x] Copy the rule live: `cp ~/claude-config/rules/plain-questions.md ~/.claude/rules/plain-questions.md` · waits on you · live
-- [ ] Real check of the LEARN line: `python3 docs/specs/0028-understand-everything/probes/learn-line.py` · waits on you · live
+- [x] Real check of the LEARN line: `python3 docs/specs/0028-understand-everything/probes/learn-line.py` · waits on you · live
 - [ ] A panel is refused without "Learn this first" in a real session (P3) · waits on you
 - [ ] Sync docs: `/sync understand everything`
 Spec [0028](../specs/0028-understand-everything/index.md) · Source: your messages 2026-10-12 and 2026-10-13.
@@ -702,7 +702,7 @@ A hook notes when a session could have used a skill it did not, and a weekly rep
 - [ ] Build it: `/develop missed skill detector`
 - [ ] Verify it: `/check verify missed skill detector`
 - [ ] Test it: `/test missed skill detector`
-- [ ] Install it live: `./install.sh` · waits on you · live
+- [x] Install it live: `./install.sh` · waits on you · live
 - [ ] After 3 days, run the report and write its verdict into verify.md · waits on you · later boxes go on
 - [ ] Sync docs: `/sync missed skill detector`
 Spec [0036](../specs/0036-missed-skill-detector/index.md) · Source: personal scope row 20.
@@ -714,7 +714,7 @@ A context monitor that actually warns at the thresholds, wired to the status lin
 - [ ] Build it: `/develop context monitor`
 - [ ] Verify it: `/check verify context monitor`
 - [ ] Test it: `/test context monitor`
-- [ ] Install it live: `./install.sh` · waits on you · live
+- [x] Install it live: `./install.sh` · waits on you · live
 - [ ] Sync docs: `/sync context monitor`
 Spec [0037](../specs/0037-context-monitor/index.md) · Source: personal scope row 6.
 
