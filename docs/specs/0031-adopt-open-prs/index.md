@@ -1,8 +1,8 @@
 # 0031 · Adopt your open PRs, watch them until done, merge on your yes
 
 **Date**: 2026-10-13
-**Status**: Proposed
-**Paths:** `runner/pr.py`, `runner/run.py`, `runner/auto.py`, `runner/plain.py`, `runner/tests/test_adopt.py`, `runner/tests/test_pr.py`, `runner/tests/test_run.py`, `rules/branch-pr.md`, `docs/architecture.md`, `docs/specs/0026-branch-pr-flow/index.md`
+**Status**: Accepted (built f1ff8e1)
+**Paths:** `runner/pr.py`, `runner/run.py`, `runner/auto.py`, `runner/plain.py`, `runner/tests/test_adopt.py`, `runner/tests/test_pr.py`, `runner/tests/test_run.py`, `rules/branch-pr.md`
 **Amends**: [0026](../0026-branch-pr-flow/index.md) AC-9 (one allow listed merge), AC-11 (no `--max-wait` cutoff while a PR is watched), AC-12 (asked comments are not judged twice), AC-15 (the approval question merges on your tap), standard rule 6, and architecture invariants 1 and 5; [0030](../0030-autonomous-mode/index.md) AC-5 and AC-8 (watched PRs count as work in the fingerprint).
 
 ## What you're agreeing to

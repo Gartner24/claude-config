@@ -5,7 +5,7 @@
 3. **Max stack depth 3.** A chain counts the branch itself plus every unmerged spec branch below it. A fourth waits until the bottom one merges, or is built off the planning branch.
 4. **Rebase when the base changes.** When a base branch gets new commits, or merges, each branch above it is rebased onto the new base (`git rebase --onto <new base> <old base commit> <branch>`), bottom first, and its PR is retargeted after a merge. A pushed branch is force pushed only with `--force-with-lease` naming the commit last pushed, and only after a yes.
 5. **One commit per feature.** Checkpoint commits on a spec branch are squashed into one Conventional Commit before its first push. After the first push nothing is squashed or rewritten except by rule 4: review fixes are separate commits, squashed at merge.
-6. **One draft PR per spec branch**, base = the branch it was cut from. Only a person marks it ready, and only a person merges.
+6. **One draft PR per spec branch**, base = the branch it was cut from. Only a person marks it ready. Only a person merges, or `wf` on that person's explicit "merge now" answer to its approval question (spec 0031).
 
 ## For `/architect`
 
