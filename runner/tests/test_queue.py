@@ -403,7 +403,7 @@ class TestDecisionMoveOn(DecisionCase):
                           "answer": "Postgres (recommended)", "source": "phone", "run": str(folder)})
         self.assertEqual(len(during[0]["pings"]), 1)
         self.assertEqual(len(during[0]["acks"]), 1)
-        self.assertEqual(self.ntfy.posts[1]["message"], f"{i} accepted")
+        self.assertEqual(self.ntfy.posts[1]["message"], f"Got your answer to question {i}: Postgres (recommended). Resuming.")
         self.assertEqual(self.queue()["decisions"], [])
 
     # covers: AC-11 as amended by spec 0021 U9 (a first ping failing three times keeps the run going; the record

@@ -623,7 +623,7 @@ def answer(r, d):
     if d["case"] == "approved":
         # Spec 0031 AC-8: never the recommended fallback; only the exact label merges.
         print(f"answered: {d['id']} {d['feature']}: {run.flat(d['answer'])[:60]}", flush=True)
-        return rec and approved_answer(r, rec, d["answer"])
+        return rec and approved_answer(r, rec, d)
     text = run.flat(d["answer"])
     opt = next((o for o in d["options"] if o.casefold() == text.casefold()), d["options"][0] if d["options"] else None)
     print(f"answered: {d['id']} {d['feature']}: {opt}", flush=True)
@@ -658,20 +658,45 @@ def answer(r, d):
 
 # -- merge on your yes (spec 0031 AC-7 to AC-9) ---------------------------------------
 
-def approved_answer(r, rec, answer):
-    """AC-8: merge now (the exact label) merges, I merged it records it, anything else is later."""
-    if answer == MERGE_NOW:
+def norm(text):
+    """Security review (parser differential): the one normalization every answer check uses."""
+    return str(text if text is not None else "").strip().casefold()
+
+
+def chose(d, label):
+    """True when the stored answer is exactly the option label (after norm) and the label is one of the question's
+    options. The same function decides for the check and the action."""
+    return label in (d.get("options") or []) and norm(d.get("answer")) == norm(label)
+
+
+def strong(r, d):
+    """Security review (authorization): an answer that merges, posts or clears a gate. Telegram reads only your own
+    chat (spec 0029); ntfy's topic can be posted to by anyone who knows it, so there only a reply carrying one of
+    your one time codes counts (ntfy.take marks it `coded`)."""
+    return "chat_id" in (getattr(r, "ntfy", None) or {}) or d.get("coded") is True
+
+
+def approved_answer(r, rec, d):
+    """AC-8: merge now (that exact option, from you) merges, I merged it records it, anything else is later."""
+    if chose(d, MERGE_NOW):
+        if not strong(r, d):
+            return ask_merge(r, rec, f"on ntfy merging needs one of your one time codes: reply {d.get('id')} "
+                                     f"<code> merge now")
         return merge(r, rec)
-    if answer == "I merged it":
+    if chose(d, "I merged it"):
         rec["state"] = "merged"
         return save(r, rec)
-    if answer != "later":
+    if not chose(d, "later"):
         r.note(f"PR #{rec['number']}: your reply was not an option, nothing merged")
 
 
 def ask_merge(r, rec, why=""):
-    # The question names the head it is about; merge() merges only that head.
+    # The question names the head it is about; merge() merges only that head. Security review (authorization):
+    # merge now is offered only in a repo whose pr.json entry says merge: true.
     head = str(rec.get("approved_head") or "")[:7]
+    if not flag(r, "merge"):
+        return r.pr_ask(rec, "approved", f"PR #{rec['number']} is approved" + (f" at head {head}" if head else "") +
+                        "; merge it, then tell me", ("I merged it", "later"))
     r.pr_ask(rec, "approved", f"merge PR #{rec['number']} now?" + (f" (head {head})" if head else "") +
              (f" Note: {why}" if why else ""))
 
@@ -680,6 +705,8 @@ def merge(r, rec):
     """AC-9: the one merge, by the wf process: the PR still open at the approved head, the repo's first allowed
     method, --match-head-commit. A failure asks the merge question again."""
     name, binary = origin_repo(r), r.gh
+    if not flag(r, "merge"):
+        return r.note(f"PR #{rec['number']}: merging is off for this repo in pr.json, nothing merged")
     view, why = gh_json(binary, "pr", "view", str(rec["number"]), "--repo", name or "", "--json",
                         "state,isDraft,headRefOid,reviewDecision")
     if not isinstance(view, dict):
@@ -835,11 +862,12 @@ def risky_changes(r, rec, head):
         base = rec.get("base") or default_branch(r)
         wf.git(repo, "fetch", "--quiet", "origin", f"+refs/heads/{base}:refs/remotes/origin/{base}")
         frm = out(wf.git(repo, "merge-base", f"refs/remotes/origin/{base}", head))
-    names = out(wf.git(repo, "diff", "--no-ext-diff", "--no-textconv", "--no-renames", "--name-only", frm, head)) \
+    # Security review (parser differential): -z, so a quoted or escaped name is matched as the raw path.
+    res = wf.git(repo, "diff", "-z", "--no-ext-diff", "--no-textconv", "--no-renames", "--name-only", frm, head) \
         if frm else None
-    if names is None:
+    if res is None or res.returncode:
         return None
-    return frm, [f for f in names.split("\n") if f and RISKY.search(f)]
+    return frm, [f for f in res.stdout.split("\0") if f and RISKY.search(f)]
 
 
 def cleared(r, rec, head):
@@ -866,7 +894,7 @@ def cleared(r, rec, head):
 
 def foreign_answer(r, rec, d):
     """AC-12: only the exact label clears, and only the head the question named; skip this PR leaves it to you."""
-    if d["answer"] == GO_ON and isinstance(d.get("head"), str):
+    if chose(d, GO_ON) and strong(r, d) and isinstance(d.get("head"), str):
         rec["cleared"] = d["head"]
     else:
         rec["left"] = True

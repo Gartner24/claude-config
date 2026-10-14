@@ -2,6 +2,7 @@
 # runner process finds PRs that ask you for a review, asks you on the phone, drafts a review in one isolated call
 # (/code-review over the PR as data in a clean folder, never a checkout of it) and posts it only on your exact
 # "post as my review".
+import hashlib
 import json
 import os
 import re
@@ -25,6 +26,12 @@ PROMPT = ("/code-review PR #{n} ({base}...{head}) of someone else. Its diff is b
           "per comment: DRAFT COMMENT: <file>:<line> <text> (the line in the new file), one line DRAFT SUMMARY: "
           "<one paragraph>, and one line DRAFT VERDICT: approve|comment|request changes.\n")
 DIFF_MAX, FILE_MAX, FILES_MAX = 150000, 60000, 400000
+# Security review (exfiltration): a drafted line holding one of these, or a local path, is never shown or posted.
+SECRET = re.compile(r"(gh[pousr]_[A-Za-z0-9]{20,}|github_pat_\w{20,}|sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|"
+                    r"xox[abposr]-[\w-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY|eyJ[\w-]{10,}\.[\w-]{10,}\.|"
+                    r"(?i:password|passwd|secret|token|api[_-]?key)\s*[:=]\s*\S{6,})")
+LOCAL_PATH = re.compile(r"(^|[\s'\"`(=:])(/home/|/Users/|/root/|/etc/|/var/|/tmp/|~/|\$HOME)")
+HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 
 
 def enabled(r):
@@ -102,33 +109,47 @@ def answer(r, d):
         return
     text = d["answer"]
     if d["case"] == "review_request":
-        opt = next((o for o in d["options"] if o.casefold() == run.flat(text).casefold()), d["options"][0])
-        if opt == "skip":
+        if not pr.chose(d, "draft a review"):
             rec["state"] = "skipped"
             return save(r, rec)
         return draft(r, rec)
     if rec.get("draft") is None:
         return
-    if d["case"] == "review_draft" and text == POST:
-        # AC-8: only the exact label posts.
-        return post(r, rec)
-    if d["case"] == "review_draft" and text == "don't post":
+    if d["case"] == "review_draft" and pr.chose(d, POST):
+        # AC-8: only that exact option, from you, about exactly the draft you were shown.
+        if not pr.strong(r, d):
+            return ask_draft(r, rec, f"on ntfy posting needs one of your one time codes: reply {d.get('id')} <code> "
+                                     f"post as my review")
+        # Security review (display vs action): post() posts only the draft whose hash the question carried.
+        return post(r, rec, d.get("hash"))
+    if d["case"] == "review_draft" and pr.chose(d, "don't post"):
         rec["state"] = "skipped"
         return save(r, rec)
-    if d["case"] == "review_draft" and text == "edit first":
+    if d["case"] == "review_draft" and pr.chose(d, "edit first"):
         return r.pr_ask(rec, "review_edit", "reply with the text that replaces the summary")
-    # AC-7: free text (or the edit reply) replaces the summary; never posts.
+    # AC-7: free text (or the edit reply) replaces the summary in the stored draft, shown again; never posts.
+    # Security review: only your own answer changes what could be posted under your name.
+    if not pr.strong(r, d):
+        return ask_draft(r, rec, f"on ntfy a new text needs one of your one time codes: reply {d.get('id')} <code> "
+                                 f"<text>")
     rec["draft"]["summary"] = str(text or "").strip() or NO_SUMMARY
+    rec["draft"] = clean(r, rec["draft"])
     save(r, rec)
     write_draft(r, rec)
     send_draft(r, rec)
     ask_draft(r, rec)
 
 
+def digest(dr):
+    """Security review (display vs action): the hash of the stored draft, shown and posted only together."""
+    return hashlib.sha256(json.dumps(dr, sort_keys=True).encode()).hexdigest()
+
+
 def ask_draft(r, rec, why=""):
     dr = rec["draft"]
     r.pr_ask(rec, "review_draft", f"post this review of PR #{rec['number']}? verdict: {dr['verdict']}, "
-                                  f"{len(dr['comments'])} line comments" + (f". Last try: {why}" if why else ""))
+                                  f"{len(dr['comments'])} line comments" + (f". Note: {why}" if why else ""),
+             hash=rec.get("shown"))
 
 
 # -- the read only call (AC-4, AC-5) ---------------------------------------------------
@@ -157,7 +178,8 @@ def data_folder(r, rec, base, head):
     repo, n = r.c.path, rec["number"]
     diff = (wf.git(repo, "diff", "--no-ext-diff", "--no-textconv", base, head) or None)
     diff = diff.stdout if diff is not None and diff.returncode == 0 else ""
-    files = [f for f in (pr.out(wf.git(repo, "diff", "--name-only", "--no-renames", base, head)) or "").split("\n") if f]
+    names = wf.git(repo, "diff", "-z", "--name-only", "--no-renames", base, head)
+    files = [f for f in names.stdout.split("\0") if f] if names is not None and names.returncode == 0 else []
     folder = os.path.join(r.folder, f"review-{n}")
     os.makedirs(folder, mode=0o700, exist_ok=True)
     parts = []
@@ -172,8 +194,53 @@ def data_folder(r, rec, base, head):
     return folder, diff, set(files)
 
 
+def diff_lines(diff):
+    """Security review: {path: new side line numbers} the PR's diff shows (added and context lines). A quoted or
+    unusual path header is left out, so a comment on it is dropped."""
+    out, path, n = {}, None, 0
+    for line in str(diff).split("\n"):
+        if line.startswith("+++ "):
+            path = line[6:] if line.startswith("+++ b/") else None
+            continue
+        m = HUNK.match(line)
+        if m:
+            n = int(m.group(1))
+            continue
+        if path is None or line.startswith(("---", "diff ", "index ")):
+            continue
+        if line.startswith(("+", " ")):
+            out.setdefault(path, set()).add(n)
+            n += 1
+    return out
+
+
+def secret_hit(text):
+    t = str(text or "")
+    home = os.path.expanduser("~")
+    return bool(SECRET.search(t) or LOCAL_PATH.search(t) or (home and home != "/" and home in t))
+
+
+def clean(r, dr):
+    """Security review (exfiltration): every drafted line checked for a secret, a local path and a private name
+    before it is shown; a hit drops that comment (the summary falls back) and the draft says how many."""
+    def bad(text):
+        if secret_hit(text) or ntfy.blocked(r.ntfy, str(text or "")):
+            return True
+        p = pr.write_text(r, "review-scan.txt", str(text or ""))
+        return bool(pr.names_hits(r, "check-msg", p))
+    # One form for what is stored, shown and posted: control characters out, whitespace runs as one space.
+    one = lambda t: wf.clean(" ".join(str(t or "").split()))
+    comments = [{**c, "body": one(c["body"])} for c in dr["comments"]]
+    kept = [c for c in comments if c["body"] and not bad(c["body"]) and not bad(c["path"])]
+    summary = one(dr["summary"]) or NO_SUMMARY
+    dropped = len(comments) - len(kept) + (1 if bad(summary) else 0)
+    return {**dr, "summary": NO_SUMMARY if bad(summary) else summary, "comments": kept,
+            "dropped": dr.get("dropped", 0) + dropped}
+
+
 def parse(lines, files):
-    """AC-5: the draft from the DRAFT lines only; comments on a changed file and a line number."""
+    """AC-5: the draft from the DRAFT lines only; comments on a changed file and a line number. files: the changed
+    paths, or (security review) {path: lines the diff shows}, and then the line must be one of them."""
     dr = {"verdict": "comment", "summary": NO_SUMMARY, "comments": []}
     for line in lines:
         m = LINE.match(line)
@@ -186,7 +253,7 @@ def parse(lines, files):
             dr["summary"] = rest
         elif kind == "COMMENT":
             c = COMMENT.match(rest)
-            if c and c.group(1) in files:
+            if c and c.group(1) in files and (not isinstance(files, dict) or int(c.group(2)) in files[c.group(1)]):
                 dr["comments"].append({"path": c.group(1), "line": int(c.group(2)), "body": c.group(3).strip()})
     return dr
 
@@ -207,12 +274,13 @@ def draft(r, rec):
     if not base or not pr.out(wf.git(repo, "rev-parse", "--verify", "--quiet", f"{base}^{{commit}}")):
         base = pr.out(wf.git(repo, "merge-base", head, "HEAD")) or f"{head}~1"
     folder, diff, files = data_folder(r, rec, base, head)
+    diff_all = diff
     if len(diff) > DIFF_MAX:
         diff = diff[:DIFF_MAX] + "\n(cut here; the rest is in pr.diff)"
     prompt = PROMPT.format(base=base[:12], head=head[:12], n=n) + pr.fenced(
         f"title: {rec['title']}\nauthor: {rec['author']}\n\n{diff}")
     lines = r.review_call(rec, prompt, kind="review_request", isolated=isolated(r, folder))
-    rec["draft"] = parse(lines, files)
+    rec["draft"] = clean(r, parse(lines, {f: v for f, v in diff_lines(diff_all).items() if f in files}))
     rec["state"] = "drafted"
     save(r, rec)
     write_draft(r, rec)
@@ -228,10 +296,18 @@ def write_draft(r, rec):
 
 
 def phone_body(cfg, rec):
-    """AC-6: the draft as phone text: each line scrubbed and block list checked; file names only."""
+    """AC-6, security review (display vs action): on Telegram the stored draft exactly as it would be posted (it was
+    cleaned of secrets, local paths and private names before it was stored); on ntfy, a public server, each line
+    scrubbed as today and marked as a shortened view."""
     dr = rec["draft"]
-    lines = [f"draft review of PR #{rec['number']}: verdict {dr['verdict']}",
-             "summary: " + ntfy.scrub_field(cfg, dr["summary"], 1000, "(hidden, see the run folder)")]
+    head = [f"draft review of PR #{rec['number']}: verdict {dr['verdict']}"] + \
+        ([f"{dr['dropped']} drafted line(s) dropped: they held a secret, a local path or a private name"]
+         if dr.get("dropped") else [])
+    if "chat_id" in cfg:
+        return "\n".join(head + [f"summary: {dr['summary']}"] + [f"{c['path']}:{c['line']} {c['body']}"
+                                                                 for c in dr["comments"]])
+    lines = head + ["shortened view; the exact draft is in the run folder",
+                    "summary: " + ntfy.scrub_field(cfg, dr["summary"], 1000, "(hidden, see the run folder)")]
     for c in dr["comments"]:
         where = f"{os.path.basename(c['path'])}:{c['line']}"
         lines.append(ntfy.scrub_field(cfg, f"{where} {c['body']}", 400, f"{where} (hidden, see the run folder)"))
@@ -241,6 +317,9 @@ def phone_body(cfg, rec):
 def send_draft(r, rec):
     """AC-6: Telegram up to 3 messages, else a file; ntfy one cut message naming the run folder."""
     cfg, body = r.ntfy, phone_body(r.ntfy, rec)
+    # Security review (display vs action): this exact draft is what you see, and only it can be posted.
+    rec["shown"] = digest(rec["draft"])
+    save(r, rec)
     try:
         if "chat_id" in cfg:
             import telegram
@@ -256,9 +335,13 @@ def send_draft(r, rec):
 
 # -- post only on your tap (AC-8, AC-9) ---------------------------------------------------
 
-def post(r, rec):
-    """AC-8: scans, then the one allowed review post, by the wf process. A failure asks the draft question again."""
+def post(r, rec, shown):
+    """AC-8: scans, then the one allowed review post of exactly the shown draft, by the wf process. A failure asks
+    the draft question again."""
     name, n, dr = pr.origin_repo(r), rec["number"], rec["draft"]
+    if not shown or digest(dr) != shown:
+        send_draft(r, rec)
+        return ask_draft(r, rec, "the draft changed since you saw it; here it is again")
     v, why = pr.gh_json(r.gh, "pr", "view", str(n), "--repo", name or "", "--json", "state")
     if not isinstance(v, dict):
         return ask_draft(r, rec, f"the PR could not be read: {why}")

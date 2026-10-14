@@ -256,6 +256,9 @@ class Topic:
         learn = scrub_field(self.cfg, " ".join(str(d.get("learn") or "").split()), 300, "")
         if learn:
             lines.append(f"learn: {learn}")
+        # Spec 0033 AC-8: a short from: line and the why line, scrubbed as today, no links (a public server).
+        import context
+        lines += context.ntfy_lines(self.cfg, d)
         for n, label in enumerate(d["options"], 1):
             label = scrub(label, 100)
             # A label that was all paths or code used to send a blank button.
@@ -295,6 +298,8 @@ class Topic:
             c = CODE_REPLY.match(rest)
             if c and sha(c.group(1)) in valid:
                 answer = c.group(2)
+                # Spec 0031, 0032 security review: only a coded reply can merge, post or clear a gate on ntfy.
+                d["coded"] = True
         if answer is None:
             d["ignored"] += 1
             return None

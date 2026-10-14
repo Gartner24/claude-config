@@ -90,7 +90,7 @@ class Unit(unittest.TestCase):
                         lines[0])
         self.assertTrue(lines[0].endswith(": 0 built, 0 stuck, 1 questions, - USD, - tokens"), lines[0])
         self.assertEqual(lines[1:7], ["stopped: 1. B: the code was switched to another branch (b)",
-                                      "question k3x9: 1. A (a)", "no record: c: exit 1 (c)", "did not finish: d (d)",
+                                      "Question k3x9 (its name, so your reply finds it): 1. A (a)", "no record: c: exit 1 (c)", "did not finish: d (d)",
                                       "not started: e (e)", "next: wf"])
 
     # covers: AC-1, AC-2 (the parent's sources come from its summary rows: work rows only, folder - with a code is
@@ -182,8 +182,8 @@ class Unit(unittest.TestCase):
         long = {"kind": "question", "id": "ab12", "feature": "F", "question": "word " * 100, "repo": p, "name": "demo"}
         wide, narrow = report.item_line(long, False, True, tcfg, True), report.item_line(long, False, True, CFG)
         self.assertGreater(len(wide), 280)
-        self.assertLessEqual(len(wide), len("question ab12: F: ") + 300)
-        self.assertLessEqual(len(narrow), len("question ab12: F: ") + 80)
+        self.assertLessEqual(len(wide), len("Question ab12 (its name, so your reply finds it): F: ") + 300)
+        self.assertLessEqual(len(narrow), len("Question ab12 (its name, so your reply finds it): F: ") + 80)
         r = dict(long, kind="parked", reason="word " * 30, detail=None)
         self.assertGreater(len(report.item_line(r, False, True, tcfg, True)), len("parked: F: ") + 60)
 
@@ -325,9 +325,13 @@ class TestEndOfRun(QueueCase):
         self.assertEqual(record["report"], "sent")
         text = (self.state / "wf" / "report.txt").read_text().splitlines()
         # Spec 0021 AC-6: the park's open question with its recommended answer.
-        self.assertRegex(text[3], r"^question [a-z0-9]{4}: 1\. A: the step needs something only you can do in 1\. A\. test park "
-                                  r"\(recommended: done, go on\)$")
-        self.assertEqual(text[1:3] + text[4:7], ["built: 2. B",
+        self.assertRegex(text[3], r"^Question [a-z0-9]{4} \(its name, so your reply finds it\): 1\. A: the step needs "
+                                  r"something only you can do in 1\. A\. test park \(recommended: done, go on\) "
+                                  r"\[from: `/develop a`\]$")
+        # Spec 0033 AC-9: what was built and its next step with the reason.
+        self.assertRegex(text[1], r"^built: 2\. B: \d+ commits( [0-9a-f]{7}\.\.[0-9a-f]{7})?, \d+ files, branch \S+; next: "
+                                  r"review and merge it, it was built on its branch with no PR$")
+        self.assertEqual(text[2:3] + text[4:7], [
                                                  "stuck: 1. A: the step needs something only you can do: test park",
                                                  "setup steps: 3. C: 2 step(s)", "for you: 3. C: Check the phone", "next: wf, then review and merge: two"])
         self.assertEqual(text[-1], f"run folder: {folder}")
@@ -381,11 +385,14 @@ class TestParent(ParallelCase):
         with mock.patch.dict(os.environ, {"HOME": str(self.tmp)}):
             la, lb = (ntfy.repo_label(json.loads((self.tmp / "config" / "wf" / "ntfy.json").read_text()), str(x))
                       for x in (a, b))
-        self.assertEqual(notes[0]["message"].splitlines()[1:], [f"built: 1. A ({la})", f"built: 1. A ({lb})",
+        # Spec 0033 AC-9: each built line says its next step and why.
+        nx = "; next: review and merge it, it was built on its branch with no PR"
+        self.assertEqual(notes[0]["message"].splitlines()[1:], [f"built: 1. A{nx} ({la})", f"built: 1. A{nx} ({lb})",
                                                                 f"next: review and merge: {la}, {lb}"])
         self.assertTrue(notes[0]["message"].startswith("wf done "))
         text = (self.state / "wf" / "report.txt").read_text()
-        self.assertIn("built: 1. A (ra)\nbuilt: 1. A (rb)\n", text)
+        self.assertRegex(text, r"built: 1\. A[^\n]*; next: review and merge it, it was built on its "
+                               r"branch with no PR \(ra\)\nbuilt: 1\. A[^\n]* \(rb\)\n")
 
 
 if __name__ == "__main__":

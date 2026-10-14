@@ -92,6 +92,7 @@ class TestAdoptUnit(AdoptCase):
         r = FakeRun(self.repo, "work")
         r.gh = str(self.bin / "gh")
         r.answers = {}
+        r.ntfy = {"topic": "t", "block": []}
         return r
 
     def penv(self):
@@ -147,37 +148,57 @@ class TestAdoptUnit(AdoptCase):
         self.assertEqual(self.git("rev-parse", "fix-x"), self.head)
 
     # covers: AC-8 (free text never merges; I merged it records it), AC-9 (a moved head goes back to ready, nothing
-    # merged; a failed merge asks again)
+    # merged; a failed merge asks again); security review (authorization: merge now only with merge: true in pr.json
+    # and, on ntfy, a coded answer; one normalization for the check and the action)
     def test_answers(self):
         r = self.fake_run()
+        r.ntfy = {"topic": "t", "block": []}
         rec = {"repo": run.key_of(r.c), "feature": "PR #12: Fix x", "branch": "fix-x", "number": 12, "state": "approved",
                "approved_head": self.head}
         ok = {"state": "OPEN", "isDraft": False, "headRefOid": self.head, "reviewDecision": "APPROVED"}
         self.gh({"view": ok, "merge_rc": 1})
         merges = lambda: [c for c in self.gh_calls() if c[:2] == ["pr", "merge"]]
+        opts = ["merge now", "later", "I merged it"]
+        ans = lambda text, coded=True: {"id": "ab12", "options": opts, "answer": text, "coded": coded}
         with self.penv():
-            pr.approved_answer(r, rec, "yes merge it")
+            self.private({"acme/widgets": {"adopt": True, "merge": True}})
+            pr.approved_answer(r, rec, ans("yes merge it"))
             self.assertEqual(r.notes, ["PR #12: your reply was not an option, nothing merged"])
-            pr.approved_answer(r, rec, "later")
+            pr.approved_answer(r, rec, ans("later"))
+            # Not yours on ntfy: no code, no merge, asked again with the code form.
+            pr.approved_answer(r, rec, ans("merge now", coded=False))
             self.assertEqual(merges(), [])
-            pr.approved_answer(r, rec, "merge now")
-            self.assertEqual([c for c, _ in r.asked], ["approved"])
-            self.assertIn("Note: Pull request is not mergeable", r.asked[0][1])
+            self.assertIn("one time codes", r.asked[-1][1])
+            pr.approved_answer(r, rec, ans("  Merge Now "))
+            self.assertEqual(len(merges()), 1)
+            self.assertIn("Note: Pull request is not mergeable", r.asked[-1][1])
             self.assertEqual(rec["state"], "approved")
             # Security review (check then act): new commits pushed after you were asked are never merged by that
             # tap; the question comes back naming the new head.
             moved = "c" * 40
             self.gh({"view": {**ok, "headRefOid": moved}})
-            pr.approved_answer(r, rec, "merge now")
+            pr.approved_answer(r, rec, ans("merge now"))
             self.assertEqual(len(merges()), 1)
             self.assertEqual((rec["state"], rec["approved_head"]), ("approved", moved))
             self.assertIn(f"(head {moved[:7]})", r.asked[-1][1])
             # Approval gone by now: nothing merged, judged again.
             self.gh({"view": {**ok, "headRefOid": moved, "reviewDecision": "CHANGES_REQUESTED"}})
-            pr.approved_answer(r, rec, "merge now")
+            pr.approved_answer(r, rec, ans("merge now"))
             self.assertEqual((len(merges()), rec["state"]), (1, "ready"))
-            rec["state"] = "approved"
-            pr.approved_answer(r, rec, "I merged it")
+            # An answer naming an option the question did not offer counts as none.
+            rec.update(state="approved", approved_head=moved)
+            self.gh({"view": {**ok, "headRefOid": moved}})
+            pr.approved_answer(r, rec, {"options": ["I merged it", "later"], "answer": "merge now", "coded": True})
+            self.assertEqual(len(merges()), 1)
+            # No merge: true in pr.json: merge now is never offered and never runs.
+            self.private({"acme/widgets": {"adopt": True}})
+            rec.update(state="approved", approved_head=moved)
+            self.gh({"view": {**ok, "headRefOid": moved}})
+            pr.approved_answer(r, rec, ans("merge now"))
+            self.assertEqual(len(merges()), 1)
+            pr.ask_merge(r, rec)
+            self.assertIn("merge it, then tell me", r.asked[-1][1])
+            pr.approved_answer(r, rec, ans("I merged it"))
             self.assertEqual(rec["state"], "merged")
 
     # covers: AC-12 (security review: one aggregate diff since the last cleared head, whoever the commits claim to be
@@ -238,10 +259,12 @@ class TestAdoptUnit(AdoptCase):
                     [(case, detail)] = r.asked
                     self.assertEqual(case, "foreign_commits")
                     self.assertIn(path, detail)
-            pr.foreign_answer(r, rec, {"answer": "go on", "head": h})
-            self.assertNotIn("cleared", rec)
-            self.assertTrue(rec.pop("left"))
-            pr.foreign_answer(r, rec, {"answer": pr.GO_ON, "head": h})
+            opts = ["skip this PR", pr.GO_ON]
+            for wrong in ({"answer": "go on", "coded": True}, {"answer": pr.GO_ON, "coded": False}):
+                pr.foreign_answer(r, rec, {**wrong, "options": opts, "head": h})
+                self.assertNotIn("cleared", rec)
+                self.assertTrue(rec.pop("left"))
+            pr.foreign_answer(r, rec, {"answer": pr.GO_ON, "options": opts, "coded": True, "head": h})
             self.assertEqual(rec["cleared"], h)
             self.assertTrue(gate(h))
             self.assertEqual(pr.tip(r, "fix-x"), h)
@@ -255,6 +278,26 @@ class TestAdoptUnit(AdoptCase):
             self.git("switch", "-q", "work")
             self.assertTrue(gate(h2))
             self.assertEqual(rec["cleared"], h2)
+
+    # covers: security review (parser differential: a path git would quote, with a quote, a newline, a non ASCII
+    # letter or a leading space, is matched raw, so its .claude/ change still asks)
+    def test_quoted_paths(self):
+        r = self.fake_run()
+        rec = {"repo": run.key_of(r.c), "feature": "PR #12: Fix x", "branch": "fix-x", "base": "work", "number": 12,
+               "adopted": True, "cleared": self.head}
+        for name in ('a"b.json', "new\nline.json", "café.json", " lead.json"):
+            with self.subTest(name):
+                self.git("switch", "-qc", "q", self.head)
+                (self.repo / ".claude").mkdir(exist_ok=True)
+                (self.repo / ".claude" / name).write_text("{}\n")
+                self.git("add", "-A")
+                self.git("commit", "-qm", "q")
+                h = self.git("rev-parse", "HEAD")
+                self.git("switch", "-q", "work")
+                self.git("branch", "-qD", "q")
+                with self.penv():
+                    frm, paths = pr.risky_changes(r, rec, h)
+                self.assertEqual(paths, [f".claude/{name}"])
 
     # covers: security review (check then act): the scanned commit is pushed, never a branch that moved after it
     def test_push_scanned_sha(self):

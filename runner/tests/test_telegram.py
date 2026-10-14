@@ -51,8 +51,9 @@ class FakeBot:
                         body = {"ok": False, "description": f"broken at {self.path}"}
                     elif method == "getUpdates":
                         # Pending taps arrive once a question was sent, carrying its id.
-                        pings = [p["text"][:4] for _, m, p in fake.calls
-                                 if m == "sendMessage" and re.match(r"^[a-z0-9]{4}: ", p["text"])]
+                        # Spec 0033 AC-5: question messages start with the labeled id.
+                        pings = [m_.group(1) for _, m, p in fake.calls if m == "sendMessage"
+                                 for m_ in [re.match(r"^Question ([a-z0-9]{4}) \(", p["text"])] if m_]
                         if pings and fake.taps:
                             fake.updates += [tap_update(1000 + len(fake.updates), t.format(id=pings[-1]))
                                              for t in fake.taps]
@@ -169,7 +170,7 @@ class TestLoad(TelegramCase):
         tree = ast.parse((RUNNER / "telegram.py").read_text())
         names = {a.name.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names}
         names |= {n.module.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)}
-        self.assertEqual(names - set(sys.stdlib_module_names), {"ntfy", "wf"})
+        self.assertEqual(names - set(sys.stdlib_module_names), {"context", "ntfy", "wf"})
 
     # covers: spec 0029 AC-3 (every call's sandbox denies reading telegram.json)
     def test_calls_cannot_read(self):
@@ -187,7 +188,7 @@ class TestSend(TelegramCase):
         p = self.bot.sent()[0]
         self.assertEqual(p["chat_id"], CHAT)
         self.assertNotIn("parse_mode", p)
-        self.assertEqual(d["sent"], "ab12: Ship it?\n1 yes\n2 no\n3 later\n4 see\n5 option 5\n"
+        self.assertEqual(d["sent"], "Question ab12 (its name, so your reply finds it):\nShip it?\n1 yes\n2 no\n3 later\n4 see\n5 option 5\n"
                                     "tap a button, or reply to this message")
         self.assertTrue(p["text"].startswith(d["sent"] + "\n"))
         self.assertEqual(p["reply_markup"]["inline_keyboard"],
@@ -199,7 +200,7 @@ class TestSend(TelegramCase):
         t.ping(d, lambda: False)
         p = self.bot.sent()[1]
         self.assertNotIn("reply_markup", p)
-        self.assertEqual(d["sent"], "ab12: question waiting, see terminal\nreply to this message with your answer")
+        self.assertEqual(d["sent"], "Question ab12 (its name, so your reply finds it):\nquestion waiting, see terminal\nreply to this message with your answer")
 
     # covers: spec 0029 AC-4 (question cut at 1000, label at 200)
     def test_cuts(self):
@@ -207,8 +208,8 @@ class TestSend(TelegramCase):
         d = self.decision(options=["word " * 100])
         d["question"] = "word " * 400
         t.ping(d, lambda: False)
-        q, label = d["sent"].split("\n")[:2]
-        self.assertLessEqual(len(q), len("ab12: ") + 1000)
+        q, label = d["sent"].split("\n")[1:3]
+        self.assertLessEqual(len(q), 1000)
         self.assertGreater(len(q), 900)
         self.assertLessEqual(len(label), 2 + 200)
 
@@ -447,8 +448,11 @@ class TestRunChannel(test_run.RunCase):
         self.assertEqual((d["answer"], d["source"]), ("SQLite", "phone"))
         self.assertEqual(self.argv(2)["argv"][1], "The user answered your DECISION NEEDED question: SQLite")
         texts = [p["text"] for p in self.bot.sent()]
-        self.assertTrue(texts[0].startswith(f"{d['id']}: Which storage engine?\n1 Postgres (recommended)\n2 SQLite\n"))
-        self.assertTrue(any(t.endswith(f"\n{d['id']} accepted") for t in texts))
+        self.assertTrue(texts[0].startswith(f"Question {d['id']} (its name, so your reply finds it):\nWhich storage engine?\n"))
+        self.assertIn("\n1 Postgres (recommended)\n2 SQLite\n", texts[0])
+        # Spec 0033 AC-4: the from block, with the repo and feature.
+        self.assertIn("\nfrom:\nrepo: demo\nfeature: 1. Loop\n", texts[0])
+        self.assertTrue(any(t.endswith(f"\nGot your answer to question {d['id']}: SQLite. Resuming.") for t in texts))
         self.assertEqual(self.bot.sent("answerCallbackQuery"), [{"callback_query_id": "cq1000"}])
 
 

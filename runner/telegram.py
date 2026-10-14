@@ -12,12 +12,15 @@ import tempfile
 import time
 import urllib.request
 
+import context
 import ntfy
 import wf
 
 API = "https://api.telegram.org"
 TOKEN = re.compile(r"^\d{5,16}:[A-Za-z0-9_-]{30,64}$")
-ASKED = re.compile(r"^([a-z0-9]{4}):")
+# Spec 0033 AC-5: the labeled first line, or the older `<id>:` one.
+# Spec 0033 AC-5: the labeled first line, or the older `<id>:` one.
+ASKED = re.compile(r"^(?:Question ([a-z0-9]{4}) \(|([a-z0-9]{4}):)")
 TIMEOUT = 10
 MAX = 4096
 KEEP = 48 * 3600
@@ -182,7 +185,7 @@ def entry(cfg, u):
             text, to = str(m.get("text") or ""), m.get("reply_to_message") or {}
             asked = ASKED.match(str(to.get("text") or "")) if (to.get("from") or {}).get("is_bot") else None
             if asked:
-                text = f"{asked.group(1)} {text}"
+                text = f"{asked.group(1) or asked.group(2)} {text}"
             else:
                 hint = not ntfy.REPLY.match(text)
             line.update(event="message", message=text, time=m.get("date") or line["time"])
@@ -257,11 +260,17 @@ class Topic(ntfy.Topic):
         question = ntfy.scrub(d["question"], 1000)
         if ntfy.blocked(self.cfg, question):
             question = "question waiting, see terminal"
-        lines, rows = [f"{d['id']}: {question}"], []
+        # Spec 0033 AC-5: the id labeled on its first use, never a bare `<id>:` prefix; ASKED still finds it.
+        lines, rows = [f"{context.label(d['id'])}:", question], []
         # Spec 0028 AC-11: the short explanation right under the question, as on ntfy.
         learn = ntfy.scrub_field(self.cfg, " ".join(str(d.get("learn") or "").split()), 300, "")
         if learn:
             lines.append(f"learn: {learn}")
+        # Spec 0033 AC-4: where it comes from, with links, in what room the message has left.
+        options_len = sum(len(o) + 4 for o in d["options"]) + 200 + len(self.title)
+        block = context.telegram_block(self.cfg, d, MAX - len("\n".join(lines)) - options_len)
+        if block:
+            lines.append(block)
         for n, label in enumerate(d["options"], 1):
             label = ntfy.scrub(label, 200)
             if not label or ntfy.blocked(self.cfg, label):

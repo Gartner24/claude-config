@@ -181,10 +181,14 @@ class TestFlow(PrCase):
         _, record = self.run_record()
         self.assertEqual([a["what"] for a in record["prs"]], ["push", "draft PR"])
         report = (self.state / "wf" / "report.txt").read_text()
-        self.assertIn("built: 1. A: draft PR https://github.com/acme/widgets/pull/7\n", report)
+        # Spec 0033 AC-9: what was built, its spec link, its PR and why the next step is yours.
+        self.assertRegex(report, r"built: 1\. A: 1 commits [0-9a-f]{7}\.\.[0-9a-f]{7}, 2 files, spec "
+                                 r"https://github\.com/acme/widgets/blob/work/docs/specs/0001-a/index\.md: draft PR "
+                                 r"https://github\.com/acme/widgets/pull/7; next: mark it ready, only you do that\n")
         self.assertIn("next: mark ready: PR #7\n", report)
         phone = [p for p in self.report_ntfy.posts if p.get("title") == "wf report"][-1]["message"]
-        self.assertIn("built: 1. A: PR #7", phone)
+        self.assertIn("built: 1. A: 1 commits ", phone)
+        self.assertIn(", 2 files: PR #7; next: mark it ready, only you do that", phone)
         # The next run plans it as in review and never builds it again from the start branch's scope.
         (self.fakes / "count").unlink()
         import shutil
@@ -456,7 +460,9 @@ class TestReview(PrCase):
         cfg["views"] = [cfg["view"]]
         cfg["methods"] = {"squashMergeAllowed": False, "mergeCommitAllowed": True, "rebaseMergeAllowed": True}
         self.gh(cfg)
-        self.report_ntfy.replies = ["{id} 1"]
+        # Security review: merging is on for this repo in pr.json, and on ntfy only a coded answer merges.
+        (self.tmp / ".claude" / "private" / "pr.json").write_text(json.dumps({"acme/widgets": {"merge": True}}))
+        self.report_ntfy.replies = ["{id} code0001 merge now"]
         r = self.wf("prr", "-y", mode="pr")
         asked = [p["message"] for p in self.report_ntfy.posts if "merge PR #7 now?" in p.get("message", "")]
         self.assertTrue(asked, r.stdout)

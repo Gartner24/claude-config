@@ -6,6 +6,7 @@ import os
 import re
 import tempfile
 
+import context
 import ntfy
 import plain
 import run
@@ -62,7 +63,8 @@ def open_questions(path, items):
         if item is None:
             item = {"kind": "question", "id": d["id"], "feature": d["feature"]}
             items.append(item)
-        item.update(question=d["question"], recommended=d["options"][0] if d["options"] else None)
+        item.update(question=d["question"], recommended=d["options"][0] if d["options"] else None,
+                    context=d.get("context") or {})
     return items
 
 
@@ -84,8 +86,9 @@ def collect(sources):
                 o, item = e.get("outcome"), {"feature": e.get("feature") or ""}
                 if o == "feature_done":
                     item["kind"] = "built"
-                    # Spec 0026 AC-10: the draft PR the runner opened for it.
+                    # Spec 0026 AC-10: the draft PR the runner opened for it; spec 0033 AC-9: what was built.
                     item["pr"] = e.get("pr")
+                    item["built"] = e.get("built") or {}
                 elif o == "decision_open":
                     item.update(kind="question", id=e.get("detail") or "")
                 elif o in run.PARKS:
@@ -163,9 +166,27 @@ def item_line(i, multi, phone, cfg, wide=False):
     k, feature = i["kind"], field(i.get("feature"), 40, "feature")
     if k == "built":
         text = f"built: {feature}"
-        pr = i.get("pr") or {}
+        pr, b = i.get("pr") or {}, i.get("built") or {}
+        # Spec 0033 AC-9: commits, their range and files; links only on the full report and Telegram.
+        if b.get("commits") is not None:
+            text += f": {b['commits']} commits" + (f" {b['range']}" if b.get("range") else "") + f", {b.get('files', 0)} files"
+        links = not phone or wide
+        if b.get("spec") and links:
+            spec = b["spec"] if not phone else context.link(cfg, b["spec"])
+            if spec:
+                text += f", spec {wf.clean(spec)}"
         if pr.get("number"):
-            text += f": PR #{pr['number']}" if phone else f": draft PR {wf.clean(str(pr.get('url')))}"
+            if phone and not wide:
+                text += f": PR #{pr['number']}"
+            else:
+                url = wf.clean(str(pr.get("url"))) if not phone else context.link(cfg, pr.get("url"))
+                text += f": draft PR {url}" if not phone else f": PR #{pr['number']}" + (f" {url}" if url else "")
+        elif b.get("branch") and not phone:
+            text += f", branch {wf.clean(b['branch'])}"
+        if b:
+            # Spec 0033 AC-9: this feature's next step and why it is yours.
+            text += "; next: mark it ready, only you do that" if pr.get("number") else \
+                "; next: review and merge it, it was built on its branch with no PR"
     elif k == "parked":
         # Spec 0028 AC-13: plain prefixes and reason words, details with their codes read as words.
         text = f"stuck: {feature}: {field(plain.words(i['reason']), reason, 'reason')}"
@@ -177,12 +198,22 @@ def item_line(i, multi, phone, cfg, wide=False):
         if not phone and i["reason"] == "internal_error" and i.get("folder"):
             text += f" (error details: {os.path.join(i['folder'], 'traceback.txt')})"
     elif k == "question":
-        text = f"question {wf.clean(i['id'])}: {feature}"
+        # Spec 0033 AC-5: the id labeled, never bare.
+        text = f"{context.label(wf.clean(i['id']))}: {feature}"
         # Spec 0021 AC-6: what it asks and the answer it recommends.
         if i.get("question"):
             text += f": {field(i['question'], question, 'question')}"
         if i.get("recommended"):
             text += f" (recommended: {field(i['recommended'], 40, 'answer')})"
+        # Spec 0033 AC-9: where it comes from, in short.
+        c = i.get("context") or {}
+        where = [field(c.get("step"), 80, "")] if c.get("step") else []
+        if c.get("spec") and (not phone or wide):
+            spec = c["spec"] if not phone else context.link(cfg, c["spec"])
+            where += [f"spec {wf.clean(spec)}"] if spec else []
+        where = [w for w in where if w]
+        if where:
+            text += f" [from: {'; '.join(where)}]"
     elif k == "live":
         text = f"setup steps: {feature}: {i['n']} step(s)"
     elif k == "yours":

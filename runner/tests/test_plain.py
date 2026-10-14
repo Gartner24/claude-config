@@ -44,7 +44,7 @@ def case(reason, denied_at=None):
     """(question, options, learn) ask_case builds for reason, through the real method."""
     asked = {}
     r = SimpleNamespace(case_box=lambda: (None, ""), denied_at=denied_at, repo={"guard": {"never": []}},
-                        c=SimpleNamespace(name="demo"), entry={"calls": []}, record={"calls": []}, feature=FEATURE, overlap_other=None,
+                        c=SimpleNamespace(name="demo", path="/r", display_name=lambda: "demo"), call_context={}, entry={"calls": []}, record={"calls": []}, feature=FEATURE, overlap_other=None,
                         ask=lambda q, o, **kw: asked.update(question=q, options=o, **kw) or asked)
     run.Run.ask_case(r, reason, detail(reason), True)
     return asked["question"], list(asked["options"]), asked.get("learn")

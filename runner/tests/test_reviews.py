@@ -20,7 +20,7 @@ CODE_REVIEW_CLAUDE = FAKE_CLAUDE.replace(
     'scope = os.path.join(os.getcwd(), "docs", "scope", "scope.md")',
     '''prompt = sys.argv[sys.argv.index("-p") + 1]
 if prompt.startswith("/code-review"):
-    json.dump({"cwd": os.getcwd(), "argv": sys.argv, "files": sorted(os.listdir("."))},
+    json.dump({"cwd": os.getcwd(), "argv": sys.argv, "files": sorted(os.listdir(".")), "env": dict(os.environ)},
               open(os.path.join(d, "code-review.json"), "w"))
     print(json.dumps({"type": "result", "subtype": "success", "is_error": False, "total_cost_usd": 0.1,
                       "session_id": "r", "result": "notes\\nDRAFT COMMENT: a.txt:2 Name this constant.\\n"
@@ -61,9 +61,11 @@ class ReviewCase(AdoptCase):
         r.denied = "AskUserQuestion"
         r.calls = []
 
+        r.lines = ["DRAFT COMMENT: a.txt:2 Name this constant.", "DRAFT VERDICT: request changes"]
+
         def review_call(rec, prompt, **kw):
             r.calls.append((prompt, kw))
-            return ["DRAFT COMMENT: a.txt:2 Name this constant.", "DRAFT VERDICT: request changes"]
+            return r.lines
         r.review_call = review_call
         r.record = {}
         return r
@@ -79,6 +81,10 @@ class TestReviewRun(ReviewCase):
         self.assertEqual(cr["cwd"], folder)
         self.assertEqual(cr["files"], ["files.txt", "pr.diff"])
         self.assertEqual(argv[argv.index("--setting-sources") + 1], "user")
+        # Security review (exfiltration): file tools confined to the folder, and no variable beyond what claude needs.
+        self.assertIn("--restricted", argv)
+        self.assertNotIn("PLANTED_SECRET", cr["env"])
+        self.assertLessEqual(set(cr["env"]), set(run.ISOLATED_ENV) | {"WF_RUN", "ENABLE_CLAUDEAI_MCP_SERVERS"})
         self.assertEqual(argv[argv.index("--tools") + 1], "Read,Grep,Glob")
         self.assertIn("--strict-mcp-config", argv)
         self.assertEqual(json.loads(argv[argv.index("--mcp-config") + 1]), {"mcpServers": {}})
@@ -101,6 +107,7 @@ class TestReviewRun(ReviewCase):
     # AC-9 (your exact tap posts one review through the allowed API call, approve because the draft said approve)
     def test_request_draft_post(self):
         self.fake("claude", CODE_REVIEW_CLAUDE)
+        self.env["PLANTED_SECRET"] = "s3cr3t"
         self.private({"acme/widgets": {"review_requests": True, "adopt": True}})
         view = {"isDraft": False, "state": "OPEN", "headRefOid": self.head, "reviewDecision": "REVIEW_REQUIRED", "url": "u"}
         # The adopted PR #12 keeps the run watching for a while, then merges.
@@ -126,7 +133,8 @@ class TestReviewRun(ReviewCase):
         # Next run: your tap posts.
         import shutil
         shutil.rmtree(self.state / "wf" / "runs")
-        self.report_ntfy.replies = ["{id} 1"]
+        # Security review: on ntfy only a coded answer posts.
+        self.report_ntfy.replies = ["{id} code0001 post as my review"]
         self.gh({"user": "me", "requests": [{"number": 5}], "byn": {"5": self.view5}, "views": [{**view, "state": "MERGED"}]})
         r = self.wf("prr", "-y", mode="pr")
         [post] = [c for c in self.gh_calls() if c[:3] == ["api", "-X", "POST"]]
@@ -167,17 +175,32 @@ class TestReviewUnit(ReviewCase):
         self.assertEqual((r.q["reviews"][0]["state"], r.q["decisions"]), ("gone", []))
         self.assertEqual(self.asked(r), ["review_request"])
 
-    # covers: AC-7 and AC-8 (free text and edit never post; the exact label posts; a request changes draft is never
-    # an approval), AC-4 (the call gets read only settings and denies)
+    def drafted(self, r, lines=None):
+        """Poll, answer draft a review, and return the record (the fake call returns lines)."""
+        if lines is not None:
+            r.lines = lines
+        self.gh({"user": "me", "requests": [{"number": 5}], "byn": {"5": self.view5}, "view": {"state": "OPEN"}})
+        reviews.poll(r)
+        [rec] = r.q["reviews"]
+        reviews.answer(r, {"case": "review_request", "feature": rec["feature"], "options": ["draft a review", "skip"],
+                           "answer": "draft a review"})
+        return r.q["reviews"][0]
+
+    def draft_answer(self, rec, text, coded=True, **extra):
+        return {"id": "ab12", "case": "review_draft", "feature": rec["feature"], "coded": coded,
+                "options": ["post as my review", "edit first", "don't post"], "answer": text, "hash": rec.get("shown"),
+                **extra}
+
+    def posts(self):
+        return [c for c in self.gh_calls() if c[:3] == ["api", "-X", "POST"]]
+
+    # covers: AC-7 and AC-8 (free text and edit never post; only the exact option, coded on ntfy, posts; a request
+    # changes draft is never an approval), AC-4 (the call gets the isolated settings), security review (parser
+    # differential: one normalization; authorization: an uncoded ntfy answer neither posts nor edits)
     def test_answers(self):
         r = self.fake_run()
-        self.gh({"user": "me", "requests": [{"number": 5}], "byn": {"5": self.view5}, "view": {"state": "OPEN"}})
         with self.penv():
-            reviews.poll(r)
-            [rec] = r.q["reviews"]
-            d = {"case": "review_request", "feature": rec["feature"], "options": ["draft a review", "skip"],
-                 "answer": "draft a review"}
-            reviews.answer(r, d)
+            rec = self.drafted(r)
             [(prompt, kw)] = r.calls
             self.assertTrue(prompt.startswith("/code-review PR #5"))
             self.assertIn("BEGIN PR-DATA-0\n", prompt)
@@ -188,31 +211,75 @@ class TestReviewUnit(ReviewCase):
             self.assertEqual((g["disableAllHooks"], "hooks" in g), (True, False))
             self.assertEqual(g["sandbox"]["filesystem"]["allowWrite"], [iso["cwd"]])
             self.assertEqual(g["sandbox"]["network"]["allowedDomains"], [])
-            draft = {"case": "review_draft", "feature": rec["feature"], "options": ["post as my review", "edit first",
-                                                                                   "don't post"]}
-            for text in ("yes post it", "Post as my review", "edit first"):
-                reviews.answer(r, {**draft, "answer": text})
-            self.assertEqual(r.q["reviews"][0]["draft"]["summary"], "Post as my review")
-            self.assertFalse(any(c[:2] == ["api", "-X"] for c in self.gh_calls()))
+            self.assertEqual(rec["shown"], reviews.digest(rec["draft"]))
+            reviews.answer(r, self.draft_answer(rec, "post as my review", coded=False))
+            reviews.answer(r, self.draft_answer(rec, "a new text", coded=False))
+            self.assertEqual(r.q["reviews"][0]["draft"]["summary"], reviews.NO_SUMMARY)
+            self.assertIn("one time codes", r.asked[-1][1])
+            reviews.answer(r, self.draft_answer(rec, "yes post it"))
+            reviews.answer(r, self.draft_answer(rec, "edit first"))
+            self.assertEqual(self.posts(), [])
             self.assertEqual(self.asked(r)[-1], "review_edit")
-            reviews.answer(r, {"case": "review_edit", "feature": rec["feature"], "options": [], "answer": "Please rename."})
-            reviews.answer(r, {**draft, "answer": "post as my review"})
-        [post] = [c for c in self.gh_calls() if c[:3] == ["api", "-X", "POST"]]
+            reviews.answer(r, {"id": "ab12", "case": "review_edit", "feature": rec["feature"], "options": [],
+                               "answer": "Please rename.", "coded": True})
+            rec = r.q["reviews"][0]
+            self.assertEqual(rec["draft"]["summary"], "Please rename.")
+            reviews.answer(r, self.draft_answer(rec, " Post As My Review "))
+        [post] = self.posts()
         body = json.loads(Path(post[5]).read_text())
         self.assertEqual((body["event"], body["body"]), ("REQUEST_CHANGES", "Please rename."))
         self.assertEqual(r.q["reviews"][0]["state"], "posted")
+
+    # covers: security review (display vs action: an answer about another draft than the one stored and shown never
+    # posts; a Telegram tap from your chat posts without a code)
+    def test_shown_hash(self):
+        r = self.fake_run()
+        with self.penv():
+            rec = self.drafted(r)
+            reviews.answer(r, self.draft_answer(rec, "post as my review", hash="0" * 64))
+            self.assertEqual(self.posts(), [])
+            self.assertIn("changed since you saw it", r.asked[-1][1])
+            rec = r.q["reviews"][0]
+            rec["draft"]["comments"] = []
+            reviews.answer(r, self.draft_answer(rec, "post as my review"))
+            self.assertEqual(self.posts(), [])
+            rec = r.q["reviews"][0]
+            rec["shown"] = reviews.digest(rec["draft"])
+            r.ntfy = {"chat_id": 5, "block": []}
+            reviews.answer(r, self.draft_answer(rec, "post as my review", coded=False))
+        self.assertEqual(len(self.posts()), 1)
+
+    # covers: security review (exfiltration: a drafted line with a token, a local path or a private name is dropped
+    # and the draft says so; a comment on a line the diff does not show is dropped)
+    def test_planted_injection(self):
+        r = self.fake_run()
+        lines = ["DRAFT COMMENT: a.txt:2 Name this constant.",
+                 "DRAFT COMMENT: a.txt:2 token ghp_" + "a" * 36,
+                 f"DRAFT COMMENT: a.txt:2 see {os.path.expanduser('~')}/.ssh/id_ed25519",
+                 "DRAFT COMMENT: a.txt:2 made for Zorblex",
+                 "DRAFT COMMENT: a.txt:40 outside the diff",
+                 "DRAFT SUMMARY: password = hunter2hunter2", "DRAFT VERDICT: approve"]
+        with self.penv():
+            rec = self.drafted(r, lines)
+        dr = rec["draft"]
+        self.assertEqual(dr["comments"], [{"path": "a.txt", "line": 2, "body": "Name this constant."}])
+        self.assertEqual((dr["summary"], dr["dropped"]), (reviews.NO_SUMMARY, 4))
+        sent = [m["message"] for m in self.report_ntfy.messages if m["message"].startswith("draft review of PR #5")]
+        self.assertIn("4 drafted line(s) dropped", sent[-1])
+        self.assertNotIn("ghp_", "".join(sent) + json.dumps(r.q))
 
     # covers: AC-8 (an attribution line in the draft is never posted; the question comes back)
     def test_scan_blocks(self):
         r = self.fake_run()
         rec = {"repo": run.key_of(r.c), "number": 5, "feature": "review PR #5: Add z", "title": "Add z", "author": "c",
                "url": None, "head": self.head, "base": self.base, "size": [1, 0, 1], "state": "drafted",
-               "draft": {"verdict": "approve", "summary": "ok\nCo-Authored-By: Claude <x@example.invalid>", "comments": []}}
+               "draft": {"verdict": "approve", "summary": "ok Co-Authored-By: Claude", "comments": []}}
+        rec["draft"]["summary"] = "ok\nCo-Authored-By: Claude <x@example.invalid>"
         r.q["reviews"] = [rec]
         self.gh({"view": {"state": "OPEN"}})
         with self.penv():
-            reviews.post(r, rec)
-        self.assertFalse(any(c[:2] == ["api", "-X"] for c in self.gh_calls()))
+            reviews.post(r, rec, reviews.digest(rec["draft"]))
+        self.assertEqual(self.posts(), [])
         self.assertEqual(self.asked(r), ["review_draft"])
 
     # covers: AC-9 (the search and the post are allowed only in their exact shapes; the post only from reviews.post)
