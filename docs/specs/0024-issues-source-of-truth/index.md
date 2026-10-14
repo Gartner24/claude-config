@@ -1,8 +1,8 @@
 # 0024 · Issues and mixed source of truth
 
 **Date**: 2026-10-13
-**Status**: In Progress
-**Paths:** `runner/run.py`, `runner/report.py`, `runner/tests/`
+**Status**: Accepted (built f08c6a2)
+**Paths:** `runner/run.py`, `runner/report.py`, `runner/tests/test_issues.py`
 **Amends**: [0003](../0003-scope-contract/index.md) (`issues` and `mixed` get behavior), [0021](../0021-never-stop/index.md) AC-1 (the case table gains F13).
 
 ## What you're agreeing to
