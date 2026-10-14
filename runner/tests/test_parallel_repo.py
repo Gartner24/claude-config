@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pr  # noqa: E402
 import run  # noqa: E402
+import test_pr  # noqa: E402
 from test_park import GIT_ID  # noqa: E402
 from test_pr import FakeRun  # noqa: E402
 from test_run import WF, RunCase, summary  # noqa: E402
@@ -242,6 +243,9 @@ class TestSameRepo(RepoCase):
             self.git("worktree", "add", "-q", "-b", "feat/y", str(other))
             self.assertIsNone(run.tree_main(str(other)))
             self.assertIsNotNone(run.untrusted(str(other)))
+            # A worktree under wf-trees is trusted only while its main checkout is on the list.
+            (self.tmp / "config" / "wf" / "allowed.json").write_text(json.dumps([]))
+            self.assertIsNotNone(run.untrusted(str(tree)))
 
 
 class TestLimit(RepoCase):
@@ -287,8 +291,41 @@ class TestCleanup(RepoCase):
             self.assertFalse(os.path.exists(tree2))
 
 
-if __name__ == "__main__":
-    unittest.main()
+# The worktree child is a fresh wf.py, so the test wrapper's short poll gap never reaches it; this does.
+SITE = f"""import sys
+sys.path.insert(0, {str(WF.parent)!r})
+import ntfy, pr
+ntfy.RETRY_GAP = ntfy.POLL_EVERY = 0.05
+pr.POLL_GAP = 0.05
+"""
+
+
+class TestRoundInTree(test_pr.PrCase):
+    # covers: AC-8 (a review round of a parallel repo's PR runs in that feature's worktree, never the main checkout;
+    # the merged PR's clean worktree is removed)
+    def test_round_in_tree(self):
+        (self.repo / "AGENTS.md").write_text(test_pr.ANSWERS + "- parallel: 2\n")
+        self.git("commit", "-qam", "parallel")
+        self.git("push", "-q", "origin", "work")
+        site = self.tmp / "site"
+        site.mkdir()
+        (site / "sitecustomize.py").write_text(SITE)
+        self.env["PYTHONPATH"] = str(site)
+        test_pr.TestReview.ready(self)
+        self.fake("claude", test_pr.REVIEW_CLAUDE.replace(
+            'if prompt.startswith("Review comments on"):\n',
+            'if prompt.startswith("Review comments on"):\n    open(os.path.join(d, "review-cwd.txt"), "w").write(os.getcwd())\n', 1))
+        with mock.patch.dict(os.environ, {"HOME": str(self.tmp)}):
+            tree = run.tree_path(str(self.repo), "feat/0001-a")
+        self.assertEqual(self.rec()["tree"], tree)
+        before = self.git("rev-parse", "feat/0001-a", repo=self.origin)
+        r = self.wf("prr", "-y", mode="pr")
+        self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
+        self.assertEqual((self.fakes / "review-cwd.txt").read_text(), tree)
+        self.assertNotEqual(self.git("rev-parse", "feat/0001-a", repo=self.origin), before)
+        self.assertEqual(self.rec()["state"], "merged")
+        self.assertEqual((self.repo / ".git" / "HEAD").read_text(), "ref: refs/heads/work\n")
+        self.assertNotIn(tree, self.git("worktree", "list"))
 
 
 class TestDenyNotNarrowed(RunCase):
@@ -327,3 +364,7 @@ class TestDenyNotNarrowed(RunCase):
         self.assertGreater(len(old_fs), 5, r1.stdout)
         self.assertEqual(sorted(old_rules - new_rules), [], r2.stdout)
         self.assertEqual(sorted(old_fs - new_fs), [], r2.stdout)
+
+
+if __name__ == "__main__":
+    unittest.main()
