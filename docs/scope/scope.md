@@ -43,7 +43,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 29 | Several repos at once | Release 4 | done |
 | 30 | Live setup steps in one command | Release 5 | done |
 | 13 | Morning report | Release 5 | done |
-| 32 | One command: wf | Release 6 | in-progress |
+| 32 | One command: wf | Release 6 | done |
 | 33 | Ask, never stop | Release 6 | in-progress |
 | 34 | Report names repos | Release 6 | in-progress |
 | 35 | Several features of one repo at once | Release 6 | in-progress |
@@ -458,7 +458,7 @@ Source: [docs/briefs/morning-report-and-live-steps.md](../briefs/morning-report-
 
 ## Release 6: work non stop
 
-### 32. One command: wf · in-progress · auto
+### 32. One command: wf · done · auto
 You type only `wf`. After one confirm screen it shows the report, applies pending live setup steps as one atomic swap, runs pending real claude checks, takes back features whose cause is fixed, and starts every repo with work side by side, never waiting on or stopping a run already going. `wf finish`, `wf unpark` and the rest stop being steps you are told to type.
 **Done when:** with a run going in another repo, one `wf` does all five steps, that run keeps going and its next call uses the new setup, a change to `~/.claude` not made by `wf` still stops the run, and no skill, rule or report tells you to type any `wf` subcommand.
 - [x] Design it (spec): `/architect one command wf`
@@ -475,7 +475,7 @@ You type only `wf`. After one confirm screen it shows the report, applies pendin
 - [x] Copy the scope contract live: `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` (AC-10) · waits on you · live
 - [x] Install the runner copy: `./install.sh` (AC-12) · waits on you · live
 - [x] Real check beside a run: `python3 runner/e2e/run.py --beside` (AC-11) · waits on you · live
-- [ ] Sync docs: `/sync one command wf`
+- [x] Sync docs: `/sync one command wf`
 Spec [0020](../specs/0020-one-command-wf/index.md)
 Source: [docs/briefs/never-wait-on-each-other.md](../briefs/never-wait-on-each-other.md).
 
