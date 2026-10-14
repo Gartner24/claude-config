@@ -21,6 +21,7 @@ from io import StringIO
 
 import report
 import run
+import usage
 import wf
 
 SPAN = re.compile(r"`([^`]+)`")
@@ -909,6 +910,27 @@ def retakes(args, repos):
     return back, kept
 
 
+def usage_fit(numbered, chosen=None):
+    """Spec 0022 AC-5 to AC-7: usage.plan over the numbered features (the chosen ones when given), with a week
+    percent for every numbered line it covers; None with nothing numbered. Any failure reads as unknown, starts now."""
+    if not numbered:
+        return None
+    idx = list(range(len(numbered))) if not chosen else [i - 1 for i in chosen]
+    try:
+        picked = []
+        for i in idx:
+            h, name = numbered[i]
+            _, feats = run.repo_features(h["c"].path, h["c"].scope_dir)
+            picked.append((h["c"].path, next(f for f in feats if f.name == name)))
+        fit = usage.plan(picked)
+    except Exception as e:
+        return {"lines": [f"unknown ({type(e).__name__}), starts now"], "start": None, "week": [None] * len(numbered)}
+    week = [None] * len(numbered)
+    for i, w in zip(idx, fit["week"]):
+        week[i] = w
+    return {**fit, "week": week}
+
+
 def cmd_wf(args):
     """AC-1: the one command. Refusals, an interrupted swap finished, the screen, one confirm, then report seen,
     the setup swap, the retakes, the builds side by side and the checks beside them, records, ticks, commits."""
@@ -974,8 +996,14 @@ def cmd_wf(args):
     name = lambda p: wf.clean(os.path.basename(p["repo"]))
     section("retake", [f"{name(p)}: {p['feature']}: {p['reason']} ({why})" for p, why in back])
     section("parked", [f"{name(p)}: {p['feature']}: {p['reason']}: retaken on {on}" for p, on in kept])
+    # Spec 0022 AC-8: --only picks before the fit is worked out.
+    fit = usage_fit(numbered, picks(args.only, len(numbered)) if args.only is not None and numbered else None)
     section("build", [x for x in out.getvalue().rstrip("\n").split("\n") if x] +
-            [f"{n}. {h['c'].name}: {f}" for n, (h, f) in enumerate(numbered, 1)])
+            [f"{n}. {h['c'].name}: {f}" + (f" ~{fit['week'][n - 1]:.0f}% week" if fit and fit["week"][n - 1] is not None
+                                            else "") for n, (h, f) in enumerate(numbered, 1)])
+    # AC-7: after build, when there is one.
+    section("usage", fit["lines"] if fit else [])
+    start = fit and fit["start"]
     section("running", [f"{e['name']}: {e['skip'][len('running: '):]}" for e in r.record["repos"]
                         if (e["skip"] or "").startswith("running: ")])
     section("yours", [f"{b.repo.name}: {b.feature}: {b.text} ({wf.clean(why)})" for b, why in yours])
@@ -987,7 +1015,20 @@ def cmd_wf(args):
             if chosen is None:
                 print(f"not on the list: {wf.clean(args.only)}")
                 return 130
-        if not args.yes:
+        if not args.yes and start is not None:
+            # AC-8: a run that does not fit waits, never refuses; numbers pick, now starts at once.
+            answer = input(f"Enter waits and starts at {usage.at_text(start)}, numbers to pick (1 2 4 or 1-3,5), "
+                           "now starts at once, anything else cancels: ")
+            if answer.strip().casefold() == "now":
+                start = None
+            elif answer != "":
+                chosen = picks(answer, len(numbered))
+                if chosen is None:
+                    return 130
+                fit = usage_fit(numbered, chosen)
+                section("usage", fit["lines"])
+                start = fit["start"]
+        elif not args.yes:
             ask = "Enter for all, numbers to pick (1 2 4 or 1-3,5), anything else cancels: " \
                 if numbered and chosen is None else "Enter to go, anything else cancels: "
             answer = input(ask)
@@ -1030,7 +1071,7 @@ def cmd_wf(args):
             f.prefix = b"[check] "
             t = threading.Thread(target=f.checks, daemon=True)
             t.start()
-        child = run.parallel(r, on_signal=f.stop if f else None)
+        child = run.parallel(r, on_signal=f.stop if f else None, start=start)
         if t:
             t.join()
     elif run_checks:

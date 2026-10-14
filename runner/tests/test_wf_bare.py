@@ -109,7 +109,8 @@ class TestScreen(BareCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         out = r.stdout
         heads = [x for x in out.splitlines() if x and not x.startswith(" ")]
-        self.assertEqual(heads[:3], ["report:", "build:", "running:"])
+        # Spec 0022 AC-7: the usage section follows build.
+        self.assertEqual(heads[:4], ["report:", "build:", "usage:", "running:"])
         self.assertIn("  1. ra: 1. A\n  2. rb: 1. A\n", out)
         self.assertIn(f"running:\n  rc: {os.getpid()} ", out)
         self.assertNotIn("[ra]", out)

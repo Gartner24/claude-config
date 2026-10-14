@@ -2725,6 +2725,7 @@ class Run:
             print(f"[{count}/{self.cap('max_calls')}] {self.c.name}: {wf.clean(label)} -> {wf.clean(str(shown))}, {cost} USD, "
                   f"{rec['duration_s'] / 60:.1f}m, next: {wf.clean(after)}", flush=True)
             self.log(f"end {seq} {shown}, {cost} USD, {rec['duration_s'] / 60:.1f}m")
+            self.sample_usage()
             self.poll()
             # AC-13: the record leaves only once the resume, its retry included, is classified; a run stop keeps it.
             if resume and act[0] not in ("retry", "limit", "outage") and not (act[0] == "end" and act[1] in RUN_STOPS):
@@ -2772,7 +2773,7 @@ class Run:
         """Spec 0008 AC-8, spec 0021 U3: sleep to the reset, every limit and however far it is; a reset that cannot be
         read sleeps LIMIT_UNKNOWN. A usage limit never ends the run. run.json keeps the latest wait."""
         at = wall_now()
-        reset = parse_reset(text, at) or at + LIMIT_UNKNOWN
+        reset = account_reset(parse_reset(text, at)) or at + LIMIT_UNKNOWN
         seconds = max((reset - at).total_seconds(), 0) + LIMIT_MARGIN.total_seconds()
         lw = self.record["limit_wait"] = {"started": now(), "reset": reset.isoformat(timespec="seconds"),
                                           "resumed": None, "waited_s": 0}
@@ -2822,6 +2823,18 @@ class Run:
         if refusal:
             raise Stop(*refusal)
         self.outage_rerun = True
+
+    def sample_usage(self):
+        """Spec 0022 AC-2: a single repo run reads usage at its start and after each call (the 60 s cache keeps it to
+        one request a minute), so later plans learn percent per dollar. A failed read is skipped; a service failure
+        warns once per run, a machine with no subscription login says nothing."""
+        if not self.target:
+            return
+        import usage
+        u = usage.read()
+        if isinstance(u, tuple) and u[1] != usage.NOT_LOGIN and not getattr(self, "usage_warned", False):
+            self.usage_warned = True
+            print(f"warning: usage not read: {u[1]}", flush=True)
 
     def trace(self, e):
         """The detail keeps one line; the trace used to be lost with it (review L8). It goes to stderr, each line
@@ -2930,6 +2943,7 @@ class Run:
             self.t0 = ntfy.boottime()
             self.reping()
             self.poll()
+            self.sample_usage()
             self.plan_check()
             while True:
                 if self.interrupted:
@@ -2978,6 +2992,20 @@ class Run:
         for p in prune_runs(self.folder):
             print(f"pruned: {p}", flush=True)
         return self.exit_code(reason)
+
+
+def account_reset(reset):
+    """Spec 0022 AC-10: when the limit text gave no reset, or one earlier than the reset of a window your account shows
+    as full (used 99 or more), the latest such reset; a failed read keeps the text's reset (spec 0021 U3)."""
+    import usage
+    u = usage.read()
+    if isinstance(u, tuple):
+        return reset
+    full = [u[w]["resets_at"] for w in usage.WINDOWS if u[w]["used"] >= 99 and u[w]["resets_at"]]
+    latest = max(full, default=None)
+    if latest and (reset is None or reset < latest):
+        return latest
+    return reset
 
 
 def read_answers(c):
@@ -4221,7 +4249,7 @@ def read_baseline(path, repo):
     return base
 
 
-def parallel(r, on_signal=None):
+def parallel(r, on_signal=None, start=None):
     """Spec 0017: bare wf run after its confirm, one child `wf run <repo> -y` per repo with work, side by side.
     Returns the AC-6 exit code."""
     a = r.args
@@ -4268,6 +4296,12 @@ def parallel(r, on_signal=None):
 
     for sig in (signal.SIGINT, signal.SIGHUP, signal.SIGTERM):
         signal.signal(sig, forward)
+    if start is not None and jobs:
+        # Spec 0022 AC-9: only the builds wait for the reset; the wall clock decides, so a suspend does not shift it.
+        print(f"waiting for the usage reset: builds start at {start.astimezone().strftime('%a %H:%M')}, Ctrl C cancels",
+              flush=True)
+        while not r.interrupted and wall_now() < start:
+            time.sleep(POLL)
     baselines = []
     try:
         while running or (waiting and not r.interrupted):

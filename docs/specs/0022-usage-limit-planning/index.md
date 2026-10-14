@@ -1,7 +1,7 @@
 # 0022 · Usage limit planning
 
 **Date**: 2026-10-13
-**Status**: Proposed
+**Status**: In Progress
 **Paths:** `runner/usage.py`, `runner/run.py`, `runner/finish.py`, `runner/tests/test_usage.py`
 **Amends**: [0020](../0020-one-command-wf/index.md) AC-2 (a `usage:` section on the screen), AC-7 (builds may start at a later time), AC-13 (the prompt takes `now`); [0021](../0021-never-stop/index.md) U3 (the sleep reads the reset from your account when the limit text has none).
 
