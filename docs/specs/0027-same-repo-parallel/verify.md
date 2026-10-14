@@ -7,3 +7,6 @@
 ## Live
 
 - **AC-10**: `python3 runner/e2e/run.py --same-repo` (real claude) waits on you.
+
+## Live runs (wf finish)
+- 2026-10-14, Claude Code 2.1.299: `python3 runner/e2e/run.py --same-repo` PASS (second try; the first failed on committed __pycache__ files, fixed with the fixture's .gitignore)

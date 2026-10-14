@@ -19,3 +19,4 @@ Result: the tokens are `~/.local/bin/wf` and `<repo>/runner/wf.py`; the repo pat
 ## Live runs (wf finish)
 
 - 2026-10-14, Claude Code 2.1.299: `python3 runner/e2e/run.py --beside` FAIL (exit 1): kept: /tmp/wf-e2e-8qdq5e8n/config
+- 2026-10-14, Claude Code 2.1.299: `python3 runner/e2e/run.py --beside` PASS (second try; the first failed because the temp config dir had no skills, fixed in the fixture)

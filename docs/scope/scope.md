@@ -474,7 +474,7 @@ You type only `wf`. After one confirm screen it shows the report, applies pendin
 - [x] Copy the handoff rule live: `cp ~/claude-config/rules/runner-handoff.md ~/.claude/rules/runner-handoff.md` (AC-10) · waits on you · live
 - [x] Copy the scope contract live: `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` (AC-10) · waits on you · live
 - [x] Install the runner copy: `./install.sh` (AC-12) · waits on you · live
-- [ ] Real check beside a run: `python3 runner/e2e/run.py --beside` (AC-11) · waits on you · live
+- [x] Real check beside a run: `python3 runner/e2e/run.py --beside` (AC-11) · waits on you · live
 - [ ] Sync docs: `/sync one command wf`
 Spec [0020](../specs/0020-one-command-wf/index.md)
 Source: [docs/briefs/never-wait-on-each-other.md](../briefs/never-wait-on-each-other.md).
@@ -556,7 +556,7 @@ A repo that opts in with `- parallel: <n>` builds up to n features at once, each
 - [x] Build it: `/develop several features of one repo at once`
 - [ ] Verify it: `/check verify several features of one repo at once`
 - [ ] Test it: `/test several features of one repo at once`
-- [ ] Real check: `python3 runner/e2e/run.py --same-repo` · waits on you · live
+- [x] Real check: `python3 runner/e2e/run.py --same-repo` · waits on you · live
 - [ ] Sync docs: `/sync several features of one repo at once`
 Spec [0027](../specs/0027-same-repo-parallel/index.md) · Source: personal scope row 23.
 
