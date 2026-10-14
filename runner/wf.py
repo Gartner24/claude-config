@@ -653,6 +653,8 @@ def build_parser():
     run.add_argument("--jobs", type=positive(int), help="repos run at once by a bare wf run (default: every repo with work)")
     # Spec 0020 AC-13: the features picked on the `wf` screen, passed to each child; not for you to type.
     run.add_argument("--only-feature", action="append", help=argparse.SUPPRESS)
+    # Spec 0025 AC-1: the plan's guard baseline a bare run's parent hands each child; not for you to type.
+    run.add_argument("--plan-guard", help=argparse.SUPPRESS)
     queue = sub.add_parser("queue", help="print what wf run would do, changing nothing")
     queue.add_argument("target", nargs="?", help="as wf run")
     # wf queue takes the caps too: a cap park shows as cleared under a higher one (spec 0011 AC-3).

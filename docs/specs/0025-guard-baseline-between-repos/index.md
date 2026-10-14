@@ -1,7 +1,7 @@
 # 0025 · Guard baseline between repos
 
 **Date**: 2026-10-13
-**Status**: Proposed
+**Status**: In Progress
 **Paths:** `runner/run.py`, `runner/wf.py`, `runner/tests/test_parallel.py`
 **Amends**: [0017](../0017-several-repos-at-once/index.md) AC-7 and its accepted gap (Consequences: "Each child takes its guard baseline at its own start..."), closed here.
 

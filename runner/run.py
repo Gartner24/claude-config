@@ -1654,6 +1654,30 @@ class Run:
             self.ask(f"{reason}: {flat(detail)}"[:300], options, feature=REPO_ASK, repo=path, branch=branch,
                      level="repo", reason=reason)
 
+    def plan_check(self):
+        """Spec 0025 AC-2, AC-3, AC-5: a child of a bare run compares its repo's guarded files and standing answers
+        with the plan's, which the parent froze before your confirm. Each child used to take its baseline at its own
+        start, so a guarded file an earlier repo's call changed went unnoticed. A change asks U5 for this repo; a
+        ledger accepted swap is no change."""
+        path = getattr(self.args, "plan_guard", None)
+        if not path:
+            return
+        try:
+            with open(path, encoding="utf-8") as f:
+                base = json.load(f)
+            guard = {"guarded_files": dict(base["guarded_files"]), "absent_denied": list(base["absent_denied"])}
+            answers = base["answers"]
+        except (OSError, ValueError, KeyError, TypeError):
+            self.end_repo("guard_changed", f"plan baseline unreadable: {path}")
+            return
+        lines = ledger()
+        changed = list(dict.fromkeys(p for p, _ in moved(guard) if not accepted_by(p, lines)))
+        if changed:
+            more = f" (and {len(changed) - 1} more)" if len(changed) > 1 else ""
+            self.end_repo("guard_changed", f"{changed[0]} changed after the plan, before this repo started{more}")
+        elif read_answers(self.c) != (answers, None):
+            self.end_repo("guard_changed", "standing answers changed after the plan")
+
     def repo_answer(self, d):
         """R2, R3, U4 to U8: take the answer to the repo in use's question. A stop answer keeps the repo stopped
         for this run; any other runs the row's action and the repo goes on."""
@@ -2761,6 +2785,7 @@ class Run:
             self.t0 = ntfy.boottime()
             self.reping()
             self.poll()
+            self.plan_check()
             while True:
                 if self.interrupted:
                     raise Stop("interrupted", "Ctrl C or a stop signal")
@@ -3774,6 +3799,24 @@ def clashes(a, b):
         or under(a["path"], [b["path"]]) or under(b["path"], [a["path"]])
 
 
+def write_baseline(h):
+    """Spec 0025 AC-1: held repo h's plan guard record and standing answers in <state>/baselines (0700), one 0600
+    file per parent and repo. Returns its path; a failed write leaves it missing, which the child asks about."""
+    folder = os.path.join(state_dir(), "baselines")
+    path = os.path.join(folder, f"{os.getpid()}-{hashlib.sha1(os.path.realpath(h['c'].path).encode()).hexdigest()}.json")
+    g = h["repo"]["guard"]
+    try:
+        os.makedirs(folder, mode=0o700, exist_ok=True)
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump({"guarded_files": g["guarded_files"], "absent_denied": g["absent_denied"],
+                       "answers": h["answers"]}, f)
+    except OSError:
+        pass
+    return path
+
+
 def parallel(r, on_signal=None):
     """Spec 0017: bare wf run after its confirm, one child `wf run <repo> -y` per repo with work, side by side.
     Returns the AC-6 exit code."""
@@ -3795,7 +3838,7 @@ def parallel(r, on_signal=None):
             continue
         url = h["answers"].get("app url")
         row.update(work=True, path=h["c"].path, common=common_dir(h["c"].path), port=url and app_port(url),
-                   only=h.get("only"))
+                   only=h.get("only"), held=h)
         jobs.append(row)
     argv = [sys.executable, "-u", os.path.join(os.path.dirname(os.path.realpath(__file__)), "wf.py"), "run"]
     caps = ["-y", "--budget", str(a.budget), "--call-timeout", str(a.call_timeout), "--max-calls", str(a.max_calls),
@@ -3821,40 +3864,52 @@ def parallel(r, on_signal=None):
 
     for sig in (signal.SIGINT, signal.SIGHUP, signal.SIGTERM):
         signal.signal(sig, forward)
-    while running or (waiting and not r.interrupted):
-        # AC-1: one child at a time through its start checks (the shared MCP npm cache, the locks).
-        if starting is None and not r.interrupted and len(running) < limit:
-            j = next((j for j in waiting if not any(clashes(j, k) for k in running)), None)
-            if j:
-                waiting.remove(j)
-                # Spec 0018 AC-1: the parent sends the one report, so no child does.
-                only = [x for n in j["only"] or () for x in ("--only-feature", n)]
-                j["proc"] = subprocess.Popen([*argv, j["path"], *caps, *only], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                                             stderr=subprocess.STDOUT, encoding="utf-8", errors="replace",
-                                             start_new_session=True, env={**os.environ, "WF_REPORT": "parent"})
-                running.append(j)
-                # A signal between the spawn and the append above found no child to forward to.
-                if r.interrupted:
-                    os.killpg(j["proc"].pid, signal.SIGINT)
-                threading.Thread(target=read, args=(j,), daemon=True).start()
-                starting = j
+    baselines = []
+    try:
+        while running or (waiting and not r.interrupted):
+            # AC-1: one child at a time through its start checks (the shared MCP npm cache, the locks).
+            if starting is None and not r.interrupted and len(running) < limit:
+                j = next((j for j in waiting if not any(clashes(j, k) for k in running)), None)
+                if j:
+                    waiting.remove(j)
+                    # Spec 0018 AC-1: the parent sends the one report, so no child does.
+                    only = [x for n in j["only"] or () for x in ("--only-feature", n)]
+                    # Spec 0025 AC-1: the plan's baseline, written right before this child starts.
+                    baselines.append(write_baseline(j["held"]))
+                    only += ["--plan-guard", baselines[-1]]
+                    j["proc"] = subprocess.Popen([*argv, j["path"], *caps, *only], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                                 stderr=subprocess.STDOUT, encoding="utf-8", errors="replace",
+                                                 start_new_session=True, env={**os.environ, "WF_REPORT": "parent"})
+                    running.append(j)
+                    # A signal between the spawn and the append above found no child to forward to.
+                    if r.interrupted:
+                        os.killpg(j["proc"].pid, signal.SIGINT)
+                    threading.Thread(target=read, args=(j,), daemon=True).start()
+                    starting = j
+                    continue
+            j, line = lines.get()
+            if line is None:
+                j["code"] = j["proc"].wait()
+                running.remove(j)
+                starting = None if starting is j else starting
                 continue
-        j, line = lines.get()
-        if line is None:
-            j["code"] = j["proc"].wait()
-            running.remove(j)
-            starting = None if starting is j else starting
-            continue
-        line = wf.clean(line.rstrip("\n"))
-        print(f"[{j['name']}] {line}", flush=True)
-        # Spec 0020 AC-7: a run took the lock after the plan; that repo is running, not failed.
-        if line.startswith("refused: locked: "):
-            j["skip"] = "running: " + line[len("refused: locked: "):]
-        if line.startswith(("done:", "parked:", "stopped:", "nothing to run")):
-            j["last"] = line
-        if line.startswith("run folder: "):
-            j["folder"] = line[len("run folder: "):]
-            starting = None if starting is j else starting
+            line = wf.clean(line.rstrip("\n"))
+            print(f"[{j['name']}] {line}", flush=True)
+            # Spec 0020 AC-7: a run took the lock after the plan; that repo is running, not failed.
+            if line.startswith("refused: locked: "):
+                j["skip"] = "running: " + line[len("refused: locked: "):]
+            if line.startswith(("done:", "parked:", "stopped:", "nothing to run")):
+                j["last"] = line
+            if line.startswith("run folder: "):
+                j["folder"] = line[len("run folder: "):]
+                starting = None if starting is j else starting
+    finally:
+        # Spec 0025 AC-1: however the parent ends, Ctrl C included.
+        for p in baselines:
+            try:
+                os.remove(p)
+            except OSError:
+                pass
     print("summary:")
     for row in rows:
         if row["skip"]:
