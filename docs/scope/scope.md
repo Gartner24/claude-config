@@ -508,7 +508,7 @@ In repos set to `issues` or `mixed`, `wf` rereads the linked issue before every 
 **Done when:** an issue edited after its spec asks with the diff shown, and a repo set to scope never calls GitHub.
 - [x] Design it (spec): `/architect issues and mixed source of truth`
 - [x] Build it: `/develop issues and mixed source of truth`
-- [ ] Verify it: `/check verify issues and mixed source of truth`
+- [x] Verify it: `/check verify issues and mixed source of truth`
 - [ ] Test it: `/test issues and mixed source of truth`
 - [ ] Probe P2 on a throwaway issue (it edits the issue): see the spec's verify.md · waits on you
 - [ ] Sync docs: `/sync issues and mixed source of truth`
