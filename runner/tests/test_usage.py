@@ -1,5 +1,6 @@
 """Spec 0022: usage limit planning."""
 import datetime
+import http.server
 import io
 import json
 import os
@@ -8,6 +9,7 @@ import socket
 import sys
 import tempfile
 import shutil
+import threading
 import time
 import types
 import unittest
@@ -22,6 +24,7 @@ import run  # noqa: E402
 import usage  # noqa: E402
 import wf  # noqa: E402
 import test_park  # noqa: E402
+import test_run  # noqa: E402
 from test_park import limited  # noqa: E402
 from test_queue import DONE_A, ONE, TICK_A  # noqa: E402
 from test_wf_bare import BareCase  # noqa: E402
@@ -233,6 +236,18 @@ class TestPlan(unittest.TestCase):
         self.assertEqual(p["start"], at("2026-10-14T05:02:00+00:00"))
         self.assertEqual(p["lines"][-1], f"5h window nearly used: starts at {usage.at_text(p['start'])}")
 
+    def test_five_hour_checks_each_repo(self):
+        # This used to check only the first picked feature: a second repo's 8% first call ran on 6% left.
+        ratio = {"five_hour": 2.0, "seven_day": 1.0}
+        small = feature("### 2. B · auto\n- [x] (spec)\n- [ ] `/test b`\n- [ ] Sync: `/sync b`\n")
+        p = usage.plan([("/r1", small), ("/r2", FEAT)], account(94, 20), EST, ratio)
+        self.assertEqual(p["start"], at("2026-10-14T05:02:00+00:00"))
+        self.assertEqual(p["lines"][-1], f"5h window nearly used: starts at {usage.at_text(p['start'])}")
+        # A later feature in the same repo is not a first call: it waits for its turn, the run starts now.
+        p = usage.plan([("/r1", small), ("/r1", FEAT)], account(94, 20), EST, ratio)
+        self.assertIsNone(p["start"])
+        self.assertEqual(p["lines"][-1], "fits, starts now")
+
     def test_unknown(self):
         ratio = {"five_hour": 2.0, "seven_day": 1.0}
         for u, est, r, why in (((None, "usage service: 503"), EST, ratio, "usage service: 503"),
@@ -340,6 +355,121 @@ class TestScreen(ScreenCase):
         self.assertFalse((self.fakes / "ra-argv-1.json").exists())
 
 
+class TestScreenMore(ScreenCase):
+    # covers: AC-6, AC-7, AC-9 (5h window nearly used through the real screen: the now line, the start line, the
+    # wait, then both repos build)
+    def test_five_hour_nearly_used(self):
+        self.repos()
+        (self.state / "wf").mkdir(parents=True)
+        self.seed(20.0, five_used=99.0, five_in=3.0, week_in=600)
+        r = self.bare("-y")
+        out = r.stdout
+        self.assertEqual(r.returncode, 0, out + r.stderr)
+        self.assertRegex(out, r"  now: 5h 99% \(resets \w{3} \d\d:\d\d\), week 20% \(resets \w{3} \d\d:\d\d\)\n")
+        self.assertRegex(out, r"  5h window nearly used: starts at \w{3} \d\d:\d\d\n")
+        self.assertIn("waiting for the usage reset", out)
+        self.assertEqual(sorted(self.run_records()), ["old", "ra", "rb"])
+
+    # covers: AC-8 (a pick that still does not fit prints the lines again, keeps its start time, one prompt only)
+    def test_pick_still_does_not_fit(self):
+        self.repos()
+        (self.state / "wf").mkdir(parents=True)
+        self.seed(85.0, week_in=4)
+        r = self.bare(stdin="1\n")
+        out = r.stdout
+        self.assertEqual(r.returncode, 0, out + r.stderr)
+        self.assertEqual(out.count("usage:\n"), 2)
+        self.assertEqual(out.count("Enter waits"), 1)
+        self.assertEqual(out.count("does not fit the week"), 2)
+        self.assertIn("waiting for the usage reset", out)
+        self.assertEqual(sorted(self.run_records()), ["old", "ra"])
+
+    # covers: AC-8 (anything else at the prompt cancels: exit 130, no build)
+    def test_cancel(self):
+        self.repos()
+        (self.state / "wf").mkdir(parents=True)
+        self.seed(85.0, week_in=600)
+        r = self.bare(stdin="x\n")
+        self.assertEqual(r.returncode, 130, r.stdout + r.stderr)
+        self.assertEqual(sorted(self.run_records()), ["old"])
+
+    # covers: AC-9 (the report is marked seen before the builds wait, not after)
+    def test_report_seen_before_wait(self):
+        self.repos()
+        (self.state / "wf").mkdir(parents=True)
+        (self.state / "wf" / "report.txt").write_text("wf report: last night\n")
+        self.seed(85.0, week_in=600)
+        p = subprocess_start(self, "-y")
+        out = ""
+        while "waiting for the usage reset" not in out:
+            line = p.stdout.readline()
+            self.assertNotEqual(line, "", out)
+            out += line
+        seen = (self.state / "wf" / "report.seen").exists()
+        p.send_signal(signal.SIGINT)
+        p.communicate(timeout=30)
+        self.assertTrue(seen)
+        self.assertEqual(p.returncode, 130)
+
+
+# A real wf run child cannot take a mock: this sitecustomize sends the usage URL to a local fake server.
+SITE = '''import os, urllib.request
+_orig = urllib.request.urlopen
+def urlopen(req, *a, **kw):
+    if getattr(req, "full_url", None) == "https://api.anthropic.com/api/oauth/usage" and os.environ.get("V_URL"):
+        req.full_url = os.environ["V_URL"]
+    return _orig(req, *a, **kw)
+urllib.request.urlopen = urlopen
+'''
+
+
+class TestChildSampling(test_run.RunCase):
+    # covers: AC-2 (a wf run child reads usage at its start and after each call; a failed read warns once; a good
+    # read is cached, so one request and one sample)
+    def usage_server(self, code):
+        hits = []
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                hits.append(1)
+                self.send_response(code)
+                self.end_headers()
+                self.wfile.write(json.dumps(ANSWER).encode())
+
+            def log_message(self, *a):
+                pass
+
+        srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(srv.server_close)
+        self.addCleanup(srv.shutdown)
+        site = self.tmp / "site"
+        site.mkdir()
+        (site / "sitecustomize.py").write_text(SITE)
+        (self.tmp / ".claude").mkdir(exist_ok=True)
+        (self.tmp / ".claude" / ".credentials.json").write_text(json.dumps({"claudeAiOauth": {"accessToken": TOKEN}}))
+        self.env.update(PYTHONPATH=str(site), V_URL=f"http://127.0.0.1:{srv.server_address[1]}/api/oauth/usage")
+        return hits
+
+    def test_failed_read(self):
+        hits = self.usage_server(503)
+        self.steps([{}, {}, {"tick": False}])
+        r = self.wf("demo", "-y")
+        _, rec = self.run_record()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(len(hits), 1 + len(rec["calls"]))
+        self.assertEqual(r.stdout.count("warning: usage not read: usage service: 503"), 1)
+
+    def test_cached_read(self):
+        hits = self.usage_server(200)
+        self.steps([{}, {}, {"tick": False}])
+        r = self.wf("demo", "-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(len(hits), 1)
+        self.assertEqual(len((self.state / "wf" / "usage.jsonl").read_text().splitlines()), 1)
+        self.assertNotIn("warning: usage", r.stdout)
+
+
 def subprocess_start(case, *args):
     import subprocess
     from test_run import WF
@@ -374,6 +504,27 @@ class TestLimitAccount(test_park.TestLimit):
         self.steps([limited("usage limit reached"), {}, {}, {"tick": False}])
         r = self.wf("demo", "-y", mode=at_)
         self.assertEqual(self.slept(), ["1920"])
+
+    # covers: AC-10 (a full 5h window, both full takes the latest reset, a full window earlier than the text and a
+    # window at 98 keep the text's reset)
+    def test_which_window(self):
+        at_ = self.mode("2026-10-12T06:00:00-05:00")
+        for name, acct, slept in (("5h full later", (100, "2026-10-12T09:00:00-05:00", 50, None), "10920"),
+                                  ("both full", (99, "2026-10-12T09:00:00-05:00", 100, "2026-10-15T06:00:00-05:00"), "259320"),
+                                  ("full earlier than text", (100, "2026-10-12T06:10:00-05:00", 10, None), "1320"),
+                                  ("98 not full", (98, "2026-10-12T09:00:00-05:00", 10, None), "1320")):
+            with self.subTest(name):
+                self.fresh()
+                five, five_at, week, week_at = acct
+                s = self.state / "wf"
+                s.mkdir(parents=True, exist_ok=True)
+                (s / "usage.json").write_text(json.dumps({"at_epoch": time.time(),
+                                                          "five_hour": {"used": five, "resets_at": five_at},
+                                                          "seven_day": {"used": week, "resets_at": week_at}}))
+                self.steps([limited(), {}, {}, {"tick": False}])
+                r = self.wf("demo", "-y", mode=at_)
+                self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+                self.assertEqual(self.slept(), [slept])
 
     # only the AC-10 test of this class runs here
     test_wait_and_rerun = test_detection = test_stops = None

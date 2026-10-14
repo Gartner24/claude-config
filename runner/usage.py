@@ -326,7 +326,9 @@ def plan(picked, u=None, est=None, ratio=None):
                 break
             k += 1
         lines.append(f"fits now: 1-{k}" if k else "fits now: none")
-    elif costs and 100 - u["five_hour"]["used"] < costs[0][2] * ratio["five_hour"]:
+    # this used to check only costs[0]: a later repo's big first call started a run its 5h window could not hold
+    elif any(100 - u["five_hour"]["used"] < c[2] * ratio["five_hour"]
+             for c in {r: c for (r, _), c in reversed(list(zip(picked, costs)))}.values()):
         start = (u["five_hour"]["resets_at"] or run.wall_now()) + margin
         lines.append(f"5h window nearly used: starts at {at_text(start)}")
     else:

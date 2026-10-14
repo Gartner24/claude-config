@@ -377,6 +377,9 @@ def squash(r, f, rec):
     res = git(g, repo, "commit", "-q", "-m", subject, *(["-m", body] if body else []))
     if res.returncode:
         git(g, repo, "reset", "--soft", head)
+        # The tree change squash staged (the scope tick) used to stay staged, so back() ended the repo (AC-17).
+        if git(g, repo, "diff", "--cached", "--quiet").returncode == 1:
+            git(g, repo, "commit", "-q", "-m", f"chore: wf checkpoint {rec['branch']}")
         r.pr_ask(rec, "squash_failed", f"{rec['feature']}: the squash commit failed: {run.flat(res.stderr or res.stdout)}")
         return None
     return True
@@ -1022,6 +1025,9 @@ def poll_one(r, rec):
     comments = new_comments(r, rec, name, reviews, bot)
     if comments is None or not comments:
         return
+    if any((d["repo"], d["feature"]) == (rec["repo"], rec["feature"]) for d in r.queue()["decisions"]):
+        # A round here used to replace the feature's queued question, answered or not, so "send that reply" was lost.
+        return
     if rec["rounds"] >= rec.get("cap", ROUNDS):
         if not rec.get("asked_rounds"):
             rec["asked_rounds"] = True
@@ -1178,7 +1184,7 @@ def next_ask(r, rec):
     a = rec["asks"][0]
     c, reply = a["comment"], a["reply"]
     r.pr_ask(rec, "review_ask", f"PR #{rec['number']} @{c['author']}: {run.flat(c['body'])[:120]}: proposed: "
-                                f"{run.flat(reply)[:120]}", comment=c, reply=reply)
+                                f"{run.flat(reply)[:120]}", comment=c, proposed=reply)
 
 
 def review_answer(r, rec, d, opt, text):
@@ -1187,7 +1193,8 @@ def review_answer(r, rec, d, opt, text):
     c = d.get("comment") or {}
     rec["asks"] = [a for a in rec.get("asks", []) if a["comment"].get("id") != c.get("id")]
     if opt == "send that reply":
-        reply = f"{d.get('reply')} @{c.get('author')}"
+        # Not d["reply"]: that key is the phone message id that answered it, so the post used to say `m5 @bob`.
+        reply = f"{d.get('proposed')} @{c.get('author')}"
         hit = scans(r, rec, None, [("reply", reply)])
         if hit:
             save(r, rec)
