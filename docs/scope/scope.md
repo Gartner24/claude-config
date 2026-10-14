@@ -462,7 +462,7 @@ You type only `wf`. After one confirm screen it shows the report, applies pendin
 - [ ] Test it: `/test one command wf`
 - [x] Copy the handoff rule live: `cp ~/claude-config/rules/runner-handoff.md ~/.claude/rules/runner-handoff.md` (AC-10) · waits on you · live
 - [x] Copy the scope contract live: `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` (AC-10) · waits on you · live
-- [ ] Install the runner copy: `./install.sh` (AC-12) · waits on you · live
+- [x] Install the runner copy: `./install.sh` (AC-12) · waits on you · live
 - [ ] Real check beside a run: `python3 runner/e2e/run.py --beside` (AC-11) · waits on you · live
 - [ ] Sync docs: `/sync one command wf`
 Spec [0020](../specs/0020-one-command-wf/index.md)
@@ -509,7 +509,7 @@ In repos set to `issues` or `mixed`, `wf` rereads the linked issue before every 
 - [x] Design it (spec): `/architect issues and mixed source of truth`
 - [x] Build it: `/develop issues and mixed source of truth`
 - [x] Verify it: `/check verify issues and mixed source of truth`
-- [ ] Test it: `/test issues and mixed source of truth`
+- [x] Test it: `/test issues and mixed source of truth`
 - [ ] Probe P2 on a throwaway issue (it edits the issue): see the spec's verify.md · waits on you
 - [ ] Sync docs: `/sync issues and mixed source of truth`
 Spec [0024](../specs/0024-issues-source-of-truth/index.md) · Source: your message 2026-10-13 (agreed, not optional).
@@ -519,8 +519,8 @@ The `wf` screen says whether tonight's picks fit your 5 hour window and your wee
 **Done when:** the screen shows fits or starts at <time>, a run that does not fit starts after the reset, and the login token is never printed or saved.
 - [x] Design it (spec): `/architect usage limit planning`
 - [x] Build it: `/develop usage limit planning`
-- [ ] Verify it: `/check verify usage limit planning`
-- [ ] Test it: `/test usage limit planning`
+- [x] Verify it: `/check verify usage limit planning`
+- [x] Test it: `/test usage limit planning`
 - [ ] Compare the first real `wf` screen with the status line bars (P4) · waits on you
 - [ ] Sync docs: `/sync usage limit planning`
 Spec [0022](../specs/0022-usage-limit-planning/index.md) · Source: your message 2026-10-13 (agreed, not optional).
@@ -531,8 +531,8 @@ One branch per spec (stacked only when the spec says so, at most 3 deep), one sq
 - [x] Design it (spec): `/architect branch and PR flow`
 - [x] Build it: `/develop branch and PR flow`
 - [x] Verify it: `/check verify branch and PR flow`
-- [ ] Test it: `/test branch and PR flow`
-- [ ] Copy the rule live: `cp ~/claude-config/rules/branch-pr.md ~/.claude/rules/branch-pr.md` · waits on you · live
+- [x] Test it: `/test branch and PR flow`
+- [x] Copy the rule live: `cp ~/claude-config/rules/branch-pr.md ~/.claude/rules/branch-pr.md` · waits on you · live
 - [ ] Add the branch-pr pointer line to `~/.claude/CLAUDE.md` · waits on you
 - [ ] Probes P7 and P8 on a scratch GitHub repo (they post) · waits on you
 - [ ] Sync docs: `/sync branch and PR flow`
@@ -557,7 +557,7 @@ Boring reading jobs go to the free claude-fb models through `fb-ask` (text only,
 - [ ] Verify it: `/check verify cheap worker tier`
 - [ ] Test it: `/test cheap worker tier`
 - [ ] Create `~/.claude/private/fb-ok.txt` (your own repo origins) and `~/.claude/private/fb-ask.conf` · waits on you
-- [ ] Copy the rule live: `cp ~/claude-config/rules/cheap-worker.md ~/.claude/rules/cheap-worker.md` · waits on you · live
+- [x] Copy the rule live: `cp ~/claude-config/rules/cheap-worker.md ~/.claude/rules/cheap-worker.md` · waits on you · live
 - [ ] Probes P1 to P3 (the claude-fb proxy) · waits on you
 - [ ] Sync docs: `/sync cheap worker tier`
 Spec [0023](../specs/0023-cheap-worker-tier/index.md) · Source: your message 2026-10-13 (agreed, not optional).
@@ -570,7 +570,7 @@ Everything Claude tells you uses words you can follow; every question panel ends
 - [x] Build it: `/develop understand everything`
 - [ ] Verify it: `/check verify understand everything`
 - [ ] Test it: `/test understand everything`
-- [ ] Copy the rule live: `cp ~/claude-config/rules/plain-questions.md ~/.claude/rules/plain-questions.md` · waits on you · live
+- [x] Copy the rule live: `cp ~/claude-config/rules/plain-questions.md ~/.claude/rules/plain-questions.md` · waits on you · live
 - [ ] Real check of the LEARN line: `python3 docs/specs/0028-understand-everything/probes/learn-line.py` · waits on you · live
 - [ ] A panel is refused without "Learn this first" in a real session (P3) · waits on you
 - [ ] Sync docs: `/sync understand everything`
@@ -594,7 +594,7 @@ Spec [0029](../specs/0029-telegram/index.md) · Source: personal scope row 26.
 - [x] Build it: `/develop autonomous mode`
 - [ ] Verify it: `/check verify autonomous mode`
 - [ ] Test it: `/test autonomous mode`
-- [ ] Install the hooks, skill and status bar: `./install.sh` · waits on you · live
+- [x] Install the hooks, skill and status bar: `./install.sh` · waits on you · live
 - [ ] Probes P1 to P4 in a real session (`/clear`, closing the window, idle bar refresh, the skill argument) · waits on you
 - [ ] Sync docs: `/sync autonomous mode`
 Spec [0030](../specs/0030-autonomous-mode/index.md) · Source: your message 2026-10-13; [docs/briefs/autonomous-mode.md](../briefs/autonomous-mode.md).
