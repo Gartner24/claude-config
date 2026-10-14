@@ -2,7 +2,8 @@
 # Spec 0014 AC-5: `wf run` end to end in a throwaway copy of fixture/. It makes real claude calls, so you run it
 # yourself with `!` after a Claude Code upgrade or a runner change; install.sh and the unittest suite never do.
 # Spec 0017 AC-8: `--parallel` runs a bare `wf run` over two copies and checks their calls overlapped.
-# Spec 0018 AC-8: both forms also check the morning report, so a PASS sends a real note to your phone.
+# Spec 0018 AC-8: both forms also check the morning report. Every check talks to a silent local ntfy (fake_ntfy.py)
+# that answers each question itself, so nothing reaches your phone and nothing waits on you.
 # Spec 0020 AC-11: `--beside` runs `wf -y` beside a running `wf run`, in a temp CLAUDE_CONFIG_DIR holding a copy of
 # your login (removed at the end however it ends), and checks the run takes the swap and still stops on a hand edit.
 # Spec 0027 AC-10: `--same-repo` builds three features of one `parallel: 2` repo, each in its own worktree.
@@ -18,12 +19,14 @@ import tempfile
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.dirname(HERE))
+sys.path[:0] = [os.path.dirname(HERE), HERE]
+import fake_ntfy  # noqa: E402
 import ntfy  # noqa: E402
 
 FIXTURE = os.path.join(HERE, "fixture")
 BRANCH = "wf-e2e"
-CAPS = ["--max-calls", "10", "--max-hours", "1"]
+# --max-wait: an answer wait the fake missed ends in 15 minutes, never 12 hours.
+CAPS = ["--max-calls", "10", "--max-hours", "1", "--max-wait", "0.25"]
 OPEN_BOX = re.compile(r"^\s*[-*+]\s+\[ \].*$", re.M)
 
 
@@ -34,7 +37,7 @@ def git(repo, *args):
 
 
 def setup(top, names=("repo",)):
-    """The temp repos, state and config folders, with your ntfy config copied in and only those repos trusted.
+    """The temp repos, state and config folders, an ntfy config pointing at the silent fake, only those repos trusted.
     Returns (repos, env)."""
     state, config = (os.path.join(top, n) for n in ("state", "config"))
     repos = [os.path.join(top, n) for n in names]
@@ -45,10 +48,9 @@ def setup(top, names=("repo",)):
         git(repo, "commit", "-q", "-m", "chore: wf e2e fixture")
     os.makedirs(os.path.join(config, "wf"), mode=0o700)
     os.makedirs(state, mode=0o700)
-    # Read before the env below points XDG_CONFIG_HOME at the temp folder.
-    dest = os.path.join(config, "wf", "ntfy.json")
-    shutil.copyfile(ntfy.path(), dest)
-    os.chmod(dest, 0o600)
+    _, codes = ntfy.new_codes()
+    ntfy.write({"server": FAKE.url, "topic": "wf-e2e-" + "x" * 32, "codes": codes, "aliases": {}, "block": []},
+               os.path.join(config, "wf", "ntfy.json"))
     env = {**os.environ, "XDG_STATE_HOME": state, "XDG_CONFIG_HOME": config}
     for repo in repos:
         subprocess.run(["wf", "allow", repo], env=env, check=True, capture_output=True)
@@ -229,8 +231,10 @@ def beside_failure(top):
         if run_a.poll() is None:
             run_a.kill()
     rec = run_record(top, "a")
-    if not rec or rec.get("stop_reason") != "guard_changed":
-        return f"a hand made change did not stop A: {rec and rec.get('stop_reason')}"
+    # Spec 0021 U5: a hand made change asks; the fake answers "stop this repo".
+    if not rec or not any("accept the new setup and go on" in d.get("options", []) for d in rec.get("decisions", [])) \
+            and rec.get("stop_reason") != "guard_changed":
+        return f"a hand made change did not ask or stop A: {rec and rec.get('stop_reason')}"
     return None
 
 
@@ -320,10 +324,12 @@ def remove_trees(repo):
     shutil.rmtree(wfrun.tree_folder(repo), ignore_errors=True)
 
 
+FAKE = None
+
+
 def main():
-    if not os.path.isfile(ntfy.path()):
-        print(f"FAIL: no ntfy config at {ntfy.path()}, run wf ntfy init")
-        return 1
+    global FAKE
+    FAKE = fake_ntfy.Server()
     parallel = sys.argv[1:] == ["--parallel"]
     beside = sys.argv[1:] == ["--beside"]
     same = sys.argv[1:] == ["--same-repo"]
@@ -353,7 +359,6 @@ def main():
         print("PASS")
         return 0
     print(f"FAIL: {problem}")
-    # The copy of your ntfy config stays in config/ until you delete the folder.
     for name in (("one", "two") if parallel else ("a", "b") if beside else ("same",) if same else ("repo",)) + \
             ("state", "config"):
         print(f"kept: {os.path.join(top, name)}")
