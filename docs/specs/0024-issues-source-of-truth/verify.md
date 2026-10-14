@@ -1,0 +1,8 @@
+# 0024 verify
+
+## Probes (2026-10-13, before the build)
+
+- **P1** (fields): `gh --version` prints `gh version 2.102.0`. `gh issue view 10000 --repo cli/cli --json title,body,state,stateReason,closedAt,comments` returns the keys `body, closedAt, comments, state, stateReason, title`; a comment has `author, authorAssociation, body, createdAt, id, ...`. A bot comment (cli/cli#14675, from GitHub Actions) shows `author: {login: "github-actions"}` with no `[bot]` suffix and no type field, so `gh issue view` alone cannot tell a bot. The build reads the author's `__typename` (`Bot`) through the same AC-5 `gh api graphql` query (see Deviations in the build report). Result: PASS, with that addition.
+- **P2** (edit history), run read only on a public issue instead of editing a throwaway one: `gh api graphql -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){body userContentEdits(first:50){totalCount nodes{editedAt diff}}}}}' -f o=cli -f r=cli -F n=10000` returns two nodes, newest first; the newest `diff` is the whole current body (6097 characters, the same as `body`), the older one the whole first version (6011 characters). So each `diff` holds that version's full body. Result: PASS.
+- **P3** (spec time): `git log -1 --format="%h %cI %s" "-S- [x] Design it (spec): \`/architect ask never stop\`" -- docs/scope/scope.md` prints `ba24c1b 2026-10-13T16:57:36-05:00`, the commit whose diff turns that box from `[ ]` to `[x]`; three later commits touched the scope file and are not picked. Result: PASS.
+- **P4** (`gh` outside calls): `env -u GH_TOKEN -u GITHUB_TOKEN gh auth status --active --hostname github.com` exits 0, logged in through the keyring. Result: PASS.

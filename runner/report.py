@@ -16,7 +16,8 @@ MAX_CHARS = 1000
 HOOK_HEAD = "wf morning report (shows in every session until you run wf):"
 FOLDER = re.compile(r"^(.+)-(\d{8}-\d{6})-(\d+)$")
 # Item kinds in AC-2 order; parked and stopped share a slot, kept in feature order.
-ORDER = ("built", "parked", "question", "live", "yours", "no record", "no end", "not started")
+# Spec 0024: a run's notes (an issue not read, a feature with no linked issue) come last.
+ORDER = ("built", "parked", "question", "live", "yours", "no record", "no end", "not started", "note")
 SLOT = {"stopped": "parked"}
 
 
@@ -92,6 +93,7 @@ def collect(sources):
                 else:
                     continue
                 mine.append(item)
+            mine += [{"kind": "note", "text": t} for t in (rec or {}).get("notes") or []]
         mine = open_questions(s["path"], mine) + scope_items(s["path"])
         for item in mine:
             item.update(repo=s["path"], name=s["name"])
@@ -160,6 +162,8 @@ def item_line(i, multi, phone, cfg):
         text = f"yours: {feature}: {field(i['text'], 80, 'step')}"
     elif k == "no record":
         text = f"no record: {name}: exit {i['code']}"
+    elif k == "note":
+        text = field(i["text"], 120, "note")
     else:
         text = f"{k}: {name}"
     return text + (f" ({name})" if multi else "")
