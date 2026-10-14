@@ -6,6 +6,7 @@ import fcntl
 import hashlib
 import io
 import json
+import re
 import os
 import subprocess
 import sys
@@ -145,7 +146,9 @@ def interactive(pid=None):
         except (OSError, ValueError, IndexError):
             return False
         if any(os.path.basename(a) == "claude" for a in args[:2]):
-            return not any(a in ("-p", "--print") or a.startswith("--print=") for a in args)
+            # Short flags combine (`-cp`), so any short flag group holding p counts, and any --print form.
+            return not any(re.fullmatch(r"-[A-Za-z]*p[A-Za-z]*", a) or a == "--print" or a.startswith("--print=")
+                           for a in args[1:])
         if parent <= 1:
             return False
         pid = parent
