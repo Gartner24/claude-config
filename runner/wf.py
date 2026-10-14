@@ -670,6 +670,9 @@ def build_parser():
     unpark.add_argument("feature", nargs="?", help="only this feature: its heading, or a unique part of it")
     allow = sub.add_parser("allow", help="let wf run start in this repo (spec 0008 trust list)")
     allow.add_argument("target", nargs="?", help="a path, folder name or scope title")
+    aw = sub.add_parser("allow-writes", help="let wf run calls in this repo write a path (spec 0021 AC-7)")
+    aw.add_argument("target", help="a path, folder name or scope title")
+    aw.add_argument("path", help="the file or folder its calls may write")
     ntfy = sub.add_parser("ntfy", help="set up and test phone pings for wf run")
     nsub = ntfy.add_subparsers(dest="action", metavar="<action>", required=True)
     init = nsub.add_parser("init", help="create the topic and one time codes")
@@ -703,6 +706,9 @@ def main(argv=None):
     if args.command in ("allow", "queue", "unpark"):
         import run
         return getattr(run, "cmd_" + args.command)(args)
+    if args.command == "allow-writes":
+        import run
+        return run.cmd_allow_writes(args)
     if args.command == "ntfy":
         import ntfy
         if args.action == "init":

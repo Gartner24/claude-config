@@ -4,6 +4,7 @@
 import datetime
 import difflib
 import fcntl
+import fnmatch
 import glob
 import hashlib
 import http.client
@@ -60,7 +61,9 @@ CREDENTIAL_ENV = ("GH_TOKEN", "GITHUB_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_ENT
 CREDENTIAL_PATHS = ("~/.config/gh", "~/.ssh", "~/.git-credentials", "~/.netrc", "~/.aws", "~/.config/gcloud", "~/.azure",
                     # Review M7: package registry, docker, kube and API key files were readable by calls and the app.
                     "~/.npmrc", "~/.config/git/credentials", "~/.docker/config.json", "~/.pypirc", "~/.kube",
-                    "~/.claude/anthropic_api_key")
+                    "~/.claude/anthropic_api_key",
+                    # wf's own config (ntfy topic, codes, allow.json); expand() adds $XDG_CONFIG_HOME/wf.
+                    "~/.config/wf")
 PAID_SUFFIXES = ("_API_KEY", "_API_TOKEN", "_TOKEN", "_SECRET", "_ACCESS_KEY", "_KEY", "_PAT", "_PASSWORD")
 PAID_ENV = ("PGPASSWORD", "DATABASE_URL", "SENTRY_DSN", "AWS_ACCESS_KEY_ID", "GOOGLE_APPLICATION_CREDENTIALS", "ANTHROPIC_AUTH_TOKEN",
             "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY")
@@ -176,12 +179,13 @@ UNATTENDED_PROMPT = (
 # Spec 0006: the standing answers section, in the AGENTS.md mapped from the exact scope base.
 ANSWERS_FILE = {"docs/scope": "AGENTS.md", ".workflow/scope": ".workflow/AGENTS.md"}
 # Spec 0009 AC-1: the app keys take any value, kept as written; app url is checked by APP_URL.
-# Spec 0021 AC-7: allow writes takes a comma list of paths, checked by allow_paths().
+# Spec 0021 AC-7: allow writes is still accepted so an old line does not refuse the file, but never read: a call
+# can edit AGENTS.md. The setting lives in allow.json (allow_writes_path()).
 ANSWER_KEYS = {"run suite": ("yes", "ask"), "done": ("yes", "ask"), "app start": None, "app url": None,
                "allow writes": None}
 ANSWER_ENTRY = re.compile(r"^\s*[-*]\s+([^:]+?)\s*:\s*(\S.*?)\s*$")
 ANSWERS_HINT = (" (expected: - run suite: yes|ask, - done: yes|ask, - app start: <command>, "
-                "- app url: http://localhost:<port>, - allow writes: <path>, <path>)")
+                "- app url: http://localhost:<port>)")
 APP_URL = re.compile(r"https?://(localhost|127\.0\.0\.1|\[::1\]):(\d{1,5})(/\S*)?")
 ANSWERS_INTRO = " Standing answers for this repo, use them instead of asking:"
 RUN_SUITE_YES = " Run tests?, Yes, run and fix to green."
@@ -243,6 +247,9 @@ CASES = {
 }
 # Spec 0021 F1: an answer may never make one of these writable; `~/.claude/` ones in every claude dir.
 SECRETS = (*CREDENTIAL_PATHS, "~/.gnupg", "~/.claude/private", "~/.claude/.credentials.json")
+# Spec 0021 AC-7: in every claude dir, never writable whatever allow.json says (with settings*.json, see refused()).
+CLAUDE_NEVER = ("settings.json", "settings.local.json", "hooks", "rules", "agents", "skills", "scripts", "commands",
+                "private", "CLAUDE.md")
 # Edit tools whose denial names the path F1 asks to allow.
 FILE_TOOLS = {"Edit": "file_path", "Write": "file_path", "MultiEdit": "file_path", "NotebookEdit": "notebook_path"}
 # Spec 0021 AC-3: an answer passed into the rerun's calls.
@@ -520,6 +527,8 @@ def expand(p):
     """A `~/` path of the constants above as a list, a `~/.claude/` one in every claude_dirs() folder."""
     if p.startswith("~/.claude/"):
         return [os.path.join(d, p[len("~/.claude/"):]) for d in claude_dirs()]
+    if p == "~/.config/wf":
+        return list(dict.fromkeys([os.path.expanduser(p), os.path.dirname(ntfy.path())]))
     return [os.path.expanduser(p)]
 
 
@@ -855,7 +864,10 @@ class Run:
             return "bad_answers", problem + ANSWERS_HINT
         self.answers = answers
         self.repo["answers"] = dict(answers)
-        self.warnings += [f"{c.name}: {w}" for w in allow_paths(c.path, answers.get("allow writes"))[1]]
+        if "allow writes" in answers:
+            self.warnings.append(f"{c.name}: allow writes in {ANSWERS_FILE[c.scope_dir]} is ignored; it lives in "
+                                 f"{allow_writes_path()} now, set it with wf allow-writes <repo> <path>")
+        self.warnings += [f"{c.name}: {w}" for w in allow_paths(c.path, common_dir(c.path))[1]]
         # Spec 0021 R1: main and master pass; branch_off() makes the feature branch at the feature's start.
         if self.branch in BAD_BRANCHES or self.branch.startswith("detached"):
             return "branch", f"{self.branch}, switch to a work branch first"
@@ -1026,13 +1038,15 @@ class Run:
             return "no_sandbox", "git remote -v failed: " + flat(r and r.stderr)
         hosts = remote_hosts(r.stdout)
         # Spec 0021 AC-7: the standing allow writes paths and an F1 answer's path are writable for every call.
-        allowed = self.allowed()
-        # A secret inside an allowed path (~/.claude/private in ~/.claude) stays denied.
-        kept = [s for s in secrets() if under(s, allowed)]
-        write = sorted({repo, common, *(os.path.expanduser(p) for p in CACHE_DIRS), *allowed})
         self.common = common
+        never = never_writable(repo, common)
+        allowed = self.allowed()
+        # A never writable path inside an allowed one (~/.claude/settings.json in ~/.claude) stays denied.
+        kept = [s for s in never if under(s, allowed)]
+        write = sorted({repo, common, *(os.path.expanduser(p) for p in CACHE_DIRS), *allowed})
         self.repo["guard"] = {"hosts": hosts, "write_paths": write, "deny_paths": deny, "binaries": binaries,
                               "allowed": list(dict.fromkeys(allowed + [os.path.realpath(a) for a in allowed])),
+                              "never": never,
                               # Each gitlink's .git as written and as resolved at start (spec 0011 AC-9).
                               "submodules": [[os.path.join(repo, link, ".git"), os.path.realpath(os.path.join(repo, link, ".git"))]
                                              for link in links],
@@ -1287,8 +1301,8 @@ class Run:
     # -- never stop (spec 0021) ------------------------------------------------
 
     def allowed(self):
-        """AC-7: the repo in use's standing allow writes paths, then this feature's F1 allow once."""
-        return list(dict.fromkeys(allow_paths(self.c.path, self.answers.get("allow writes"))[0] + self.allow_once))
+        """AC-7: the repo in use's standing allow writes (allow.json), then this feature's F1 allow once."""
+        return allow_paths(self.c.path, self.common, self.allow_once)[0]
 
     def cap(self, name):
         """F8: this feature's --budget, --max-calls or --call-timeout, doubled by each `give it more`."""
@@ -1306,7 +1320,7 @@ class Run:
         for p, now_hash in g["guarded_files"].items():
             if p in old["guarded_files"]:
                 g["guarded_files"][p] = old["guarded_files"][p]
-            elif now_hash != "absent" and not under(p, g["allowed"]):
+            elif now_hash != "absent" and not opened(p, g):
                 raise Stop("guard_changed", f"{p} is new to the guard; inspect or delete it before opening a session "
                                             "in this repo", repo=True)
         if self.browser and self.browser.get("shots"):
@@ -1318,11 +1332,10 @@ class Run:
         """AC-7: what the run's own call wrote under an allowed path is the work, so its hash now is the new
         baseline. A change between calls, or by anything else, still stops the repo at the next check."""
         g = self.repo["guard"]
-        allowed = g.get("allowed") or []
         for p in g["guarded_files"]:
-            if under(p, allowed) or under(os.path.realpath(p), allowed):
+            if opened(p, g):
                 g["guarded_files"][p] = file_hash(p)
-        g["absent_denied"] = [p for p in g["absent_denied"] if not under(p, allowed)]
+        g["absent_denied"] = [p for p in g["absent_denied"] if not opened(p, g)]
 
     def ask(self, question, options, feature=None, call_kind="box", command="", box_text=None, session="", seq=None,
             repo=None, branch=None, **extra):
@@ -1387,10 +1400,10 @@ class Run:
         options, question, path = CASES[reason][1], f"{reason}: {flat(detail)}", None
         if reason == "denied":
             path = self.denied_at
-            if path and not secret(path):
+            if path and not refused(path, self.repo["guard"]["never"]):
                 question = f"allow {path} for {self.c.name}? {flat(detail)}"
             else:
-                # F1 never opens a secret, and a denied command names no path to open.
+                # F1 never opens a never writable path, and a denied command names no path to open.
                 options, path = ("try again", SKIP_IT), None
         calls = self.entry["calls"]
         last = self.record["calls"][calls[-1] - 1] if calls else {}
@@ -1400,7 +1413,8 @@ class Run:
 
     def take_case(self, d):
         """AC-3: the answered case question d leaves the queue with its feature's Park record. Returns its option;
-        an answer that is no option is a hint for the recommended one."""
+        an answer that is no option is a hint for the recommended one, except on F1, where it is skip: free text
+        never widens what a call may write."""
         def drop(q):
             q["decisions"] = [x for x in q["decisions"] if x["id"] != d["id"]]
             q["parks"] = [p for p in q["parks"] if (p["repo"], p["feature"]) != (d["repo"], d["feature"])]
@@ -1410,7 +1424,9 @@ class Run:
         self.entry_for(d)
         answer = flat(d["answer"])
         opt = next((o for o in d["options"] if o.casefold() == answer.casefold()), None)
-        if opt is None:
+        if opt is None and d.get("case") == "denied":
+            opt = SKIP_IT
+        elif opt is None:
             opt, self.hint = d["options"][0], answer
         print(f"answered: {d['id']} {d['feature']}: {opt}", flush=True)
         return opt
@@ -1463,36 +1479,11 @@ class Run:
         return False
 
     def append_allow(self, path):
-        """F1 `always` (AC-7): add path to the repo's `- allow writes:` line, making the line or the section when
-        missing, and read the standing answers again."""
-        file = os.path.join(self.c.path, ANSWERS_FILE[self.c.scope_dir])
-        home = os.path.expanduser("~")
-        shown = "~" + path[len(home):] if under(path, [home]) else path
-        try:
-            rows = wf.read(file).split("\n")
-        except FileNotFoundError:
-            rows = []
-        head = next((i for i, l in enumerate(rows) if l.strip().casefold() == "## standing answers"), None)
-        if head is None:
-            while rows and not rows[-1].strip():
-                rows.pop()
-            rows += ([""] if rows else []) + ["## Standing answers", "", f"- allow writes: {shown}", ""]
-        else:
-            end = next((i for i in range(head + 1, len(rows)) if rows[i].startswith(("# ", "## "))), len(rows))
-            keys = {i: " ".join(m.group(1).casefold().split()) for i in range(head + 1, end)
-                    for m in [ANSWER_ENTRY.match(rows[i])] if m}
-            at = next((i for i, k in keys.items() if k == "allow writes"), None)
-            if at is not None:
-                rows[at] = rows[at].rstrip() + f", {shown}"
-            else:
-                rows.insert(max(keys, default=head) + 1, f"- allow writes: {shown}")
-        with open(file, "w", encoding="utf-8") as out:
-            out.write("\n".join(rows))
-        answers, problem = read_answers(self.c)
+        """F1 `always` (AC-7): add path to the repo's standing allow writes in allow.json, which no call reads or
+        writes. A refusal is an internal_error: F1 offers `always` only for a path refused() lets through."""
+        problem = add_allow_write(self.c.path, path, self.common)
         if problem:
-            raise Stop("internal_error", f"standing answers after allow writes: {problem}")
-        self.answers = answers
-        self.repo["answers"] = dict(answers)
+            raise Stop("internal_error", f"allow writes: {problem}")
 
     # -- the queue (spec 0011) -------------------------------------------------
 
@@ -1669,7 +1660,9 @@ class Run:
         self.queue(lambda q: q.update(decisions=[x for x in q["decisions"] if x["id"] != d["id"]]) or True)
         self.entry_for(d)
         answer = flat(d["answer"])
-        opt = next((o for o in d["options"] if o.casefold() == answer.casefold()), d["options"][0])
+        # U5: an answer that is no option stops the repo; free text never accepts a guard change.
+        opt = next((o for o in d["options"] if o.casefold() == answer.casefold()),
+                   STOP_REPO if d.get("reason") == "guard_changed" else d["options"][0])
         print(f"answered: {d['id']} {self.c.name}: {opt}", flush=True)
         if opt == STOP_REPO:
             self.repo["ended"] = self.repo["ended"] or d["reason"]
@@ -3460,7 +3453,13 @@ def hooks_paths(configs, repo):
 
 
 def under(path, dirs):
-    return any(path == d or path.startswith(d.rstrip("/") + "/") for d in dirs)
+    """By whole path components: /a/bc is not under /a/b, and /a/b/ is /a/b."""
+    path = os.path.normpath(path)
+    for d in dirs:
+        d = os.path.normpath(d)
+        if path == d or path.startswith(d.rstrip("/") + "/"):
+            return True
+    return False
 
 
 def write_binds(repo):
@@ -3498,7 +3497,7 @@ def deny_paths(repo, common, tokens, git_files=()):
     deny = [*entries, os.path.join(home, ".claude.json"), os.path.join(repo, ".claude"), common,
             *(os.path.expanduser(p) for p in DOTFILES), os.path.join(home, ".local", "share", "claude"),
             # Spec 0020 AC-12: every runner copy, not only the one the wf hook token resolves into.
-            os.path.join(home, ".local", "share", "wf")]
+            os.path.join(home, ".local", "share", "wf"), *expand("~/.config/wf")]
     deny += [os.path.abspath(d) for d in os.environ.get("PATH", "").split(os.pathsep) if d and os.access(d, os.W_OK)]
     deny += git_files
     for t in tokens:
@@ -3513,25 +3512,119 @@ def secrets():
     return list(dict.fromkeys(keys + [os.path.realpath(k) for k in keys]))
 
 
-def secret(path):
-    """A path under a secret. One holding a secret stays allowed; freeze_guard keeps the secrets in it denied."""
-    return any(under(q, secrets()) for q in (path, os.path.realpath(path)))
+def never_writable(repo, common):
+    """Spec 0021 AC-7: what no allow entry opens, as written and resolved: every secret, the live claude dirs'
+    settings, hooks and instructions, your shell rc files, every PATH dir, wf's and claude's own folders and the
+    repo's git config, hooks and info. An allow entry holding one leaves it denied (freeze_guard's `kept`)."""
+    home = os.path.expanduser("~")
+    out = list(secrets())
+    for d in claude_dirs():
+        out += [os.path.join(d, n) for n in CLAUDE_NEVER] + glob.glob(os.path.join(glob.escape(d), "settings*.json"))
+    out += [os.path.join(home, ".claude.json"), *(os.path.expanduser(p) for p in DOTFILES),
+            os.path.join(home, ".gitconfig"), os.path.join(home, ".config", "git"), os.path.join(home, ".local", "bin"),
+            *(os.path.abspath(d) for d in os.environ.get("PATH", "").split(os.pathsep) if d),
+            os.path.join(home, ".local", "share", "wf"), os.path.join(home, ".local", "share", "claude"), state_dir(),
+            *expand("~/.config/wf")]
+    if common:
+        out += [os.path.join(common, n) for n in ("config", "hooks", "info")]
+    return list(dict.fromkeys(out + [os.path.realpath(p) for p in out]))
 
 
-def allow_paths(repo, value):
-    """Spec 0021 AC-7: the paths of an `- allow writes:` value, absolute (`~` expanded, a relative one from the repo),
-    and a warning for each secret path, which is refused."""
-    out, warnings = [], []
-    for raw in (value or "").split(","):
-        p = raw.strip()
-        if not p:
-            continue
-        a = os.path.normpath(os.path.join(repo, os.path.expanduser(p)))
-        if secret(a):
-            warnings.append(f"allow writes: {p} is a secret path, refused")
-            continue
-        out.append(a)
+def refused(path, never):
+    """A path no allow entry may open: under never, or a settings*.json of a claude dir, as written or resolved."""
+    dirs = {x for d in claude_dirs() for x in (d, os.path.realpath(d))}
+    for q in (os.path.normpath(path), os.path.realpath(path)):
+        if under(q, never) or (os.path.dirname(q) in dirs and fnmatch.fnmatch(os.path.basename(q), "settings*.json")):
+            return True
+    return False
+
+
+def opened(p, g):
+    """AC-7: guarded file p is one guard g lets a call change: under an allowed path as written or resolved, and
+    never writable in neither form. A guard with no `never` list opens nothing."""
+    return "never" in g and any(under(q, g.get("allowed") or []) for q in (p, os.path.realpath(p))) \
+        and not refused(p, g["never"])
+
+
+def allow_writes_path():
+    """Spec 0021 AC-7: the standing allow writes, beside ntfy.json where no call reads or writes."""
+    return os.path.join(os.path.dirname(ntfy.path()), "allow.json")
+
+
+def read_allow_writes():
+    """{repo realpath: [absolute path, ...]}, {} when absent. Raises ValueError on a file of another shape."""
+    p = allow_writes_path()
+    try:
+        with open(p, encoding="utf-8") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return {}
+    if not isinstance(data, dict) or not all(isinstance(v, list) and all(isinstance(x, str) for x in v)
+                                             for v in data.values()):
+        raise ValueError(f"{p} is not a JSON object of repo: [paths]")
+    return data
+
+
+def allow_paths(repo, common, extra=()):
+    """Spec 0021 AC-7: the repo's standing allow writes plus extra (an F1 allow once), absolute, and a warning for
+    each entry refused (relative, or never writable). A bad allow.json allows nothing."""
+    try:
+        entries = read_allow_writes().get(os.path.realpath(repo), [])
+    except (ValueError, OSError) as e:
+        entries = []
+        warnings = [f"allow writes: {e}, nothing allowed"]
+    else:
+        warnings = []
+    never, out = never_writable(repo, common), []
+    for p in [*entries, *extra]:
+        if not os.path.isabs(p):
+            warnings.append(f"allow writes: {p} is not an absolute path, refused")
+        elif refused(p, never):
+            warnings.append(f"allow writes: {p} is never writable, refused")
+        else:
+            out.append(os.path.normpath(p))
     return list(dict.fromkeys(out)), warnings
+
+
+def add_allow_write(repo, path, common):
+    """Spec 0021 AC-7: add path to repo's standing allow writes in allow.json (0600). Returns why not, else None."""
+    if not os.path.isabs(path) or refused(path, never_writable(repo, common)):
+        return f"{path} is never writable, refused"
+    p = allow_writes_path()
+    try:
+        os.makedirs(os.path.dirname(p), mode=0o700, exist_ok=True)
+        lock = os.open(p + ".lock", os.O_RDWR | os.O_CREAT, 0o600)
+    except OSError as e:
+        return f"{p}: {e.strerror or e}"
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        data = read_allow_writes()
+        key, path = os.path.realpath(repo), os.path.normpath(path)
+        if path not in data.get(key, []):
+            data[key] = data.get(key, []) + [path]
+            ntfy.write(data, p)
+    except (ValueError, OSError) as e:
+        return str(e)
+    finally:
+        os.close(lock)
+    return None
+
+
+def cmd_allow_writes(args):
+    """`wf allow-writes <repo> <path>`: at your terminal only, never from a call (WF_RUN)."""
+    if os.environ.get("WF_RUN"):
+        print("wf allow-writes runs only at your terminal, not inside wf run", file=sys.stderr)
+        return 1
+    c, rc = wf.resolve(args)
+    if c is None:
+        return rc
+    path = os.path.abspath(os.path.expanduser(args.path))
+    problem = add_allow_write(c.path, path, common_dir(c.path))
+    if problem:
+        print(problem, file=sys.stderr)
+        return 1
+    print(f"allow writes: {wf.clean(path)} for {wf.clean(os.path.realpath(c.path))}")
+    return 0
 
 
 def carve(deny, allowed):

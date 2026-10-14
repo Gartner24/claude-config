@@ -254,13 +254,30 @@ class TestRows(NeverStopCase):
         self.assertIsNone(r.design_check())
 
 
-class TestAllow(NeverStopCase):
+class AllowCase(NeverStopCase):
+    def allow_json(self):
+        p = self.tmp / "config" / "wf" / "allow.json"
+        return json.loads(p.read_text()) if p.exists() else None
+
+    def allow_writes(self, *paths):
+        p = self.tmp / "config" / "wf" / "allow.json"
+        p.write_text(json.dumps({os.path.realpath(self.repo): [str(x) for x in paths]}))
+        p.chmod(0o600)
+
+    def home_env(self):
+        """The test's HOME and XDG folders for an in process call; no CLAUDE_CONFIG_DIR."""
+        env = {k: v for k, v in os.environ.items() if k not in ("CLAUDE_CONFIG_DIR", "WF_RUN")}
+        env.update(self.env)
+        return mock.patch.dict(os.environ, env, clear=True)
+
+
+class TestAllow(AllowCase):
     def setUp(self):
         super().setUp()
-        rules = self.tmp / ".claude" / "rules"
-        rules.mkdir(parents=True)
-        (rules / "a.md").write_text("a\n")
-        self.target = str(rules / "x.md")
+        docs = self.tmp / ".claude" / "docs"
+        docs.mkdir(parents=True)
+        (docs / "a.md").write_text("a\n")
+        self.target = str(docs / "x.md")
 
     def deny(self, path):
         return {"tick": False, "json": {"permission_denials": [
@@ -272,70 +289,143 @@ class TestAllow(NeverStopCase):
         self.steps([self.deny(self.target), {}, {}, {"tick": False}])
         r = self.wf("demo", "-y", "--max-wait", "0.01", mode="fast")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn(f"waiting: ", r.stdout)
         self.assertIn(f"allow {self.target} for demo? ", r.stdout)
-        rules = str(self.tmp / ".claude" / "rules")
+        docs = str(self.tmp / ".claude" / "docs")
         fs = self.settings(1)["sandbox"]["filesystem"]
-        self.assertIn(rules, fs["denyWrite"])
+        self.assertIn(docs, fs["denyWrite"])
         fs = self.settings(2)["sandbox"]["filesystem"]
         self.assertIn(self.target, fs["allowWrite"])
-        self.assertNotIn(rules, fs["denyWrite"])
-        self.assertIn(rules + "/a.md", fs["denyWrite"])
-        self.assertNotIn(f"Edit(/{rules}/**)", self.denied(2))
-        self.assertIn(f"Edit(/{rules}/a.md)", self.denied(2))
-        self.assertIn(f"Edit(/{rules}/**)", self.denied(1))
+        self.assertNotIn(docs, fs["denyWrite"])
+        self.assertIn(docs + "/a.md", fs["denyWrite"])
+        self.assertNotIn(f"Edit(/{docs}/**)", self.denied(2))
+        self.assertIn(f"Edit(/{docs}/a.md)", self.denied(2))
+        self.assertIn(f"Edit(/{docs}/**)", self.denied(1))
+        self.assertIsNone(self.allow_json())
 
-    # covers: F1, AC-7 (always writes the standing permission line, and the run does not stop for it)
+    # covers: F1, AC-7 (always writes allow.json, 0600, never AGENTS.md, and the run does not stop for it)
     def test_always(self):
         self.reply("{id} 2")
         self.steps([self.deny(self.target), {}, {}, {"tick": False}])
         r = self.wf("demo", "-y", "--max-wait", "0.01", mode="fast")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertEqual((self.repo / "AGENTS.md").read_text(),
-                         "## Standing answers\n\n- allow writes: ~/.claude/rules/x.md\n")
+        self.assertEqual(self.allow_json(), {os.path.realpath(self.repo): [self.target]})
+        self.assertEqual(os.stat(self.tmp / "config" / "wf" / "allow.json").st_mode & 0o777, 0o600)
+        self.assertFalse((self.repo / "AGENTS.md").exists())
         self.assertIn(self.target, self.settings(3)["sandbox"]["filesystem"]["allowWrite"])
 
     # covers: F1 (a secret is never offered: no allow options)
     def test_secret_never_offered(self):
         self.steps([self.deny(str(self.tmp / ".ssh" / "id_x"))])
         r = self.wf("demo", "-y")
-        self.assertEqual(len(self.queue()["decisions"]), 1, r.stdout + r.stderr)
         [d] = self.queue()["decisions"]
-        self.assertEqual((d["options"], d["allow"]), (["try again", "skip"], None))
+        self.assertEqual((d["options"], d["allow"]), (["try again", "skip"], None), r.stdout + r.stderr)
+
+    # covers: F1, AC-7 (a never writable path is never offered: claude rules, shell rc, the git config, wf's config)
+    def test_never_writable_not_offered(self):
+        for path in (self.tmp / ".claude" / "rules" / "x.md", self.tmp / ".bashrc", self.repo / ".git" / "config",
+                     self.tmp / "config" / "wf" / "allow.json", self.tmp / ".local" / "bin" / "wf"):
+            with self.subTest(str(path)):
+                p = self.state / "wf" / "queue.json"
+                for f in (p, self.fakes / "count"):
+                    if f.exists():
+                        f.unlink()
+                self.steps([self.deny(str(path))])
+                r = self.wf("demo", "-y")
+                [d] = self.queue()["decisions"]
+                self.assertEqual((d["options"], d["allow"]), (["try again", "skip"], None), r.stdout + r.stderr)
+
+    # covers: F1 (an answer that is no option is skip, never allow once: free text widens nothing)
+    def test_free_text_is_skip(self):
+        self.reply("{id} code0001 sure go ahead")
+        self.steps([self.deny(self.target), {}, {}, {"tick": False}])
+        r = self.wf("demo", "-y", "--max-wait", "0.01", mode="fast")
+        self.assertIn("skipped: 1. Loop: ", r.stdout)
+        self.assertEqual(len(self.calls()), 1, r.stdout)
+        self.assertIsNone(self.allow_json())
+
+    # covers: U5 (an answer that is no option stops the repo, never accepts the new setup)
+    def test_guard_free_text_stops(self):
+        r = run.Run.__new__(run.Run)
+        r.c, r.repo = SimpleNamespace(name="demo", path=str(self.repo), scope_dir="docs/scope"), {"ended": "guard_changed"}
+        r.queue, r.entry_for = (lambda change: None), (lambda d: None)
+        d = {"id": "abc", "answer": "yes accept it", "reason": "guard_changed", "options": list(run.CASES["guard_changed"][1])}
+        r.repo_answer(d)
+        self.assertEqual(r.repo["ended"], "guard_changed")
+        r.repo_answer({**d, "answer": "accept the new setup and go on"})
+        self.assertIsNone(r.repo["ended"])
 
 
-class TestStanding(NeverStopCase):
+class TestStanding(AllowCase):
     def setUp(self):
         super().setUp()
         (self.tmp / ".claude").mkdir()
         self.settings_file = self.tmp / ".claude" / "settings.json"
         self.settings_file.write_text("{}")
+        self.hooks = self.tmp / ".claude" / "plugins" / "cache" / "p" / "hooks.json"
+        self.hooks.parent.mkdir(parents=True)
+        self.hooks.write_text("{}")
 
     # covers: AC-7 (an allowed path is writable for every call and the guard takes a call's own change to it;
-    # a secret inside it stays denied)
+    # a never writable path inside it stays denied)
     def test_allowed_change_is_taken(self):
-        (self.repo / "AGENTS.md").write_text("## Standing answers\n- allow writes: ~/.claude\n")
-        self.steps([{"write_file": [[str(self.settings_file), '{"x": 1}']]}, {}, {"tick": False}])
+        self.allow_writes(self.tmp / ".claude")
+        self.steps([{"write_file": [[str(self.hooks), '{"x": 1}']]}, {}, {"tick": False}])
         r = self.wf("demo", "-y")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         fs = self.settings(1)["sandbox"]["filesystem"]
         self.assertIn(str(self.tmp / ".claude"), fs["allowWrite"])
-        self.assertIn(str(self.tmp / ".claude" / "private"), fs["denyWrite"])
-        self.assertNotIn(str(self.settings_file), fs["denyWrite"])
+        for p in (self.settings_file, self.tmp / ".claude" / "private", self.tmp / ".claude" / "rules"):
+            self.assertIn(str(p), fs["denyWrite"])
+        self.assertIn(f"Edit(/{self.settings_file})", self.denied(1))
 
-    # covers: AC-7 (without the line the same change still stops)
-    def test_without_line_stops(self):
+    # covers: AC-7 (never writable wins over an allow entry holding it: a call's change to settings.json stops)
+    def test_never_writable_change_stops(self):
+        self.allow_writes(self.tmp / ".claude")
         self.steps([{"write_file": [[str(self.settings_file), '{"x": 1}']]}, {}, {"tick": False}])
         r = self.wf("demo", "-y")
         self.assertIn("guard_changed", r.stdout)
 
-    # covers: AC-7 (a secret path in the line is refused with a warning)
-    def test_secret_line_warns(self):
-        (self.repo / "AGENTS.md").write_text("## Standing answers\n- allow writes: ~/.ssh, runner/\n")
+    # covers: AC-7 (the AGENTS.md line is ignored with one warning: the same change still stops)
+    def test_agents_line_ignored(self):
+        (self.repo / "AGENTS.md").write_text("## Standing answers\n- allow writes: ~/.claude\n")
+        self.steps([{"write_file": [[str(self.hooks), '{"x": 1}']]}, {}, {"tick": False}])
+        r = self.wf("demo", "-y")
+        self.assertIn("warning: demo: allow writes in AGENTS.md is ignored; it lives in "
+                      f"{self.tmp / 'config' / 'wf' / 'allow.json'} now", r.stdout)
+        self.assertIn("guard_changed", r.stdout)
+        self.assertNotIn(str(self.tmp / ".claude"), self.settings(1)["sandbox"]["filesystem"]["allowWrite"])
+
+    # covers: AC-7 (a never writable entry in allow.json is refused with a warning)
+    def test_never_entry_warns(self):
+        self.allow_writes(self.tmp / ".ssh", self.repo / "runner", self.tmp / ".zshrc", "rel/x")
         self.steps([{}, {}, {"tick": False}])
         r = self.wf("demo", "-y")
-        self.assertIn("warning: demo: allow writes: ~/.ssh is a secret path, refused", r.stdout)
-        self.assertEqual(run.allow_paths(str(self.repo), "~/.ssh, runner/")[0], [str(self.repo / "runner")])
+        self.assertIn(f"warning: demo: allow writes: {self.tmp / '.ssh'} is never writable, refused", r.stdout)
+        self.assertIn(f"warning: demo: allow writes: {self.tmp / '.zshrc'} is never writable, refused", r.stdout)
+        self.assertIn("warning: demo: allow writes: rel/x is not an absolute path, refused", r.stdout)
+        with self.home_env():
+            self.assertEqual(run.allow_paths(str(self.repo), str(self.repo / ".git"))[0], [str(self.repo / "runner")])
+
+    # covers: AC-7 (every entry of the never writable set is refused, as written and through a symlink)
+    def test_never_set(self):
+        link = self.tmp / "innocent"
+        link.symlink_to(self.tmp / ".claude" / "hooks")
+        with self.home_env():
+            common = str(self.repo / ".git")
+            never = run.never_writable(str(self.repo), common)
+            for p in ["~/.claude/settings.json", "~/.claude/settings.foo.json", "~/.claude/hooks/x", "~/.claude/rules",
+                      "~/.claude/agents", "~/.claude/skills/s", "~/.claude/scripts", "~/.claude/commands",
+                      "~/.claude/private", "~/.claude/CLAUDE.md", "~/.claude.json", "~/.bashrc", "~/.zshenv",
+                      "~/.profile", "~/.local/bin/x", "~/.local/share/wf", "~/.local/share/claude/x", "~/.gitconfig",
+                      "~/.config/git/config", "~/.config/wf/allow.json", "~/config/wf/ntfy.json", "~/bin/tool",
+                      "~/state/wf/queue.json", f"{common}/config", f"{common}/hooks/pre-push", f"{common}/info/x",
+                      str(link / "x")]:
+                with self.subTest(p):
+                    self.assertTrue(run.refused(os.path.expanduser(p), never))
+            for p in ["~/.claude/docs/x", "~/.claude/plugins", "~/notes", f"{common}/objects", "~/.local/binx",
+                      "~/.bashrc2", "~/.claude/settings"]:
+                with self.subTest(p):
+                    self.assertFalse(run.refused(os.path.expanduser(p), never))
 
     # covers: AC-7 (the baseline moves only on the run's own call: a change after it still stops)
     def test_between_calls(self):
@@ -345,13 +435,81 @@ class TestStanding(NeverStopCase):
         h = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
         r = run.Run.__new__(run.Run)
         r.repo = {"guard": {"guarded_files": {str(inside): h(inside), str(outside): h(outside)}, "absent_denied": [],
-                            "allowed": [str(self.tmp / ".claude")]}}
+                            "allowed": [str(self.tmp / ".claude")], "never": []}}
         for p in (inside, outside):
             p.write_text("2")
         r.accept_allowed()
         self.assertEqual([p for p, _ in run.moved(r.repo["guard"])], [str(outside)])
         inside.write_text("3")
         self.assertEqual([p for p, _ in run.moved(r.repo["guard"])], [str(inside), str(outside)])
+
+    # covers: AC-7 (the rebaseline skips never writable files, a symlinked one and a sibling with a shared prefix)
+    def test_rebaseline_parity(self):
+        allowed = self.tmp / "a" / "b"
+        allowed.mkdir(parents=True)
+        sibling = self.tmp / "a" / "bc"
+        sibling.mkdir()
+        files = {"sibling": sibling / "f", "inside": allowed / "f"}
+        (allowed / "s").symlink_to(self.settings_file)
+        files["link"] = allowed / "s"
+        files["settings"] = self.settings_file
+        for p in files.values():
+            p.write_text("1")
+        h = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+        with self.home_env():
+            r = run.Run.__new__(run.Run)
+            r.repo = {"guard": {"guarded_files": {str(p): h(p) for p in files.values()}, "absent_denied": [],
+                                "allowed": [str(allowed) + "/", str(self.tmp / ".claude")],
+                                "never": run.never_writable(str(self.repo), str(self.repo / ".git"))}}
+            for p in files.values():
+                p.write_text("2")
+            r.accept_allowed()
+            moved = {p for p, _ in run.moved(r.repo["guard"])}
+        self.assertEqual(moved, {str(files["sibling"]), str(files["link"]), str(files["settings"])})
+        # A guard with no never list rebaselines nothing.
+        g = {"guarded_files": {str(files["inside"]): "x"}, "absent_denied": [], "allowed": [str(allowed)]}
+        self.assertFalse(run.opened(str(files["inside"]), g))
+
+    # covers: AC-7 (under() compares whole path components)
+    def test_under(self):
+        self.assertFalse(run.under("/a/bc", ["/a/b"]))
+        self.assertFalse(run.under("/a/bc/d", ["/a/b/"]))
+        self.assertTrue(run.under("/a/b", ["/a/b/"]))
+        self.assertTrue(run.under("/a/b/c", ["/a/b"]))
+        self.assertTrue(run.under("/a/b/c", ["/"]))
+        self.assertFalse(run.under("/a", ["/a/b"]))
+
+    # covers: AC-7 (calls can neither read nor write wf's config folder, under either name)
+    def test_wf_config_denied(self):
+        self.steps([{}, {}, {"tick": False}])
+        r = self.wf("demo", "-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        fs = self.settings(1)["sandbox"]["filesystem"]
+        for d in (self.tmp / "config" / "wf", self.tmp / ".config" / "wf"):
+            self.assertIn(str(d), fs["denyRead"])
+        d = self.tmp / "config" / "wf"
+        self.assertIn(str(d), fs["denyWrite"])
+        self.assertIn(f"Read(/{d}/**)", self.denied(1))
+        self.assertIn(f"Edit(/{d}/**)", self.denied(1))
+
+    # covers: AC-7 (wf allow-writes writes allow.json at a terminal, refuses inside a run and a never writable path)
+    def test_cmd_allow_writes(self):
+        wf_py = Path(run.__file__).resolve().parent / "wf.py"
+        target = self.tmp / "notes"
+        go = lambda path, **env: subprocess.run([sys.executable, str(wf_py), "allow-writes", str(self.repo), str(path)],
+                                                capture_output=True, text=True, env={**self.env, **env},
+                                                stdin=subprocess.DEVNULL, timeout=60)
+        r = go(target, WF_RUN="x")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("runs only at your terminal", r.stderr)
+        self.assertIsNone(self.allow_json())
+        r = go(self.tmp / ".bashrc")
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIsNone(self.allow_json())
+        r = go(target)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(self.allow_json(), {os.path.realpath(self.repo): [str(target)]})
+        self.assertEqual(os.stat(self.tmp / "config" / "wf" / "allow.json").st_mode & 0o777, 0o600)
 
     # covers: AC-7 (carve opens only the allowed path inside a denied folder)
     def test_carve(self):

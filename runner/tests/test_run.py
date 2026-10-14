@@ -145,7 +145,9 @@ sys.exit(wf.main(sys.argv[4:]))
 
 
 CREDENTIALS = (".config/gh", ".ssh", ".git-credentials", ".netrc", ".aws", ".config/gcloud", ".azure", ".npmrc",
-               ".config/git/credentials", ".docker/config.json", ".pypirc", ".kube", ".claude/anthropic_api_key")
+               ".config/git/credentials", ".docker/config.json", ".pypirc", ".kube", ".claude/anthropic_api_key",
+               # Spec 0021 AC-7: wf's config folder as ~/.config/wf and as $XDG_CONFIG_HOME/wf (the test's config/).
+               ".config/wf", "config/wf")
 FORGE_HOSTS = ["*.bitbucket.org", "*.github.com", "*.githubusercontent.com", "*.gitlab.com", "*.sr.ht",
                "bitbucket.org", "codeberg.org", "github.com", "gitlab.com"]
 
@@ -155,7 +157,7 @@ def guard_deny(t, r, bin):
     return sorted([f"{t}/.claude.json", f"{r}/.claude", f"{r}/.git", f"{r}/.git/config.worktree", str(bin),
                    *(f"{t}/{p}" for p in (".gitconfig", ".config/git", ".config/gh", ".bashrc", ".bash_profile",
                                           ".profile", ".zshrc", ".zshenv", ".zprofile", ".local/share/claude",
-                                          ".local/share/wf"))])
+                                          ".local/share/wf", ".config/wf", "config/wf"))])
 
 
 def guard_settings(t, r, bin):
@@ -179,10 +181,11 @@ def guard_denied(t, r, bin):
              "Bash(gh pr ready*),Bash(gh * pr create*),Bash(gh * pr merge*),Bash(gh * pr ready*)",
              "Artifact,ArtifactData,ArtifactComments,RemoteTrigger,CronCreate,CronDelete,SendMessage,Skill(schedule)",
              "Skill(design),Skill(brand-system)"]
-    rules += [x for p in CREDENTIALS for x in both("Read", f"{t}/{p}")]
+    # The test's config/wf exists at start (ntfy.json): only the folder form.
+    rules += [x for p in CREDENTIALS for x in ([f"Read(/{t}/{p}/**)"] if p == "config/wf" else both("Read", f"{t}/{p}"))]
     for p in guard_deny(t, r, bin):
-        # Only bin and .git exist at start: the absent paths get both forms.
-        rules += [f"Edit(/{p}/**)"] if p in (str(bin), f"{r}/.git") else both("Edit", p)
+        # Only bin, .git and config/wf exist at start: the absent paths get both forms.
+        rules += [f"Edit(/{p}/**)"] if p in (str(bin), f"{r}/.git", f"{t}/config/wf") else both("Edit", p)
     # Spec 0020 AC-5: the state folder, absent before the first lock.
     rules += both("Edit", f"{t}/state/wf")
     return ",".join(rules)
@@ -1276,13 +1279,15 @@ class TestGuard(RunCase):
         (h / "scripts" / "link.sh").symlink_to(h / "real" / "hook.sh")
         (h / ".claude" / "hooks" / "own.sh").write_text("")
         tokens = [f"{h}/scripts/link.sh", f"{h}/real/hook.sh", f"{h}/.claude/hooks/own.sh"]
-        with mock.patch.dict(os.environ, {"HOME": str(h), "PATH": f"{h}/rw:{h}/ro::{h}/nowhere"}):
+        with mock.patch.dict(os.environ, {"HOME": str(h), "PATH": f"{h}/rw:{h}/ro::{h}/nowhere",
+                                          "XDG_CONFIG_HOME": f"{h}/.config"}):
             got = run.deny_paths(str(self.repo), f"{self.repo}/.git", tokens)
         self.assertEqual(got, sorted([
             f"{h}/.claude/hooks", f"{h}/.claude/settings.json", f"{h}/.claude.json", f"{self.repo}/.claude",
             f"{self.repo}/.git", *(f"{h}/{p}" for p in (".gitconfig", ".config/git", ".config/gh", ".bashrc",
                                                         ".bash_profile", ".profile", ".zshrc", ".zshenv", ".zprofile",
-                                                        ".local/share/claude", ".local/share/wf", "rw", "scripts", "real"))]))
+                                                        ".local/share/claude", ".local/share/wf", ".config/wf", "rw", "scripts",
+                                                        "real"))]))
 
     # covers: spec 0007 AC-6 (claude and git run by the absolute path resolved at start)
     def test_binaries(self):
@@ -1401,7 +1406,7 @@ class TestGuard(RunCase):
         self.wf("demo", "-y", "--max-calls", "1")
         _, rec = self.run_record()
         g = rec["repos"][0]["guard"]
-        self.assertEqual(list(g), ["hosts", "write_paths", "deny_paths", "binaries", "allowed", "submodules", "guarded_files",
+        self.assertEqual(list(g), ["hosts", "write_paths", "deny_paths", "binaries", "allowed", "never", "submodules", "guarded_files",
                                    "absent_denied"])
         self.assertEqual(g["submodules"], [])
         # Spec 0009 AC-3 step 5: the repo has no .claude; config.worktree is a guarded file, so left out.
@@ -1554,7 +1559,7 @@ class TestStandingAnswers(RunCase):
     # covers: spec 0006 AC-1, AC-2, AC-3 (each refusal, its line, exit 5, no call, no run folder, first problem wins)
     def test_refusals(self):
         hint = (" (expected: - run suite: yes|ask, - done: yes|ask, - app start: <command>, "
-                "- app url: http://localhost:<port>, - allow writes: <path>, <path>)")
+                "- app url: http://localhost:<port>)")
         cases = [
             ("form", "## Standing answers\n- run suite yes\n", "AGENTS.md:2: not a - key: value entry"),
             ("unknown", "## Standing answers\n- cross check: yes\n", "AGENTS.md:2: unknown key cross check"),
