@@ -776,7 +776,7 @@ class Run:
     # -- repos (spec 0011 AC-1, AC-5) ------------------------------------------
 
     REPO_ATTRS = ("c", "branch", "repo", "answers", "browser", "mcp_browser", "browser_settings", "guard_settings",
-                  "settings", "denied", "claude", "bwrap", "lock_fd", "common")
+                  "settings", "denied", "claude", "bwrap", "lock_fd", "common", "base_denied", "base_deny")
 
     def add(self, c, path=None):
         """A RepoEntry in run order for candidate c (None: path had no candidate), made the repo in use.
@@ -797,6 +797,7 @@ class Run:
         # Set by freeze_guard(); a call that somehow starts without them fails to spawn, never runs unguarded.
         self.claude = self.settings = self.denied = self.guard_settings = None
         self.mcp_browser = self.browser_settings = self.bwrap = self.lock_fd = self.common = None
+        self.base_denied = self.base_deny = None
         h = self.keep()
         self.added.append(h)
         if c:
@@ -1159,24 +1160,17 @@ class Run:
             if not os.path.exists(r) and under(r, binds) and r not in guarded and p not in guarded:
                 absent.append(r)
         self.repo["guard"]["absent_denied"] = list(dict.fromkeys(absent))
-        if self.repo.get("tree"):
-            # Spec 0027 AC-7, security review: the shared common dir stays writable for this worktree's commits, but
-            # no other worktree's admin folder, the main checkout or another spec branch's ref is.
-            # The main checkout holds the common dir, so its write deny is carved around it.
-            # One list feeds both the sandbox and the Edit denies (security review: incomplete write guard).
-            trees, git_parts = tree_siblings(self.repo["tree"], key_of(self.c), common, git_dir)
-            self.repo["guard"]["siblings"] = carve(trees, [common, os.path.realpath(common)]) + git_parts
-            self.guard_settings["sandbox"]["filesystem"]["denyWrite"] += self.repo["guard"]["siblings"]
-        self.settings = json.dumps(self.guard_settings)
-        self.denied = ",".join([DENIED, GUARD_DENIED, DESIGN_DENIED,
+        self.base_deny = list(self.guard_settings["sandbox"]["filesystem"]["denyWrite"])
+        self.repo["guard"]["git_dir"] = git_dir
+        self.base_denied = ",".join([DENIED, GUARD_DENIED, DESIGN_DENIED,
                                 *(r for p in CREDENTIAL_PATHS for x in expand(p) for r in path_rules("Read", x)),
                                 *(r for p in carve(deny, allowed) + kept for r in path_rules("Edit", p)),
                                 # The whole in place git dir, as the common dir above; the sandbox denies only its
                                 # config and hooks, so a commit in the submodule still works.
                                 *(r for p in carve(sub_in_tree, allowed) for r in path_rules("Edit", p)),
                                 # Spec 0020 AC-5: no call forges a swaps.jsonl line; the Bash sandbox already cannot.
-                                *path_rules("Edit", state_dir()),
-                                *(r for p in self.repo["guard"].get("siblings", []) for r in path_rules("Edit", p))])
+                                *path_rules("Edit", state_dir())])
+        self.set_siblings(self.siblings_now())
         self.claude = binaries["claude"]
         self.bwrap = os.path.realpath(shutil.which("bwrap"))
         return None
@@ -1839,6 +1833,27 @@ class Run:
                 return f"{hit} is in the Paths of {o['feature']}, which is building now"
         return None
 
+    def siblings_now(self):
+        """Spec 0027 AC-7, security review: what a worktree's calls may not write, from disk now: the main checkout
+        (carved around the common dir, which commits need), every other worktree, their admin folders and other
+        spec branches' refs, as written and resolved. [] outside a worktree."""
+        if not self.repo.get("tree"):
+            return []
+        common, git_dir = self.common, self.repo["guard"]["git_dir"]
+        trees, git_parts = tree_siblings(self.repo["tree"], key_of(self.c), common, git_dir)
+        return carve(trees, [common, os.path.realpath(common)]) + git_parts
+
+    def set_siblings(self, siblings):
+        """Security review (incomplete write guard): one sibling list feeds both the sandbox denyWrite and the Edit
+        denies, rebuilt from the frozen base lists so no earlier entry is dropped and no stale sibling stays."""
+        self.repo["guard"]["siblings"] = siblings
+        self.guard_settings["sandbox"]["filesystem"]["denyWrite"] = self.base_deny + siblings
+        self.settings = json.dumps(self.guard_settings)
+        self.denied = ",".join([self.base_denied, *(r for p in siblings for r in path_rules("Edit", p))])
+        if self.browser and self.browser.get("shots"):
+            self.browser_settings = browser_settings(self.guard_settings, self.repo["guard"]["binaries"]["python3"],
+                                                     self.browser["url"], self.browser["shots"])
+
     # -- branches and PRs (spec 0026) ----------------------------------------------
 
     def keep_held(self):
@@ -2227,6 +2242,12 @@ class Run:
             allowed = ["--allowedTools", ",".join("mcp__chrome-devtools__" + t for t in BROWSER_TOOLS)]
         else:
             mcp, settings, denied, allowed = MCP_ALLOW, self.settings, self.denied, []
+        # Spec 0027 AC-7, security review (stale state): a worktree added or removed since the last call rebuilds
+        # both deny lists before this call, never reusing an earlier copy.
+        sib = self.siblings_now()
+        if self.repo.get("tree") and sib != self.repo["guard"].get("siblings"):
+            self.set_siblings(sib)
+            return self.call(seq, command, resume, last_box, sha, browser, synced)
         # Spec 0014 AC-6: wf names every fresh call's session, so the live transcript path is known at spawn.
         session = resume[0] if resume else str(uuid.uuid4())
         argv = [self.claude, "-p", resume[1] if resume else command,
@@ -4535,7 +4556,7 @@ def tree_guard(r, h, tree):
     """Spec 0027 AC-7 with spec 0025 AC-1, security review: the guarded files a child in worktree tree will hash,
     built as its own freeze_guard builds them, right after the worktree is made or reused; {} when it cannot be
     built, so the child finds those files unseen and asks."""
-    saved = {k: getattr(r, k) for k in ("c", "repo", "common", "guard_settings")}
+    saved = {k: getattr(r, k) for k in Run.REPO_ATTRS}
     try:
         r.c = copy.copy(h["c"])
         r.c.path = tree

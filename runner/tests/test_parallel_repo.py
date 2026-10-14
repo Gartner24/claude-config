@@ -1,5 +1,6 @@
 """Spec 0027: several features of one repo at once, each in its own worktree on its own spec branch."""
 import datetime
+import shutil
 import json
 import os
 import subprocess
@@ -16,7 +17,7 @@ import pr  # noqa: E402
 import run  # noqa: E402
 from test_park import GIT_ID  # noqa: E402
 from test_pr import FakeRun  # noqa: E402
-from test_run import RunCase, summary  # noqa: E402
+from test_run import WF, RunCase, summary  # noqa: E402
 
 SCOPE = "# Scope: x\n**Autopilot:** allowed\n" + "".join(
     f"\n### {n}. {x} · auto\nSpec [000{n}](../specs/000{n}-{x.lower()}/index.md)\n- [x] (spec)\n- [ ] `/develop {x.lower()}`\n"
@@ -175,6 +176,22 @@ class TestSameRepo(RepoCase):
         self.assertIn(f"{b}/.git changed after the plan, before this repo started", d["question"], r.stdout)
         self.assertFalse((self.fakes / "feat-0002-b-argv-1.json").exists(), "B made no call")
 
+    # covers: security review (stale state): a worktree added after a child's guard was built is in both deny lists
+    # of that child's next call
+    def test_new_tree_mid_run(self):
+        extra = self.trees / "extra"
+        first = step("a", sleep=0)
+        first[0]["run"].append(["git", "worktree", "add", "-q", "-b", "extra", str(extra)])
+        self.steps({"feat-0001-a": first, "feat-0002-b": step("b", sleep=0), "feat-0003-c": step("c", sleep=0)})
+        r = self.wf("-y", "--jobs", "1")
+        before = json.loads((self.fakes / "feat-0001-a-argv-1.json").read_text())["argv"]
+        after = json.loads((self.fakes / "feat-0001-a-argv-2.json").read_text())["argv"]
+        for argv, want in ((before, False), (after, True)):
+            fs = json.loads(argv[argv.index("--settings") + 1])["sandbox"]["filesystem"]["denyWrite"]
+            rules = argv[argv.index("--disallowedTools") + 1].split(",")
+            self.assertEqual(str(extra) in fs, want, r.stdout)
+            self.assertEqual(f"Edit(/{extra}/**)" in rules, want, r.stdout)
+
     # covers: AC-6 (A's call writes into B's Paths while B runs: A asks paths_overlap, wait recommended; B goes on)
     def test_drift(self):
         self.steps({"feat-0001-a": step("a", sleep=1.5, extra_file="b.txt"), "feat-0002-b": step("b", sleep=4),
@@ -272,3 +289,41 @@ class TestCleanup(RepoCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDenyNotNarrowed(RunCase):
+    # covers: security review (control regression): a plain single repo run's Edit denies and sandbox denyWrite
+    # hold every entry they held at 779dfc6, before this release
+    BASE = "779dfc6"
+
+    def deny_lists(self, wf_py):
+        shutil.rmtree(self.state, ignore_errors=True)
+        # The fake counts its calls in this folder too.
+        shutil.rmtree(self.fakes)
+        self.fakes.mkdir()
+        self.steps([{"tick": False}])
+        r = subprocess.run([sys.executable, str(wf_py), "run", "demo", "-y", "--max-calls", "1", "--max-wait", "0.0001"],
+                           stdin=subprocess.DEVNULL, capture_output=True, text=True, env=self.env, timeout=60)
+        self.assertTrue((self.fakes / "argv-1.json").exists(), r.stdout + r.stderr)
+        a = self.argv(1)["argv"]
+        fs = json.loads(a[a.index("--settings") + 1])["sandbox"]["filesystem"]["denyWrite"]
+        return set(a[a.index("--disallowedTools") + 1].split(",")), set(fs), r
+
+    def test_against_base(self):
+        top = WF.parent.parent
+        if subprocess.run(["git", "-C", str(top), "cat-file", "-e", self.BASE + "^{commit}"],
+                          capture_output=True).returncode:
+            self.skipTest(f"{self.BASE} is not in this checkout")
+        old = self.tmp / "old"
+        old.mkdir()
+        tar = subprocess.run(["git", "-C", str(top), "archive", self.BASE, "runner"], capture_output=True, check=True)
+        subprocess.run(["tar", "-x", "-C", str(old)], input=tar.stdout, check=True)
+        (self.repo / "x.txt").write_text("x\n")
+        subprocess.run(["git", *GIT_ID, "-C", str(self.repo), "add", "-A"], check=True, capture_output=True)
+        subprocess.run(["git", *GIT_ID, "-C", str(self.repo), "commit", "-qm", "base"], check=True, capture_output=True)
+        old_rules, old_fs, r1 = self.deny_lists(old / "runner" / "wf.py")
+        new_rules, new_fs, r2 = self.deny_lists(WF)
+        self.assertGreater(len([x for x in old_rules if x.startswith("Edit(")]), 10, r1.stdout)
+        self.assertGreater(len(old_fs), 5, r1.stdout)
+        self.assertEqual(sorted(old_rules - new_rules), [], r2.stdout)
+        self.assertEqual(sorted(old_fs - new_fs), [], r2.stdout)
