@@ -33,7 +33,7 @@ for d in agents rules; do
   note "$d/ ($(find "$REPO/$d" -type f | wc -l) files)"
   run cp -a "$REPO/$d/." "$LIVE/$d/"
 done
-for f in hooks/block-destructive.sh hooks/review-stack-pre-push scripts/chroma-reaper.sh; do
+for f in hooks/block-destructive.sh hooks/review-stack-pre-push hooks/plain-panel.py scripts/chroma-reaper.sh; do
   note "$f"
   run cp -a "$REPO/$f" "$LIVE/$f"
   run chmod +x "$LIVE/$f"
