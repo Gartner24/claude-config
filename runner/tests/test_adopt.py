@@ -128,6 +128,58 @@ class TestAdoptUnit(AdoptCase):
             pr.poll_one(r, rec)
         self.assertEqual((rec["state"], r.q["decisions"]), ("merged", []))
 
+    # covers: AC-2 (a PR on origin's default branch is never adopted; a failed read is one report line, no stop)
+    def test_default_branch_and_failed_read(self):
+        r = self.fake_run()
+        self.git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/fix-x")
+        self.gh({"user": "me", "mine": self.mine()})
+        with self.penv():
+            pr.adopt(r)
+            self.assertEqual(r.q["prs"], [])
+            self.git("symbolic-ref", "--delete", "refs/remotes/origin/HEAD")
+            self.gh({"user": "me", "mine": "HTTP 502"})
+            pr.adopt(r)
+        self.assertEqual(r.q["prs"], [])
+        self.assertEqual(len(r.notes), 1)
+        self.assertTrue(r.notes[0].startswith("open PRs not read: "), r.notes)
+
+    # covers: AC-4 (each answer asks the next kept ask with no new call; fix it takes the comment out of seen with
+    # your text as the hint, so the next round includes it)
+    def test_asks_once(self):
+        r = self.fake_run()
+        c1 = {"id": "i1", "author": "alice", "body": "Why A?"}
+        c2 = {"id": "i2", "author": "bob", "body": "Why B?"}
+        rec = {"repo": run.key_of(r.c), "feature": "PR #12: Fix x", "number": 12, "seen": ["i1", "i2"],
+               "asks": [{"comment": c1, "reply": "because"}, {"comment": c2, "reply": "also"}]}
+        with self.penv():
+            pr.review_answer(r, rec, {"comment": c1, "proposed": "because"}, "fix it", "use B instead")
+        self.assertEqual((rec["seen"], rec["hint"], [a["comment"]["id"] for a in rec["asks"]]),
+                         (["i2"], "use B instead", ["i2"]))
+        [(case, detail)] = r.asked
+        self.assertEqual(case, "review_ask")
+        self.assertIn("@bob: Why B?", detail)
+
+    # covers: AC-14 (Telegram reads only your own chat, so an uncoded merge now there merges)
+    def test_telegram_merges(self):
+        r = self.fake_run()
+        r.ntfy = {"chat_id": 5, "block": []}
+        rec = {"repo": run.key_of(r.c), "feature": "PR #12: Fix x", "branch": "fix-x", "number": 12, "state": "approved",
+               "approved_head": self.head}
+        self.gh({"view": {"state": "OPEN", "isDraft": False, "headRefOid": self.head, "reviewDecision": "APPROVED"}})
+        with self.penv():
+            self.private({"acme/widgets": {"adopt": True, "merge": True}})
+            pr.approved_answer(r, rec, {"options": ["merge now", "later", "I merged it"], "answer": "merge now",
+                                        "coded": False})
+        self.assertEqual([c[:3] for c in self.gh_calls() if c[:2] == ["pr", "merge"]], [["pr", "merge", "12"]])
+        self.assertEqual(rec["state"], "merged")
+
+    # covers: AC-11 (the approved question explains merge now, later and I merged it in plain words)
+    def test_plain_words(self):
+        import plain
+        text = plain.PLAIN["approved"][1]
+        for word in ("Merge now", "Later", "I merged it", "only your tap"):
+            self.assertIn(word, text)
+
     # covers: AC-3 (a local branch ahead of the PR head is left alone and the round waits)
     def test_diverged(self):
         r = self.fake_run()
