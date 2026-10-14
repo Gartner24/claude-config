@@ -54,7 +54,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 15 | Cheap worker tier | Release 6 | done |
 | 16 | Issues and mixed source of truth | Release 6 | done |
 | 11 | Autopilot offer and batch design | Deferred | dropped |
-| 12 | Usage limit planning | Release 6 | in-progress |
+| 12 | Usage limit planning | Release 6 | done |
 | 14 | Branch and PR flow | Release 6 | in-progress |
 | 38 | Adopt your open PRs | Release 7 | in-progress |
 | 39 | Review requests to you | Release 7 | in-progress |
@@ -525,15 +525,15 @@ In repos set to `issues` or `mixed`, `wf` rereads the linked issue before every 
 - [x] Sync docs: `/sync issues and mixed source of truth`
 Spec [0024](../specs/0024-issues-source-of-truth/index.md) · Source: your message 2026-10-13 (agreed, not optional).
 
-### 12. Usage limit planning · in-progress · auto
+### 12. Usage limit planning · done · auto
 The `wf` screen says whether tonight's picks fit your 5 hour window and your week; a run that does not fit waits for the reset (or you pick fewer, or type `now`), never refused. 10 points of the week stay free for your daytime use.
 **Done when:** the screen shows fits or starts at <time>, a run that does not fit starts after the reset, and the login token is never printed or saved.
 - [x] Design it (spec): `/architect usage limit planning`
 - [x] Build it: `/develop usage limit planning`
 - [x] Verify it: `/check verify usage limit planning`
 - [x] Test it: `/test usage limit planning`
-- [ ] Compare the first real `wf` screen with the status line bars (P4) · waits on you
-- [ ] Sync docs: `/sync usage limit planning`
+- [x] Compare the first real `wf` screen with the status line bars (P4) · waits on you
+- [x] Sync docs: `/sync usage limit planning`
 Spec [0022](../specs/0022-usage-limit-planning/index.md) · Source: your message 2026-10-13 (agreed, not optional).
 
 ### 14. Branch and PR flow · in-progress · auto
