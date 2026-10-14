@@ -498,7 +498,7 @@ A repo that starts later in a bare `wf` checks its protected files are unchanged
 **Done when:** a protected file changed after the plan makes that repo ask with the file named, and the other repos keep building.
 - [x] Design it (spec): `/architect guard baseline check between repos`
 - [x] Build it: `/develop guard baseline check between repos`
-- [ ] Verify it: `/check verify guard baseline check between repos`
+- [x] Verify it: `/check verify guard baseline check between repos`
 - [ ] Test it: `/test guard baseline check between repos`
 - [ ] Sync docs: `/sync guard baseline check between repos`
 Spec [0025](../specs/0025-guard-baseline-between-repos/index.md) · Source: spec 0017 accepted gap; decision `w8d0` of 2026-10-13.
