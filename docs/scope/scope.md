@@ -579,7 +579,7 @@ Everything Claude tells you uses words you can follow; every question panel ends
 - [x] Research it: done inside spec 0028 (rationale.md)
 - [x] Design it (spec): `/architect understand everything`
 - [x] Build it: `/develop understand everything`
-- [ ] Verify it: `/check verify understand everything`
+- [x] Verify it: `/check verify understand everything`
 - [ ] Test it: `/test understand everything`
 - [x] Copy the rule live: `cp ~/claude-config/rules/plain-questions.md ~/.claude/rules/plain-questions.md` · waits on you · live
 - [ ] Real check of the LEARN line: `python3 docs/specs/0028-understand-everything/probes/learn-line.py` · waits on you · live
