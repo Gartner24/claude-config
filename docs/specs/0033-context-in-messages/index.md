@@ -1,7 +1,7 @@
 # 0033 · Context and links in every message
 
 **Date**: 2026-10-14
-**Status**: In Progress
+**Status**: Accepted (built b424cd5)
 **Paths:** `runner/context.py`, `runner/run.py`, `runner/telegram.py`, `runner/ntfy.py`, `runner/report.py`, `runner/pr.py`, `runner/reviews.py`, `runner/tests/test_context.py`
 **Amends**: [0005](../0005-decision-parking-phone-pings/index.md) (the ping body and the ack), [0018](../0018-morning-report/index.md) AC-2 (built lines and question lines), [0021](../0021-never-stop/index.md) F1 and F2 (a block from the run's own write deny is F1; a block carries steps), [0028](../0028-understand-everything/index.md) (a WHY line beside the LEARN line), [0029](../0029-telegram/index.md) AC-4 (the first line of a question message).
 
