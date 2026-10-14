@@ -12,7 +12,7 @@ import run  # noqa: E402
 import wf  # noqa: E402
 from test_park import GIT_ID  # noqa: E402
 from test_queue import DONE_A, DONE_B, TICK_A, TICK_B  # noqa: E402
-from test_run import SCOPE, RunCase  # noqa: E402
+from test_run import SCOPE, WF, RunCase  # noqa: E402
 
 # A scriptable gh: gh.json maps "<owner>/<repo>#<n>" to the issue (`issue view`) and to the history answer
 # (`api graphql`); an entry {"stderr": ..., "rc": n} fails. Every argv goes to gh-argv.jsonl with the GH_TOKEN it saw.
@@ -244,6 +244,8 @@ class TestChange(IssueCase):
         self.assertEqual([self.argv(n)["argv"][1] for n in (1, 2)], ["/develop b", "/sync"])
         [d] = self.queue()["decisions"]
         self.assertEqual((d["case"], d["options"]), ("issue_changed", ["update the spec first", "go on as is"]))
+        self.assertEqual(run.CASES["issue_changed"][0], "F13")
+        self.assertIn("issue_changed", run.PARKS)
         self.assertEqual(d["question"], "acme/widgets#7 changed after the spec: -old body +new body; 1 new comments; "
                                         "closed: completed")
         self.assertEqual(self.queue()["parks"], [])
@@ -285,6 +287,59 @@ class TestChange(IssueCase):
         r = self.wf("iss", "-y")
         self.assertIn("parked: 1. A: issue_changed: ", r.stdout, r.stdout + r.stderr)
         self.assertEqual(self.calls(), [])
+
+    # covers: AC-4, AC-7 (a newly committed (spec) box line gives a new T and a new baseline: no question, A builds)
+    def test_new_spec_box(self):
+        self.gh({**UNCHANGED, "issues": {**UNCHANGED["issues"], "acme/widgets#7": issue("new body")},
+                 "history": {**UNCHANGED["history"], "acme/widgets#7": history([("2099-01-01T00:00:00Z", "new body"),
+                                                                                ("2000-01-01T00:00:00Z", "old body")])}})
+        self.steps([TICK_B, DONE_B])
+        self.reply("{id} 1")
+        r = self.wf("iss", "-y", "--max-wait", "0.01", mode="fast")
+        self.assertIn("skipped: 1. A: ", r.stdout, r.stdout + r.stderr)
+        scope = self.repo / "docs/scope/scope.md"
+        scope.write_text(scope.read_text().replace("`/architect a`", "`/architect a` again"))
+        for argv in (["add", "-A"], ["commit", "-qm", "new spec"]):
+            subprocess.run(["git", *GIT_ID, "-C", str(self.repo), *argv], check=True, capture_output=True,
+                           env={**os.environ, "GIT_COMMITTER_DATE": "2099-06-01T00:00:00+00:00"})
+        self.again()
+        self.steps([TICK_A, DONE_A])
+        r = self.wf("iss", "-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("done: 1. A", r.stdout)
+        self.assertEqual(self.queue()["decisions"], [])
+        base = json.loads(run_state(self).read_text())["1. A"]["acme/widgets#7"]
+        self.assertEqual((base["body"], base["spec_t"]), ("new body", "2099-06-01T00:00:00+00:00"))
+
+    # covers: AC-4 (no commit ticked the spec box yet: T is the time of the first reread)
+    def test_spec_not_committed(self):
+        scope = self.repo / "docs/scope/scope.md"
+        scope.write_text(scope.read_text().replace("`/architect a`", "`/architect a` uncommitted"))
+        self.steps([TICK_A, DONE_A, TICK_B, DONE_B])
+        before = run.wall_now()
+        r = self.wf("iss", "-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        base = json.loads(run_state(self).read_text())["1. A"]["acme/widgets#7"]
+        self.assertIsNone(base["spec_t"])
+        self.assertLessEqual(abs((run.when(base["t"]) - before).total_seconds()), 60)
+
+    # covers: AC-6 (the question stays within 300 characters; each comment in issue-<n>.diff is cut to 500)
+    def test_caps(self):
+        old = "\n".join(f"old line {i}" for i in range(40))
+        new = "\n".join(f"new line {i}" for i in range(40))
+        long = [(f"c{i}", "bob", f"2099-01-0{i + 2}T00:00:00Z", str(i) * 900) for i in range(3)]
+        self.gh({**UNCHANGED, "issues": {**UNCHANGED["issues"], "acme/widgets#7": issue(new, long)},
+                 "history": {**UNCHANGED["history"], "acme/widgets#7": history([("2099-01-01T00:00:00Z", new),
+                                                                                ("2000-01-01T00:00:00Z", old)])}})
+        self.steps([TICK_B, DONE_B])
+        self.wf("iss", "-y")
+        [d] = self.queue()["decisions"]
+        self.assertLessEqual(len(d["question"]), 300, d["question"])
+        self.assertTrue(d["question"].startswith("acme/widgets#7 changed after the spec: -old line 0"), d["question"])
+        diff = (self.run_record()[0] / "issue-7.diff").read_text()
+        for i in range(3):
+            self.assertIn("\n" + str(i) * 500 + "\n", diff)
+            self.assertNotIn(str(i) * 501, diff)
 
 
 class TestReadsAndPrompt(IssueCase):
@@ -342,6 +397,18 @@ class TestReadsAndPrompt(IssueCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(self.notes(), ["no linked issue: 1. A", "no linked issue: 2. B"])
         self.assertEqual(self.gh_calls(), [])
+
+    # covers: AC-10 (a mixed repo says so in wf queue and on the run screen)
+    def test_mixed_shown(self):
+        scope = self.repo / "docs/scope/scope.md"
+        scope.write_text(scope.read_text().replace("**Source of truth:** issues", "**Source of truth:** mixed"))
+        q = subprocess.run([sys.executable, str(WF), "queue", "iss"], capture_output=True, text=True, env=self.env,
+                           timeout=60)
+        self.assertIn("iss on work, ", q.stdout, q.stdout + q.stderr)
+        self.assertIn(", source: mixed\n", q.stdout)
+        self.steps([TICK_A, DONE_A, TICK_B, DONE_B])
+        r = self.wf("iss", "-y")
+        self.assertIn(", source: mixed\n", r.stdout, r.stdout + r.stderr)
 
 
 class TestGate(unittest.TestCase):

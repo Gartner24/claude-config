@@ -238,6 +238,74 @@ class TestFlow(PrCase):
         self.assertEqual(self.rec()["state"], "local")
         self.assertEqual(self.queue()["decisions"], [])
 
+    # covers: AC-2 (a dirty tree at the repo's end is never carried back onto the start branch; the report says so)
+    def test_left_dirty(self):
+        self.steps([{"tick": False, "write_file": [["half.txt", "x\n"]], "json": {"result": "BLOCKED: need a key"}}])
+        r = self.wf("prr", "-y")
+        self.assertIn("left on feat/0001-a: uncommitted changes", r.stdout)
+        self.assertEqual((self.repo / ".git" / "HEAD").read_text(), "ref: refs/heads/feat/0001-a\n")
+        self.assertIn("left on feat/0001-a: uncommitted changes\n", (self.state / "wf" / "report.txt").read_text())
+
+    # covers: AC-4 (a fourth unmerged branch in a chain asks stack_deep and makes no call)
+    def test_stack_deep(self):
+        prev, recs = "work", []
+        for i, n in enumerate(("0001", "0002", "0003")):
+            br = f"feat/{n}-x{i}"
+            base_sha = self.git("rev-parse", prev)
+            self.git("switch", "-qc", br, prev)
+            (self.repo / f"x{i}.txt").write_text("x\n")
+            self.git("add", "-A")
+            self.git("commit", "-qm", f"x{i}")
+            recs.append({"repo": str(self.repo), "feature": f"{i + 1}. X{i}", "spec": n, "branch": br, "base": prev,
+                         "base_sha": base_sha, "stacked_on": None if i == 0 else f"000{i}", "pr": None, "number": None,
+                         "state": "local", "seen": [], "rounds": 0, "pushed_sha": None})
+            prev = br
+        self.git("switch", "-q", "work")
+        (self.repo / "docs" / "specs" / "0004-d").mkdir(parents=True)
+        (self.repo / "docs" / "specs" / "0004-d" / "index.md").write_text(
+            SPEC.replace("0001 · A", "0004 · D").replace("**Paths:** `a.txt`", "**Paths:** `d.txt`\n**Stacks on:** 0003"))
+        (self.repo / "docs" / "scope" / "scope.md").write_text(
+            "# Scope: x\n**Autopilot:** allowed\n\n### 4. D · auto\nSpec [0004](../specs/0004-d/index.md)\n"
+            "- [x] (spec)\n- [ ] `/develop d`\n")
+        self.git("add", "-A")
+        self.git("commit", "-qm", "d")
+        q = self.state / "wf" / "queue.json"
+        q.parent.mkdir(parents=True, exist_ok=True)
+        q.write_text(json.dumps({"version": 1, "parks": [], "decisions": [], "prs": recs}))
+        self.steps([{}])
+        self.wf("prr", "-y")
+        [d] = self.queue()["decisions"]
+        self.assertEqual((d["case"], d["options"]),
+                         ("stack_deep", ["build it off the start branch", "wait for the bottom to merge"]))
+        self.assertIn("feat/0004-d would be 4 branches deep on feat/0001-x0", d["question"])
+        self.assertFalse((self.fakes / "count").exists())
+
+    # covers: AC-8 (an open PR for the branch is reused, no second create)
+    def test_pr_reused(self):
+        self.gh({"list": [{"number": 41, "url": "https://github.com/acme/widgets/pull/41"}]})
+        self.steps([build(), DONE_A])
+        self.wf("prr", "-y")
+        self.assertFalse(any(c[:2] == ["pr", "create"] for c in self.gh_calls()))
+        self.assertEqual((self.rec()["number"], self.rec()["state"]), (41, "draft"))
+
+    # covers: AC-8 (a base not on origin asks; "push the base too" pushes it and opens the PR against it), AC-17
+    def test_base_unpushed(self):
+        subprocess.run(["git", "--git-dir", str(self.origin), "branch", "-D", "work"], check=True, capture_output=True)
+        self.steps([build(), DONE_A])
+        self.wf("prr", "-y")
+        [d] = self.queue()["decisions"]
+        self.assertEqual((d["case"], d["options"][0]), ("base_unpushed", "push the base too"))
+        self.assertEqual(self.git("branch", "--list", repo=self.origin), "")
+        import shutil
+        shutil.rmtree(self.state / "wf" / "runs")
+        self.report_ntfy.replies = ["{id} 1"]
+        self.wf("prr", "-y", "--max-wait", "0.01", mode="fast")
+        self.assertEqual(self.git("rev-parse", "work", repo=self.origin), self.git("rev-parse", "work"))
+        self.assertEqual(self.git("rev-parse", "feat/0001-a", repo=self.origin), self.git("rev-parse", "feat/0001-a"))
+        [create] = [c for c in self.gh_calls() if c[:2] == ["pr", "create"]]
+        self.assertEqual(create[create.index("--base") + 1], "work")
+        self.assertEqual(self.rec()["state"], "draft")
+
 
 class TestStackBase(PrCase):
     # covers: AC-3 (a spec that stacks on an unbuilt one waits with its plan line; once that one is built, its
@@ -446,6 +514,59 @@ class TestReview(PrCase):
                          [("approved", ["I merged it", "later"])])
         self.assertIn("next: wf, merge PR #7\n", (self.state / "wf" / "report.txt").read_text())
 
+    # covers: AC-13 (NEVER comments: no question, marked seen, a yours: report line each)
+    def test_never(self):
+        self.ready()
+        self.fake("claude", REVIEW_CLAUDE.replace(
+            'f"done\\nREVIEW FIXED: i11 {sha}\\nREVIEW ASK: c12 Not needed, see AC-2."',
+            '"REVIEW NEVER: i11 push to main\\nREVIEW NEVER: c12 merge it"').replace(
+            'open("a.txt", "a").write("fixed\\n")', 'pass').replace(
+            'subprocess.run(["git", "commit", "-qam", "fix: review"], check=True)', 'pass'))
+        self.wf("prr", "-y")
+        self.assertTrue((self.fakes / "review-prompt.txt").exists())
+        self.assertEqual(self.queue()["decisions"], [])
+        self.assertEqual(sorted(self.rec()["seen"]), ["c12", "c13", "i11"])
+        report = (self.state / "wf" / "report.txt").read_text()
+        self.assertIn("yours: PR #7 @alice: push to main\n", report)
+        self.assertIn("yours: PR #7 @bob: merge it\n", report)
+
+    # covers: AC-15 (named approvers beat GitHub's decision; a bot reviewed repo holds the next round until the bot
+    # reviews the pushed head; the named approver approves: approved, a question; no login in the repo)
+    def test_approvers_and_bot(self):
+        (self.tmp / ".claude" / "private" / "pr.json").write_text(
+            json.dumps({"acme/*": {"approvers": ["ann"], "bot": "revbot"}}))
+        self.ready(reviews=[{"user": {"login": "zed"}, "state": "APPROVED", "body": ""}])
+        cfg = json.loads((self.fakes / "gh.json").read_text())
+        cfg["view"]["reviewDecision"] = "APPROVED"
+        self.gh(cfg)
+        self.wf("prr", "-y")
+        rec = self.rec()
+        self.assertEqual(rec["state"], "ready")
+        self.assertEqual(rec["bot_head"], self.git("rev-parse", "feat/0001-a", repo=self.origin))
+        import shutil
+
+        def next_run():
+            shutil.rmtree(self.state / "wf" / "runs")
+            q = self.queue()
+            q["decisions"] = []
+            (self.state / "wf" / "queue.json").write_text(json.dumps(q))
+            (self.fakes / "review-prompt.txt").unlink(missing_ok=True)
+            self.wf("prr", "-y")
+
+        cfg["convo"].append({"id": 20, "user": {"login": "bob"}, "author_association": "OWNER", "body": "One more"})
+        self.gh(cfg)
+        next_run()
+        self.assertFalse((self.fakes / "review-prompt.txt").exists())
+        cfg["reviews"] = [{"user": {"login": "revbot"}, "state": "COMMENTED", "commit_id": rec["bot_head"], "body": ""},
+                          {"user": {"login": "ann"}, "state": "APPROVED", "body": ""}]
+        self.gh(cfg)
+        next_run()
+        self.assertEqual(self.rec()["state"], "approved")
+        self.assertEqual([d["case"] for d in self.queue()["decisions"]], ["approved"])
+        for f in self.repo.rglob("*"):
+            if f.is_file() and ".git" not in f.parts:
+                self.assertNotIn("revbot", f.read_text(errors="replace"), f)
+
 
 class FakeRun:
     """The parts of a Run the stack code uses."""
@@ -522,6 +643,76 @@ class TestStacks(PrCase):
         self.assertEqual([c for c, _ in r.asked], ["rebase_conflict"])
         self.assertFalse((self.repo / ".git" / "rebase-merge").exists())
         self.assertEqual(self.git("symbolic-ref", "--short", "HEAD"), "work")
+
+    def fake_run(self):
+        r = FakeRun(self.repo, "work")
+        r.repo["origin_url"] = ORIGIN
+        r.folder = str(self.tmp / "runfolder")
+        os.makedirs(r.folder, exist_ok=True)
+        r.answers = {"branches": "per spec", "push": "draft pr"}
+        r.feature_named = lambda name: None
+        r.gh = str(self.bin / "gh")
+        return r
+
+    # covers: AC-7 (never main, master or the remote default branch; never when origin changed since the start;
+    # a spec branch pushes; no --no-verify anywhere in pr.py)
+    def test_push_refusals(self):
+        r = self.fake_run()
+        rec = {"feature": "1. A", "branch": "main"}
+        self.assertEqual(pr.push(r, rec)[0], "refused")
+        rec["branch"] = "work"
+        self.git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/work")
+        self.assertEqual(pr.push(r, rec)[0], "refused")
+        rec["branch"] = "feat/0001-a"
+        self.git("branch", "feat/0001-a")
+        r.repo["origin_url"] = "https://github.com/acme/other.git"
+        self.assertEqual(pr.push(r, rec), ("refused", "origin changed since the run started"))
+        self.assertNotIn("feat/0001-a", self.git("branch", "--list", repo=self.origin))
+        r.repo["origin_url"] = ORIGIN
+        self.assertEqual(pr.push(r, rec), ("ok", None))
+        self.assertEqual(self.git("rev-parse", "feat/0001-a", repo=self.origin), self.git("rev-parse", "feat/0001-a"))
+        self.assertNotIn("no-verify", Path(pr.__file__).read_text())
+
+    # covers: AC-16 (on yes, a pushed stacked branch is rebased and force pushed with lease; after its base merges it
+    # moves onto the start branch, stacked_on cleared, the PR retargeted), AC-18 (rebase entries in run.json prs)
+    def test_rebase_yes_and_merge(self):
+        g = self.git
+        g("switch", "-qc", "feat/0001-a")
+        (self.repo / "a.txt").write_text("a\n")
+        g("add", "a.txt")
+        g("commit", "-qm", "a")
+        a_sha = g("rev-parse", "HEAD")
+        g("switch", "-qc", "feat/0002-b")
+        (self.repo / "b.txt").write_text("b\n")
+        g("add", "b.txt")
+        g("commit", "-qm", "b")
+        g("push", "-q", "origin", "feat/0002-b")
+        b_pushed = g("rev-parse", "HEAD")
+        g("switch", "-q", "feat/0001-a")
+        (self.repo / "a2.txt").write_text("more\n")
+        g("add", "a2.txt")
+        g("commit", "-qm", "a more")
+        g("switch", "-q", "work")
+        r = self.fake_run()
+        rec = lambda **x: {"repo": str(self.repo), "feature": "x", "spec": None, "branch": "", "base": "work",
+                           "base_sha": "", "stacked_on": None, "pr": None, "number": None, "state": "draft", "seen": [],
+                           "rounds": 0, "pushed_sha": None, **x}
+        r.q["prs"] = [rec(feature="A", spec="0001", branch="feat/0001-a", base_sha=g("rev-parse", "work")),
+                      rec(feature="B", spec="0002", branch="feat/0002-b", base="feat/0001-a", base_sha=a_sha,
+                          stacked_on="0001", pushed_sha=b_pushed, number=8)]
+        pr.rebase(r, r.q["prs"][1], "feat/0001-a", force=True)
+        self.assertEqual(g("rev-parse", "feat/0002-b~1"), g("rev-parse", "feat/0001-a"))
+        self.assertEqual(g("rev-parse", "feat/0002-b", repo=self.origin), g("rev-parse", "feat/0002-b"))
+        g("merge", "-q", "--no-ff", "-m", "merge a", "feat/0001-a")
+        r.q["prs"][0]["state"] = "merged"
+        from unittest import mock
+        with mock.patch.dict(os.environ, FAKE_DIR=str(self.fakes)):
+            pr.rebase(r, r.q["prs"][1], "work", force=True)
+        b = r.q["prs"][1]
+        self.assertEqual((b["base"], b["stacked_on"]), ("work", None))
+        self.assertEqual(g("rev-parse", "feat/0002-b", repo=self.origin), g("rev-parse", "feat/0002-b"))
+        self.assertIn(["pr", "edit", "8", "--base", "work", "--repo", "acme/widgets"], self.gh_calls())
+        self.assertEqual([a["what"] for a in r.record["prs"]].count("rebase"), 2)
 
 
 if __name__ == "__main__":
