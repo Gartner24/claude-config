@@ -1737,6 +1737,9 @@ class Run:
             self.live_failed = "the steps or their files changed since you were asked"
             return False
         steps = [s for _, _, s in plan]
+        for _, h, s in plan:
+            # The staged copy is checked against this hash, so a change after the check above is never swapped in.
+            s.expect = h
         self.log(f"live steps {self.c.name}: {', '.join(c for c, _, _ in plan)}")
         f = finish.Finish(steps)
         f.run()

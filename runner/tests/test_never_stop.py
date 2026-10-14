@@ -280,6 +280,22 @@ class TestRows(NeverStopCase):
         self.assertFalse(live.exists(), r.stdout)
         self.assertIn(": not now", r.stdout)
 
+    # covers: F16 security review (check then act: a staged copy whose content is not the approved hash fails, so it
+    # is never swapped in; the approved content passes)
+    def test_live_copy_checks_approved_hash(self):
+        import finish
+        src = self.tmp / "src.md"
+        src.write_text("approved\n")
+        stage = self.tmp / "stage"
+        with mock.patch.dict(os.environ, {"XDG_STATE_HOME": str(self.tmp / "st")}):
+            f = finish.Finish([])
+        for expect, result in ((run.file_hash(src), "PASS"), ("0" * 64, "FAIL")):
+            s = finish.Step("copy", SimpleNamespace(name="r"), "cp src.md ~/.claude/rules/x.md", src=str(src),
+                            dst="unused", rel="rules/x.md")
+            s.expect = expect
+            f.copy(s, str(stage))
+            self.assertEqual(s.result, result, s.last)
+
     # covers: F16 security review (a copy into hooks, an install or a check is never offered: it waits for your wf)
     def test_live_step_hook_not_offered(self):
         self.live_repo("lh", "cp hooks/h.sh ~/.claude/hooks/h.sh", "hooks/h.sh", "#!/bin/sh\n")

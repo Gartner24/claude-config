@@ -669,6 +669,9 @@ class Finish:
             shutil.copyfile(s.src, dst)
             ok = filecmp.cmp(s.src, dst, shallow=False)
             s.last = "" if ok else "the copy differs from the source"
+            # Spec 0041 (security review, check then act): a run's approved copy must be the content you approved.
+            if ok and getattr(s, "expect", None) and run.file_hash(dst) != s.expect:
+                ok, s.last = False, "the source changed after you approved it"
         except OSError as e:
             ok, s.last = False, f"{e.strerror or e}"
         s.code = 0 if ok else 1
