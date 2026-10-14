@@ -169,6 +169,9 @@ class TestAdoptUnit(AdoptCase):
             pr.approved_answer(r, rec, ans("merge now", coded=False))
             self.assertEqual(merges(), [])
             self.assertIn("one time codes", r.asked[-1][1])
+            # Verify V4: the code form names the new question's id (filled in by ask), never the answered ab12.
+            self.assertIn(f"reply {run.NEW_ID} <code> merge now", r.asked[-1][1])
+            self.assertNotIn("ab12", r.asked[-1][1])
             pr.approved_answer(r, rec, ans("  Merge Now "))
             self.assertEqual(len(merges()), 1)
             self.assertIn("Note: Pull request is not mergeable", r.asked[-1][1])

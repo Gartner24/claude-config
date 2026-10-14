@@ -601,6 +601,9 @@ def now():
     return datetime.datetime.now().astimezone().isoformat(timespec="seconds")
 
 
+NEW_ID = "{new id}"  # in a question text, replaced by that question's own id when ask() draws it
+
+
 def plain_question(reason, where, detail):
     """Spec 0028 AC-12: `<plain words> in <where>.` and the detail in plain form."""
     text = f"{plain.words(reason)} in {where}."
@@ -1541,6 +1544,9 @@ class Run:
         def add(q):
             # Drawn under the lock: unique in the file and in this run.
             d["id"] = ntfy.new_id({x["id"] for x in q["decisions"] + self.record["decisions"]})
+            # Spec 0031 AC-14: a code form asked again used to name the answered (closed) id, so the coded reply
+            # it asked for was dropped; it names this question's id, known only now.
+            d["question"] = d["question"].replace(NEW_ID, d["id"])
             old = next((x for x in q["decisions"] if (x["repo"], x["feature"]) == (d["repo"], d["feature"])), None)
             if old and old["answer"] is not None and not old.get("case") and "case" in extra:
                 # An answer whose resume parked (app_failed on the restart) is kept: the case answer resumes it.
@@ -1552,7 +1558,7 @@ class Run:
         entry = self.entry_for(d, seq)
         self.save()
         self.log(f"decision {d['id']} {d['feature']}")
-        print(f"waiting: {d['id']} {flat(question)}", flush=True)
+        print(f"waiting: {d['id']} {flat(d['question'])}", flush=True)
         for i, o in enumerate(options, 1):
             print(f"  {i} {flat(o)}", flush=True)
         try:

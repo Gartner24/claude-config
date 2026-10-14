@@ -119,7 +119,7 @@ def answer(r, d):
     if d["case"] == "review_draft" and pr.chose(d, POST):
         # AC-8: only that exact option, from you, about exactly the draft you were shown.
         if not pr.strong(r, d):
-            return ask_draft(r, rec, f"on ntfy posting needs one of your one time codes: reply {d.get('id')} <code> "
+            return ask_draft(r, rec, f"on ntfy posting needs one of your one time codes: reply {run.NEW_ID} <code> "
                                      f"post as my review")
         # Security review (display vs action): post() posts only the draft whose hash the question carried.
         return post(r, rec, d.get("hash"))
@@ -131,7 +131,7 @@ def answer(r, d):
     # AC-7: free text (or the edit reply) replaces the summary in the stored draft, shown again; never posts.
     # Security review: only your own answer changes what could be posted under your name.
     if not pr.strong(r, d):
-        return ask_draft(r, rec, f"on ntfy a new text needs one of your one time codes: reply {d.get('id')} <code> "
+        return ask_draft(r, rec, f"on ntfy a new text needs one of your one time codes: reply {run.NEW_ID} <code> "
                                  f"<text>")
     rec["draft"]["summary"] = str(text or "").strip() or NO_SUMMARY
     rec["draft"] = clean(r, rec["draft"])

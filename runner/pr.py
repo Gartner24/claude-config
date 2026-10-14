@@ -684,7 +684,7 @@ def approved_answer(r, rec, d):
     """AC-8: merge now (that exact option, from you) merges, I merged it records it, anything else is later."""
     if chose(d, MERGE_NOW):
         if not strong(r, d):
-            return ask_merge(r, rec, f"on ntfy merging needs one of your one time codes: reply {d.get('id')} "
+            return ask_merge(r, rec, f"on ntfy merging needs one of your one time codes: reply {run.NEW_ID} "
                                      f"<code> merge now")
         return merge(r, rec)
     if chose(d, "I merged it"):
