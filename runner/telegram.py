@@ -113,13 +113,21 @@ def multipart(params, name, text):
     return b"".join(parts) + f"--{b}--\r\n".encode(), f"multipart/form-data; boundary={b}"
 
 
+def api_base():
+    """API, or WF_TELEGRAM_API when it is a fake bot on this machine (the e2e checks); never another host, since the
+    token rides in the URL."""
+    v = os.environ.get("WF_TELEGRAM_API") or ""
+    return v if re.fullmatch(r"http://127\.0\.0\.1:\d{1,5}", v) else API
+
+
 def api(token, method, params=None, wait=0, document=None):
     """AC-11: one Bot API call, 10 s beyond the long poll wait. The result, else ApiError with the token redacted."""
     if document:
         data, kind = multipart(params or {}, *document)
     else:
         data, kind = json.dumps(params or {}).encode(), "application/json"
-    req = urllib.request.Request(f"{API}/bot{token}/{method}", data=data, headers={"Content-Type": kind}, method="POST")
+    req = urllib.request.Request(f"{api_base()}/bot{token}/{method}", data=data, headers={"Content-Type": kind},
+                                 method="POST")
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT + wait) as r:
             body = json.loads(r.read())

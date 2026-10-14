@@ -2,8 +2,9 @@
 # Spec 0014 AC-5: `wf run` end to end in a throwaway copy of fixture/. It makes real claude calls, so you run it
 # yourself with `!` after a Claude Code upgrade or a runner change; install.sh and the unittest suite never do.
 # Spec 0017 AC-8: `--parallel` runs a bare `wf run` over two copies and checks their calls overlapped.
-# Spec 0018 AC-8: both forms also check the morning report. Every check talks to a silent local ntfy (fake_ntfy.py)
-# that answers each question itself, so nothing reaches your phone and nothing waits on you.
+# Spec 0018 AC-8: both forms also check the morning report. Every check talks to a silent local Telegram bot
+# (fake_telegram.py, the same path your runs use) that taps an answer to each question itself, so nothing reaches
+# your phone and nothing waits on you.
 # Spec 0020 AC-11: `--beside` runs `wf -y` beside a running `wf run`, in a temp CLAUDE_CONFIG_DIR holding a copy of
 # your login (removed at the end however it ends), and checks the run takes the swap and still stops on a hand edit.
 # Spec 0027 AC-10: `--same-repo` builds three features of one `parallel: 2` repo, each in its own worktree.
@@ -20,7 +21,7 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path[:0] = [os.path.dirname(HERE), HERE]
-import fake_ntfy  # noqa: E402
+import fake_telegram  # noqa: E402
 import ntfy  # noqa: E402
 
 FIXTURE = os.path.join(HERE, "fixture")
@@ -37,7 +38,7 @@ def git(repo, *args):
 
 
 def setup(top, names=("repo",)):
-    """The temp repos, state and config folders, an ntfy config pointing at the silent fake, only those repos trusted.
+    """The temp repos, state and config folders, a telegram.json for the silent fake bot, only those repos trusted.
     Returns (repos, env)."""
     state, config = (os.path.join(top, n) for n in ("state", "config"))
     repos = [os.path.join(top, n) for n in names]
@@ -48,10 +49,8 @@ def setup(top, names=("repo",)):
         git(repo, "commit", "-q", "-m", "chore: wf e2e fixture")
     os.makedirs(os.path.join(config, "wf"), mode=0o700)
     os.makedirs(state, mode=0o700)
-    _, codes = ntfy.new_codes()
-    ntfy.write({"server": FAKE.url, "topic": "wf-e2e-" + "x" * 32, "codes": codes, "aliases": {}, "block": []},
-               os.path.join(config, "wf", "ntfy.json"))
-    env = {**os.environ, "XDG_STATE_HOME": state, "XDG_CONFIG_HOME": config}
+    ntfy.write(FAKE.config(), os.path.join(config, "wf", "telegram.json"))
+    env = {**os.environ, "XDG_STATE_HOME": state, "XDG_CONFIG_HOME": config, "WF_TELEGRAM_API": FAKE.url}
     for repo in repos:
         subprocess.run(["wf", "allow", repo], env=env, check=True, capture_output=True)
     return repos, env
@@ -70,7 +69,7 @@ def failure(top, repo, env):
     outcomes = [e.get("outcome") for e in rec.get("features", [])]
     if outcomes != ["feature_done"]:
         return f"run.json outcomes {outcomes}"
-    # Spec 0018 AC-8: the run wrote its morning report and the note reached ntfy.
+    # Spec 0018 AC-8: the run wrote its morning report and the note reached the bot.
     if not os.path.isfile(os.path.join(top, "state", "wf", "report.txt")):
         return "no report.txt"
     if rec.get("report") != "sent":
@@ -329,7 +328,7 @@ FAKE = None
 
 def main():
     global FAKE
-    FAKE = fake_ntfy.Server()
+    FAKE = fake_telegram.Server()
     parallel = sys.argv[1:] == ["--parallel"]
     beside = sys.argv[1:] == ["--beside"]
     same = sys.argv[1:] == ["--same-repo"]

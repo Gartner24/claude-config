@@ -1585,7 +1585,7 @@ class Run:
         """AC-2: a feature level reason opens its row's question, options recommended first; the queue goes on.
         F10 leaves a `· live` box to wf (spec 0019, 0020). Returns the Decision, else None."""
         text, command = self.case_box()
-        steps = []
+        steps, plan = [], []
         if reason in ("waiting", "manual_box") and text and wf.LIVE.search(text):
             # A live box: the run offers to run the repo's live steps itself (`wf finish`), on your tap.
             plan = self.live_plan()

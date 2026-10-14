@@ -545,10 +545,11 @@ if mode != "no-report-txt":
         self.assertEqual(r.returncode, 1)
         self.assertEqual(len(left), 1)
         self.assertEqual(r.stdout.splitlines(), ["FAIL: wf exit 6"] + [f"kept: {left[0] / n}" for n in ("repo", "state", "config")])
-        cfg = left[0] / "config" / "wf" / "ntfy.json"
-        # The silent fake ntfy on this machine, never a copy of your config (no ping reaches your phone).
+        cfg = left[0] / "config" / "wf" / "telegram.json"
+        # The silent fake bot's config, never a copy of yours (no message reaches your phone).
         self.assertEqual(stat.S_IMODE(cfg.stat().st_mode), 0o600)
-        self.assertTrue(json.loads(cfg.read_text())["server"].startswith("http://127.0.0.1:"))
+        self.assertEqual(json.loads(cfg.read_text())["chat_id"], 4242)
+        self.assertFalse((left[0] / "config" / "wf" / "ntfy.json").exists())
         self.assertEqual(subprocess.run(["git", "-C", str(left[0] / "repo"), "branch", "--show-current"],
                                         capture_output=True, text=True).stdout, "wf-e2e\n")
 

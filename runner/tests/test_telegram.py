@@ -172,6 +172,15 @@ class TestLoad(TelegramCase):
         names |= {n.module.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)}
         self.assertEqual(names - set(sys.stdlib_module_names), {"context", "ntfy", "wf"})
 
+    # covers: the e2e override reaches only a fake bot on this machine; any other value keeps the real API (the
+    # token rides in the URL)
+    def test_api_base(self):
+        for value, want in (("http://127.0.0.1:8123", "http://127.0.0.1:8123"), ("https://evil.example", telegram.API),
+                            ("http://127.0.0.1.evil.example:80", telegram.API), ("http://localhost:80", telegram.API),
+                            ("http://127.0.0.1:8123/x", telegram.API), ("", telegram.API)):
+            with mock.patch.dict(os.environ, {"WF_TELEGRAM_API": value}):
+                self.assertEqual(telegram.api_base(), want, value)
+
     # covers: spec 0029 AC-3 (every call's sandbox denies reading telegram.json)
     def test_calls_cannot_read(self):
         import run
