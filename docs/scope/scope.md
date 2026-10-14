@@ -554,7 +554,7 @@ A repo that opts in with `- parallel: <n>` builds up to n features at once, each
 **Done when:** `runner/e2e/run.py --same-repo` passes on the real claude.
 - [x] Design it (spec): `/architect several features of one repo at once`
 - [x] Build it: `/develop several features of one repo at once`
-- [ ] Verify it: `/check verify several features of one repo at once`
+- [x] Verify it: `/check verify several features of one repo at once`
 - [ ] Test it: `/test several features of one repo at once`
 - [x] Real check: `python3 runner/e2e/run.py --same-repo` · waits on you · live
 - [ ] Sync docs: `/sync several features of one repo at once`
