@@ -49,7 +49,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 35 | Several features of one repo at once | Release 6 | in-progress |
 | 36 | Telegram instead of ntfy | Release 6 | in-progress |
 | 37 | Autonomous mode | Release 6 | in-progress |
-| 31 | Guard baseline check between repos | Release 6 | in-progress |
+| 31 | Guard baseline check between repos | Release 6 | done |
 | 23 | Understand everything | Release 6 | in-progress |
 | 15 | Cheap worker tier | Release 6 | in-progress |
 | 16 | Issues and mixed source of truth | Release 6 | in-progress |
@@ -493,14 +493,14 @@ The morning report says `repo-e679` where it means `claude-config`, because it s
 - [ ] Sync docs: `/sync report names repos`
 Source: the 14:51 report of 2026-10-13 ("next: wf finish, then review and merge: repo-e679").
 
-### 31. Guard baseline check between repos · in-progress · auto
+### 31. Guard baseline check between repos · done · auto
 A repo that starts later in a bare `wf` checks its protected files are unchanged since you confirmed the plan; a change asks you (accept or stop this repo) while the rest builds.
 **Done when:** a protected file changed after the plan makes that repo ask with the file named, and the other repos keep building.
 - [x] Design it (spec): `/architect guard baseline check between repos`
 - [x] Build it: `/develop guard baseline check between repos`
 - [x] Verify it: `/check verify guard baseline check between repos`
-- [ ] Test it: `/test guard baseline check between repos`
-- [ ] Sync docs: `/sync guard baseline check between repos`
+- [x] Test it: `/test guard baseline check between repos`
+- [x] Sync docs: `/sync guard baseline check between repos`
 Spec [0025](../specs/0025-guard-baseline-between-repos/index.md) · Source: spec 0017 accepted gap; decision `w8d0` of 2026-10-13.
 
 ### 16. Issues and mixed source of truth · in-progress · auto
