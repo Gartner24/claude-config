@@ -47,6 +47,8 @@ class TestDebugHandOff(RunCase):
     # repo without WF_RUN; its summary sits above the unchanged raw tail; the call record says fb: ok)
     def test_summary(self):
         self.stub(0)
+        # Without it in the runner's own env, "wf_run": False below holds even if the strip is gone.
+        self.env["WF_RUN"] = "outer"
         prompt, rec = self.debug_prompt()
         tail = run.debug_command("/check verify a", "2 checks failed\nVERIFY FAIL: debug\n")
         head, rest = tail.split("\n", 1)

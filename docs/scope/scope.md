@@ -566,7 +566,7 @@ Boring reading jobs go to the free claude-fb models through `fb-ask` (text only,
 - [x] Design it (spec): `/architect cheap worker tier`
 - [x] Build it: `/develop cheap worker tier`
 - [x] Verify it: `/check verify cheap worker tier`
-- [ ] Test it: `/test cheap worker tier`
+- [x] Test it: `/test cheap worker tier`
 - [ ] Create `~/.claude/private/fb-ok.txt` (your own repo origins) and `~/.claude/private/fb-ask.conf` · waits on you
 - [x] Copy the rule live: `cp ~/claude-config/rules/cheap-worker.md ~/.claude/rules/cheap-worker.md` · waits on you · live
 - [ ] Probes P1 to P3 (the claude-fb proxy) · waits on you
