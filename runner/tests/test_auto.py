@@ -162,6 +162,23 @@ class TestHook(AutoCase):
         self.assertEqual(self.hook("SessionStart"), (0, ""))
 
 
+    # covers: spec 0030 probe P4 fix (the skill cannot run a denied command, so your typed /auto on, /auto off and
+    # /auto off now switch the mode in the prompt hook, in the prompt's folder; any other prompt, or one inside a wf run
+    # call, switches nothing)
+    def test_typed_switch(self):
+        typed = lambda text, env=None: self.cli("hook", stdin=json.dumps(
+            {"hook_event_name": "UserPromptSubmit", "cwd": str(self.folder), "prompt": text}))
+        self.assertEqual(typed("please /auto on")[1], "")
+        self.assertEqual(self.cli("status")[1], "autonomous: off\n")
+        with mock.patch.dict(os.environ, {"WF_RUN": "x"}):
+            typed("/auto on")
+        self.assertEqual(self.cli("status")[1], "autonomous: off\n")
+        out = typed("  /auto   on ")[1]
+        self.assertTrue(out.startswith("autonomous: on in "), out)
+        self.assertTrue(auto.driving(auto.load(), str(self.folder)))
+        self.assertIn("autonomous: off", typed("/auto off")[1])
+        self.assertFalse(auto.load()["on"])
+
     # covers: security review 2026-10-13 (build written text reaches the session only as one quoted, cut line with no
     # control characters, under the data head; it can never add a line of its own)
     def test_question_text_is_data(self):

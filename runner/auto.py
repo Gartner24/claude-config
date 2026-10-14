@@ -128,6 +128,9 @@ def fingerprint():
     return hashlib.sha256(json.dumps(pairs).encode()).hexdigest() if pairs else ""
 
 
+SWITCH = ("/auto on", "/auto off", "/auto off now")
+
+
 def wf_path():
     """The wf this process runs as (~/.local/bin/wf links to the newest runner copy, spec 0020 AC-12)."""
     me = sys.argv[0]
@@ -138,12 +141,12 @@ def wf_path():
 
 # -- commands -----------------------------------------------------------------
 
-def on():
+def on(folder=None):
     # AC-3: Claude can never turn it on; a wf run call would start unattended runs on its own.
     if os.environ.get("WF_RUN"):
         print("refused: user_only")
         return 5
-    folder = os.path.realpath(os.getcwd())
+    folder = os.path.realpath(folder or os.getcwd())
     change(lambda s: s.update(on=True, folder=folder, since=datetime.datetime.now().astimezone().isoformat()))
     print(f"autonomous: on in {wf.clean(os.path.basename(folder))[:60]}")
     return 0
@@ -240,6 +243,11 @@ def hook():
     if os.environ.get("WF_RUN") or not isinstance(data, dict):
         return
     folder = data.get("cwd") or os.getcwd()
+    typed = " ".join(str(data.get("prompt") or "").split()) if data.get("hook_event_name") == "UserPromptSubmit" else ""
+    if typed in SWITCH:
+        # /auto on|off typed by you: the switch runs here, as you. The skill cannot run it, since the deny rule that
+        # keeps Claude from ever turning it on checks a skill's command too (spec 0030 probe P4, 2026-10-14).
+        on(folder) if typed == "/auto on" else off(typed == "/auto off now")
     s = load()
     if not driving(s, folder):
         return
