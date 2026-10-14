@@ -603,7 +603,7 @@ Spec [0029](../specs/0029-telegram/index.md) · Source: personal scope row 26.
 **Done when:** after `/auto on` and `/clear`, the new session still drives `wf`, the bar shows AUTO, and `/auto off` stops new starts.
 - [x] Design it (spec): `/architect autonomous mode`
 - [x] Build it: `/develop autonomous mode`
-- [ ] Verify it: `/check verify autonomous mode`
+- [x] Verify it: `/check verify autonomous mode`
 - [ ] Test it: `/test autonomous mode`
 - [x] Install the hooks, skill and status bar: `./install.sh` · waits on you · live
 - [ ] Probes P1 to P4 in a real session (`/clear`, closing the window, idle bar refresh, the skill argument) · waits on you
