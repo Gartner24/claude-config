@@ -618,7 +618,11 @@ class TestAppFailures(AppCase):
                 self.assertRegex(rec["detail"], detail)
                 self.assertEqual(list(self.fakes.glob("argv-*.json")), [])
                 self.assertIsNone(run.http_status(self.url))
+                # Spec 0021 F12: the park asks retry or skip.
+                q = json.loads((self.state / "wf" / "queue.json").read_text())
+                self.assertEqual([(d["case"], d["options"]) for d in q["decisions"]], [("app_failed", ["retry", "skip"])])
 
+    # covers: spec 0021 U7 (a busy port stops only the repo, with its question)
     def test_port_busy(self):
         server = subprocess.Popen([sys.executable, str(self.app_py), str(self.port), "ok"], stdout=subprocess.DEVNULL)
         self.addCleanup(lambda: (server.kill(), server.wait()))
@@ -629,6 +633,9 @@ class TestAppFailures(AppCase):
         rec = self.assert_stopped(self.wf("demo", "-y"), "app_port_busy", calls=0)
         self.assertEqual(rec["detail"], f"something already answers at {self.url}")
         self.assertEqual(list(self.fakes.glob("bwrap-*.json")), [])
+        q = json.loads((self.state / "wf" / "queue.json").read_text())
+        self.assertEqual([(d["reason"], d["options"]) for d in q["decisions"] if d.get("level") == "repo"],
+                         [("app_port_busy", ["retry", "stop this repo"])])
 
 
 class TestDebugOrder(AppCase):

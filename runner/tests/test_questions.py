@@ -167,6 +167,11 @@ class TestTimer(TelegramCase):
         p = mock.patch.object(telegram.subprocess, "run", side_effect=fake)
         p.start()
         self.addCleanup(p.stop)
+        # The suite itself may run inside a wf run call, which sets WF_RUN and made every "on" refuse with 5.
+        env = mock.patch.dict(os.environ)
+        env.start()
+        self.addCleanup(env.stop)
+        os.environ.pop("WF_RUN", None)
         self.units = self.tmp / "config" / "systemd" / "user"
 
     def timer(self, state, env=None):

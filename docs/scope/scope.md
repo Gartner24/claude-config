@@ -491,7 +491,7 @@ The same holds for every other reason a feature is set aside today (blocked, fai
    - [x] Report: open questions, repo names (AC-6, AC-8)
    - [x] Push guard coverage and run folder pruning (AC-9, AC-10)
 - [x] Verify it: `/check verify ask never stop`
-- [ ] Test it: `/test ask never stop`
+- [x] Test it: `/test ask never stop`
 - [ ] Sync docs: `/sync ask never stop`
 Spec [0021](../specs/0021-never-stop/index.md) · code in `runner/run.py`, `runner/report.py`
 Source: [docs/briefs/runner-never-stops.md](../briefs/runner-never-stops.md).

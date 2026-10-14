@@ -112,6 +112,9 @@ class TestOutage(Case):
         self.assertEqual([w["minutes"] for w in rec["outage_waits"]], [1, 2, 4, 8, 16] + [30] * 22)
         self.assertEqual(rec["detail"], "success; boom")
         self.assertEqual(rec["features"][0]["counted"], 0)
+        # Spec 0021 U4: past the cap the repo asks.
+        self.assertEqual([(d["reason"], d["options"]) for d in self.queue()["decisions"] if d.get("level") == "repo"],
+                         [("api_outage", ["keep waiting", "stop this repo"])])
 
     # covers: spec 0014 AC-1 (`API Error: Connection error` in stderr with no JSON is an outage)
     def test_connection_error(self):
