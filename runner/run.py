@@ -1161,7 +1161,8 @@ class Run:
                 absent.append(r)
         self.repo["guard"]["absent_denied"] = list(dict.fromkeys(absent))
         self.base_deny = list(self.guard_settings["sandbox"]["filesystem"]["denyWrite"])
-        self.repo["guard"]["git_dir"] = git_dir
+        if self.repo.get("tree"):
+            self.repo["guard"]["git_dir"] = git_dir
         self.base_denied = ",".join([DENIED, GUARD_DENIED, DESIGN_DENIED,
                                 *(r for p in CREDENTIAL_PATHS for x in expand(p) for r in path_rules("Read", x)),
                                 *(r for p in carve(deny, allowed) + kept for r in path_rules("Edit", p)),
@@ -1846,7 +1847,8 @@ class Run:
     def set_siblings(self, siblings):
         """Security review (incomplete write guard): one sibling list feeds both the sandbox denyWrite and the Edit
         denies, rebuilt from the frozen base lists so no earlier entry is dropped and no stale sibling stays."""
-        self.repo["guard"]["siblings"] = siblings
+        if self.repo.get("tree"):
+            self.repo["guard"]["siblings"] = siblings
         self.guard_settings["sandbox"]["filesystem"]["denyWrite"] = self.base_deny + siblings
         self.settings = json.dumps(self.guard_settings)
         self.denied = ",".join([self.base_denied, *(r for p in siblings for r in path_rules("Edit", p))])
