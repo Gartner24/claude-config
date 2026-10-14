@@ -215,6 +215,12 @@ class Unit(unittest.TestCase):
             with mock.patch.object(tg.telegram.Topic, "publish", return_value=None):
                 self.assertEqual(report.send(tcfg, "short"), "failed: no message id")
                 self.assertEqual(report.send(tcfg, body), "failed: no message id")
+            # The head message arrives but the file is refused: never "sent" (deliver() turns the raise into failed).
+            bot.refuse.add("sendDocument")
+            before = len(bot.sent("sendDocument"))
+            with mock.patch.object(tg.ntfy, "RETRY_GAP", 0.01), self.assertRaises(tg.telegram.PingFailed):
+                report.send(tcfg, body)
+            self.assertEqual(len(bot.sent("sendDocument")) - before, 3)
 
     def hook(self, **env):
         out = subprocess.run([sys.executable, str(WF), "report", "--hook"], capture_output=True, text=True,

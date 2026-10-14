@@ -31,6 +31,7 @@ class FakeBot:
 
     def __init__(self):
         self.calls, self.updates, self.taps, self.fail, self.mid = [], [], [], 0, 100
+        self.refuse = set()
         self.lock = threading.Lock()
         fake = self
 
@@ -49,6 +50,8 @@ class FakeBot:
                         fake.fail -= 1
                         # A real error can echo the request URL, token included.
                         body = {"ok": False, "description": f"broken at {self.path}"}
+                    elif method in fake.refuse:
+                        body = {"ok": False, "description": "refused"}
                     elif method == "getUpdates":
                         # Pending taps arrive once a question was sent, carrying its id.
                         # Spec 0033 AC-5: question messages start with the labeled id.
@@ -172,6 +175,21 @@ class TestLoad(TelegramCase):
         names |= {n.module.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)}
         self.assertEqual(names - set(sys.stdlib_module_names), {"context", "ntfy", "wf"})
 
+    # covers: spec 0029 AC-11 (a bot that never answers ends the call at the timeout, the error redacted)
+    def test_hung_call_times_out(self):
+        import socket
+        s = socket.socket()
+        self.addCleanup(s.close)
+        s.bind(("127.0.0.1", 0))
+        s.listen(1)
+        start = time.monotonic()
+        with mock.patch.object(telegram, "API", f"http://127.0.0.1:{s.getsockname()[1]}"), \
+                mock.patch.object(telegram, "TIMEOUT", 0.3):
+            with self.assertRaises(telegram.ApiError) as e:
+                telegram.api(TOKEN, "getMe")
+        self.assertLess(time.monotonic() - start, 3)
+        self.assertNotIn(TOKEN, str(e.exception))
+
     # covers: the e2e override reaches only a fake bot on this machine; any other value keeps the real API (the
     # token rides in the URL)
     def test_api_base(self):
@@ -246,6 +264,13 @@ class TestSend(TelegramCase):
         self.assertEqual(first.get("parse_mode"), "HTML")
         self.assertNotIn("parse_mode", second)
         self.assertTrue(second["text"].startswith(d["sent"] + "\n"))
+
+    # covers: spec 0029 AC-4 (a send that fails while the run is stopping gives None after one try, no PingFailed)
+    def test_ping_stopped(self):
+        self.bot.fail = 3
+        t = telegram.Topic(self.cfg, "demo", "loop")
+        self.assertIsNone(t.ping(self.decision(), lambda: True))
+        self.assertEqual(len(self.bot.sent()), 2)  # the styled try and its plain retry, once
 
     # covers: spec 0029 AC-4 (question cut at 1000, label at 200)
     def test_cuts(self):
@@ -325,6 +350,20 @@ class TestFetch(TelegramCase):
         self.assertEqual(self.bot.sent("getUpdates"), [])
         telegram.fetch(self.cfg)
         self.assertEqual(len(self.bot.sent("getUpdates")), 1)
+
+    # covers: spec 0029 AC-6, AC-8 (a tap keeps its question message's date, so a button on an older question
+    # never answers a newer one that reused its id)
+    def test_old_tap(self):
+        d = self.decision()
+        when = int(ntfy.datetime.datetime.fromisoformat(d["asked"]).timestamp())
+        self.bot.updates = [tap_update(1, "ab12 1", date=when - 600)]
+        t = telegram.Topic(self.cfg, "", "")
+        line = t.poll(None)[0]
+        self.assertIsNone(t.take(line["message"], [d], line))
+        self.bot.updates.append(tap_update(2, "ab12 2", date=when))
+        line = t.poll("u1")[0]
+        self.assertIs(t.take(line["message"], [d], line), d)
+        self.assertEqual(d["answer"], "no")
 
     # covers: spec 0029 AC-7 (u<N> cursor returns later lines, any other cursor every line)
     def test_poll_cursor(self):
