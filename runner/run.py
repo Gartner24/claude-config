@@ -777,6 +777,9 @@ def progress_key(nb):
 class Run:
     # Spec 0029 AC-2: start() sets the chosen channel; ntfy until then.
     phone = ntfy
+    # Spec 0040 AC-1: telegram.json as seen when start() chose the channel; UNSET (a Run that never chose one, as in
+    # tests building one by hand) never rechecks, so it cannot pick up your real telegram.json.
+    channel_seen = UNSET = object()
 
     def __init__(self, c, args):
         """c: the one target repo, or None for bare `wf run` (spec 0011 AC-1), whose repos come through add()."""
@@ -819,8 +822,6 @@ class Run:
         self.cursor = self.first_ping = None
         self.polled = self.poll_failed = False
         self.own = set()
-        # Spec 0040 AC-1: telegram.json as seen when the channel was last chosen.
-        self.channel_seen = None
         # Spec 0040 AC-2: (repo, feature) whose write deny park this run took back, so it may run once more.
         self.again = set()
         # AC-15: end wait seconds of this run, all waits added.
@@ -2798,7 +2799,7 @@ class Run:
         reply already sent there still counts, then every open question is sent again on the new one. A file that
         does not load keeps the channel in use: a run never stops over a phone setup made after it started."""
         stamp = channel_stamp()
-        if stamp == self.channel_seen:
+        if self.channel_seen is Run.UNSET or stamp == self.channel_seen:
             return
         self.channel_seen = stamp
         try:
