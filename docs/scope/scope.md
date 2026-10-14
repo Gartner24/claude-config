@@ -615,7 +615,7 @@ wf adopts the open PRs you list in pr.json, runs the review loop on them, watche
 **Done when:** an adopted PR gets its review round, is watched until merged, and merges only on your tap.
 - [x] Design it (spec): `/architect adopt open prs`
 - [x] Build it: `/develop adopt open prs`
-- [ ] Verify it: `/check verify adopt open prs`
+- [x] Verify it: `/check verify adopt open prs`
 - [ ] Test it: `/test adopt open prs`
 - [ ] Write `~/.claude/private/pr.json` for the repos to adopt · waits on you · later boxes go on
 - [ ] Probes P3 and P4 on a scratch GitHub repo (they post) · waits on you · later boxes go on
