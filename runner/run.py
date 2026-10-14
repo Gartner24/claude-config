@@ -1620,7 +1620,7 @@ class Run:
             reason, detail = "live_step", "; ".join(steps)
         # Spec 0028 AC-12: the plain words, the detail with its codes read as words, and a learn line.
         options, question, path = CASES[reason][1], plain_question(reason, self.feature, detail), None
-        if reason in ("waiting", "manual_box") and text:
+        if reason in ("waiting", "manual_box") and text and hasattr(self, "explain"):
             # Spec 0042 AC-1, AC-2: the step in plain words, explained with numbered steps you can follow.
             question = self.plain_box(self.feature, text)
             self.call_context = {**self.call_context, **self.explain(self.feature, text)}
@@ -1641,7 +1641,7 @@ class Run:
             # Spec 0033 AC-6: numbered steps you can follow, the call's or the runner's one line.
             self.call_context["steps"] = context.blocked_steps(self, self.feature, text, command, detail,
                                                                self.call_context.get("steps"))
-        if reason not in context.AUTH and reason not in ("waiting", "manual_box", "live_step"):
+        if reason not in context.AUTH and reason not in ("waiting", "manual_box", "live_step") and hasattr(self, "explain"):
             # Spec 0042 AC-5: what happened and why the first option, in plain words, from the runner's facts.
             facts = {"question": question, "options": list(options), "detail": None if detail is None else str(detail),
                      "did": self.call_context.get("did"),
@@ -1822,9 +1822,9 @@ class Run:
                 f"BEGIN PLAN-DATA-{n}\n{text}\nEND PLAN-DATA-{n}\n"
             folder = os.path.join(self.folder, f"explain-{len(self.record.get('explains', [])) + 1}")
             os.makedirs(folder, mode=0o700, exist_ok=True)
-            changed = self.files_changed()
-            if changed:
-                raise Stop("guard_changed", changed)
+            if self.files_changed():
+                # The next build call's own check stops the repo for it; an explanation is never worth a stop.
+                return {}
             # Its own range, so its call-NNNN files never collide with a build call's.
             seq = 1001 + len(self.record.get("explains", []))
             iso = reviews.isolated(self, folder)
@@ -1833,16 +1833,11 @@ class Run:
             g.setdefault("permissions", {})["deny"] = list(dict.fromkeys(
                 g.get("permissions", {}).get("deny", []) + list(EXPLAIN_DENY)))
             iso["settings"] = json.dumps(g)
-            rec_, data, _, _, spawn_error = self.call(seq, prompt, isolated=iso)
+            rec_, data, _, _, spawn_error = self.call(seq, prompt, isolated=iso, label="explain")
             rec_.update(kind="explain", box_text=box_text, resumes=[], retry_of=None, app=None, feature=feature)
             # Its own list: a feature's calls stay its build steps; the run's spend still counts it.
             self.record.setdefault("explains", []).append(rec_)
             self.save()
-            changed = self.files_changed()
-            if changed:
-                raise Stop("guard_changed", changed)
-        except Stop:
-            raise
         except Exception as ex:
             self.log(f"explain: {flat(ex)[:120]}")
             return {}
@@ -2608,7 +2603,8 @@ class Run:
 
     # -- one call ------------------------------------------------------------
 
-    def call(self, seq, command, resume=None, last_box=False, sha=None, browser=False, synced=False, isolated=None):
+    def call(self, seq, command, resume=None, last_box=False, sha=None, browser=False, synced=False, isolated=None,
+             label=None):
         """Run one claude call, or with resume=(session id, prompt) continue that session.
         Returns (call record, parsed JSON or None, timed out, stderr tail, spawn error)."""
         a = self.args
@@ -2650,7 +2646,7 @@ class Run:
         t0 = time.monotonic()
         timed_out = False
         config = live_dir()
-        self.log(f"call {seq} {self.c.name} {self.feature}: {command.split(chr(10))[0]}, "
+        self.log(f"call {seq} {self.c.name} {self.feature}: {label or command.split(chr(10))[0]}, "
                  f"transcript {config}/projects/*/{session}.jsonl")
         with open(base + ".json", "wb") as out, open(base + ".stderr", "wb") as err:
             try:

@@ -1349,7 +1349,10 @@ class TestGuard(RunCase):
         # /test call, (spec 0015 AC-4) ls-files and check-ignore for its test file snapshot, then (spec 0010 AC-1)
         # those lookups and ls-files again for the design check, (spec 0020 AC-6) rev-parse HEAD for the park record,
         # and status for the pick after the park; (spec 0021 AC-9) the core.hooksPath read of .git/config.
-        self.assertEqual((self.fakes / "git-log").read_text().splitlines(), [str(self.fakes / "git-wrap")] * 19)
+        # Spec 0042 AC-5 adds the park question's explain call and its reads; every git still runs as the wrapper.
+        lines = (self.fakes / "git-log").read_text().splitlines()
+        self.assertGreaterEqual(len(lines), 19)
+        self.assertEqual(set(lines), {str(self.fakes / "git-wrap")})
         _, rec = self.run_record()
         self.assertEqual(rec["repos"][0]["guard"]["binaries"], {"git": str(self.fakes / "git-wrap"),
                                                     "claude": str(self.fakes / "claude-a"),

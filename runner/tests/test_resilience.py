@@ -342,6 +342,8 @@ class TestLiveLog(Case):
             f"call 3 demo 1. Loop: /test loop, transcript {config}/projects/*/{ids[2]}.jsonl",
             "end 3 success, 0.50 USD, 0.0m",
             "park 1. Loop: no_progress: the box is still open: Test it: `/test loop`",
+            # Spec 0042 AC-5: the question's plain account, one isolated call logged as one short line.
+            next(e for e in events if e.startswith("call 1001 demo 1. Loop: explain, transcript ")),
             # Spec 0021 F4: the park's question, then the end wait for its reply.
             f"decision {rec['decisions'][0]['id']} 1. Loop", "wait answers",
             "done"])
