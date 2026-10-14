@@ -44,15 +44,18 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 30 | Live setup steps in one command | Release 5 | done |
 | 13 | Morning report | Release 5 | done |
 | 32 | One command: wf | Release 6 | in-progress |
-| 33 | Ask, never stop | Release 6 | needs a decision |
-| 34 | Report names repos | Release 6 | needs a decision |
-| 31 | Guard baseline check before each repo | Deferred | planned |
-| 23 | Questions that teach | Deferred | planned |
-| 15 | Cheap worker tier | Deferred | planned |
-| 16 | Issues and mixed source of truth | Deferred | planned |
-| 11 | Autopilot offer and batch design | Deferred | planned |
-| 12 | Usage limit planning | Deferred | planned |
-| 14 | Draft PR per spec | Deferred | planned |
+| 33 | Ask, never stop | Release 6 | in-progress |
+| 34 | Report names repos | Release 6 | in-progress |
+| 35 | Several features of one repo at once | Release 6 | in-progress |
+| 36 | Telegram instead of ntfy | Release 6 | in-progress |
+| 37 | Autonomous mode | Release 6 | in-progress |
+| 31 | Guard baseline check between repos | Release 6 | in-progress |
+| 23 | Understand everything | Release 6 | in-progress |
+| 15 | Cheap worker tier | Release 6 | in-progress |
+| 16 | Issues and mixed source of truth | Release 6 | in-progress |
+| 11 | Autopilot offer and batch design | Deferred | dropped |
+| 12 | Usage limit planning | Release 6 | in-progress |
+| 14 | Branch and PR flow | Release 6 | in-progress |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -448,7 +451,7 @@ Source: [docs/briefs/morning-report-and-live-steps.md](../briefs/morning-report-
 You type only `wf`. After one confirm screen it shows the report, applies pending live setup steps as one atomic swap, runs pending real claude checks, takes back features whose cause is fixed, and starts every repo with work side by side, never waiting on or stopping a run already going. `wf finish`, `wf unpark` and the rest stop being steps you are told to type.
 **Done when:** with a run going in another repo, one `wf` does all five steps, that run keeps going and its next call uses the new setup, a change to `~/.claude` not made by `wf` still stops the run, and no skill, rule or report tells you to type any `wf` subcommand.
 - [x] Design it (spec): `/architect one command wf`
-- [ ] Build it: `/develop one command wf`
+- [x] Build it: `/develop one command wf`
    - [x] Runner copy: `install_runner` in `runner/finish.py`, `install.sh` calls it, deny `~/.local/share/wf` (AC-12)
    - [x] Locks: holder line by every taker, `wf finish` without repo locks, held repos skipped (AC-9, AC-7)
    - [x] Runs take a `wf` swap: `live_dir()`, ledger acceptance, live dir guard rebuild, state folder deny (AC-5)
@@ -465,12 +468,12 @@ You type only `wf`. After one confirm screen it shows the report, applies pendin
 Spec [0020](../specs/0020-one-command-wf/index.md)
 Source: [docs/briefs/never-wait-on-each-other.md](../briefs/never-wait-on-each-other.md).
 
-### 33. Ask, never stop · in-progress
+### 33. Ask, never stop · in-progress · auto
 A step that needs a protected place (`~/.claude`, the runner's own `runner/`, `.git/hooks`) never parks. With a standing permission for that repo (allowed once, ahead of time) the run just writes it and goes on. Without one, it asks on your phone (yes, no, always), keeps building everything else meanwhile, and resumes that step when you answer.
 The same holds for every other reason a feature is set aside today (blocked, failed checks, caps, on main): it becomes a phone question with a recommended action, the rest keeps building, and your answer resumes it (see the brief).
 **Done when:** a claude-config night run whose features edit `~/.claude` and `runner/` builds them to the end with no stop, given the standing permission; without it you get one phone question and the step resumes on your yes; no park reason ends a feature without a question; a change to `~/.claude` from outside the run still stops that repo.
 - [x] Design it (spec): `/architect ask never stop`
-- [ ] Build it: `/develop ask never stop`
+- [x] Build it: `/develop ask never stop`
    - [x] Case table in code with the AC-1 completeness test
    - [x] Feature level questions and resumes F1 to F12, standing permission (AC-2, AC-3, AC-7)
    - [x] Repo and run level cases R1 to R3, U2 to U10 (AC-4, AC-5)
@@ -482,58 +485,125 @@ The same holds for every other reason a feature is set aside today (blocked, fai
 Spec [0021](../specs/0021-never-stop/index.md) · code in `runner/run.py`, `runner/report.py`
 Source: [docs/briefs/runner-never-stops.md](../briefs/runner-never-stops.md).
 
-### 34. Report names repos · in-progress
+### 34. Report names repos · in-progress · auto
 The morning report says `repo-e679` where it means `claude-config`, because it scrubs every repo name. Show the folder name of repos that are not private (the private names list decides), so the next step is readable.
 **Done when:** the phone report for a claude-config run names `claude-config`, and a repo whose name is on the private list is still hidden.
 - [x] Design it (spec): built inside feature 33, spec 0021 AC-8
+- [x] Build it: `/develop ask never stop` (milestone "Report: open questions, repo names")
+- [ ] Sync docs: `/sync report names repos`
 Source: the 14:51 report of 2026-10-13 ("next: wf finish, then review and merge: repo-e679").
+
+### 31. Guard baseline check between repos · in-progress · auto
+A repo that starts later in a bare `wf` checks its protected files are unchanged since you confirmed the plan; a change asks you (accept or stop this repo) while the rest builds.
+**Done when:** a protected file changed after the plan makes that repo ask with the file named, and the other repos keep building.
+- [x] Design it (spec): `/architect guard baseline check between repos`
+- [x] Build it: `/develop guard baseline check between repos`
+- [ ] Verify it: `/check verify guard baseline check between repos`
+- [ ] Test it: `/test guard baseline check between repos`
+- [ ] Sync docs: `/sync guard baseline check between repos`
+Spec [0025](../specs/0025-guard-baseline-between-repos/index.md) · Source: spec 0017 accepted gap; decision `w8d0` of 2026-10-13.
+
+### 16. Issues and mixed source of truth · in-progress · auto
+In repos set to `issues` or `mixed`, `wf` rereads the linked issue before every step and hands its text to the step as quoted data; a change after the spec was accepted asks you with the diff, and the rest builds.
+**Done when:** an issue edited after its spec asks with the diff shown, and a repo set to scope never calls GitHub.
+- [x] Design it (spec): `/architect issues and mixed source of truth`
+- [x] Build it: `/develop issues and mixed source of truth`
+- [ ] Verify it: `/check verify issues and mixed source of truth`
+- [ ] Test it: `/test issues and mixed source of truth`
+- [ ] Probe P2 on a throwaway issue (it edits the issue): see the spec's verify.md · waits on you
+- [ ] Sync docs: `/sync issues and mixed source of truth`
+Spec [0024](../specs/0024-issues-source-of-truth/index.md) · Source: your message 2026-10-13 (agreed, not optional).
+
+### 12. Usage limit planning · in-progress · auto
+The `wf` screen says whether tonight's picks fit your 5 hour window and your week; a run that does not fit waits for the reset (or you pick fewer, or type `now`), never refused. 10 points of the week stay free for your daytime use.
+**Done when:** the screen shows fits or starts at <time>, a run that does not fit starts after the reset, and the login token is never printed or saved.
+- [x] Design it (spec): `/architect usage limit planning`
+- [x] Build it: `/develop usage limit planning`
+- [ ] Verify it: `/check verify usage limit planning`
+- [ ] Test it: `/test usage limit planning`
+- [ ] Compare the first real `wf` screen with the status line bars (P4) · waits on you
+- [ ] Sync docs: `/sync usage limit planning`
+Spec [0022](../specs/0022-usage-limit-planning/index.md) · Source: your message 2026-10-13 (agreed, not optional).
+
+### 14. Branch and PR flow · in-progress · auto
+One branch per spec (stacked only when the spec says so, at most 3 deep), one squashed commit per feature. In repos that opt in with `- push: draft PR`, `wf` (never a call) pushes the branch and opens a draft PR after the private names and attribution scans; a pre-push hook refusal keeps the branch local. After you mark it ready, review comments are fixed, pushed and answered with an @mention; declines are asked first. It never marks ready or merges.
+**Done when:** a finished feature ends as one commit with a draft PR (or a local branch when the hook refuses), and the review loop answers every comment until the required approver approves.
+- [x] Design it (spec): `/architect branch and PR flow`
+- [x] Build it: `/develop branch and PR flow`
+- [ ] Verify it: `/check verify branch and PR flow`
+- [ ] Test it: `/test branch and PR flow`
+- [ ] Copy the rule live: `cp ~/claude-config/rules/branch-pr.md ~/.claude/rules/branch-pr.md` · waits on you · live
+- [ ] Add the branch-pr pointer line to `~/.claude/CLAUDE.md` · waits on you
+- [ ] Probes P7 and P8 on a scratch GitHub repo (they post) · waits on you
+- [ ] Sync docs: `/sync branch and PR flow`
+Spec [0026](../specs/0026-branch-pr-flow/index.md) · Source: personal scope rows 11 and 27; your message 2026-10-13.
+
+### 35. Several features of one repo at once · in-progress · auto
+A repo that opts in with `- parallel: <n>` builds up to n features at once, each in its own worktree on its own branch; features whose spec paths overlap never run together.
+**Done when:** `runner/e2e/run.py --same-repo` passes on the real claude.
+- [x] Design it (spec): `/architect several features of one repo at once`
+- [x] Build it: `/develop several features of one repo at once`
+- [ ] Verify it: `/check verify several features of one repo at once`
+- [ ] Test it: `/test several features of one repo at once`
+- [ ] Real check: `python3 runner/e2e/run.py --same-repo` · waits on you · live
+- [ ] Sync docs: `/sync several features of one repo at once`
+Spec [0027](../specs/0027-same-repo-parallel/index.md) · Source: personal scope row 23.
+
+### 15. Cheap worker tier · in-progress · auto
+Boring reading jobs go to the free claude-fb models through `fb-ask` (text only, six job kinds); never client or work repos; falls back to normal Claude at once when the free models are down. Used today for the summary a failed check hands to `/debug`.
+**Done when:** a failed check's debug step gets an `fb-ask` summary in an allowed repo, and a repo not on your list never reaches it.
+- [x] Design it (spec): `/architect cheap worker tier`
+- [x] Build it: `/develop cheap worker tier`
+- [ ] Verify it: `/check verify cheap worker tier`
+- [ ] Test it: `/test cheap worker tier`
+- [ ] Create `~/.claude/private/fb-ok.txt` (your own repo origins) and `~/.claude/private/fb-ask.conf` · waits on you
+- [ ] Copy the rule live: `cp ~/claude-config/rules/cheap-worker.md ~/.claude/rules/cheap-worker.md` · waits on you · live
+- [ ] Probes P1 to P3 (the claude-fb proxy) · waits on you
+- [ ] Sync docs: `/sync cheap worker tier`
+Spec [0023](../specs/0023-cheap-worker-tier/index.md) · Source: your message 2026-10-13 (agreed, not optional).
+
+### 23. Understand everything · in-progress · auto
+Everything Claude tells you uses words you can follow; every question panel ends with "Learn this first"; phone questions carry a short explanation and a learn option; the runner speaks plain words, with a jargon test.
+**Done when:** a panel in a fresh session offers "Learn this first", a runner report holds no word from the jargon list, and the rule survives a pull of the vendored skills.
+- [x] Research it: done inside spec 0028 (rationale.md)
+- [x] Design it (spec): `/architect understand everything`
+- [x] Build it: `/develop understand everything`
+- [ ] Verify it: `/check verify understand everything`
+- [ ] Test it: `/test understand everything`
+- [ ] Copy the rule live: `cp ~/claude-config/rules/plain-questions.md ~/.claude/rules/plain-questions.md` · waits on you · live
+- [ ] Real check of the LEARN line: `python3 docs/specs/0028-understand-everything/probes/learn-line.py` · waits on you · live
+- [ ] A panel is refused without "Learn this first" in a real session (P3) · waits on you
+- [ ] Sync docs: `/sync understand everything`
+Spec [0028](../specs/0028-understand-everything/index.md) · Source: your messages 2026-10-12 and 2026-10-13.
+
+### 36. Telegram instead of ntfy · in-progress · auto
+Questions come to your own Telegram bot with buttons, and you can reply in your own words; longer reports, very long ones as a file; the bot key is in one file only you can read; without it, ntfy works as today.
+**Done when:** a run's question and report arrive in Telegram and a tap or a typed reply answers the question.
+- [x] Design it (spec): `/architect telegram`
+- [x] Build it: `/develop telegram`
+- [ ] Verify it: `/check verify telegram`
+- [ ] Test it: `/test telegram`
+- [ ] Make the bot with @BotFather, then `wf telegram init` and `wf telegram test` · waits on you
+- [ ] Sync docs: `/sync telegram`
+Spec [0029](../specs/0029-telegram/index.md) · Source: personal scope row 26.
+
+### 37. Autonomous mode · in-progress · auto
+`/auto on` ties a session to the runner: it starts `wf` when there is work, relays questions and the report, stays on through `/clear`, shows AUTO in the status bar; `/auto off` finishes running work, `/auto off now` stops it. Claude can never turn it on.
+**Done when:** after `/auto on` and `/clear`, the new session still drives `wf`, the bar shows AUTO, and `/auto off` stops new starts.
+- [x] Design it (spec): `/architect autonomous mode`
+- [x] Build it: `/develop autonomous mode`
+- [ ] Verify it: `/check verify autonomous mode`
+- [ ] Test it: `/test autonomous mode`
+- [ ] Install the hooks, skill and status bar: `./install.sh` · waits on you · live
+- [ ] Probes P1 to P4 in a real session (`/clear`, closing the window, idle bar refresh, the skill argument) · waits on you
+- [ ] Sync docs: `/sync autonomous mode`
+Spec [0030](../specs/0030-autonomous-mode/index.md) · Source: your message 2026-10-13; [docs/briefs/autonomous-mode.md](../briefs/autonomous-mode.md).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
 
-### 31. Guard baseline check before each repo · planned
-Bare `wf run` would check each repo's protected files just before starting it and skip the repo if anything changed since the plan. Left out of feature 29 on 2026-10-13 (answer `w8d0 2`); the gap is recorded in spec 0017.
-**Done when:** a protected file changed by another repo's call makes the next repo skip with the file named.
-- [ ] Design it (spec): `/architect guard baseline check before each repo`
-Source: spec [0017](../specs/0017-several-repos-at-once/index.md) accepted gap; decision `w8d0` of 2026-10-13.
-
-### 23. Questions that teach · needs a decision
-Deferred 2026-10-12: do it after the runner features are built. Widened 2026-10-13 (your message): not only question panels; everything Claude says to you, in every session and in the runner's reports, is in words you can follow, with a way to learn any idea first.
-Every question panel, in every session, explains the ideas it asks about in plain words and offers a way to learn the idea before you answer. It grows `rules/plain-questions.md`, which already asks for plain wording and a from zero explanation when you say you do not follow. Research comes first, so the design rests on how good teaching inside a question is actually done.
-**Done when:** a question panel in a fresh session explains each idea it asks about in plain words and offers a "learn this first" path, the rule reaches skills that are vendored and overwritten on pull, and the research behind it is recorded in the spec's `rationale.md`.
-- [ ] Research it: `/deep-research how to teach a concept inside a decision question: plain explanations, an option to learn more, without slowing down people who already know it`
-- [ ] Design it (spec): `/architect questions that teach`
-Source: your message of 2026-10-12 (`/scope` request).
-
-### 15. Cheap worker tier · needs a decision
-Deferred 2026-10-12 (architecture pass): a cost saving, the goal does not need it.
-Low value work (summaries of long pages, transcripts and logs, first pass triage of search results, field extraction, classification, commit message drafts) goes to claude-fb's free models through an `fb-ask` helper, and the answer comes back to the Claude session as data. Never code edits, decisions, security review, or client code on fb-any.
-**Done when:** a runner step sends a summary job through `fb-ask`, Claude uses the answer, and a code or decision task can never be routed there.
-- [ ] Design it (spec): `/architect cheap worker tier`
-
-### 16. Issues and mixed source of truth · needs a decision
-Deferred 2026-10-12 (architecture pass): your scopes are the source of truth; issues are not needed for the goal.
-Per repo `**Source of truth:** scope | issues | mixed`. With issues or mixed, the runner rereads the linked GitHub issue before every step; if it changed after the spec was written, the feature parks and you are asked. In mixed, the issue holds the requirement and the scope tracks the build, and the issue wins on conflict. Never tied to an org or repo name.
-**Done when:** an issue edited after its spec parks the feature with the diff shown, and a repo set to scope never calls GitHub.
-- [ ] Design it (spec): `/architect issues and mixed source of truth`
-
-### 11. Autopilot offer and batch design · needs a decision
-Deferred 2026-10-12 (architecture pass): you run `/architect` yourself in one sitting; batching it is a convenience.
-When a conversation ends with buildable features, one question: "Queue these for autopilot?". Then `/architect` runs for each one back to back, one question round per spec, until every spec is accepted and tagged `auto`.
-**Done when:** answering yes leaves every queued feature with an accepted spec and the `auto` tag, with all questions asked before the unattended run starts.
-- [ ] Design it (spec): `/architect autopilot offer and batch design`
-
-### 12. Usage limit planning · needs a decision
-Deferred 2026-10-12 (architecture pass): estimates and refusals are not needed; the pause through a reset moved into feature 8.
-Estimate each step's usage from past sessions, compare it with the 5 hour window and the weekly limit, start right after a reset, sleep through a reset, and refuse a run the week cannot finish.
-**Done when:** a run that does not fit is refused before it starts, and one that hits the 5 hour limit pauses and resumes after the reset.
-- [ ] Design it (spec): `/architect usage limit planning`
-
-### 14. Draft PR per spec · needs a decision
-Deferred 2026-10-12 (architecture pass): opening a PR needs a push, which the runner never does.
-Checkpoint commits on a work branch squash into one clean commit per feature, and the runner opens one draft PR per spec, never marked ready or merged. Waits on the branch and PR standard (personal scope item 11).
-**Done when:** a finished feature ends as one commit on its branch with a draft PR, and the runner has no path to merge or mark ready.
-- [ ] Design it (spec): `/architect draft PR per spec`
+### 11. Autopilot offer and batch design · dropped
+Covered by `rules/runner-handoff.md` (batch first: every feature that needs a decision gets its `/architect` before the hand-off to the runner) and by choosing tonight's features on the `wf` screen (spec 0020 AC-13).
 
 ## Legend
 
