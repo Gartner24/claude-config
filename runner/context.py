@@ -15,9 +15,17 @@ DID_MAX = 600
 TELEGRAM_MAX = 4096
 LABEL = "Question {} (its name, so your reply finds it)"
 NO_STEPS = "I could not work out the steps; open a session in the {} repo ({}) and paste: {}"
-# AC-7: blocked text that is really the run's own write protection.
-DENY_WORDS = re.compile(r"\b(write[- ]?denied|denied|not writable|read[- ]only|permission)\b", re.I)
-PATH_TOKEN = re.compile(r"(?<![\w.-])(~?/?[\w.-]+(?:/[\w.-]+)*/?)")
+
+
+# Security review (steered authorization): questions whose answer widens what a call may write, merges, posts, pushes
+# or clears a gate. Their why is the runner's fixed line, call text shows only quoted as unverified, never steps.
+AUTH = frozenset(("denied", "approved", "review_draft", "foreign_commits", "guard_changed", "rebase", "private_names",
+                  "attribution"))
+UNVERIFIED = "what the step said, unverified:"
+
+
+def auth(d):
+    return d.get("case") in AUTH
 
 
 def label(did):
@@ -74,21 +82,32 @@ def build(r, feature, step=None, extra=None):
     return {k: v for k, v in ctx.items() if v}
 
 
+def safe(cfg, text, limit, paths=False):
+    """Security review (block list bypass): the one gate every phone field passes. Control characters out,
+    whitespace runs as one space, cut to limit, and hidden ("") when it holds a block list entry or a name of the
+    private names list. Path like tokens are scrubbed as today, except with paths (Telegram only: runner built links
+    and paths, a blocked step's commands)."""
+    t = " ".join(str(text or "").split())
+    s = ntfy.cut(wf.clean(t), limit) if paths else ntfy.scrub(t, limit)
+    low = s.casefold()
+    if not s or ntfy.blocked(cfg, s) or any(n in low for n in ntfy.private_names() or ()):
+        return ""
+    return s
+
+
 def field(cfg, text, limit):
-    return ntfy.scrub_field(cfg, str(text or ""), limit, "")
+    return safe(cfg, text, limit)
 
 
 def link(cfg, url):
-    """A runner built link, kept whole, dropped when it holds a block list entry or is no https link."""
+    """A runner built link, kept whole, dropped when it is no https link or fails safe()."""
     url = str(url or "")
-    return url if url.startswith("https://") and not ntfy.blocked(cfg, url) and " " not in url else ""
+    return safe(cfg, url, 400, paths=True) if url.startswith("https://") and " " not in url else ""
 
 
 def step_line(cfg, text):
-    """AC-6 on Telegram: a step keeps its paths and commands (a private chat), loses control characters, is cut, and
-    is hidden when it holds a block list entry."""
-    s = ntfy.cut(wf.clean(" ".join(str(text or "").split())), 300)
-    return "" if not s or ntfy.blocked(cfg, s) else s
+    """AC-6 on Telegram: a step keeps its paths and commands (a private chat), through safe()."""
+    return safe(cfg, text, 300, paths=True)
 
 
 def telegram_block(cfg, d, room):
@@ -108,19 +127,30 @@ def telegram_block(cfg, d, room):
         v = step_line(cfg, c["step"])
         if v:
             head.append(f"step: {v}")
+    if d.get("allow"):
+        # The path F1 would allow, as the runner resolved it.
+        v = step_line(cfg, d["allow"])
+        if v:
+            head.append(f"path: {v}")
     tail = [f"issue: {u}" for u in map(lambda x: link(cfg, x), c.get("issues") or []) if u]
     if c.get("pr"):
         number, url = (c["pr"].get("number"), link(cfg, c["pr"].get("url"))) if isinstance(c["pr"], dict) else (None, "")
         if number or url:
             tail.append(f"PR: #{number} {url}".strip())
-    why = field(cfg, c.get("why"), 300)
+    import plain
+    gated = auth(d)
+    why = field(cfg, plain.WHY.get(d.get("case")) if gated else c.get("why"), 300)
     if why:
         tail.append(f"why recommended: {why}")
-    steps = [step_line(cfg, s) for s in c.get("steps") or []]
+    steps = [] if gated else [step_line(cfg, s) for s in c.get("steps") or []]
     steps = [f"{i}. {s}" for i, s in enumerate((s for s in steps if s), 1)]
     did = field(cfg, c.get("did"), DID_MAX)
     while True:
-        lines = head + ([f"did: {did}"] if did else []) + tail + (["steps:"] + steps if steps else [])
+        if gated:
+            # The runner's facts first; the call's words last, quoted and marked unverified.
+            lines = head + tail + ([UNVERIFIED, f"> {did}"] if did else [])
+        else:
+            lines = head + ([f"did: {did}"] if did else []) + tail + (["steps:"] + steps if steps else [])
         text = "\n".join(lines) if len(lines) > 1 else ""
         if len(text) <= room:
             return text
@@ -140,8 +170,10 @@ def ntfy_lines(cfg, d):
     parts = [field(cfg, ntfy.repo_label(cfg, d.get("repo", "")), 40), field(cfg, c.get("feature"), 60),
              field(cfg, c.get("step"), 80)]
     out = ["from: " + " / ".join(p for p in parts if p)] if any(parts) else []
-    why = field(cfg, c.get("why"), 200)
-    steps = [field(cfg, s, 200) for s in c.get("steps") or []]
+    import plain
+    gated = auth(d)
+    why = field(cfg, plain.WHY.get(d.get("case")) if gated else c.get("why"), 200)
+    steps = [] if gated else [field(cfg, s, 200) for s in c.get("steps") or []]
     return out + ([f"why: {why}"] if why else []) + [f"{i}. {s}" for i, s in enumerate((s for s in steps if s), 1)]
 
 
@@ -153,17 +185,3 @@ def blocked_steps(r, feature, box_text, command, blocked, steps):
     return [NO_STEPS.format(r.c.display_name(), r.c.path, resume)]
 
 
-def denied_in_text(repo, text):
-    """AC-7: a path inside the repo named in blocked text that says it was denied, else None."""
-    if not DENY_WORDS.search(str(text or "")):
-        return None
-    root = os.path.realpath(repo)
-    for m in PATH_TOKEN.finditer(str(text)):
-        raw = m.group(1)
-        tok = raw.rstrip("/.")
-        if "/" not in raw or not tok:
-            continue
-        p = os.path.realpath(os.path.expanduser(tok) if tok.startswith(("~", "/")) else os.path.join(root, tok))
-        if p != root and run.under(p, [root]):
-            return p
-    return None

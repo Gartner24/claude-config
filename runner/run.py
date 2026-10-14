@@ -1581,7 +1581,11 @@ class Run:
             self.call_context["steps"] = context.blocked_steps(self, self.feature, text, command, detail,
                                                                self.call_context.get("steps"))
         why = plain.WHY.get(reason)
-        if why and not self.call_context.get("why"):
+        if reason in context.AUTH:
+            # Security review (steered authorization): the runner's fixed why and options, no call steps.
+            self.call_context.pop("steps", None)
+            self.call_context["why"] = why
+        elif why and not self.call_context.get("why"):
             self.call_context["why"] = why
         calls = self.entry["calls"]
         last = self.record["calls"][calls[-1] - 1] if calls else {}
@@ -2479,12 +2483,15 @@ class Run:
             rec["marker"] = "blocked"
             text = flat(blocked[1].group(1).strip().strip("*"))
             # Spec 0033 AC-7: a block that is the run's own write protection asks to allow the path (F1), not you.
+            # Security review (model controlled privilege request): only a file edit the call's own permission
+            # denials record counts, with the path from that record; a path named in the call's text never does.
             denied = next((d for d in rec["denials"] if d["tool"] in FILE_TOOLS), None)
-            path = denied_path(data) if denied else context.denied_in_text(self.c.path, text)
-            if denied or path:
-                self.denied_at = path
-                return "end", "denied", f"{denied['tool']}: {denied['reason'] or denied['input']}" if denied else text
+            path = denied_path(data) if denied else None
+            # What the call said; an authorization question shows it only quoted as unverified (context.AUTH).
             self.call_context = context.from_call(result, BLOCKED)
+            if denied and path:
+                self.denied_at = path
+                return "end", "denied", f"{denied['tool']}: {denied['reason'] or denied['input']}"
             return "end", "blocked", text
         asked = read_decision(result)
         if asked:

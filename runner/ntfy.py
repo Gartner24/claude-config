@@ -248,22 +248,19 @@ class Topic:
 
     def ping(self, d, stopped):
         """Send one decision's ping, record the scrubbed body in d["sent"]. The message id or None."""
-        question = scrub(d["question"], 140)
-        if blocked(self.cfg, question):
-            question = "question waiting, see terminal"
+        # Spec 0033 security review: every field through context.safe.
+        import context
+        question = context.safe(self.cfg, d["question"], 140) or "question waiting, see terminal"
         lines, actions = [f"{d['id']}: {question}"], []
         # Spec 0028 AC-11: the short explanation right under the question, scrubbed like a report field.
-        learn = scrub_field(self.cfg, " ".join(str(d.get("learn") or "").split()), 300, "")
+        learn = context.safe(self.cfg, d.get("learn"), 300)
         if learn:
             lines.append(f"learn: {learn}")
         # Spec 0033 AC-8: a short from: line and the why line, scrubbed as today, no links (a public server).
-        import context
         lines += context.ntfy_lines(self.cfg, d)
         for n, label in enumerate(d["options"], 1):
-            label = scrub(label, 100)
             # A label that was all paths or code used to send a blank button.
-            if not label or blocked(self.cfg, label):
-                label = f"option {n}"
+            label = context.safe(self.cfg, label, 100) or f"option {n}"
             lines.append(f"{n} {label}")
             if n <= 3:
                 actions.append({"action": "http", "label": f"{n} {cut(label, 40)}", "url": f"{self.cfg['server']}/{self.cfg['topic']}",

@@ -161,7 +161,8 @@ def item_line(i, multi, phone, cfg, wide=False):
     """One AC-2 item line. phone: AC-4 labels and scrubbed fields, no detail; else AC-3 real names and details.
     wide: spec 0029 AC-9's longer reason and question cuts for Telegram."""
     reason, question = (80, 300) if wide else (60, 80)
-    field = (lambda t, n, fb: ntfy.scrub_field(cfg, t, n, fb)) if phone else (lambda t, n, fb: wf.clean(str(t)))
+    # Spec 0033 security review: every phone field through context.safe (scrub, cut, block list, private names).
+    field = (lambda t, n, fb: context.safe(cfg, t, n) or fb) if phone else (lambda t, n, fb: wf.clean(str(t)))
     name = label(cfg, i) if phone else i["name"]
     k, feature = i["kind"], field(i.get("feature"), 40, "feature")
     if k == "built":
@@ -207,7 +208,8 @@ def item_line(i, multi, phone, cfg, wide=False):
             text += f" (recommended: {field(i['recommended'], 40, 'answer')})"
         # Spec 0033 AC-9: where it comes from, in short.
         c = i.get("context") or {}
-        where = [field(c.get("step"), 80, "")] if c.get("step") else []
+        where = [context.safe(cfg, c.get("step"), 80) if phone else wf.clean(str(c.get("step")))] \
+            if c.get("step") else []
         if c.get("spec") and (not phone or wide):
             spec = c["spec"] if not phone else context.link(cfg, c["spec"])
             where += [f"spec {wf.clean(spec)}"] if spec else []

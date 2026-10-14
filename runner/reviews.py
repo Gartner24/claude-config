@@ -7,6 +7,7 @@ import json
 import os
 import re
 
+import context
 import ntfy
 import pr
 import run
@@ -307,10 +308,10 @@ def phone_body(cfg, rec):
         return "\n".join(head + [f"summary: {dr['summary']}"] + [f"{c['path']}:{c['line']} {c['body']}"
                                                                  for c in dr["comments"]])
     lines = head + ["shortened view; the exact draft is in the run folder",
-                    "summary: " + ntfy.scrub_field(cfg, dr["summary"], 1000, "(hidden, see the run folder)")]
+                    "summary: " + (context.safe(cfg, dr["summary"], 1000) or "(hidden, see the run folder)")]
     for c in dr["comments"]:
         where = f"{os.path.basename(c['path'])}:{c['line']}"
-        lines.append(ntfy.scrub_field(cfg, f"{where} {c['body']}", 400, f"{where} (hidden, see the run folder)"))
+        lines.append(context.safe(cfg, f"{where} {c['body']}", 400) or f"{where} (hidden, see the run folder)")
     return "\n".join(lines)
 
 

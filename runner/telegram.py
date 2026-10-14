@@ -257,13 +257,12 @@ class Topic(ntfy.Topic):
     def ping(self, d, stopped):
         """AC-4: one message, every option a button. d["sent"] is the body; the title goes last, so a swiped reply
         still finds the `<id>:` the message starts with."""
-        question = ntfy.scrub(d["question"], 1000)
-        if ntfy.blocked(self.cfg, question):
-            question = "question waiting, see terminal"
+        # Spec 0033 security review: every field through context.safe.
+        question = context.safe(self.cfg, d["question"], 1000) or "question waiting, see terminal"
         # Spec 0033 AC-5: the id labeled on its first use, never a bare `<id>:` prefix; ASKED still finds it.
         lines, rows = [f"{context.label(d['id'])}:", question], []
         # Spec 0028 AC-11: the short explanation right under the question, as on ntfy.
-        learn = ntfy.scrub_field(self.cfg, " ".join(str(d.get("learn") or "").split()), 300, "")
+        learn = context.safe(self.cfg, d.get("learn"), 300)
         if learn:
             lines.append(f"learn: {learn}")
         # Spec 0033 AC-4: where it comes from, with links, in what room the message has left.
@@ -272,9 +271,7 @@ class Topic(ntfy.Topic):
         if block:
             lines.append(block)
         for n, label in enumerate(d["options"], 1):
-            label = ntfy.scrub(label, 200)
-            if not label or ntfy.blocked(self.cfg, label):
-                label = f"option {n}"
+            label = context.safe(self.cfg, label, 200) or f"option {n}"
             lines.append(f"{n} {label}")
             rows.append([{"text": f"{n} {ntfy.cut(label, 40)}", "callback_data": f"{d['id']} {n}"}])
         panel = d["kind"] == "panel"
