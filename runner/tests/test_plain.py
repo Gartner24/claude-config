@@ -1,4 +1,5 @@
 """Spec 0028: plain words in phone questions and the morning report, learn lines, and the jargon check."""
+import importlib.util
 import io
 import json
 import os
@@ -6,7 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
@@ -155,6 +156,145 @@ class TestLearnParts(unittest.TestCase):
         self.assertIsNone(run.queue_problem(q))
         q["decisions"][0]["learn"] = 5
         self.assertIsNotNone(run.queue_problem(q))
+
+
+class TestCaseQuestion(unittest.TestCase):
+    # covers: AC-12, AC-10 (`<words> in <feature>.` plus the detail, the reason's learn text, the case options
+    # unchanged with no learn option added)
+    def test_plain_question(self):
+        q, options, learn = case("verify_failed")
+        self.assertEqual(q, "the checks found a problem it could not fix in 1. Login page. the login test still fails")
+        self.assertEqual(learn, plain.PLAIN["verify_failed"][1])
+        self.assertEqual(options, list(run.CASES["verify_failed"][1]))
+        self.assertNotIn(run.LEARN_OPTION, [o.casefold() for o in options])
+
+    # covers: AC-12 (a reason code inside the detail is read as its plain words)
+    def test_code_in_detail(self):
+        q, _, _ = case("debug_touched")
+        self.assertTrue(q.endswith("test files changed after the checks found a problem it could not fix"), q)
+
+    # covers: AC-12 (the F1 path keeps its allow sentence)
+    def test_denied_path(self):
+        q, _, _ = case("denied", denied_at="/repo/src/app.py")
+        self.assertEqual(q, "allow /repo/src/app.py for demo? Edit src/app.py")
+
+
+class TestPanelWiring(unittest.TestCase):
+    # covers: AC-5 (the settings copy runs the hook before every AskUserQuestion, timeout 5)
+    def test_settings_entry(self):
+        settings = json.loads((Path(__file__).resolve().parents[2] / "settings.json").read_text())
+        hooks = [h for e in settings["hooks"]["PreToolUse"] if e.get("matcher") == "AskUserQuestion"
+                 for h in e["hooks"]]
+        self.assertIn({"type": "command", "command": "python3 /home/santiago/.claude/hooks/plain-panel.py",
+                       "timeout": 5}, hooks)
+
+
+_hook = importlib.util.spec_from_file_location(
+    "plain_panel", Path(__file__).resolve().parents[2] / "hooks" / "plain-panel.py")
+hook = importlib.util.module_from_spec(_hook)
+_hook.loader.exec_module(hook)
+
+
+def panel(*qs):
+    return {"tool_input": {"questions": [{"question": q, "header": "h", "multiSelect": False,
+                                          "options": [{"label": l, "description": "d"} for l in labels]}
+                                         for q, labels in qs]}}
+
+
+class TestPanelHook(unittest.TestCase):
+    """AC-3, AC-4, AC-17 through the repo copy of the hook (its --test covers the rest)."""
+
+    # covers: AC-3 (the real option count in the line, with and without the learn option; 3 real ones pass)
+    def test_counts(self):
+        self.assertEqual(hook.problems(panel(("Pick?", ["A", "B", "C", "D", "Learn this first"]))),
+                         [f"panel: question 1: 4 real options, at most 3; {hook.FIX}"])
+        self.assertEqual(hook.problems(panel(("Pick?", ["A", "B", "C", "D", "E"]))),
+                         [f'panel: question 1: no last option "Learn this first", 5 real options, at most 3; {hook.FIX}'])
+        self.assertEqual(hook.problems(panel(("Pick?", ["A", "B", "C", "Learn this first"]))), [])
+
+    # covers: AC-3 (the last label case folded and stripped, more words after it allowed; only the last one counts)
+    def test_label(self):
+        self.assertEqual(hook.problems(panel(("Pick?", ["A", "  LEARN this first (explain it)"]))), [])
+        self.assertTrue(hook.problems(panel(("Pick?", ["A", "Learn"]))))
+        self.assertTrue(hook.problems(panel(("Pick?", ["Learn this first", "A"]))))
+
+    # covers: AC-3 (exit 2 with one stderr line per failing question; a passing panel exits 0 silently)
+    def test_exit(self):
+        err = io.StringIO()
+        with redirect_stderr(err):
+            bad = hook.main_text(json.dumps(panel(("Pick?", ["A", "B"]))), lambda: None)
+            good = hook.main_text(json.dumps(panel(("Pick?", ["A", "Learn this first"]))), lambda: None)
+        self.assertEqual((bad, good), (2, 0))
+        self.assertEqual(err.getvalue(), f'panel: question 1: no last option "Learn this first"; {hook.FIX}\n')
+
+    # covers: AC-3, AC-17 (input it cannot read passes)
+    def test_unreadable(self):
+        for raw in ("{not json", json.dumps({"tool_input": {"__unparsedToolInput": "x"}}),
+                    json.dumps({"tool_input": {"questions": ["x", {"question": "q"}]}})):
+            with self.subTest(raw):
+                self.assertEqual(hook.main_text(raw, lambda: None), 0)
+        # A question it cannot read is skipped, and a bad question after it is still refused.
+        p = panel(("Pick?", ["A", "B"]))
+        p["tool_input"]["questions"][:0] = ["x", {"question": "q"}]
+        self.assertEqual(hook.problems(p), [f'panel: question 3: no last option "Learn this first"; {hook.FIX}'])
+
+    # covers: AC-4 (the runner's plain.jargon over question, labels and descriptions)
+    def test_jargon(self):
+        jargon = hook.load_jargon(str(Path(__file__).resolve().parents[1]))
+        p = panel(("Retry the run?", ["Park it", "Learn this first"]))
+        p["tool_input"]["questions"][0]["options"][0]["description"] = "see spec 0028"
+        self.assertEqual(hook.problems(p, jargon), ["panel: question 1: plain words: park, spec 0028"])
+        self.assertIsNone(hook.load_jargon(str(Path(__file__).resolve().parent)))
+
+
+PROBE = Path(__file__).resolve().parents[2] / "docs" / "specs" / "0028-understand-everything" / "probes" / "panels.py"
+
+
+class TestPanelsProbe(unittest.TestCase):
+    """AC-16: the live panel probe, run on a fake ~/.claude."""
+
+    def setUp(self):
+        self.home = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(subprocess.run, ["rm", "-rf", str(self.home)])
+        self.hook = self.home / ".claude" / "hooks" / "plain-panel.py"
+        self.log = self.home / ".claude" / "projects" / "p" / "s.jsonl"
+        self.log.parent.mkdir(parents=True)
+
+    def install(self):
+        self.hook.parent.mkdir(parents=True)
+        self.hook.write_text("")
+        os.utime(self.hook, (1_800_000_000, 1_800_000_000))  # 2027-01-15T08:00:00Z
+
+    def probe(self, *panels):
+        lines = [json.dumps({"timestamp": at, "message": {"content": [
+            {"type": "tool_use", "name": "AskUserQuestion", "input": {"questions": [
+                {"question": "Secret question?", "options": [{"label": l, "description": "d"} for l in labels]}]}}]}})
+            for at, labels in panels]
+        self.log.write_text("\n".join(lines) + "\n")
+        return subprocess.run([sys.executable, "-B", str(PROBE)], capture_output=True, text=True,
+                              env={**os.environ, "HOME": str(self.home)})
+
+    def test_no_hook(self):
+        r = self.probe()
+        self.assertEqual((r.returncode, r.stdout), (1, "hook not installed: run ./install.sh first\n"))
+
+    def test_no_panels(self):
+        self.install()
+        r = self.probe(("2027-01-15T07:00:00Z", ["A", "B"]))
+        self.assertEqual((r.returncode, r.stdout), (1, "no panels since the hook was installed, ask one first\n"))
+
+    def test_good_panel(self):
+        self.install()
+        r = self.probe(("2027-01-15T09:00:00Z", ["A", "Learn this first"]))
+        self.assertEqual((r.returncode, r.stdout), (0, "panels: 1, failing: 0\n"))
+
+    # an older bad panel is not counted, a newer one fails by file and line, never by its text
+    def test_bad_panel(self):
+        self.install()
+        r = self.probe(("2027-01-15T07:00:00Z", ["A", "B"]), ("2027-01-15T09:00:00Z", ["A", "Learn this first"]),
+                       ("2027-01-15T09:30:00Z", ["A", "B"]))
+        self.assertEqual((r.returncode, r.stdout), (1, f"panels: 2, failing: 1\n{self.log}:3: question 1\n"))
+        self.assertNotIn("Secret", r.stdout + r.stderr)
 
 
 class TestLearnFlow(DecisionCase):

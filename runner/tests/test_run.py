@@ -931,6 +931,9 @@ class TestParking(RunCase):
         # Spec 0028 AC-10: the learn option last.
         self.assertEqual((d["kind"], d["options"], d["multi"], d["answer"], d["source"], d["call"], d["resumed_in"]),
                          ("panel", ["Postgres (recommended)", "SQLite", "learn this first"], False, "SQLite", "phone", 1, 2))
+        # Spec 0028 AC-14: clean model text records an empty hit list and logs no jargon line.
+        self.assertEqual(d["jargon"], [])
+        self.assertNotIn("jargon ", (folder / "log.txt").read_text())
         i = d["id"]
         # Spec 0011: the question ends the feature, the end wait takes the reply, the resume reuses its entry.
         self.assertEqual(self.lines(r)[3:11], [
