@@ -132,26 +132,35 @@ def fingerprint():
 SWITCH = ("/auto on", "/auto off", "/auto off now")
 
 
+SHELLS = ("sh", "bash", "zsh", "dash")
+CLAUDE_VERSIONS = "~/.local/share/claude/versions"
+
+
 def interactive(pid=None):
-    """Security review 2026-10-14: the nearest Claude Code process above this hook is an interactive session, not
-    `claude -p`/`--print`, which Claude itself could start from Bash with "/auto on" as its prompt. False when no
-    claude process is found within a few parents or its command line cannot be read."""
+    """Security review 2026-10-14: the Claude Code process firing this hook is an interactive session, not
+    `claude -p`/`--print`, which Claude itself could start from Bash with "/auto on" as its prompt. The walk passes
+    only plain shells; the first other process must be the installed Claude binary (its /proc exe under
+    CLAUDE_VERSIONS, never judged by its name) and must not be in print mode. Anything else, or anything unreadable,
+    is False (fail closed)."""
     pid = pid or os.getppid()
-    for _ in range(6):
+    versions = os.path.realpath(os.path.expanduser(CLAUDE_VERSIONS))
+    for _ in range(4):
         try:
+            exe = os.path.realpath(f"/proc/{pid}/exe")
             with open(f"/proc/{pid}/cmdline", "rb") as f:
                 args = f.read().decode(errors="replace").split("\0")
             with open(f"/proc/{pid}/stat", encoding="utf-8") as f:
                 parent = int(f.read().rsplit(")", 1)[1].split()[1])
         except (OSError, ValueError, IndexError):
             return False
-        if any(os.path.basename(a) == "claude" for a in args[:2]):
-            # Short flags combine (`-cp`), so any short flag group holding p counts, and any --print form.
-            return not any(re.fullmatch(r"-[A-Za-z]*p[A-Za-z]*", a) or a == "--print" or a.startswith("--print=")
-                           for a in args[1:])
-        if parent <= 1:
+        if os.path.basename(exe) in SHELLS:
+            pid = parent
+            continue
+        if os.path.dirname(exe) != versions:
             return False
-        pid = parent
+        # Short flags combine (`-cp`), so any short flag group holding p counts, and any --print form.
+        return not any(re.fullmatch(r"-[A-Za-z]*p[A-Za-z]*", a) or a == "--print" or a.startswith("--print=")
+                       for a in args[1:])
     return False
 
 

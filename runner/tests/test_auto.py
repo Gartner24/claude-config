@@ -190,22 +190,33 @@ class TestHook(AutoCase):
             self.cli("hook", stdin=json.dumps({"hook_event_name": "UserPromptSubmit", "cwd": str(self.folder),
                                                "prompt": "/auto on"}))
         self.assertEqual(self.cli("status")[1], "autonomous: off\n")
-        procs = {10: (["sh", "-c", "wf auto hook"], 9), 9: (["claude", "-c"], 1),
-                 20: (["sh", "-c", "wf auto hook"], 19), 19: (["claude", "-p", "/auto on"], 1),
-                 30: (["sh", "-c", "x"], 1), 40: (["claude", "-cp", "/auto on"], 1),
-                 50: (["claude", "--print=text", "/auto on"], 1)}
-        real = open
+        v = os.path.realpath(os.path.expanduser(auto.CLAUDE_VERSIONS))
+        sh, claude, other = "/usr/bin/bash", f"{v}/2.1.299", "/usr/bin/python3"
+        procs = {10: (sh, ["sh", "-c", "wf auto hook"], 9), 9: (claude, ["claude", "-c"], 1),
+                 20: (sh, ["sh", "-c", "wf auto hook"], 19), 19: (claude, ["claude", "-p", "/auto on"], 1),
+                 30: (sh, ["sh", "-c", "x"], 1), 1: (other, ["init"], 0),
+                 40: (claude, ["claude", "-cp", "/auto on"], 1), 50: (claude, ["claude", "--print=text", "x"], 1),
+                 # A print mode claude renamed (argv[0] not claude) between the hook and an interactive one: the walk
+                 # stops at it, it never passes through to the interactive session above.
+                 60: (sh, ["sh", "-c", "wf auto hook"], 61), 61: (claude, ["x", "-p", "/auto on"], 9),
+                 70: (sh, ["sh", "-c", "wf auto hook"], 71), 71: (other, ["claude", "-c"], 9)}
+        real_open, real_path = open, os.path.realpath
 
-        def fake(path, *a, **k):
+        def fake_open(path, *a, **k):
             m = re.fullmatch(r"/proc/(\d+)/(cmdline|stat)", str(path))
             if not m:
-                return real(path, *a, **k)
-            args, parent = procs[int(m.group(1))]
+                return real_open(path, *a, **k)
+            _, args, parent = procs[int(m.group(1))]
             if m.group(2) == "cmdline":
                 return io.BytesIO("\0".join(args).encode() + b"\0")
             return io.StringIO(f"{m.group(1)} (x) S {parent} 0 0")
-        with mock.patch("builtins.open", fake):
-            self.assertEqual([auto.interactive(p) for p in (10, 20, 30, 40, 50)], [True, False, False, False, False])
+
+        def fake_path(path):
+            m = re.fullmatch(r"/proc/(\d+)/exe", str(path))
+            return procs[int(m.group(1))][0] if m else real_path(path)
+        with mock.patch("builtins.open", fake_open), mock.patch("os.path.realpath", fake_path):
+            self.assertEqual([auto.interactive(p) for p in (10, 20, 30, 40, 50, 60, 70)],
+                             [True, False, False, False, False, False, False])
 
     # covers: security review 2026-10-13 (build written text reaches the session only as one quoted, cut line with no
     # control characters, under the data head; it can never add a line of its own)
