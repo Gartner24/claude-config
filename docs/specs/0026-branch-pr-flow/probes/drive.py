@@ -292,6 +292,31 @@ class Review(Base):
         show("AC-13 answer: send that reply", r, posts=[c for c in self.gh_calls()[n:] if c[:3] == ["api", "-X", "POST"]],
              seen=self.rec()["seen"])
 
+    def test_q_end_wait(self):
+        import time
+        self.ready()
+        self.wf("prr", "-y")
+        q = self.queue()
+        q["decisions"], q["prs"][0]["seen"] = [], ["c12", "c13", "i11"]
+        (self.state / "wf" / "queue.json").write_text(json.dumps(q))
+        self.reset()
+        n = len(self.gh_calls())
+        t = time.monotonic()
+        r = self.wf("prr", "-y", "--max-wait", "0.005", mode="fast")
+        ready_s = round(time.monotonic() - t, 1)
+        views = len([c for c in self.gh_calls()[n:] if c[:2] == ["pr", "view"]])
+        waited = self.run_record()[1]["waited_s"]
+        q = self.queue()
+        q["prs"][0]["state"] = "draft"
+        (self.state / "wf" / "queue.json").write_text(json.dumps(q))
+        self.gh({**json.loads((self.fakes / "gh.json").read_text()),
+                 "view": {"isDraft": True, "state": "OPEN", "headRefOid": "x", "reviewDecision": "", "url": "u"}})
+        self.reset()
+        t = time.monotonic()
+        r2 = self.wf("prr", "-y", "--max-wait", "0.005", mode="fast")
+        show("AC-11 a ready PR holds the end wait until --max-wait (18 s)", r, seconds=ready_s, waited_s=waited, pr_views=views)
+        show("AC-11 a draft PR does not hold it", r2, seconds=round(time.monotonic() - t, 1))
+
     def test_n_never_and_rounds(self):
         never = REVIEW_CLAUDE.replace('f"done\\nREVIEW FIXED: i11 {sha}\\nREVIEW ASK: c12 Not needed, see AC-2."',
                                       '"REVIEW NEVER: i11 push to main\\nREVIEW NEVER: c12 merge it"')
@@ -324,6 +349,10 @@ class Review(Base):
         (self.fakes / "review-prompt.txt").unlink()
         cfg["convo"].append({"id": 20, "user": {"login": "bob"}, "author_association": "OWNER", "body": "One more"})
         self.gh(cfg)
+        # An open question of the feature also holds a round back (AC-13 fix), so clear it: only the bot wait holds now.
+        q = self.queue()
+        q["decisions"] = []
+        (self.state / "wf" / "queue.json").write_text(json.dumps(q))
         r = self.wf("prr", "-y")
         show("AC-15 round still open: no bot review of the pushed head yet", r,
              review_call_made=(self.fakes / "review-prompt.txt").exists())

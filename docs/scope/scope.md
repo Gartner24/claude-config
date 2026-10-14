@@ -530,7 +530,7 @@ One branch per spec (stacked only when the spec says so, at most 3 deep), one sq
 **Done when:** a finished feature ends as one commit with a draft PR (or a local branch when the hook refuses), and the review loop answers every comment until the required approver approves.
 - [x] Design it (spec): `/architect branch and PR flow`
 - [x] Build it: `/develop branch and PR flow`
-- [ ] Verify it: `/check verify branch and PR flow`
+- [x] Verify it: `/check verify branch and PR flow`
 - [ ] Test it: `/test branch and PR flow`
 - [ ] Copy the rule live: `cp ~/claude-config/rules/branch-pr.md ~/.claude/rules/branch-pr.md` · waits on you · live
 - [ ] Add the branch-pr pointer line to `~/.claude/CLAUDE.md` · waits on you
