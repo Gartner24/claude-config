@@ -450,8 +450,8 @@ class TestSkipAhead(Case):
         self.fresh()
         r = self.wf("demo", "-y")
         # Spec 0021 F10: the box only you can do is asked; done ticks it, and ticking it yourself drops the question.
-        self.assertRegex(r.stdout, r"\n  open: [a-z0-9]{4} 1\. A: the next step is waiting on you in 1\. A\. Copy the rule file live · later "
-                         r"boxes go on\n")
+        # Spec 0042 AC-1: in plain words, no tags.
+        self.assertRegex(r.stdout, r"\n  open: [a-z0-9]{4} 1\. A: 1\. A needs one step only you can do: Copy the rule file live\n")
         self.assertEqual(self.calls(), [])
         self.fresh()
         self.scope((self.repo / "docs/scope/scope.md").read_text().replace("- [ ] Copy", "- [x] Copy"))

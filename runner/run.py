@@ -1734,7 +1734,9 @@ class Run:
 
     def plain_box(self, feature, text):
         """Spec 0042 AC-1: a step only you can do, as the question's words."""
-        return f"{feature} needs one step only you can do: {wf.OWED.sub('', wf.LIVE.sub('', text)).strip()}"
+        for tag in (wf.OWED, wf.LIVE, wf.SKIP_AHEAD):
+            text = tag.sub("", text)
+        return f"{feature} needs one step only you can do: {text.strip()}"
 
     def refresh_context(self, d):
         """Spec 0042 AC-4: a question queued before spec 0033 has no context; before it is sent again it gets the
@@ -1779,12 +1781,13 @@ class Run:
             while f"PLAN-DATA-{n}" in text:
                 n += 1
             prompt = EXPLAIN_PROMPT + f"BEGIN PLAN-DATA-{n}\n{text}\nEND PLAN-DATA-{n}\n"
-            folder = os.path.join(self.folder, f"explain-{len(self.record['calls']) + 1}")
+            folder = os.path.join(self.folder, f"explain-{len(self.record.get('explains', [])) + 1}")
             os.makedirs(folder, mode=0o700, exist_ok=True)
             changed = self.files_changed()
             if changed:
                 raise Stop("guard_changed", changed)
-            seq = len(self.record["calls"]) + 1
+            # Its own range, so its call-NNNN files never collide with a build call's.
+            seq = 1001 + len(self.record.get("explains", []))
             iso = reviews.isolated(self, folder)
             # Security review: no tools at all, so the call can only rewrite the text it was handed.
             g = json.loads(iso["settings"])
@@ -1793,7 +1796,8 @@ class Run:
             iso["settings"] = json.dumps(g)
             rec_, data, _, _, spawn_error = self.call(seq, prompt, isolated=iso)
             rec_.update(kind="explain", box_text=box_text, resumes=[], retry_of=None, app=None, feature=feature)
-            self.record["calls"].append(rec_)
+            # Its own list: a feature's calls stay its build steps; the run's spend still counts it.
+            self.record.setdefault("explains", []).append(rec_)
             self.save()
             changed = self.files_changed()
             if changed:
@@ -2548,7 +2552,7 @@ class Run:
         calls = self.record["calls"]
         for e in self.record["features"]:
             e.update(spent([calls[n - 1] for n in e["calls"]]))
-        self.record.update(spent(calls))
+        self.record.update(spent(calls + self.record.get("explains", [])))
         tmp = os.path.join(self.folder, "run.json.tmp")
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(self.record, f, indent=2)
@@ -3077,7 +3081,7 @@ class Run:
         held = {key_of(h["c"]) for h in self.held}
         for d in [d for d in self.queue()["decisions"] if d["answer"] is None and d["repo"] in held
                   and not (unsent and d["pings"])]:
-            if not d.get("context") and self.c is not None and d["repo"] == key_of(self.c):
+            if not d.get("context") and getattr(self, "c", None) is not None and d["repo"] == key_of(self.c):
                 self.refresh_context(d)
             sent = dict(d)
             try:
@@ -3639,7 +3643,7 @@ class Run:
         else:
             print(f"stopped: {reason}: {wf.clean(str(detail))}")
             self.log(f"stop {reason}: {flat(detail)}")
-        self.record.update(spent(self.record["calls"]))
+        self.record.update(spent(self.record["calls"] + self.record.get("explains", [])))
         print(spent_line(self.record))
         print(f"run folder: {self.folder}", flush=True)
         # Spec 0018 AC-1: the morning report, after the final save; a report failure never changes the exit code.

@@ -33,6 +33,16 @@ if sys.argv[1:] == ["--version"]:
     print(os.environ.get("FAKE_VERSION", "2.1.296") + " (Claude Code)")
     sys.exit(0)
 d = os.environ["FAKE_DIR"]
+if any("BEGIN PLAN-DATA-" in a for a in sys.argv[1:]):
+    # Spec 0042: an explain call takes no build step; explain.json scripts its answer (else no lines).
+    k = len([f for f in os.listdir(d) if f.startswith("explain-argv-")]) + 1
+    json.dump({{"argv": sys.argv[1:], "cwd": os.getcwd(), "pid": os.getpid(), "pgid": os.getpgid(0)}},
+              open(os.path.join(d, f"explain-argv-{{k}}.json"), "w"))
+    p = os.path.join(d, "explain.json")
+    text = json.load(open(p)) if os.path.exists(p) else "no lines"
+    print(json.dumps({{"type": "result", "subtype": "success", "is_error": False, "result": text,
+                      "total_cost_usd": 0.1, "session_id": "explain-%d" % k, "num_turns": 1}}))
+    sys.exit(0)
 steps = json.load(open(os.path.join(d, "steps.json")))
 key = ""
 if isinstance(steps, dict):

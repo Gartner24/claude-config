@@ -125,7 +125,7 @@ def head(items, recs):
     ended = [datetime.datetime.fromisoformat(r["ended"]) for r in recs if r.get("ended")]
     # ponytail: no run left an end time (every child died before it), so the parent's own clock stands in.
     at = max(ended).astimezone() if ended else datetime.datetime.now()
-    calls = [c for r in recs for c in r.get("calls", [])]
+    calls = [c for r in recs for c in r.get("calls", []) + r.get("explains", [])]
     spent = run.spent_line(run.spent(calls))[len("spent: "):]
     return (f"wf {status} {at:%H:%M}: {kinds.count('built')} built, {kinds.count('parked')} stuck, "
             f"{kinds.count('question')} questions, {spent}")
