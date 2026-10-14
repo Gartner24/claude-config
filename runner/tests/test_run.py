@@ -596,7 +596,7 @@ class TestStart(RunCase):
         self.assertIn("readable or writable by others", r.stdout)
         self.assertFalse((self.state / "wf" / "locks").exists())
         self.ntfy_config.unlink()
-        self.assertIn("is missing, run wf ntfy init", self.wf("demo", "-y").stdout)
+        self.assertIn("no telegram.json or ntfy.json, run wf telegram init", self.wf("demo", "-y").stdout)
         write_config(self.tmp / "config", "http://127.0.0.1:9", codes=["a1234567"] * 4)
         r = self.wf("demo", "-y", "--max-calls", "1")
         self.assertIn("\nwarning: 4 one time codes left, run wf ntfy codes\n", r.stdout)

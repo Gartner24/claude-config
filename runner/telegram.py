@@ -6,6 +6,7 @@ import json
 import os
 import re
 import secrets
+import sys
 import tempfile
 import time
 import urllib.request
@@ -36,6 +37,25 @@ def path():
 def state_dir():
     # run.state_dir(); not imported, since run imports this module.
     return os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "wf")
+
+
+class Refused(Exception):
+    """(reason, why) for wf run's refusal line."""
+
+
+def channel():
+    """AC-2: (module, config) of the phone channel. telegram.json wins, and an invalid one refuses no_telegram:
+    falling back would send your questions to a topic you may no longer watch."""
+    if os.path.lexists(path()):
+        try:
+            return sys.modules[__name__], load()
+        except Invalid as e:
+            raise Refused("no_telegram", e)
+    try:
+        return ntfy, ntfy.load()
+    except Invalid as e:
+        raise Refused("no_ntfy", e if os.path.lexists(ntfy.path()) else
+                      "no telegram.json or ntfy.json, run wf telegram init")
 
 
 def redact(text, token):

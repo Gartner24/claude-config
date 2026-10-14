@@ -2,6 +2,7 @@ import ast
 import fcntl
 import json
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -25,7 +26,7 @@ class FakeBot:
     """A local Bot API: records every call, numbers sent messages, serves queued updates from `offset`."""
 
     def __init__(self):
-        self.calls, self.updates, self.fail, self.mid = [], [], 0, 100
+        self.calls, self.updates, self.taps, self.fail, self.mid = [], [], [], 0, 100
         self.lock = threading.Lock()
         fake = self
 
@@ -45,6 +46,13 @@ class FakeBot:
                         # A real error can echo the request URL, token included.
                         body = {"ok": False, "description": f"broken at {self.path}"}
                     elif method == "getUpdates":
+                        # Pending taps arrive once a question was sent, carrying its id.
+                        pings = [p["text"][:4] for _, m, p in fake.calls
+                                 if m == "sendMessage" and re.match(r"^[a-z0-9]{4}: ", p["text"])]
+                        if pings and fake.taps:
+                            fake.updates += [tap_update(1000 + len(fake.updates), t.format(id=pings[-1]))
+                                             for t in fake.taps]
+                            fake.taps = []
                         off = params.get("offset", 0)
                         body = {"ok": True, "result": [u for u in fake.updates if u["update_id"] >= off]}
                     elif method in ("sendMessage", "sendDocument"):
@@ -313,6 +321,57 @@ class TestTake(TelegramCase):
         self.assertEqual(t.wait([d], first, 5, lambda: False, lambda d: None, lambda w: None), "answered")
         self.assertEqual(d["answer"], "no")
         self.assertTrue(self.bot.sent()[-1]["disable_notification"])
+
+
+import test_run  # noqa: E402  (as a module, so its own test classes do not run twice)
+
+
+class TestRunChannel(test_run.RunCase):
+    """wf run end to end with the fake bot: test_run's wrapper with telegram.API pointed at it."""
+
+    def setUp(self):
+        super().setUp()
+        self.bot = FakeBot()
+        self.addCleanup(self.bot.close)
+
+    def cmd(self, *args, grace=30, mode="-"):
+        if "--max-wait" not in args:
+            args = (*args, "--max-wait", "0.0001")
+        wrapper = test_run.WRAPPER.replace("import ntfy, run, wf",
+                                           f"import ntfy, run, wf, telegram\ntelegram.API = {self.bot.url!r}")
+        return [sys.executable, "-c", wrapper, str(RUNNER), str(grace), mode, "run", *args]
+
+    # covers: spec 0029 AC-2 (an invalid telegram.json refuses no_telegram and never falls back; no file -> ntfy)
+    def test_refusals(self):
+        p = write_cfg(self.tmp / "config", chat_id="x")
+        r = self.wf("demo", "-y")
+        self.assertEqual(r.returncode, 5, r.stdout + r.stderr)
+        self.assertIn("refused: no_telegram: chat_id must be an integer", r.stdout)
+        self.assertNotIn(TOKEN, r.stdout + r.stderr)
+        self.assertEqual(self.calls(), [])
+        p.unlink()
+        self.ntfy_config.unlink()
+        r = self.wf("demo", "-y")
+        self.assertIn("refused: no_ntfy: no telegram.json or ntfy.json, run wf telegram init", r.stdout)
+
+    # covers: spec 0029 AC-2, AC-7, AC-8 (the question goes to the bot, a tap answers it, the run resumes;
+    # no one time code warning for Telegram)
+    def test_tap_resumes(self):
+        write_cfg(self.tmp / "config")
+        test_run.write_config(self.tmp / "config", "http://127.0.0.1:9", codes=["a1234567"] * 4)
+        self.bot.taps = ["{id} 2"]
+        self.steps([test_run.ask(), {}, {}, {"tick": False}])
+        r = self.wf("demo", "-y", "--max-wait", "0.01", mode="fast")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("one time codes left", r.stdout)
+        _, rec = self.run_record()
+        d = rec["decisions"][0]
+        self.assertEqual((d["answer"], d["source"]), ("SQLite", "phone"))
+        self.assertEqual(self.argv(2)["argv"][1], "The user answered your DECISION NEEDED question: SQLite")
+        texts = [p["text"] for p in self.bot.sent()]
+        self.assertTrue(texts[0].startswith(f"{d['id']}: Which storage engine?\n1 Postgres (recommended)\n2 SQLite\n"))
+        self.assertTrue(any(t.endswith(f"\n{d['id']} accepted") for t in texts))
+        self.assertEqual(self.bot.sent("answerCallbackQuery"), [{"callback_query_id": "cq1000"}])
 
 
 if __name__ == "__main__":

@@ -30,6 +30,7 @@ from queue import Queue
 
 import ntfy
 import report
+import telegram
 import wf
 
 # Matched on the first two words: a first word alone used to let `/check review` run unattended.
@@ -648,6 +649,9 @@ def progress_key(nb):
 
 
 class Run:
+    # Spec 0029 AC-2: start() sets the chosen channel; ntfy until then.
+    phone = ntfy
+
     def __init__(self, c, args):
         """c: the one target repo, or None for bare `wf run` (spec 0011 AC-1), whose repos come through add()."""
         self.args, self.target = args, c is not None
@@ -784,10 +788,11 @@ class Run:
             print("claude not found on PATH", file=sys.stderr)
             return 1
         try:
-            self.ntfy = ntfy.load()
-        except ntfy.Invalid as e:
-            return None if self.peek else self.refuse("no_ntfy", e)
-        if len(self.ntfy["codes"]) < 5:
+            # Spec 0029 AC-2: the module that sends, polls and takes; self.ntfy keeps its config, either channel.
+            self.phone, self.ntfy = telegram.channel()
+        except telegram.Refused as e:
+            return None if self.peek else self.refuse(*e.args)
+        if self.phone is ntfy and len(self.ntfy["codes"]) < 5:
             self.warnings.append(f"{len(self.ntfy['codes'])} one time codes left, run wf ntfy codes")
         if self.peek:
             return None
@@ -2207,7 +2212,7 @@ class Run:
         return next((c for c in rec.get("calls", []) if n and c.get("seq") == n), None)
 
     def topic(self, d):
-        return ntfy.Topic(self.ntfy, ntfy.repo_label(self.ntfy, d["repo"]), d["feature"])
+        return self.phone.Topic(self.ntfy, ntfy.repo_label(self.ntfy, d["repo"]), d["feature"])
 
     def open_decision(self, rec, kind, box, command, asked):
         """AC-11: keep the question in queue.json, ping it, and end the feature decision_open. Always raises Stop."""
@@ -2246,7 +2251,7 @@ class Run:
         self.cursor = self.cursor or self.first_ping
         if self.cursor is None:
             return False
-        reader = ntfy.Topic(self.ntfy, "", "")
+        reader = self.phone.Topic(self.ntfy, "", "")
         try:
             msgs = reader.poll(self.cursor)
         except Exception as e:
@@ -2265,7 +2270,7 @@ class Run:
                 # The reply that answered a record: a later poll from an older cursor used to count it ignored (L2).
                 if msg.get("id") in {i for d in q["decisions"] for i in d["pings"] + d["acks"] + [d.get("reply")]}:
                     return False
-                d = reader.take(text, [d for d in q["decisions"] if d["answer"] is None])
+                d = reader.take(text, [d for d in q["decisions"] if d["answer"] is None], msg)
                 if d:
                     d["reply"] = msg.get("id")
                 m = ntfy.REPLY.match(text)
