@@ -17,6 +17,7 @@ import report  # noqa: E402
 from test_parallel import ParallelCase  # noqa: E402
 from test_queue import DONE_B, ONE, TICK_A, DONE_A, TICK_B, TWO, QueueCase, blocked  # noqa: E402
 from test_run import WF  # noqa: E402
+import test_telegram as tg  # noqa: E402
 
 # Feature 3 is not queued: its waiting boxes stay open for the live and yours lines.
 WAITING = """
@@ -161,6 +162,53 @@ class Unit(unittest.TestCase):
                 mock.patch.object(ntfy, "RETRY_GAP", 0.01), mock.patch("builtins.print") as out:
             self.assertEqual(report.deliver([self.source(p, rec([]))], CFG), "failed: refused")
         out.assert_called_once_with("warning: report: refused", flush=True)
+
+    # covers: spec 0029 AC-9 (Telegram body: every item, no cap, question 300 and reason 80 cuts, still scrubbed)
+    def test_telegram_body(self):
+        p = self.repo("demo")
+        tcfg = {"aliases": {}, "block": ["acme"], "token": tg.TOKEN, "chat_id": tg.CHAT}
+        feats = [(f"{n}. Built", "feature_done", None) for n in range(30)] + [("31. Acme thing", "blocked", "/x/y")]
+        _, body = report.render([self.source(p, rec(feats))], tcfg)
+        lines = body.splitlines()
+        self.assertEqual(len(lines), 1 + 31 + 1)
+        self.assertIn("parked: feature: blocked", lines)
+        self.assertNotIn("more on the wf screen", body)
+        long = {"kind": "question", "id": "ab12", "feature": "F", "question": "word " * 100, "repo": p, "name": "demo"}
+        wide, narrow = report.item_line(long, False, True, tcfg, True), report.item_line(long, False, True, CFG)
+        self.assertGreater(len(wide), 280)
+        self.assertLessEqual(len(wide), len("question ab12: F: ") + 300)
+        self.assertLessEqual(len(narrow), len("question ab12: F: ") + 80)
+        r = dict(long, kind="parked", reason="word " * 30, detail=None)
+        self.assertGreater(len(report.item_line(r, False, True, tcfg, True)), len("parked: F: ") + 60)
+
+    # covers: spec 0029 AC-9 (one message to 4096, split at lines up to 3, else head + next + a wf-report.txt file;
+    # sent only when every send returned an id)
+    def test_telegram_send(self):
+        bot = tg.FakeBot()
+        self.addCleanup(bot.close)
+        tcfg = {"aliases": {}, "block": [], "token": tg.TOKEN, "chat_id": tg.CHAT}
+        with mock.patch.object(tg.telegram, "API", bot.url):
+            line = "built: " + "x" * 93
+            for n, messages in ((40, 1), (100, 3)):
+                body = "\n".join(["wf done 03:20: head"] + [line] * n + ["next: wf"])
+                before = len(bot.sent())
+                self.assertEqual(report.send(tcfg, body), "sent")
+                sent = [p["text"] for p in bot.sent()[before:]]
+                self.assertEqual(len(sent), messages)
+                self.assertTrue(all(len(t) <= 4096 for t in sent))
+                self.assertEqual("\n".join(sent), body)
+            body = "\n".join(["wf done 03:20: head"] + [line] * 200 + ["next: wf"])
+            before = len(bot.sent())
+            self.assertEqual(report.send(tcfg, body), "sent")
+            self.assertEqual([p["text"] for p in bot.sent()[before:]], ["wf done 03:20: head\nnext: wf\nfull report attached"])
+            doc = bot.sent("sendDocument")[0]
+            self.assertTrue(doc["type"].startswith("multipart/form-data; boundary="))
+            self.assertIn('filename="wf-report.txt"', doc["raw"])
+            self.assertIn(body, doc["raw"])
+            self.assertIn(f'name="chat_id"\r\n\r\n{tg.CHAT}\r\n', doc["raw"])
+            with mock.patch.object(tg.telegram.Topic, "publish", return_value=None):
+                self.assertEqual(report.send(tcfg, "short"), "failed: no message id")
+                self.assertEqual(report.send(tcfg, body), "failed: no message id")
 
     def hook(self, **env):
         out = subprocess.run([sys.executable, str(WF), "report", "--hook"], capture_output=True, text=True,

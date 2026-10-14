@@ -295,6 +295,31 @@ class Topic(ntfy.Topic):
         return d
 
 
+def chunks(body):
+    """AC-9: messages of at most MAX characters, split at line boundaries."""
+    out = [""]
+    for line in body.split("\n"):
+        line = ntfy.cut(line, MAX)
+        if out[-1] and len(out[-1]) + 1 + len(line) > MAX:
+            out.append(line)
+        else:
+            out[-1] = f"{out[-1]}\n{line}" if out[-1] else line
+    return out
+
+
+def send_report(cfg, body):
+    """AC-9: up to 3 messages; longer, the head line, the next: line and the same scrubbed body as wf-report.txt
+    (never the local report.txt, which holds real names and paths). True when every send returned an id."""
+    t, parts = Topic(cfg, "", ""), chunks(body)
+    if len(parts) <= 3:
+        return all([t.publish(p, 3, title="") for p in parts])
+    lines = body.split("\n")
+    first = t.publish("\n".join([lines[0], lines[-1], "full report attached"]), 3, title="")
+    doc = retry(cfg, lambda: str(api(cfg["token"], "sendDocument", {"chat_id": cfg["chat_id"]},
+                                     document=("wf-report.txt", body))["message_id"]), lambda: False)
+    return bool(first and doc)
+
+
 def asked(d):
     try:
         return int(datetime.datetime.fromisoformat(d["asked"]).timestamp())
