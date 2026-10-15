@@ -1,0 +1,3 @@
+# 0044 · verify
+
+- 2026-10-14, AC-8 probe before build: `python3 docs/specs/0044-questions-round-two/probes/home-writes.py` on the real claude (`--permission-mode auto`, sandbox `allowWrite` [repo, home], a `denyWrite` folder plus Edit, Write and MultiEdit deny rules for it). The Write tool and Bash both wrote `~/wf-probe-0044/` outside the repo; the Write tool was refused for the denied folder ("File is in a directory that is denied by your permission settings") and Bash got "read-only file system". PASS. The probe used throwaway folders, not `~/.claude/settings.json` or `~/.bashrc`, so a failed deny could not damage your setup; the same deny path mechanism guards those (spec 0021 AC-7 never writable list).

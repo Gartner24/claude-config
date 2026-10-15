@@ -315,7 +315,8 @@ class TestSubmoduleHooks(RunCase):
         self.assertEqual(rec["detail"].split(" ")[0], f"{mod}/hooks/pre-commit")
         a = self.argv(1)["argv"]
         deny = json.loads(a[a.index("--settings") + 1])["sandbox"]["filesystem"]["denyWrite"]
-        self.assertEqual(deny[-2:], [f"{mod}/config", f"{mod}/hooks"])
+        self.assertIn(f"{mod}/config", deny)
+        self.assertIn(f"{mod}/hooks", deny)
         self.assertIn(f"{mod}/hooks/pre-commit", rec["repos"][0]["guard"]["guarded_files"])
         self.assertIn(f"{mod}/config", rec["repos"][0]["guard"]["guarded_files"])
 

@@ -7,6 +7,7 @@ import html
 import json
 import os
 import re
+import urllib.parse
 import secrets
 import shutil
 import subprocess
@@ -248,21 +249,45 @@ def fetch(cfg):
         os.close(fd)
 
 
-LINKED = re.compile(r"^((?:spec|issue|PR): (?:#\d+ )?)(https://\S+)$")
+LINKED = re.compile(r"^((?:spec|issue|PR|repo): (?:#\d+ |[^ ]+ )?)(https://\S+)$")
+SPEC_FOLDER = re.compile(r"/specs/(?:[^/]+/)*(\d{4})-([^/]+?)(?:/index)?(?:\.md)?$")
+SENTENCE = re.compile(r"^(.+?[.!?])\s+(\S.*)$", re.S)
+
+
+def label(kind, head, url):
+    """Spec 0044 AC-1: the short text of a link: `0031 adopt open prs` for a spec, `#7` for an issue or PR, the
+    label already on the line for a repo, else the address itself."""
+    if kind == "spec":
+        m = SPEC_FOLDER.search(urllib.parse.urlsplit(url).path)
+        return f"{m.group(1)} {m.group(2).replace('-', ' ')}" if m else url
+    rest = head.split(": ", 1)[1].strip()
+    return rest or url
 
 
 def styled_block(block):
-    """Spec 0038 AC-2: the from: block as escaped HTML; a spec, issue or PR link is an anchor whose text is its
-    href, and the step's unverified words go in a collapsed quote."""
+    """Spec 0038 AC-2: the context block as escaped HTML; a spec, repo, issue or PR link is an anchor with a short
+    label (spec 0044 AC-1), the explanation's first sentence shows and the rest folds (AC-2), and the step's unverified
+    words go in a collapsed quote."""
     e, out, quote = html.escape, [], []
     for line in block.split("\n"):
         m = LINKED.match(line)
         if quote or line == context.UNVERIFIED:
             quote.append(line)
-        elif line == "from:":
-            out.append("<b>from:</b>")
         elif m:
-            out.append(f'{e(m.group(1))}<a href="{e(m.group(2))}">{e(m.group(2))}</a>')
+            kind = m.group(1).split(":", 1)[0]
+            out.append(f'{e(kind)}: <a href="{e(m.group(2))}">{e(label(kind, m.group(1), m.group(2)))}</a>')
+        elif line.startswith("what this is: "):
+            text = line[len("what this is: "):]
+            # Spec 0044 AC-2: the unverified marker stays with the first sentence.
+            mark = context.run.EXPLAINED_UNVERIFIED
+            lead, text = (mark + " ", text[len(mark):].lstrip()) if text.startswith(mark) else ("", text)
+            f = SENTENCE.match(text)
+            first, rest = (f.group(1), f.group(2)) if f else (text, "")
+            if len(first) > context.FIRST_MAX:
+                cut = ntfy.cut(first, context.FIRST_MAX)
+                first, rest = cut, (first[len(cut) - 3:].lstrip() + " " + rest).strip()
+            out.append(f"<b>what this is:</b> {e(lead + first)}" +
+                       (f"\n<blockquote expandable>{e(rest)}</blockquote>" if rest else ""))
         else:
             out.append(e(line))
     if quote:
@@ -289,8 +314,9 @@ class Topic(ntfy.Topic):
                 try:
                     return str(api(self.cfg["token"], "sendMessage", {**p, "text": styled, "parse_mode": "HTML"})
                                ["message_id"])
-                except ApiError:
-                    pass
+                except ApiError as e:
+                    # A refused styled message used to fall back silently, so a plain message had no cause to read.
+                    print(f"warning: Telegram refused the styled message, sent plain: {e}", flush=True)
             return str(api(self.cfg["token"], "sendMessage", p)["message_id"])
         mid = retry(self.cfg, send, stopped)
         if mid:
@@ -315,16 +341,21 @@ class Topic(ntfy.Topic):
         block = context.telegram_block(self.cfg, d, MAX - len("\n".join(lines)) - options_len)
         if block:
             lines.append(block)
+        # The options and the closing lines, styled as they are; counted from here, never back from the end.
+        tail_at = len(lines)
         for n, label in enumerate(d["options"], 1):
             label = context.safe(self.cfg, label, 200) or f"option {n}"
             lines.append(f"{n} {label}")
             rows.append([{"text": f"{n} {ntfy.cut(label, 40)}", "callback_data": f"{d['id']} {n}"}])
         panel = d["kind"] == "panel"
+        if "do it for me" in d["options"]:
+            # Spec 0044 AC-5: a typed reply is the instruction for the try.
+            lines.append("or reply with a note: it goes to the step as your instruction")
         lines.append("tap a button, or reply to this message" if panel else "reply to this message with your answer")
         d["sent"] = "\n".join(lines)
         e = html.escape
         styled = [f"<b>{e(lines[0])}</b>", f"<b>{e(question)}</b>"] + ([f"<i>{e(lines[2])}</i>"] if learn else []) + \
-            ([styled_block(block)] if block else []) + [e(x) for x in lines[len(lines) - len(rows) - 1:]] + [e(self.title)]
+            ([styled_block(block)] if block else []) + [e(x) for x in lines[tail_at:]] + [e(self.title)]
         return self.publish(d["sent"] + "\n" + self.title, 4, stopped=stopped, title="",
                             markup={"inline_keyboard": rows} if panel and rows else None, styled="\n".join(styled))
 

@@ -408,6 +408,11 @@ class TestBar(AutoCase):
         with mock.patch("report.locks_held", lambda: held.n):
             self.queue(decision("/r", "1. A"))
             self.assertEqual(self.bar()[1], f"top\nmodel {n} \033[32mAUTO running 2 repos, 1 question(s)\033[0m\n")
+            # Parallel features each hold a lock: counted as features of one repo, not as repos.
+            held.n = 4
+            with mock.patch("run.read_active", lambda: [{"repo": "/r", "feature": f"{i}. F"} for i in range(4)]):
+                self.assertEqual(self.bar()[1], f"top\nmodel {n} \033[32mAUTO running 4 features in 1 repo, "
+                                                "1 question(s)\033[0m\n")
         self.assertTrue(self.bar(self.other)[1].endswith(" auto: work\n"))
         self.jj("#!/bin/bash\nexit 1\n")
         self.assertEqual(self.bar()[1], "\033[32mAUTO idle\033[0m\n")
