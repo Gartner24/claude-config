@@ -73,7 +73,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 52 | Review leftovers 2026-10-15 | Release 8 | done |
 | 53 | Only a typed /auto turns on or releases | Release 8 | in-progress |
 | 54 | Organize claude-config and ~/.claude, sync what you use daily | Release 8 | needs a decision |
-| 55 | Fewer skills described in every session | Release 8 | needs a decision |
+| 55 | Fewer skills described in every session | Release 8 | in-progress |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -814,7 +814,7 @@ A fixed keep list of 37 skills keeps its description in every session; a script 
 - [x] Verify it: `/check verify fewer skills described in every session`
 - [x] Test it: `/test fewer skills described in every session`
 - [ ] Run `python3 scripts/skill-keep.py --dry-run`, then without it, then `./sync.sh` right away (AC-7) · waits on you · later boxes go on
-- [ ] Sync docs: `/sync fewer skills described in every session`
+- [x] Sync docs: `/sync fewer skills described in every session`
 Spec [0050](../specs/0050-fixed-skill-keep-list/index.md) · code in `scripts/skill-keep.py`, `scripts/skill-keep.txt`, `runner/tests/test_skill_keep.py` · Source: [research](../research/organize-and-sync-review-2026-10-15.md), section 5, and the [brief](../briefs/organize-and-sync.md).
 
 ## Deferred
