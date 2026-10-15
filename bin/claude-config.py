@@ -337,8 +337,17 @@ def private_name_hit(blob):
     return r.returncode != 0
 
 
+def with_header(entry, blob):
+    """AC-6: an Apache-2.0 patch opens with a line naming the files it changes (git apply skips it)."""
+    if entry.get("license") != "Apache-2.0" or not blob:
+        return blob
+    changed = [ln.split(" b/", 1)[1] for ln in blob.decode(errors="replace").splitlines() if ln.startswith("diff --git ")]
+    return f"# Changed from upstream: {', '.join(changed)}\n".encode() + blob
+
+
 def store_patch(name, entry, blob):
     """AC-7, AC-8: the patch goes public only for a publish: true entry with no private name in it."""
+    blob = with_header(entry, blob)
     public = entry.get("publish") and not private_name_hit(blob)
     path = (REPO / "config" / "patches" if public else PRIVATE_PATCHES) / f"{name}.patch"
     for old in (REPO / "config" / "patches" / f"{name}.patch", PRIVATE_PATCHES / f"{name}.patch"):
@@ -502,7 +511,7 @@ def patches():
                 continue
             blob = make_patch(base, live, tmp)
             old = patch_path(e).read_bytes() if e.get("patch") and patch_path(e).exists() else None
-            if blob and blob != old:
+            if blob and with_header(e, blob) != old:
                 e["status"] = "edited"
                 store_patch(name, e, blob)
                 print(f"  {name}: patch written to {e['patch']}")
@@ -688,6 +697,63 @@ def to_private(name, folder):
         shutil.copytree(folder, dst, symlinks=True, ignore=shutil.ignore_patterns(*SKIP))
 
 
+MIT_TEXT = """Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+associated documentation files (the "Software"), to deal in the Software without restriction, including without
+limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
+Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of
+the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE."""
+NOTICE_START, NOTICE_END = "<!-- manifest:start -->", "<!-- manifest:end -->"
+
+
+def legal_texts(repo, commit, source, license):
+    """(license text, NOTICE text or None) at commit. A source with an MIT README sentence and no LICENSE
+    file (three.js) gets the MIT text with its owner as the copyright holder."""
+    def show(name):
+        r = git("show", f"{commit}:{name}", cwd=repo, check=False)
+        return r.stdout.decode(errors="replace").strip() if r.returncode == 0 else None
+    text = show("LICENSE") or show("LICENSE.md") or show("LICENSE.txt")
+    if not text and license == "MIT":
+        text = f"MIT License\n\nCopyright (c) {source.removeprefix('github:').split('/')[0]}\n\n{MIT_TEXT}"
+    return text, (show("NOTICE") or show("NOTICE.md")) if license == "Apache-2.0" else None
+
+
+def write_notice(m, texts):
+    """AC-6: one block per source with a public patch, and every cite only or unlicensed entry named."""
+    lines = [NOTICE_START, "", "## Downloaded skills with a public patch", "",
+             "Written by `bin/claude-config.py build` from `config/manifest.json`; edit the manifest, not this part.", ""]
+    by_source = {}
+    for n, e in sorted(m["entries"].items()):
+        if e.get("patch", "") and e["patch"].startswith("config/"):
+            by_source.setdefault(e["source"], []).append(n)
+    for src, names in sorted(by_source.items()):
+        license_text, notice = texts.get(src, (None, None))
+        copyright = next((x.strip() for x in (license_text or "").splitlines() if x.strip().lower().startswith("copyright")),
+                         "copyright line not found")
+        lines += [f"### {src.removeprefix('github:')}", "", f"Patched here: {', '.join(names)}.", copyright,
+                  f"SPDX-License-Identifier: {m['entries'][names[0]]['license']}", "", "```",
+                  license_text or "license text not reached at build", "```", ""]
+        if notice:
+            lines += ["Its NOTICE:", "", "```", notice, "```", ""]
+    lines += ["## Not redistributed", "", "Named in the manifest only; no file or patch of these is in this repo.", ""]
+    lines += [f"- {n}: {(e.get('source') or 'source unknown').removeprefix('github:')} ({e.get('license')})"
+              for n, e in sorted(m["entries"].items())
+              if not e.get("publish") or e.get("license") in ("unknown", "none")]
+    lines += ["", NOTICE_END]
+    path = REPO / "docs" / "NOTICE.md"
+    old = path.read_text() if path.exists() else "# Notice\n"
+    if NOTICE_START in old:
+        old = old.split(NOTICE_START)[0].rstrip("\n") + "\n" + old.split(NOTICE_END, 1)[1].lstrip("\n")
+    path.write_text(old.rstrip("\n") + "\n\n" + "\n".join(lines) + "\n")
+
+
 def build():
     """Write config/manifest.json entries for every real downloaded skill folder in ~/.claude/skills."""
     m = load_manifest()
@@ -696,6 +762,7 @@ def build():
     own = {p.name for p in (HOME_DIR / "skills").iterdir()} if (HOME_DIR / "skills").is_dir() else set()
     traced, locked = parse_brief(BRIEF.read_text()) if BRIEF.exists() else {}, lock_entries()
     report, bad = [], 0
+    texts = {}
     with tempfile.TemporaryDirectory() as tmp:
         for p in live_items("skills"):
             name = p.name
@@ -743,11 +810,14 @@ def build():
                 if commit and base != folder_hash(p):
                     e["status"] = "edited"
                     store_patch(name, e, make_patch(export(repo, commit, path, tmp), p, tmp))
+                    if e["patch"].startswith("config/"):
+                        texts[src["source"]] = legal_texts(repo, commit, src["source"], e["license"])
             if not e["publish"] and e["status"] in ("edited", "unpinned"):
                 to_private(name, p)  # cite only: no public files, so the private store keeps your copy
             m["entries"][name] = e
             report.append(f"{name}: {e['status']}")
     save_manifest(m)
+    write_notice(m, texts)
     print("\n".join(report))
     out = []
     linked_kind("skills", m, fw, out)

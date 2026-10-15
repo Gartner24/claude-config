@@ -269,6 +269,28 @@ class TestBuild(Case):
         self.assertTrue((self.live / "private" / "skills" / "unknown" / "SKILL.md").exists())
         self.assertNotIn("own", e)
         self.assertEqual(self.tool("drift").returncode, 0, self.tool("drift").stdout)
+        notice = (self.repo / "docs" / "NOTICE.md").read_text()
+        self.assertIn("Patched here: b.", notice)
+        self.assertIn("SPDX-License-Identifier: MIT", notice)
+        self.assertIn("Permission is hereby granted, free of charge", notice)
+        not_redistributed = notice.split("## Not redistributed", 1)[1]
+        self.assertIn("- fig:", not_redistributed)
+        self.assertIn("- unknown: source unknown (unknown)", not_redistributed)
+        self.assertNotIn("- a:", not_redistributed)
+
+    # covers: AC-6 (an Apache-2.0 patch opens with the changed files line, and still applies)
+    def test_apache_header(self):
+        s = self.install_edited()
+        m = self.manifest()
+        m["entries"]["s"]["license"] = "Apache-2.0"
+        (self.repo / "config" / "manifest.json").write_text(json.dumps(m))
+        (s / "ref.md").write_text("ref mine\n")
+        self.assertEqual(self.tool("patches").returncode, 0)
+        patch = (self.repo / "config" / "patches" / "s.patch").read_text()
+        self.assertEqual(patch.splitlines()[0], "# Changed from upstream: SKILL.md, ref.md")
+        shutil.rmtree(s)
+        self.assertEqual(self.tool("restore").returncode, 0)
+        self.assertEqual((s / "ref.md").read_text(), "ref mine\n")
 
 
 class TestReminder(unittest.TestCase):
