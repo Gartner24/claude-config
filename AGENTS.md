@@ -20,6 +20,7 @@ Skateboard (each stage is usable on its own, and each next stage grows the same 
 ```bash
 bin/install.sh --dry-run                          # repo -> ~/.claude (copies + symlinks), then self-checks
 bin/sync.sh                                       # ~/.claude -> repo; run before every commit, then git diff
+python3 bin/claude-config.py drift|update --plan|update --apply <entry>  # spec 0048, behind the /claude-config skill: drift exits 1 when the repo and ~/.claude differ; update never asks, the skill asks per entry; tests in runner/tests/test_claude_config.py
 python3 scripts/check-routing.py                # after editing docs/guides/USAGE.md or a skill's triggers
 python3 scripts/gen-agent-index.py --check      # after touching claude-home/agents/ (drop --check to regenerate)
 python3 scripts/asciify.py --check              # ASCII-only lint on repo-owned markdown

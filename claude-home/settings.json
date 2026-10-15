@@ -326,6 +326,16 @@
             "command": "/home/santiago/.local/bin/wf auto hook"
           }
         ]
+      },
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/santiago/.claude/hooks/claude-config-reminder.py",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [

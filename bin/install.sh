@@ -49,6 +49,13 @@ for f in hooks/block-destructive.sh hooks/review-stack-pre-push hooks/plain-pane
   run cp -a "$REPO/claude-home/$f" "$LIVE/$f"
   run chmod +x "$LIVE/$f"
 done
+# Spec 0048 AC-11: the weekly upstream reminder. A scratch copy of this script (the self checks) may lack it.
+f=hooks/claude-config-reminder.py
+if [ -e "$REPO/claude-home/$f" ]; then
+  note "$f"
+  run cp -a "$REPO/claude-home/$f" "$LIVE/$f"
+  run chmod +x "$LIVE/$f"
+fi
 
 # Symlinked: editing the live file edits the repo, so there is one copy of the
 # truth. This is how the existing install is already wired.
@@ -67,6 +74,17 @@ for d in commands skills; do
     run ln -sfn "$src" "$dst"
   done
 done
+
+# Spec 0048 AC-7: an edited downloaded skill that is missing (a new machine) is rebuilt from upstream at
+# its pinned commit plus its patch; an installed one is never overwritten.
+if [ -f "$REPO/config/manifest.json" ]; then
+  echo "downloaded skills:"
+  if [ "$DRY" = 1 ]; then
+    note "would: python3 bin/claude-config.py restore"
+  else
+    python3 "$REPO/bin/claude-config.py" restore || { echo "  a missing edited skill was not rebuilt (above)" >&2; exit 1; }
+  fi
+fi
 
 # The runner goes on PATH as a copy outside the repo (spec 0020 AC-12). It used to link into
 # runner/, and the SessionStart hook naming wf then made every wf run call's guard deny runner/.

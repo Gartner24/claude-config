@@ -1,0 +1,571 @@
+#!/usr/bin/env python3
+"""Keep this repo and ~/.claude in step (spec 0048). The /claude-config skill drives it.
+
+  sync              ~/.claude -> repo for the copied kinds (bin/sync.sh does the copy)
+  install [--dry-run]  repo -> ~/.claude (bin/install.sh does the copy and the links)
+  drift             every item in one place and not the other, or different, by kind; exit 1 when any
+  update --plan     every git entry whose upstream moved, with its changed files; asks nothing
+  update --apply <entry> [--resolved]
+                    install upstream now for one entry, your patch merged in; exit 2 on a conflict
+  restore           rebuild missing edited skills from upstream at pinned plus their patch (bin/install.sh)
+  hash <folder>     the folder hash the manifest's base_hash uses
+
+CLAUDE_LIVE_DIR and CLAUDE_CONFIG_REPO point it at temp trees, for the self checks only.
+Python 3 standard library only.
+"""
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+REPO = Path(os.environ.get("CLAUDE_CONFIG_REPO") or Path(__file__).resolve().parent.parent)
+LIVE = Path(os.environ.get("CLAUDE_LIVE_DIR") or Path.home() / ".claude")
+HOME_DIR = REPO / "claude-home"
+MANIFEST = REPO / "config" / "manifest.json"
+IGNORE = REPO / "config" / "drift-ignore.json"
+# The hand written hooks and scripts bin/sync.sh copies; every other live hook belongs to a framework
+# or has a manifest entry.
+COPIED_FILES = ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py",
+                "hooks/context-monitor.js", "hooks/claude-config-reminder.py", "scripts/chroma-reaper.sh")
+SKIP = {".git", "__pycache__", "node_modules", ".plugin-version"}
+# The home path settings.json is committed with; bin/install.sh swaps it for $HOME.
+AUTHOR_HOME = "/home/santiago"
+
+
+def folder_hash(path):
+    """sha256 over the sorted relative paths and contents of a folder (or one file), SKIP left out.
+    One routine for the manifest's base_hash, drift and update: skills-audit.sh used to hash only
+    SKILL.md, so an edit to a reference file or script inside a skill went unseen."""
+    path = Path(path)
+    h = hashlib.sha256()
+    if path.is_file():
+        h.update(b"\0" + hashlib.sha256(path.read_bytes()).digest())
+        return h.hexdigest()
+    files = []
+    for root, dirs, names in os.walk(path):
+        dirs[:] = sorted(d for d in dirs if d not in SKIP)
+        files += [Path(root) / n for n in names if n not in SKIP]
+    for f in sorted(files, key=lambda p: p.relative_to(path).as_posix()):
+        rel = f.relative_to(path).as_posix().encode()
+        body = os.readlink(f).encode() if f.is_symlink() else f.read_bytes()
+        h.update(rel + b"\0" + hashlib.sha256(body).digest())
+    return h.hexdigest()
+
+
+def load_manifest():
+    if not MANIFEST.exists():
+        return {"version": 1, "frameworks": {}, "entries": {}}
+    return json.loads(MANIFEST.read_text())
+
+
+def framework_dirs(manifest):
+    return [Path(os.path.expanduser(f["dir"])).resolve() for f in manifest.get("frameworks", {}).values()
+            if f.get("dir")]
+
+
+def inside(path, dirs):
+    return any(path == d or d in path.parents for d in dirs)
+
+
+def live_items(kind):
+    d = LIVE / kind
+    return sorted(d.iterdir(), key=lambda p: p.name) if d.is_dir() else []
+
+
+def linked_kind(kind, manifest, fw, out):
+    """skills/ and commands/: repo items are linked in, downloaded ones are named in the manifest."""
+    label = kind.rstrip("s")
+    own = {p.name for p in (HOME_DIR / kind).iterdir()} if (HOME_DIR / kind).is_dir() else set()
+    private = LIVE / "private" / kind
+    entries = {n: e for n, e in manifest.get("entries", {}).items() if e.get("kind") == label}
+    seen = set()
+    for p in live_items(kind):
+        name = p.name
+        seen.add(name)
+        real = p.resolve()
+        if name in own:
+            if not (p.is_symlink() and real == (HOME_DIR / kind / name).resolve()):
+                out.append((label, name, "in the repo, but live is not a link to it"))
+        elif p.is_symlink() and not p.exists():
+            out.append((label, name, "live link is broken"))
+        elif inside(real, fw):
+            continue
+        elif name in entries:
+            e = entries[name]
+            if e.get("base_hash") and e["status"] in ("downloaded", "source-unknown") \
+                    and folder_hash(p) != e["base_hash"]:
+                why = "changed since its base hash (a local override was lost, or it was edited)" \
+                    if e["status"] == "source-unknown" else "edited, no patch yet: run sync"
+                out.append((label, name, why))
+            elif e["status"] == "edited" and e.get("patch") and p.is_dir() and not git(
+                    "apply", "-R", "--check", "--binary", "-", cwd=p, check=False,
+                    data=patch_path(e).read_bytes() if patch_path(e).exists() else b"x").returncode == 0:
+                # The old skills-audit.sh override guard: a reinstall over your edit drops the patch's changes.
+                out.append((label, name, "your edit is no longer in it (reinstalled over it?), or its patch is stale: run sync"))
+        elif (private / name).exists():
+            continue
+        else:
+            out.append((label, name, "live only: not in the repo, the manifest, a framework or the private store"))
+    for name in sorted((own | set(entries)) - seen):
+        out.append((label, name, "missing live"))
+
+
+def copied_files(rels, out, label=None):
+    for rel in rels:
+        a, b = HOME_DIR / rel, LIVE / rel
+        lab = label or rel.split("/")[0].rstrip("s")
+        if not a.exists() and not b.exists():
+            continue
+        if not b.exists():
+            out.append((lab, rel, "missing live"))
+        elif not a.exists():
+            out.append((lab, rel, "live only"))
+        elif a.read_bytes() != b.read_bytes():
+            out.append((lab, rel, "differs"))
+
+
+def tree_files(root):
+    if not root.is_dir():
+        return set()
+    return {p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file() and not p.is_symlink()}
+
+
+def copied_trees(out):
+    for kind in ("agents", "rules"):
+        rels = tree_files(HOME_DIR / kind) | tree_files(LIVE / kind)
+        copied_files(sorted(f"{kind}/{r}" for r in rels), out, kind.rstrip("s"))
+
+
+def other_hooks(manifest, fw, out):
+    """Live hooks and scripts outside the copied list: framework links or manifest entries, else drift."""
+    entries = manifest.get("entries", {})
+    for kind in ("hooks", "scripts"):
+        for p in live_items(kind):
+            rel = f"{kind}/{p.name}"
+            if rel in COPIED_FILES or inside(p.resolve(), fw):
+                continue
+            e = entries.get(p.name)
+            if e and e.get("kind") == kind.rstrip("s"):
+                if e.get("base_hash") and folder_hash(p) != e["base_hash"]:
+                    out.append((kind.rstrip("s"), rel, "changed since its base hash"))
+                continue
+            if (LIVE / "private" / kind / p.name).exists():
+                continue
+            out.append((kind.rstrip("s"), rel, "live only: not in the repo, the manifest, a framework or the private store"))
+
+
+def drop(d, dotted):
+    head, _, rest = dotted.partition(".")
+    if isinstance(d, dict) and head in d:
+        if rest:
+            drop(d[head], rest)
+        else:
+            del d[head]
+
+
+def settings(out):
+    """AC-9: live settings after the same transform bin/sync.sh applies, against the repo copy."""
+    ignore = json.loads(IGNORE.read_text()) if IGNORE.exists() else []
+    checker = REPO / "scripts" / "private-names.py"
+    for f in ("settings.json", "settings.local.json"):
+        repo_f, live_f = HOME_DIR / f, LIVE / f
+        if not live_f.exists() or not repo_f.exists():
+            if live_f.exists() != repo_f.exists():
+                out.append(("setting", f, "missing live" if repo_f.exists() else "live only"))
+            continue
+        with tempfile.TemporaryDirectory() as tmp:
+            r = subprocess.run([sys.executable, str(checker), "strip-settings", str(live_f), f"{tmp}/s", f"{tmp}/f"],
+                               capture_output=True, text=True, env=dict(os.environ, CLAUDE_LIVE_DIR=str(LIVE)))
+            if r.returncode:
+                out.append(("setting", f, "could not apply the sync transform: " + (r.stdout + r.stderr).strip()
+                            .splitlines()[-1]))
+                continue
+            live = json.loads(Path(f"{tmp}/s").read_text())
+        repo = json.loads(repo_f.read_text().replace(AUTHOR_HOME, str(Path.home())))
+        live = json.loads(json.dumps(live).replace(str(Path.home()), str(Path.home())))
+        for key in ignore:
+            drop(live, key)
+            drop(repo, key)
+        for key in sorted(set(live) | set(repo)):
+            if live.get(key) != repo.get(key):
+                out.append(("setting", f"{f}: {key}", "differs" if key in live and key in repo
+                            else ("live only" if key in live else "missing live")))
+
+
+def drift():
+    manifest = load_manifest()
+    fw = framework_dirs(manifest)
+    out = []
+    copied_files(["CLAUDE.md"], out, "instructions")
+    copied_trees(out)
+    copied_files(COPIED_FILES, out)
+    other_hooks(manifest, fw, out)
+    linked_kind("skills", manifest, fw, out)
+    linked_kind("commands", manifest, fw, out)
+    settings(out)
+    last = None
+    for kind, name, why in sorted(out):
+        if kind != last:
+            print(f"{kind}:")
+            last = kind
+        print(f"  {name}: {why}")
+    print(f"drift: {len(out)} item(s)" if out else "drift: none")
+    return 1 if out else 0
+
+
+# ---------------------------------------------------------------- upstream (AC-7, AC-10)
+
+STATE = LIVE / "state" / "claude-config.json"
+CONFLICTS = LIVE / "state" / "claude-config-conflicts"
+PRIVATE_PATCHES = LIVE / "private" / "patches"
+
+
+class Gone(Exception):
+    """A source that cannot be reached: no network, or the repo or commit is gone."""
+
+
+def git(*args, cwd=None, check=True, data=None):
+    r = subprocess.run(["git", *args], cwd=cwd, input=data, capture_output=True,
+                       env=dict(os.environ, GIT_TERMINAL_PROMPT="0"))
+    if check and r.returncode:
+        raise Gone(f"git {' '.join(args[:2])}: {r.stderr.decode(errors='replace').strip().splitlines()[-1:]}")
+    return r
+
+
+def url(source):
+    """`github:owner/repo` is GitHub over https; anything else (a path, a file:// URL) is used as is."""
+    return f"https://github.com/{source[7:]}.git" if source.startswith("github:") else source
+
+
+def fetch(source, ref, tmp):
+    """A shallow repo in tmp holding ref (a commit, or HEAD); returns (repo, commit)."""
+    repo = Path(tempfile.mkdtemp(dir=tmp))
+    git("init", "-q", cwd=repo)
+    git("fetch", "-q", "--depth", "1", url(source), ref, cwd=repo)
+    return repo, git("rev-parse", "FETCH_HEAD", cwd=repo).stdout.decode().strip()
+
+
+def export(repo, commit, path, tmp):
+    """The folder `path` at commit, copied out with the standard library (no checkout)."""
+    import io
+    import tarfile
+    out = Path(tempfile.mkdtemp(dir=tmp))
+    r = git("archive", "--format=tar", commit, "--", path, cwd=repo, check=False)
+    if r.returncode:
+        raise Gone(f"{path} is not in {commit[:12]}")
+    with tarfile.open(fileobj=io.BytesIO(r.stdout)) as t:
+        t.extractall(out, filter="data")
+    return out / path
+
+
+def upstream(entry, ref, tmp):
+    repo, commit = fetch(entry["source"], ref, tmp)
+    return export(repo, commit, entry["path"], tmp), commit
+
+
+def make_patch(base, mine, tmp):
+    """AC-7: `git diff --no-index --binary` with relative a/ and b/ names; exit 1 means they differ."""
+    work = Path(tempfile.mkdtemp(dir=tmp))
+    shutil.copytree(base, work / "a", ignore=shutil.ignore_patterns(*SKIP))
+    shutil.copytree(mine, work / "b", ignore=shutil.ignore_patterns(*SKIP))
+    r = git("diff", "--no-index", "--binary", "--src-prefix=", "--dst-prefix=", "a", "b", cwd=work, check=False)
+    if r.returncode not in (0, 1):
+        raise Gone("git diff --no-index failed")
+    return r.stdout
+
+
+def apply_patch(folder, patch):
+    """Apply a stored patch inside folder; False when it does not apply."""
+    return git("apply", "--binary", "-", cwd=folder, check=False, data=patch).returncode == 0
+
+
+def files(folder):
+    return {p.relative_to(folder).as_posix() for p in Path(folder).rglob("*")
+            if p.is_file() and not SKIP & set(p.relative_to(folder).parts)}
+
+
+def binary(p):
+    return b"\0" in p.read_bytes()[:8000]
+
+
+def merge(base, mine, theirs, out):
+    """AC-10: file by file three way merge into out; returns the conflicting paths."""
+    conflicts = []
+    for rel in sorted(files(base) | files(mine) | files(theirs)):
+        b, m, t = (Path(d) / rel for d in (base, mine, theirs))
+        dst = Path(out) / rel
+        bb, mb, tb = (p.read_bytes() if p.exists() else None for p in (b, m, t))
+        if mb == tb:
+            result = mb
+        elif mb == bb:
+            result = tb  # only upstream changed it, added it, or deleted it
+        elif tb == bb:
+            result = mb  # only you changed it or added it
+        elif mb is None or tb is None or bb is None or binary(m) or binary(t):
+            # deleted on one side and edited on the other, added on both, or binary on both: yours, marked
+            conflicts.append(rel)
+            result = mb if mb is not None else tb
+        else:
+            r = subprocess.run(["git", "merge-file", "-p", "-L", "mine", "-L", "base", "-L", "theirs",
+                                str(m), str(b), str(t)], capture_output=True)
+            result = r.stdout
+            if r.returncode:
+                conflicts.append(rel)
+        if result is not None:
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            dst.write_bytes(result)
+            if m.exists() and os.access(m, os.X_OK):
+                dst.chmod(0o755)
+    return conflicts
+
+
+def private_name_hit(blob):
+    with tempfile.NamedTemporaryFile(suffix=".patch") as f:
+        f.write(blob)
+        f.flush()
+        r = subprocess.run([sys.executable, str(REPO / "scripts" / "private-names.py"), "check", f.name],
+                           capture_output=True, env=dict(os.environ, CLAUDE_LIVE_DIR=str(LIVE)))
+    return r.returncode != 0
+
+
+def store_patch(name, entry, blob):
+    """AC-7, AC-8: the patch goes public only for a publish: true entry with no private name in it."""
+    public = entry.get("publish") and not private_name_hit(blob)
+    path = (REPO / "config" / "patches" if public else PRIVATE_PATCHES) / f"{name}.patch"
+    for old in (REPO / "config" / "patches" / f"{name}.patch", PRIVATE_PATCHES / f"{name}.patch"):
+        if old != path and old.exists():
+            old.unlink()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(blob)
+    entry["patch"] = f"config/patches/{name}.patch" if public else f"~/.claude/private/patches/{name}.patch"
+
+
+def patch_path(entry):
+    p = entry["patch"]
+    return Path(os.path.expanduser(p.replace("~/.claude", str(LIVE)))) if p.startswith("~") else REPO / p
+
+
+def save_manifest(m):
+    MANIFEST.parent.mkdir(parents=True, exist_ok=True)
+    MANIFEST.write_text(json.dumps(m, indent=2, sort_keys=True) + "\n")
+
+
+def installed(entry, name):
+    return LIVE / {"skill": "skills", "command": "commands", "hook": "hooks", "agent": "agents"}[entry["kind"]] / name
+
+
+def numstat(a, b, tmp):
+    work = Path(tempfile.mkdtemp(dir=tmp))
+    shutil.copytree(a, work / "a", ignore=shutil.ignore_patterns(*SKIP))
+    shutil.copytree(b, work / "b", ignore=shutil.ignore_patterns(*SKIP))
+    r = git("diff", "--no-index", "--numstat", "--src-prefix=", "--dst-prefix=", "a", "b", cwd=work, check=False)
+    return r.stdout.decode().strip().splitlines()
+
+
+def update_plan():
+    m = load_manifest()
+    reached, todo = True, 0
+    with tempfile.TemporaryDirectory() as tmp:
+        for name, e in sorted(m["entries"].items()):
+            if e.get("status") == "source-unknown" or not e.get("source"):
+                continue
+            if e.get("fetch") != "git":
+                print(f"{name}: update by hand, not checked ({e.get('install')})")
+                continue
+            try:
+                now, commit = upstream(e, "HEAD", tmp)
+            except Gone as err:
+                reached = False
+                print(f"{name}: source not reached, nothing changes: {err}")
+                continue
+            ref = e.get("base_hash") if e["status"] != "unpinned" else folder_hash(installed(e, name))
+            if folder_hash(now) == ref:
+                continue
+            todo += 1
+            base = installed(e, name) if e["status"] == "unpinned" else None
+            if base is None:
+                try:
+                    base, _ = upstream(e, e["pinned"], tmp)
+                except Gone as err:
+                    print(f"{name}: pinned commit not reached: {err}")
+                    continue
+            print(f"{name} ({e['status']}): upstream {commit[:12]}")
+            for line in numstat(base, now, tmp):
+                added, removed, path = line.split("\t", 2)
+                print(f"  +{added} -{removed} {path.split('/', 1)[1] if '/' in path else path}")
+    if reached:
+        STATE.parent.mkdir(parents=True, exist_ok=True)
+        import datetime
+        STATE.write_text(json.dumps({"last_upstream_check": datetime.datetime.now(datetime.timezone.utc)
+                                    .isoformat(timespec="seconds")}) + "\n")
+    print(f"update: {todo} entr{'y' if todo == 1 else 'ies'} to decide")
+    return 0
+
+
+def install_folder(src, dst):
+    """Swap a folder in: copy beside, then rename, so a failure never leaves half a skill."""
+    tmp = dst.with_name(f".{dst.name}.claude-config-new")
+    shutil.rmtree(tmp, ignore_errors=True)
+    shutil.copytree(src, tmp, symlinks=True)
+    if dst.is_symlink() or dst.is_file():
+        dst.unlink()
+    elif dst.exists():
+        shutil.rmtree(dst)
+    tmp.rename(dst)
+
+
+def update_apply(name, resolved=False):
+    m = load_manifest()
+    e = m["entries"].get(name)
+    if not e or e.get("status") == "source-unknown":
+        print(f"{name}: not a manifest entry with a source", file=sys.stderr)
+        return 1
+    if e.get("fetch") != "git":
+        print(f"{name}: update by hand: {e.get('install')}", file=sys.stderr)
+        return 1
+    live = installed(e, name)
+    conflicts_dir = CONFLICTS / name
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            now, commit = upstream(e, "HEAD", tmp)
+            if e["status"] in ("downloaded", "edited"):
+                base, _ = upstream(e, e["pinned"], tmp)
+                if folder_hash(base) != e["base_hash"]:
+                    print(f"{name}: upstream at {e['pinned'][:12]} no longer hashes to base_hash; nothing changed")
+                    return 1
+        except Gone as err:
+            print(f"{name}: source not reached, nothing changed: {err}")
+            return 1
+        if resolved:
+            if not conflicts_dir.is_dir():
+                print(f"{name}: no conflicts folder to install", file=sys.stderr)
+                return 1
+            marked = [r for r in files(conflicts_dir) if b"<<<<<<<" in (conflicts_dir / r).read_bytes()]
+            if marked:
+                print(f"{name}: conflict markers left in: {', '.join(marked)}")
+                return 2
+            result = conflicts_dir
+        elif e["status"] == "edited" or (e["status"] == "downloaded" and folder_hash(live) != e["base_hash"]):
+            # A downloaded entry edited since the last sync is merged too, never replaced.
+            result = Path(tempfile.mkdtemp(dir=tmp))
+            conflicts = merge(base, live, now, result)
+            if conflicts:
+                shutil.rmtree(conflicts_dir, ignore_errors=True)
+                conflicts_dir.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copytree(result, conflicts_dir)
+                print(f"{name}: conflict in {', '.join(conflicts)}; nothing installed, merged files in {conflicts_dir}")
+                return 2
+        else:
+            result = now
+        install_folder(result, live)
+        e["pinned"], e["base_hash"] = commit, folder_hash(now)
+        patch = make_patch(now, live, tmp)
+        if patch:
+            e["status"] = "edited"
+            store_patch(name, e, patch)
+        else:
+            if e.get("patch"):
+                patch_path(e).unlink(missing_ok=True)
+            e["status"], e["patch"] = "downloaded", None
+        save_manifest(m)
+    shutil.rmtree(conflicts_dir, ignore_errors=True)
+    print(f"{name}: installed upstream {commit[:12]} ({e['status']})")
+    return 0
+
+
+def patches():
+    """After a sync: a downloaded or edited entry whose installed copy differs from upstream at pinned
+    gets its patch (re)written, and its status moves to edited (or back to downloaded)."""
+    m = load_manifest()
+    changed, bad = False, 0
+    with tempfile.TemporaryDirectory() as tmp:
+        for name, e in sorted(m["entries"].items()):
+            live = installed(e, name)
+            if e["status"] not in ("downloaded", "edited") or e.get("fetch") != "git" or not live.exists():
+                continue
+            if e["status"] == "downloaded" and folder_hash(live) == e["base_hash"]:
+                continue
+            try:
+                base, _ = upstream(e, e["pinned"], tmp)
+            except Gone as err:
+                print(f"  {name}: patch not refreshed, upstream not reached: {err}")
+                bad = 1
+                continue
+            blob = make_patch(base, live, tmp)
+            old = patch_path(e).read_bytes() if e.get("patch") and patch_path(e).exists() else None
+            if blob and blob != old:
+                e["status"] = "edited"
+                store_patch(name, e, blob)
+                print(f"  {name}: patch written to {e['patch']}")
+                changed = True
+            elif not blob and e["status"] == "edited":
+                patch_path(e).unlink(missing_ok=True)
+                e["status"], e["patch"] = "downloaded", None
+                print(f"  {name}: equal to upstream again, patch removed")
+                changed = True
+    if changed:
+        save_manifest(m)
+    return bad
+
+
+def restore():
+    """AC-7: rebuild a missing edited skill from upstream at pinned plus its patch; never overwrite one."""
+    m = load_manifest()
+    bad = 0
+    with tempfile.TemporaryDirectory() as tmp:
+        for name, e in sorted(m["entries"].items()):
+            live = installed(e, name)
+            if live.exists() or live.is_symlink() or e.get("framework"):
+                continue
+            if e["status"] == "edited":
+                try:
+                    folder, _ = upstream(e, e["pinned"], tmp)
+                except Gone as err:
+                    print(f"  {name}: REFUSED, upstream not reached: {err}")
+                    bad = 1
+                    continue
+                if not apply_patch(folder, patch_path(e).read_bytes()):
+                    print(f"  {name}: REFUSED, its patch does not apply to upstream at {e['pinned'][:12]}")
+                    bad = 1
+                    continue
+                install_folder(folder, live)
+                print(f"  {name}: rebuilt from upstream {e['pinned'][:12]} plus its patch")
+            elif e["status"] == "downloaded" or e.get("fetch") == "manual":
+                print(f"  {name}: missing; reinstall with: {e.get('install')}")
+            else:
+                print(f"  {name}: missing; no source to rebuild it from (step 0 backup or the private store)")
+    return bad
+
+
+def main(argv):
+    if not argv or argv[0] in ("-h", "--help"):
+        print(__doc__.strip())
+        return 0 if argv else 2
+    cmd, rest = argv[0], argv[1:]
+    if cmd == "sync" and not rest:
+        return subprocess.run(["bash", str(REPO / "bin" / "sync.sh")]).returncode
+    if cmd == "install" and rest in ([], ["--dry-run"]):
+        return subprocess.run(["bash", str(REPO / "bin" / "install.sh"), *rest]).returncode
+    if cmd == "drift" and not rest:
+        return drift()
+    if cmd == "update" and rest == ["--plan"]:
+        return update_plan()
+    if cmd == "update" and len(rest) in (2, 3) and rest[0] == "--apply" and rest[2:] in ([], ["--resolved"]):
+        return update_apply(rest[1], resolved=bool(rest[2:]))
+    if cmd == "restore" and not rest:
+        return restore()
+    if cmd == "patches" and not rest:
+        return patches()
+    if cmd == "hash" and len(rest) == 1:
+        print(folder_hash(rest[0]))
+        return 0
+    print(f"claude-config: unknown command: {' '.join(argv)}", file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

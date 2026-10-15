@@ -24,6 +24,9 @@ fail=0
 "${NAMES[@]}" check "$LIVE/CLAUDE.md" "$LIVE/agents" "$LIVE/rules" \
   "$LIVE/hooks/block-destructive.sh" "$LIVE/hooks/review-stack-pre-push" "$LIVE/hooks/plain-panel.py" "$LIVE/hooks/context-monitor.js" \
   "$LIVE/scripts/chroma-reaper.sh" || fail=1
+if [ -e "$LIVE/hooks/claude-config-reminder.py" ]; then
+  "${NAMES[@]}" check "$LIVE/hooks/claude-config-reminder.py" || fail=1
+fi
 if [ "$fail" = 1 ]; then
   echo "sync refused: a private name (or no names list) in the sources above; nothing was copied" >&2
   exit 1
@@ -48,6 +51,8 @@ cp "$LIVE/hooks/review-stack-pre-push" "$REPO/claude-home/hooks/"
 cp "$LIVE/hooks/plain-panel.py"        "$REPO/claude-home/hooks/"
 # Not live until the first install after spec 0037; a missing file used to stop the sync half way.
 if [ -e "$LIVE/hooks/context-monitor.js" ]; then cp "$LIVE/hooks/context-monitor.js" "$REPO/claude-home/hooks/"; fi
+# Spec 0048 AC-11: same, until the first install after spec 0048.
+if [ -e "$LIVE/hooks/claude-config-reminder.py" ]; then cp "$LIVE/hooks/claude-config-reminder.py" "$REPO/claude-home/hooks/"; fi
 cp "$LIVE/scripts/chroma-reaper.sh"   "$REPO/claude-home/scripts/"
 
 
@@ -66,6 +71,12 @@ for d in agents rules; do
 done
 [ "$orphans" -gt 10 ] && echo "  ... and $((orphans - 10)) more"
 [ "$orphans" -gt 0 ] && echo "  $orphans orphan(s); nothing was auto-deleted. A full list means $LIVE is incomplete, not that this repo is stale."
+
+# Spec 0048 AC-7: an edit to a downloaded skill becomes (or refreshes) its patch. A scratch copy of
+# this script with no tool (the spec 0013 self checks) skips it.
+if [ -f "$REPO/bin/claude-config.py" ] && [ -f "$REPO/config/manifest.json" ]; then
+  python3 "$REPO/bin/claude-config.py" patches || echo "  some patches not refreshed (above); rerun sync with network" >&2
+fi
 
 # Last line of defence: a name already in a repo-only file (README, a doc) is caught here.
 # The copy stays; the pre-commit hook still blocks the commit.
