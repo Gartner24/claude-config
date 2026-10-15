@@ -72,7 +72,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 51 | Autonomous mode per chat | Release 8 | in-progress |
 | 52 | Review leftovers 2026-10-15 | Release 8 | done |
 | 53 | Only a typed /auto turns on or releases | Release 8 | in-progress |
-| 54 | Organize claude-config and ~/.claude, sync what you use daily | Release 8 | in-progress |
+| 54 | Organize claude-config and ~/.claude, sync what you use daily | Release 8 | done |
 | 55 | Fewer skills described in every session | Release 8 | in-progress |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
@@ -783,7 +783,7 @@ Spec [0047](../specs/0047-review-leftovers/index.md) · code in `runner/auto.py`
 - [ ] Sync docs: `/sync only a typed auto turns on or releases`
 Spec [0049](../specs/0049-typed-auto-only/index.md) · code in `runner/auto.py`, `runner/wf.py`, `claude-home/settings.json`, `claude-home/skills/auto/SKILL.md` · Source: [review](../reviews/review-2026-10-15-0047.md) (Leftovers).
 
-### 54. Organize claude-config and ~/.claude, sync what you use daily · in-progress · auto
+### 54. Organize claude-config and ~/.claude, sync what you use daily · done · auto
 A folder structure and docs that are easy to read, and a repo that holds (or names) everything you use every day, without losing any skill.
 **Done when:** the new layout is live, the rewritten docs read plainly, every skill still works, and a check shows no drift between the repo and `~/.claude`.
 - [x] Design it (spec): `/architect organize and sync claude-config with ~/.claude`
@@ -800,7 +800,7 @@ A folder structure and docs that are easy to read, and a repo that holds (or nam
 - [x] Back up `~/.claude` and the repo, as `migrate.md` step 0 says (AC-14) · waits on you
 - [x] Install the new layout by running `bin/install.sh` yourself (the old runner copy does not know this path yet) · waits on you
 - [x] Check every skill name still opens, then remove the temporary `live` link (AC-15) · waits on you
-- [ ] Sync docs: `/sync organize and sync claude-config with ~/.claude`
+- [x] Sync docs: `/sync organize and sync claude-config with ~/.claude`
 Spec [0048](../specs/0048-organize-and-sync/index.md) · Source: [brief](../briefs/organize-and-sync.md).
 
 ### 55. Fewer skills described in every session · done
