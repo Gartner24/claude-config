@@ -636,9 +636,15 @@ def asked_at(d):
 
 
 def dirty(path):
-    """AC-7: a failed git status reads dirty, never clean."""
+    """AC-7: a failed git status reads dirty, never clean. Spec 0043 AC-4: in a feature worktree the scope folder is
+    the runner's working copy of the one plan, never committed there, so it does not count."""
     r = wf.git(path, "status", "--porcelain")
-    return r is None or r.returncode != 0 or bool(r.stdout.strip())
+    if r is None or r.returncode != 0:
+        return True
+    lines = [x for x in r.stdout.split("\n") if x.strip()]
+    if under(path, [trees_root()]):
+        lines = [x for x in lines if not x[3:].startswith(("docs/scope/", ".workflow/scope/"))]
+    return bool(lines)
 
 
 def now():

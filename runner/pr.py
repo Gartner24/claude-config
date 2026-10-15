@@ -1544,6 +1544,10 @@ def remove_tree(r, rec):
         return None
     if run.dirty(path):
         return f"kept {path}: uncommitted changes"
+    # Spec 0043 AC-4: the worktree's plan copy is the runner's own, the main checkout holds the plan; put it back so
+    # git removes the worktree without --force.
+    wf.git(path, "checkout", "HEAD", "--", r.c.scope_dir)
+    wf.git(path, "clean", "-fdq", "--", r.c.scope_dir)
     res = wf.git(r.c.path, "worktree", "remove", path)
     wf.git(r.c.path, "worktree", "prune")
     if res is None or res.returncode:

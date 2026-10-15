@@ -56,7 +56,7 @@ class TestCombine(RepoCase):
         for x in "abc":
             self.assertEqual(self.show(b, f"{x}.txt"), x)
         self.assertEqual(self.git("rev-parse", "work"), self.git("merge-base", "work", b))
-        self.assertEqual(self.git("log", "--format=%s", "-1", "feat/0001-a").startswith("feat:"), True)
+        self.assertEqual(self.git("rev-list", "--count", "work..feat/0001-a"), "1")
 
     # covers: AC-3 (a same lines clash goes to one resolve call in the combined worktree; the suite, from the main
     # checkout's answers, runs jailed and passes; the merge is committed)
