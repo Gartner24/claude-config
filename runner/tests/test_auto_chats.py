@@ -104,6 +104,30 @@ class TestOnNames(ChatCase):
         self.assertEqual(self.chat(plain)["repos"], [str(self.other)])
 
 
+class TestWorktree(ChatCase):
+    # covers: AC-1, AC-2 (/auto on in a git worktree holds its main checkout, and the worktree folder is the chat key)
+    def test_worktree_is_its_main(self):
+        admin = self.folder / ".git" / "worktrees" / "wt"
+        admin.mkdir(parents=True)
+        (admin / "commondir").write_text("../..\n")
+        wt = self.tmp / "wt"
+        (wt / "sub").mkdir(parents=True)
+        (wt / ".git").write_text(f"gitdir: {admin}\n")
+        self.assertEqual(self.on_in(wt / "sub"), (0, "autonomous: on in sub: work\n"))
+        self.assertEqual(self.chat(wt / "sub")["repos"], [str(self.folder)])
+
+
+class TestDrive(unittest.TestCase):
+    # covers: AC-3, AC-4 (the session is told to ask with a multiple choice panel and take the picks, to write the
+    # agreed decisions into the brief before a release, and never to turn a chat on)
+    def test_text(self):
+        d = auto.DRIVE
+        self.assertIn("multiple choice panel", d)
+        self.assertLess(d.index("suggested repos"), d.index("wf auto take"))
+        self.assertRegex(d, r"before wf auto release <name>, write [^;]*brief under \"Agreed so far")
+        self.assertIn("never run wf auto on", d)
+
+
 class TestOneOwner(ChatCase):
     # covers: AC-2, AC-4 (a repo a live chat holds is left out of another chat's /auto on and named; an idle chat's
     # repo is taken because you typed it, with that repo's open features' briefs named)
