@@ -441,8 +441,10 @@ class TestFindings89(AppCase):
         r = self.wf("demo", "-y")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertTrue((self.repo / ".git" / "hooks").is_dir())
-        self.assertEqual(self.run_record()[1]["repos"][0]["guard"]["absent_denied"], [f"{self.repo}/.claude", f"{self.repo}/.git/hooks",
-                                                                                      f"{self.repo}/.git/info"])
+        g = self.run_record()[1]["repos"][0]["guard"]
+        # Spec 0044 AC-7: then the absent never writable paths, watched.
+        self.assertEqual(g["absent_denied"][:2], [f"{self.repo}/.claude", f"{self.repo}/.git/hooks"])
+        self.assertTrue(set(g["absent_denied"][2:]) <= set(g["never"]))
 
     def test_dangling_target_recorded(self):
         (self.tmp / ".gitconfig").symlink_to(self.repo / "planted")

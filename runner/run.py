@@ -357,7 +357,12 @@ SECRETS = (*CREDENTIAL_PATHS, "~/.gnupg", "~/.claude/private", "~/.claude/.crede
 HOME_NEVER = ("~/.config/systemd", "~/.config/autostart", "~/.config/autostart-scripts", "~/.config/plasma-workspace",
               "~/.config/environment.d", "~/.local/share/applications",
               "~/.zlogin", "~/.zlogout", "~/.bash_login", "~/.bash_logout", "~/.bash_aliases", "~/.config/fish",
-              "~/.inputrc", "~/.vimrc", "~/.config/nvim",
+              "~/.inputrc", "~/.vimrc", "~/.config/nvim", "~/.zsh", "~/.config/zsh", "~/.oh-my-zsh",
+              "~/.xprofile", "~/.xinitrc", "~/.xsession", "~/.xsessionrc", "~/.pam_environment",
+              "~/.tmux.conf", "~/.config/tmux", "~/.config/direnv", "~/.ipython",
+              "~/.config/ghostty", "~/.config/alacritty", "~/.config/kitty", "~/.config/Code/User",
+              # Python runs a .pth or usercustomize in the user site folder at every start.
+              "~/.local/lib",
               "~/.cargo/credentials", "~/.cargo/credentials.toml", "~/.config/pip", "~/.gem/credentials",
               "~/.terraform.d", "~/.terraformrc", "~/.config/glab-cli", "~/.local/share/keyrings",
               "~/.mozilla", "~/.config/google-chrome", "~/.config/chromium", "~/.config/BraveSoftware")
@@ -1280,8 +1285,13 @@ class Run:
         never = never_writable(repo, common)
         allowed = self.allowed()
         # Spec 0044 AC-7: the home folder is writable (the write list only, never `allowed`, so no deny is carved),
-        # so every never writable path is denied outright, not only one inside an allowed path.
-        kept = list(never)
+        # so every never writable path and every hooks folder git config names is denied outright. The sandbox
+        # plants an empty file at an absent denied path (a stray ~/.config/fish file would break fish), so an
+        # absent one is an Edit rule and watched instead: content there stops the repo after the call (moved()).
+        # ponytail: Bash can still create an absent one, caught after the call, not prevented.
+        kept = list(dict.fromkeys([*never, *outside]))
+        # One inside an allowed path stays a sandbox deny, absent or not, as before.
+        sandboxed = [p for p in kept if os.path.lexists(p) or under(p, allowed)]
         write = sorted({repo, common, *(os.path.expanduser(p) for p in CACHE_DIRS), *allowed, os.path.expanduser("~")})
         self.repo["guard"] = {"hosts": hosts, "write_paths": write, "deny_paths": deny, "binaries": binaries,
                               "allowed": list(dict.fromkeys(allowed + [os.path.realpath(a) for a in allowed])),
@@ -1298,7 +1308,7 @@ class Run:
                         "filesystem": {"allowWrite": write,
                                        "denyWrite": carve([p for p in deny if p != common] +
                                                           [os.path.join(common, "config"), hooks_dir, *sub_git], allowed)
-                                       + kept,
+                                       + sandboxed,
                                        "denyRead": [x for p in CREDENTIAL_PATHS for x in expand(p)]}},
             "hooks": {"PreToolUse": [{"matcher": "Agent", "hooks": [{"type": "command", "timeout": 10, "command": hook}]}]}}
         # AC-3 step 5: the jail cannot bind an absent path, so an app could plant .git/hooks/post-commit in a
@@ -1310,6 +1320,9 @@ class Run:
             r = os.path.realpath(p)
             if not os.path.exists(r) and under(r, binds) and r not in guarded and p not in guarded:
                 absent.append(r)
+        # The runner makes its own state and config folders as it runs; they keep their Edit rules.
+        own = [state_dir(), os.path.dirname(ntfy.path())]
+        absent += [p for p in kept if p not in sandboxed and p not in guarded and not under(p, own)]
         self.repo["guard"]["absent_denied"] = list(dict.fromkeys(absent))
         self.base_deny = list(self.guard_settings["sandbox"]["filesystem"]["denyWrite"])
         if self.repo.get("tree"):
@@ -4801,13 +4814,25 @@ def never_writable(repo, common):
 
 def known_git():
     """Spec 0044 AC-7: the git config, hooks and info of every repo the runner knows (the wf allow list and the git
-    repos under the scanned roots; worktrees share their main's), and each worktree's config.worktree."""
+    repos under the scanned roots; worktrees share their main's), each worktree's config.worktree, and the hooks
+    folder a repo's core.hooksPath names (a .husky folder in the checkout)."""
     repos = [d for root, lo, hi in wf.scan_roots() for d in wf.walk(root, lo, hi) if os.path.exists(os.path.join(d, ".git"))]
     out = []
-    for c in dict.fromkeys(filter(None, map(common_dir, repos + (read_allowed()[0] or [])))):
+    for repo in dict.fromkeys(repos + (read_allowed()[0] or [])):
+        c = common_dir(repo)
+        if not c:
+            continue
         out += [os.path.join(c, n) for n in ("config", "hooks", "info")]
         out += glob.glob(os.path.join(glob.escape(c), "worktrees", "*", "config.worktree"))
-    return out
+        # Read as text: this runs before the git binary is pinned, so it runs no git.
+        # ponytail: a hooksPath set through an include is missed; the config files themselves stay denied.
+        try:
+            text = wf.read(os.path.join(c, "config"))
+        except (OSError, UnicodeDecodeError):
+            continue
+        for v in re.findall(r"(?im)^\s*hookspath\s*=\s*(.+?)\s*$", text):
+            out.append(os.path.normpath(os.path.join(repo, os.path.expanduser(v.strip('"')))))
+    return list(dict.fromkeys(out))
 
 
 def refused(path, never):

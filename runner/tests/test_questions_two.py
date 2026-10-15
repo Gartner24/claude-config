@@ -1,5 +1,7 @@
 """Spec 0044: questions, round two."""
 import json
+import os
+import subprocess
 import sys
 import threading
 import time
@@ -212,26 +214,45 @@ class TestDoItRun(NeverStopCase):
 
 
 class TestHome(NeverStopCase):
-    # covers: AC-7 (the home folder joins the write list only; the login, startup and key places and every known repo's
-    # git config, hooks and info are never writable and denied in the sandbox and as Edit rules)
-    def test_home_open_risky_shut(self):
-        other = self.make_repo("other", PHONE)
-        self.steps([{"tick": False}])
-        self.wf("demo", "-y", "--max-calls", "1")
+    def guard(self, steps):
+        self.other = self.make_repo("other", PHONE)
+        subprocess.run(["git", "-C", str(self.other), "config", "core.hooksPath", ".husky"], check=True)
+        (self.tmp / ".config" / "fish").mkdir(parents=True)
+        self.steps(steps)
+        r = self.wf("demo", "-y", "--max-calls", "1")
+        self.assertTrue(self.calls(), r.stdout + r.stderr)
         a = self.argv(1)["argv"]
-        fs = json.loads(a[a.index("--settings") + 1])["sandbox"]["filesystem"]
-        denied = set(a[a.index("--disallowedTools") + 1].split(","))
-        g = self.run_record()[1]["repos"][0]["guard"]
+        return (r, json.loads(a[a.index("--settings") + 1])["sandbox"]["filesystem"],
+                set(a[a.index("--disallowedTools") + 1].split(",")), self.run_record()[1]["repos"][0]["guard"])
+
+    # covers: AC-7 (the home folder joins the write list only; login, startup and key places and every known repo's
+    # git config, hooks, info and core.hooksPath folder are never writable: Edit rules for all, the sandbox deny for
+    # the ones that exist, and a watch for the absent ones, where the sandbox would plant an empty file)
+    def test_home_open_risky_shut(self):
+        _, fs, denied, g = self.guard([{"tick": False}])
         home = str(self.tmp)
         self.assertIn(home, fs["allowWrite"])
         self.assertNotIn(home, g["allowed"])
-        for p in (f"{home}/.config/systemd", f"{home}/.config/autostart", f"{home}/.zlogin", f"{home}/.config/fish",
+        self.assertIn(f"{home}/.config/fish", fs["denyWrite"])
+        for p in (f"{home}/.config/fish", f"{home}/.config/systemd", f"{home}/.config/autostart", f"{home}/.zlogin",
                   f"{home}/.local/share/keyrings", f"{home}/.mozilla", f"{home}/.cargo/credentials.toml",
-                  f"{other}/.git/config", f"{other}/.git/hooks", f"{other}/.git/info"):
+                  f"{home}/.xprofile", f"{home}/.local/lib", f"{self.other}/.git/config", f"{self.other}/.git/hooks",
+                  f"{self.other}/.git/info", f"{self.other}/.husky"):
             with self.subTest(p):
                 self.assertIn(p, g["never"])
-                self.assertIn(p, fs["denyWrite"])
                 self.assertTrue({f"Edit(/{p})", f"Edit(/{p}/**)"} & denied)
+                if os.path.lexists(p):
+                    self.assertIn(p, fs["denyWrite"])
+                else:
+                    self.assertNotIn(p, fs["denyWrite"])
+                    self.assertIn(p, g["absent_denied"])
+
+    # covers: AC-7 (a file a step plants in an absent never writable folder stops the repo after the call)
+    def test_planted_autostart(self):
+        unit = self.tmp / ".config" / "systemd" / "user" / "x.service"
+        r, _, _, _ = self.guard([{"write_file": [[str(unit), "[Service]\n"]]}, {}, {"tick": False}])
+        self.assertIn("guard_changed", r.stdout, r.stdout + r.stderr)
+        self.assertIn(str(self.tmp / ".config" / "systemd"), r.stdout)
 
 
 if __name__ == "__main__":

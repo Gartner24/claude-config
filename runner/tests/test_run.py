@@ -190,8 +190,7 @@ def guard_deny(t, r, bin):
                                           ".local/share/wf", ".config/wf", "config/wf"))])
 
 
-def guard_settings(t, r, bin, kept=()):
-    """kept: spec 0044 AC-7's never writable paths, denied outright now that the home folder is writable."""
+def guard_settings(t, r, bin):
     deny = guard_deny(t, r, bin)
     hook = f"{shlex.quote(os.path.realpath(sys.executable))} -c {shlex.quote(run.AGENT_GUARD)} || exit 2"
     return {"sandbox": {"enabled": True, "failIfUnavailable": True, "autoAllowBashIfSandboxed": True,
@@ -200,8 +199,7 @@ def guard_settings(t, r, bin, kept=()):
                         "filesystem": {
                             "allowWrite": sorted([str(r), f"{r}/.git", f"{t}/.npm", f"{t}/.cache", f"{t}/.local/share/pnpm",
                                                   str(t)]),
-                            "denyWrite": [p for p in deny if p != f"{r}/.git"] + [f"{r}/.git/config", f"{r}/.git/hooks"]
-                            + list(kept),
+                            "denyWrite": [p for p in deny if p != f"{r}/.git"] + [f"{r}/.git/config", f"{r}/.git/hooks"],
                             "denyRead": [f"{t}/{p}" for p in CREDENTIALS]}},
             "hooks": {"PreToolUse": [{"matcher": "Agent", "hooks": [{"type": "command", "timeout": 10, "command": hook}]}]}}
 
@@ -454,14 +452,26 @@ class TestHappyPath(RunCase):
             "--append-system-prompt", run.UNATTENDED_PROMPT,
             "--settings", "--strict-mcp-config", "--mcp-config", '{"mcpServers": {}}'])
         # Spec 0044 AC-7: today's lists unchanged, then every never writable path denied too.
-        kept = self.run_record()[1]["repos"][0]["guard"]["never"]
+        g = self.run_record()[1]["repos"][0]["guard"]
+        kept = g["never"]
         state = ",Edit(/{0}),Edit(/{0}/**)".format(self.tmp / "state" / "wf")
         before = guard_denied(self.tmp, self.repo, self.bin).removesuffix(state)
         self.assertTrue(a["argv"][11].startswith(before + ",") and a["argv"][11].endswith(state), a["argv"][11])
         middle = set(a["argv"][11][len(before) + 1:-len(state)].split(","))
         self.assertEqual([p for p in kept if f"Edit(/{p})" not in middle and f"Edit(/{p}/**)" not in middle], [])
-        # Compared as text, so the AC-2 key order counts too.
-        self.assertEqual(a["argv"][15], json.dumps(guard_settings(self.tmp, self.repo, self.bin, kept)))
+        # Compared as text, so the AC-2 key order counts too. The never writable paths that existed at start follow
+        # today's denies; an absent one is watched instead (a sandbox deny would plant an empty file there).
+        settings = json.loads(a["argv"][15])
+        fs = settings["sandbox"]["filesystem"]
+        today = guard_settings(self.tmp, self.repo, self.bin)["sandbox"]["filesystem"]["denyWrite"]
+        self.assertEqual(fs["denyWrite"][:len(today)], today)
+        extra = fs["denyWrite"][len(today):]
+        self.assertTrue(extra and set(extra) <= set(kept), extra)
+        own = [str(self.tmp / "state" / "wf"), str(self.tmp / "config" / "wf")]
+        self.assertEqual([p for p in kept if p not in extra and p not in g["absent_denied"] and p not in g["guarded_files"]
+                          and not run.under(p, own)], [])
+        fs["denyWrite"] = fs["denyWrite"][:len(today)]
+        self.assertEqual(json.dumps(settings), json.dumps(guard_settings(self.tmp, self.repo, self.bin)))
         self.assertEqual(a["exe"], str(self.bin / "claude"))
         self.assertEqual(run.UNATTENDED_PROMPT, (
             "You are running unattended inside wf run, and AskUserQuestion is not available. Decide these panels "
@@ -1480,7 +1490,9 @@ class TestGuard(RunCase):
         self.assertEqual(g["submodules"], [])
         # Spec 0009 AC-3 step 5: the repo has no .claude; config.worktree is a guarded file, so left out.
         # Spec 0044 AC-7: the absent .git/info is denied now, so a call cannot plant info/attributes in it.
-        self.assertEqual(g["absent_denied"], [f"{self.repo}/.claude", f"{self.repo}/.git/info"])
+        self.assertEqual(g["absent_denied"][0], f"{self.repo}/.claude")
+        self.assertIn(f"{self.repo}/.git/info", g["absent_denied"])
+        self.assertTrue(set(g["absent_denied"][1:]) <= set(g["never"]))
         self.assertEqual(g["hosts"], sorted(FORGE_HOSTS + ["code.example.com"]))
         self.assertEqual(g["deny_paths"], guard_deny(self.tmp, self.repo, self.bin))
         self.assertEqual(g["write_paths"], guard_settings(self.tmp, self.repo, self.bin)["sandbox"]["filesystem"]["allowWrite"])
