@@ -803,7 +803,7 @@ A folder structure and docs that are easy to read, and a repo that holds (or nam
 - [ ] Sync docs: `/sync organize and sync claude-config with ~/.claude`
 Spec [0048](../specs/0048-organize-and-sync/index.md) · Source: [brief](../briefs/organize-and-sync.md).
 
-### 55. Fewer skills described in every session · in-progress · auto
+### 55. Fewer skills described in every session · done
 A fixed keep list of 37 skills keeps its description in every session; a script sets every other own skill and command to name only and reports every installed plugin. No skill is deleted, and the six long descriptions you rely on stay unchanged.
 **Done when:** after the script and `./sync.sh`, a new session describes only keep list skills among your own, the report lists every installed plugin (sentry-skills and turned off ones included), and every skill still runs by name.
 - [x] Design it (spec): `/architect fewer skills described in every session`
@@ -812,7 +812,7 @@ A fixed keep list of 37 skills keeps its description in every session; a script 
   - [x] Tests against a temp live dir (AC-8)
 - [x] Verify it: `/check verify fewer skills described in every session`
 - [x] Test it: `/test fewer skills described in every session`
-- [ ] Run `python3 scripts/skill-keep.py --dry-run`, then without it, then `./sync.sh` right away (AC-7) · waits on you · later boxes go on
+- [x] Run `python3 scripts/skill-keep.py --dry-run`, then without it, then `./sync.sh` right away (AC-7) · waits on you · later boxes go on
 - [x] Sync docs: `/sync fewer skills described in every session`
 Spec [0050](../specs/0050-fixed-skill-keep-list/index.md) · code in `scripts/skill-keep.py`, `scripts/skill-keep.txt`, `runner/tests/test_skill_keep.py` · Source: [research](../research/organize-and-sync-review-2026-10-15.md), section 5, and the [brief](../briefs/organize-and-sync.md).
 
