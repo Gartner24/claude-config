@@ -5,7 +5,7 @@ Real folders in `~/.claude/skills` that are not links, not git checkouts, not in
 "Publish an edited copy" answers: may an edited copy go into a public repo? MIT: yes, keep the copyright and license text. Apache-2.0: yes, keep LICENSE and NOTICE and mark each changed file. Not checked by a lawyer.
 
 ## At a glance
-- **Do not publish (3 groups, 17 skills):** the 14 Figma skills (Figma Developer Terms, no redistribution right), transitions-dev and transitions-polish (their license forbids publishing the collection), and packshot (source unknown until you confirm you wrote it).
+- **Do not publish (3 groups, 17 skills):** the 14 Figma skills (Figma Developer Terms, no redistribution right), transitions-dev and transitions-polish (their license forbids publishing the collection), and packshot (a Google Drive zip someone shared, author unknown, no license).
 - **Publish with a caveat:** the 10 three.js skills (MIT only by a README sentence, no LICENSE file).
 - **Everything else:** MIT or Apache-2.0, publishable with the notices kept.
 - If these are published together, one NOTICE or ATTRIBUTION file at the top should name each source repo and its license.
@@ -96,7 +96,7 @@ Publish an edited copy: yes, keep the notice. The `references/` and `evals/` fol
 - graphify: https://github.com/Graphify-Labs/graphify (formerly safishamsi/graphify), installed with `pip install graphifyy` then `graphify install` (v0.9.53). The local SKILL.md differs from upstream. Apache-2.0 (some early code MIT). Publish: yes, keep LICENSE and NOTICE and mark changes.
 - humanizer: https://github.com/blader/humanizer. Confirmed. MIT; its patterns come from Wikipedia "Signs of AI writing" (CC BY-SA). Publish: yes, keep the notice and the Wikipedia credit.
 - ui-ux-pro-max: https://github.com/nextlevelbuilder/ui-ux-pro-max-skill, `.claude/skills/ui-ux-pro-max`. Confirmed (same layout; you moved it in by hand). MIT. Publish: yes, keep the notice; leave out `scripts/__pycache__`.
-- packshot: UNKNOWN. No upstream found, no course clue. Local only (SKILL.md, generate-packshot.py, a .venv; uses fal-ai nano-banana-2). Possibly written by you or with Claude. Publish: no, until you confirm it is yours.
+- packshot: author UNKNOWN, install confirmed. On 2026-08-06 (local) a Claude session unzipped `~/Downloads/PACKSHOT CLAUDE SKILL-20260807T003816Z-1-001.zip` and installed it, after you asked it to check and install "new interesting things" you found online. The file name is a Google Drive folder download; the zip is gone and the transcript does not say where the link came from. The original assumed `brands/[brand]/packshots/` folders and a `/product-shoot` follow-up skill; Claude changed the paths to `./packshots/` and later added the Arch venv notes. No license. Not searched yet: browser history, GitHub code search, skill registries. Publish: no, cite only.
 
 ## Not checked
 Whole file diffs for the gstack, ECC, Figma, Cloudflare and 21st groups (name and sample checks only); the Transitions.dev site terms; whether design-html and design-shotgun inherit Apache-2.0 duties from gstack's design catalog.
