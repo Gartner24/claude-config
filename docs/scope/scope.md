@@ -60,7 +60,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 39 | Review requests to you | Release 7 | done |
 | 40 | Context and links in every message | Release 7 | in-progress |
 | 41 | Styled Telegram messages | Release 7 | done |
-| 42 | Answer questions while wf is off | Release 7 | in-progress |
+| 42 | Answer questions while wf is off | Release 7 | done |
 | 43 | Runs adapt to setup changes | Release 7 | done |
 | 44 | A run does its own copy steps | Release 7 | in-progress |
 | 45 | Each step gets the feature's brief | Release 8 | planned |
@@ -655,15 +655,15 @@ Telegram questions in bold and italics with tappable links and the step's own wo
 - [x] Sync docs: `/sync styled telegram`
 Spec [0038](../specs/0038-styled-telegram/index.md) · Source: your message 2026-10-14 01:30.
 
-### 42. Answer questions while wf is off · in-progress · auto
+### 42. Answer questions while wf is off · done · auto
 Open questions show on the wf screen to answer at the keyboard; `wf questions` lists them with links; a user timer keeps Telegram taps while wf is off.
 **Done when:** a question answered at the keyboard resumes its call on the next run, and a tap made while wf was off is kept.
 - [x] Design it (spec): `/architect questions while off`
 - [x] Build it: `/develop questions while off`
 - [x] Verify it: `/check verify questions while off`
-- [ ] Test it: `/test questions while off`
+- [x] Test it: `/test questions while off`
 - [x] Turn the timer on: `wf telegram timer on` · waits on you · later boxes go on
-- [ ] Sync docs: `/sync questions while off`
+- [x] Sync docs: `/sync questions while off`
 Spec [0039](../specs/0039-questions-while-off/index.md) · Source: your message 2026-10-14 02:20.
 
 ### 43. Runs adapt to setup changes · done · auto
