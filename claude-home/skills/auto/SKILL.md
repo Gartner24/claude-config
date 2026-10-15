@@ -4,6 +4,6 @@ description: Turn autonomous mode on or off for this chat. With it on, this sess
 disable-model-invocation: true
 argument-hint: on [repos] | off [now] | release <repos>
 ---
-Run nothing. When you typed `/auto on` (optionally followed by repo names), `/auto off`, `/auto off now` or `/auto release <repos>`, the prompt hook already switched autonomous mode for this chat as you (Claude can never run `wf auto on` or `wf auto release`; deny rules block them, skills included).
+Run nothing. When you typed `/auto on` (optionally followed by repo names), `/auto off`, `/auto off now` or `/auto release <repos>`, the prompt hook already switched autonomous mode for this chat as you (Claude can never run `wf auto on` or `wf auto release`: the command refuses them, and deny rules block them and `wf auto hook`).
 
-Tell the user, in one or two sentences, the `autonomous:` line the hook printed in this turn's context, plus any `left out`, `taken from`, `released:`, `refused:` or `usage:` line. If there is no such line, say the hook did not switch it and that typing `! wf auto on` (or `! wf auto off`, `! wf auto release <repos>`) in this chat does the same thing.
+Tell the user, in one or two sentences, the `autonomous:` line the hook printed in this turn's context, plus any `left out`, `taken from`, `released:`, `refused:` or `usage:` line. If there is no such line, say the hook did not switch it and ask the user to type the same `/auto` command again in this chat.
