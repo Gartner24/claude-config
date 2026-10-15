@@ -67,3 +67,19 @@ Scratch in `/tmp/claude/v0048c/`; `git archive HEAD` export committed into a thr
 - `update --plan` against GitHub: the sandbox denies github.com; the tool reported every source unreached and wrote no state (the specced no network path).
 - `python3 runner/e2e/run.py`: needs a real `claude -p`.
 - AC-14 live run and AC-15: left to the boxes "Back up `~/.claude` and the repo, as `migrate.md` step 0 says (AC-14)", "Install the new layout by running `bin/install.sh` yourself (the old runner copy does not know this path yet)", "Check every skill name still opens, then remove the temporary `live` link (AC-15)".
+
+## /check verify rerun (2026-10-15, under wf run, after the main merge b22ef6c): FAIL (worktree suite only)
+
+Scratch in `/tmp/claude/v0048d/`; `git archive HEAD` export committed into a throwaway git repo.
+
+### Commands
+- [x] Merge with `main` landed with the new paths: `git grep` for `./install.sh`, `./sync.sh`, `live/` on `HEAD` outside the three doc folders -> only the 2 intended hits (`bin/install.sh:72`, `runner/tests/test_finish.py:402`); `scripts/skill-keep.py:6`, `:139` and `runner/tests/test_skill_keep.py:116`, `:132` now name `bin/sync.sh` / `bin/install.sh`; committed `docs/scope/scope.md` has 0 old path hits; `claude-home/settings.json` `skillOverrides` equals `main:live/settings.json` (251 keys), no main key lost -> AC-3 (was not applied). can fail: mutant `skill-keep.py` printing `./sync.sh` turned `test_skill_keep.test_write` and `test_layout.test_old_paths` red; restored, green.
+- [x] `python3 -B runner/tests/fast.py` on the export -> 917 tests, 0 failed -> AC-1 to AC-13, AC-16. can fail: a tracked stray top level `install.sh` turned `test_layout.test_top` red (`1 top level entries outside spec 0048 AC-1: ['install.sh']`); removed, green.
+- [x] `bin/claude-config.py docs` on the export -> `git status` clean -> AC-13. `docs/guides/` 5 guides, each with a `Type:` line; `AGENTS.md` 93 lines -> AC-12. can fail: a stale generated file.
+- [x] `drift` on the real `~/.claude` -> exit 1, 25 items, all ones `bin/install.sh` fixes (22 links still into the old path, the new hook, the new skill, `scope-contract.md`, settings `hooks`); `skillOverrides` no longer differs after the merge; 0 unaccounted skills -> AC-9. can fail: an unknown skill passing silently (exercised in the first verify).
+- [x] `private-names.py check` exit 0 (AC-8); `asciify.py --check` 0 changes; `check-routing.py` routing OK; `gen-agent-index.py --check` OK; `bin/install.sh --dry-run` exit 0 -> AC-16.
+- [ ] `python3 runner/tests/fast.py` in the worktree -> 917 tests, 1 failed: `test_old_paths`, 14 hits, all in `docs/scope/scope.md`. The working copy is byte equal to `main` (the runner overlays the planning branch's scope); the committed branch copy is clean. It stays red in every `wf` worktree of this branch until `main`'s `docs/scope/scope.md` names the new paths.
+
+### Not run here
+- `update --plan` against GitHub (sandbox denies github.com); `python3 runner/e2e/run.py` (needs a real `claude -p`).
+- AC-14 live run and AC-15: left to the boxes "Back up `~/.claude` and the repo, as `migrate.md` step 0 says (AC-14)", "Install the new layout by running `bin/install.sh` yourself (the old runner copy does not know this path yet)", "Check every skill name still opens, then remove the temporary `live` link (AC-15)".
