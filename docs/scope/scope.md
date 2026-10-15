@@ -778,7 +778,7 @@ Spec [0047](../specs/0047-review-leftovers/index.md) · code in `runner/auto.py`
   - [x] Deny `wf auto hook`, the /auto skill text (AC-1b, AC-4)
   - [x] Tests moved to direct calls, refusal and typed path tests (AC-5)
 - [x] Verify it: `/check verify only a typed auto turns on or releases`
-- [ ] Test it: `/test only a typed auto turns on or releases`
+- [x] Test it: `/test only a typed auto turns on or releases`
 - [ ] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync only a typed auto turns on or releases`
 Spec [0049](../specs/0049-typed-auto-only/index.md) · code in `runner/auto.py`, `runner/wf.py`, `live/settings.json`, `live/skills/auto/SKILL.md` · Source: [review](../reviews/review-2026-10-15-0047.md) (Leftovers).
