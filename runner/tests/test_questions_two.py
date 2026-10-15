@@ -217,6 +217,10 @@ class TestHome(NeverStopCase):
     def guard(self, steps):
         self.other = self.make_repo("other", PHONE)
         subprocess.run(["git", "-C", str(self.other), "config", "core.hooksPath", ".husky"], check=True)
+        # A hooksPath only git's own reading finds: set in an included file.
+        self.inc = self.make_repo("inc", PHONE)
+        (self.tmp / "inc.gitconfig").write_text("[core]\n\thooksPath = .githooks\n")
+        subprocess.run(["git", "-C", str(self.inc), "config", "include.path", str(self.tmp / "inc.gitconfig")], check=True)
         (self.tmp / ".config" / "fish").mkdir(parents=True)
         self.steps(steps)
         r = self.wf("demo", "-y", "--max-calls", "1")
@@ -237,7 +241,8 @@ class TestHome(NeverStopCase):
         for p in (f"{home}/.config/fish", f"{home}/.config/systemd", f"{home}/.config/autostart", f"{home}/.zlogin",
                   f"{home}/.local/share/keyrings", f"{home}/.mozilla", f"{home}/.cargo/credentials.toml",
                   f"{home}/.xprofile", f"{home}/.local/lib", f"{self.other}/.git/config", f"{self.other}/.git/hooks",
-                  f"{self.other}/.git/info", f"{self.other}/.husky"):
+                  f"{self.other}/.git/info", f"{self.other}/.husky", f"{self.inc}/.githooks",
+                  f"{home}/.local/share/systemd", f"{home}/.local/share/dbus-1", f"{home}/.vscode"):
             with self.subTest(p):
                 self.assertIn(p, g["never"])
                 self.assertTrue({f"Edit(/{p})", f"Edit(/{p}/**)"} & denied)

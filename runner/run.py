@@ -355,7 +355,9 @@ CASES = {
 SECRETS = (*CREDENTIAL_PATHS, "~/.gnupg", "~/.claude/private", "~/.claude/.credentials.json")
 # Spec 0044 AC-7: with the home folder writable, what still runs at login or holds a key stays never writable.
 HOME_NEVER = ("~/.config/systemd", "~/.config/autostart", "~/.config/autostart-scripts", "~/.config/plasma-workspace",
-              "~/.config/environment.d", "~/.local/share/applications",
+              "~/.config/environment.d", "~/.local/share/applications", "~/.local/share/systemd",
+              "~/.local/share/dbus-1", "~/.config/containers/systemd", "~/.config/user-tmpfiles.d",
+              "~/.vscode", "~/.vscode-oss",
               "~/.zlogin", "~/.zlogout", "~/.bash_login", "~/.bash_logout", "~/.bash_aliases", "~/.config/fish",
               "~/.inputrc", "~/.vimrc", "~/.config/nvim", "~/.zsh", "~/.config/zsh", "~/.oh-my-zsh",
               "~/.xprofile", "~/.xinitrc", "~/.xsession", "~/.xsessionrc", "~/.pam_environment",
@@ -4824,13 +4826,19 @@ def known_git():
             continue
         out += [os.path.join(c, n) for n in ("config", "hooks", "info")]
         out += glob.glob(os.path.join(glob.escape(c), "worktrees", "*", "config.worktree"))
-        # Read as text: this runs before the git binary is pinned, so it runs no git.
-        # ponytail: a hooksPath set through an include is missed; the config files themselves stay denied.
+        cfg = os.path.join(c, "config")
+        if os.path.isabs(wf.GIT):
+            # The git binary is pinned (freeze_guard): git reads the config and its includes as git will.
+            try:
+                out += hooks_paths([cfg, *include_targets([cfg])], repo)
+            except ValueError:
+                pass
+        # Before the pin no git runs, so the text too; the union keeps either reading.
         try:
-            text = wf.read(os.path.join(c, "config"))
+            text = wf.read(cfg)
         except (OSError, UnicodeDecodeError):
             continue
-        for v in re.findall(r"(?im)^\s*hookspath\s*=\s*(.+?)\s*$", text):
+        for v in re.findall(r"(?im)^\s*(?:\[core\]\s*)?hookspath\s*=\s*(.+?)\s*$", text):
             out.append(os.path.normpath(os.path.join(repo, os.path.expanduser(v.strip('"')))))
     return list(dict.fromkeys(out))
 
