@@ -289,7 +289,14 @@ class TestSettings(unittest.TestCase):
         for cmd in ("wf auto off", "wf auto off now", "wf auto status", "wf auto start", "wf auto wait"):
             self.assertFalse(any(fnmatch.fnmatchcase(cmd, p) for p in bash), cmd)
         self.assertIn("Edit(//home/santiago/.local/state/wf/auto.json)", deny)
-        self.assertEqual([r for r in s["permissions"].get("allow", []) if "auto" in r], [])
+        # The runner commands any session in charge may run (answered 2026-10-15); none of them covers auto on.
+        allow = s["permissions"].get("allow", [])
+        self.assertEqual(sorted(r for r in allow if "wf" in r),
+                         sorted(f"Bash(wf {c})" for c in ("auto start", "auto wait", "auto status", "queue", "questions",
+                                                          "report")))
+        for cmd in ("wf auto on", "wf auto on now"):
+            self.assertFalse(any(fnmatch.fnmatchcase(cmd, r[5:-1].replace(":*", "*")) for r in allow
+                                 if r.startswith("Bash(")), cmd)
         skill = (Path(__file__).resolve().parents[2] / "skills" / "auto" / "SKILL.md").read_text()
         self.assertIn("\ndisable-model-invocation: true\n", skill)
 

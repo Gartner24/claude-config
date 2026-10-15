@@ -608,7 +608,7 @@ Spec [0029](../specs/0029-telegram/index.md) · Source: personal scope row 26.
 - [x] Verify it: `/check verify autonomous mode`
 - [x] Test it: `/test autonomous mode`
 - [x] Install the hooks, skill and status bar: `./install.sh` · waits on you · live
-- [ ] Probes P1 to P4 in a real session (`/clear`, closing the window, idle bar refresh, the skill argument) · waits on you
+- [x] Probes P1 to P4 in a real session (`/clear`, closing the window, idle bar refresh, the skill argument) · waits on you
 - [ ] Sync docs: `/sync autonomous mode`
 Spec [0030](../specs/0030-autonomous-mode/index.md) · Source: your message 2026-10-13; [docs/briefs/autonomous-mode.md](../briefs/autonomous-mode.md).
 
