@@ -118,14 +118,69 @@ class TestWorktree(ChatCase):
 
 
 class TestDrive(unittest.TestCase):
-    # covers: AC-3, AC-4 (the session is told to ask with a multiple choice panel and take the picks, to write the
-    # agreed decisions into the brief before a release, and never to turn a chat on)
+    # covers: AC-3, AC-4, spec 0047 AC-3 (the session is told to ask with a multiple choice panel and take the picks,
+    # to write the agreed decisions into the brief and then ask you to release, and never to turn a chat on or release)
     def test_text(self):
         d = auto.DRIVE
         self.assertIn("multiple choice panel", d)
         self.assertLess(d.index("suggested repos"), d.index("wf auto take"))
-        self.assertRegex(d, r"before wf auto release <name>, write [^;]*brief under \"Agreed so far")
-        self.assertIn("never run wf auto on", d)
+        self.assertRegex(d, r"when a repo should move to another chat, first write [^;]*brief under \"Agreed so far\", "
+                            r"then ask the user to type /auto release <name> here;")
+        self.assertIn("never run wf auto on or wf auto release", d)
+
+
+class TestTypedRelease(ChatCase):
+    def typed(self, folder, text):
+        return self.cli("hook", stdin=json.dumps({"hook_event_name": "UserPromptSubmit", "cwd": str(folder),
+                                                  "prompt": text}))
+
+    # covers: spec 0047 AC-1 (/auto release typed by you drops the repos from the chat of the hook's folder, not the
+    # process's; a bare one prints its usage on stdout; Claude's own claude -p typing it releases nothing)
+    def test_release_typed(self):
+        self.cli("on", "other")
+        side = self.tmp / "side"
+        side.mkdir()
+        with mock.patch.object(auto, "interactive", return_value=True):
+            self.assertTrue(self.typed(self.folder, "/auto release OTHER")[1].startswith("released: other\n"))
+            self.assertEqual(self.chat()["repos"], [str(self.folder)])
+            code, out = self.typed(self.folder, "/auto release")
+            self.assertTrue(out.startswith("usage: /auto release <names>\n"), out)
+            self.assertTrue(self.typed(self.folder, "/auto release nope")[1].startswith(
+                "refused: nope matches no chat's repo"))
+            # A folder with no chat: the hook's folder decides, so this chat keeps its repo.
+            self.assertEqual(self.typed(side, "/auto release work"), (0, "refused: off\n"))
+            self.assertEqual(self.chat()["repos"], [str(self.folder)])
+        with mock.patch.object(auto, "interactive", return_value=False):
+            self.typed(self.folder, "/auto release work")
+        self.assertEqual(self.chat()["repos"], [str(self.folder)])
+        with mock.patch.object(auto, "interactive", return_value=True), mock.patch.dict(os.environ, {"WF_RUN": "1"}):
+            self.typed(self.folder, "/auto release work")
+            self.assertEqual(self.cli("release", "work"), (5, "refused: user_only\n"))
+        self.assertEqual(self.chat()["repos"], [str(self.folder)])
+
+
+class TestRunningCount(ChatCase):
+    # covers: spec 0047 AC-5 (a stale entry of an unlocked tree beside a running sibling tree of the same repo is not
+    # counted; an entry with no tree counts by its repo's lock; an unreadable lock counts as running)
+    def test_own_lock(self):
+        live, stale = self.tmp / "live", self.tmp / "stale"
+        act = [{"repo": str(self.folder), "tree": str(live), "feature": "1. A"},
+               {"repo": str(self.folder), "tree": str(stale), "feature": "2. B"},
+               {"repo": str(self.other), "feature": "1. C"}]
+        lock = Path(run.state_dir()) / "locks" / (run.hashlib.sha1(str(live).encode()).hexdigest() + ".lock")
+        lock.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(lock, os.O_RDWR | os.O_CREAT, 0o600)
+        run.fcntl.flock(fd, run.fcntl.LOCK_EX)
+        try:
+            with mock.patch("run.read_active", lambda: act):
+                self.assertEqual(auto.counts({str(self.folder), str(self.other)})[0], "1 feature(s) in 1 repo(s)")
+                self.assertFalse(auto.entry_running(act[2]))
+                with mock.patch("run.repo_lock", side_effect=OSError("x")):
+                    self.assertEqual(auto.counts({str(self.folder)})[0], "2 feature(s) in 1 repo(s)")
+        finally:
+            os.close(fd)
+        with mock.patch("run.read_active", lambda: act):
+            self.assertEqual(auto.counts({str(self.folder)})[0], "")
 
 
 class TestOneOwner(ChatCase):
@@ -138,8 +193,9 @@ class TestOneOwner(ChatCase):
         side.mkdir()
         os.chdir(side)
         self.assertEqual(self.cli("on", "other"), (0, "autonomous: on in side: no repos\n"
-                                                      "left out other: held by the chat in work: release it there "
-                                                      "first\nallowed repos to name: work, other\n"))
+                                                      "left out other: held by the chat in work: ask the user to type "
+                                                      "/auto release other in that chat\n"
+                                                      "allowed repos to name: work, other\n"))
         self.idle(self.folder)
         scope = self.other / "docs" / "scope"
         scope.mkdir(parents=True)
@@ -162,11 +218,12 @@ class TestOneOwner(ChatCase):
     def test_take_and_release(self):
         self.cli("on")
         self.in_folder(self.other, "on")
-        self.assertEqual(self.cli("take", "other"), (5, "refused: other is held by the chat in other: release it "
-                                                        "there first\n"))
+        self.assertEqual(self.cli("take", "other"), (5, "refused: other is held by the chat in other: ask the user to "
+                                                        "type /auto release other in that chat\n"))
         self.idle(self.other)
         self.assertEqual(self.cli("take", "other"), (5, "refused: other is held by the chat in other, idle: only the "
-                                                        "user takes it, by typing /auto on other\n"))
+                                                        "user moves it, by typing /auto release other there or "
+                                                        "/auto on other here\n"))
         self.assertEqual(self.in_folder(self.other, "release", "nope"),
                          (5, "refused: nope matches no chat's repo; chat's: other\n"))
         self.assertEqual(self.in_folder(self.other, "release", "other"), (0, "released: other\n"))

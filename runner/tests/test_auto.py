@@ -316,25 +316,30 @@ class TestSettings(unittest.TestCase):
         bash = [r[5:-1].replace(":*", "*") for r in deny if r.startswith("Bash(")]
         for cmd in ("wf auto on", "/home/santiago/.local/bin/wf auto on", "~/.local/bin/wf auto on",
                     "python3 runner/wf.py auto on", "python3 /home/x/runner/wf.py auto on", "cd /x && wf auto on",
-                    "WF=1 wf auto on"):
+                    "WF=1 wf auto on", "wf auto release x", "cd /x && wf auto release x",
+                    "python3 runner/wf.py auto release x"):
             self.assertTrue(any(fnmatch.fnmatchcase(cmd, p) for p in bash), cmd)
         for cmd in ("wf auto off", "wf auto off now", "wf auto status", "wf auto start", "wf auto wait",
-                    "wf auto take x", "wf auto release x"):
+                    "wf auto take x"):
             self.assertFalse(any(fnmatch.fnmatchcase(cmd, p) for p in bash), cmd)
         self.assertIn("Edit(//home/santiago/.local/state/wf/auto.json)", deny)
         # The runner commands any session in charge may run (answered 2026-10-15); none of them covers auto on.
         allow = s["permissions"].get("allow", [])
         self.assertEqual(sorted(r for r in allow if "wf" in r),
                          sorted(f"Bash(wf {c})" for c in ("auto start", "auto wait", "auto status", "auto take *",
-                                                          "auto release *", "queue", "questions", "report")))
+                                                          "queue", "questions", "report")))
         # Spec 0046 AC-10: a take chained with an on is denied, since the deny rule matches the whole command.
         for cmd in ("wf auto take x && wf auto on", "wf auto take x; wf auto on now", "wf auto release x|wf auto on"):
             self.assertTrue(any(fnmatch.fnmatchcase(cmd, p) for p in bash), cmd)
-        for cmd in ("wf auto on", "wf auto on now", "wf auto on x"):
+        for cmd in ("wf auto on", "wf auto on now", "wf auto on x", "wf auto release x"):
             self.assertFalse(any(fnmatch.fnmatchcase(cmd, r[5:-1].replace(":*", "*")) for r in allow
                                  if r.startswith("Bash(")), cmd)
         skill = (Path(__file__).resolve().parents[2] / "live" / "skills" / "auto" / "SKILL.md").read_text()
         self.assertIn("\ndisable-model-invocation: true\n", skill)
+        # Spec 0047 AC-3: the skill covers release as yours.
+        self.assertIn("\nargument-hint: on [repos] | off [now] | release <repos>\n", skill)
+        self.assertRegex(skill, r"\ndescription: [^\n]*only the user releases a repo from a chat \(`/auto release")
+        self.assertIn("Claude can never run `wf auto on` or `wf auto release`", skill)
 
 
 class TestWait(AutoCase):
@@ -474,7 +479,9 @@ class TestBar(AutoCase):
         held = SimpleNamespace(n=5)
         act = [{"repo": str(self.folder), "feature": f"{i}. F"} for i in range(4)] + \
             [{"repo": str(self.other), "feature": "1. B"}]
-        with mock.patch("report.locks_held", lambda: held.n), mock.patch("run.read_active", lambda: act):
+        # Spec 0047 AC-5: each entry counts by its own runner lock (here its repo's).
+        lock = lambda p, create=True, what=None: (None, "pid 1" if held.n else None)
+        with mock.patch("run.repo_lock", lock), mock.patch("run.read_active", lambda: act):
             self.assertEqual(self.bar()[1], f"top\nmodel {n} \033[32mAUTO running 4 feature(s) in 1 repo(s), "
                                             "1 question(s)\033[0m\n")
             # A crashed run's active.json with no lock held: nothing runs.

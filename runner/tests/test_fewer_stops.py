@@ -8,6 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pr  # noqa: E402
 import run  # noqa: E402
 from test_never_stop import NeverStopCase  # noqa: E402
+from test_run import ask  # noqa: E402
 
 WAIT = "Use it for a week · waits on you · later boxes go on"
 OWED = ("# Scope: x\n**Autopilot:** allowed\n### 1. A · in-progress · auto\n- [x] (spec)\n"
@@ -16,6 +17,11 @@ PLAIN = "# Scope: x\n**Autopilot:** allowed\n### 1. A · in-progress · auto\n- 
 # AC-3: the phrases from two halves, so this file never holds a whole one.
 TRAILER = "Co-Authored-" + "By: Claude <x@example.invalid>"
 GENERATED = "Generated with " + "[Claude Code](x)"
+
+
+# Spec 0047 AC-4: the verify.md note a LEFT TO BOX line needs, written by the call.
+VERIFY = "docs/specs/0001-a/verify.md"
+NOTE = [[VERIFY, "# Verify\n> - **left to the box:** use it for a WEEK\n"]]
 
 
 def says(text, **extra):
@@ -56,7 +62,8 @@ class TestLeftToBox(NeverStopCase):
     # covers: AC-1 (the sentence and the boxes reach a verify call only; AC-2's sentence reaches verify and test)
     def test_prompts(self):
         self.make_repo("c", OWED)
-        self.steps([says("LEFT TO BOX: Use it for a week\nCAN FAIL CHECKED: 0"), says("MUTATION CHECKED: 1")])
+        self.steps([says("LEFT TO BOX: Use it for a week\nCAN FAIL CHECKED: 0", write_file=NOTE),
+                    says("MUTATION CHECKED: 1")])
         self.wf("c", "-y")
         self.assertIn(run.LEFT_PROMPT + "\nBEGIN BOXES-DATA-0\nUse it for a week\nEND BOXES-DATA-0\n", self.prompt(1))
         self.assertNotIn(run.LEFT_PROMPT, self.prompt(2))
@@ -71,10 +78,12 @@ class TestLeftToBox(NeverStopCase):
         self.assertNotIn(run.LEFT_PROMPT, self.prompt(1))
         self.assertNotIn("BOXES-DATA", self.prompt(1))
 
-    # covers: AC-1 (CAN FAIL CHECKED: 0 with a valid LEFT TO BOX line and the box ticked passes on to the next box)
+    # covers: AC-1 (CAN FAIL CHECKED: 0 with a valid LEFT TO BOX line and the box ticked passes on to the next box);
+    # spec 0047 AC-4 (its note in a verify.md the call wrote, bullets, bold and case aside)
     def test_valid_line_passes(self):
         self.make_repo("c", OWED)
-        self.steps([says("**LEFT TO BOX:** Use it for a week\nCAN FAIL CHECKED: 0"), says("MUTATION CHECKED: 1")])
+        self.steps([says("**LEFT TO BOX:** Use it for a week\nCAN FAIL CHECKED: 0", write_file=NOTE),
+                    says("MUTATION CHECKED: 1")])
         self.wf("c", "-y")
         self.assertEqual(self.argv(2)["argv"][1], "/test a")
         rec = self.run_record()[1]
@@ -86,6 +95,47 @@ class TestLeftToBox(NeverStopCase):
         self.steps([says("LEFT TO BOX: anything I like\nCAN FAIL CHECKED: 0")])
         rec = self.assert_stopped(self.wf("c", "-y"), "unchecked", calls=2)
         self.assertIn("CAN FAIL CHECKED", rec["detail"])
+
+    def parks_without_note(self, step, before=None):
+        repo = self.make_repo("c", OWED)
+        if before:
+            (repo / VERIFY).parent.mkdir(parents=True)
+            (repo / VERIFY).write_text(before)
+        self.steps([step])
+        self.assert_stopped(self.wf("c", "-y"), "unchecked", calls=2)
+
+    # covers: spec 0047 AC-4 (a valid LEFT TO BOX line with no note parks unchecked)
+    def test_no_note_parks(self):
+        self.parks_without_note(says("LEFT TO BOX: Use it for a week\nCAN FAIL CHECKED: 0"))
+
+    # covers: spec 0047 AC-4 (a note for a longer box text that only contains the claim parks unchecked)
+    def test_longer_note_parks(self):
+        self.parks_without_note(says("LEFT TO BOX: Use it for a week\nCAN FAIL CHECKED: 0",
+                                     write_file=[[VERIFY, "left to the box: Use it for a week and a day\n"]]))
+
+    # covers: spec 0047 AC-4 (a note an earlier call left, which this call did not write, parks unchecked)
+    def test_stale_note_parks(self):
+        self.parks_without_note(says("LEFT TO BOX: Use it for a week\nCAN FAIL CHECKED: 0"), NOTE[0][1])
+
+    # covers: spec 0047 AC-4 (a resumed verify needs its note written in the resume itself; one written by the call
+    # that asked parks unchecked, one written by the resume passes)
+    def test_resume_needs_its_own_note(self):
+        claim = "LEFT TO BOX: Use it for a week\nCAN FAIL CHECKED: 0"
+        self.reply("{id} 1")
+        self.make_repo("c", OWED)
+        self.steps([ask(write_file=NOTE), says(claim)])
+        rec = self.assert_stopped(self.wf("c", "-y", "--max-wait", "0.01", mode="fast"), "unchecked", calls=3)
+        self.assertEqual(self.argv(2)["argv"][2:4], ["--resume", "s-1"])
+        self.assertIn("CAN FAIL CHECKED", rec["detail"])
+
+    def test_resume_with_its_note_passes(self):
+        self.reply("{id} 1")
+        self.make_repo("c", OWED)
+        self.steps([ask(), says("LEFT TO BOX: Use it for a week\nCAN FAIL CHECKED: 0", write_file=NOTE),
+                    says("MUTATION CHECKED: 1")])
+        self.wf("c", "-y", "--max-wait", "0.01", mode="fast")
+        self.assertEqual(self.argv(2)["argv"][2:4], ["--resume", "s-1"])
+        self.assertEqual(self.argv(3)["argv"][1], "/test a")
 
 
 class TestUnreachable(NeverStopCase):
