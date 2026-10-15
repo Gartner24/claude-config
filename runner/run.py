@@ -431,6 +431,8 @@ VERIFY_FAIL = re.compile(r"^[ \t>*-]*VERIFY FAIL:\**[ \t]*(\S.*)$")
 CAN_FAIL = re.compile(r"^[ \t>*-]*CAN FAIL CHECKED:\**[ \t]*(\d+)")
 # Spec 0045 AC-1, AC-2: a check left to a later box waiting on you, and a check the sandbox cannot reach.
 LEFT_TO_BOX = re.compile(r"^[ \t>*-]*LEFT TO BOX:\**[ \t]*(\S.*)$")
+# Spec 0047 AC-4: the verify.md note a LEFT TO BOX line needs, written in the same call.
+LEFT_NOTE = re.compile(r"^[ \t>*-]*left to the box:\**[ \t]*(\S.*)$", re.I)
 UNREACHABLE_LINE = re.compile(r"^[ \t>*-]*UNREACHABLE:\**[ \t]*(\S.*)$")
 LEFT_PROMPT = (" Some checks may need what this sandbox cannot give: a real interactive Claude session, a real claude -p "
                "call, the user's phone, or days of real use. A check like that which belongs to one of this feature's "
@@ -3086,9 +3088,13 @@ class Run:
                 n = None if any(is_test_file(rel) and snapshot.get(rel) != after.get(rel)
                                 for rel in set(snapshot or {}) | set(after)) else 0
             # Spec 0045 AC-1: every check left to a later box waiting on you is a pass, but only with a valid line.
+            # Spec 0047 AC-4: and only with its note in a verify.md this call changed; a model used to claim the pass
+            # with the line alone and check nothing.
+            noted = left_notes(self.c.path, snapshot, self.snapshot()) if pattern is CAN_FAIL and n == 0 else set()
             left = pattern is CAN_FAIL and n == 0 and any(
-                norm(m.group(1).strip().strip("*").strip())[:200] in self.left_boxes
-                for m in map(LEFT_TO_BOX.match, result.split("\n")) if m)
+                t in self.left_boxes and t.casefold() in noted
+                for t in (norm(m.group(1).strip().strip("*").strip())[:200]
+                          for m in map(LEFT_TO_BOX.match, result.split("\n")) if m))
             if n is None or (n == 0 and pattern is CAN_FAIL and not left):
                 return "end", "unchecked", f"{box.box_text} ticked without a valid {name} line; " \
                                            "untick it to rerun"
@@ -3727,8 +3733,9 @@ class Run:
                     # AC-13: a debug resume takes a fresh snapshot, but it is not another attempt.
                     snapshot = self.snapshot()
                     e["debug_attempts"] += not resume
-                elif kind == "box" and command.split()[0] == "/test":
-                    # Spec 0015 AC-4: rule 11a asks whether a test file changed during the call.
+                elif kind == "box" and (command.split()[0] == "/test" or command.split()[:2] == ["/check", "verify"]):
+                    # Spec 0015 AC-4: rule 11a asks whether a test file changed during the call. Spec 0047 AC-4: a
+                    # verify call's left to the box notes count only from a verify.md it changed.
                     snapshot = self.snapshot()
             if self.limit_rerun:
                 self.record["limit_wait"]["resumed"] = now()
@@ -5336,6 +5343,27 @@ def later_owed(feature, box_text):
     if i is None:
         return []
     return [norm(context.untagged(b.text))[:200] for b in boxes[i + 1:] if b.open and wf.OWED.search(b.text)][:5]
+
+
+def left_notes(repo, before, after):
+    """Spec 0047 AC-4: the left to the box note texts, case folded and cut to 200 characters, of every file named
+    verify.md whose hash changed between the two snapshots."""
+    out = set()
+    # No snapshot before the call: nothing can be shown to be this call's own note.
+    for rel in after if before is not None else ():
+        if os.path.basename(rel) != "verify.md" or before.get(rel, (None,))[0] == after[rel][0]:
+            continue
+        try:
+            # As in snapshot(): a link is never followed and only a regular file is read, at most SNAPSHOT_CAP bytes.
+            with os.fdopen(os.open(os.path.join(repo, rel), os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), "rb") as f:
+                if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
+                    continue
+                text = f.read(SNAPSHOT_CAP).decode(errors="replace")
+        except OSError:
+            continue
+        out |= {norm(m.group(1).strip().strip("*").strip())[:200].casefold()
+                for m in map(LEFT_NOTE.match, text.replace("\r", "").split("\n")) if m}
+    return out
 
 
 def left_prompt(boxes):

@@ -1,9 +1,9 @@
 # 0047 · Review leftovers 2026-10-15
 
 **Date**: 2026-10-15
-**Status**: Proposed
+**Status**: In Progress
 **Paths:** `runner/auto.py`, `runner/run.py`, `live/settings.json`, `live/skills/auto/SKILL.md`, `runner/tests/test_auto.py`, `runner/tests/test_auto_chats.py`, `runner/tests/test_fewer_stops.py`
-**Amends**: [0046](0046-autonomous-mode-per-chat/index.md) (AC-2, AC-3, AC-4, AC-7), [0045](0045-fewer-avoidable-stops/index.md) (AC-1)
+**Amends**: [0046](../0046-autonomous-mode-per-chat/index.md) (AC-2, AC-3, AC-4, AC-7), [0045](../0045-fewer-avoidable-stops/index.md) (AC-1)
 
 ## What you're agreeing to
 - Only you release a repo from a chat, by typing `/auto release <names>` in that chat. Claude can still take repos no chat holds, but it can never take one out of another chat.
@@ -12,7 +12,7 @@
 
 ## Summary
 
-The review of the 2026-10-15 landing ([report](../reviews/review-2026-10-15.md), Leftovers) found two gaps that change accepted designs and one small count bug. Your answers of 2026-10-15: only you release; a written note is required. Source: plan row 52.
+The review of the 2026-10-15 landing ([report](../../reviews/review-2026-10-15.md), Leftovers) found two gaps that change accepted designs and one small count bug. Your answers of 2026-10-15: only you release; a written note is required. Source: plan row 52.
 
 ## Requirements
 
@@ -54,6 +54,4 @@ Release moves behind your typing, like turning a chat on, so a session can never
 **Positive**: no chat loses a repo without you; a silent "checked nothing" pass is caught.
 **Negative**: moving a repo between chats needs one typed command from you; Claude cannot run a command that merely quotes `wf auto release`; a model could still write the note without trying the check, but the note is on record for you to read.
 
-## Rationale
-
-Your two answers of 2026-10-15 settle the shape; the rest are recommended defaults and the cross check fixes listed above.
+Rationale: [rationale.md](rationale.md).

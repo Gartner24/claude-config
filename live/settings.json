@@ -7,7 +7,6 @@
       "Bash(wf auto wait)",
       "Bash(wf auto status)",
       "Bash(wf auto take *)",
-      "Bash(wf auto release *)",
       "Bash(wf queue)",
       "Bash(wf questions)",
       "Bash(wf report)"
@@ -16,6 +15,9 @@
       "Bash(*wf auto on*)",
       "Bash(*wf.py auto on*)",
       "Bash(wf auto on:*)",
+      "Bash(*wf auto release*)",
+      "Bash(*wf.py auto release*)",
+      "Bash(wf auto release:*)",
       "Bash(fdisk *)",
       "Bash(halt *)",
       "Bash(mkfs*)",
