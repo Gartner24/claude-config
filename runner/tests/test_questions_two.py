@@ -1,4 +1,5 @@
 """Spec 0044: questions, round two."""
+import json
 import sys
 import threading
 import time
@@ -208,6 +209,29 @@ class TestDoItRun(NeverStopCase):
         self.assertEqual(len(self.calls()), 1, r.stdout + r.stderr)
         [d] = self.queue()["decisions"]
         self.assertEqual((d["case"], d["answer"]), ("manual_box", None))
+
+
+class TestHome(NeverStopCase):
+    # covers: AC-7 (the home folder joins the write list only; the login, startup and key places and every known repo's
+    # git config, hooks and info are never writable and denied in the sandbox and as Edit rules)
+    def test_home_open_risky_shut(self):
+        other = self.make_repo("other", PHONE)
+        self.steps([{"tick": False}])
+        self.wf("demo", "-y", "--max-calls", "1")
+        a = self.argv(1)["argv"]
+        fs = json.loads(a[a.index("--settings") + 1])["sandbox"]["filesystem"]
+        denied = set(a[a.index("--disallowedTools") + 1].split(","))
+        g = self.run_record()[1]["repos"][0]["guard"]
+        home = str(self.tmp)
+        self.assertIn(home, fs["allowWrite"])
+        self.assertNotIn(home, g["allowed"])
+        for p in (f"{home}/.config/systemd", f"{home}/.config/autostart", f"{home}/.zlogin", f"{home}/.config/fish",
+                  f"{home}/.local/share/keyrings", f"{home}/.mozilla", f"{home}/.cargo/credentials.toml",
+                  f"{other}/.git/config", f"{other}/.git/hooks", f"{other}/.git/info"):
+            with self.subTest(p):
+                self.assertIn(p, g["never"])
+                self.assertIn(p, fs["denyWrite"])
+                self.assertTrue({f"Edit(/{p})", f"Edit(/{p}/**)"} & denied)
 
 
 if __name__ == "__main__":

@@ -441,7 +441,8 @@ class TestFindings89(AppCase):
         r = self.wf("demo", "-y")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertTrue((self.repo / ".git" / "hooks").is_dir())
-        self.assertEqual(self.run_record()[1]["repos"][0]["guard"]["absent_denied"], [f"{self.repo}/.claude", f"{self.repo}/.git/hooks"])
+        self.assertEqual(self.run_record()[1]["repos"][0]["guard"]["absent_denied"], [f"{self.repo}/.claude", f"{self.repo}/.git/hooks",
+                                                                                      f"{self.repo}/.git/info"])
 
     def test_dangling_target_recorded(self):
         (self.tmp / ".gitconfig").symlink_to(self.repo / "planted")

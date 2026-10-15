@@ -353,6 +353,14 @@ CASES = {
 }
 # Spec 0021 F1: an answer may never make one of these writable; `~/.claude/` ones in every claude dir.
 SECRETS = (*CREDENTIAL_PATHS, "~/.gnupg", "~/.claude/private", "~/.claude/.credentials.json")
+# Spec 0044 AC-7: with the home folder writable, what still runs at login or holds a key stays never writable.
+HOME_NEVER = ("~/.config/systemd", "~/.config/autostart", "~/.config/autostart-scripts", "~/.config/plasma-workspace",
+              "~/.config/environment.d", "~/.local/share/applications",
+              "~/.zlogin", "~/.zlogout", "~/.bash_login", "~/.bash_logout", "~/.bash_aliases", "~/.config/fish",
+              "~/.inputrc", "~/.vimrc", "~/.config/nvim",
+              "~/.cargo/credentials", "~/.cargo/credentials.toml", "~/.config/pip", "~/.gem/credentials",
+              "~/.terraform.d", "~/.terraformrc", "~/.config/glab-cli", "~/.local/share/keyrings",
+              "~/.mozilla", "~/.config/google-chrome", "~/.config/chromium", "~/.config/BraveSoftware")
 # Spec 0021 AC-7: in every claude dir, never writable whatever allow.json says (with settings*.json, see refused()).
 CLAUDE_NEVER = ("settings.json", "settings.local.json", "hooks", "rules", "agents", "skills", "scripts", "commands",
                 "private", "CLAUDE.md")
@@ -1271,9 +1279,10 @@ class Run:
         self.common = common
         never = never_writable(repo, common)
         allowed = self.allowed()
-        # A never writable path inside an allowed one (~/.claude/settings.json in ~/.claude) stays denied.
-        kept = [s for s in never if under(s, allowed)]
-        write = sorted({repo, common, *(os.path.expanduser(p) for p in CACHE_DIRS), *allowed})
+        # Spec 0044 AC-7: the home folder is writable (the write list only, never `allowed`, so no deny is carved),
+        # so every never writable path is denied outright, not only one inside an allowed path.
+        kept = list(never)
+        write = sorted({repo, common, *(os.path.expanduser(p) for p in CACHE_DIRS), *allowed, os.path.expanduser("~")})
         self.repo["guard"] = {"hosts": hosts, "write_paths": write, "deny_paths": deny, "binaries": binaries,
                               "allowed": list(dict.fromkeys(allowed + [os.path.realpath(a) for a in allowed])),
                               "never": never,
@@ -4784,10 +4793,21 @@ def never_writable(repo, common):
             os.path.join(home, ".gitconfig"), os.path.join(home, ".config", "git"), os.path.join(home, ".local", "bin"),
             *(os.path.abspath(d) for d in os.environ.get("PATH", "").split(os.pathsep) if d),
             os.path.join(home, ".local", "share", "wf"), os.path.join(home, ".local", "share", "claude"), state_dir(),
-            *expand("~/.config/wf")]
+            *expand("~/.config/wf"), *(os.path.expanduser(p) for p in HOME_NEVER), *known_git()]
     if common:
         out += [os.path.join(common, n) for n in ("config", "hooks", "info")]
     return list(dict.fromkeys(out + [os.path.realpath(p) for p in out]))
+
+
+def known_git():
+    """Spec 0044 AC-7: the git config, hooks and info of every repo the runner knows (the wf allow list and the git
+    repos under the scanned roots; worktrees share their main's), and each worktree's config.worktree."""
+    repos = [d for root, lo, hi in wf.scan_roots() for d in wf.walk(root, lo, hi) if os.path.exists(os.path.join(d, ".git"))]
+    out = []
+    for c in dict.fromkeys(filter(None, map(common_dir, repos + (read_allowed()[0] or [])))):
+        out += [os.path.join(c, n) for n in ("config", "hooks", "info")]
+        out += glob.glob(os.path.join(glob.escape(c), "worktrees", "*", "config.worktree"))
+    return out
 
 
 def refused(path, never):

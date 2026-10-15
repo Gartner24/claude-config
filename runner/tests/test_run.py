@@ -190,15 +190,18 @@ def guard_deny(t, r, bin):
                                           ".local/share/wf", ".config/wf", "config/wf"))])
 
 
-def guard_settings(t, r, bin):
+def guard_settings(t, r, bin, kept=()):
+    """kept: spec 0044 AC-7's never writable paths, denied outright now that the home folder is writable."""
     deny = guard_deny(t, r, bin)
     hook = f"{shlex.quote(os.path.realpath(sys.executable))} -c {shlex.quote(run.AGENT_GUARD)} || exit 2"
     return {"sandbox": {"enabled": True, "failIfUnavailable": True, "autoAllowBashIfSandboxed": True,
                         "allowUnsandboxedCommands": False,
                         "network": {"allowedDomains": ["*"], "deniedDomains": FORGE_HOSTS, "strictAllowlist": True},
                         "filesystem": {
-                            "allowWrite": sorted([str(r), f"{r}/.git", f"{t}/.npm", f"{t}/.cache", f"{t}/.local/share/pnpm"]),
-                            "denyWrite": [p for p in deny if p != f"{r}/.git"] + [f"{r}/.git/config", f"{r}/.git/hooks"],
+                            "allowWrite": sorted([str(r), f"{r}/.git", f"{t}/.npm", f"{t}/.cache", f"{t}/.local/share/pnpm",
+                                                  str(t)]),
+                            "denyWrite": [p for p in deny if p != f"{r}/.git"] + [f"{r}/.git/config", f"{r}/.git/hooks"]
+                            + list(kept),
                             "denyRead": [f"{t}/{p}" for p in CREDENTIALS]}},
             "hooks": {"PreToolUse": [{"matcher": "Agent", "hooks": [{"type": "command", "timeout": 10, "command": hook}]}]}}
 
@@ -450,9 +453,15 @@ class TestHappyPath(RunCase):
             "--permission-prompts", "none", "--max-budget-usd", "2.5", "--disallowedTools",
             "--append-system-prompt", run.UNATTENDED_PROMPT,
             "--settings", "--strict-mcp-config", "--mcp-config", '{"mcpServers": {}}'])
-        self.assertEqual(a["argv"][11], guard_denied(self.tmp, self.repo, self.bin))
+        # Spec 0044 AC-7: today's lists unchanged, then every never writable path denied too.
+        kept = self.run_record()[1]["repos"][0]["guard"]["never"]
+        state = ",Edit(/{0}),Edit(/{0}/**)".format(self.tmp / "state" / "wf")
+        before = guard_denied(self.tmp, self.repo, self.bin).removesuffix(state)
+        self.assertTrue(a["argv"][11].startswith(before + ",") and a["argv"][11].endswith(state), a["argv"][11])
+        middle = set(a["argv"][11][len(before) + 1:-len(state)].split(","))
+        self.assertEqual([p for p in kept if f"Edit(/{p})" not in middle and f"Edit(/{p}/**)" not in middle], [])
         # Compared as text, so the AC-2 key order counts too.
-        self.assertEqual(a["argv"][15], json.dumps(guard_settings(self.tmp, self.repo, self.bin)))
+        self.assertEqual(a["argv"][15], json.dumps(guard_settings(self.tmp, self.repo, self.bin, kept)))
         self.assertEqual(a["exe"], str(self.bin / "claude"))
         self.assertEqual(run.UNATTENDED_PROMPT, (
             "You are running unattended inside wf run, and AskUserQuestion is not available. Decide these panels "
@@ -1470,7 +1479,8 @@ class TestGuard(RunCase):
                                    "absent_denied"])
         self.assertEqual(g["submodules"], [])
         # Spec 0009 AC-3 step 5: the repo has no .claude; config.worktree is a guarded file, so left out.
-        self.assertEqual(g["absent_denied"], [f"{self.repo}/.claude"])
+        # Spec 0044 AC-7: the absent .git/info is denied now, so a call cannot plant info/attributes in it.
+        self.assertEqual(g["absent_denied"], [f"{self.repo}/.claude", f"{self.repo}/.git/info"])
         self.assertEqual(g["hosts"], sorted(FORGE_HOSTS + ["code.example.com"]))
         self.assertEqual(g["deny_paths"], guard_deny(self.tmp, self.repo, self.bin))
         self.assertEqual(g["write_paths"], guard_settings(self.tmp, self.repo, self.bin)["sandbox"]["filesystem"]["allowWrite"])
