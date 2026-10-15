@@ -703,8 +703,8 @@ A hook notes when a session could have used a skill it did not, and a weekly rep
 **Done when:** the hook runs in real sessions and the report names the top missed skills.
 - [x] Design it (spec): `/architect missed skill detector`
 - [x] Build it: `/develop missed skill detector`
-- [ ] Verify it: `/check verify missed skill detector`
-- [ ] Test it: `/test missed skill detector`
+- [x] Verify it: `/check verify missed skill detector`
+- [x] Test it: `/test missed skill detector`
 - [ ] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
 - [ ] After 3 days, run the report and write its verdict into verify.md · waits on you · later boxes go on
 - [ ] Sync docs: `/sync missed skill detector`
@@ -726,7 +726,7 @@ One README map of what lives where, everything installed under live/, guides und
 **Done when:** the README map is true, the repo has its new shape, and every migration step passed its check.
 - [x] Design it (spec): `/architect readable layout`
 - [x] Build it: `/develop readable layout`
-- [ ] Verify it: `/check verify readable layout`
+- [x] Verify it: `/check verify readable layout`
 - [ ] Test it: `/test readable layout`
 - [ ] Run the live migration steps in the spec's migrate.md, one at a time with their checks · waits on you
 - [ ] Sync docs: `/sync readable layout`
