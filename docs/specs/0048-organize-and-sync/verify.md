@@ -68,7 +68,7 @@ Scratch in `/tmp/claude/v0048c/`; `git archive HEAD` export committed into a thr
 - `python3 runner/e2e/run.py`: needs a real `claude -p`.
 - AC-14 live run and AC-15: left to the boxes "Back up `~/.claude` and the repo, as `migrate.md` step 0 says (AC-14)", "Install the new layout by running `bin/install.sh` yourself (the old runner copy does not know this path yet)", "Check every skill name still opens, then remove the temporary `live` link (AC-15)".
 
-## /check verify rerun (2026-10-15, under wf run, after the main merge b22ef6c): FAIL (worktree suite only)
+## /check verify rerun (2026-10-15, under wf run, after the main merge b22ef6c): PASS on the branch copy (your answer)
 
 Scratch in `/tmp/claude/v0048d/`; `git archive HEAD` export committed into a throwaway git repo.
 
@@ -78,7 +78,7 @@ Scratch in `/tmp/claude/v0048d/`; `git archive HEAD` export committed into a thr
 - [x] `bin/claude-config.py docs` on the export -> `git status` clean -> AC-13. `docs/guides/` 5 guides, each with a `Type:` line; `AGENTS.md` 93 lines -> AC-12. can fail: a stale generated file.
 - [x] `drift` on the real `~/.claude` -> exit 1, 25 items, all ones `bin/install.sh` fixes (22 links still into the old path, the new hook, the new skill, `scope-contract.md`, settings `hooks`); `skillOverrides` no longer differs after the merge; 0 unaccounted skills -> AC-9. can fail: an unknown skill passing silently (exercised in the first verify).
 - [x] `private-names.py check` exit 0 (AC-8); `asciify.py --check` 0 changes; `check-routing.py` routing OK; `gen-agent-index.py --check` OK; `bin/install.sh --dry-run` exit 0 -> AC-16.
-- [ ] `python3 runner/tests/fast.py` in the worktree -> 917 tests, 1 failed: `test_old_paths`, 14 hits, all in `docs/scope/scope.md`. The working copy is byte equal to `main` (the runner overlays the planning branch's scope); the committed branch copy is clean. It stays red in every `wf` worktree of this branch until `main`'s `docs/scope/scope.md` names the new paths.
+- [ ] `python3 runner/tests/fast.py` in the worktree -> 917 tests, 1 failed: `test_old_paths`, 14 hits, all in `docs/scope/scope.md`. The working copy is byte equal to `main` (the runner overlays the planning branch's scope); the committed branch copy is clean. It stays red in every `wf` worktree of this branch until `main`'s `docs/scope/scope.md` names the new paths. Your answer (2026-10-15): accept it, pass on the branch copy; the merge brings the new paths to `main`.
 
 ### Not run here
 - `update --plan` against GitHub (sandbox denies github.com); `python3 runner/e2e/run.py` (needs a real `claude -p`).
