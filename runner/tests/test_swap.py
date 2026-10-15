@@ -275,7 +275,8 @@ class TestInstallStage(unittest.TestCase):
             live = home / ".claude"
             (live / "private").mkdir(parents=True)
             (live / "private" / "names.txt").write_text("x\n")
-            env = {**os.environ, "HOME": str(home), "CLAUDE_LIVE_DIR": str(live), "GIT_CONFIG_GLOBAL": "/dev/null"}
+            (live / "settings.json").write_text('{"old": 1}')
+            env ={**os.environ, "HOME": str(home), "CLAUDE_LIVE_DIR": str(live), "GIT_CONFIG_GLOBAL": "/dev/null"}
             env.pop("WF_STAGE", None)
             if staged:
                 env["WF_STAGE"] = "1"
@@ -287,6 +288,10 @@ class TestInstallStage(unittest.TestCase):
                 self.assertEqual((hooks / "pre-commit").exists(), not staged, r.stdout + r.stderr)
                 self.assertTrue((live / "rules").is_dir())
                 self.assertTrue((live / "settings.json").exists(), r.stdout + r.stderr)
+                # covers: spec 0035 AC-7 (the old settings are backed up under backups/settings/, never at the top)
+                baks = list((live / "backups" / "settings").glob("settings.json.bak.*"))
+                self.assertEqual([b.read_text() for b in baks], ['{"old": 1}'], r.stdout + r.stderr)
+                self.assertEqual([p.name for p in live.glob("*.bak.*")], [])
 
 
 if __name__ == "__main__":
