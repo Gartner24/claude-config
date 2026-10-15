@@ -12,7 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from test_browser import AppCase  # noqa: E402
 from test_ntfy import FakeNtfy, write_config  # noqa: E402
-from test_run import RUNNER, SCOPE, WF, RunCase, ask, run, wf  # noqa: E402
+from test_run import RUNNER, SCOPE, WF, RunCase, ask, before_brief, run, wf, without_brief_gaps  # noqa: E402
 
 # Runs wf with a fake boot clock that each nap moves forward, so waits take no real time; FAKE_NAP acts in a nap.
 WRAP = """import os, signal, sys
@@ -335,7 +335,7 @@ class TestLiveLog(Case):
         folder, rec = self.run_record()
         log = folder / "log.txt"
         self.assertEqual(stat.S_IMODE(log.stat().st_mode), 0o600)
-        events = [line.split(" ", 1)[1] for line in log.read_text().splitlines()]
+        events = without_brief_gaps([line.split(" ", 1)[1] for line in log.read_text().splitlines()])
         self.assertEqual(events, [
             "start demo",
             f"call 1 demo 1. Loop: /develop loop, transcript {config}/projects/*/{ids[0]}.jsonl",
@@ -374,7 +374,7 @@ class TestSyncBox(Case):
             ("box", "/develop a", "Build it: `/develop a`"), ("box", "/test a", "Test it: `/test a`"),
             ("sync", "/sync a", "Sync docs: `/sync a`")])
         self.assertEqual(rec["features"][0]["outcome"], "feature_done")
-        prompt = lambda n: self.argv(n)["argv"][self.argv(n)["argv"].index("--append-system-prompt") + 1]
+        prompt = lambda n: before_brief(self.argv(n)["argv"][self.argv(n)["argv"].index("--append-system-prompt") + 1])
         self.assertTrue(prompt(3).endswith(run.SYNC_BOX_PROMPT))
         self.assertFalse(prompt(2).endswith(run.SYNC_BOX_PROMPT))
         self.assertEqual(run.SYNC_BOX_PROMPT, " This call runs the feature's /sync box; when /sync is done, tick that box.")
@@ -401,7 +401,7 @@ class TestSyncBox(Case):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         c = self.run_record()[1]["calls"][0]
         self.assertEqual((c["kind"], c["box_text"], c["resumes"]), ("sync", "Sync docs: `/sync a`", [d["id"]]))
-        self.assertTrue(self.argv(1)["argv"][self.argv(1)["argv"].index("--append-system-prompt") + 1]
+        self.assertTrue(before_brief(self.argv(1)["argv"][self.argv(1)["argv"].index("--append-system-prompt") + 1])
                         .endswith(run.SYNC_BOX_PROMPT))
 
     def test_unticked(self):

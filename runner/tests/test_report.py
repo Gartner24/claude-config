@@ -16,7 +16,7 @@ import ntfy  # noqa: E402
 import report  # noqa: E402
 from test_parallel import ParallelCase  # noqa: E402
 from test_queue import DONE_B, ONE, TICK_A, DONE_A, TICK_B, TWO, QueueCase, blocked  # noqa: E402
-from test_run import WF  # noqa: E402
+from test_run import WF, without_brief_gaps  # noqa: E402
 import test_telegram as tg  # noqa: E402
 
 # Feature 3 is not queued: its waiting boxes stay open for the live and yours lines.
@@ -329,7 +329,7 @@ class TestEndOfRun(QueueCase):
         self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
         folder, record = self.run_record()
         self.assertEqual(record["report"], "sent")
-        text = (self.state / "wf" / "report.txt").read_text().splitlines()
+        text = without_brief_gaps((self.state / "wf" / "report.txt").read_text().splitlines())
         # Spec 0021 AC-6: the park's open question with its recommended answer.
         self.assertRegex(text[3], r"^Question [a-z0-9]{4} \(its name, so your reply finds it\): 1\. A: the step needs "
                                   r"something only you can do in 1\. A\. test park \(recommended: done, go on\) "
@@ -393,7 +393,7 @@ class TestParent(ParallelCase):
                       for x in (a, b))
         # Spec 0033 AC-9: each built line says its next step and why.
         nx = "; next: review and merge it, it was built on its branch with no PR"
-        self.assertEqual(notes[0]["message"].splitlines()[1:], [f"built: 1. A{nx} ({la})", f"built: 1. A{nx} ({lb})",
+        self.assertEqual(without_brief_gaps(notes[0]["message"].splitlines()[1:]), [f"built: 1. A{nx} ({la})", f"built: 1. A{nx} ({lb})",
                                                                 f"next: review and merge: {la}, {lb}"])
         self.assertTrue(notes[0]["message"].startswith("wf done "))
         text = (self.state / "wf" / "report.txt").read_text()

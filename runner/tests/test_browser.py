@@ -17,7 +17,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import run  # noqa: E402
-from test_run import RUNNER, WRAPPER, FakeNtfy, RunCase, alive, ask, write_config  # noqa: E402
+from test_run import RUNNER, WRAPPER, FakeNtfy, RunCase, alive, ask, before_brief, write_config  # noqa: E402
 
 GIT_ID = ["-c", "user.name=t", "-c", "user.email=t@example.invalid"]
 TEST_FIRST = "# Scope: x\n**Autopilot:** allowed\n### 1. A · in-progress · auto\n- [x] (spec)\n- [ ] `/test a`\n- [ ] `/develop a`\n"
@@ -77,7 +77,7 @@ class TestBaseRun(RunCase):
         rec = json.loads(next((self.state / "wf" / "runs").iterdir()).joinpath("run.json").read_text())
         self.assertEqual([(c["command"], c["test_base"], c["retry_of"]) for c in rec["calls"]],
                          [("/test a", sha, None), ("/test a", sha, 1), ("/develop a", None, None), ("/sync", None, None)])
-        prompts = [self.argv(n)["argv"][self.argv(n)["argv"].index("--append-system-prompt") + 1] for n in (1, 2, 3, 4)]
+        prompts = [before_brief(self.argv(n)["argv"][self.argv(n)["argv"].index("--append-system-prompt") + 1]) for n in (1, 2, 3, 4)]
         self.assertEqual(prompts[0], run.unattended_prompt({}, False, sha))
         self.assertEqual(prompts[1], prompts[0])
         self.assertEqual(prompts[2:], [run.UNATTENDED_PROMPT] * 2)
@@ -92,7 +92,7 @@ class TestBaseRun(RunCase):
         rec = json.loads(next((self.state / "wf" / "runs").iterdir()).joinpath("run.json").read_text())
         self.assertEqual([(c["command"], c["test_base"]) for c in rec["calls"]][0], ("/test a", None))
         argv = self.argv(1)["argv"]
-        self.assertEqual(argv[argv.index("--append-system-prompt") + 1], run.UNATTENDED_PROMPT)
+        self.assertEqual(before_brief(argv[argv.index("--append-system-prompt") + 1]), run.UNATTENDED_PROMPT)
 
 
 class TestAppKeys(unittest.TestCase):
@@ -749,7 +749,7 @@ class TestBrowserArgv(AppCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         argv = self.argv(1)["argv"]
         self.assertEqual(argv[argv.index("--mcp-config") + 1], run.MCP_ALLOW)
-        self.assertEqual(argv[argv.index("--append-system-prompt") + 1], run.UNATTENDED_PROMPT)
+        self.assertEqual(before_brief(argv[argv.index("--append-system-prompt") + 1]), run.UNATTENDED_PROMPT)
         self.assertNotIn("--allowedTools", argv)
 
     # covers: AC-5 (the check rejects every way to attach, persist or leak)
