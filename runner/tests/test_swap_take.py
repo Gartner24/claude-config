@@ -4,6 +4,7 @@ import io
 import json
 import os
 import shutil
+import subprocess
 import sys
 import unittest
 from contextlib import redirect_stdout
@@ -11,7 +12,7 @@ from pathlib import Path
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from test_run import RunCase  # noqa: E402
+from test_run import RunCase, WF  # noqa: E402
 import run  # noqa: E402
 import wf  # noqa: E402
 
@@ -142,6 +143,47 @@ class SwapTake(RunCase):
         folder, rec = self.run_record()
         self.assertEqual(len(rec["calls"]), 2, (folder / "log.txt").read_text())
         self.assertEqual((folder / "log.txt").read_text().count("retaken 1. Loop"), 1)
+
+    def queue_file(self):
+        return json.loads((self.state / "wf" / "queue.json").read_text())
+
+    # covers: spec 0040 AC-2 (a text block from an earlier run stays parked with no newer setup, and is retaken once
+    # a newer swaps.jsonl line exists)
+    def test_earlier_run_text_block(self):
+        self.steps([{"tick": False, "json": {"result": "no\nBLOCKED: run ./install.sh live first"}}, {}, {}, {"tick": False}])
+        self.wf("demo", "-y")
+        self.wf("demo", "-y")
+        self.assertEqual(len(self.calls()), 1, "no newer setup: it must stay parked")
+        self.ledger({str(self.live / "settings.json"): sha("{}")})
+        r = self.wf("demo", "-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        log = (sorted((self.state / "wf" / "runs").iterdir())[-1] / "log.txt").read_text()
+        self.assertIn("retaken 1. Loop: the setup changed", log)
+        self.assertEqual(self.queue_file()["parks"], [])
+
+    def deny_park(self, target):
+        (self.repo / "tools").mkdir()
+        (self.repo / "tools" / "h.sh").write_text("#!/bin/sh\n")
+        old = json.dumps({"hooks": {"Stop": [{"hooks": [{"type": "command", "command": f"bash {self.repo}/tools/h.sh"}]}]}})
+        (self.live / "settings.json").write_text(old)
+        self.steps([{"tick": False, "json": {"permission_denials": [
+            {"tool_name": "Edit", "tool_use_id": "t1", "tool_input": {"file_path": target}}]}}, {}, {}])
+        self.wf("demo", "-y")
+        return self.queue_file()["parks"]
+
+    # covers: spec 0040 AC-2 (with no guard built, wf queue still shows a denied_path park whose deny is gone)
+    def test_queue_keeps_park(self):
+        parks = self.deny_park(str(self.repo / "tools" / "x.py"))
+        self.assertEqual([p.get("denied_path") for p in parks], [str(self.repo / "tools" / "x.py")])
+        (self.live / "settings.json").write_text("{}")
+        r = subprocess.run([sys.executable, str(WF), "queue", "demo"], capture_output=True, text=True, env=self.env)
+        self.assertIn("parked: 1. Loop: denied", r.stdout, r.stdout + r.stderr)
+
+    # covers: spec 0040 AC-2 (an Edit denial on a path the run's guard does not deny records no denied_path, so the
+    # run never frees it and the park stays)
+    def test_no_path_outside_guard(self):
+        parks = self.deny_park(str(self.repo / "src" / "x.py"))
+        self.assertEqual([(p["reason"], "denied_path" in p) for p in parks], [("denied", False)])
 
     # covers: AC-5 (a repo git hook moved beside an accepted swap is not taken: the repo stops)
     def test_repo_hook_beside_swap(self):
