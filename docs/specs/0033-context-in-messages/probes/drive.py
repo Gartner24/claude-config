@@ -170,7 +170,8 @@ class V(Base):
         body = report[-1]
         self.assertRegex(body, r"built: 1\. Loop: \d+ commits [0-9a-f]{7}\.\.[0-9a-f]{7}, \d+ files")
         self.assertIn(f"spec {GH}/blob/work/docs/specs/0001-a/index.md", body)
-        self.assertIn("next: ", body)
+        # The report's own "next: review and merge: <repo>" line would satisfy a bare "next: ".
+        self.assertIn("; next: review and merge it, it was built on its branch with no PR", body)
 
 
 class NonGitHub(Base):

@@ -639,7 +639,7 @@ Every question and report on your phone says where it comes from: repo, feature,
 **Done when:** a question on the phone shows its from block with working links and the why line.
 - [x] Design it (spec): `/architect context in messages`
 - [x] Build it: `/develop context in messages`
-- [ ] Verify it: `/check verify context in messages`
+- [x] Verify it: `/check verify context in messages`
 - [ ] Test it: `/test context in messages`
 - [ ] Probe P1: read a real question on your phone and say whether it explains itself · waits on you · later boxes go on
 - [ ] Sync docs: `/sync context in messages`
