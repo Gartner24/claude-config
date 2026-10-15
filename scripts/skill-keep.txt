@@ -1,0 +1,40 @@
+# Skills that keep their description in every session (spec 0050).
+# One name per line: a skill folder name, or a command file name without .md.
+# Every other installed own skill and command is set to name only by scripts/skill-keep.py.
+design-gate
+impeccable
+rollover
+save-and-clear
+save-and-exit
+resume-from-clear
+sync
+architect
+design
+check
+test
+develop
+scope
+debug
+audit
+document
+auto
+review
+review-stack
+browse
+deep-research
+cro
+marketing-psychology
+high-end-visual-design
+minimalist-ui
+ui-ux-pro-max
+design-dna
+design-motion-principles
+assets
+brand-system
+animate
+animation-vocabulary
+review-animations
+gsap-scrolltrigger
+write
+polish
+new-site

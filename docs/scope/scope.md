@@ -71,8 +71,9 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 50 | Fewer avoidable stops | Release 8 | done |
 | 51 | Autonomous mode per chat | Release 8 | in-progress |
 | 52 | Review leftovers 2026-10-15 | Release 8 | done |
-| 53 | Only a typed /auto turns on or releases | Release 8 | needs a decision |
+| 53 | Only a typed /auto turns on or releases | Release 8 | in-progress |
 | 54 | Organize claude-config and ~/.claude, sync what you use daily | Release 8 | needs a decision |
+| 55 | Fewer skills described in every session | Release 8 | needs a decision |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -768,25 +769,53 @@ Only you release a repo from a chat; a check handing parts to a later step needs
 - [x] Sync docs: `/sync review leftovers 2026-10-15`
 Spec [0047](../specs/0047-review-leftovers/index.md) · code in `runner/auto.py`, `runner/run.py`, `live/settings.json`, `live/skills/auto/SKILL.md` · Source: [review](../reviews/review-2026-10-15.md) (Leftovers).
 
-### 53. Only a typed /auto turns on or releases · needs a decision
-`wf auto on` and `wf auto release` refuse unless the hook recorded that you typed them, so no spelling of the command lets Claude run them.
-**Done when:** Claude cannot turn a chat on or release a repo by any spelling, and your typed `/auto on` and `/auto release` still work.
-- [ ] Design it (spec): `/architect only a typed auto turns on or releases`
+### 53. Only a typed /auto turns on or releases · in-progress · auto
+`wf auto on` and `wf auto release` always refuse; only your typed `/auto` turns a chat on or releases a repo, and `wf auto hook` is denied to Claude.
+**Done when:** Claude cannot turn a chat on or release a repo through any spelling of `wf auto on` or `wf auto release`, and your typed `/auto on` and `/auto release` still work.
+- [x] Design it (spec): `/architect only a typed auto turns on or releases`
 - [ ] Build it: `/develop only a typed auto turns on or releases`
+  - [ ] Command refuses on and release, help texts and comments (AC-1, AC-2, AC-3, AC-4)
+  - [ ] Deny `wf auto hook`, the /auto skill text (AC-1b, AC-4)
+  - [ ] Tests moved to direct calls, refusal and typed path tests (AC-5)
 - [ ] Verify it: `/check verify only a typed auto turns on or releases`
 - [ ] Test it: `/test only a typed auto turns on or releases`
+- [ ] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync only a typed auto turns on or releases`
-Source: [review](../reviews/review-2026-10-15-0047.md) (Leftovers).
+Spec [0049](../specs/0049-typed-auto-only/index.md) · code in `runner/auto.py`, `runner/wf.py`, `live/settings.json`, `live/skills/auto/SKILL.md` · Source: [review](../reviews/review-2026-10-15-0047.md) (Leftovers).
 
 ### 54. Organize claude-config and ~/.claude, sync what you use daily · needs a decision
 A folder structure and docs that are easy to read, and a repo that holds (or names) everything you use every day, without losing any skill.
 **Done when:** the new layout is live, the rewritten docs read plainly, every skill still works, and a check shows no drift between the repo and `~/.claude`.
-- [ ] Design it (spec): `/architect organize and sync claude-config with ~/.claude`
+- [x] Design it (spec): `/architect organize and sync claude-config with ~/.claude`
+- [ ] Fill in the skill sources in [untraced-skills.md](../briefs/untraced-skills.md) · waits on you
+- [ ] Amend the spec (original plus patch, untraced skills, short AGENTS.md): `/architect amend 0048 organize and sync`
 - [ ] Build it: `/develop organize and sync claude-config with ~/.claude`
+  - [ ] Probes P1 and P2, then the repo shape: `claude-home/`, `bin/`, `config/`, every path reference and the live step shapes (AC-1 to AC-4, AC-16)
+  - [ ] `bin/claude-config.py` sync, install, drift and the `/claude-config` skill, folding in `skills-audit.sh` (AC-7, AC-9)
+  - [ ] Manifest from the lock file and framework checkouts, edited skills copied in (AC-5, AC-7, AC-8)
+  - [ ] Update one change at a time, the state file and the weekly reminder hook (AC-10, AC-11)
+  - [ ] Docs map first, then the rewrite and the 5 guides (AC-12, AC-13)
+- [ ] Trace the untraced skills in a chat session, write the trace report, copy in what is not found (AC-6, AC-8) · waits on you · later boxes go on
 - [ ] Verify it: `/check verify organize and sync claude-config with ~/.claude`
 - [ ] Test it: `/test organize and sync claude-config with ~/.claude`
+- [ ] Back up `~/.claude` and the repo, as `migrate.md` step 0 says (AC-14) · waits on you
+- [ ] Install the new layout by running `bin/install.sh` yourself (the old runner copy does not know this path yet) · waits on you
+- [ ] Check every skill name still opens, then remove the temporary `live` link (AC-15) · waits on you
 - [ ] Sync docs: `/sync organize and sync claude-config with ~/.claude`
-Source: [brief](../briefs/organize-and-sync.md).
+Spec [0048](../specs/0048-organize-and-sync/index.md) · Source: [brief](../briefs/organize-and-sync.md).
+
+### 55. Fewer skills described in every session · in-progress · auto
+A fixed keep list of 37 skills keeps its description in every session; a script sets every other own skill and command to name only and reports every installed plugin. No skill is deleted, and the six long descriptions you rely on stay unchanged.
+**Done when:** after the script and `./sync.sh`, a new session describes only keep list skills among your own, the report lists every installed plugin (sentry-skills and turned off ones included), and every skill still runs by name.
+- [x] Design it (spec): `/architect fewer skills described in every session`
+- [ ] Build it: `/develop fewer skills described in every session`
+  - [ ] Keep list and script: write, backup, dry run, plugin report (AC-1 to AC-7, AC-9)
+  - [ ] Tests against a temp live dir (AC-8)
+- [ ] Verify it: `/check verify fewer skills described in every session`
+- [ ] Test it: `/test fewer skills described in every session`
+- [ ] Run `python3 scripts/skill-keep.py --dry-run`, then without it, then `./sync.sh` right away (AC-7) · waits on you · later boxes go on
+- [ ] Sync docs: `/sync fewer skills described in every session`
+Spec [0050](../specs/0050-fixed-skill-keep-list/index.md) · code in `scripts/skill-keep.py`, `scripts/skill-keep.txt` · Source: [research](../research/organize-and-sync-review-2026-10-15.md), section 5, and the [brief](../briefs/organize-and-sync.md).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
