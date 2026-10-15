@@ -10,7 +10,7 @@ and reinstalling those frameworks restores them. Two are hand-written and live i
 |-----------|--------|---------|
 | `gsd-check-update.js` | get-shit-done-cc | Checks for gstack updates on session start |
 | `gsd-session-state.sh` | get-shit-done-cc | Injects project state reminder at session start |
-| `gsd-context-monitor.js` | get-shit-done-cc | Monitors context usage after Bash/Edit/Write/Agent/Task |
+| `gsd-context-monitor.js` | get-shit-done-cc | **NOT WIRED** since spec 0037 - read a bridge file only gsd's status line writes, so it never fired; `context-monitor.js` replaces it |
 | `gsd-phase-boundary.sh` | get-shit-done-cc | Detects .planning/ file writes to track phase progress |
 | `gsd-prompt-guard.js` | get-shit-done-cc | Guards against prompt issues on Write/Edit |
 | `gsd-read-guard.js` | get-shit-done-cc | **NOT WIRED** - present in `~/.claude/hooks/` but referenced by no entry in settings.json |
@@ -22,6 +22,7 @@ and reinstalling those frameworks restores them. Two are hand-written and live i
 | `injection-guard.sh` | jjstack | Scans Write/Edit content for prompt injection in .md files |
 | `mcp-reconnect.sh` | jjstack | Reconnects MCP servers on tool failure. Not symlinked into `~/.claude/hooks/` - settings.json calls it at `~/.claude/skills/jjstack/hooks/` |
 | `block-destructive.sh` | **hand-written** (this repo, `hooks/`) | PreToolUse gate on Bash - hard-blocks `rm -rf` against absolute/home/parent/wildcard targets |
+| `context-monitor.js` | **derived** (this repo, `hooks/`, from get-shit-done-cc) | PostToolUse on Bash/Edit/Write/MultiEdit/Agent/Task - reads the session transcript and tells the model at 150k tokens used (again every 100k) to finish the step and `/rollover`, and once at 650k that autocompact is 50k away. Silent under `wf`. `node hooks/context-monitor.js --test` (spec 0037) |
 | `review-stack-pre-push` | **hand-written** (this repo, `hooks/`) | **A git hook, not a Claude Code hook.** Symlink it into a repo's `.git/hooks/pre-push` - never a bot-reviewed repo (the work orgs listed in your private `work.md`); it refuses to push a commit with no `/review-stack` receipt, or one whose receipt says `BLOCK`. Calls no model |
 | `gate.sh` | **hand-written** (this repo, `skills/design/scripts/`) | **Stop** hook, and the only one registered from SKILL.md frontmatter rather than `settings.json` - `design` and `brand-system` both declare it. Exits 0 immediately unless `~/.claude/.design-active` exists, so it never touches an unrelated session. When a run is open it exits 2 (blocking) with the unclosed ledger rows, at most twice; the third stop releases and marks the run `escaped:true`. An abandoned ledger (>24h) or an unreadable one also releases. Verified by `skills/design/scripts/test-ledger.sh`. |
 | `chroma-reaper.sh` | **hand-written** (this repo, `scripts/`) | Background reaper started once per session; keeps claude-mem's chroma processes from piling up |

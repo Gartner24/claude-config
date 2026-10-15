@@ -563,7 +563,7 @@ def selftest():
     (slive / "settings.local.json").write_text(json.dumps({"permissions": {"allow": ["Read(~/quux-labs)", "Read"]}}))
     (slive / "agents" / "a.md").write_text("agent\n")
     (slive / "rules" / "r.md").write_text("rule\n")
-    for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py", "scripts/chroma-reaper.sh"):
+    for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py", "hooks/context-monitor.js", "scripts/chroma-reaper.sh"):
         (slive / f).write_text("#!/bin/sh\n")
     sh("git", "add", "-A", cwd=sync_repo)
     sh("git", "commit", "-q", "--no-verify", "-m", "start", cwd=sync_repo)
@@ -583,13 +583,15 @@ def selftest():
     ok(not (slive / "private" / "settings.json").exists(), "AC-3 refused sync writes no fragment")
     (slive / "rules" / "r.md").write_text("rule\n")
     # covers: AC-4, every source is checked, not only rules/
-    for rel, body in (("CLAUDE.md", "# rules\nsee zorblex\n"), ("agents/a.md", "agent\nQuux-Labs\n")):
+    for rel, body in (("CLAUDE.md", "# rules\nsee zorblex\n"), ("agents/a.md", "agent\nQuux-Labs\n"),
+                      ("hooks/context-monitor.js", "#!/bin/sh\nzorblex\n")):
         (slive / rel).write_text(body)
         code, out = run(script=sync_repo / "sync.sh", cwd=sync_repo, extra=sync_env)
         ok(code == 1 and f"{slive}/{rel}:2: names.txt line" in out and not leaks(out)
            and tree_state() == before, f"AC-4 sync refuses a name in live {rel}")
     (slive / "CLAUDE.md").write_text("# rules\n")
     (slive / "agents" / "a.md").write_text("agent\n")
+    (slive / "hooks" / "context-monitor.js").write_text("#!/bin/sh\n")
     (slive / "settings.json").write_text(json.dumps(dict(settings, env={"X": "zorblex"})))
     code, out = run(script=sync_repo / "sync.sh", cwd=sync_repo, extra=sync_env)
     ok(code == 1 and "settings.json (stripped):" in out and not leaks(out) and tree_state() == before,
@@ -602,6 +604,10 @@ def selftest():
     shutil.copy(names_file, slive / "private" / "names.txt")
     code, out = run(script=sync_repo / "sync.sh", cwd=sync_repo, extra=sync_env)
     ok(code == 0, f"AC-3 clean sync passes: {out.strip()}")
+    # covers: spec 0037 AC-7, sync copies the context monitor hook back into the repo
+    synced_hook = sync_repo / "hooks" / "context-monitor.js"
+    ok(synced_hook.exists() and synced_hook.read_text() == (slive / "hooks" / "context-monitor.js").read_text(),
+       "0037 AC-7 sync copies hooks/context-monitor.js")
     synced = [(sync_repo / f).read_text() for f in ("settings.json", "settings.local.json")
               if (sync_repo / f).exists()]
     ok(len(synced) == 2 and "autoMode" not in synced[0] and not leaks("".join(synced)),
@@ -660,7 +666,7 @@ def selftest():
         (irepo / d).mkdir()
     shutil.copy(real_repo / "install.sh", irepo / "install.sh")
     shutil.copy(SCRIPT, irepo / "scripts" / "private-names.py")
-    for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py", "scripts/chroma-reaper.sh"):
+    for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py", "hooks/context-monitor.js", "scripts/chroma-reaper.sh"):
         (irepo / f).write_text("#!/bin/sh\n")
     (irepo / "CLAUDE.md").write_text("# rules\n")
     (irepo / "settings.json").write_text(json.dumps({"permissions": {"deny": ["Bash(rm:*)", "Read(~/x)"]}}))
@@ -692,6 +698,9 @@ def selftest():
     ok(all(is_copy(h) and f"{h}: copied" in out for h in ("pre-commit", "commit-msg")),
        "AC-7 install copies both hooks, regular 0755 files equal to the checker")
     ok(not leaks(out), "install output never holds a name")
+    # covers: spec 0037 AC-7, install copies the context monitor hook live, executable
+    live_hook = ilive / "hooks" / "context-monitor.js"
+    ok(live_hook.exists() and os.access(live_hook, os.X_OK), "0037 AC-7 install copies hooks/context-monitor.js, executable")
     code, out = run(script=irepo / "install.sh", extra=ienv)
     ok(excl.read_text().count("skills/zorblex-site/") == 1, "AC-7 install rerun adds no exclude line twice")
     ok(json.loads((ilive / "settings.json").read_text()) == live_s, "AC-6 install rerun gives the same settings")

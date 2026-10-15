@@ -36,6 +36,7 @@ because the LICENSE covers only the parts authored here.
 | `rules/ecc/` (43 of 50 files) | [affaan-m/ECC](https://github.com/affaan-m/ECC) | Same, plus local additions in `common/code-review.md` and `common/testing.md`. The other 7 are the `index.md` files listed above. |
 | `agents/scout.md`, `agents/researcher.md` | [JavaScript-Mastery-Pro/skills](https://github.com/JavaScript-Mastery-Pro/skills) | MIT; copied unchanged as the helper agents its workflow skills call. |
 | `skills/deep-research/` | [affaan-m/ECC](https://github.com/affaan-m/ECC) | Forked 2026-10-11 so an ECC reinstall cannot overwrite it; local additions: academic tools, web, code and forum search tools, fallback rule. |
+| `hooks/context-monitor.js` | [gsd-build/get-shit-done](https://github.com/gsd-build/get-shit-done) (`get-shit-done-cc` on npm) | MIT. Derived from its `gsd-context-monitor.js`: reads the transcript instead of the status line bridge file, token thresholds from `~/.claude/CLAUDE.md` (spec 0037). |
 | `skills/anti-ai-writing/` | third party, MIT | Recorded in `SKILLS-EVALUATION.md`. |
 | `skills/voice-dna/`, `skills/business-analyzer/` | third party | **License not recorded.** Verify before relying on redistribution. |
 

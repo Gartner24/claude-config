@@ -21,7 +21,7 @@ fail=0
 "${NAMES[@]}" strip-settings "$LIVE/settings.json" "$tmp/settings.json" "$tmp/private-settings.json" || fail=1
 "${NAMES[@]}" strip-settings "$LIVE/settings.local.json" "$tmp/settings.local.json" "$tmp/private-settings.local.json" || fail=1
 "${NAMES[@]}" check "$LIVE/CLAUDE.md" "$LIVE/agents" "$LIVE/rules" \
-  "$LIVE/hooks/block-destructive.sh" "$LIVE/hooks/review-stack-pre-push" "$LIVE/hooks/plain-panel.py" \
+  "$LIVE/hooks/block-destructive.sh" "$LIVE/hooks/review-stack-pre-push" "$LIVE/hooks/plain-panel.py" "$LIVE/hooks/context-monitor.js" \
   "$LIVE/scripts/chroma-reaper.sh" || fail=1
 if [ "$fail" = 1 ]; then
   echo "sync refused: a private name (or no names list) in the sources above; nothing was copied" >&2
@@ -44,6 +44,7 @@ mkdir -p "$REPO/hooks" "$REPO/scripts"
 cp "$LIVE/hooks/block-destructive.sh"     "$REPO/hooks/"
 cp "$LIVE/hooks/review-stack-pre-push" "$REPO/hooks/"
 cp "$LIVE/hooks/plain-panel.py"        "$REPO/hooks/"
+cp "$LIVE/hooks/context-monitor.js"    "$REPO/hooks/"
 cp "$LIVE/scripts/chroma-reaper.sh"   "$REPO/scripts/"
 
 

@@ -260,7 +260,7 @@ class TestInstallStage(unittest.TestCase):
         shutil.copy(RUNNER / "finish.py", repo / "runner" / "finish.py")
         for f in ("run.py", "wf.py", "ntfy.py", "report.py", "telegram.py", "plain.py", "context.py"):
             shutil.copy(RUNNER / f, repo / "runner" / f)
-        for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py", "scripts/chroma-reaper.sh"):
+        for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py", "hooks/context-monitor.js", "scripts/chroma-reaper.sh"):
             (repo / f).write_text("#!/bin/sh\n")
         (repo / "scripts" / "private-names.py").write_text("#!/usr/bin/env python3\n# c\n")
         (repo / "settings.json").write_text("{}")
