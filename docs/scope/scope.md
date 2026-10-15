@@ -715,8 +715,8 @@ A context monitor that actually warns at the thresholds, wired to the status lin
 **Done when:** a long session gets the warning at the threshold.
 - [x] Design it (spec): `/architect context monitor`
 - [x] Build it: `/develop context monitor`
-- [ ] Verify it: `/check verify context monitor`
-- [ ] Test it: `/test context monitor`
+- [x] Verify it: `/check verify context monitor`
+- [x] Test it: `/test context monitor`
 - [ ] Install it live after the merge, from main (the first install ran without this branch) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync context monitor`
 Spec [0037](../specs/0037-context-monitor/index.md) · Source: personal scope row 6.
