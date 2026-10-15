@@ -218,8 +218,11 @@ class TestSend(TelegramCase):
         self.assertEqual(p["parse_mode"], "HTML")
         self.assertEqual(d["sent"], "Question ab12 (its name, so your reply finds it):\nShip it?\n1 yes\n2 no\n3 later\n4 see\n5 option 5\n"
                                     "tap a button, or reply to this message")
+        # Night of 2026-10-15: the options apart from the question, numbers bold, the closing lines in italics.
         self.assertTrue(p["text"].startswith("<b>Question ab12 (its name, so your reply finds it):</b>\n<b>Ship it?</b>\n"
-                                             "1 yes\n"), p["text"])
+                                             "\n<b>1</b> yes\n"), p["text"])
+        self.assertTrue(p["text"].endswith("\n<b>5</b> option 5\n<i>tap a button, or reply to this message</i>\n"
+                                           "<i>wf demo: loop</i>"), p["text"])
         self.assertEqual(p["reply_markup"]["inline_keyboard"],
                          [[{"text": f"{n} {l}", "callback_data": f"ab12 {n}"}]
                           for n, l in enumerate(["yes", "no", "later", "see", "option 5"], 1)])
@@ -245,18 +248,30 @@ class TestSend(TelegramCase):
         html_ = self.bot.sent()[0]["text"]
         self.assertNotIn("<i>it", html_)
         self.assertIn("<b>Ship &lt;i&gt;it &amp; go?</b>", html_)
-        self.assertIn("\nfeature: 1. &lt;b&gt;Loop\n", html_)
+        self.assertIn("\n<b>feature:</b> 1. &lt;b&gt;Loop\n", html_)
         self.assertIn("<blockquote expandable>see &lt;script&gt;x</blockquote>", html_)
-        self.assertIn("\n1 &lt;a href=x&gt;ok\n2 no &amp; &lt;b&gt;\n", html_)
+        self.assertIn("\n<b>1</b> &lt;a href=x&gt;ok\n<b>2</b> no &amp; &lt;b&gt;\n", html_)
         self.assertIn("<i>learn: a &lt;tag&gt; &amp; more</i>", html_)
-        self.assertIn('spec: <a href="https://github.com/o/r/blob/main/a.md">https://github.com/o/r/blob/main/a.md</a>', html_)
+        self.assertIn('<b>spec:</b> <a href="https://github.com/o/r/blob/main/a.md">https://github.com/o/r/blob/main/a.md</a>', html_)
         # Spec 0044 AC-1: a short label for the link.
-        self.assertIn('PR: <a href="https://github.com/o/r/pull/7">#7</a>', html_)
+        self.assertIn('<b>PR:</b> <a href="https://github.com/o/r/pull/7">#7</a>', html_)
         self.assertIn("<blockquote expandable>", html_)
         self.assertEqual(re.findall(r"<a href", html_), ["<a href"] * 2)
         self.assertTrue(d["sent"].startswith("Question ab12 (its name, so your reply finds it):\nShip <i>it & go?"))
 
     # covers: spec 0038 AC-5 (a refused HTML message goes once more as plain text)
+    # Night of 2026-10-15: a `code` span in the question or the block shows in code font, still escaped inside.
+    def test_code_font(self):
+        t = telegram.Topic(self.cfg, "demo", "loop")
+        d = self.decision()
+        d.update(question="Run `cat ~/x <y>.json` now?", context={"repo": "demo", "steps": ["Type `wf queue` here"]})
+        t.ping(d, lambda: False)
+        html_ = self.bot.sent()[0]["text"]
+        self.assertIn("<b>Run <code>cat ~/x &lt;y&gt;.json</code> now?</b>", html_)
+        self.assertIn("1. Type <code>wf queue</code> here", html_)
+        self.assertIn("\n<b>steps:</b>\n", html_)
+        self.assertNotIn("`", html_)
+
     def test_styled_fallback(self):
         self.bot.fail = 1
         t = telegram.Topic(self.cfg, "demo", "loop")
@@ -580,11 +595,11 @@ class TestRunChannel(test_run.RunCase):
         # Spec 0038: the question message is styled HTML.
         self.assertTrue(texts[0].startswith(f"<b>Question {d['id']} (its name, so your reply finds it):</b>\n"
                                             "<b>Which storage engine?</b>\n"), texts[0])
-        self.assertIn("\n1 Postgres (recommended)\n2 SQLite\n", texts[0])
+        self.assertIn("\n<b>1</b> Postgres (recommended)\n<b>2</b> SQLite\n", texts[0])
         # Spec 0033 AC-4: the from block, with the repo and feature.
         # No names list in the test home: the repo shows by its hashed label (security review, information disclosure).
         # Spec 0044 AC-1: no lone from: line.
-        self.assertRegex(texts[0], r"\nrepo: repo-[0-9a-f]{4}\nfeature: 1\. Loop\n")
+        self.assertRegex(texts[0], r"\n<b>repo:</b> repo-[0-9a-f]{4}\n<b>feature:</b> 1\. Loop\n")
         self.assertNotIn("from:", texts[0])
         self.assertTrue(any(t.endswith(f"\nGot your answer to question {d['id']}: SQLite. Resuming.") for t in texts))
         self.assertEqual(self.bot.sent("answerCallbackQuery"), [{"callback_query_id": "cq1000"}])

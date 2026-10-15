@@ -43,9 +43,9 @@ class TestLabels(unittest.TestCase):
     # covers: AC-1 (short tappable labels in the styled message, full addresses in the plain one, no from: line)
     def test_short_labels(self):
         m = sent(question(what="It writes the file."))
-        self.assertIn(f'spec: <a href="{SPEC}">0031 adopt open prs</a>', m["styled"])
-        self.assertIn('repo: <a href="https://github.com/acme/widgets">widgets</a>', m["styled"])
-        self.assertIn('issue: <a href="https://github.com/acme/widgets/issues/4">#4</a>', m["styled"])
+        self.assertIn(f'<b>spec:</b> <a href="{SPEC}">0031 adopt open prs</a>', m["styled"])
+        self.assertIn('<b>repo:</b> <a href="https://github.com/acme/widgets">widgets</a>', m["styled"])
+        self.assertIn('<b>issue:</b> <a href="https://github.com/acme/widgets/issues/4">#4</a>', m["styled"])
         self.assertIn(f"spec: {SPEC}", m["plain"])
         self.assertIn("repo: widgets https://github.com/acme/widgets", m["plain"])
         self.assertNotIn("from:", m["styled"] + m["plain"])
@@ -108,9 +108,10 @@ class TestDoIt(unittest.TestCase):
         d = question(what="It writes the file.")
         d["options"] = ["done", run.DO_IT, run.SKIP_IT]
         m = sent(d)
-        for body in (m["plain"], m["styled"]):
-            self.assertIn("\n1 done\n2 do it for me\n3 skip\nor reply with a note: it goes to the step as your "
-                          "instruction\ntap a button", body)
+        self.assertIn("\n1 done\n2 do it for me\n3 skip\nor reply with a note: it goes to the step as your "
+                      "instruction\ntap a button", m["plain"])
+        self.assertIn("\n<b>1</b> done\n<b>2</b> do it for me\n<b>3</b> skip\n<i>or reply with a note: it goes to the "
+                      "step as your instruction</i>\n<i>tap a button", m["styled"])
 
 
 class TestApproved(unittest.TestCase):
@@ -120,8 +121,8 @@ class TestApproved(unittest.TestCase):
         d.update(case="approved", question="your PR #3 was approved: 38. Adopt. Merge it now?",
                  options=["merge now", "later", "I merged it"])
         m = sent(d)
-        for body in (m["plain"], m["styled"]):
-            self.assertIn("reviewers: your approver: approved · review bot: not yet", body)
+        self.assertIn("reviewers: your approver: approved · review bot: not yet", m["plain"])
+        self.assertIn("<b>reviewers:</b> your approver: approved · review bot: not yet", m["styled"])
 
 
 PHONE ="# Scope: m\n**Autopilot:** allowed\n### 1. M · auto\n- [x] (spec)\n- [ ] `/develop m`\n" \

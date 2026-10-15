@@ -252,6 +252,20 @@ def fetch(cfg):
 LINKED = re.compile(r"^((?:spec|issue|PR|repo): (?:#\d+ |[^ ]+ )?)(https://\S+)$")
 SPEC_FOLDER = re.compile(r"/specs/(?:[^/]+/)*(\d{4})-([^/]+?)(?:/index)?(?:\.md)?$")
 SENTENCE = re.compile(r"^(.+?[.!?])\s+(\S.*)$", re.S)
+# Night of 2026-10-15 (you: "still not very styled"): code in code font, labels in bold.
+CODE = re.compile(r"`([^`\n]+)`")
+BOLD_LABEL = re.compile(r"^(repo|feature|spec|step|path|issue|PR|did|why recommended|why|reviewers|steps|learn):(?= |$)")
+
+
+def fmt(text):
+    """Escaped HTML with each `code` span in code font."""
+    return CODE.sub(r"<code>\1</code>", html.escape(text))
+
+
+def labeled(text):
+    """fmt, with a leading `label:` in bold."""
+    m = BOLD_LABEL.match(text)
+    return f"<b>{html.escape(m.group(0))}</b>{fmt(text[m.end():])}" if m else fmt(text)
 
 
 def label(kind, head, url):
@@ -275,7 +289,7 @@ def styled_block(block):
             quote.append(line)
         elif m:
             kind = m.group(1).split(":", 1)[0]
-            out.append(f'{e(kind)}: <a href="{e(m.group(2))}">{e(label(kind, m.group(1), m.group(2)))}</a>')
+            out.append(f'<b>{e(kind)}:</b> <a href="{e(m.group(2))}">{e(label(kind, m.group(1), m.group(2)))}</a>')
         elif line.startswith("what this is: "):
             text = line[len("what this is: "):]
             # Spec 0044 AC-2: the unverified marker stays with the first sentence.
@@ -286,10 +300,12 @@ def styled_block(block):
             if len(first) > context.FIRST_MAX:
                 cut = ntfy.cut(first, context.FIRST_MAX)
                 first, rest = cut, (first[len(cut) - 3:].lstrip() + " " + rest).strip()
-            out.append(f"<b>what this is:</b> {e(lead + first)}" +
-                       (f"\n<blockquote expandable>{e(rest)}</blockquote>" if rest else ""))
+            out.append(f"\n<b>what this is:</b> {fmt(lead + first)}" +
+                       (f"\n<blockquote expandable>{fmt(rest)}</blockquote>" if rest else ""))
+        elif line == "steps:":
+            out.append("\n<b>steps:</b>")
         else:
-            out.append(e(line))
+            out.append(labeled(line))
     if quote:
         out.append(f"<b>{e(quote[0])}</b>\n<blockquote expandable>{e(chr(10).join(q[2:] for q in quote[1:]))}</blockquote>")
     return "\n".join(out)
@@ -354,8 +370,11 @@ class Topic(ntfy.Topic):
         lines.append("tap a button, or reply to this message" if panel else "reply to this message with your answer")
         d["sent"] = "\n".join(lines)
         e = html.escape
-        styled = [f"<b>{e(lines[0])}</b>", f"<b>{e(question)}</b>"] + ([f"<i>{e(lines[2])}</i>"] if learn else []) + \
-            ([styled_block(block)] if block else []) + [e(x) for x in lines[tail_at:]] + [e(self.title)]
+        # Night of 2026-10-15: groups apart, option numbers bold, the question's code in code font.
+        options = [f"<b>{n}</b> {e(x.split(' ', 1)[1])}" for n, x in enumerate(lines[tail_at:tail_at + len(d["options"])], 1)]
+        styled = [f"<b>{e(lines[0])}</b>", f"<b>{fmt(question)}</b>"] + \
+            ([f"<i>{fmt(lines[2])}</i>"] if learn else []) + ([""] + [styled_block(block)] if block else []) + \
+            [""] + options + [f"<i>{e(x)}</i>" for x in lines[tail_at + len(d["options"]):]] + [f"<i>{e(self.title)}</i>"]
         return self.publish(d["sent"] + "\n" + self.title, 4, stopped=stopped, title="",
                             markup={"inline_keyboard": rows} if panel and rows else None, styled="\n".join(styled))
 
