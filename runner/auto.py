@@ -86,8 +86,17 @@ def open_questions():
 
 
 def counts():
-    q = open_questions()
-    return report.locks_held(), "?" if q is None else len(q)
+    """What runs, in words, and the open question count. Parallel features each hold a lock, so they are counted
+    by feature and repo (spec 0027 active.json), not as repos."""
+    q, n = open_questions(), report.locks_held()
+    # A crashed run can leave active.json behind; no lock held means nothing runs.
+    active = run.read_active() if n else []
+    if active:
+        repos = len({a.get("repo") for a in active})
+        what = f"{len(active)} feature{'s' * (len(active) != 1)} in {repos} repo{'s' * (repos != 1)}"
+    else:
+        what = f"{n} repo{'s' * (n != 1)}" if n else ""
+    return what, "?" if q is None else len(q)
 
 
 def status_line(folder):
@@ -98,7 +107,7 @@ def status_line(folder):
     if not driving(s, folder):
         return f"autonomous: on in {wf.clean(os.path.basename(s.get('folder') or ''))[:60]}"
     n, q = counts()
-    return f"autonomous: on, wf {f'running {n} repos' if n else 'idle'}, {q} questions open"
+    return f"autonomous: on, wf {f'running {n}' if n else 'idle'}, {q} questions open"
 
 
 def fingerprint():
@@ -333,7 +342,7 @@ def bar():
         s = load()
         if driving(s, folder):
             n, q = counts()
-            seg = f" {GREEN}AUTO {f'running {n} repos, {q} question(s)' if n else 'idle'}{RESET}"
+            seg = f" {GREEN}AUTO {f'running {n}, {q} question(s)' if n else 'idle'}{RESET}"
         elif s and s.get("on") is True:
             seg = f" auto: {wf.clean(os.path.basename(s.get('folder') or ''))[:60]}"
     except Exception:
