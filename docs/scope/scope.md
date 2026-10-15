@@ -804,11 +804,18 @@ A folder structure and docs that are easy to read, and a repo that holds (or nam
 - [ ] Sync docs: `/sync organize and sync claude-config with ~/.claude`
 Spec [0048](../specs/0048-organize-and-sync/index.md) · Source: [brief](../briefs/organize-and-sync.md).
 
-### 55. Fewer skills described in every session · needs a decision
-Claude picks the right skill more often and spends less context: only about 35 skills keep their description in every session, the rest stay installed and callable by name. No skill is deleted.
-**Done when:** `/doctor` shows about 35 described skills, the 8 descriptions over 1,024 characters are shortened or name only, plugin skills are reviewed, and every skill still runs by name.
-- [ ] Design it (spec): `/architect fewer skills described in every session`
-Source: [research](../research/organize-and-sync-review-2026-10-15.md), section 5, and the [brief](../briefs/organize-and-sync.md).
+### 55. Fewer skills described in every session · in-progress · auto
+A fixed keep list of 37 skills keeps its description in every session; a script sets every other own skill and command to name only and reports every installed plugin. No skill is deleted, and the six long descriptions you rely on stay unchanged.
+**Done when:** after the script and `./sync.sh`, a new session describes only keep list skills among your own, the report lists every installed plugin (sentry-skills and turned off ones included), and every skill still runs by name.
+- [x] Design it (spec): `/architect fewer skills described in every session`
+- [ ] Build it: `/develop fewer skills described in every session`
+  - [ ] Keep list and script: write, backup, dry run, plugin report (AC-1 to AC-7, AC-9)
+  - [ ] Tests against a temp live dir (AC-8)
+- [ ] Verify it: `/check verify fewer skills described in every session`
+- [ ] Test it: `/test fewer skills described in every session`
+- [ ] Run `python3 scripts/skill-keep.py --dry-run`, then without it, then `./sync.sh` right away (AC-7) · waits on you · later boxes go on
+- [ ] Sync docs: `/sync fewer skills described in every session`
+Spec [0050](../specs/0050-fixed-skill-keep-list/index.md) · code in `scripts/skill-keep.py`, `scripts/skill-keep.txt` · Source: [research](../research/organize-and-sync-review-2026-10-15.md), section 5, and the [brief](../briefs/organize-and-sync.md).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
