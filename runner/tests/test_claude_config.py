@@ -311,6 +311,17 @@ class TestBuild(Case):
         self.assertEqual((s / "ref.md").read_text(), "ref mine\n")
 
 
+class TestDescription(unittest.TestCase):
+    # covers: spec 0048 AC-5 and AC-13 (a folded `>` description is read whole, not as the bare `>`)
+    def test_folded(self):
+        with tempfile.TemporaryDirectory() as d:
+            Path(d, "SKILL.md").write_text("---\nname: x\ndescription: >\n  Does one thing. Then\n  more.\n"
+                                           "argument-hint: y\n---\nbody\n")
+            self.assertEqual(cc.description(d), "Does one thing.")
+            Path(d, "SKILL.md").write_text("---\ndescription: Plain line. Second.\n---\n")
+            self.assertEqual(cc.description(d), "Plain line.")
+
+
 class TestReminder(unittest.TestCase):
     _spec = importlib.util.spec_from_file_location("reminder", REAL / "claude-home" / "hooks" / "claude-config-reminder.py")
     hook = importlib.util.module_from_spec(_spec)

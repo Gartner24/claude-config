@@ -1,19 +1,9 @@
-# Design pipeline - setup and use
+# Design pipeline
+Type: how to
 
-Rewritten 2026-09-09. The previous version taught a setup that no longer works: it told you
-to run
-
-```
-claude mcp add magic --scope user --env API_KEY="YOUR_KEY" -- npx -y @21st-dev/magic@latest
-```
-
-which is the exact command that produced the broken server that failed on every session for
-months. `@21st-dev/magic` is now a shim; the service moved to `https://21st.dev/api/mcp` and
-switched from an `API_KEY` env var to an `x-api-key` header. It also documented `/ui` and
-`/21` as if they were commands. They were never protocol features, only tool-description
-conventions, and they are gone.
-
-There is almost nothing to set up now. Read the "One-time" section, then use `/design`.
+How to set up and run the `design` pipeline: three skills that build a UI surface step by step,
+with a run ledger and a Stop hook that refuse to end the turn while a step is open. There is almost
+nothing to set up: read `## One time setup`, then run `/design`.
 
 ---
 
@@ -35,7 +25,19 @@ tokens; it does not re-derive them.
 
 ---
 
-## One-time
+## One time setup
+
+**Do not use the old setup command.** An earlier version of this guide said to run
+
+```
+claude mcp add magic --scope user --env API_KEY="YOUR_KEY" -- npx -y @21st-dev/magic@latest
+```
+
+which produced a broken server that failed on every session for months. `@21st-dev/magic` is now a
+shim; the service moved to `https://21st.dev/api/mcp` and switched from an `API_KEY` env var to an
+`x-api-key` header. That version also documented `/ui` and `/21` as commands. They were never
+protocol features, only tool description conventions, and they are gone. The `magic` MCP is optional
+now, not the main component source.
 
 **Already installed and connected** - nothing to do:
 
@@ -66,7 +68,7 @@ user-scoped.
 
 ---
 
-## Using it
+## Use it
 
 ```
 /design [what + where]
@@ -80,7 +82,7 @@ supply is locked as given; whatever you leave out gets decided and stated.
 For a client build, run `/brand-system` first. `/design` will otherwise propose a direction
 the client never signed off on.
 
-### What actually happens
+### What happens, step by step
 
 ```
 detect     which stack, from the repo, not from assumption
@@ -137,10 +139,10 @@ conceptual and atmospheric imagery, and that is roughly one asset in five.
 
 Long-form, in the skills rather than here so it loads on demand:
 
-- `skills/design/references/craft.md` - the 36-item AI-tell checklist and 25 ranked craft moves
-- `skills/design/references/stacks.md` - stack detection, component matrix, the token schema
-- `skills/design/references/reference-lock.md` - Mobbin/Refero, gallery ladder, ToS boundaries
-- `skills/assets/references/` - generation, sourcing, shapes, editing, prompting
+- `claude-home/skills/design/references/craft.md` - the 36-item AI-tell checklist and 25 ranked craft moves
+- `claude-home/skills/design/references/stacks.md` - stack detection, component matrix, the token schema
+- `claude-home/skills/design/references/reference-lock.md` - Mobbin/Refero, gallery ladder, ToS boundaries
+- `claude-home/skills/assets/references/` - generation, sourcing, shapes, editing, prompting
 - `~/projects/freelance/website-build-templates/guides/BRAND-SYSTEM-GUIDE.md` - the craft layer
 
 Verify the tooling still works after touching it:

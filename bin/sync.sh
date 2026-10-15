@@ -24,9 +24,11 @@ fail=0
 "${NAMES[@]}" check "$LIVE/CLAUDE.md" "$LIVE/agents" "$LIVE/rules" \
   "$LIVE/hooks/block-destructive.sh" "$LIVE/hooks/review-stack-pre-push" "$LIVE/hooks/plain-panel.py" "$LIVE/hooks/context-monitor.js" \
   "$LIVE/scripts/chroma-reaper.sh" || fail=1
-if [ -e "$LIVE/hooks/claude-config-reminder.py" ]; then
-  "${NAMES[@]}" check "$LIVE/hooks/claude-config-reminder.py" || fail=1
-fi
+# Spec 0048: these may be missing from a live tree (first install, the self checks' temp trees).
+OPTIONAL=(hooks/claude-config-reminder.py hooks/workflow-start.sh hooks/claude-mem-install.sh scripts/claude-ram-watch.sh)
+for f in "${OPTIONAL[@]}"; do
+  if [ -e "$LIVE/$f" ]; then "${NAMES[@]}" check "$LIVE/$f" || fail=1; fi
+done
 if [ "$fail" = 1 ]; then
   echo "sync refused: a private name (or no names list) in the sources above; nothing was copied" >&2
   exit 1
@@ -51,8 +53,10 @@ cp "$LIVE/hooks/review-stack-pre-push" "$REPO/claude-home/hooks/"
 cp "$LIVE/hooks/plain-panel.py"        "$REPO/claude-home/hooks/"
 # Not live until the first install after spec 0037; a missing file used to stop the sync half way.
 if [ -e "$LIVE/hooks/context-monitor.js" ]; then cp "$LIVE/hooks/context-monitor.js" "$REPO/claude-home/hooks/"; fi
-# Spec 0048 AC-11: same, until the first install after spec 0048.
-if [ -e "$LIVE/hooks/claude-config-reminder.py" ]; then cp "$LIVE/hooks/claude-config-reminder.py" "$REPO/claude-home/hooks/"; fi
+# Spec 0048 AC-11 and AC-5: same, the reminder until the first install after spec 0048.
+for f in "${OPTIONAL[@]}"; do
+  if [ -e "$LIVE/$f" ]; then cp "$LIVE/$f" "$REPO/claude-home/$f"; fi
+done
 cp "$LIVE/scripts/chroma-reaper.sh"   "$REPO/claude-home/scripts/"
 
 

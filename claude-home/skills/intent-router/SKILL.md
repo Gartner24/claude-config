@@ -9,7 +9,7 @@ description: >
 
 # Intent Router
 
-Config-driven skill dispatcher. Reads live routing rules from `~/claude-config/USAGE.md`,
+Config-driven skill dispatcher. Reads live routing rules from `~/claude-config/config/routing.md`,
 scores the current prompt against every skill's TRIGGERS/BLOCKS/PRIORITY, announces
 the winner in one line, and invokes it.
 
@@ -28,17 +28,17 @@ Skip this skill when:
 ## Step 1 - Load routing table
 
 ```bash
-cat ~/claude-config/USAGE.md 2>/dev/null || echo "ROUTING_TABLE_MISSING"
+cat ~/claude-config/config/routing.md 2>/dev/null || echo "ROUTING_TABLE_MISSING"
 ```
 
 If output is `ROUTING_TABLE_MISSING`: fall back to the built-in table at the
-bottom of this skill. Tell the user: "Routing table not found at ~/claude-config/USAGE.md
+bottom of this skill. Tell the user: "Routing table not found at ~/claude-config/config/routing.md
 - using built-in defaults. Clone https://github.com/Gartner24/claude-config to get
 personalized routing."
 
 ## Step 2 - Parse routing blocks
 
-From the USAGE.md output, extract every block in this format:
+From the routing.md output, extract every block in this format:
 
 ```
 ### <skill-name>
@@ -144,7 +144,7 @@ These rules encode personal preferences that override pure trigger scoring:
 
 ## Built-in fallback table
 
-Used only when `~/claude-config/USAGE.md` is not found.
+Used only when `~/claude-config/config/routing.md` is not found.
 
 | Skill | Triggers | Priority |
 |-------|----------|----------|

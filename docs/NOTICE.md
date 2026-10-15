@@ -10,7 +10,7 @@ because the LICENSE covers only the parts authored here.
 | `claude-home/skills/review-stack/` | Multi-agent pre-ship and PR review orchestrator |
 | `claude-home/agents/regression-hunter.md` | Regression hunting: what worked before a diff and stops after |
 | `claude-home/agents/pr-intent-verifier.md` | Does a PR do what it claims, and nothing else |
-| `claude-home/skills/intent-router/`, `docs/guides/USAGE.md` | Prompt-to-skill routing table and its scorer |
+| `claude-home/skills/intent-router/`, `config/routing.md` | Prompt-to-skill routing table and its scorer |
 | `scripts/check-routing.py`, `scripts/asciify.py`, `scripts/private-names.py`, `scripts/spec-paths.py`, `scripts/fb-ask.py` | Repo tooling |
 | `claude-home/hooks/block-destructive.sh` | Destructive-command guard |
 | `claude-home/hooks/plain-panel.py` | Panel check: every question offers "Learn this first", at most 3 real options, no jargon (spec 0028) |
@@ -37,7 +37,7 @@ because the LICENSE covers only the parts authored here.
 | `claude-home/agents/scout.md`, `claude-home/agents/researcher.md` | [JavaScript-Mastery-Pro/skills](https://github.com/JavaScript-Mastery-Pro/skills) | MIT; copied unchanged as the helper agents its workflow skills call. |
 | `claude-home/skills/deep-research/` | [affaan-m/ECC](https://github.com/affaan-m/ECC) | Forked 2026-10-11 so an ECC reinstall cannot overwrite it; local additions: academic tools, web, code and forum search tools, fallback rule. |
 | `claude-home/hooks/context-monitor.js` | [gsd-build/get-shit-done](https://github.com/gsd-build/get-shit-done) (`get-shit-done-cc` on npm) | MIT. Derived from its `gsd-context-monitor.js`: reads the transcript instead of the status line bridge file, token thresholds from `~/.claude/CLAUDE.md` (spec 0037). |
-| `claude-home/skills/anti-ai-writing/` | third party, MIT | Recorded in `docs/guides/SKILLS-EVALUATION.md`. |
+| `claude-home/skills/anti-ai-writing/` | third party, MIT | Recorded in `docs/research/SKILLS-EVALUATION.md`. |
 | `claude-home/skills/voice-dna/`, `claude-home/skills/business-analyzer/` | third party | **License not recorded.** Verify before relying on redistribution. |
 
 The frameworks this setup runs on - gstack, jjstack, get-shit-done-cc, the Claude Code

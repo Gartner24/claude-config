@@ -2635,10 +2635,46 @@
       "pinned": "0c6a49f1fa56a1d472575da86a94dbc1edb78eda",
       "source": "github:anthropics/claude-code-security-review"
     },
+    "ecc": {
+      "fetch": "manual",
+      "install": "copy commands/<name>.md for each owned command from https://github.com/affaan-m/ECC into ~/.claude/commands/ (installed copies match several upstream commits, so no single pin)",
+      "license": "MIT",
+      "owns": [
+        "commands/build-fix.md",
+        "commands/checkpoint.md",
+        "commands/fastapi-review.md",
+        "commands/go-build.md",
+        "commands/go-review.md",
+        "commands/go-test.md",
+        "commands/gradle-build.md",
+        "commands/multi-backend.md",
+        "commands/multi-execute.md",
+        "commands/multi-frontend.md",
+        "commands/multi-plan.md",
+        "commands/multi-workflow.md",
+        "commands/plan-prd.md",
+        "commands/plan.md",
+        "commands/pr.md",
+        "commands/project-init.md",
+        "commands/python-review.md",
+        "commands/quality-gate.md",
+        "commands/refactor-clean.md",
+        "commands/review-pr.md",
+        "commands/rust-build.md",
+        "commands/rust-review.md",
+        "commands/rust-test.md",
+        "commands/security-scan.md",
+        "commands/skill-create.md",
+        "commands/test-coverage.md",
+        "commands/update-docs.md"
+      ],
+      "pinned": null,
+      "source": "github:affaan-m/everything-claude-code"
+    },
     "get-shit-done": {
       "dir": "~/.claude/get-shit-done",
       "fetch": "manual",
-      "install": "npx get-shit-done-cc (pinned at 1.34.2: read docs/guides/SKILLS.md first, a rerun reinstalls the purged routes)",
+      "install": "npx get-shit-done-cc (pinned at 1.34.2: read docs/guides/SETUP.md first, a rerun reinstalls the purged routes)",
       "license": "unknown",
       "owns": [
         "hooks/gsd-*"

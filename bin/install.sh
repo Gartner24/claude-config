@@ -5,7 +5,7 @@
 #
 # What this does NOT install: the frameworks (gstack, jjstack, get-shit-done-cc)
 # and the Claude Code plugins. They manage themselves and are not vendored here -
-# docs/guides/SKILLS.md documents how to install each. Run this first, then those.
+# docs/guides/SETUP.md documents how to install each. Run this first, then those.
 #
 #   bin/install.sh            install
 #   bin/install.sh --dry-run  print what would happen, touch nothing
@@ -49,13 +49,14 @@ for f in hooks/block-destructive.sh hooks/review-stack-pre-push hooks/plain-pane
   run cp -a "$REPO/claude-home/$f" "$LIVE/$f"
   run chmod +x "$LIVE/$f"
 done
-# Spec 0048 AC-11: the weekly upstream reminder. A scratch copy of this script (the self checks) may lack it.
-f=hooks/claude-config-reminder.py
-if [ -e "$REPO/claude-home/$f" ]; then
+# Spec 0048 AC-11: the weekly upstream reminder; AC-5: your own hooks that used to be live only.
+# A scratch copy of this script (the self checks) may lack them.
+for f in hooks/claude-config-reminder.py hooks/workflow-start.sh hooks/claude-mem-install.sh scripts/claude-ram-watch.sh; do
+  [ -e "$REPO/claude-home/$f" ] || continue
   note "$f"
   run cp -a "$REPO/claude-home/$f" "$LIVE/$f"
   run chmod +x "$LIVE/$f"
-fi
+done
 
 # Symlinked: editing the live file edits the repo, so there is one copy of the
 # truth. This is how the existing install is already wired.
@@ -287,7 +288,7 @@ fi
 
 cat <<EOF
 
-done. Still to install, none of it vendored here (see docs/guides/SKILLS.md):
+done. Still to install, none of it vendored here (see docs/guides/SETUP.md):
   gstack / jjstack / get-shit-done-cc, and the Claude Code plugins.
 
 Activate the rules per project by adding one line to that project's CLAUDE.md:

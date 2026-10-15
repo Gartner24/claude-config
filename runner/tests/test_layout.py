@@ -100,5 +100,62 @@ class TestReadme(unittest.TestCase):
             self.assertEqual(rows.get(kind), truth, kind)
 
 
+GUIDES = {"SETUP.md", "DAILY-USE.md", "SKILLS.md", "HOOKS.md", "DESIGN-PIPELINE.md"}
+TYPES = {"Type: tutorial", "Type: how to", "Type: reference", "Type: explanation"}
+REWRITTEN = ["README.md", "AGENTS.md", "docs/architecture.md", "config/routing.md"] + [f"docs/guides/{g}" for g in GUIDES]
+
+
+def load(rel):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(Path(rel).stem.replace("-", "_"), REPO / rel)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+class TestDocs(unittest.TestCase):
+    # covers: spec 0048 AC-12 (AGENTS.md under 200 lines, README and AGENTS.md each open with who they are for)
+    def test_readers(self):
+        agents = (REPO / "AGENTS.md").read_text().splitlines()
+        self.assertLess(len(agents), 200, f"AGENTS.md has {len(agents)} lines")
+        self.assertRegex(agents[2], r"^For an AI agent")
+        self.assertRegex((REPO / "README.md").read_text().splitlines()[2], r"^For you")
+
+    # covers: AC-13 (exactly the 5 guides, each with its type on line 2; the evaluation log moved to research)
+    def test_guides(self):
+        have = {Path(p).name for p in tracked("docs/guides/")}
+        self.assertEqual(have, GUIDES)
+        for g in sorted(GUIDES):
+            self.assertIn((REPO / "docs/guides" / g).read_text().splitlines()[1], TYPES, g)
+        self.assertEqual(tracked("docs/research/SKILLS-EVALUATION.md"), ["docs/research/SKILLS-EVALUATION.md"])
+
+    # covers: AC-13 (the committed SKILLS.md equals a fresh `bin/claude-config.py docs`, which reads the repo only)
+    def test_skills_generated(self):
+        tool = load("bin/claude-config.py")
+        self.assertEqual((REPO / "docs/guides/SKILLS.md").read_text(), tool.docs_text(),
+                         "docs/guides/SKILLS.md is stale: run python3 bin/claude-config.py docs")
+
+    # covers: AC-13 (every rewritten file passes the ASCII rule)
+    def test_ascii(self):
+        asciify = load("scripts/asciify.py")
+        bad = [rel for rel in REWRITTEN if asciify.convert((REPO / rel).read_text())[0] != (REPO / rel).read_text()]
+        self.assertEqual(bad, [])
+
+    # covers: AC-12 (every old item has a row in docs-map.md, no row lands nowhere, every target file exists)
+    def test_docs_map(self):
+        rows = [r for r in (REPO / "docs/specs/0048-organize-and-sync/docs-map.md").read_text().splitlines()
+                if re.match(r"\| [A-Z]+\d+ \|", r)]
+        self.assertGreater(len(rows), 300)
+        bad = []
+        for r in rows:
+            cells = [c.strip() for c in r.strip("|").split("|")]
+            target, heading = cells[3].strip("`"), cells[4]
+            if "nowhere" in heading.lower() or not heading:
+                bad.append(r)
+            elif not heading.startswith("dropped:") and not (REPO / target).exists():
+                bad.append(r)
+        self.assertEqual(bad, [], f"{len(bad)} rows land nowhere:\n" + "\n".join(bad[:20]))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -89,7 +89,7 @@ Run ledger, Stop hook, font and colour scripts behind `design`, `brand-system`, 
 Multi agent pre ship review with a blind lane and a pre push receipt hook. code in `skills/review-stack/`, `hooks/review-stack-pre-push`
 
 ### D. Skill routing · existing
-`USAGE.md` routing table, the intent router, and its regression check. code in `skills/intent-router/`, `scripts/check-routing.py`
+`config/routing.md` routing table, the intent router, and its regression check. code in `skills/intent-router/`, `scripts/check-routing.py`
 
 ## Foundations
 
@@ -789,12 +789,12 @@ A folder structure and docs that are easy to read, and a repo that holds (or nam
 - [x] Design it (spec): `/architect organize and sync claude-config with ~/.claude`
 - [x] Fill in the skill sources in [untraced-skills.md](../briefs/untraced-skills.md) · waits on you
 - [x] Amend the spec (original plus patch, untraced skills, short AGENTS.md): `/architect amend 0048 organize and sync`
-- [ ] Build it: `/develop organize and sync claude-config with ~/.claude`
-  - [ ] Probes P1 and P2, then the repo shape: `claude-home/`, `bin/`, `config/`, every path reference and the live step shapes (AC-1 to AC-4, AC-16)
-  - [ ] `bin/claude-config.py` sync, install, drift and the `/claude-config` skill, folding in `skills-audit.sh` (AC-7, AC-9)
-  - [ ] Manifest from the lock file, framework checkouts and the traced brief, pins by history walk, patches, private store, NOTICE (AC-5 to AC-8)
+- [x] Build it: `/develop organize and sync claude-config with ~/.claude`
+  - [x] Probes P1 and P2, then the repo shape: `claude-home/`, `bin/`, `config/`, every path reference and the live step shapes (AC-1 to AC-4, AC-16)
+  - [x] `bin/claude-config.py` sync, install, drift and the `/claude-config` skill, folding in `skills-audit.sh` (AC-7, AC-9)
+  - [x] Manifest from the lock file, framework checkouts and the traced brief, pins by history walk, patches, private store, NOTICE (AC-5 to AC-8)
   - [x] Update with the patch carried forward, conflicts and `--resolved`, the state file and the weekly reminder hook (AC-10, AC-11)
-  - [ ] Docs map first, then the rewrite, a short AGENTS.md and the 5 typed guides (AC-12, AC-13)
+  - [x] Docs map first, then the rewrite, a short AGENTS.md and the 5 typed guides (AC-12, AC-13)
 - [ ] Verify it: `/check verify organize and sync claude-config with ~/.claude`
 - [ ] Test it: `/test organize and sync claude-config with ~/.claude`
 - [ ] Back up `~/.claude` and the repo, as `migrate.md` step 0 says (AC-14) · waits on you
@@ -803,7 +803,7 @@ A folder structure and docs that are easy to read, and a repo that holds (or nam
 - [ ] Sync docs: `/sync organize and sync claude-config with ~/.claude`
 Spec [0048](../specs/0048-organize-and-sync/index.md) · Source: [brief](../briefs/organize-and-sync.md).
 
-### 55. Fewer skills described in every session · in-progress · auto
+### 55. Fewer skills described in every session · done
 A fixed keep list of 37 skills keeps its description in every session; a script sets every other own skill and command to name only and reports every installed plugin. No skill is deleted, and the six long descriptions you rely on stay unchanged.
 **Done when:** after the script and `bin/sync.sh`, a new session describes only keep list skills among your own, the report lists every installed plugin (sentry-skills and turned off ones included), and every skill still runs by name.
 - [x] Design it (spec): `/architect fewer skills described in every session`
@@ -812,7 +812,7 @@ A fixed keep list of 37 skills keeps its description in every session; a script 
   - [x] Tests against a temp live dir (AC-8)
 - [x] Verify it: `/check verify fewer skills described in every session`
 - [x] Test it: `/test fewer skills described in every session`
-- [ ] Run `python3 scripts/skill-keep.py --dry-run`, then without it, then `bin/sync.sh` right away (AC-7) · waits on you · later boxes go on
+- [x] Run `python3 scripts/skill-keep.py --dry-run`, then without it, then `bin/sync.sh` right away (AC-7) · waits on you · later boxes go on
 - [x] Sync docs: `/sync fewer skills described in every session`
 Spec [0050](../specs/0050-fixed-skill-keep-list/index.md) · code in `scripts/skill-keep.py`, `scripts/skill-keep.txt`, `runner/tests/test_skill_keep.py` · Source: [research](../research/organize-and-sync-review-2026-10-15.md), section 5, and the [brief](../briefs/organize-and-sync.md).
 
