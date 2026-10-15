@@ -8,6 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pr  # noqa: E402
 import run  # noqa: E402
 from test_never_stop import NeverStopCase  # noqa: E402
+from test_run import ask  # noqa: E402
 
 WAIT = "Use it for a week · waits on you · later boxes go on"
 OWED = ("# Scope: x\n**Autopilot:** allowed\n### 1. A · in-progress · auto\n- [x] (spec)\n"
@@ -115,6 +116,26 @@ class TestLeftToBox(NeverStopCase):
     # covers: spec 0047 AC-4 (a note an earlier call left, which this call did not write, parks unchecked)
     def test_stale_note_parks(self):
         self.parks_without_note(says("LEFT TO BOX: Use it for a week\nCAN FAIL CHECKED: 0"), NOTE[0][1])
+
+    # covers: spec 0047 AC-4 (a resumed verify needs its note written in the resume itself; one written by the call
+    # that asked parks unchecked, one written by the resume passes)
+    def test_resume_needs_its_own_note(self):
+        claim = "LEFT TO BOX: Use it for a week\nCAN FAIL CHECKED: 0"
+        self.reply("{id} 1")
+        self.make_repo("c", OWED)
+        self.steps([ask(write_file=NOTE), says(claim)])
+        rec = self.assert_stopped(self.wf("c", "-y", "--max-wait", "0.01", mode="fast"), "unchecked", calls=3)
+        self.assertEqual(self.argv(2)["argv"][2:4], ["--resume", "s-1"])
+        self.assertIn("CAN FAIL CHECKED", rec["detail"])
+
+    def test_resume_with_its_note_passes(self):
+        self.reply("{id} 1")
+        self.make_repo("c", OWED)
+        self.steps([ask(), says("LEFT TO BOX: Use it for a week\nCAN FAIL CHECKED: 0", write_file=NOTE),
+                    says("MUTATION CHECKED: 1")])
+        self.wf("c", "-y", "--max-wait", "0.01", mode="fast")
+        self.assertEqual(self.argv(2)["argv"][2:4], ["--resume", "s-1"])
+        self.assertEqual(self.argv(3)["argv"][1], "/test a")
 
 
 class TestUnreachable(NeverStopCase):

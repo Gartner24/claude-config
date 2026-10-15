@@ -336,6 +336,10 @@ class TestSettings(unittest.TestCase):
                                  if r.startswith("Bash(")), cmd)
         skill = (Path(__file__).resolve().parents[2] / "live" / "skills" / "auto" / "SKILL.md").read_text()
         self.assertIn("\ndisable-model-invocation: true\n", skill)
+        # Spec 0047 AC-3: the skill covers release as yours.
+        self.assertIn("\nargument-hint: on [repos] | off [now] | release <repos>\n", skill)
+        self.assertRegex(skill, r"\ndescription: [^\n]*only the user releases a repo from a chat \(`/auto release")
+        self.assertIn("Claude can never run `wf auto on` or `wf auto release`", skill)
 
 
 class TestWait(AutoCase):
