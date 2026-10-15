@@ -587,6 +587,8 @@ class TestReview(PrCase):
         asked = [p["message"] for p in self.report_ntfy.posts if "merge PR #7 now?" in p.get("message", "")]
         self.assertTrue(asked, r.stdout)
         self.assertIn("1 merge now", asked[0])
+        # covers: spec 0033 AC-10 (the merge question names its step, merge, and the PR, not the generic flow)
+        self.assertIn(" / merge on PR #7\n", asked[0])
         merges = [c for c in self.gh_calls() if c[:2] == ["pr", "merge"]]
         self.assertEqual(merges, [["pr", "merge", "7", "--repo", "acme/widgets", "--merge", "--match-head-commit", head]])
         self.assertEqual(self.rec()["state"], "merged")
