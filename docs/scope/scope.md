@@ -793,7 +793,7 @@ A folder structure and docs that are easy to read, and a repo that holds (or nam
   - [ ] Probes P1 and P2, then the repo shape: `claude-home/`, `bin/`, `config/`, every path reference and the live step shapes (AC-1 to AC-4, AC-16)
   - [ ] `bin/claude-config.py` sync, install, drift and the `/claude-config` skill, folding in `skills-audit.sh` (AC-7, AC-9)
   - [ ] Manifest from the lock file, framework checkouts and the traced brief, pins by history walk, patches, private store, NOTICE (AC-5 to AC-8)
-  - [ ] Update with the patch carried forward, conflicts and `--resolved`, the state file and the weekly reminder hook (AC-10, AC-11)
+  - [x] Update with the patch carried forward, conflicts and `--resolved`, the state file and the weekly reminder hook (AC-10, AC-11)
   - [ ] Docs map first, then the rewrite, a short AGENTS.md and the 5 typed guides (AC-12, AC-13)
 - [ ] Verify it: `/check verify organize and sync claude-config with ~/.claude`
 - [ ] Test it: `/test organize and sync claude-config with ~/.claude`
