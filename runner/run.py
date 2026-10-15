@@ -2355,7 +2355,8 @@ class Run:
         n = rec.get("number")
         url = rec.get("pr") if isinstance(rec.get("pr"), str) else rec.get("url")
         step = {"approved": "merge", "review_request": "review request", "review_draft": "your review",
-                "review_edit": "your review", "foreign_commits": "review round"}.get(case, "branch and PR flow")
+                "review_edit": "your review", "foreign_commits": "review round", "review_ask": "review round",
+                "review_rounds": "review round"}.get(case, "branch and PR flow")
         ctx = None
         if self.c is not None:
             try:

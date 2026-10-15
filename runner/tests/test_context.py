@@ -207,6 +207,24 @@ class TestRun(RunCase):
         self.assertIn("\nwhy: Postgres already runs on your server.\n", msg)
         self.assertNotIn("https://", msg)
 
+    # covers: AC-2 (a non GitHub origin: the spec is the repo relative path, never only its file name, and the issue
+    # stays owner/repo#n, never a github.com link)
+    def test_non_github_origin(self):
+        import ntfy
+        from unittest import mock
+        subprocess.run(["git", "-C", str(self.repo), "config", "remote.origin.url",
+                        "https://gitlab.example.invalid/acme/widgets.git"], check=True)
+        self.steps([ask(RESULT)])
+        self.wf("demo", "-y")
+        d = self.decision()
+        self.assertEqual(d["context"]["spec"], "docs/specs/0001-a/index.md")
+        self.assertEqual(d["context"]["issues"], ["acme/widgets#4"])
+        with mock.patch.object(ntfy, "private_names", return_value=["zzz"]):
+            block = context.telegram_block(CFG, d, 4000)
+        self.assertIn("\nspec: docs/specs/0001-a/index.md\n", block)
+        self.assertIn("\nissue: acme/widgets#4\n", block)
+        self.assertNotIn("github.com", block)
+
     # covers: AC-6 (a block's STEP lines become the question's numbered steps)
     def test_blocked_steps(self):
         self.steps([{"tick": False, "json": {"result": "BLOCKED: needs a login\nSTEP: Open a terminal\n"
