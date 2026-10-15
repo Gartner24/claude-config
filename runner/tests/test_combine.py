@@ -139,6 +139,34 @@ class TestResolveUnit(unittest.TestCase):
         self.assertEqual(why, "the main checkout's standing answers cannot be read: AGENTS.md:3: bad")
 
 
+    # covers: security review (validator bypass): the suite runs in a clean copy of the index, so an ignored file the
+    # call edited in place never reaches it; the copy is gone afterwards
+    def test_clean_suite(self):
+        import subprocess
+        import tempfile
+        import types
+        import run
+        repo = Path(tempfile.mkdtemp()) / "t"
+        repo.mkdir()
+        g = lambda *a: subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", *a],
+                                      check=True, capture_output=True)
+        g("init", "-q")
+        (repo / ".gitignore").write_text("cache.txt\n")
+        (repo / "kept.txt").write_text("k\n")
+        g("add", "-A")
+        g("commit", "-qm", "base")
+        (repo / "cache.txt").write_text("edited by the call\n")
+        r = run.Run.__new__(run.Run)
+        r.run_id = "t"
+        seen = []
+        r.jail_argv = lambda cmd, root: seen.append(root) or ["/bin/sh", "-c", cmd]
+        run.wf.GIT = run.wf.GIT or "git"
+        code, _ = r.clean_suite(str(repo), "test -e kept.txt && test ! -e cache.txt")
+        self.assertEqual(code, 0)
+        self.assertEqual(seen, [str(repo) + "-suite"])
+        self.assertFalse(Path(seen[0]).exists())
+
+
 if __name__ == "__main__":
     import unittest
     unittest.main()

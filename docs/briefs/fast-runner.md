@@ -16,6 +16,11 @@ Source: your message of 2026-10-14, about 18:45, after a 5.3 hour run closed 6 f
 - Cross check gaps 2 to 10 of spec 0043: apply every recommended fix (answered 2026-10-14).
 - Push `feat/release-4` to GitHub after the private names and attribution scans pass (answered 2026-10-14).
 - No same-file waiting (your words 2026-10-14: "we do a feature per branch ... then we combine them via a rebase or a third branch which will be the pr or 2 PRs pointing to main, if conflicts we check what needs to stay if one of the 2 or both and fix that"). Every feature runs at once on its own branch whatever files it touches; the branches are combined at the end into a third branch with its own PR, and a clash is resolved by keeping what each feature needs (one side, the other, or both).
+- Question format verdict (2026-10-14, the four rendered examples):
+  - Kind 1 (step only you can do): "really good". Improve: short link text instead of the long spec URL (like an md file name), the repo as a link too, the empty looking `from:` label, real numbered steps (what to do, where, how you know it worked), and more answer options than done or skip when the step needs a different reply. Open: "what else could improve, meaby more style?"
+  - Kind 2 (decision): "yes, as is", with the same improvements as kind 1.
+  - Kind 3 (permission): you asked whether it should ask at all ("it should allow always ... or no?"); asked back with a recommendation.
+  - Kind 4 (approved PR): fix the wording ("your PR #N was approved"), and show who was asked to review, who approved and who has not (you merge on your approver's yes; the bot alone is not enough).
 - Claude plans and builds it in the conductor session, not the runner. When it is fast, `wf` runs the remaining features (39 to 44, then 45 to 48).
 
 ## Measured (2026-10-14 run)
