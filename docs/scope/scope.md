@@ -72,6 +72,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 51 | Autonomous mode per chat | Release 8 | in-progress |
 | 52 | Review leftovers 2026-10-15 | Release 8 | done |
 | 53 | Only a typed /auto turns on or releases | Release 8 | needs a decision |
+| 54 | Organize claude-config and ~/.claude, sync what you use daily | Release 8 | needs a decision |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -776,6 +777,16 @@ Spec [0047](../specs/0047-review-leftovers/index.md) · code in `runner/auto.py`
 - [ ] Test it: `/test only a typed auto turns on or releases`
 - [ ] Sync docs: `/sync only a typed auto turns on or releases`
 Source: [review](../reviews/review-2026-10-15-0047.md) (Leftovers).
+
+### 54. Organize claude-config and ~/.claude, sync what you use daily · needs a decision
+A folder structure and docs that are easy to read, and a repo that holds (or names) everything you use every day, without losing any skill.
+**Done when:** the new layout is live, the rewritten docs read plainly, every skill still works, and a check shows no drift between the repo and `~/.claude`.
+- [ ] Design it (spec): `/architect organize and sync claude-config with ~/.claude`
+- [ ] Build it: `/develop organize and sync claude-config with ~/.claude`
+- [ ] Verify it: `/check verify organize and sync claude-config with ~/.claude`
+- [ ] Test it: `/test organize and sync claude-config with ~/.claude`
+- [ ] Sync docs: `/sync organize and sync claude-config with ~/.claude`
+Source: [brief](../briefs/organize-and-sync.md).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
