@@ -1,7 +1,7 @@
 # 0050 · A fixed list of described skills
 
 **Date**: 2026-10-15
-**Status**: Proposed
+**Status**: In Progress
 **Paths:** `scripts/skill-keep.py`, `scripts/skill-keep.txt`, `runner/tests/test_skill_keep.py`, `live/settings.json`
 
 ## What you're agreeing to
