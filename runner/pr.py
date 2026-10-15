@@ -375,6 +375,10 @@ def back(r):
         return
     r.branch = r.repo["branch"] = start
     r.keep_held()
+    rec = next((p for p in records(r, run.key_of(r.c)) if p["branch"] == left and p["state"] == "merged"), None)
+    if rec:
+        # Spec 0051 AC-7: a feature self merged while checked out keeps its branch until now; cleanup deletes it.
+        cleanup(r, rec)
 
 
 # -- one shared plan (spec 0043 AC-4 to AC-6) ---------------------------------------
@@ -1026,13 +1030,15 @@ def small_safe(r, rec, base, head):
     if any(x.returncode for x in (num, names, text)):
         # Security review (fail open): a diff that cannot be read is never small.
         return False, ["the diff could not be read"]
-    lines, files = 0, []
+    lines, files, binary = 0, [], None
     for item in num.stdout.split("\0"):
         parts = item.split("\t", 2)
         if len(parts) == 3:
             lines += sum(int(x) for x in parts[:2] if x.isdigit())
             files.append(parts[2])
-    reasons = []
+            # Review (absent read as zero): git counts no lines and shows no text for a binary file.
+            binary = binary or (parts[2] if "-" in parts[:2] else None)
+    reasons = [f"binary {binary}"] if binary else []
     if lines > SMALL_LINES or len(files) > SMALL_FILES:
         reasons.append(", ".join(x for x in (f"{lines} lines" if lines > SMALL_LINES else "",
                                                f"{len(files)} files" if len(files) > SMALL_FILES else "") if x))
@@ -1111,9 +1117,13 @@ def green(r, rec, head, why=None):
         why.append(f"{hit[0]}: {hit[1]}"[:150])
         return False
     view, err = gh_json(r.gh, "pr", "view", str(rec["number"]), "--repo", origin_repo(r) or "", "--json",
-                        "statusCheckRollup")
+                        "statusCheckRollup,headRefOid")
     if not isinstance(view, dict):
         why.append(f"checks not read: {err}")
+        return False
+    if view.get("headRefOid") != head:
+        # Review: right after a push the rollup can still be the previous head's.
+        why.append(f"checks are for head {str(view.get('headRefOid'))[:7]}, not {str(head)[:7]}")
         return False
     for c in view.get("statusCheckRollup") or []:
         state = (c.get("conclusion") or c.get("state") or "") if isinstance(c, dict) else ""
@@ -1177,8 +1187,9 @@ def up_to_date(r, rec, default):
     if rec.get("stacked_on") or rec["base"] != r.repo.get("start_branch"):
         return True
     target = f"origin/{default}"
-    if merged(r, target, rec["branch"]):
+    if merged(r, target, rec["branch"]) and tip(r, rec["branch"]) == rec["pushed_sha"]:
         return True
+    # Review: a merge whose push failed earlier is pushed now (the merge below is then a no op).
     where, made = checkout_of(r, rec)
     if where is None:
         r.note(f"PR #{rec['number']}: not brought up to date: {made}")
@@ -1281,6 +1292,8 @@ def merge_green(r, rec, approved=None):
                 res = gh(r.gh, "pr", "ready", str(rec["number"]), "--repo", name, green=True)
                 if res.returncode:
                     return r.note(f"PR #{rec['number']}: not marked ready: {run.flat(res.stderr)[:120]}")
+                rec["self_ready"] = True
+                save(r, rec)
             res = gh(r.gh, "pr", "merge", str(rec["number"]), "--repo", name, "--squash", "--delete-branch",
                      "--match-head-commit", tested, green=True)
         except Refused as e:
@@ -1355,7 +1368,10 @@ def cleanup(r, rec):
         if rec.get("number") is not None else (None, "no PR")
     state = view.get("state") if isinstance(view, dict) else None
     local = tip(r, b)
-    if state in ("MERGED", "CLOSED") and local and not r.repo.get("tree"):
+    if state in ("MERGED", "CLOSED") and local and wf.head_branch(main) == b:
+        # Review: a sequential run merges before back() switches off the branch; back() cleans up again after.
+        pass
+    elif state in ("MERGED", "CLOSED") and local and not r.repo.get("tree"):
         pr_head = view.get("headRefOid")
         if isinstance(pr_head, str) and (local == pr_head or merged(r, local, pr_head)):
             res = wf.git(main, "branch", "-D", b)
@@ -1370,8 +1386,12 @@ def cleanup(r, rec):
             note(f"kept: origin {b}: a main branch")
         elif out(wf.git(main, "config", "--get", "remote.origin.url")) != r.repo.get("origin_url"):
             note(f"kept: origin {b}: origin changed since the run started")
+        elif not (isinstance(view.get("headRefOid"), str) and SHA.fullmatch(view["headRefOid"])):
+            note(f"kept: origin {b}: the PR head could not be read")
         else:
-            res = git(g, main, "push", "origin", "--delete", f"refs/heads/{b}")
+            # Review: a lease on the PR's head, so a commit pushed after the close is never deleted.
+            res = git(g, main, "push", f"--force-with-lease=refs/heads/{b}:{view['headRefOid']}", "origin", "--delete",
+                      f"refs/heads/{b}")
             if res.returncode:
                 note(f"kept: origin {b}: {run.flat(res.stderr)[:120]}")
     wf.git(main, "worktree", "prune")
@@ -1738,8 +1758,9 @@ def poll_one(r, rec):
         withdraw(r, rec)
         cleanup(r, rec)
         return
-    if view.get("isDraft"):
-        rec["state"] = "draft"
+    if view.get("isDraft") or (rec.get("self_ready") and auto(r)):
+        # Review: self_ready, the runner marked it ready and its merge then failed; it is still the self merge's.
+        rec["state"] = "draft" if view.get("isDraft") else rec["state"]
         save(r, rec)
         if auto(r) and rec.get("later") != tip(r, rec["branch"]):
             # Spec 0051 AC-5: a failure left the PR open with a note; each poll tries again.

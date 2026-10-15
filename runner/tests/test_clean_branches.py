@@ -271,6 +271,7 @@ class TestGreen(Case):
         self.git("commit", "-qam", "trivial suite")
         self.rec["pushed_sha"] = self.head = self.git("rev-parse", "HEAD")
         self.git("push", "-q", "origin", "feat/0001-a")
+        self.views(self.head)
         self.assertTrue(pr.green(self.r, self.rec, self.head))
         self.assertEqual([s for _, s, _ in self.r.suites], ["python3 -c pass"])
 
@@ -366,7 +367,11 @@ class TestMergeGreen(Case):
         v = {"state": "OPEN", "isDraft": False, "mergeable": "MERGEABLE", "statusCheckRollup": []}
         # GitHub shows the head after the update.
         self.gh({"views": [{**v, "headRefOid": "pending"}], "methods": GOOD})
-        with mock.patch.object(pr, "mergeable", lambda r, rec, name: ({**v, "headRefOid": pr.tip(r, rec["branch"])}, None)):
+        real = pr.gh_json
+        checks = lambda b, *a: ({**v, "headRefOid": pr.tip(self.r, rec["branch"])}, None) \
+            if a[-1] == "statusCheckRollup,headRefOid" else real(b, *a)
+        with mock.patch.object(pr, "mergeable", lambda r, rec, name: ({**v, "headRefOid": pr.tip(r, rec["branch"])}, None)), \
+                mock.patch.object(pr, "gh_json", checks):
             self.assertTrue(pr.merge_green(self.r, rec))
         new = self.merges()[0][-1]
         self.assertEqual(self.git("rev-parse", f"{new}^1"), old)
@@ -774,6 +779,133 @@ class TestDocsPr(Case):
         self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
         self.assertIn("docs-pr: private names scan hit", r.stderr)
         self.assertEqual(self.gh_calls(), [])
+
+
+class TestReviewFixes(Case):
+    """Review round 1 of PR 18: each finding's fix."""
+
+    # covers: AC-3 (a file git counts as binary has no line count and no text: never small)
+    def test_binary(self):
+        _, head = self.branch({"src/app.js": "a\0b\n"}, push=False)
+        self.assertEqual(pr.small_safe(self.r, None, "origin/work", head), (False, ["binary src/app.js"]))
+
+    # covers: AC-7 (a sequential run self merges with the branch checked out; back() deletes it once off it)
+    def test_sequential_cleanup(self):
+        rec, head = self.branch()
+        rec["state"] = "merged"
+        self.git("switch", "-q", "feat/0001-a")
+        self.gh({"view": {"state": "MERGED", "headRefOid": head}})
+        self.assertEqual(pr.cleanup(self.r, rec), [])
+        self.assertIn("feat/0001-a", self.git("branch", "--list"))
+        self.r.keep_held, self.r.branch = (lambda: None), "feat/0001-a"
+        pr.back(self.r)
+        self.assertEqual(self.git("branch", "--show-current"), "work")
+        self.assertNotIn("feat/0001-a", self.git("branch", "--list"))
+
+    # covers: AC-6 (a local merge whose push failed is pushed at the next try)
+    def test_push_failed(self):
+        rec, old = self.branch()
+        (self.repo / "other.txt").write_text("main moved\n")
+        self.git("add", "-A")
+        self.git("commit", "-qm", "main moves")
+        self.git("push", "-q", "origin", "work")
+        self.r.repo["origin_url"] = "https://github.com/acme/other.git"
+        self.assertFalse(pr.up_to_date(self.r, rec, "work"))
+        self.assertEqual(self.git("rev-parse", "feat/0001-a", repo=self.origin), old)
+        self.r.repo["origin_url"] = test_pr.ORIGIN
+        self.assertTrue(pr.up_to_date(self.r, rec, "work"))
+        tip = self.git("rev-parse", "feat/0001-a")
+        self.assertNotEqual(tip, old)
+        self.assertEqual(self.git("rev-parse", "feat/0001-a", repo=self.origin), tip)
+        self.assertEqual(rec["pushed_sha"], tip)
+
+    # covers: AC-4 (the checks GitHub reports count only for the tested head)
+    def test_checks_other_head(self):
+        rec, head = self.branch()
+        self.views("b" * 40)
+        why = []
+        self.assertFalse(pr.green(self.r, rec, head, why))
+        self.assertEqual(why, [f"checks are for head bbbbbbb, not {head[:7]}"])
+
+    # covers: AC-5 (marked ready, then the merge failed: the next poll tries the self merge again)
+    def test_ready_then_failed(self):
+        rec, head = self.branch()
+        self.views(head, merge_rc=True)
+        self.assertIsNone(pr.merge_green(self.r, rec))
+        self.assertTrue(rec["self_ready"])
+        (self.fakes / "gh-views").unlink()
+        v = {"state": "OPEN", "isDraft": False, "headRefOid": head, "mergeable": "MERGEABLE", "statusCheckRollup": [],
+             "reviewDecision": "REVIEW_REQUIRED", "url": "u"}
+        self.gh({"views": [v, v, v, {**v, "state": "MERGED"}], "methods": GOOD, "rulesets": RULES})
+        pr.poll_one(self.r, rec)
+        self.assertEqual(rec["state"], "merged")
+
+    # covers: AC-7 (a closed PR's remote branch is deleted only while it is still at the PR's head)
+    def test_closed_moved(self):
+        rec, head = self.branch()
+        self.git("switch", "-q", "feat/0001-a")
+        (self.repo / "b.txt").write_text("after the close\n")
+        self.git("add", "-A")
+        self.git("commit", "-qm", "later")
+        self.git("push", "-q", "origin", "feat/0001-a")
+        self.git("switch", "-q", "work")
+        self.git("branch", "-qf", "feat/0001-a", head)
+        rec["state"] = "closed"
+        self.gh({"view": {"state": "CLOSED", "headRefOid": head}})
+        pr.cleanup(self.r, rec)
+        self.assertIn("feat/0001-a", self.git("branch", "--list", repo=self.origin))
+        self.assertTrue(any(n.startswith("kept: origin feat/0001-a") for n in self.r.notes), self.r.notes)
+
+    # covers: AC-5 (a merged PR is reported merged, with no mark ready step)
+    def test_report_merged(self):
+        item = {"kind": "built", "name": "prr", "feature": "1. A", "pr": {"number": 7, "url": "u", "state": "merged"},
+                "built": {"commits": 1, "files": 1}}
+        line = report.item_line(item, False, False, {})
+        self.assertIn(": merged PR u", line)
+        self.assertNotIn("next:", line)
+        self.assertNotIn("mark ready", report.next_line([item], lambda i: i["name"]))
+
+
+class TestCleanSuite(unittest.TestCase):
+    # covers: AC-4 with spec 0043 AC-3 (validator bypass): the suite runs in a clean copy of the index, or of rev's
+    # tree when given; an ignored file never reaches it, export-ignore drops no test, a symlink leaving the copy
+    # refuses; the copy is a folder under the trees root, gone afterwards
+    def test_clean_suite(self):
+        import tempfile
+        base = Path(tempfile.mkdtemp())
+        repo = base / "t"
+        repo.mkdir()
+        g = lambda *a: subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", *a],
+                                      check=True, capture_output=True, text=True).stdout.strip()
+        g("init", "-q")
+        (repo / ".gitignore").write_text("cache.txt\n")
+        (repo / ".gitattributes").write_text("tests/** export-ignore\n")
+        (repo / "tests").mkdir()
+        (repo / "tests" / "t.txt").write_text("one\n")
+        (repo / "run.sh").write_text("#!/bin/sh\n")
+        (repo / "run.sh").chmod(0o755)
+        g("add", "-A")
+        g("commit", "-qm", "base")
+        rev = g("rev-parse", "HEAD")
+        (repo / "cache.txt").write_text("edited by the call\n")
+        (repo / "tests" / "t.txt").write_text("two\n")
+        g("add", "tests/t.txt")
+        r = run.Run.__new__(run.Run)
+        r.run_id = "t"
+        seen = []
+        r.jail_argv = lambda cmd, root: seen.append(root) or ["/bin/sh", "-c", cmd]
+        run.wf.GIT = run.wf.GIT or "git"
+        with mock.patch.object(run, "trees_root", lambda: str(base / "trees")):
+            code, out = r.clean_suite(str(repo), "grep -q two tests/t.txt && test -x run.sh && test ! -e cache.txt")
+            self.assertEqual(code, 0, out)
+            self.assertTrue(seen[0].startswith(str(base / "trees" / "wf-suite-")), seen)
+            self.assertFalse(Path(seen[0]).exists())
+            code, out = r.clean_suite(str(repo), "grep -q one tests/t.txt && test ! -e cache.txt", rev=rev)
+            self.assertEqual(code, 0, out)
+            (repo / "out").symlink_to("../../elsewhere")
+            g("add", "out")
+            code, out = r.clean_suite(str(repo), "true")
+            self.assertEqual((code, out), (1, ["a symlink leaves the clean copy: out"]))
 
 
 if __name__ == "__main__":
