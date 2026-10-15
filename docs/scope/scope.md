@@ -70,7 +70,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 49 | Fast runner | Release 8 | in-progress |
 | 50 | Fewer avoidable stops | Release 8 | done |
 | 51 | Autonomous mode per chat | Release 8 | in-progress |
-| 52 | Review leftovers 2026-10-15 | Release 8 | needs a decision |
+| 52 | Review leftovers 2026-10-15 | Release 8 | planned |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -755,15 +755,16 @@ Several Claude chats each drive the runner for their own repos at once; a repo b
 - [ ] Sync docs: `/sync autonomous mode per chat`
 Spec [0046](../specs/0046-autonomous-mode-per-chat/index.md) · Source: [brief](../briefs/autonomous-per-chat.md) · code in `runner/auto.py`.
 
-### 52. Review leftovers 2026-10-15 · needs a decision
-Two review findings that change an accepted design, and one small bar count fix.
-**Done when:** `wf auto take` and `release` act only on the session's own chat, a verify passes on "left to the box" only with a matching entry in verify.md, and the bar's running count no longer depends on another runner's lock.
-- [ ] Design it (spec): `/architect review leftovers 2026-10-15`
+### 52. Review leftovers 2026-10-15 · planned · auto
+Only you release a repo from a chat; a check handing parts to a later step needs a written note; the bar's running count checks each run's own lock.
+**Done when:** `/auto release` works only when you type it, Claude's `wf auto release` is denied, a left to the box pass needs its verify.md note, and a stale run never shows as running.
+- [x] Design it (spec): `/architect review leftovers 2026-10-15`
 - [ ] Build it: `/develop review leftovers 2026-10-15`
 - [ ] Verify it: `/check verify review leftovers 2026-10-15`
 - [ ] Test it: `/test review leftovers 2026-10-15`
+- [ ] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync review leftovers 2026-10-15`
-Source: [review](../reviews/review-2026-10-15.md) (Leftovers).
+Spec [0047](../specs/0047-review-leftovers.md) · Source: [review](../reviews/review-2026-10-15.md) (Leftovers).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
