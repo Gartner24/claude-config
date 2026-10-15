@@ -741,6 +741,35 @@ def selftest():
     ok("would: pre-commit: copied" in out and "would: commit-msg: refreshed" in out
        and files_under(irepo / ".git") == snap and (hooks / "commit-msg").read_bytes() == old_msg,
        "AC-7 install --dry-run prints the hook copies and writes nothing")
+    # spec 0036 AC-4, AC-5: a repo settings.json that does not parse fails the dry run, naming
+    # the file, and a real install leaves the live settings.json byte for byte unchanged
+    # spec 0036 AC-6: a real install rebuilds the skill trigger index; a dry run and a staged one do not
+    xt = ilive / "skills" / "jjstack" / "bin" / "jjstack-extract-triggers"
+    xt.parent.mkdir(parents=True)
+    xt.write_text(f"#!/bin/sh\necho x >> {tmp}/triggers.ran\n")
+    xt.chmod(0o755)
+    ran = tmp / "triggers.ran"
+    code, out = run("--dry-run", script=irepo / "install.sh", extra=ienv)
+    ok(f"would: {xt}" in out and not ran.exists(), "0036 AC-6 dry run names the trigger index rebuild, runs nothing")
+    code, out = run(script=irepo / "install.sh", extra=dict(ienv, WF_STAGE="1"))
+    ok(not ran.exists() and "skill trigger index not rebuilt" in out,
+       "0036 AC-6 a staged install leaves the index to you and says so")
+    code, out = run(script=irepo / "install.sh", extra=ienv)
+    ok(ran.exists() and ran.read_text() == "x\n", "0036 AC-6 install rebuilds the skill trigger index")
+    good = (irepo / "settings.json").read_text()
+    (irepo / "settings.json").write_text('{"permissions": {"deny": ["Bash(rm:*)",]}}')
+    code, out = run("--dry-run", script=irepo / "install.sh", extra=ienv)
+    ok(code != 0 and f"{irepo}/settings.json does not parse" in out,
+       f"0036 AC-4 dry run refuses a settings.json that does not parse: {out.strip()[-200:]}")
+    live_before = (ilive / "settings.json").read_bytes()
+    code, out = run(script=irepo / "install.sh", extra=ienv)
+    ok(code != 0 and (ilive / "settings.json").read_bytes() == live_before,
+       "0036 AC-5 install of a settings.json that does not parse leaves the live file unchanged")
+    (irepo / "settings.json").write_text(good)
+    (irepo / "settings.local.json").write_text("{")
+    code, out = run("--dry-run", script=irepo / "install.sh", extra=ienv)
+    ok(code != 0 and f"{irepo}/settings.local.json does not parse" in out,
+       "0036 AC-4 dry run refuses a settings.local.json that does not parse")
 
     shutil.rmtree(tmp)
     for f in fails:

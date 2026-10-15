@@ -1,7 +1,7 @@
 # 0036 · Missed-skill detector
 
 **Date**: 2026-10-14
-**Status**: Proposed
+**Status**: In Progress
 **Paths:** `settings.json`, `install.sh`, `scripts/private-names.py`, `HOOKS.md`, `AGENTS.md`
 
 ## What you're agreeing to

@@ -23,6 +23,16 @@ note() { echo "  $*"; }
 echo "installing $REPO -> $LIVE"
 [ "$DRY" = 1 ] && echo "(dry run)"
 
+# Spec 0036 AC-4: a dry run used to pass a settings file that does not parse; only the real
+# install caught it, after the copies. Refuse first, in both modes, naming the file.
+for f in settings.json settings.local.json; do
+  [ -e "$REPO/$f" ] || continue
+  if ! err=$(python3 -c 'import json, sys; json.load(open(sys.argv[1]))' "$REPO/$f" 2>&1); then
+    echo "refused: $REPO/$f does not parse: ${err##*$'\n'}" >&2
+    exit 1
+  fi
+done
+
 for d in agents rules hooks scripts commands skills; do
   run mkdir -p "$LIVE/$d"
 done
@@ -62,6 +72,7 @@ echo "runner:"
 # the runner copy, the bin links and the git hooks in itself, with the same code.
 if [ -n "${WF_STAGE:-}" ]; then
   note "staged: bin links and git hooks left to wf"
+  note "staged: skill trigger index not rebuilt; run ~/.claude/skills/jjstack/bin/jjstack-extract-triggers"
 else
 BIN="$HOME/.local/bin"
 run mkdir -p "$BIN"
@@ -80,6 +91,17 @@ if [ -e "$BIN/fb-ask" ] && ! [ -L "$BIN/fb-ask" ]; then
 else
   note "fb-ask -> scripts/fb-ask.py"
   run ln -sfn "$REPO/scripts/fb-ask.py" "$BIN/fb-ask"
+fi
+# Spec 0036 AC-6: the missed skill hook matches messages against this index, which jjstack setup
+# builds once; without a rebuild it misses every skill added since.
+triggers="$LIVE/skills/jjstack/bin/jjstack-extract-triggers"
+if [ -x "$triggers" ]; then
+  note "skill trigger index -> ~/.jjstack/skill-triggers.json"
+  if [ "$DRY" = 1 ]; then
+    note "would: $triggers"
+  elif ! "$triggers" >/dev/null; then
+    note "skill trigger index NOT rebuilt: run $triggers"
+  fi
 fi
 fi
 
