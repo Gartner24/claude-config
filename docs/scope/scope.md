@@ -61,7 +61,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 40 | Context and links in every message | Release 7 | in-progress |
 | 41 | Styled Telegram messages | Release 7 | done |
 | 42 | Answer questions while wf is off | Release 7 | in-progress |
-| 43 | Runs adapt to setup changes | Release 7 | in-progress |
+| 43 | Runs adapt to setup changes | Release 7 | done |
 | 44 | A run does its own copy steps | Release 7 | in-progress |
 | 45 | Each step gets the feature's brief | Release 8 | planned |
 | 46 | Missed-skill detector | Release 8 | planned |
@@ -660,20 +660,20 @@ Open questions show on the wf screen to answer at the keyboard; `wf questions` l
 **Done when:** a question answered at the keyboard resumes its call on the next run, and a tap made while wf was off is kept.
 - [x] Design it (spec): `/architect questions while off`
 - [x] Build it: `/develop questions while off`
-- [ ] Verify it: `/check verify questions while off`
+- [x] Verify it: `/check verify questions while off`
 - [ ] Test it: `/test questions while off`
 - [x] Turn the timer on: `wf telegram timer on` · waits on you · later boxes go on
 - [ ] Sync docs: `/sync questions while off`
 Spec [0039](../specs/0039-questions-while-off/index.md) · Source: your message 2026-10-14 02:20.
 
-### 43. Runs adapt to setup changes · in-progress · auto
+### 43. Runs adapt to setup changes · done · auto
 A run switches to Telegram set up mid run, retakes a step the old setup refused once the new one allows it, and the design gate finds the right base in a shallow clone.
 **Done when:** each of the three happens in a real run without a new wf.
 - [x] Design it (spec): `/architect runs adapt to setup changes`
 - [x] Build it: `/develop runs adapt to setup changes`
 - [x] Verify it: `/check verify runs adapt to setup changes`
-- [ ] Test it: `/test runs adapt to setup changes`
-- [ ] Sync docs: `/sync runs adapt to setup changes`
+- [x] Test it: `/test runs adapt to setup changes`
+- [x] Sync docs: `/sync runs adapt to setup changes`
 Spec [0040](../specs/0040-runs-adapt-to-setup-changes/index.md) · Source: the night of 2026-10-13, morning list 2026-10-14.
 
 ### 44. A run does its own copy steps · in-progress · auto
