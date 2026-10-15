@@ -51,6 +51,18 @@ Scratch in `/tmp/claude/v0048b/`; the committed branch tested from a `git archiv
 - [x] `private-names.py check` on the export exit 0 (AC-8); `asciify.py --check` 0 changes; `check-routing.py` routing OK; `bin/install.sh --dry-run` exit 0 -> AC-16.
 - [ ] `python3 runner/tests/fast.py` -> 904 tests, 1 failed: `test_old_paths`, only from the runner's `main` copy of `docs/scope/scope.md` described above. The earlier keep going failure is fixed (17ecbaa).
 
+## /check verify rerun (2026-10-15, under wf run, after dd9329d): FAIL
+
+Scratch in `/tmp/claude/v0048c/`; `git archive HEAD` export committed into a throwaway git repo.
+
+### Commands
+- [x] Plugin `base_hash` (`/tmp/claude/v0048c/plugins.py`): fresh `plugin_entries()` on the real `~/.claude` against `config/manifest.json` -> 12 plugins, 0 differences, with 66 `.in_use` markers present -> AC-5 (was a bug). can fail: with `.in_use` dropped from `SKIP` in the export, the same script reports 10 of 12 `base_hash` differences and `test_in_use_marker_not_hashed` goes red; restored after.
+- [x] `python3 -B runner/tests/fast.py` on the committed export -> 905 tests, 0 failed -> AC-1 to AC-13, AC-16. can fail: `test_old_paths` went red in the worktree on the runner's `main` copy of `docs/scope/scope.md` (14 hits).
+- [x] `bin/claude-config.py docs` on the export -> `git status` clean -> AC-13. can fail: a stale generated file.
+- [x] `drift` on the real `~/.claude` -> exit 1, the same 26 items `bin/install.sh --dry-run` lists (22 links, the new hook, the new skill, `scope-contract.md`, settings `hooks` and `skillOverrides`), no unaccounted skill -> AC-9. can fail: an unknown skill passing silently.
+- [x] `private-names.py check` on the export exit 0 -> AC-8; `bin/install.sh --dry-run` exit 0 -> AC-16.
+- [ ] Merge with `main`: `main` gained spec 0050 (`65662ff`, `64be625`) after this branch was cut. `git merge-tree --write-tree HEAD main` conflicts in `AGENTS.md` and `docs/scope/scope.md`, and the merged tree names the old paths outside the doc folders: `scripts/skill-keep.py:6` and `:139` (it prints "next: run ./sync.sh now, before any install.sh", a command that no longer exists after this branch), `runner/tests/test_skill_keep.py:116`, `:132`. `main`'s `AGENTS.md` also still has the old `live/` command list. So AC-3 does not hold once this lands, and `test_old_paths` would fail on `main` -> AC-3 not applied. Fix: bring `main` into the branch (rule 4: rebase, the branch is not pushed), move the 0050 lines to `bin/sync.sh` / `bin/install.sh`, keep main's `skillOverrides` in `claude-home/settings.json`, resolve the two conflicts with the branch's paths.
+
 ### Not run here
 - `update --plan` against GitHub: the sandbox denies github.com; the tool reported every source unreached and wrote no state (the specced no network path).
 - `python3 runner/e2e/run.py`: needs a real `claude -p`.
