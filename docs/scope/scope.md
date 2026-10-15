@@ -760,7 +760,7 @@ Only you release a repo from a chat; a check handing parts to a later step needs
 **Done when:** `/auto release` works only when you type it, Claude's `wf auto release` is denied, a left to the box pass needs its verify.md note, and a stale run never shows as running.
 - [x] Design it (spec): `/architect review leftovers 2026-10-15`
 - [x] Build it: `/develop review leftovers 2026-10-15`
-- [ ] Verify it: `/check verify review leftovers 2026-10-15`
+- [x] Verify it: `/check verify review leftovers 2026-10-15`
 - [ ] Test it: `/test review leftovers 2026-10-15`
 - [ ] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync review leftovers 2026-10-15`
