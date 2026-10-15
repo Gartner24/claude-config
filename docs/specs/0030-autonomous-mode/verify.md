@@ -48,10 +48,11 @@ steps passed and 4 of 4 breaks red; the whole runner suite passed.
   skill line and owe an `/architect` amendment.
 
 ## Waits on you (probes P1 to P4, real interactive session)
-- [ ] P1 SessionStart notes reach the model after `/clear` and after reopening the window
-- [ ] P2 the `wf-auto` unit outlives the session, and the real `wf -y` finds claude, bwrap and socat in it
-- [ ] P3 the bar updates within 10 s while idle
-- [ ] P4 `/auto on` typed by you writes `auto.json`; asking Claude to turn it on ends in a deny
+- [x] P1 SessionStart notes reach the model after `/clear` and after reopening the window. 2026-10-15 about 01:00, by you: a fresh `claude` in `~/.claude`, the same after `/clear`, and again after closing and reopening the window, each answered that autonomous mode is on and how it drives wf.
+- [x] P2 the `wf-auto` unit outlives the session, and the real `wf -y` finds claude, bwrap and socat in it. 2026-10-14 20:55 to 2026-10-15 00:26: the unit ran the parallel run of features 39 to 48 across this session's compactions and built them with the real claude in the sandbox.
+- [x] P3 the bar updates within 10 s while idle. 2026-10-15 about 01:10: `wf auto off` from the conductor session, and the idle second window's bar dropped `AUTO idle` by itself; `/auto on` typed there brought it back.
+- [x] P4 `/auto on` typed by you writes `auto.json`; asking Claude to turn it on ends in a deny. 2026-10-15 about 01:03: `/auto on` replied "Autonomous mode is on in .claude"; asked to run `wf auto on` itself, the session refused (the deny rule).
+- Found by these checks and fixed the same night: new sessions were blocked by the auto mode check from `wf auto start` and `wf queue`; six exact runner commands are now allowed (`settings.json`), `wf auto on` stays denied.
 
 ## Acceptance criteria coverage
 - AC-1 met · AC-2 met in behavior, spec text stale · AC-3 met · AC-4 met · AC-5 met · AC-6 met · AC-7 met · AC-8 met · AC-9 met · AC-10 met · AC-11 met in the repo, live file by the install box
