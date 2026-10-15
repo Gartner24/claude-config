@@ -216,6 +216,14 @@ class TestDrift(Case):
         (stray / "SKILL.md").write_text("changed\n")
         self.assertIn("stray: changed since its base hash", self.tool("drift").stdout)
 
+    # covers: AC-9 (a skills folder with no SKILL.md is not a skill, so drift does not report it)
+    def test_non_skill_folder(self):
+        support = self.live / "skills" / "shared"
+        support.mkdir()
+        (support / "ref.md").write_text("ref\n")
+        r = self.tool("drift")
+        self.assertEqual((r.returncode, r.stdout.strip()), (0, "drift: none"), r.stdout + r.stderr)
+
     # covers: AC-7 (the old override guard: a reinstall over an edited skill shows in drift)
     def test_override_lost(self):
         s = self.install_edited()
@@ -277,6 +285,16 @@ class TestBuild(Case):
         self.assertIn("- fig:", not_redistributed)
         self.assertIn("- unknown: source unknown (unknown)", not_redistributed)
         self.assertNotIn("- a:", not_redistributed)
+
+    # covers: AC-6 (the history walk passes over the commit that deleted the folder and finds the older match)
+    def test_pin_past_deletion(self):
+        old = self.commit({"skills/m/SKILL.md": "m\n"})
+        self.commit({"skills/m/SKILL.md": None})
+        self.commit({"skills/m/SKILL.md": "m newer\n"})
+        live = self.tmp / "m"
+        live.mkdir()
+        (live / "SKILL.md").write_text("m\n")
+        self.assertEqual(cc.pin(self.up, "skills/m", cc.folder_hash(live), None, self.tmp)[0], old)
 
     # covers: AC-6 (an Apache-2.0 patch opens with the changed files line, and still applies)
     def test_apache_header(self):

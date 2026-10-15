@@ -89,6 +89,8 @@ def linked_kind(kind, manifest, fw, out):
     seen = set()
     for p in live_items(kind):
         name = p.name
+        if kind == "skills" and name not in own and p.is_dir() and not (p / "SKILL.md").exists():
+            continue  # not a skill (shared files, Claude Code's synced folder); build skips it too
         seen.add(name)
         real = p.resolve()
         if name in own:
@@ -657,6 +659,8 @@ def pin(repo, path, want_hash, tree, tmp):
     of a skill you edited after installing it."""
     log = git("log", "--format=%H", f"-n{WALK}", "HEAD", "--", path, cwd=repo).stdout.decode().split()
     for c in log:
+        if git("cat-file", "-e", f"{c}:{path}", cwd=repo, check=False).returncode:
+            continue  # the commit that deleted or moved the folder away
         if tree and git("rev-parse", f"{c}:{path}", cwd=repo, check=False).stdout.decode().strip() == tree:
             return c, folder_hash(export(repo, c, path, tmp))
         if folder_hash(export(repo, c, path, tmp)) == want_hash:
