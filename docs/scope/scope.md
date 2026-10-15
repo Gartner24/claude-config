@@ -727,7 +727,7 @@ One README map of what lives where, everything installed under live/, guides und
 - [x] Design it (spec): `/architect readable layout`
 - [x] Build it: `/develop readable layout`
 - [x] Verify it: `/check verify readable layout`
-- [ ] Test it: `/test readable layout`
+- [x] Test it: `/test readable layout`
 - [ ] Run the live migration steps in the spec's migrate.md, one at a time with their checks · waits on you
 - [ ] Sync docs: `/sync readable layout`
 Spec [0035](../specs/0035-readable-layout/index.md) · code in `live/`, `sync.sh`, `install.sh`, `scripts/`, `runner/finish.py`, `README.md` · Source: personal scope row 9.
