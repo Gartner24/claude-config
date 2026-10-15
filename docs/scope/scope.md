@@ -59,7 +59,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 38 | Adopt your open PRs | Release 7 | done |
 | 39 | Review requests to you | Release 7 | in-progress |
 | 40 | Context and links in every message | Release 7 | in-progress |
-| 41 | Styled Telegram messages | Release 7 | in-progress |
+| 41 | Styled Telegram messages | Release 7 | done |
 | 42 | Answer questions while wf is off | Release 7 | in-progress |
 | 43 | Runs adapt to setup changes | Release 7 | in-progress |
 | 44 | A run does its own copy steps | Release 7 | in-progress |
@@ -628,7 +628,7 @@ A PR review requested of you becomes a question: wf drafts the review in an isol
 **Done when:** a review request arrives as a question, the draft shows, and only post as my review posts it.
 - [x] Design it (spec): `/architect review requests`
 - [x] Build it: `/develop review requests`
-- [ ] Verify it: `/check verify review requests`
+- [x] Verify it: `/check verify review requests`
 - [ ] Test it: `/test review requests`
 - [x] Probes P3 to P5 on a scratch GitHub repo (they post) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync review requests`
@@ -645,14 +645,14 @@ Every question and report on your phone says where it comes from: repo, feature,
 - [ ] Sync docs: `/sync context in messages`
 Spec [0033](../specs/0033-context-in-messages/index.md) · Source: your message 2026-10-13 (context, links and the why in every message).
 
-### 41. Styled Telegram messages · in-progress · auto
+### 41. Styled Telegram messages · done · auto
 Telegram questions in bold and italics with tappable links and the step's own words in an expandable quote; every inserted value escaped.
 **Done when:** a real question arrives styled, its links open, and injected markup shows as plain text.
 - [x] Design it (spec): `/architect styled telegram`
 - [x] Build it: `/develop styled telegram`
-- [ ] Verify it: `/check verify styled telegram`
-- [ ] Test it: `/test styled telegram`
-- [ ] Sync docs: `/sync styled telegram`
+- [x] Verify it: `/check verify styled telegram`
+- [x] Test it: `/test styled telegram`
+- [x] Sync docs: `/sync styled telegram`
 Spec [0038](../specs/0038-styled-telegram/index.md) · Source: your message 2026-10-14 01:30.
 
 ### 42. Answer questions while wf is off · in-progress · auto
