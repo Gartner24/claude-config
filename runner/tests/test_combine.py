@@ -103,14 +103,24 @@ class TestCombine(RepoCase):
     # itself, leaves that branch out
     def test_resolve_contained(self):
         git = ["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid"]
-        cases = (([["git", "add", "other.txt"]], "staged or added other files"),
-                 ([["git", "add", "shared.txt"], [*git, "commit", "-qm", "self"]], "committed, merged or switched"))
-        for run_, why in cases:
-            with self.subTest(why=why):
+        resolved = ["shared.txt", "A\nC\n"]
+        # (files the call writes, commands it runs, a file git ignores in the repo, why it is left out)
+        cases = (([resolved, ["other.txt", "x\n"]], [["git", "add", "other.txt"]], None, "staged or added other files"),
+                 ([resolved], [["git", "add", "shared.txt"], [*git, "commit", "-qm", "self"]], None,
+                  "committed, merged or switched"),
+                 # Security review: an edit hidden behind an index flag, or a file git ignores, is caught too.
+                 ([resolved, ["a.txt", "evil\n"]], [["git", "update-index", "--assume-unchanged", "a.txt"]], None,
+                  "hid an edit from git or added an ignored file"),
+                 ([resolved, ["planted.txt", "x\n"]], [], "planted.txt", "hid an edit from git or added an ignored file"))
+        for writes, run_, ignored, why in cases:
+            with self.subTest(why=why, run=run_):
                 self.setUp()
                 self.answers()
-                (self.fakes / "combine.json").write_text(json.dumps({"write": [["shared.txt", "A\nC\n"],
-                                                                                 ["other.txt", "x\n"]], "run": run_}))
+                if ignored:
+                    (self.repo / ".gitignore").write_text(ignored + "\n")
+                    self.git("add", ".gitignore")
+                    self.git("commit", "-qm", "ignore")
+                (self.fakes / "combine.json").write_text(json.dumps({"write": writes, "run": run_}))
                 self.steps({"feat-0001-a": feature("a", "A\n"), "feat-0002-b": feature("b"),
                             "feat-0003-c": feature("c", "C\n")})
                 self.wf("-y", "--jobs", "3")

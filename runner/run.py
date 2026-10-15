@@ -2359,8 +2359,11 @@ class Run:
         key, tree = key_of(self.c), self.c.path
         if isinstance(suite, Stop):
             return f"the main checkout's standing answers cannot be read: {flat(suite.detail)[:200]}"
+        # ls-files -v shows an index flag a call could set to hide its edit (assume unchanged, skip worktree); status
+        # --ignored shows files git ignores, which the suite could still load.
         state = lambda: [wf.git(tree, *a) for a in (("rev-parse", "HEAD"), ("ls-files", "-s"),
-                                                    ("ls-files", "--others", "--exclude-standard"))]
+                                                    ("ls-files", "--others", "--exclude-standard"), ("ls-files", "-v"),
+                                                    ("status", "--porcelain", "--ignored", "--untracked-files=all"))]
         before = state()
         specs = []
         for p in pr.records(self, key):
@@ -2399,6 +2402,10 @@ class Run:
             return "the resolve call committed, merged or switched branches itself"
         if others(before[1]) != others(after[1]) or lines(before[2]) != lines(after[2]):
             return "the resolve call staged or added other files"
+        flags = lambda res: [x for x in others(res) if not x.startswith(("H ", "M "))]
+        status = lambda res: [x for x in lines(res) if x[3:] not in files]
+        if flags(before[3]) != flags(after[3]) or status(before[4]) != status(after[4]):
+            return "the resolve call hid an edit from git or added an ignored file"
         stray = wf.git(tree, "diff", "--name-only")
         extra = [x for x in lines(stray) if x not in files]
         if extra:
