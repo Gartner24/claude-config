@@ -74,6 +74,16 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 53 | Only a typed /auto turns on or releases | Release 8 | done |
 | 54 | Organize claude-config and ~/.claude, sync what you use daily | Release 8 | done |
 | 55 | Fewer skills described in every session | Release 8 | in-progress |
+| 66 | Update Claude Code through /claude-config | Release 9 | needs a decision |
+| 57 | Move my own skills out of jjstack | Release 9 | needs a decision |
+| 58 | Own status bar and dashboards with mods | Release 9 | needs a decision |
+| 59 | Memory tool: claude-mem, MemPalace, graphify or NotebookLM | Release 9 | needs a decision |
+| 60 | Sessions pass work to each other | Release 9 | needs a decision |
+| 61 | Cheap model gatekeeper with open models | Release 9 | needs a decision |
+| 62 | Runner that improves itself | Release 9 | needs a decision |
+| 63 | Evaluate Harvey, Soup, MiroFish, claude-skills-founder, Headroom | Release 9 | needs a decision |
+| 64 | Recommended mods: gatekeeper, Claude to Claude, own panel | Release 9 | needs a decision |
+| 65 | Scan skills with skillspector | Release 9 | needs a decision |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -818,6 +828,72 @@ Spec [0050](../specs/0050-fixed-skill-keep-list/index.md) · code in `scripts/sk
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
+
+### 66. Update Claude Code through /claude-config
+Update Claude Code and check drift between the repo and `~/.claude` before the tool review.
+**Done when:** Claude Code is current and `bin/claude-config.py drift` prints `drift: none`.
+- [ ] Update and drift check: `/claude-config` · waits on you
+Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
+
+### 57. Move my own skills out of jjstack
+Find the skills in jjstack that are yours from its git history, and copy your own skills and the jjstack parts you use into claude-config; never commit to jjstack.
+**Done when:** every skill you wrote that lived in jjstack runs from claude-config, the status line no longer needs jjstack, and jjstack has no new commit from this.
+- [ ] Research and compare: `/deep-research which jjstack skills are mine and what I use from jjstack`
+- [ ] Design it (spec): `/architect move my own skills out of jjstack`
+Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
+
+### 58. Own status bar and dashboards with mods
+Replace jjstack's status line with our own, built on Claude Code mods, plus dashboards; learn from what others built.
+**Done when:** our own status line runs without jjstack and a dashboard shows each running agent and the runner.
+- [ ] Research and compare: `/deep-research Claude Code mods status lines and dashboards`
+- [ ] Design it (spec): `/architect own status bar and dashboards with mods`
+Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
+
+### 59. Memory tool: claude-mem, MemPalace, graphify or NotebookLM
+Pick the memory tool (keep claude-mem, MemPalace, graphify, both, or NotebookLM as a second brain), weighing usage, token cost, memory quality and code memory.
+**Done when:** one memory setup is chosen with its reasons and installed, or each option is rejected with a reason.
+- [ ] Research and compare: `/deep-research memory for Claude Code: claude-mem, MemPalace, graphify, NotebookLM`
+- [ ] Design it (spec): `/architect memory tool`
+Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
+
+### 60. Sessions pass work to each other
+Use mods so a session hands its work straight to the next one (rollover without the `/clear` relay), and the runner too.
+**Done when:** a rolled over session continues in the next one without you typing `/clear` and `/resume-from-clear`.
+- [ ] Research and compare: `/deep-research Claude Code mods session handoff`
+- [ ] Design it (spec): `/architect sessions pass work to each other`
+Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
+
+### 61. Cheap model gatekeeper with open models
+Send easy work to a cheaper model through mods, with open source models (claude-fb's, or Soup's) instead of only `fb-ask`.
+**Done when:** easy steps run on an open model by rule and your weekly limit lasts longer, measured.
+- [ ] Research and compare: `/deep-research cheap model routing with open models: claude-fb, Soup, mods`
+- [ ] Design it (spec): `/architect cheap model gatekeeper`
+Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
+
+### 62. Runner that improves itself
+Treat the runner as a system with a feedback loop: each run's results improve the next run, and it improves itself while idle.
+**Done when:** the runner records what slowed or broke each run and turns it into a change or a proposal without you asking.
+- [ ] Research and compare: `/deep-research self improving agent runners and feedback loops`
+- [ ] Design it (spec): `/architect runner that improves itself`
+Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
+
+### 63. Evaluate Harvey, Soup, MiroFish, claude-skills-founder, Headroom
+Research each tool and compare it with the setup: Harvey (repo, site and `~/Downloads/guia-harvey.pdf`), Soup, MiroFish, claude-skills-founder, Headroom.
+**Done when:** each tool is adopted, adapted or rejected with a reason, and each adopted one passed `skillspector`.
+- [ ] Research and compare: `/deep-research Harvey, Soup, MiroFish, claude-skills-founder, Headroom against our setup`
+Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
+
+### 64. Recommended mods: gatekeeper, Claude to Claude, own panel
+Check the three recommended mods against what we already have: a gatekeeper to a cheaper model, Claude talking to Claude (one plans, one builds), and an own panel of what each agent does.
+**Done when:** each of the three is kept, built or dropped with a reason.
+- [ ] Research and compare: `/deep-research recommended Claude Code mods against our setup`
+Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
+
+### 65. Scan skills with skillspector
+Scan every installed skill and every new candidate with NVIDIA's `skillspector` for hidden attacks.
+**Done when:** every installed skill passed the scan or was removed, and new candidates are scanned before install.
+- [ ] Scan the installed skills: `skillspector` · waits on you
+Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
 
 ### 49. Fast runner · done
 Features build, check and test 4 at a time on their own branches, the branches are combined at the end with clashes resolved, one plan file stays the truth, the suite runs in about a minute, and Telegram questions read clearly.
