@@ -45,7 +45,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 13 | Morning report | Release 5 | done |
 | 32 | One command: wf | Release 6 | done |
 | 33 | Ask, never stop | Release 6 | done |
-| 34 | Report names repos | Release 6 | in-progress |
+| 34 | Report names repos | Release 6 | done |
 | 35 | Several features of one repo at once | Release 6 | done |
 | 36 | Telegram instead of ntfy | Release 6 | done |
 | 37 | Autonomous mode | Release 6 | done |
@@ -67,11 +67,11 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 46 | Missed-skill detector | Release 8 | in-progress |
 | 47 | Context monitor that fires | Release 8 | done |
 | 48 | Readable layout for ~/.claude and claude-config | Release 8 | done |
-| 49 | Fast runner | Release 8 | in-progress |
+| 49 | Fast runner | Release 8 | done |
 | 50 | Fewer avoidable stops | Release 8 | done |
 | 51 | Autonomous mode per chat | Release 8 | in-progress |
 | 52 | Review leftovers 2026-10-15 | Release 8 | done |
-| 53 | Only a typed /auto turns on or releases | Release 8 | in-progress |
+| 53 | Only a typed /auto turns on or releases | Release 8 | done |
 | 54 | Organize claude-config and ~/.claude, sync what you use daily | Release 8 | done |
 | 55 | Fewer skills described in every session | Release 8 | in-progress |
 
@@ -503,12 +503,12 @@ The same holds for every other reason a feature is set aside today (blocked, fai
 Spec [0021](../specs/0021-never-stop/index.md) · code in `runner/run.py`, `runner/report.py`
 Source: [docs/briefs/runner-never-stops.md](../briefs/runner-never-stops.md).
 
-### 34. Report names repos · in-progress · auto
+### 34. Report names repos · done · auto
 The morning report says `repo-e679` where it means `claude-config`, because it scrubs every repo name. Show the folder name of repos that are not private (the private names list decides), so the next step is readable.
 **Done when:** the phone report for a claude-config run names `claude-config`, and a repo whose name is on the private list is still hidden.
 - [x] Design it (spec): built inside feature 33, spec 0021 AC-8
 - [x] Build it: `/develop ask never stop` (milestone "Report: open questions, repo names")
-- [ ] Sync docs: `/sync report names repos`
+- [x] Sync docs: `/sync report names repos`
 Source: the 14:51 report of 2026-10-13 ("next: wf finish, then review and merge: repo-e679").
 
 ### 31. Guard baseline check between repos · done · auto
@@ -769,7 +769,7 @@ Only you release a repo from a chat; a check handing parts to a later step needs
 - [x] Sync docs: `/sync review leftovers 2026-10-15`
 Spec [0047](../specs/0047-review-leftovers/index.md) · code in `runner/auto.py`, `runner/run.py`, `claude-home/settings.json`, `claude-home/skills/auto/SKILL.md` · Source: [review](../reviews/review-2026-10-15.md) (Leftovers).
 
-### 53. Only a typed /auto turns on or releases · in-progress · auto
+### 53. Only a typed /auto turns on or releases · done · auto
 `wf auto on` and `wf auto release` always refuse; only your typed `/auto` turns a chat on or releases a repo, and `wf auto hook` is denied to Claude.
 **Done when:** Claude cannot turn a chat on or release a repo through any spelling of `wf auto on` or `wf auto release`, and your typed `/auto on` and `/auto release` still work.
 - [x] Design it (spec): `/architect only a typed auto turns on or releases`
@@ -779,8 +779,8 @@ Spec [0047](../specs/0047-review-leftovers/index.md) · code in `runner/auto.py`
   - [x] Tests moved to direct calls, refusal and typed path tests (AC-5)
 - [x] Verify it: `/check verify only a typed auto turns on or releases`
 - [x] Test it: `/test only a typed auto turns on or releases`
-- [ ] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
-- [ ] Sync docs: `/sync only a typed auto turns on or releases`
+- [x] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
+- [x] Sync docs: `/sync only a typed auto turns on or releases`
 Spec [0049](../specs/0049-typed-auto-only/index.md) · code in `runner/auto.py`, `runner/wf.py`, `claude-home/settings.json`, `claude-home/skills/auto/SKILL.md` · Source: [review](../reviews/review-2026-10-15-0047.md) (Leftovers).
 
 ### 54. Organize claude-config and ~/.claude, sync what you use daily · done · auto
@@ -819,20 +819,20 @@ Spec [0050](../specs/0050-fixed-skill-keep-list/index.md) · code in `scripts/sk
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
 
-### 49. Fast runner · in-progress
+### 49. Fast runner · done
 Features build, check and test 4 at a time on their own branches, the branches are combined at the end with clashes resolved, one plan file stays the truth, the suite runs in about a minute, and Telegram questions read clearly.
 **Done when:** a `wf` run of features 39 to 48 runs 4 at once, combines its branches into one draft PR, and every question kind reads clearly on your phone.
 - [x] Design it (spec): `/architect fast runner`
-- [ ] Build it: `/develop fast runner`
-  - [ ] Fast suite command and the suite prompt sentence (AC-7, AC-8)
-  - [ ] No same file wait, the shared plan, plan free commits (AC-2, AC-4, AC-5, AC-6)
-  - [ ] Combine step with its draft PR (AC-3)
-  - [ ] Telegram question text, every kind shown to you (AC-9, AC-10)
-- [ ] Verify it: `/check verify fast runner`
-- [ ] Test it: `/test fast runner`
-- [ ] Merge into feat/release-4, set the switches, scan and push feat/release-4 (AC-1, AC-11)
-- [ ] Run `wf` on 39 to 48 and compare the elapsed time (AC-12) · waits on you
-- [ ] Sync docs: `/sync fast runner`
+- [x] Build it: `/develop fast runner`
+  - [x] Fast suite command and the suite prompt sentence (AC-7, AC-8)
+  - [x] No same file wait, the shared plan, plan free commits (AC-2, AC-4, AC-5, AC-6)
+  - [x] Combine step with its draft PR (AC-3)
+  - [x] Telegram question text, every kind shown to you (AC-9, AC-10)
+- [x] Verify it: `/check verify fast runner` · skipped
+- [x] Test it: `/test fast runner`
+- [x] Merge into feat/release-4, set the switches, scan and push feat/release-4 (AC-1, AC-11)
+- [x] Run `wf` on 39 to 48 and compare the elapsed time (AC-12) · waits on you · skipped
+- [x] Sync docs: `/sync fast runner`
 Spec [0043](../specs/0043-fast-runner/index.md) · Source: [brief](../briefs/fast-runner.md).
 
 ### 11. Autopilot offer and batch design · dropped
