@@ -311,6 +311,43 @@ class TestBuild(Case):
         self.assertEqual((s / "ref.md").read_text(), "ref mine\n")
 
 
+class TestPlugins(Case):
+    # covers: AC-5 (one kind plugin entry per installed plugin with its source, version, license and install line;
+    # patches and restore pass over it, restore names the reinstall command once it is gone; SKILLS.md lists it)
+    def test_plugin_entry(self):
+        folder = self.live / "plugins" / "cache" / "mk" / "p1" / "1.2.0"
+        (folder / ".claude-plugin").mkdir(parents=True)
+        (folder / ".claude-plugin" / "plugin.json").write_text(json.dumps({"description": "Does p1. More."}))
+        (folder / "LICENSE").write_text("MIT\nPermission is hereby granted, free of charge\n")
+        (self.live / "plugins" / "known_marketplaces.json").write_text(
+            json.dumps({"mk": {"source": {"source": "github", "repo": "o/mk"}}}))
+        plugins = self.live / "plugins" / "installed_plugins.json"
+        plugins.write_text(json.dumps({"version": 2, "plugins": {"p1@mk": [
+            {"installPath": str(folder), "version": "1.2.0", "gitCommitSha": "abc123"}]}}))
+        self.manifest({})
+        (self.repo / "docs").mkdir()
+        self.env.update(CLAUDE_CONFIG_LOCK=str(self.tmp / "nolock.json"), XDG_CACHE_HOME=str(self.tmp / "cache"))
+        r = self.tool("build")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("p1@mk", (self.repo / "docs" / "NOTICE.md").read_text())
+        e = self.manifest()["entries"]["p1@mk"]
+        self.assertEqual({k: e[k] for k in ("kind", "status", "source", "pinned", "license", "publish", "fetch",
+                                              "install", "description")},
+                         {"kind": "plugin", "status": "downloaded", "source": "github:o/mk", "pinned": "abc123",
+                          "license": "MIT", "publish": False, "fetch": "manual",
+                          "install": "claude plugin install p1@mk", "description": "Does p1."})
+        self.assertEqual(self.tool("patches").returncode, 0)
+        r = self.tool("restore")
+        self.assertEqual((r.returncode, r.stdout), (0, ""), r.stderr)
+        plugins.write_text(json.dumps({"version": 2, "plugins": {}}))
+        self.assertIn("p1@mk: missing; reinstall with: claude plugin install p1@mk", self.tool("restore").stdout)
+        shutil.copy(REAL / "scripts" / "asciify.py", self.repo / "scripts" / "asciify.py")
+        r = self.tool("docs")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("| `p1@mk` | o/mk | abc123 | MIT | Does p1. |",
+                      (self.repo / "docs" / "guides" / "SKILLS.md").read_text())
+
+
 class TestDescription(unittest.TestCase):
     # covers: spec 0048 AC-5 and AC-13 (a folded `>` description is read whole, not as the bare `>`)
     def test_folded(self):

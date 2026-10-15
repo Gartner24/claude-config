@@ -405,6 +405,51 @@
       "source": "github:ChromeDevTools/chrome-devtools-mcp",
       "status": "downloaded"
     },
+    "clangd-lsp@claude-plugins-official": {
+      "base_hash": "f7f0c4d929662b895492321a773898d6b0500ddd36332cb309ef6f1019d1e691",
+      "description": null,
+      "fetch": "manual",
+      "framework": null,
+      "install": "claude plugin install clangd-lsp@claude-plugins-official",
+      "kind": "plugin",
+      "license": "Apache-2.0",
+      "patch": null,
+      "path": "clangd-lsp",
+      "pinned": "1.0.0",
+      "publish": false,
+      "source": "github:anthropics/claude-plugins-official",
+      "status": "downloaded"
+    },
+    "claude-mem@thedotmack": {
+      "base_hash": "dd9d5d1353574ed6f33d4232211d432079350589cd45da6e7b24d3645dea5889",
+      "description": "Memory compression system for Claude Code - persist context across sessions.",
+      "fetch": "manual",
+      "framework": null,
+      "install": "claude plugin install claude-mem@thedotmack",
+      "kind": "plugin",
+      "license": "unknown",
+      "patch": null,
+      "path": "claude-mem",
+      "pinned": "fef3402e674bebbf72a23aeb735e91c92cd34afd",
+      "publish": false,
+      "source": "github:thedotmack/claude-mem",
+      "status": "downloaded"
+    },
+    "claude-seo@agricidaniel-claude-seo": {
+      "base_hash": "89719a84597046299bdad42eceb294facc541f8a2ef86b17520f568ebc50648b",
+      "description": "Comprehensive SEO analysis plugin for Claude Code.",
+      "fetch": "manual",
+      "framework": null,
+      "install": "claude plugin install claude-seo@agricidaniel-claude-seo",
+      "kind": "plugin",
+      "license": "MIT",
+      "patch": null,
+      "path": "claude-seo",
+      "pinned": "e77e783e38eeb738424eb72117abbd2dacdd88af",
+      "publish": false,
+      "source": "github:AgriciDaniel/claude-seo",
+      "status": "downloaded"
+    },
     "cloudflare": {
       "base_hash": null,
       "description": "Discover and choose Cloudflare products for apps, APIs, AI agents, storage, networking, and security.",
@@ -463,6 +508,36 @@
       "pinned": "791012421c900f3fd4f007be6cd84f2ff42f100a",
       "publish": true,
       "source": "github:cloudflare/skills",
+      "status": "downloaded"
+    },
+    "code-review@claude-plugins-official": {
+      "base_hash": "63555e1d6f03ea402c7b30419670fa269b6d377d7c1a60eb09cb10362571ca44",
+      "description": "Automated code review for pull requests using multiple specialized agents with confidence-based scoring.",
+      "fetch": "manual",
+      "framework": null,
+      "install": "claude plugin install code-review@claude-plugins-official",
+      "kind": "plugin",
+      "license": "Apache-2.0",
+      "patch": null,
+      "path": "code-review",
+      "pinned": "8f814f49002ff824e8a9ba43cf96112dc7f5948d",
+      "publish": false,
+      "source": "github:anthropics/claude-plugins-official",
+      "status": "downloaded"
+    },
+    "code-simplifier@claude-plugins-official": {
+      "base_hash": "30cf95eb60ae0dcccb63f94ce6e2e1822dfa9e27cdd22dade1340667fe956fa8",
+      "description": "Agent that simplifies and refines code for clarity, consistency, and maintainability while preserving functionality.",
+      "fetch": "manual",
+      "framework": null,
+      "install": "claude plugin install code-simplifier@claude-plugins-official",
+      "kind": "plugin",
+      "license": "Apache-2.0",
+      "patch": null,
+      "path": "code-simplifier",
+      "pinned": "1.0.0",
+      "publish": false,
+      "source": "github:anthropics/claude-plugins-official",
       "status": "downloaded"
     },
     "codebase-onboarding": {
@@ -855,6 +930,21 @@
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
+    "feature-dev@claude-plugins-official": {
+      "base_hash": "7c64ce1b2c030769294e4d78a24d1908793f010cd5a25fdf0df5f41340c2c9b6",
+      "description": "Comprehensive feature development workflow with specialized agents for codebase exploration, architecture design, and quality review.",
+      "fetch": "manual",
+      "framework": null,
+      "install": "claude plugin install feature-dev@claude-plugins-official",
+      "kind": "plugin",
+      "license": "Apache-2.0",
+      "patch": null,
+      "path": "feature-dev",
+      "pinned": "8f814f49002ff824e8a9ba43cf96112dc7f5948d",
+      "publish": false,
+      "source": "github:anthropics/claude-plugins-official",
+      "status": "downloaded"
+    },
     "figma-code-connect": {
       "base_hash": "1eb27db7662a80f36515b11df6dd21c7b5c481fb0ee27134b7e1fb7643afdc5f",
       "description": "Creates and maintains Figma Code Connect template files that map Figma components to code snippets.",
@@ -1094,6 +1184,21 @@
       "publish": true,
       "source": "github:garrytan/gstack",
       "status": "unpinned"
+    },
+    "frontend-design@claude-plugins-official": {
+      "base_hash": "a0ef38cca13078f86fc38958ead839089ee53c780d0e3d660c297ef93bade924",
+      "description": "Frontend design skill for UI/UX implementation.",
+      "fetch": "manual",
+      "framework": null,
+      "install": "claude plugin install frontend-design@claude-plugins-official",
+      "kind": "plugin",
+      "license": "Apache-2.0",
+      "patch": null,
+      "path": "frontend-design",
+      "pinned": "8f814f49002ff824e8a9ba43cf96112dc7f5948d",
+      "publish": false,
+      "source": "github:anthropics/claude-plugins-official",
+      "status": "downloaded"
     },
     "frontend-patterns": {
       "base_hash": "cc07c8436025c5a64c56179eb1d95eeb5993bfbfac70d1c66eaea8e6d18a7154",
@@ -1905,6 +2010,21 @@
       "source": "github:currents-dev/playwright-best-practices-skill",
       "status": "downloaded"
     },
+    "ponytail@ponytail": {
+      "base_hash": "18848cbd04d923054d347c35dec9e868096b815482fae50adf2677ccf086397f",
+      "description": "Lazy senior dev mode.",
+      "fetch": "manual",
+      "framework": null,
+      "install": "claude plugin install ponytail@ponytail",
+      "kind": "plugin",
+      "license": "MIT",
+      "patch": null,
+      "path": "ponytail",
+      "pinned": "e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156",
+      "publish": false,
+      "source": "github:DietrichGebert/ponytail",
+      "status": "downloaded"
+    },
     "popups": {
       "base_hash": "5127d5b66ebdcb25644215129d9f1c3ba0052966be11ddcb94cb35af7abee6fe",
       "description": "When the user wants to create or optimize popups, modals, overlays, slide-ins, or banners for conversion purposes.",
@@ -2038,6 +2158,21 @@
       "pinned": "48dafdd288ca415bed92be9fc86580cb742e0363",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
+      "status": "downloaded"
+    },
+    "ralph-loop@claude-plugins-official": {
+      "base_hash": "323ff2af6ad7048125e78f6f44f8fda2b56e22f78694bf57d82d767cd342bf99",
+      "description": "Continuous self-referential AI loops for interactive iterative development, implementing the Ralph Wiggum technique.",
+      "fetch": "manual",
+      "framework": null,
+      "install": "claude plugin install ralph-loop@claude-plugins-official",
+      "kind": "plugin",
+      "license": "Apache-2.0",
+      "patch": null,
+      "path": "ralph-loop",
+      "pinned": "1.0.0",
+      "publish": false,
+      "source": "github:anthropics/claude-plugins-official",
       "status": "downloaded"
     },
     "redis-patterns": {
@@ -2175,6 +2310,21 @@
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
+    "security-guidance@claude-plugins-official": {
+      "base_hash": "850f8a395d052546acb7ea2869beb96cebcb1485c43623bd7487ee2119b13ae2",
+      "description": "Security review for Claude-generated code.",
+      "fetch": "manual",
+      "framework": null,
+      "install": "claude plugin install security-guidance@claude-plugins-official",
+      "kind": "plugin",
+      "license": "Apache-2.0",
+      "patch": null,
+      "path": "security-guidance",
+      "pinned": "f359d43b406057f1a8cdbc4ea93b827642c162e6",
+      "publish": false,
+      "source": "github:anthropics/claude-plugins-official",
+      "status": "downloaded"
+    },
     "setup-browser-cookies": {
       "base_hash": null,
       "description": "Import cookies from your real Chromium browser into the headless browse session.",
@@ -2279,6 +2429,21 @@
       "publish": true,
       "source": "github:garrytan/gstack",
       "status": "unpinned"
+    },
+    "superpowers@claude-plugins-official": {
+      "base_hash": "72144a41eab9b31bc9eca12ecea8335f36231b48b4f458e3997773869e97e8f7",
+      "description": "Core skills library for Claude Code: TDD, debugging, collaboration patterns, and proven techniques.",
+      "fetch": "manual",
+      "framework": null,
+      "install": "claude plugin install superpowers@claude-plugins-official",
+      "kind": "plugin",
+      "license": "MIT",
+      "patch": null,
+      "path": "superpowers",
+      "pinned": "5bf4e78011075bcfc0dc295f0724994cd123ee71",
+      "publish": false,
+      "source": "github:anthropics/claude-plugins-official",
+      "status": "downloaded"
     },
     "sync-gbrain": {
       "base_hash": null,
@@ -2578,6 +2743,21 @@
       "pinned": "b39d2244cf93d2e39eb7e3dfc375b737b75ca14d",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
+      "status": "downloaded"
+    },
+    "watch@claude-video": {
+      "base_hash": "abe323ab90641c0c060f072face9d00800f20e6447ca4725c8b1bc998abff7f7",
+      "description": "Give an agent video evidence: timestamped frames and native captions, with optional local WhisperX or Groq/OpenAI transcription.",
+      "fetch": "manual",
+      "framework": null,
+      "install": "claude plugin install watch@claude-video",
+      "kind": "plugin",
+      "license": "MIT",
+      "patch": null,
+      "path": "watch",
+      "pinned": "03ceb42f7fa2c4439aca01752118044baabffb8f",
+      "publish": false,
+      "source": "github:bradautomates/claude-video",
       "status": "downloaded"
     },
     "web-perf": {

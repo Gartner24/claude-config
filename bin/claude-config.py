@@ -373,6 +373,8 @@ def save_manifest(m):
 
 
 def installed(entry, name):
+    if entry["kind"] == "plugin":
+        return Path((installed_plugins().get(name) or [{}])[0].get("installPath") or PLUGINS / "cache" / name)
     return LIVE / {"skill": "skills", "command": "commands", "hook": "hooks", "agent": "agents"}[entry["kind"]] / name
 
 
@@ -670,17 +672,59 @@ def pin(repo, path, want_hash, tree, tmp):
     return None, None
 
 
+def license_of(t):
+    if "Permission is hereby granted, free of charge" in t:
+        return "MIT"
+    if "Apache License" in t and "Version 2.0" in t:
+        return "Apache-2.0"
+    return "unknown"
+
+
 def license_at(repo, commit):
     for name in ("LICENSE", "LICENSE.md", "LICENSE.txt"):
         r = git("show", f"{commit}:{name}", cwd=repo, check=False)
         if r.returncode == 0:
-            t = r.stdout.decode(errors="replace")
-            if "Permission is hereby granted, free of charge" in t:
-                return "MIT"
-            if "Apache License" in t and "Version 2.0" in t:
-                return "Apache-2.0"
-            return "unknown"
+            return license_of(r.stdout.decode(errors="replace"))
     return "unknown"
+
+
+PLUGINS = LIVE / "plugins"
+
+
+def installed_plugins():
+    try:
+        return json.loads((PLUGINS / "installed_plugins.json").read_text()).get("plugins", {})
+    except (OSError, ValueError):
+        return {}
+
+
+def plugin_entries():
+    """AC-5: one `kind: plugin` entry per installed plugin, from Claude Code's own plugin files. Plugins are
+    reinstalled by `claude plugin install`, never copied, so `publish` is false and `fetch` manual."""
+    try:
+        markets = json.loads((PLUGINS / "known_marketplaces.json").read_text())
+    except (OSError, ValueError):
+        markets = {}
+    out = {}
+    for key, installs in sorted(installed_plugins().items()):
+        if not installs:
+            continue
+        i = installs[0]
+        plugin, _, market = key.partition("@")
+        repo = (markets.get(market) or {}).get("source", {}).get("repo")
+        folder = Path(i.get("installPath", ""))
+        try:
+            desc = json.loads((folder / ".claude-plugin" / "plugin.json").read_text()).get("description")
+        except (OSError, ValueError):
+            desc = None
+        lic = next((license_of(f.read_text(errors="replace")) for f in (folder / n for n in
+                    ("LICENSE", "LICENSE.md", "LICENSE.txt")) if f.is_file()), "unknown")
+        out[key] = {"kind": "plugin", "status": "downloaded", "source": f"github:{repo}" if repo else market,
+                    "path": plugin, "pinned": i.get("gitCommitSha") or i.get("version"),
+                    "base_hash": folder_hash(folder) if folder.is_dir() else None, "license": lic,
+                    "publish": False, "patch": None, "description": first_sentence(desc) if desc else None,
+                    "fetch": "manual", "install": f"claude plugin install {key}", "framework": None}
+    return out
 
 
 def description(folder):
@@ -761,7 +805,7 @@ def write_notice(m, texts):
     lines += ["## Not redistributed", "", "Named in the manifest only; no file or patch of these is in this repo.", ""]
     lines += [f"- {n}: {(e.get('source') or 'source unknown').removeprefix('github:')} ({e.get('license')})"
               for n, e in sorted(m["entries"].items())
-              if not e.get("publish") or e.get("license") in ("unknown", "none")]
+              if e["kind"] != "plugin" and (not e.get("publish") or e.get("license") in ("unknown", "none"))]
     lines += ["", NOTICE_END]
     path = REPO / "docs" / "NOTICE.md"
     old = path.read_text() if path.exists() else "# Notice\n"
@@ -832,6 +876,9 @@ def build():
                 to_private(name, p)  # cite only: no public files, so the private store keeps your copy
             m["entries"][name] = e
             report.append(f"{name}: {e['status']}")
+    for key, e in plugin_entries().items():
+        m["entries"][key] = e
+        report.append(f"{key}: plugin {e['pinned']}")
     save_manifest(m)
     write_notice(m, texts)
     print("\n".join(report))
@@ -882,8 +929,16 @@ def docs_text():
     for name, f in sorted(m.get("frameworks", {}).items()):
         out.append(f"| {name} | {cell(f.get('source'))} | {cell(f.get('pinned') or 'not pinned')} | "
                    f"{cell(f.get('license'))} | `{cell(f.get('install'))}` |")
+    plugins = sorted((n, e) for n, e in m.get("entries", {}).items() if e.get("kind") == "plugin")
+    out += ["", "## Plugins", "", "Installed by Claude Code's plugin system, never copied here.", "",
+            "| Plugin | Source | Version | License | What it does |", "|---|---|---|---|---|"]
+    for name, e in plugins:
+        out.append(f"| `{name}` | {cell(e.get('source').removeprefix('github:'))} | {cell(e.get('pinned'))} | "
+                   f"{cell(e.get('license'))} | {cell(e.get('description'))} |")
     by_source = {}
     for name, e in sorted(m.get("entries", {}).items()):
+        if e.get("kind") == "plugin":
+            continue
         by_source.setdefault(e.get("source") or "source unknown", []).append((name, e))
     out += ["", "## Downloaded skills", "",
             "Status: `downloaded` is upstream as is, `edited` is upstream plus your patch, `unpinned` matches no",

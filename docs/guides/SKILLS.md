@@ -56,6 +56,25 @@ not listed below.
 | jjstack | private: ~/.claude/private/work.md | 0b659d3c395fc56cf8b1d576a01b825efb0f165f | MIT | `git clone <jjstack source from ~/.claude/private/work.md> ~/.claude/skills/jjstack && cd ~/.claude/skills/jjstack && ./setup` |
 | vendor-jsm-skills | github:JavaScript-Mastery-Pro/skills | 43b69e44c9ca905fe3a3418ccdf4102255e20d40 | MIT | `git clone https://github.com/JavaScript-Mastery-Pro/skills ~/.claude/vendor-jsm-skills, then link each skills/<name> into ~/.claude/skills` |
 
+## Plugins
+
+Installed by Claude Code's plugin system, never copied here.
+
+| Plugin | Source | Version | License | What it does |
+|---|---|---|---|---|
+| `clangd-lsp@claude-plugins-official` | anthropics/claude-plugins-official | 1.0.0 | Apache-2.0 | no description |
+| `claude-mem@thedotmack` | thedotmack/claude-mem | fef3402e674bebbf72a23aeb735e91c92cd34afd | unknown | Memory compression system for Claude Code - persist context across sessions. |
+| `claude-seo@agricidaniel-claude-seo` | AgriciDaniel/claude-seo | e77e783e38eeb738424eb72117abbd2dacdd88af | MIT | Comprehensive SEO analysis plugin for Claude Code. |
+| `code-review@claude-plugins-official` | anthropics/claude-plugins-official | 8f814f49002ff824e8a9ba43cf96112dc7f5948d | Apache-2.0 | Automated code review for pull requests using multiple specialized agents with confidence-based scoring. |
+| `code-simplifier@claude-plugins-official` | anthropics/claude-plugins-official | 1.0.0 | Apache-2.0 | Agent that simplifies and refines code for clarity, consistency, and maintainability while preserving functionality. |
+| `feature-dev@claude-plugins-official` | anthropics/claude-plugins-official | 8f814f49002ff824e8a9ba43cf96112dc7f5948d | Apache-2.0 | Comprehensive feature development workflow with specialized agents for codebase exploration, architecture design, and quality review. |
+| `frontend-design@claude-plugins-official` | anthropics/claude-plugins-official | 8f814f49002ff824e8a9ba43cf96112dc7f5948d | Apache-2.0 | Frontend design skill for UI/UX implementation. |
+| `ponytail@ponytail` | DietrichGebert/ponytail | e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156 | MIT | Lazy senior dev mode. |
+| `ralph-loop@claude-plugins-official` | anthropics/claude-plugins-official | 1.0.0 | Apache-2.0 | Continuous self-referential AI loops for interactive iterative development, implementing the Ralph Wiggum technique. |
+| `security-guidance@claude-plugins-official` | anthropics/claude-plugins-official | f359d43b406057f1a8cdbc4ea93b827642c162e6 | Apache-2.0 | Security review for Claude-generated code. |
+| `superpowers@claude-plugins-official` | anthropics/claude-plugins-official | 5bf4e78011075bcfc0dc295f0724994cd123ee71 | MIT | Core skills library for Claude Code: TDD, debugging, collaboration patterns, and proven techniques. |
+| `watch@claude-video` | bradautomates/claude-video | 03ceb42f7fa2c4439aca01752118044baabffb8f | MIT | Give an agent video evidence: timestamped frames and native captions, with optional local WhisperX or Groq/OpenAI transcription. |
+
 ## Downloaded skills
 
 Status: `downloaded` is upstream as is, `edited` is upstream plus your patch, `unpinned` matches no
