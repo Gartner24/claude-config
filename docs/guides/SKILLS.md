@@ -68,10 +68,10 @@ License: Apache-2.0.
 
 | Skill | Status | What it does |
 |---|---|---|
-| `21st-ai` | downloaded | >-. |
-| `21st-cli-use` | downloaded | >-. |
-| `21st-design-sync` | downloaded | >-. |
-| `21st-registry` | unpinned | >-. |
+| `21st-ai` | downloaded | Generate and iterate on UI with 21st AI from the terminal via the `21st` CLI (`@21st-dev/cli`): sketch a UI from a prompt, preview the variants in the browser, edit any variant in place with a natural-language change, and pull the final code into the project. |
+| `21st-cli-use` | downloaded | Search, install and pull code from the 21st.dev catalog with the `21st` CLI (`@21st-dev/cli`): find React/shadcn components, themes and templates, print a component's code or a theme's CSS, install an item into the project, or generate a new component with 21st AI. |
+| `21st-design-sync` | downloaded | Look at the current project's design (its shadcn / Tailwind CSS variables and color tokens) and publish it to the 21st.dev community as a shareable theme, using `21st publish-theme`. |
+| `21st-registry` | unpinned | Publish your own work to 21st.dev and manage it from the terminal with the `21st` CLI (`@21st-dev/cli`): publish a React component to a team library, publish a CSS theme or a template listing, edit / unpublish / delete your published items, list and reopen existing component work, and read/replace your public profile page (bento board). |
 | `21st-ui-build` | unpinned | Build or substantially change production UI using the current project's design context, existing components, and grounded 21st inspiration. |
 | `21st-ui-explore` | unpinned | Explore and compare multiple meaningfully different UI directions grounded in the current project's design system and 21st inspiration. |
 | `21st-ui-review` | unpinned | Review existing UI against the project's design context, accessibility expectations, responsive behavior, interaction quality, and high-confidence production rules. |
@@ -135,7 +135,7 @@ License: MIT.
 
 | Skill | Status | What it does |
 |---|---|---|
-| `humanizer` | unpinned | /. |
+| `humanizer` | unpinned | Rewrite AI-sounding text so it reads naturally without changing what it says. |
 
 ### chrishan17/skill-router
 
@@ -143,7 +143,7 @@ License: MIT.
 
 | Skill | Status | What it does |
 |---|---|---|
-| `skill-router` | downloaded | >. |
+| `skill-router` | downloaded | Organises skills into a single-entry-point router that intelligently routes to a group of related sub-skills, reducing clutter and making large skill sets easier to invoke. |
 
 ### ChromeDevTools/chrome-devtools-mcp
 
@@ -387,7 +387,7 @@ License: MIT.
 
 | Skill | Status | What it does |
 |---|---|---|
-| `design-dna` | unpinned | >-. |
+| `design-dna` | unpinned | Extract, define, and apply design DNA across three dimensions: design system (tokens), design style (qualitative feel), and visual effects (Canvas, WebGL, 3D, particles, shaders, scroll effects, etc.). |
 
 ### source unknown
 
