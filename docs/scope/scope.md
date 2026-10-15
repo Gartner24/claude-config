@@ -50,13 +50,13 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 36 | Telegram instead of ntfy | Release 6 | done |
 | 37 | Autonomous mode | Release 6 | in-progress |
 | 31 | Guard baseline check between repos | Release 6 | done |
-| 23 | Understand everything | Release 6 | in-progress |
+| 23 | Understand everything | Release 6 | done |
 | 15 | Cheap worker tier | Release 6 | done |
 | 16 | Issues and mixed source of truth | Release 6 | done |
 | 11 | Autopilot offer and batch design | Deferred | dropped |
 | 12 | Usage limit planning | Release 6 | done |
 | 14 | Branch and PR flow | Release 6 | in-progress |
-| 38 | Adopt your open PRs | Release 7 | in-progress |
+| 38 | Adopt your open PRs | Release 7 | done |
 | 39 | Review requests to you | Release 7 | in-progress |
 | 40 | Context and links in every message | Release 7 | in-progress |
 | 41 | Styled Telegram messages | Release 7 | in-progress |
@@ -574,7 +574,7 @@ Boring reading jobs go to the free claude-fb models through `fb-ask` (text only,
 - [x] Sync docs: `/sync cheap worker tier`
 Spec [0023](../specs/0023-cheap-worker-tier/index.md) · Source: your message 2026-10-13 (agreed, not optional).
 
-### 23. Understand everything · in-progress · auto
+### 23. Understand everything · done · auto
 Everything Claude tells you uses words you can follow; every question panel ends with "Learn this first"; phone questions carry a short explanation and a learn option; the runner speaks plain words, with a jargon test.
 **Done when:** a panel in a fresh session offers "Learn this first", a runner report holds no word from the jargon list, and the rule survives a pull of the vendored skills.
 - [x] Research it: done inside spec 0028 (rationale.md)
@@ -585,7 +585,7 @@ Everything Claude tells you uses words you can follow; every question panel ends
 - [x] Copy the rule live: `cp ~/claude-config/rules/plain-questions.md ~/.claude/rules/plain-questions.md` · waits on you · live
 - [x] Real check of the LEARN line: `python3 docs/specs/0028-understand-everything/probes/learn-line.py` · waits on you · live
 - [x] A panel is refused without "Learn this first" in a real session (P3) · waits on you
-- [ ] Sync docs: `/sync understand everything`
+- [x] Sync docs: `/sync understand everything`
 Spec [0028](../specs/0028-understand-everything/index.md) · Source: your messages 2026-10-12 and 2026-10-13.
 
 ### 36. Telegram instead of ntfy · done · auto
@@ -611,7 +611,7 @@ Spec [0029](../specs/0029-telegram/index.md) · Source: personal scope row 26.
 - [ ] Sync docs: `/sync autonomous mode`
 Spec [0030](../specs/0030-autonomous-mode/index.md) · Source: your message 2026-10-13; [docs/briefs/autonomous-mode.md](../briefs/autonomous-mode.md).
 
-### 38. Adopt your open PRs · in-progress · auto
+### 38. Adopt your open PRs · done · auto
 wf adopts the open PRs you list in pr.json, runs the review loop on them, watches each until it merges, and merges only on your explicit merge now tap.
 **Done when:** an adopted PR gets its review round, is watched until merged, and merges only on your tap.
 - [x] Design it (spec): `/architect adopt open prs`
@@ -620,7 +620,7 @@ wf adopts the open PRs you list in pr.json, runs the review loop on them, watche
 - [x] Test it: `/test adopt open prs`
 - [x] Write `~/.claude/private/pr.json` for the repos to adopt · waits on you · later boxes go on
 - [x] Probes P3 and P4 on a scratch GitHub repo (they post) · waits on you · later boxes go on
-- [ ] Sync docs: `/sync adopt open prs`
+- [x] Sync docs: `/sync adopt open prs`
 Spec [0031](../specs/0031-adopt-open-prs/index.md) · Source: your message 2026-10-13 (the gap after the draft PR until approved and merged).
 
 ### 39. Review requests to you · in-progress · auto
