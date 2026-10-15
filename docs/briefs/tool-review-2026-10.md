@@ -30,3 +30,12 @@ Source: your message of 2026-10-15 evening, at the end of the clean branches ses
 Recommended mods (translated from Spanish): "Three that will save you trouble: 1. The gatekeeper: easy work goes to a cheaper model and your limit lasts longer. 2. Claude talks to Claude: one plans, another builds. 3. Your own panel: you see what each agent does without asking."
 
 NotebookLM claim (as you pasted it): create a free notebook "Claude Memory", connect with the free `notebooklm-mcp` server, add a wrap up skill that saves each session, add a routing rule to CLAUDE.md so Claude checks the notebook first, and the next session pulls what it needs by semantic search; claimed benefits: persistent memory, lower token cost, answers only from saved sessions, free infographics and video overviews. These are claims to verify, not facts.
+
+## Research answers (2026-10-15, after the orchestrated research in docs/research/tool-review-2026-10/)
+- Row 57: keep jjstack and close the row; only its status line goes (row 58 replaces it); copy `spawn-review` into claude-config as your own.
+- Row 61: start it today with everything else ("I think we should start everything today!"), not after the limit is hit.
+- Row 65: skillspector runs both the static scan and the model pass on every installed skill.
+- Row 62: the self improving runner writes its proposals to a separate inbox file the session shows you; you promote the good ones to plan rows.
+- Rows 59 and 60: at session start a waiting handover loads first and memory gets the space left; claude-mem stays off for good.
+- Mods: accepted for wf-dash and the handoff mod, each our own code, scanned with skillspector and tested after every Claude Code upgrade.
+- All rows start today.
