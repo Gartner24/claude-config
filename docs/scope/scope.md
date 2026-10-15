@@ -797,9 +797,9 @@ A folder structure and docs that are easy to read, and a repo that holds (or nam
   - [x] Docs map first, then the rewrite, a short AGENTS.md and the 5 typed guides (AC-12, AC-13)
 - [x] Verify it: `/check verify organize and sync claude-config with ~/.claude`
 - [x] Test it: `/test organize and sync claude-config with ~/.claude`
-- [ ] Back up `~/.claude` and the repo, as `migrate.md` step 0 says (AC-14) · waits on you
-- [ ] Install the new layout by running `bin/install.sh` yourself (the old runner copy does not know this path yet) · waits on you
-- [ ] Check every skill name still opens, then remove the temporary `live` link (AC-15) · waits on you
+- [x] Back up `~/.claude` and the repo, as `migrate.md` step 0 says (AC-14) · waits on you
+- [x] Install the new layout by running `bin/install.sh` yourself (the old runner copy does not know this path yet) · waits on you
+- [x] Check every skill name still opens, then remove the temporary `live` link (AC-15) · waits on you
 - [ ] Sync docs: `/sync organize and sync claude-config with ~/.claude`
 Spec [0048](../specs/0048-organize-and-sync/index.md) · Source: [brief](../briefs/organize-and-sync.md).
 

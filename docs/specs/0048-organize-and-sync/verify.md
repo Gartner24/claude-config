@@ -83,3 +83,12 @@ Scratch in `/tmp/claude/v0048d/`; `git archive HEAD` export committed into a thr
 ### Not run here
 - `update --plan` against GitHub (sandbox denies github.com); `python3 runner/e2e/run.py` (needs a real `claude -p`).
 - AC-14 live run and AC-15: left to the boxes "Back up `~/.claude` and the repo, as `migrate.md` step 0 says (AC-14)", "Install the new layout by running `bin/install.sh` yourself (the old runner copy does not know this path yet)", "Check every skill name still opens, then remove the temporary `live` link (AC-15)".
+
+## Live migration (2026-10-15, conductor session, after the merge 5a43b0a): pass
+
+- Preconditions: branch merged into `main` and pushed (`5a43b0a`), `wf-auto` unit stopped, `readlink live` -> `claude-home`. Merged `main` suite: 924 tests, 0 failed.
+- Step 0 (AC-14): `~/claude-migration-2026-10-15/dot-claude.tar` (first entry `.claude/`, mode 0600) and `claude-config.bundle` (`git bundle verify` -> `is okay`, 90 refs, complete history). `skills-before.txt`: 257 skills open.
+- Step 1: `bin/install.sh` exit 0, every self check passed. Check: both settings files parse, `claude -p "say ok"` answers, `wf queue` exit 0, `install.sh --dry-run` exit 0, `comm -23` before/now prints nothing.
+- Found in step 1: 4 private skill links (3 skills and their shared support folder) pointed at `~/claude-config/live/skills/<name>`, a path that never held them; the backup shows they were already broken (made 03:55). Their files were in `~/.claude/private/skills/` (byte equal to `~/claude-config-old/skills/`) except the support folder, copied there from `~/claude-config-old/`. All 4 relinked to the private store: 261 skills open, 0 broken links, 0 links through `live/`.
+- Step 2 (AC-15): `live` link removed and committed. Check: 261 skills open, none missing, 0 broken; `bin/claude-config.py drift` -> `drift: none`.
+- Steps 3 and 4 not run here: the manifest was built with network in the conductor session earlier the same day (`483eea4`, `59f521a`); `skills-audit.sh` retirement left for a later session.
