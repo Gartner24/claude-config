@@ -73,11 +73,12 @@ function main(input) {
     const used = usedTokens(data.transcript_path);
     if (used === null) return;
     const mark = markFor(used);
-    if (mark === 0) return;
     const statePath = path.join(os.tmpdir(), `context-monitor-${sessionId}.json`);
     let last = 0;
     try { last = JSON.parse(fs.readFileSync(statePath, 'utf8')).last || 0; } catch (e) { /* none yet */ }
-    if (mark <= last) return;
+    // /compact keeps the session id: without stepping the mark back down, no warning ever fired again after it.
+    if (mark < last) fs.writeFileSync(statePath, JSON.stringify({ last: mark }));
+    if (mark === 0 || mark <= last) return;
     fs.writeFileSync(statePath, JSON.stringify({ last: mark }));
     process.stdout.write(JSON.stringify({
       hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: messageFor(used) },
@@ -144,6 +145,10 @@ function selfTest() {
   assert.strictEqual(run([asst(650000)], s), crit(650));
   assert.strictEqual(run([asst(690000)], s), '');
   assert.strictEqual(run([asst(760000)], s), '');
+  // /compact keeps the session id: usage drops, then the warnings fire again as it regrows.
+  assert.strictEqual(run([asst(40000)], s), '');
+  assert.strictEqual(run([asst(160000)], s), warn(160));
+  assert.strictEqual(run([asst(660000)], s), crit(660));
 
   // A newer sidechain line is ignored either way.
   assert.strictEqual(run([asst(100000), asst(200000, { isSidechain: true })]), '');

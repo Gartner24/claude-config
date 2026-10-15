@@ -199,7 +199,18 @@ class TestOneOwner(ChatCase):
             self.assertEqual(self.cli("take", "other"), (5, "refused: other is being built by another runner\n"))
             os.close(fd)
         self.assertEqual(self.chat()["repos"], [str(self.folder)])
+        # A build step inside a wf run call can neither widen nor shrink the chat (review 2026-10-15).
+        with mock.patch.dict(os.environ, {"WF_RUN": "1"}):
+            self.assertEqual(self.cli("take", "other"), (5, "refused: user_only\n"))
+            self.assertEqual(self.cli("release", "work"), (5, "refused: user_only\n"))
+        self.assertEqual(self.chat()["repos"], [str(self.folder)])
         self.assertEqual(self.cli("take", "other"), (0, "taken: other\n"))
+
+    # covers: a chat with no repos has no work, so wait never answers `work` for every allowed repo (review 2026-10-15)
+    def test_no_repos_no_work(self):
+        with mock.patch.object(finish, "covered") as covered:
+            self.assertEqual(auto.fingerprint([]), "")
+        covered.assert_not_called()
 
 
 class TestLive(ChatCase):
@@ -235,8 +246,14 @@ class TestSuggest(ChatCase):
         origin = {str(self.folder): ("me", "work"), str(owned): ("ME", "owned"), str(far): ("you", "far")}
         with mock.patch("run.github_origin", lambda p: origin.get(str(p))):
             self.cli("on")
-            self.assertEqual(self.hook_lines(), ['suggested repos: "owned", "n0", "n1", "n2", "n3", "n4"'])
-            self.assertEqual(self.hook_lines(), [])
+            # A mid-session /auto on: the line comes with the text that says to ask and take (review 2026-10-15).
+            out = self.hook("UserPromptSubmit")[1]
+            self.assertIn(auto.DRIVE, out)
+            self.assertEqual([x for x in out.splitlines() if x.startswith("suggested")],
+                             ['suggested repos: "owned", "n0", "n1", "n2", "n3", "n4"'])
+            out = self.hook("UserPromptSubmit")[1]
+            self.assertNotIn("suggested", out)
+            self.assertNotIn(auto.DRIVE, out)
 
     # covers: AC-3 (a chat with no repos gets every allowed repo held by no chat, at most 6)
     def test_no_repos(self):

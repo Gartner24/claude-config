@@ -45,7 +45,8 @@ mkdir -p "$REPO/live/hooks" "$REPO/live/scripts"
 cp "$LIVE/hooks/block-destructive.sh"     "$REPO/live/hooks/"
 cp "$LIVE/hooks/review-stack-pre-push" "$REPO/live/hooks/"
 cp "$LIVE/hooks/plain-panel.py"        "$REPO/live/hooks/"
-cp "$LIVE/hooks/context-monitor.js"    "$REPO/live/hooks/"
+# Not live until the first install after spec 0037; a missing file used to stop the sync half way.
+if [ -e "$LIVE/hooks/context-monitor.js" ]; then cp "$LIVE/hooks/context-monitor.js" "$REPO/live/hooks/"; fi
 cp "$LIVE/scripts/chroma-reaper.sh"   "$REPO/live/scripts/"
 
 

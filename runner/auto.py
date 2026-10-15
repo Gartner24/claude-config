@@ -184,6 +184,9 @@ def status_line(folder):
 def fingerprint(repos):
     """AC-5: a hash of the (repo, feature) pairs `wf -y --repos <repos>` would build, as finish.cmd_wf plans them;
     '' for none."""
+    if not repos:
+        # No --repos means every allowed repo to wf: a chat with none used to answer `work` forever (review 2026-10-15).
+        return ""
     import finish
     args = wf.build_parser()[0].parse_args(["-y", *[x for p in repos for x in ("--repos", p)]])
     try:
@@ -391,6 +394,10 @@ def off(now, folder=None):
 
 def take(words):
     """AC-3: allowed repos held by no other chat and built by no other runner, into this folder's chat."""
+    if os.environ.get("WF_RUN"):
+        # A build step must never widen what the next wf auto start builds (review 2026-10-15), as with on and start.
+        print("refused: user_only")
+        return 5
     if not words:
         print(USAGE, file=sys.stderr)
         return 2
@@ -434,6 +441,9 @@ def take(words):
 
 def release(words):
     """AC-4: drop repos from this folder's chat."""
+    if os.environ.get("WF_RUN"):
+        print("refused: user_only")
+        return 5
     if not words:
         print(USAGE, file=sys.stderr)
         return 2
@@ -586,6 +596,9 @@ def hook():
         change(lambda s: s["chats"][key].update(suggested=True) if key in s["chats"] else False)
         if got:
             lines.append("suggested repos: " + ", ".join(quoted(n, 60) for n in got))
+            if event != "SessionStart":
+                # Mid-session /auto on: the line came alone, without the text that says to ask and take (AC-3).
+                print(DRIVE)
     if event == "SessionStart":
         print(DRIVE)
         new = [d for d in open_questions(set(c["repos"])) or [] if d["id"] not in c.get("relayed", [])]

@@ -224,6 +224,10 @@ class TestRun(RunCase):
         self.assertIn("\nspec: docs/specs/0001-a/index.md\n", block)
         self.assertIn("\nissue: acme/widgets#4\n", block)
         self.assertNotIn("github.com", block)
+        # A private name in the issue text never reaches the phone (review 2026-10-15).
+        with mock.patch.object(ntfy, "private_names", return_value=["acme"]):
+            block = context.telegram_block(CFG, d, 4000)
+        self.assertNotIn("acme", block.lower())
 
     # covers: AC-6 (a block's STEP lines become the question's numbered steps)
     def test_blocked_steps(self):

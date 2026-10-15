@@ -102,15 +102,18 @@ def collect(sources):
                 mine.append(item)
             mine += [{"kind": "note", "text": t} for t in (rec or {}).get("notes") or []]
         mine = open_questions(s["path"], mine) + scope_items(s["path"]) + approved(s["path"])
+        keys = set()
         for item in mine:
             item.update(repo=s["path"], name=s["name"])
             # Worktree children of one repo share its plan and queue: its yours, live, approved and question
-            # items are listed once, not once per child (17 copies of each in the 2026-10-15 run).
+            # items are listed once, not once per child (17 copies of each in the 2026-10-15 run). Only an earlier
+            # source's copy is dropped: two boxes with the same text in one plan stay two lines.
             key = (item["kind"], s["path"], item.get("feature"), item.get("id"), item.get("text"), item.get("number"))
             if item["kind"] in ("yours", "live", "approved", "question") and key in seen:
                 continue
-            seen.add(key)
+            keys.add(key)
             items.append(item)
+        seen |= keys
     items.sort(key=lambda i: ORDER.index(SLOT.get(i["kind"], i["kind"])))
     return items, recs
 

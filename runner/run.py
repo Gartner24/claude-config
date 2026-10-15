@@ -3754,6 +3754,9 @@ class Run:
             if verify or (kind == "box" and command.split()[0] == "/test"):
                 # Spec 0045 AC-2: a /debug call between keeps the check's list.
                 self.unreachable = unreachable(str((data or {}).get("result") or ""))
+            elif command.split()[:1] != ["/debug"]:
+                # Any other call (a /sync, the next box) starts clean: a stale list used to blame the wrong step.
+                self.unreachable = []
             rec.update(kind=kind, box_text=box.box_text if kind in ("box", "sync") and box else None,
                        resumes=[resume["id"]] if resume else [], retry_of=retry_of, app=app, feature=e["n"])
             calls.append(rec)

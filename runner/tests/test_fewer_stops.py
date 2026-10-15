@@ -129,6 +129,16 @@ class TestUnreachable(NeverStopCase):
         self.assertEqual(d["options"], ["try again", "skip"])
         self.assertFalse(d["detail"].startswith("could not reach"))
 
+    # covers: AC-2 (a verify that passed with UNREACHABLE lines does not blame a later, unrelated box; review
+    # 2026-10-15)
+    def test_later_box_starts_clean(self):
+        self.make_repo("c", PLAIN + "- [ ] Docs: `/document a`\n")
+        self.steps([says("UNREACHABLE: the phone\nCAN FAIL CHECKED: 1"), says("nothing done", tick=False)])
+        self.assert_stopped(self.wf("c", "-y"), "no_progress", calls=2)
+        [d] = self.queue()["decisions"]
+        self.assertEqual(d["options"], ["try again", "skip"])
+        self.assertFalse(d["detail"].startswith("could not reach"))
+
 
 class TestAttributionScan(unittest.TestCase):
     # covers: AC-3 (the whole phrase at the start of a line is still flagged in commit and PR text and in an added test

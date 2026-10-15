@@ -120,11 +120,11 @@ npx skills add chrishan17/skill-router/skills/skill-router -a claude-code -g -y
 ---
 
 ### intent-router
-**Source:** this repo - `skills/intent-router/SKILL.md`
+**Source:** this repo - `live/skills/intent-router/SKILL.md`
 **Install:**
 ```bash
 mkdir -p ~/.claude/skills/intent-router
-cp skills/intent-router/SKILL.md ~/.claude/skills/intent-router/SKILL.md
+cp live/skills/intent-router/SKILL.md ~/.claude/skills/intent-router/SKILL.md
 ```
 Or if cloning fresh:
 ```bash
@@ -561,7 +561,7 @@ mode.
 repo default, because on a merge-up stack `main` pulls in every branch beneath yours. The
 report states what the base hides: commits, lines, and authors not covered.
 
-**Receipts.** A completed run writes `.git/review-stack/<sha>`; `hooks/review-stack-pre-push`
+**Receipts.** A completed run writes `.git/review-stack/<sha>`; `live/hooks/review-stack-pre-push`
 refuses to push a commit that has none. See HOOKS.md.
 
 Output is a fixed structure every run - Verdict, Intent, Actionable comments, Disagreements,
@@ -682,8 +682,8 @@ mkdir -p ~/.claude/rules
 cp -a rules/.  ~/.claude/rules/
 
 # Hooks + scripts, also from this repo
-cp -a hooks/block-destructive.sh ~/.claude/hooks/
-cp -a scripts/chroma-reaper.sh   ~/.claude/scripts/
+cp -a live/hooks/block-destructive.sh ~/.claude/hooks/
+cp -a live/scripts/chroma-reaper.sh   ~/.claude/scripts/
 chmod +x ~/.claude/hooks/block-destructive.sh ~/.claude/scripts/chroma-reaper.sh
 bash ~/.claude/hooks/block-destructive.sh --test   # must print "all self-checks passed"
 ```

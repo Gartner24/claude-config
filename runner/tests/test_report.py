@@ -77,12 +77,19 @@ class Unit(unittest.TestCase):
 
     # covers: worktree children of one repo list its plan's live and yours lines once, not once per child
     def test_children_share_plan(self):
-        p = self.repo("demo", "# Scope: x\n" + WAITING)
-        sources = [dict(self.source(p, rec([("2. B", "feature_done", None)])), name="demo: 2. B"),
-                   dict(self.source(p, rec([])), name="demo: 5. E")]
-        lines = report.render(sources, CFG)[0].splitlines()
-        self.assertEqual([x for x in lines if x.startswith(("setup steps:", "for you:"))],
-                         ["setup steps: 3. C: 2 step(s) (demo: 2. B)", "for you: 3. C: Check the phone (demo: 2. B)"])
+        # Two boxes with the same text in one plan are two lines; the second child's copies are dropped.
+        p = self.repo("demo", "# Scope: x\n" + WAITING.replace("- [ ] Check the phone · waits on you · later boxes go on",
+                                                               "- [ ] Check the phone · waits on you · later boxes go on\n"
+                                                               "- [ ] Check the phone · waits on you · later boxes go on"))
+        sources = [dict(self.source(p, rec([("2. B", "feature_done", None), ("6. F", "decision_open", "k3x9")])),
+                        name="demo: 2. B"),
+                   dict(self.source(p, rec([("6. F", "decision_open", "k3x9")])), name="demo: 5. E")]
+        with mock.patch.object(report, "approved", side_effect=lambda path: [{"kind": "approved", "number": 7}]):
+            lines = report.render(sources, CFG)[0].splitlines()
+        self.assertEqual([x for x in lines if x.startswith(("setup steps:", "for you:", "approved:", "Question"))],
+                         ["Question k3x9 (its name, so your reply finds it): 6. F (demo: 2. B)",
+                          "setup steps: 3. C: 2 step(s) (demo: 2. B)", "for you: 3. C: Check the phone (demo: 2. B)",
+                          "for you: 3. C: Check the phone (demo: 2. B)", "approved: PR #7 (demo: 2. B)"])
 
     # covers: AC-2 (internal_error reads crash; distinct reasons in run order; question ids; stopped lines;
     # each repo suffix; no record, no end and not started rows)
