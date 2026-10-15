@@ -1,7 +1,7 @@
 # 0045 · Fewer avoidable stops
 
 **Date**: 2026-10-15
-**Status**: Accepted
+**Status**: Proposed
 **Paths:** `runner/run.py`, `runner/plain.py`, `AGENTS.md`, `runner/tests/test_fewer_stops.py`
 
 ## What you're agreeing to
