@@ -71,7 +71,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 50 | Fewer avoidable stops | Release 8 | done |
 | 51 | Autonomous mode per chat | Release 8 | in-progress |
 | 52 | Review leftovers 2026-10-15 | Release 8 | done |
-| 53 | Only a typed /auto turns on or releases | Release 8 | needs a decision |
+| 53 | Only a typed /auto turns on or releases | Release 8 | in-progress |
 | 54 | Organize claude-config and ~/.claude, sync what you use daily | Release 8 | needs a decision |
 | 55 | Fewer skills described in every session | Release 8 | needs a decision |
 
@@ -769,15 +769,19 @@ Only you release a repo from a chat; a check handing parts to a later step needs
 - [x] Sync docs: `/sync review leftovers 2026-10-15`
 Spec [0047](../specs/0047-review-leftovers/index.md) · code in `runner/auto.py`, `runner/run.py`, `live/settings.json`, `live/skills/auto/SKILL.md` · Source: [review](../reviews/review-2026-10-15.md) (Leftovers).
 
-### 53. Only a typed /auto turns on or releases · needs a decision
-`wf auto on` and `wf auto release` refuse unless the hook recorded that you typed them, so no spelling of the command lets Claude run them.
-**Done when:** Claude cannot turn a chat on or release a repo by any spelling, and your typed `/auto on` and `/auto release` still work.
-- [ ] Design it (spec): `/architect only a typed auto turns on or releases`
+### 53. Only a typed /auto turns on or releases · in-progress · auto
+`wf auto on` and `wf auto release` always refuse; only your typed `/auto` turns a chat on or releases a repo, and `wf auto hook` is denied to Claude.
+**Done when:** Claude cannot turn a chat on or release a repo through any spelling of `wf auto on` or `wf auto release`, and your typed `/auto on` and `/auto release` still work.
+- [x] Design it (spec): `/architect only a typed auto turns on or releases`
 - [ ] Build it: `/develop only a typed auto turns on or releases`
+  - [ ] Command refuses on and release, help texts and comments (AC-1, AC-2, AC-3, AC-4)
+  - [ ] Deny `wf auto hook`, the /auto skill text (AC-1b, AC-4)
+  - [ ] Tests moved to direct calls, refusal and typed path tests (AC-5)
 - [ ] Verify it: `/check verify only a typed auto turns on or releases`
 - [ ] Test it: `/test only a typed auto turns on or releases`
+- [ ] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync only a typed auto turns on or releases`
-Source: [review](../reviews/review-2026-10-15-0047.md) (Leftovers).
+Spec [0049](../specs/0049-typed-auto-only/index.md) · code in `runner/auto.py`, `runner/wf.py`, `live/settings.json`, `live/skills/auto/SKILL.md` · Source: [review](../reviews/review-2026-10-15-0047.md) (Leftovers).
 
 ### 54. Organize claude-config and ~/.claude, sync what you use daily · needs a decision
 A folder structure and docs that are easy to read, and a repo that holds (or names) everything you use every day, without losing any skill.
