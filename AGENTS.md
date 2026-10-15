@@ -61,6 +61,7 @@ wf auto on|off|status|start|wait|hook|bar          # autonomous mode (spec 0030)
 - Conventional Commits (`feat(scope):`, `fix(scope):`, `chore:`, `docs:`); a gsd hook enforces the format.
 - Comments explain why, usually naming the past failure ("this used to..."). Keep that style when fixing a script.
 - Self-checks are the tests. A change to a script ships with its assertion in the matching `--test` / `--check` / `test-*.sh`.
+- A test or probe that needs a banned attribution phrase as input builds it from two joined string halves (`"Co-Authored-" + "By: ..."`), so no file holds the whole phrase; the push scan (`pr.attribution_hits`) is never relaxed for tests (spec 0045).
 
 ## Gotchas
 

@@ -15,6 +15,12 @@ class TestPathsCorpus(unittest.TestCase):
                                  check=True).stdout.splitlines()
         tops = sorted([*SPECS.glob("[0-9][0-9][0-9][0-9]-*.md"), *SPECS.glob("[0-9][0-9][0-9][0-9]-*/index.md")])
         self.assertGreaterEqual(len(tops), 15)
+        # Specs are Accepted before their build, so this used to fail on spec 0046 naming a test its build creates.
+        # A spec linked from a plan feature with an open box is not built yet either.
+        open_specs = set()
+        for block in re.split(r"^### ", (REPO / "docs" / "scope" / "scope.md").read_text(), flags=re.M):
+            if re.search(r"^\s*- \[ \]", block, re.M):
+                open_specs.update(re.findall(r"specs/(\d{4})-", block))
         bad = []
         for top in tops:
             lines = top.read_text().splitlines()
@@ -31,7 +37,7 @@ class TestPathsCorpus(unittest.TestCase):
             if not globs:
                 bad.append(f"{rel}: no globs")
             # A spec not yet built (Proposed, In Progress) may name the files its build will create.
-            unbuilt = re.match(r"\*\*Status\*\*:\s*(Proposed|In Progress)", lines[status[0]])
+            unbuilt = re.match(r"\*\*Status\*\*:\s*(Proposed|In Progress)", lines[status[0]]) or top.relative_to(SPECS).parts[0][:4] in open_specs
             for g in globs:
                 if g.startswith("docs/") or not unbuilt and not any(fnmatch.fnmatchcase(f, g) for f in tracked):
                     bad.append(f"{rel}: {g} matches no tracked file or is under docs/")
