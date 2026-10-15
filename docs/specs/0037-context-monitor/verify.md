@@ -14,3 +14,45 @@
   temp settings file, which a sandboxed `wf` call cannot start: unconfirmed, owed to you.
 - **P2** `additionalContext` reaches the model: needs a real `claude -p`; unconfirmed, owed to
   you. Commands are in the spec's Probes section.
+
+## Verify run 2026-10-14 (`/check verify context monitor`, FAIL)
+
+Each step pipes `{"session_id":..,"transcript_path":..}` into `node hooks/context-monitor.js`
+with `WF_RUN` unset and `TMPDIR` a temp dir.
+
+- [x] `node hooks/context-monitor.js --test` -> `all checks passed`, exit 0 -> AC-8.
+  can fail: a fixture's expected output differs from the hook's.
+- [x] One session climbing 100k, 149999, 150000, 200000, 249999, 250000, 350000, 550000,
+  649999, 650000, 699000 -> WARNING at 150k, 250k, 350k, 550k, CRITICAL at 650k, silent on the
+  rest; state file `{"last":650000}`; exact AC-5 text -> AC-1, AC-4, AC-5.
+  can fail: the mark repeats inside a 100k band, or CRITICAL fires twice.
+- [x] Newer sidechain line at 900k after a main line at 160k -> WARNING names 160k -> AC-3.
+  can fail: the hook reads the sidechain usage.
+- [x] `WF_RUN=1` at 700k -> no output, exit 0 -> AC-6. can fail: the env check is dropped.
+- [x] Garbage stdin, missing transcript, session id `../x` -> no output, exit 0, no state file
+  outside the temp dir -> AC-3, AC-4. can fail: an uncaught throw, or a path escape.
+- [x] This repo's three real transcripts (up to 3.6 MB), every usage doubled -> the hook names
+  the newest main line's sum (238894 -> 238k, 202410 -> 202k; 56828 silent) -> AC-3.
+  can fail: the newest main usage line is outside the 256 KB tail on a real layout.
+- [x] Temp repo copy with header WARN_TOKENS 140000 -> `--test` exit 1; settings
+  `autoCompactWindow` 800000 -> exit 1; clean copy -> exit 0 -> AC-2.
+  can fail: the drift check ignores the header or settings.json.
+- [x] `./install.sh --dry-run` -> `would: cp -a .../hooks/context-monitor.js
+  ~/.claude/hooks/context-monitor.js` and chmod -> AC-7. can fail: the hook missing from the list.
+- [x] `sync.sh` with `CLAUDE_LIVE_DIR` a temp live tree holding the hook -> exit 0, repo copy
+  byte identical -> AC-7. can fail: the cp line missing or wrong path.
+- [ ] FAIL, AC-7: `sync.sh` checks every other copied hook for private names before copying
+  (`sync.sh:23-25`, spec 0013: a refused sync leaves the repo unchanged), but not
+  `hooks/context-monitor.js`. A made up name in the live hook: sync copies it into the repo and
+  only the after copy scan fails (`sync done, but the repo holds a private name`). The same
+  name in live `plain-panel.py`: `sync refused ... nothing was copied`. Fix: add
+  `"$LIVE/hooks/context-monitor.js"` to the `check` list, and a case to the
+  `private-names.py --test` sync checks.
+- [ ] NOT APPLIED, AC-9: the scope box "Install it live" is ticked, but
+  `~/.claude/hooks/context-monitor.js` does not exist and live `settings.json` PostToolUse still
+  runs `gsd-context-monitor.js`. The install likely ran from a checkout without this branch.
+  Rerun `./install.sh` from this branch (or after merge) and untick the box until then.
+- Not exercised: P1 hook input half (`transcript_path` in a real PostToolUse input) and P2
+  (`additionalContext` reaches the model); both need a real `claude -p`, owed to you.
+- Docs rows (`NOTICE.md`, `HOOKS.md`, `AGENTS.md`) read, present; not counted, a read of text
+  the change added cannot fail.
