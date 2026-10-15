@@ -3392,8 +3392,11 @@ class Run:
                 # Spec 0031 AC-5 (amends 0026 AC-11): a ready or approved PR of a held repo that has not ended is
                 # watched with no --max-wait cutoff, until it is merged or closed, or Ctrl C.
                 watched = any(p["state"] in ("ready", "approved") and p["repo"] in waiting for p in q.get("prs", []))
+                # A feature's worktree child waits only for its own feature's questions: a question of another
+                # feature of the repo held all four children for --max-wait (12 hours) after their features ended.
+                only = getattr(self.args, "only_feature", None) or ()
                 if not watched and (left <= 0 or not any(
-                        d["answer"] is None and d.get("level") != "run" and
+                        d["answer"] is None and d.get("level") != "run" and (not only or d.get("feature") in only) and
                         (d["repo"] in waiting or (d.get("level") == "repo" and d["repo"] in held))
                         for d in q["decisions"])):
                     return False

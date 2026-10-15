@@ -15,7 +15,8 @@ import context  # noqa: E402
 import ntfy  # noqa: E402
 import run  # noqa: E402
 import telegram  # noqa: E402
-from test_never_stop import NeverStopCase  # noqa: E402
+from test_never_stop import B_DONE, BLOCKED, TWO, NeverStopCase  # noqa: E402
+from test_park import GIT_ID  # noqa: E402
 
 CFG = {"block": [], "chat_id": 7, "aliases": {}, "token": "1"}
 SPEC = "https://github.com/acme/widgets/blob/work/docs/specs/0031-adopt-open-prs/index.md"
@@ -258,6 +259,27 @@ class TestHome(NeverStopCase):
         r, _, _, _ = self.guard([{"write_file": [[str(unit), "[Service]\n"]]}, {}, {"tick": False}])
         self.assertIn("guard_changed", r.stdout, r.stdout + r.stderr)
         self.assertIn(str(self.tmp / ".config" / "systemd"), r.stdout)
+
+
+class TestChildWait(NeverStopCase):
+    # A feature's child (--only-feature) does not wait for another feature's open question: all four children of a
+    # parallel run sat out --max-wait on one other feature's question after their own features ended.
+    def test_other_features_question(self):
+        two = self.make_repo("two", TWO)
+        for argv in (["add", "-A"], ["commit", "-qm", "base"]):
+            subprocess.run(["git", *GIT_ID, "-C", str(two), *argv], check=True, capture_output=True)
+        self.steps([BLOCKED])
+        self.wf("two", "-y", "--only-feature", "1. A")
+        [d] = self.queue()["decisions"]
+        self.assertEqual(d["feature"], "1. A")
+        self.steps([B_DONE, {"tick": False}])
+        (self.fakes / "count").unlink()
+        t0 = time.monotonic()
+        r = self.wf("two", "-y", "--only-feature", "2. B", "--max-wait", "0.01", mode="fast")
+        self.assertIn("done: 2. B", r.stdout, r.stdout + r.stderr)
+        self.assertLess(time.monotonic() - t0, 20, r.stdout)
+        last = max((self.state / "wf" / "runs").iterdir(), key=lambda p: p.stat().st_mtime)
+        self.assertNotIn("wait answers", (last / "log.txt").read_text())
 
 
 if __name__ == "__main__":
