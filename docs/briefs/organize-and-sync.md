@@ -26,6 +26,7 @@
   - Untraceable skills: nothing is copied into the public repo blind. You fill in the sources in [untraced-skills.md](untraced-skills.md) (169 skills, grouped by guess). What you name goes in the manifest; whatever stays unknown is decided with you, and the research says it must not be republished publicly (no license = all rights reserved).
   - A separate small feature trims skills that describe themselves in every session from 77 to about 35 (`skillOverrides`, `/skill-doctor`, shorten the 8 descriptions over 1,024 characters, check plugin skills). No skill is deleted.
   - AGENTS.md shrinks to rules that are not obvious, under 200 lines; each guide states its type (tutorial, how to, reference, explanation).
+- Sources are now traced in [untraced-skills.md](untraced-skills.md) (2026-10-15 research). Skills whose license forbids publishing (the 14 Figma skills, transitions-dev, transitions-polish, and packshot until its source is known) are only cited in the manifest (registry) with source and install command, never copied into the repo, so the setup still records every skill it has. This replaces "no skill is ever only listed" for these skills. Everything else may be copied edited with its license notice kept. (your message 2026-10-15)
 - Follow ups to keep tracking after the clear: the missed-skill report on 2026-10-18 (plan row 46), then delete `~/claude-migration-20261015/` and `~/claude-config-old` once that report is in and nothing broke.
 
 ## Measured 2026-10-15 (input for /architect, not a decision)
