@@ -44,6 +44,7 @@ mkdir -p "$REPO/hooks" "$REPO/scripts"
 cp "$LIVE/hooks/block-destructive.sh"     "$REPO/hooks/"
 cp "$LIVE/hooks/review-stack-pre-push" "$REPO/hooks/"
 cp "$LIVE/hooks/plain-panel.py"        "$REPO/hooks/"
+cp "$LIVE/hooks/context-monitor.js"    "$REPO/hooks/"
 cp "$LIVE/scripts/chroma-reaper.sh"   "$REPO/scripts/"
 
 
