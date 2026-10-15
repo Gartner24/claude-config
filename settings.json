@@ -6,6 +6,8 @@
       "Bash(wf auto start)",
       "Bash(wf auto wait)",
       "Bash(wf auto status)",
+      "Bash(wf auto take *)",
+      "Bash(wf auto release *)",
       "Bash(wf queue)",
       "Bash(wf questions)",
       "Bash(wf report)"

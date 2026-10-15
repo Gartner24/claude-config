@@ -7,9 +7,12 @@ import telegram
 import wf
 
 
-def open_list():
-    """AC-1: the open questions in queue.json, oldest asked first. Raises run.QueueError."""
-    return sorted((d for d in run.queue_transact()["decisions"] if d["answer"] is None), key=run.asked_at)
+def open_list(repos=None):
+    """AC-1: the open questions in queue.json, oldest asked first; spec 0046 AC-5: only of these repos when given.
+    Raises run.QueueError."""
+    keep = repos and {os.path.realpath(p) for p in repos}
+    return sorted((d for d in run.queue_transact()["decisions"] if d["answer"] is None and
+                   (not keep or d["repo"] in keep)), key=run.asked_at)
 
 
 def lines(d, links=False):
@@ -44,10 +47,10 @@ def answer(did, text):
     return hit[0] if hit else None
 
 
-def screen(yes):
+def screen(yes, repos=None):
     """AC-1, AC-2: the section, then one prompt per question unless yes. 130 when you cancel, else None."""
     try:
-        ds = open_list()
+        ds = open_list(repos)
     except run.QueueError as e:
         print(f"warning: questions not read: {wf.clean(str(e))}")
         return None

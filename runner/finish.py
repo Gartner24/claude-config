@@ -41,6 +41,7 @@ SIGNALS = (signal.SIGINT, signal.SIGHUP, signal.SIGTERM)
 NEVER_COPIED = ("settings.json", "settings.local.json")
 PHASES = ("copy", "install", "check")
 GRACE = 30
+SWAP_WAIT = 5
 LIVE_HEADING = "## Live runs (wf finish)"
 
 
@@ -281,7 +282,7 @@ def covered(args):
     if problem:
         return None, refuse("untrusted", problem)
     repos = []
-    for path in dict.fromkeys(os.path.realpath(p) for p in paths):
+    for path in run.only_repos(paths, getattr(args, "repos", None)):
         try:
             c = wf.make_candidate(path) if os.path.isdir(path) else None
         except (OSError, StopIteration) as e:
@@ -965,10 +966,10 @@ def cmd_wf(args):
         print(f"warning: interrupted swap not finished: {e.strerror or e}")
     # Spec 0039 AC-1, AC-2: open questions first, answered before the plan reads the queue.
     import questions
-    if questions.screen(args.yes) == 130:
+    if questions.screen(args.yes, args.repos) == 130:
         return 130
     try:
-        repos, rc = covered(types.SimpleNamespace(target=None))
+        repos, rc = covered(types.SimpleNamespace(target=None, repos=args.repos))
         if repos is None:
             return rc
         live, yours = [], []
@@ -986,6 +987,15 @@ def cmd_wf(args):
             os.close(fd)
         # AC-3: the swap lock matters only when there is a setup step to swap.
         held = held_line(who) if who and any(s.phase != "check" for s in steps) else None
+        # Spec 0046 AC-5: two autonomous units meeting the swap lock: the second waits for it.
+        if held and os.environ.get("WF_AUTO_FOLDER"):
+            print(f"{held}, waiting for it", flush=True)
+            while who:
+                time.sleep(SWAP_WAIT)
+                fd, who = run.lock_file(swap_lock(), create=False)
+                if fd is not None:
+                    os.close(fd)
+            held = None
         try:
             back, kept = retakes(args, repos)
         except run.QueueError as e:

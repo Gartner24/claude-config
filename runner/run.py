@@ -709,14 +709,23 @@ def flat(text):
 
 
 def auto_off():
-    """Spec 0030 AC-9: a run wf auto start began (WF_AUTO) ends when auto.json says off; unreadable counts as on."""
+    """Spec 0030 AC-9: a run wf auto start began (WF_AUTO) ends when auto.json says off; unreadable counts as on.
+    Spec 0046 AC-5: off is its own chat's entry gone (WF_AUTO_FOLDER), so another chat's off never ends it."""
     if not os.environ.get("WF_AUTO"):
         return False
     try:
         with open(os.path.join(state_dir(), "auto.json"), encoding="utf-8") as f:
-            return json.load(f).get("on") is False
-    except (OSError, ValueError, AttributeError):
+            data = json.load(f)
+    except (OSError, ValueError):
         return False
+    if not isinstance(data, dict):
+        return False
+    if data.get("version") != 2:
+        return data.get("on") is False
+    chats, folder = data.get("chats"), os.environ.get("WF_AUTO_FOLDER")
+    if not isinstance(chats, dict):
+        return False
+    return folder not in chats if folder else not chats
 
 
 def state_dir():
@@ -1086,7 +1095,7 @@ class Run:
         paths, problem = read_allowed()
         if problem:
             return self.refuse("untrusted", problem)
-        for path in dict.fromkeys(os.path.realpath(p) for p in paths):
+        for path in only_repos(paths, getattr(self.args, "repos", None)):
             try:
                 c = wf.make_candidate(path) if os.path.isdir(path) else None
             except (OSError, StopIteration) as e:
@@ -4348,6 +4357,13 @@ def read_allowed():
     if not isinstance(data, list) or not all(isinstance(x, str) for x in data):
         return None, f"{p} is not a JSON list of paths"
     return data, None
+
+
+def only_repos(paths, repos):
+    """The real paths of the trust list once each, in file order; spec 0046 AC-5: only those in repos when given."""
+    real = dict.fromkeys(os.path.realpath(p) for p in paths)
+    keep = repos and {os.path.realpath(p) for p in repos}
+    return [p for p in real if not keep or p in keep]
 
 
 def tree_siblings(tree, main, common, git_dir):
