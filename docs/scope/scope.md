@@ -65,7 +65,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 44 | A run does its own copy steps | Release 7 | in-progress |
 | 45 | Each step gets the feature's brief | Release 8 | planned |
 | 46 | Missed-skill detector | Release 8 | in-progress |
-| 47 | Context monitor that fires | Release 8 | planned |
+| 47 | Context monitor that fires | Release 8 | in-progress |
 | 48 | Readable layout for ~/.claude and claude-config | Release 8 | planned |
 | 49 | Fast runner | Release 8 | in-progress |
 
@@ -681,7 +681,7 @@ When a build reaches a copy of a rule, agent, command or skill into ~/.claude, i
 **Done when:** a live copy box is asked, run on your tap and ticked, and the build goes on in the same run.
 - [x] Design it (spec): `/architect live steps in a run`
 - [x] Build it: `/develop live steps in a run`
-- [ ] Verify it: `/check verify live steps in a run`
+- [x] Verify it: `/check verify live steps in a run`
 - [ ] Test it: `/test live steps in a run`
 - [ ] Sync docs: `/sync live steps in a run`
 Spec [0041](../specs/0041-live-steps-in-a-run/index.md) · Source: your message 2026-10-14 (fix the reason it stopped).
@@ -708,11 +708,11 @@ A hook notes when a session could have used a skill it did not, and a weekly rep
 - [ ] Sync docs: `/sync missed skill detector`
 Spec [0036](../specs/0036-missed-skill-detector/index.md) · Source: personal scope row 20.
 
-### 47. Context monitor that fires · planned · auto
+### 47. Context monitor that fires · in-progress · auto
 A context monitor that actually warns at the thresholds, wired to the status line in use.
 **Done when:** a long session gets the warning at the threshold.
 - [x] Design it (spec): `/architect context monitor`
-- [ ] Build it: `/develop context monitor`
+- [x] Build it: `/develop context monitor`
 - [ ] Verify it: `/check verify context monitor`
 - [ ] Test it: `/test context monitor`
 - [x] Install it live: `./install.sh` · waits on you · live
