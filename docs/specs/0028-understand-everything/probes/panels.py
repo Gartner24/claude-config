@@ -10,7 +10,7 @@ import re
 import sys
 
 HERE = os.path.dirname(os.path.realpath(__file__))
-spec = importlib.util.spec_from_file_location("plain_panel", os.path.join(HERE, "..", "..", "..", "..", "hooks",
+spec = importlib.util.spec_from_file_location("plain_panel", os.path.join(HERE, "..", "..", "..", "..", "live", "hooks",
                                                                           "plain-panel.py"))
 panel = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(panel)

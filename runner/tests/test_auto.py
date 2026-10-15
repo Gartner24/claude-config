@@ -279,7 +279,7 @@ class TestSettings(unittest.TestCase):
     # included, and the state file cannot be edited by a tool; no allow rule names wf auto; off stays open)
     def test_deny(self):
         import fnmatch
-        s = json.loads((Path(__file__).resolve().parents[2] / "settings.json").read_text())
+        s = json.loads((Path(__file__).resolve().parents[2] / "live" / "settings.json").read_text())
         deny = s["permissions"]["deny"]
         bash = [r[5:-1].replace(":*", "*") for r in deny if r.startswith("Bash(")]
         for cmd in ("wf auto on", "/home/santiago/.local/bin/wf auto on", "~/.local/bin/wf auto on",
@@ -290,7 +290,7 @@ class TestSettings(unittest.TestCase):
             self.assertFalse(any(fnmatch.fnmatchcase(cmd, p) for p in bash), cmd)
         self.assertIn("Edit(//home/santiago/.local/state/wf/auto.json)", deny)
         self.assertEqual([r for r in s["permissions"].get("allow", []) if "auto" in r], [])
-        skill = (Path(__file__).resolve().parents[2] / "skills" / "auto" / "SKILL.md").read_text()
+        skill = (Path(__file__).resolve().parents[2] / "live" / "skills" / "auto" / "SKILL.md").read_text()
         self.assertIn("\ndisable-model-invocation: true\n", skill)
 
 

@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-12
 **Status**: Accepted
-**Paths:** `scripts/private-names.py`, `scripts/check-routing.py`, `sync.sh`, `install.sh`, `settings.json`, `CLAUDE.md`, `HOOKS.md`, `README.md`, `SKILLS.md`, `runner/wf.py`
+**Paths:** `scripts/private-names.py`, `scripts/check-routing.py`, `sync.sh`, `install.sh`, `live/settings.json`, `live/CLAUDE.md`, `README.md`, `runner/wf.py`
 **Amended**: 2026-10-12, AC-7 copies the checker into the commit hooks instead of linking it
 
 ## Summary

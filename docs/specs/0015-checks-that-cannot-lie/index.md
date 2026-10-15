@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-13
 **Status**: Accepted
-**Paths:** `rules/check-gates.md`, `scripts/spec-paths.py`, `install.sh`, `runner/run.py`
+**Paths:** `live/rules/check-gates.md`, `scripts/spec-paths.py`, `install.sh`, `runner/run.py`
 **Amends**: [0008](../0008-failure-park-policy/index.md) (classification order gains rule 11a, the `unchecked` park), [0011](../0011-build-decision-queue/index.md) (AC-9 park set gains `unchecked`).
 
 ## Summary

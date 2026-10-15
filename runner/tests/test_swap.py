@@ -254,17 +254,17 @@ class TestInstallStage(unittest.TestCase):
         tmp = Path(tempfile.mkdtemp()).resolve()
         self.addCleanup(shutil.rmtree, tmp)
         repo = tmp / "repo"
-        for d in ("agents", "rules", "hooks", "scripts", "runner"):
+        for d in ("live/agents", "live/rules", "live/hooks", "live/scripts", "scripts", "runner"):
             (repo / d).mkdir(parents=True)
         shutil.copy(RUNNER.parent / "install.sh", repo / "install.sh")
         shutil.copy(RUNNER / "finish.py", repo / "runner" / "finish.py")
         for f in ("run.py", "wf.py", "ntfy.py", "report.py", "telegram.py", "plain.py", "context.py"):
             shutil.copy(RUNNER / f, repo / "runner" / f)
         for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py", "scripts/chroma-reaper.sh"):
-            (repo / f).write_text("#!/bin/sh\n")
+            (repo / "live" / f).write_text("#!/bin/sh\n")
         (repo / "scripts" / "private-names.py").write_text("#!/usr/bin/env python3\n# c\n")
-        (repo / "settings.json").write_text("{}")
-        (repo / "CLAUDE.md").write_text("# r\n")
+        (repo / "live" / "settings.json").write_text("{}")
+        (repo / "live" / "CLAUDE.md").write_text("# r\n")
         subprocess.run(["git", "init", "-q", str(repo)], check=True, stdin=subprocess.DEVNULL)
         hooks = repo / ".git" / "hooks"
         hooks.mkdir(exist_ok=True)

@@ -131,12 +131,12 @@ class TestRuleFile(unittest.TestCase):
     # and NOTICE.md lists it as authored)
     def test_rule_file(self):
         repo = Path(__file__).resolve().parents[2]
-        text = (repo / "rules" / "check-gates.md").read_text()
+        text = (repo / "live" / "rules" / "check-gates.md").read_text()
         self.assertEqual(text.splitlines()[0], "# Check gates (beats skill text)")
         for needle in ("CAN FAIL CHECKED: <n>", "MUTATION CHECKED: <n>", "**Paths:** none", "spec-paths --spec NNNN",
                        "Specs possibly stale", "## Agreed so far, do not ask again"):
             self.assertIn(needle, text)
-        self.assertRegex((repo / "NOTICE.md").read_text(), r"(?m)^\| `rules/check-gates\.md` \|")
+        self.assertRegex((repo / "NOTICE.md").read_text(), r"(?m)^\| `live/rules/check-gates\.md` \|")
 
 
 if __name__ == "__main__":

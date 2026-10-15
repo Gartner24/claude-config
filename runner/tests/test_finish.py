@@ -379,6 +379,27 @@ class TestShapes(FinishCase):
             os.environ.clear()
             os.environ.update(env)
 
+    # covers: spec 0035 AC-3 (live/<path> in the repo is ~/.claude/<path>; live/settings.json and live/private stay refused)
+    def test_live_prefix(self):
+        root = str(self.repo.resolve())
+        (self.repo / "live" / "rules").mkdir(parents=True)
+        (self.repo / "live" / "rules" / "b.md").write_text("b\n")
+        (self.repo / "live" / "settings.json").write_text("{}")
+        (self.repo / "live" / "private").mkdir()
+        (self.repo / "live" / "private" / "n.txt").write_text("x")
+        env = os.environ.copy()
+        os.environ.update(CLAUDE_CONFIG_DIR=str(self.live), HOME=str(self.home))
+        try:
+            phase, fields = finish.shape(root, "cp live/rules/b.md ~/.claude/rules/b.md")
+            self.assertEqual((phase, fields["dst"], fields["rel"]),
+                             ("copy", str(self.live.resolve() / "rules" / "b.md"), os.path.join("rules", "b.md")))
+            for span in ("cp live/rules/b.md ~/.claude/live/rules/b.md", "cp live/settings.json ~/.claude/settings.json",
+                         "cp live/private/n.txt ~/.claude/private/n.txt"):
+                self.assertIsNone(finish.shape(root, span), span)
+        finally:
+            os.environ.clear()
+            os.environ.update(env)
+
     # covers: AC-1 (wf run treats a live box as any waiting box)
     def test_wf_run_waits(self):
         nb = wf.pick_next(wf.parse_text(SCOPE))

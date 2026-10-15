@@ -30,21 +30,22 @@ fi
 mv "$tmp/private-settings.json" "$LIVE/private/settings.json"
 mv "$tmp/private-settings.local.json" "$LIVE/private/settings.local.json"
 
-cp "$LIVE/CLAUDE.md"            "$REPO/CLAUDE.md"
-mv "$tmp/settings.json"         "$REPO/settings.json"
-mv "$tmp/settings.local.json"   "$REPO/settings.local.json"
+mkdir -p "$REPO/live"
+cp "$LIVE/CLAUDE.md"            "$REPO/live/CLAUDE.md"
+mv "$tmp/settings.json"         "$REPO/live/settings.json"
+mv "$tmp/settings.local.json"   "$REPO/live/settings.local.json"
 
 # ponytail: copy-over, no delete - stale files show up in git status, delete by hand
-mkdir -p "$REPO/agents" "$REPO/rules"
-cp -a "$LIVE/agents/." "$REPO/agents/"
-cp -a "$LIVE/rules/."  "$REPO/rules/"
+mkdir -p "$REPO/live/agents" "$REPO/live/rules"
+cp -a "$LIVE/agents/." "$REPO/live/agents/"
+cp -a "$LIVE/rules/."  "$REPO/live/rules/"
 
 # Hooks + scripts that are real files here (the rest are framework symlinks).
-mkdir -p "$REPO/hooks" "$REPO/scripts"
-cp "$LIVE/hooks/block-destructive.sh"     "$REPO/hooks/"
-cp "$LIVE/hooks/review-stack-pre-push" "$REPO/hooks/"
-cp "$LIVE/hooks/plain-panel.py"        "$REPO/hooks/"
-cp "$LIVE/scripts/chroma-reaper.sh"   "$REPO/scripts/"
+mkdir -p "$REPO/live/hooks" "$REPO/live/scripts"
+cp "$LIVE/hooks/block-destructive.sh"     "$REPO/live/hooks/"
+cp "$LIVE/hooks/review-stack-pre-push" "$REPO/live/hooks/"
+cp "$LIVE/hooks/plain-panel.py"        "$REPO/live/hooks/"
+cp "$LIVE/scripts/chroma-reaper.sh"   "$REPO/live/scripts/"
 
 
 # cp -a never deletes, and the header's claim that stale files show up in `git status`
@@ -58,7 +59,7 @@ for d in agents rules; do
     orphans=$((orphans + 1))
     [ "$orphans" -le 10 ] && \
       echo "  ORPHAN: $d/$rel is tracked here but gone from $LIVE/$d - delete it by hand"
-  done < <(cd "$REPO/$d" && find . -type f -printf '%P\n')
+  done < <(cd "$REPO/live/$d" && find . -type f -printf '%P\n')
 done
 [ "$orphans" -gt 10 ] && echo "  ... and $((orphans - 10)) more"
 [ "$orphans" -gt 0 ] && echo "  $orphans orphan(s); nothing was auto-deleted. A full list means $LIVE is incomplete, not that this repo is stale."
