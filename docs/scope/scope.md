@@ -834,13 +834,13 @@ Out of scope for the current build pass, kept so the plan stays honest.
 Code reaches main only through its own squash merged PR, branches and worktrees are deleted after a merge, no combined branches, small low risk PRs merge themselves in an opted in repo, plan commits land by a docs PR, and big or old features get a warning.
 **Done when:** a runner built feature ends as one squash commit on main through its PR with its branch and worktree gone, a direct push to main is refused by GitHub, and the runner's plan commits reach main by a docs PR.
 - [x] Design it (spec): `/architect clean branches, PRs and commits`
-- [ ] Build it: `/develop clean branches, PRs and commits`
-  - [ ] Probe P1, combine step removed (AC-1, AC-2)
-  - [ ] Small and low risk, green from main, size and age lines (AC-3, AC-4, AC-12)
-  - [ ] Merge lock, update by merge, self merge, merge now question, allow list (AC-5, AC-6, AC-8, AC-9, AC-13)
-  - [ ] Cleanup after merge, plan commits by docs PR (AC-7, AC-15)
-  - [ ] Settings check, `bin/repo-settings.sh`, `bin/docs-pr.sh` (AC-10, AC-11)
-  - [ ] Rules, architecture, Amended by lines (AC-14)
+- [x] Build it: `/develop clean branches, PRs and commits`
+  - [x] Probe P1, combine step removed (AC-1, AC-2)
+  - [x] Small and low risk, green from main, size and age lines (AC-3, AC-4, AC-12)
+  - [x] Merge lock, update by merge, self merge, merge now question, allow list (AC-5, AC-6, AC-8, AC-9, AC-13)
+  - [x] Cleanup after merge, plan commits by docs PR (AC-7, AC-15)
+  - [x] Settings check, `bin/repo-settings.sh`, `bin/docs-pr.sh` (AC-10, AC-11)
+  - [x] Rules, architecture, Amended by lines (AC-14)
 - [ ] Verify it: `/check verify clean branches, PRs and commits`
 - [ ] Test it: `/test clean branches, PRs and commits`
 - [ ] Set the GitHub settings: `bin/repo-settings.sh Gartner24/claude-config`, then `--check` exits 0 · waits on you

@@ -1,7 +1,7 @@
 # 0051 · Clean branches, PRs and commits
 
 **Date**: 2026-10-15
-**Status**: Proposed
+**Status**: In Progress
 **Paths:** `runner/pr.py`, `runner/run.py`, `runner/wf.py`, `runner/plain.py`, `runner/report.py`, `runner/tests/test_pr.py`, `runner/tests/test_clean_branches.py`, `bin/docs-pr.sh`, `bin/repo-settings.sh`, `claude-home/rules/branch-pr.md`
 **Amends**: [0026](../0026-branch-pr-flow/index.md) (standard rules 4 for unstacked branches, 5 and 6; AC-8, AC-9, AC-11), [0031](../0031-adopt-open-prs/index.md) (AC-9: two more merge paths), [0043](../0043-fast-runner/index.md) (AC-2 text, AC-3 removed, AC-6 plan commits now land by AC-15), and architecture invariants 1, 5 and 6.
 
