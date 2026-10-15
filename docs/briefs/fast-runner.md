@@ -21,6 +21,11 @@ Source: your message of 2026-10-14, about 18:45, after a 5.3 hour run closed 6 f
   - Kind 2 (decision): "yes, as is", with the same improvements as kind 1.
   - Kind 3 (permission): you asked whether it should ask at all ("it should allow always ... or no?"); asked back with a recommendation.
   - Kind 4 (approved PR): fix the wording ("your PR #N was approved"), and show who was asked to review, who approved and who has not (you merge on your approver's yes; the bot alone is not enough).
+- Permissions (answered 2026-10-14): writes outside the project are allowed without asking, except your secrets and the live Claude setup (settings, hooks, rules, skills), which stay blocked and never ask. This also covers a work repo's step needing to change a related repo.
+- Reviewers on an approved PR question (answered 2026-10-14): by role from your private PR settings ("your approver: approved, review bot: not yet"), never by name.
+- Telegram style (answered 2026-10-14): short tappable link labels (spec and repo), no lone `from:` line; the long explanation folded after its first sentence; numbered steps on every step only you can do, or a line saying none apply.
+- Order (answered 2026-10-14): start the runner now with the fast runner; build the message improvements in parallel, live at the next run.
+- Answers for a step only you can do (2026-10-14): add "do it for me" (a build call tries it; if it truly needs you it asks again saying why) and "reply with a note" (your text goes to the next step as an instruction). You also asked to learn the ideas first; explained in chat, asked again before building.
 - Claude plans and builds it in the conductor session, not the runner. When it is fast, `wf` runs the remaining features (39 to 44, then 45 to 48).
 
 ## Measured (2026-10-14 run)

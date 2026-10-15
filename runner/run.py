@@ -9,7 +9,6 @@ import fnmatch
 import glob
 import hashlib
 import http.client
-import io
 import json
 import os
 import re
@@ -19,7 +18,7 @@ import signal
 import stat
 import subprocess
 import sys
-import tarfile
+import tempfile
 import threading
 import time
 import traceback
@@ -2433,20 +2432,19 @@ class Run:
 
     def clean_suite(self, tree, suite):
         """Spec 0043 AC-3, security review (validator bypass): the suite in the app jail, in a fresh folder holding
-        only what the index records, so an ignored or untracked file a call edited never reaches it. (exit, lines)."""
+        exactly the blobs the index records (no archive attributes, no filters), so an ignored or untracked file a call
+        edited never reaches it, and no attribute drops a test. (exit, lines)."""
         sha = wf.git(tree, "write-tree")
         if sha is None or sha.returncode:
             return 1, ["cannot write the resolved tree"]
-        clean = tree.rstrip(os.sep) + "-suite"
-        shutil.rmtree(clean, ignore_errors=True)
-        os.makedirs(clean, mode=0o700)
+        clean = None
         try:
-            a = subprocess.run([wf.GIT, "-C", tree, "archive", "--format=tar", sha.stdout.strip()], capture_output=True,
-                               stdin=subprocess.DEVNULL, timeout=ARCHIVE_TIMEOUT)
-            if a.returncode:
-                return 1, ["cannot copy the resolved tree"]
-            with tarfile.open(fileobj=io.BytesIO(a.stdout)) as t:
-                t.extractall(clean, filter="data")
+            os.makedirs(trees_root(), mode=0o700, exist_ok=True)
+            # Security review (unsafe deletion): a folder made here, never one that existed, is the only one removed.
+            clean = tempfile.mkdtemp(prefix="wf-suite-", dir=trees_root())
+            problem = copy_tree(tree, sha.stdout.strip(), clean)
+            if problem:
+                return 1, [problem]
             env = call_env(self.run_id)
             for k in KEPT_ENV:
                 env.pop(k, None)
@@ -2455,8 +2453,11 @@ class Run:
             return p.returncode, (p.stdout + p.stderr).strip().split("\n")
         except subprocess.TimeoutExpired:
             return 1, [f"timed out after {SUITE_TIMEOUT} s"]
+        except OSError as e:
+            return 1, [f"cannot make the clean copy: {e}"]
         finally:
-            shutil.rmtree(clean, ignore_errors=True)
+            if clean:
+                shutil.rmtree(clean, ignore_errors=True)
 
     def repo_answer(self, d):
         """R2, R3, U4 to U8: take the answer to the repo in use's question. A stop answer keeps the repo stopped
@@ -5311,6 +5312,50 @@ def tree_jobs(r, h, name, port):
                    limit=int(h["answers"]["parallel"]), tree_files=tree_guard(r, h, tree))
         out.append(row)
     return out
+
+
+def copy_tree(repo, tree_sha, dest):
+    """Spec 0043 AC-3: tree_sha's files written into dest byte for byte from git's own objects (ls-tree and cat-file,
+    so no export or filter attribute applies). A symlink leaving dest, or a path outside it, refuses. None, else why."""
+    ls = subprocess.run([wf.GIT, "-C", repo, "ls-tree", "-r", "-z", "--full-tree", tree_sha], capture_output=True,
+                        stdin=subprocess.DEVNULL, timeout=ARCHIVE_TIMEOUT)
+    if ls.returncode:
+        return "cannot list the resolved tree"
+    entries = []
+    for item in ls.stdout.split(b"\0"):
+        if not item:
+            continue
+        meta, path = item.split(b"\t", 1)
+        mode, kind, obj = meta.decode().split()
+        if kind != "blob":
+            # A submodule has no files here to check.
+            continue
+        entries.append((mode, obj, os.fsdecode(path)))
+    blobs = subprocess.run([wf.GIT, "-C", repo, "cat-file", "--batch"], input="".join(f"{o}\n" for _, o, _ in entries).encode(),
+                           capture_output=True, timeout=ARCHIVE_TIMEOUT)
+    if blobs.returncode:
+        return "cannot read the resolved tree"
+    data, pos, root = blobs.stdout, 0, os.path.realpath(dest)
+    for mode, obj, path in entries:
+        head_end = data.index(b"\n", pos)
+        size = int(data[pos:head_end].split()[2])
+        body = data[head_end + 1:head_end + 1 + size]
+        pos = head_end + 1 + size + 1
+        target = os.path.normpath(os.path.join(root, path))
+        if not target.startswith(root + os.sep):
+            return f"a path leaves the clean copy: {path}"
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        if mode == "120000":
+            link = os.fsdecode(body)
+            if os.path.isabs(link) or not os.path.normpath(os.path.join(os.path.dirname(target), link)).startswith(root + os.sep):
+                return f"a symlink leaves the clean copy: {path}"
+            os.symlink(link, target)
+            continue
+        with open(target, "wb") as f:
+            f.write(body)
+        if mode == "100755":
+            os.chmod(target, 0o755)
+    return None
 
 
 def combine_job(r, j, argv, caps, baselines, running):
