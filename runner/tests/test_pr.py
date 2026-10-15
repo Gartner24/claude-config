@@ -482,9 +482,27 @@ class TestReview(PrCase):
     # covers: AC-11 (a ready PR's collaborator comments count; an outside account's is ignored and listed), AC-12 (one
     # review call, its fix pushed fast forward, a reply with the commit and the @mention; seen and rounds), AC-13 (an
     # ask is a question with the proposed reply recommended)
+    # covers: spec 0033 AC-10 (a review round question and the rounds cap question name the review round, not the
+    # generic branch and PR flow they used to)
+    def test_review_round_step(self):
+        self.ready()
+        self.wf("prr", "-y", mode="pr")
+        [d] = self.queue()["decisions"]
+        self.assertEqual((d["case"], d["context"]["step"]), ("review_ask", "review round on PR #7"))
+        self.assertEqual(d["context"]["pr"]["number"], 7)
+
+    def test_review_rounds_step(self):
+        self.ready()
+        q = self.queue()
+        q["prs"][0]["rounds"] = 5
+        (self.state / "wf" / "queue.json").write_text(json.dumps(q))
+        self.wf("prr", "-y", mode="pr")
+        [d] = self.queue()["decisions"]
+        self.assertEqual((d["case"], d["context"]["step"]), ("review_rounds", "review round on PR #7"))
+
     def test_round(self):
         self.ready()
-        before = self.git("rev-parse", "feat/0001-a", repo=self.origin)
+        before =self.git("rev-parse", "feat/0001-a", repo=self.origin)
         r = self.wf("prr", "-y", mode="pr")
         self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
         prompt = (self.fakes / "review-prompt.txt").read_text()

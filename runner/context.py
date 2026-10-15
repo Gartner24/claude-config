@@ -75,7 +75,9 @@ def build(r, feature, step=None, extra=None):
         top = pr.spec_file(r.c.path, r.c.scope_dir, f.lines)
         rel = os.path.relpath(top, r.c.path) if top else None
         ctx["spec"] = spec_link(origin, ctx["branch"], rel)
-        ctx["issues"] = [f"https://github.com/{o}/{n}/issues/{k}" for o, n, k in run.linked_issues(f.lines, origin)]
+        # AC-2: an issue link only beside a github.com origin; else the scope's own owner/repo#n.
+        ctx["issues"] = [f"https://github.com/{o}/{n}/issues/{k}" if origin else f"{o}/{n}#{k}"
+                         for o, n, k in run.linked_issues(f.lines, origin)]
     if step:
         ctx["step"] = step
     ctx.update({k: v for k, v in (extra or {}).items() if v})
@@ -151,7 +153,8 @@ def telegram_block(cfg, d, room):
             head.append(f"{name}: {v}")
     spec = c.get("spec")
     if spec:
-        v = link(cfg, spec) if spec.startswith("https://") else field(cfg, os.path.basename(spec), 120)
+        # AC-2: a non GitHub origin shows the repo relative path (only the file name used to show).
+        v = link(cfg, spec) if spec.startswith("https://") else kept(cfg, spec, 200)
         if v:
             head.append(f"spec: {v}")
     if c.get("step"):
@@ -163,7 +166,8 @@ def telegram_block(cfg, d, room):
         v = step_line(cfg, d["allow"])
         if v:
             head.append(f"path: {v}")
-    tail = [f"issue: {u}" for u in map(lambda x: link(cfg, x), c.get("issues") or []) if u]
+    tail = [f"issue: {u}" for u in (link(cfg, x) if x.startswith("https://") else kept(cfg, x, 120)
+                                    for x in c.get("issues") or []) if u]
     if c.get("pr"):
         number, url = (c["pr"].get("number"), link(cfg, c["pr"].get("url"))) if isinstance(c["pr"], dict) else (None, "")
         if number or url:
