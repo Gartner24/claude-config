@@ -68,7 +68,8 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 47 | Context monitor that fires | Release 8 | in-progress |
 | 48 | Readable layout for ~/.claude and claude-config | Release 8 | in-progress |
 | 49 | Fast runner | Release 8 | in-progress |
-| 50 | Fewer avoidable stops | Release 8 | needs a decision |
+| 50 | Fewer avoidable stops | Release 8 | planned |
+| 51 | Autonomous mode per chat | Release 8 | planned |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -716,7 +717,7 @@ A context monitor that actually warns at the thresholds, wired to the status lin
 - [x] Build it: `/develop context monitor`
 - [ ] Verify it: `/check verify context monitor`
 - [ ] Test it: `/test context monitor`
-- [x] Install it live: `./install.sh` · waits on you · live
+- [ ] Install it live after the merge, from main (the first install ran without this branch) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync context monitor`
 Spec [0037](../specs/0037-context-monitor/index.md) · Source: personal scope row 6.
 
@@ -731,15 +732,27 @@ One README map of what lives where, everything installed under live/, guides und
 - [ ] Sync docs: `/sync readable layout`
 Spec [0035](../specs/0035-readable-layout/index.md) · code in `live/`, `sync.sh`, `install.sh`, `scripts/`, `runner/finish.py`, `README.md` · Source: personal scope row 9.
 
-### 50. Fewer avoidable stops · needs a decision
+### 50. Fewer avoidable stops · planned · auto
 The runner stops less for things that need nothing from you: a check that cannot pass in the sandbox leaves those parts to the plan's later box, a retry that cannot help is not recommended, and quoted test values in the attribution scan are handled as you decide.
 **Done when:** a run with features like 46 and 47 (checks needing a real session or days of use) finishes them up to their waiting box without a question, a stop where a retry cannot help recommends skip, and the attribution scan follows your rule for quoted test values.
-- [ ] Design it (spec): `/architect fewer avoidable stops`
+- [x] Design it (spec): `/architect fewer avoidable stops`
 - [ ] Build it: `/develop fewer avoidable stops`
 - [ ] Verify it: `/check verify fewer avoidable stops`
 - [ ] Test it: `/test fewer avoidable stops`
 - [ ] Sync docs: `/sync fewer avoidable stops`
-Source: [brief](../briefs/fewer-stops.md) (lands with the `fix/questions-explained` merge).
+Spec [0045](../specs/0045-fewer-avoidable-stops/index.md) · Source: [brief](../briefs/fewer-stops.md).
+
+### 51. Autonomous mode per chat · planned · auto
+Several Claude chats each drive the runner for their own repos at once; a repo belongs to one chat at a time and moves with its context written down first.
+**Done when:** two chats in two folders each run autonomous mode for their own repos, their bars and questions show only their repos, and a take of a repo the other live chat holds is refused.
+- [x] Design it (spec): `/architect autonomous mode per chat`
+- [ ] Build it: `/develop autonomous mode per chat`
+- [ ] Verify it: `/check verify autonomous mode per chat`
+- [ ] Test it: `/test autonomous mode per chat`
+- [ ] Install it live: `./install.sh` · waits on you · live
+- [ ] Two real chats in two folders: each turns on its own repos, the bars show only their own, a take of the other's repo is refused (AC-11) · waits on you · later boxes go on
+- [ ] Sync docs: `/sync autonomous mode per chat`
+Spec [0046](../specs/0046-autonomous-mode-per-chat/index.md) · Source: [brief](../briefs/autonomous-per-chat.md).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
