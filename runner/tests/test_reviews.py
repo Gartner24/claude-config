@@ -298,6 +298,85 @@ class TestReviewUnit(ReviewCase):
                     [*post[:3], "repos/o/r/pulls/5/merge", *post[4:]]):
             self.assertFalse(pr.allowed(bad, posting=True), bad)
 
+    # covers: AC-1 (only the boolean true turns it on; a string "true" searches nothing)
+    def test_flag_boolean_only(self):
+        self.private({"acme/widgets": {"review_requests": "true"}})
+        r = self.fake_run()
+        self.gh({"user": "me", "requests": [{"number": 5}], "byn": {"5": self.view5}})
+        with self.penv():
+            reviews.poll(r)
+        self.assertFalse(any(c[:2] == ["search", "prs"] for c in self.gh_calls()))
+        self.assertEqual((r.q.get("reviews", []), r.asked), ([], []))
+
+    # covers: AC-2 (an unreadable search is one report line, nothing recorded, no stop)
+    def test_unreadable_search(self):
+        r = self.fake_run()
+        self.gh({"user": "me", "requests": "not json"})
+        with self.penv():
+            reviews.poll(r)
+        self.assertEqual(len(r.notes), 1)
+        self.assertTrue(r.notes[0].startswith("review requests not read"), r.notes)
+        self.assertEqual(r.q.get("reviews", []), [])
+
+    # covers: AC-3 ("skip" sets skipped with no call; a later answer about it does nothing), AC-6 "don't post" skips
+    def test_skip(self):
+        r = self.fake_run()
+        self.gh({"user": "me", "requests": [{"number": 5}], "byn": {"5": self.view5}})
+        with self.penv():
+            reviews.poll(r)
+            [rec] = r.q["reviews"]
+            reviews.answer(r, {"case": "review_request", "feature": rec["feature"], "options": ["draft a review", "skip"],
+                               "answer": "skip"})
+            self.assertEqual((r.q["reviews"][0]["state"], r.calls), ("skipped", []))
+            reviews.answer(r, {"case": "review_request", "feature": rec["feature"],
+                               "options": ["draft a review", "skip"], "answer": "draft a review"})
+        self.assertEqual(r.calls, [])
+
+    # covers: AC-6 ("don't post" skips, nothing posted)
+    def test_dont_post(self):
+        r = self.fake_run()
+        with self.penv():
+            rec = self.drafted(r)
+            reviews.answer(r, self.draft_answer(rec, "don't post"))
+        self.assertEqual((r.q["reviews"][0]["state"], self.posts()), ("skipped", []))
+
+    # covers: AC-8 (a PR closed before your tap is set gone and nothing posts)
+    def test_post_closed(self):
+        r = self.fake_run()
+        with self.penv():
+            rec = self.drafted(r)
+            self.gh({"view": {"state": "MERGED"}})
+            reviews.answer(r, self.draft_answer(rec, "post as my review"))
+        self.assertEqual((r.q["reviews"][0]["state"], self.posts()), ("gone", []))
+
+    # covers: AC-8 (a refused post asks review_draft again with the reason and stays drafted)
+    def test_post_failed(self):
+        r = self.fake_run()
+        with self.penv():
+            rec = self.drafted(r)
+            self.gh({"view": {"state": "OPEN"}, "post_rc": 1})
+            reviews.answer(r, self.draft_answer(rec, "post as my review"))
+        self.assertEqual(len(self.posts()), 1)
+        self.assertEqual(r.asked[-1][0], "review_draft")
+        self.assertIn("HTTP 422", r.asked[-1][1])
+        self.assertEqual((r.q["reviews"][0]["state"], r.record.get("prs")), ("drafted", None))
+
+    # covers: AC-6, AC-8a (Telegram gets the stored draft whole, exactly as it would post; ntfy a shortened view that
+    # says so)
+    def test_phone_body(self):
+        long = "word " * 1200
+        rec = {"number": 5, "draft": {"verdict": "comment", "summary": long.strip(), "dropped": 0,
+                                      "comments": [{"path": "dir/a.txt", "line": 2, "body": "x" * 800}]}}
+        tg = reviews.phone_body({"chat_id": 5, "block": []}, rec)
+        self.assertIn(long.strip(), tg)
+        self.assertIn("dir/a.txt:2 " + "x" * 800, tg)
+        self.assertNotIn("shortened view", tg)
+        r = self.fake_run()
+        nt = reviews.phone_body(r.ntfy, rec)
+        self.assertIn("shortened view", nt)
+        self.assertNotIn(long.strip(), nt)
+        self.assertNotIn("x" * 800, nt)
+
     # covers: AC-5 (verdict default comment, summary default, comments only on changed files with a line)
     def test_parse(self):
         dr = reviews.parse(["DRAFT COMMENT: a.txt:3 x", "DRAFT COMMENT: b.txt:1 y", "DRAFT COMMENT: a.txt z",
