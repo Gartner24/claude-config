@@ -1,7 +1,6 @@
 # Verify: cheap worker tier · spec 0023
 
 Run 2026-10-14 by `/check verify cheap worker tier` (inside a `wf run` call, so `WF_RUN` is set; steps that need it off use `env -u WF_RUN`). Rerun the same day after fix 6c5c324 (files under a client repo's `.git/`): every step below passed.
-
 ## Commands
 - [x] `python3 -B scripts/fb-ask.py --test` -> `fb-ask: all self checks passed` -> AC-1 to AC-9, AC-13, AC-14
   can fail: any gate or fall back reason stops matching its exit code or stderr line.
@@ -27,9 +26,8 @@ Run 2026-10-14 by `/check verify cheap worker tier` (inside a `wf run` call, so 
   can fail: the answer shape, model, data wrapping or key handling changes.
 - [x] `ls -l ~/.local/bin/fb-ask` -> link to `scripts/fb-ask.py`; `diff rules/cheap-worker.md ~/.claude/rules/cheap-worker.md` -> same, 7 lines with job kinds, when it pays, the never list, exit 3/4, data may be wrong -> AC-12, AC-13
   can fail: install did not link it, or the live rule drifted from the repo copy.
-
 ## Blocked (waits on you)
 - Probes P1 to P3 against the real claude-fb proxy: the key file is hidden from this sandbox and the sandbox has its own localhost. They have their own scope box.
-
 ## Acceptance-criteria coverage
 - AC-1 met · AC-2 met · AC-3 met (self checks) · AC-4 met · AC-5 met (`.git/` case fixed in 6c5c324) · AC-6 met · AC-7 met · AC-8 met on a fake proxy, real proxy blocked (probe box) · AC-9 met · AC-10 met (runner tests) · AC-11 met (runner tests) · AC-12 met · AC-13 met · AC-14 met
+- 2026-10-14, done by Claude in the conductor session: fb-ok.txt (claude-config, dotfiles) and fb-ask.conf written. P1: without the key the proxy serves nothing (HTTP 500, not the 401 expected; no model list). P2: `fb-ask summarize` answered through fb-safe in 1.7 s, the key read only inside fb-ask. P3: proxy stopped, then `fb-ask summarize` started it and answered in 4.2 s total (limit 20 s). PASS, with the P1 status note.

@@ -67,6 +67,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 46 | Missed-skill detector | Release 8 | planned |
 | 47 | Context monitor that fires | Release 8 | planned |
 | 48 | Readable layout for ~/.claude and claude-config | Release 8 | planned |
+| 49 | Fast runner | Release 8 | in-progress |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -544,8 +545,8 @@ One branch per spec (stacked only when the spec says so, at most 3 deep), one sq
 - [x] Verify it: `/check verify branch and PR flow`
 - [x] Test it: `/test branch and PR flow`
 - [x] Copy the rule live: `cp ~/claude-config/rules/branch-pr.md ~/.claude/rules/branch-pr.md` · waits on you · live
-- [ ] Add the branch-pr pointer line to `~/.claude/CLAUDE.md` · waits on you
-- [ ] Probes P7 and P8 on a scratch GitHub repo (they post) · waits on you
+- [x] Add the branch-pr pointer line to `~/.claude/CLAUDE.md` · waits on you
+- [x] Probes P7 and P8 on a scratch GitHub repo (they post) · waits on you
 - [ ] Sync docs: `/sync branch and PR flow`
 Spec [0026](../specs/0026-branch-pr-flow/index.md) · Source: personal scope rows 11 and 27; your message 2026-10-13.
 
@@ -583,7 +584,7 @@ Everything Claude tells you uses words you can follow; every question panel ends
 - [x] Test it: `/test understand everything`
 - [x] Copy the rule live: `cp ~/claude-config/rules/plain-questions.md ~/.claude/rules/plain-questions.md` · waits on you · live
 - [x] Real check of the LEARN line: `python3 docs/specs/0028-understand-everything/probes/learn-line.py` · waits on you · live
-- [ ] A panel is refused without "Learn this first" in a real session (P3) · waits on you
+- [x] A panel is refused without "Learn this first" in a real session (P3) · waits on you
 - [ ] Sync docs: `/sync understand everything`
 Spec [0028](../specs/0028-understand-everything/index.md) · Source: your messages 2026-10-12 and 2026-10-13.
 
@@ -617,8 +618,8 @@ wf adopts the open PRs you list in pr.json, runs the review loop on them, watche
 - [x] Build it: `/develop adopt open prs`
 - [x] Verify it: `/check verify adopt open prs`
 - [x] Test it: `/test adopt open prs`
-- [ ] Write `~/.claude/private/pr.json` for the repos to adopt · waits on you · later boxes go on
-- [ ] Probes P3 and P4 on a scratch GitHub repo (they post) · waits on you · later boxes go on
+- [x] Write `~/.claude/private/pr.json` for the repos to adopt · waits on you · later boxes go on
+- [x] Probes P3 and P4 on a scratch GitHub repo (they post) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync adopt open prs`
 Spec [0031](../specs/0031-adopt-open-prs/index.md) · Source: your message 2026-10-13 (the gap after the draft PR until approved and merged).
 
@@ -629,7 +630,7 @@ A PR review requested of you becomes a question: wf drafts the review in an isol
 - [x] Build it: `/develop review requests`
 - [ ] Verify it: `/check verify review requests`
 - [ ] Test it: `/test review requests`
-- [ ] Probes P3 to P5 on a scratch GitHub repo (they post) · waits on you · later boxes go on
+- [x] Probes P3 to P5 on a scratch GitHub repo (they post) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync review requests`
 Spec [0032](../specs/0032-review-requests/index.md) · Source: your message 2026-10-13 (watch for review requests to me).
 
@@ -661,7 +662,7 @@ Open questions show on the wf screen to answer at the keyboard; `wf questions` l
 - [x] Build it: `/develop questions while off`
 - [ ] Verify it: `/check verify questions while off`
 - [ ] Test it: `/test questions while off`
-- [ ] Turn the timer on: `wf telegram timer on` · waits on you · later boxes go on
+- [x] Turn the timer on: `wf telegram timer on` · waits on you · later boxes go on
 - [ ] Sync docs: `/sync questions while off`
 Spec [0039](../specs/0039-questions-while-off/index.md) · Source: your message 2026-10-14 02:20.
 
@@ -731,6 +732,22 @@ Spec [0035](../specs/0035-readable-layout/index.md) · Source: personal scope ro
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
+
+### 49. Fast runner · in-progress
+Features build, check and test 4 at a time on their own branches, the branches are combined at the end with clashes resolved, one plan file stays the truth, the suite runs in about a minute, and Telegram questions read clearly.
+**Done when:** a `wf` run of features 39 to 48 runs 4 at once, combines its branches into one draft PR, and every question kind reads clearly on your phone.
+- [x] Design it (spec): `/architect fast runner`
+- [ ] Build it: `/develop fast runner`
+  - [ ] Fast suite command and the suite prompt sentence (AC-7, AC-8)
+  - [ ] No same file wait, the shared plan, plan free commits (AC-2, AC-4, AC-5, AC-6)
+  - [ ] Combine step with its draft PR (AC-3)
+  - [ ] Telegram question text, every kind shown to you (AC-9, AC-10)
+- [ ] Verify it: `/check verify fast runner`
+- [ ] Test it: `/test fast runner`
+- [ ] Merge into feat/release-4, set the switches, scan and push feat/release-4 (AC-1, AC-11)
+- [ ] Run `wf` on 39 to 48 and compare the elapsed time (AC-12) · waits on you
+- [ ] Sync docs: `/sync fast runner`
+Spec [0043](../specs/0043-fast-runner/index.md) · Source: [brief](../briefs/fast-runner.md).
 
 ### 11. Autopilot offer and batch design · dropped
 Covered by `rules/runner-handoff.md` (batch first: every feature that needs a decision gets its `/architect` before the hand-off to the runner) and by choosing tonight's features on the `wf` screen (spec 0020 AC-13).

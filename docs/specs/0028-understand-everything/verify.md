@@ -44,3 +44,5 @@ Not run yet: a waits on you box after the install.
 ## Live runs (wf finish)
 
 - 2026-10-14, Claude Code 2.1.300: `python3 docs/specs/0028-understand-everything/probes/learn-line.py` PASS
+- 2026-10-14, P3 done by Claude in a real interactive session (Claude Code 2.1.296): an AskUserQuestion panel with no "Learn this first" option was refused by the PreToolUse hook before display: `panel: question 1: no last option "Learn this first"`. PASS.
+- 2026-10-14, Claude Code 2.1.299: `python3 docs/specs/0028-understand-everything/probes/learn-line.py` PASS (options: 3, learn: 285 characters, jargon: none)

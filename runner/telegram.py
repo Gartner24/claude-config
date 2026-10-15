@@ -301,11 +301,13 @@ class Topic(ntfy.Topic):
         """AC-4: one message, every option a button. d["sent"] is the body; the title goes last, so a swiped reply
         still finds the `<id>:` the message starts with."""
         # Spec 0033 security review: every field through context.safe.
-        question = context.safe(self.cfg, d["question"], 1000) or "question waiting, see terminal"
+        # Spec 0043 AC-9: a private chat, so the question keeps its file names and commands.
+        question = context.kept(self.cfg, d["question"], 1000) or "question waiting, see terminal"
         # Spec 0033 AC-5: the id labeled on its first use, never a bare `<id>:` prefix; ASKED still finds it.
         lines, rows = [f"{context.label(d['id'])}:", question], []
         # Spec 0028 AC-11: the short explanation right under the question, as on ntfy.
-        learn = context.safe(self.cfg, d.get("learn"), 300)
+        # Spec 0043 AC-9: an explained step only you can do needs no generic learn line.
+        learn = None if context.explained(d) else context.safe(self.cfg, d.get("learn"), 300)
         if learn:
             lines.append(f"learn: {learn}")
         # Spec 0033 AC-4: where it comes from, with links, in what room the message has left.

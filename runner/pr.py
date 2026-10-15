@@ -1,12 +1,16 @@
 # Branch and PR flow (spec 0026). One branch per spec, one squashed commit per feature, and in a repo whose standing
 # answers say `push: draft PR` a push and a draft PR made by the runner process itself, after two scans. Calls never
 # push (spec 0007 holds); this module never marks a PR ready and has no way to merge.
+import contextlib
 import datetime
+import fcntl
+import hashlib
 import json
 import os
 import re
 import shutil
 import subprocess
+import tempfile
 
 import ntfy
 import run
@@ -347,6 +351,168 @@ def back(r):
     r.keep_held()
 
 
+# -- one shared plan (spec 0043 AC-4 to AC-6) ---------------------------------------
+
+NUMBER = re.compile(r"^\s*([A-Za-z0-9]+)\.\s")
+
+
+def plan_files(folder):
+    """The scope files of a scope folder: scope.md, or index.md and its epic files."""
+    top = next((os.path.join(folder, n) for n in wf.SCOPE_FILES if os.path.isfile(os.path.join(folder, n))), None)
+    if top is None:
+        return []
+    return [top] + (wf.epics(folder, wf.read(top), []) if top.endswith("index.md") else [])
+
+
+@contextlib.contextmanager
+def plan_lock(r):
+    """AC-4: one writer of a repo's main scope files at a time, across every child."""
+    os.makedirs(run.state_dir(), mode=0o700, exist_ok=True)
+    name = hashlib.sha1(run.key_of(r.c).encode()).hexdigest()
+    fd = os.open(os.path.join(run.state_dir(), f"scope-{name}.lock"), os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(fd)
+
+
+def write_whole(path, text):
+    """By temp file and os.replace, so a reader never sees half a plan."""
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".wf-plan-")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
+
+
+def plan_block(lines, feature):
+    """(start, end) of feature's block (its ### heading to the next level 1 to 3 heading), else None."""
+    pos = 0
+    for heading, raw, _, _ in wf.sections("\n".join(lines)):
+        start = lines.index(raw[0], pos)
+        pos = start + 1
+        if wf.DISPLAY_TAG.sub("", heading).strip() == feature:
+            return start, start + len(raw)
+    return None
+
+
+def plan_row(lines, feature):
+    """The index of feature's row in the ## At a glance table (first cell = the number of `### <N>.`), else None."""
+    m = NUMBER.match(feature)
+    if not m:
+        return None
+    cell = re.compile(r"^\|\s*" + re.escape(m.group(1)) + r"\s*\|")
+    inside = False
+    for i, line in enumerate(lines):
+        h = wf.HEADING.match(line)
+        if h:
+            inside = len(h.group(1)) == 2 and h.group(2).strip().casefold() == "at a glance"
+        elif inside and cell.match(line):
+            return i
+    return None
+
+
+def splice(dst, src, feature):
+    """dst with feature's block and table row taken from src; a part missing on either side stays as it is."""
+    d, s = dst.split("\n"), src.split("\n")
+    rd, rs = plan_row(d, feature), plan_row(s, feature)
+    if rd is not None and rs is not None:
+        d[rd] = s[rs]
+    bd, bs = plan_block(d, feature), plan_block(s, feature)
+    if bd and bs:
+        d[bd[0]:bd[1]] = s[bs[0]:bs[1]]
+    return "\n".join(d)
+
+
+def inside(path, root):
+    """Security review (path traversal): a plan file the runner writes is a real file under its checkout, never a
+    symlink and never reached through one a call made."""
+    real = os.path.realpath(path)
+    return not os.path.islink(path) and real.startswith(os.path.realpath(root) + os.sep) and \
+        os.path.realpath(os.path.dirname(path)) == os.path.dirname(real)
+
+
+def plan_dirs(r):
+    return os.path.join(run.key_of(r.c), r.c.scope_dir), os.path.join(r.c.path, r.c.scope_dir)
+
+
+def plan_in(r):
+    """AC-4: at a worktree feature's start or resume, the main checkout's scope files over the worktree's."""
+    main, tree = plan_dirs(r)
+    r.plan_seen = {}
+    with plan_lock(r):
+        for src in plan_files(main):
+            rel = os.path.relpath(os.path.realpath(src), os.path.realpath(main))
+            dst = os.path.join(tree, rel)
+            parent = os.path.realpath(os.path.dirname(dst))
+            if rel.startswith("..") or not parent.startswith(os.path.realpath(r.c.path) + os.sep) or \
+                    (os.path.lexists(dst) and not inside(dst, r.c.path)):
+                r.note(f"plan copy skipped {rel}: not a plain file inside the worktree")
+                continue
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            text = wf.read(src)
+            write_whole(dst, text)
+            r.plan_seen[rel] = text
+
+
+def plan_out(r, feature):
+    """AC-4: feature's block and table row from the worktree's scope files into the main checkout's, under the lock;
+    a worktree change elsewhere in a scope file is not copied, only noted."""
+    main, tree = plan_dirs(r)
+    seen = getattr(r, "plan_seen", None) or {}
+    with plan_lock(r):
+        for src in plan_files(tree):
+            rel = os.path.relpath(os.path.realpath(src), os.path.realpath(tree))
+            dst = os.path.join(main, rel)
+            if rel.startswith("..") or not os.path.isfile(dst) or not inside(dst, run.key_of(r.c)):
+                continue
+            t, m = wf.read(src), wf.read(dst)
+            new = splice(m, t, feature)
+            if new != m:
+                write_whole(dst, new)
+            if rel in seen and splice(seen[rel], t, feature) != t:
+                r.note(f"{feature}: its plan copy changed {rel} outside its own section; only its section was kept")
+
+
+def plan_commit(r, feature):
+    """AC-6: the main checkout's scope files committed on the start branch, only those paths, under the lock."""
+    main = run.key_of(r.c)
+    files = [os.path.relpath(os.path.realpath(p), os.path.realpath(main))
+             for p in plan_files(os.path.join(main, r.c.scope_dir))]
+    if not files:
+        return
+    with plan_lock(r):
+        res = None
+        for _ in range(2):
+            st = wf.git(main, "status", "--porcelain", "--", *files)
+            if st is None or st.returncode or not st.stdout.strip():
+                return
+            res = wf.git(main, "commit", "-q", "--only", "-m", f"docs(scope): {feature}", "--", *files)
+            if res is not None and res.returncode == 0:
+                return
+        r.note(f"plan commit for {feature} failed, tried again at the next feature end: "
+               f"{run.flat(res and (res.stderr or res.stdout))[:120]}")
+
+
+def plan_diff(g, repo, rec, scope_dir):
+    """AC-5: True when the branch's HEAD carries a scope folder change against its base."""
+    return git(g, repo, "diff", "--quiet", rec["base_sha"], "HEAD", "--", scope_dir).returncode == 1
+
+
+def plan_free(r, rec):
+    """AC-5: after the first push, one commit putting the scope folder back to the base when HEAD carries it."""
+    g, repo = gitbin(r), r.c.path
+    if not (r.repo.get("tree") and plan_diff(g, repo, rec, r.c.scope_dir)):
+        return
+    git(g, repo, "restore", f"--source={rec['base_sha']}", "--staged", "--", r.c.scope_dir)
+    git(g, repo, "commit", "-q", "-m", "chore: the plan stays on the start branch", "--", r.c.scope_dir)
+
+
 # -- one commit per feature (AC-5) -------------------------------------------------
 
 def message(r, f, rec):
@@ -368,12 +534,21 @@ def squash(r, f, rec):
         git(g, repo, "add", "-A")
     count = int(out(git(g, repo, "rev-list", "--count", f"{rec['base_sha']}..HEAD")) or 0)
     staged = git(g, repo, "diff", "--cached", "--quiet").returncode == 1
+    # Spec 0043 AC-5: a worktree branch never carries the plan; one that does is squashed again without it.
+    planned = bool(r.repo.get("tree")) and plan_diff(g, repo, rec, r.c.scope_dir)
     if count == 0 and not staged:
         return False
-    if count == 1 and not staged:
+    if count == 1 and not staged and not planned:
         return True
     subject, body = message(r, f, rec)
     git(g, repo, "reset", "--soft", rec["base_sha"])
+    if r.repo.get("tree"):
+        git(g, repo, "restore", f"--source={rec['base_sha']}", "--staged", "--", r.c.scope_dir)
+        if git(g, repo, "diff", "--cached", "--quiet").returncode == 0:
+            # Only plan edits: the feature built nothing for its branch.
+            git(g, repo, "reset", "--soft", head)
+            git(g, repo, "restore", "--staged", "--", r.c.scope_dir)
+            return False
     res = git(g, repo, "commit", "-q", "-m", subject, *(["-m", body] if body else []))
     if res.returncode:
         git(g, repo, "reset", "--soft", head)
@@ -1128,6 +1303,8 @@ def fix_round(r, rec, name, comments):
                 asks.append((c, rest))
         if fixed:
             replies = [(c, f"Fixed in {sha[:7]}. @{c['author']}") for c, sha in fixed]
+            # Spec 0043 AC-5: a fix commit that touched the plan gets one commit putting it back before the push.
+            plan_free(r, rec)
             head = tip(r, rec["branch"])
             hit = scans(r, rec, rec["pushed_sha"], [("reply", t) for _, t in replies])
             if hit:

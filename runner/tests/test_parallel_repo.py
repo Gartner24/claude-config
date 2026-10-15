@@ -102,32 +102,34 @@ class TestPaths(unittest.TestCase):
         self.assertEqual(pr.hits(["x/y.py", "a.txt"], ["a.*"]), "a.txt")
         t = lambda g, port=None: {"tree": "/t", "key": "/r", "globs": g, "port": port, "path": "/t", "common": "/r/.git"}
         self.assertFalse(run.clashes(t(["a"]), t(["b"])))
-        self.assertTrue(run.clashes(t(["a"]), t(["a"])))
+        # Spec 0043 AC-2: overlapping or missing Paths no longer keep two worktrees apart; a shared port still does.
+        self.assertFalse(run.clashes(t(["a"]), t(["a"])))
         self.assertTrue(run.clashes(t(["a"], 80), t(["b"], 80)))
-        self.assertTrue(run.clashes(t(None), t(["b"])))
+        self.assertFalse(run.clashes(t(None), t(["b"])))
         # Two plain repos sharing a common dir still never run together.
         self.assertTrue(run.clashes({"path": "/a", "common": "/g", "port": None}, {"path": "/b", "common": "/g", "port": None}))
 
 
 class TestSameRepo(RepoCase):
     # covers: AC-2 (worktrees under wf-trees, the main checkout never switched), AC-3 (one child per feature, trusted
-    # through the main checkout, records name the repo and the tree), AC-4 (2 at once, C waits for A), AC-5 (the
-    # waits plan line), AC-7 (sibling Edit denies), AC-9 (rows named repo: feature)
+    # through the main checkout, records name the repo and the tree), AC-4 (2 at once; spec 0043 AC-2: C shares a.txt
+    # with A and still starts before A ends, no waits plan line), AC-7 (sibling Edit denies), AC-9 (rows named repo: feature)
     def test_three_features(self):
         self.steps({"feat-0001-a": step("a", sleep=4), "feat-0002-b": step("b"), "feat-0003-c": step("c", sleep=0)})
         r = self.wf("-y", "--jobs", "3")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn("  waits: 3. C: shares a.txt with 1. A\n", r.stdout)
+        self.assertNotIn("waits:", r.stdout)
         self.assertEqual((self.repo / ".git" / "HEAD").read_text(), "ref: refs/heads/work\n")
         s = summary(r.stdout)
-        self.assertEqual([x.split(": exit")[0] for x in s], ["  par: 1. A", "  par: 2. B", "  par: 3. C"])
+        # Spec 0043 AC-3: the combine child after the features.
+        self.assertEqual([x.split(": exit")[0] for x in s], ["  par: 1. A", "  par: 2. B", "  par: 3. C", "  par: combine"])
         feats = self.by_feature()
         (ra, ea), (rb, eb), (rc, ec) = feats["1. A"], feats["2. B"], feats["3. C"]
         ca, cb, cc = ra["calls"][0], rb["calls"][0], rc["calls"][0]
         end = lambda c: at(c["started"]) + datetime.timedelta(seconds=c["duration_s"])
         # Times are kept to the second: B's call began well before A's 4 second call ended.
         self.assertLess(at(cb["started"]) + datetime.timedelta(seconds=1), end(ca), "A and B ran side by side")
-        self.assertGreaterEqual(at(rc["started"]), at(ra["ended"]), "C started after A's child ended")
+        self.assertLess(at(rc["started"]), end(ca), "C did not wait for A")
         for e, rec, x in ((ea, ra, "a"), (eb, rb, "b"), (ec, rc, "c")):
             self.assertEqual(e["repo"], str(self.repo))
             self.assertEqual(e["tree"], str(self.trees / f"feat-000{'abc'.index(x) + 1}-{x}"))
@@ -193,16 +195,16 @@ class TestSameRepo(RepoCase):
             self.assertEqual(str(extra) in fs, want, r.stdout)
             self.assertEqual(f"Edit(/{extra}/**)" in rules, want, r.stdout)
 
-    # covers: AC-6 (A's call writes into B's Paths while B runs: A asks paths_overlap, wait recommended; B goes on)
+    # covers: spec 0043 AC-2 (A's call writes into B's Paths while B runs: a note, no question; both go on)
     def test_drift(self):
         self.steps({"feat-0001-a": step("a", sleep=1.5, extra_file="b.txt"), "feat-0002-b": step("b", sleep=4),
                     "feat-0003-c": step("c", sleep=0)})
         r = self.wf("-y", "--jobs", "2")
         q = json.loads((self.state / "wf" / "queue.json").read_text())
-        [d] = [d for d in q["decisions"] if d.get("case") == "paths_overlap"]
-        self.assertEqual((d["feature"], d["options"][0], d["other"], d["tree"]),
-                         ("1. A", "wait for the other, then go on", "2. B", str(self.trees / "feat-0001-a")), r.stdout)
-        self.assertEqual(self.by_feature()["2. B"][1]["outcome"], "feature_done")
+        self.assertEqual([d for d in q["decisions"] if d.get("case") == "paths_overlap"], [], r.stdout)
+        ra, ea = self.by_feature()["1. A"]
+        self.assertIn("1. A: b.txt is in the Paths of 2. B, which is building now", ra["notes"])
+        self.assertEqual((ea["outcome"], self.by_feature()["2. B"][1]["outcome"]), ("feature_done", "feature_done"))
 
     # covers: security review: when the parent cannot build a worktree's guard (an unreadable config.worktree) and a
     # call repairs it before that child starts, the child's own files the plan never hashed still ask
