@@ -296,6 +296,70 @@ class TestRows(NeverStopCase):
             f.copy(s, str(stage))
             self.assertEqual(s.result, result, s.last)
 
+    # covers: spec 0041 AC-1, AC-5 (the question names the command, the decision pins each source's sha256, the phone
+    # shows the runner's fixed why; nothing is copied before your answer)
+    def test_live_step_asked_with_hashes(self):
+        repo = self.live_repo("la", "cp rules/x.md ~/.claude/rules/x.md", "rules/x.md")
+        self.steps([{}])
+        r = self.wf("la", "-y")
+        [d] = self.queue()["decisions"]
+        self.assertEqual((d["case"], d["options"]), ("live_step", ["run it now", "not now"]))
+        self.assertEqual(d["live"], [["cp rules/x.md ~/.claude/rules/x.md",
+                                      hashlib.sha256((repo / "rules" / "x.md").read_bytes()).hexdigest()]])
+        self.assertIn(f"waiting: {d['id']} run these setup steps for la now? 1) cp rules/x.md ~/.claude/rules/x.md",
+                      r.stdout)
+        self.assertIn(f"\nwhy: {run.plain.WHY['live_step']}\n", self.report_ntfy.pings()[0]["message"])
+        self.assertIn("live_step", run.context.AUTH)
+        self.assertFalse((self.tmp / ".claude" / "rules" / "x.md").exists())
+
+    # covers: spec 0041 AC-1 (an executable source is never offered, even into rules/: it waits for your wf)
+    def test_live_step_executable_not_offered(self):
+        repo = self.live_repo("le", "cp rules/x.md ~/.claude/rules/x.md", "rules/x.md")
+        (repo / "rules" / "x.md").chmod(0o755)
+        self.steps([{}])
+        r = self.wf("le", "-y")
+        self.assertIn("parked: 1. L: waiting", r.stdout)
+        self.assertEqual(self.queue()["decisions"], [])
+
+    # covers: spec 0041 AC-3 (a run it now with no one time code on ntfy runs nothing; the next question says why)
+    def test_live_step_weak_answer_says_why(self):
+        self.live_repo("lw", "cp rules/x.md ~/.claude/rules/x.md", "rules/x.md")
+        self.reply("{id} run it now")
+        self.steps([{}])
+        r = self.wf("lw", "-y", "--max-wait", "0.01", mode="fast")
+        self.assertFalse((self.tmp / ".claude" / "rules" / "x.md").exists(), r.stdout)
+        self.assertIn("(last try: on ntfy this needs one of your one time codes)", r.stdout)
+
+    # covers: spec 0041 AC-4 (not now skips the feature for this run: nothing copied, the box stays open)
+    def test_live_step_not_now(self):
+        repo = self.live_repo("ln", "cp rules/x.md ~/.claude/rules/x.md", "rules/x.md")
+        self.reply("{id} code0001 not now")
+        self.steps([{}, {}])
+        r = self.wf("ln", "-y", "--max-wait", "0.01", mode="fast")
+        self.assertIn(": not now", r.stdout)
+        self.assertIn("skipped: 1. L", r.stdout)
+        self.assertFalse((self.tmp / ".claude" / "rules" / "x.md").exists(), r.stdout)
+        self.assertIn("- [ ] Copy it:", (repo / "docs" / "scope" / "scope.md").read_text())
+        self.assertEqual([self.argv(n)["argv"][1] for n in range(1, len(self.calls()) + 1)], ["/develop l"])
+
+    # covers: spec 0041 AC-3 (a held swap lock runs nothing; the next question ends with the held line)
+    def test_live_step_swap_lock_held(self):
+        import fcntl
+        repo = self.live_repo("ll", "cp rules/x.md ~/.claude/rules/x.md", "rules/x.md")
+        (self.state / "wf").mkdir(parents=True, exist_ok=True)
+        fd = os.open(self.state / "wf" / "swap.lock", os.O_RDWR | os.O_CREAT)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            os.write(fd, b"4242 2026-10-13T01:00:00+00:00 wf setup swap\n")
+            self.reply("{id} code0001 run it now")
+            self.steps([{}])
+            r = self.wf("ll", "-y", "--max-wait", "0.01", mode="fast")
+        finally:
+            os.close(fd)
+        self.assertFalse((self.tmp / ".claude" / "rules" / "x.md").exists(), r.stdout)
+        self.assertIn("- [ ] Copy it:", (repo / "docs" / "scope" / "scope.md").read_text())
+        self.assertIn("(last try: setup update already in progress, pid 4242", r.stdout)
+
     # covers: F16 security review (a copy into hooks, an install or a check is never offered: it waits for your wf)
     def test_live_step_hook_not_offered(self):
         self.live_repo("lh", "cp hooks/h.sh ~/.claude/hooks/h.sh", "hooks/h.sh", "#!/bin/sh\n")
