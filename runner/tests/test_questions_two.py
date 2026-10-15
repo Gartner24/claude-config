@@ -108,7 +108,18 @@ class TestDoIt(unittest.TestCase):
                           "instruction\ntap a button", body)
 
 
-PHONE = "# Scope: m\n**Autopilot:** allowed\n### 1. M · auto\n- [x] (spec)\n- [ ] `/develop m`\n" \
+class TestApproved(unittest.TestCase):
+    # covers: AC-6 (the approved question's block shows the reviewers line on Telegram, styled and plain)
+    def test_reviewers_on_telegram(self):
+        d = question(reviewers="reviewers: your approver: approved · review bot: not yet")
+        d.update(case="approved", question="your PR #3 was approved: 38. Adopt. Merge it now?",
+                 options=["merge now", "later", "I merged it"])
+        m = sent(d)
+        for body in (m["plain"], m["styled"]):
+            self.assertIn("reviewers: your approver: approved · review bot: not yet", body)
+
+
+PHONE ="# Scope: m\n**Autopilot:** allowed\n### 1. M · auto\n- [x] (spec)\n- [ ] `/develop m`\n" \
         "- [ ] Check it on the phone: `/qa m`\n- [ ] `/test m`\n"
 BOX = "Check it on the phone: `/qa m`"
 

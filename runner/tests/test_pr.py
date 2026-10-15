@@ -56,7 +56,10 @@ if a[:2] == ["pr", "view"]:
     n = int(open(p).read()) if os.path.exists(p) else 0
     open(p, "w").write(str(n + 1))
     views = cfg.get("views") or [cfg["view"]]
-    say(views[min(n, len(views) - 1)])
+    v = views[min(n, len(views) - 1)]
+    # Only the fields asked for, as gh gives them, so a field left off the --json list is missing here too.
+    keep = a[a.index("--json") + 1].split(",") if "--json" in a else None
+    say({{k: x for k, x in v.items() if k in keep}} if keep and isinstance(v, dict) else v)
 if a[:2] == ["pr", "edit"]:
     say("")
 if a[:2] == ["api", "user"]:
@@ -439,6 +442,20 @@ class TestStandard(unittest.TestCase):
         self.assertTrue(pr.is_approved(reviews, ["bo"], "REVIEW_REQUIRED"))
         self.assertTrue(pr.is_approved([], None, "APPROVED"))
 
+    # covers: spec 0044 AC-6 (roles, approver over bot; latest approve or changes wins over a later comment; dismissed
+    # and pending skipped; a requested reviewer or team with no review is not yet; a failed read says so)
+    def test_reviewers_line(self):
+        cfg = {"approvers": ["ann"], "bot": "ann"}
+        reviews = [{"user": {"login": "ed"}, "state": "COMMENTED"},
+                   {"user": {"login": "rb"}, "state": "CHANGES_REQUESTED"}, {"user": {"login": "rb"}, "state": "COMMENTED"},
+                   {"user": {"login": "zo"}, "state": "DISMISSED"}, {"user": {"login": "ann"}, "state": "APPROVED"}]
+        self.assertEqual(pr.reviewers_line(reviews, [{"login": "cy"}, {"slug": "core"}], {**cfg, "bot": "rb"}),
+                         "reviewers: your approver: approved · review bot: changes requested · another reviewer: commented"
+                         " · another reviewer: not yet · another reviewer: not yet")
+        self.assertEqual(pr.reviewers_line(reviews[-1:], [], cfg), "reviewers: your approver: approved")
+        self.assertEqual(pr.reviewers_line(None, [], cfg), "reviewers: could not be read")
+        self.assertEqual(pr.reviewers_line([], None, cfg), "reviewers: could not be read")
+
 
 # The review call: commits a fix and names it; asks about the second comment.
 REVIEW_CLAUDE = FAKE_CLAUDE.replace(
@@ -566,7 +583,9 @@ class TestReview(PrCase):
         (self.tmp / ".claude" / "private" / "pr.json").write_text(json.dumps({"acme/widgets": {"merge": True}}))
         self.report_ntfy.replies = ["{id} code0001 merge now"]
         r = self.wf("prr", "-y", mode="pr")
-        asked = [p["message"] for p in self.report_ntfy.posts if "merge PR #7 now?" in p.get("message", "")]
+        # Spec 0044 AC-6: the question names your PR.
+        asked = [p["message"] for p in self.report_ntfy.posts
+                 if re.match(r"\w{4}: your PR #7 was approved: 1\. A\. Merge it now\?", p.get("message", ""))]
         self.assertTrue(asked, r.stdout)
         self.assertIn("1 merge now", asked[0])
         merges = [c for c in self.gh_calls() if c[:2] == ["pr", "merge"]]
@@ -627,8 +646,14 @@ class TestReview(PrCase):
         self.assertFalse((self.fakes / "review-prompt.txt").exists())
         cfg["reviews"] = [{"user": {"login": "revbot"}, "state": "COMMENTED", "commit_id": rec["bot_head"], "body": ""},
                           {"user": {"login": "ann"}, "state": "APPROVED", "body": ""}]
+        cfg["views"] = [{**v, "reviewRequests": [{"login": "carl"}]} for v in cfg["views"]]
         self.gh(cfg)
         next_run()
+        # Spec 0044 AC-6: the approved question shows each reviewer by role, never a login.
+        [asked] = [p["message"] for p in self.report_ntfy.posts if "was approved" in p.get("message", "")]
+        self.assertIn("reviewers: your approver: approved · review bot: commented · another reviewer: not yet", asked)
+        for login in ("ann", "revbot", "carl"):
+            self.assertNotRegex(asked, rf"\b{login}\b")
         # The named approver approved: the PR became approved at the viewed head before it merged on its own.
         self.assertEqual(self.rec()["approved_head"], "x")
         for f in self.repo.rglob("*"):

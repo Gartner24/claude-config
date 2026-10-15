@@ -177,6 +177,9 @@ def telegram_block(cfg, d, room):
         number, url = (c["pr"].get("number"), link(cfg, c["pr"].get("url"))) if isinstance(c["pr"], dict) else (None, "")
         if number or url:
             tail.append(f"PR: #{number} {url}".strip())
+    # Spec 0044 AC-6: the approved PR's reviewers, by role.
+    if field(cfg, c.get("reviewers"), 300):
+        tail.append(field(cfg, c["reviewers"], 300))
     import plain
     gated = auth(d)
     why = "" if explained(d) else field(cfg, plain.WHY.get(d.get("case")) if gated else c.get("why"), 300)
@@ -226,7 +229,8 @@ def ntfy_lines(cfg, d):
     why = field(cfg, plain.WHY.get(d.get("case")) if gated else c.get("why"), 200)
     steps = [] if gated else [field(cfg, s, 200) for s in c.get("steps") or []]
     what = "" if gated else field(cfg, c.get("what"), 300)
-    return out + ([f"what: {what}"] if what else []) + ([f"why: {why}"] if why else []) + \
+    who = field(cfg, c.get("reviewers"), 300)
+    return out + ([who] if who else []) + ([f"what: {what}"] if what else []) + ([f"why: {why}"] if why else []) + \
         [f"{i}. {s}" for i, s in enumerate((s for s in steps if s), 1)]
 
 

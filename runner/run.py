@@ -2276,7 +2276,7 @@ class Run:
             return None
         return next((f for f in feats if f.name == name), None)
 
-    def pr_ask(self, rec, case, detail, options=None, **extra):
+    def pr_ask(self, rec, case, detail, options=None, reviewers=None, **extra):
         """AC-17: a PR question for rec's feature, recommended first; it never holds back another feature."""
         # Spec 0033 AC-10: the PR the runner read from gh, the step, and why the first option is recommended.
         n = rec.get("number")
@@ -2287,11 +2287,13 @@ class Run:
         if self.c is not None:
             try:
                 ctx = context.build(self, rec["feature"], f"{step} on PR #{n}" if n else step,
-                                    {"pr": {"number": n, "url": url} if n else None, "why": plain.WHY.get(case)})
+                                    {"pr": {"number": n, "url": url} if n else None, "why": plain.WHY.get(case),
+                                     "reviewers": reviewers})
             except Exception as ex:
                 self.log(f"context: {flat(ex)[:120]}")
-        # Spec 0028 AC-12: plain words and a learn line, as every other case question.
-        self.ask(plain_question(case, rec["feature"], detail)[:300], options or CASES[case][1], feature=rec["feature"],
+        # Spec 0028 AC-12: plain words and a learn line, as every other case question; spec 0044 AC-6: the approved
+        # question is already its own plain sentence.
+        self.ask((flat(detail) if case == "approved" else plain_question(case, rec["feature"], detail))[:300], options or CASES[case][1], feature=rec["feature"],
                  repo=rec["repo"], case=case, pr=True, learn=plain.PLAIN.get(case, (None, None))[1],
                  **({"context": ctx} if ctx else {}), **extra)
 

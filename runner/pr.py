@@ -873,11 +873,12 @@ def ask_merge(r, rec, why=""):
     # The question names the head it is about; merge() merges only that head. Security review (authorization):
     # merge now is offered only in a repo whose pr.json entry says merge: true.
     head = str(rec.get("approved_head") or "")[:7]
+    # Spec 0044 AC-6: the question names your PR; the block shows its reviewers by role.
+    said, at = f"your PR #{rec['number']} was approved: {rec['feature']}.", f" (head {head})" if head else ""
+    who = rec.get("reviewers") or "reviewers: could not be read"
     if not flag(r, "merge"):
-        return r.pr_ask(rec, "approved", f"PR #{rec['number']} is approved" + (f" at head {head}" if head else "") +
-                        "; merge it, then tell me", ("I merged it", "later"))
-    r.pr_ask(rec, "approved", f"merge PR #{rec['number']} now?" + (f" (head {head})" if head else "") +
-             (f" Note: {why}" if why else ""))
+        return r.pr_ask(rec, "approved", f"{said} Merge it, then tell me.{at}", ("I merged it", "later"), reviewers=who)
+    r.pr_ask(rec, "approved", f"{said} Merge it now?{at}" + (f" Note: {why}" if why else ""), reviewers=who)
 
 
 def merge(r, rec):
@@ -1127,6 +1128,35 @@ def is_approved(reviews, approvers, decision):
     return all(last.get(a) == "APPROVED" for a in approvers)
 
 
+def reviewers_line(reviews, requests, cfg):
+    """Spec 0044 AC-6: each reviewer by role and latest state, never a login; None when a read failed."""
+    if not isinstance(reviews, list) or not isinstance(requests, list):
+        return "reviewers: could not be read"
+    approvers, bot = cfg.get("approvers") or [], cfg.get("bot")
+    state, order = {}, []
+    for v in reviews:
+        who, s = (v.get("user") or {}).get("login"), v.get("state")
+        if s in ("DISMISSED", "PENDING") or not who:
+            continue
+        if who not in order:
+            order.append(who)
+        if s in ("APPROVED", "CHANGES_REQUESTED"):
+            state[who] = s
+        elif s == "COMMENTED" and who not in state:
+            state[who] = s
+    for q in requests:
+        who = q.get("login") or f"team:{q.get('slug') or q.get('name')}"
+        if who not in order:
+            order.append(who)
+    words = {"APPROVED": "approved", "CHANGES_REQUESTED": "changes requested", "COMMENTED": "commented"}
+
+    def role(who):
+        return "your approver" if who in approvers else "review bot" if who == bot else "another reviewer"
+    order.sort(key=lambda w: ("your approver", "review bot", "another reviewer").index(role(w)))
+    shown = [f"{role(w)}: {words.get(state.get(w), 'not yet')}" for w in order]
+    return "reviewers: " + (" · ".join(shown) if shown else "none")
+
+
 def poll(r, force=False):
     """AC-11: every PR record of each held repo that opted in, at most every POLL_GAP seconds (force at the start).
     Never ends a repo or the run; a gh failure is a report line."""
@@ -1162,7 +1192,7 @@ def poll(r, force=False):
 def poll_one(r, rec):
     name, binary = origin_repo(r), r.gh
     view, why = gh_json(binary, "pr", "view", str(rec["number"]), "--repo", name or "",
-                        "--json", "isDraft,state,headRefOid,reviewDecision,url")
+                        "--json", "isDraft,state,headRefOid,reviewDecision,url,reviewRequests")
     if not isinstance(view, dict):
         r.note(f"PR #{rec['number']} not read: {why}")
         return
@@ -1177,12 +1207,13 @@ def poll_one(r, rec):
     if rec["state"] == "draft":
         rec["state"] = "ready"
     cfg = private_config(name)
-    reviews, _ = gh_json(binary, "api", f"repos/{name}/pulls/{rec['number']}/reviews", "--paginate")
-    reviews = reviews if isinstance(reviews, list) else []
+    read, _ = gh_json(binary, "api", f"repos/{name}/pulls/{rec['number']}/reviews", "--paginate")
+    reviews = read if isinstance(read, list) else []
     if rec["state"] != "approved" and is_approved(reviews, cfg.get("approvers"), view.get("reviewDecision")):
         rec["state"] = "approved"
         # Spec 0031 AC-7: the head the approval is for; merge() refuses any other.
         rec["approved_head"] = view.get("headRefOid")
+        rec["reviewers"] = reviewers_line(read, view.get("reviewRequests"), cfg)
         save(r, rec)
         ask_merge(r, rec)
         return

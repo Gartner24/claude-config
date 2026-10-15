@@ -252,7 +252,7 @@ class TestAdoptUnit(AdoptCase):
             pr.approved_answer(r, rec, ans("merge now"))
             self.assertEqual(len(merges()), 1)
             pr.ask_merge(r, rec)
-            self.assertIn("merge it, then tell me", r.asked[-1][1])
+            self.assertIn("Merge it, then tell me.", r.asked[-1][1])
             pr.approved_answer(r, rec, ans("I merged it"))
             self.assertEqual(rec["state"], "merged")
 
