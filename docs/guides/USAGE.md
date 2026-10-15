@@ -120,14 +120,14 @@ EXAMPLE: "redesign the landing page"
 
 ### brand-system
 WHAT: A client's brand system as a contract-validated HTML board - the binding source /design transcribes. Ledger-gated; emit closes only when the schema checker passes.
-TRIGGERS: brand system, brand guidelines, visual identity, style guide, brand board, client brand, new client brand, brand direction
+TRIGGERS: brand system, brand guidelines, visual identity, style guide, brand board, client brand, brand direction
 BLOCKS: nothing
 PRIORITY: 10 - runs BEFORE /design on any client build
 EXAMPLE: "build the brand system for Acme Roofing"
 
 ### assets
 WHAT: Imagery, icons, shapes, background removal. Triages each asset to generate/fetch/code - most should never touch an image model.
-TRIGGERS: need an image, hero image, illustration, icons, mascot, product shot, logo, svg, background, remove the background, cut out, stock photo, og image, favicon
+TRIGGERS: need an image, hero image, illustration, icons, mascot, product shot, logo, svg, background, cut out, stock photo, og image, favicon
 BLOCKS: nothing
 PRIORITY: 7 - step 7 of /design, or standalone
 EXAMPLE: "remove the background from these product photos"
@@ -137,7 +137,7 @@ WHAT: Blind audit of a built surface - AI-tell checklist, token portability, a11
 TRIGGERS: audit the design, review the UI, check accessibility, is this accessible, design review, check contrast
 BLOCKS: nothing
 PRIORITY: 6 - invoked by /design; also standalone
-EXAMPLE: "audit the pricing page before I ship it"
+EXAMPLE: "audit the design of the pricing page and check contrast"
 
 ### ui-ux-pro-max
 WHAT: Raw options database (styles, palettes, pairings, charts). A CANDIDATE SOURCE for /design step 3, never the decision process.
@@ -176,7 +176,7 @@ EXAMPLE: "UX review this settings page - is the hierarchy clear or is it overwhe
 
 ### animate
 WHAT: Builds an animation from scratch - Emil Kowalski's own skill. The default for "add motion to this".
-TRIGGERS: animate this, animate the, add motion, add an animation, make it animate, animation for, motion for, make this feel alive, svg animation, morph, path animation, draw the line, reveal animation, entrance animation, exit animation, micro-interaction, microinteraction, hover animation, loading animation
+TRIGGERS: animate this, animate the, add motion, add an animation, make it animate, animation for, motion for, make this feel alive, svg animation, morph, path animation, draw the line, draw in, reveal animation, entrance animation, exit animation, micro-interaction, microinteraction, hover animation, loading animation
 BLOCKS: the ask is to review or fix EXISTING motion (use review-animations / improve-animations); the ask is a plain CSS transition on a standard component (use transitions-dev)
 PRIORITY: 9 - primary source for motion construction; outranks design-motion-principles
 EXAMPLE: "animate this SVG logo so the paths draw in on load"

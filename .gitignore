@@ -4,7 +4,7 @@ __pycache__/
 # client/employer skills - kept on disk for the ~/.claude symlinks, never published.
 # The work skill folders are listed in your private ~/.claude/private/gitignore;
 # install.sh copies them into .git/info/exclude (spec 0013).
-skills/admin-design/
+live/skills/admin-design/
 
 # /review working files - the report is posted to the PR, never committed
 jjstack/

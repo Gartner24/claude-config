@@ -182,7 +182,7 @@ class TestCaseQuestion(unittest.TestCase):
 class TestPanelWiring(unittest.TestCase):
     # covers: AC-5 (the settings copy runs the hook before every AskUserQuestion, timeout 5)
     def test_settings_entry(self):
-        settings = json.loads((Path(__file__).resolve().parents[2] / "settings.json").read_text())
+        settings = json.loads((Path(__file__).resolve().parents[2] / "live" / "settings.json").read_text())
         hooks = [h for e in settings["hooks"]["PreToolUse"] if e.get("matcher") == "AskUserQuestion"
                  for h in e["hooks"]]
         self.assertIn({"type": "command", "command": "python3 /home/santiago/.claude/hooks/plain-panel.py",
@@ -190,7 +190,7 @@ class TestPanelWiring(unittest.TestCase):
 
 
 _hook = importlib.util.spec_from_file_location(
-    "plain_panel", Path(__file__).resolve().parents[2] / "hooks" / "plain-panel.py")
+    "plain_panel", Path(__file__).resolve().parents[2] / "live" / "hooks" / "plain-panel.py")
 hook = importlib.util.module_from_spec(_hook)
 _hook.loader.exec_module(hook)
 

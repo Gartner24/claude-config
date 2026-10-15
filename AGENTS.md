@@ -2,14 +2,14 @@
 
 Public snapshot of a personal Claude Code setup (`~/.claude`): global instructions, settings,
 agents, rules, hooks, and authored skills. Frameworks (gstack, jjstack, get-shit-done-cc,
-plugins) are documented in `SKILLS.md` / `PLUGINS.md`, never vendored.
+plugins) are documented in `docs/guides/SKILLS.md` / `docs/guides/PLUGINS.md`, never vendored.
 
 ## Stack
 
 - **Language / Runtime**: Markdown (skills, agents, rules), Bash, Python 3, Node (one ESM script)
 - **Framework**: none; files are read by the Claude Code harness
 - **Key dependencies**: `jq` (sync.sh), `fontTools` (design font scripts), `culori` (build-ramp.mjs, `node_modules` committed on purpose)
-- **Package manager**: none at root; `skills/design/scripts/package.json` only
+- **Package manager**: none at root; `live/skills/design/scripts/package.json` only
 
 ## Build approach
 
@@ -20,14 +20,14 @@ Skateboard (each stage is usable on its own, and each next stage grows the same 
 ```bash
 ./install.sh --dry-run                          # repo -> ~/.claude (copies + symlinks), then self-checks
 ./sync.sh                                       # ~/.claude -> repo; run before every commit, then git diff
-python3 scripts/check-routing.py                # after editing USAGE.md or a skill's triggers
-python3 scripts/gen-agent-index.py --check      # after touching agents/ (drop --check to regenerate)
+python3 scripts/check-routing.py                # after editing docs/guides/USAGE.md or a skill's triggers
+python3 scripts/gen-agent-index.py --check      # after touching live/agents/ (drop --check to regenerate)
 python3 scripts/asciify.py --check              # ASCII-only lint on repo-owned markdown
-bash hooks/block-destructive.sh --test          # guard hook self-checks
-python3 hooks/plain-panel.py --test             # panel hook self checks (spec 0028): "Learn this first" last, at most 3 real options, no jargon
-node hooks/context-monitor.js --test            # context warning hook self checks (spec 0037): fixture transcripts, and header numbers match the code and autoCompactWindow
-bash skills/design/scripts/test-ledger.sh       # design ledger + Stop hook assertions
-node skills/design/scripts/build-ramp.mjs --check
+bash live/hooks/block-destructive.sh --test     # guard hook self-checks
+python3 live/hooks/plain-panel.py --test        # panel hook self checks (spec 0028): "Learn this first" last, at most 3 real options, no jargon
+node live/hooks/context-monitor.js --test       # context warning hook self checks (spec 0037): fixture transcripts, and header numbers match the code and autoCompactWindow
+bash live/skills/design/scripts/test-ledger.sh  # design ledger + Stop hook assertions
+node live/skills/design/scripts/build-ramp.mjs --check
 python3 -m unittest discover -s runner/tests    # wf runner self checks (install.sh runs these)
 python3 runner/e2e/run.py                       # real claude end to end on a temp fixture repo (spec 0014); run it yourself with `!` after a Claude Code upgrade or runner change, prints PASS or FAIL: <check>; `--parallel` checks two real repos build side by side (spec 0017); `--beside` checks a bare `wf -y` beside a running `wf run` (spec 0020); `--same-repo` checks three features of one `parallel: 2` repo build in their own worktrees (spec 0027)
 python3 scripts/private-names.py --test         # private names checker self checks (spec 0013); `check` scans the repo, exits 0 when clean
@@ -55,10 +55,17 @@ wf auto on|off|status|start|wait|hook|bar          # autonomous mode (spec 0030)
 
 ## Rules
 
-- Two kinds of file. `skills/` and `commands/` are symlinked into `~/.claude`, so editing here is live. `CLAUDE.md`, `settings*.json`, `agents/`, `rules/`, `hooks/block-destructive.sh`, `hooks/review-stack-pre-push`, `hooks/plain-panel.py`, `hooks/context-monitor.js`, `scripts/chroma-reaper.sh` are copies: edit the live file in `~/.claude`, then `./sync.sh`. An edit made here is overwritten on the next sync.
+- Everything installed into `~/.claude` sits under `live/`, at the same relative path (`live/rules/x.md` is `~/.claude/rules/x.md`); guides are in `docs/guides/` (spec 0035). One source of truth per kind:
+  - Copied (`live/CLAUDE.md`, `live/settings*.json`, `live/agents/`, `live/rules/`, `live/hooks/block-destructive.sh`, `live/hooks/review-stack-pre-push`, `live/hooks/plain-panel.py`, `live/hooks/context-monitor.js`, `live/scripts/chroma-reaper.sh`): live wins. Edit the file in `~/.claude`, then `./sync.sh`; an edit made here is overwritten on the next sync.
+  - Linked (`live/skills/`, `live/commands/`): repo wins. They are symlinked into `~/.claude`, so editing here is live.
+  - Runner (`runner/`): repo wins; `install.sh` copies it to `~/.local/share/wf/<fp>/` (spec 0020).
+  - Frameworks (gstack, jjstack, get-shit-done-cc, the JSM skills, plugins): their installer wins, never vendored.
+  - Private (`~/.claude/private/`): live only, never in any repo.
+  - Claude Code state (`projects/`, `sessions/`, `history.jsonl`, caches): Claude Code only, never synced.
+- Rules for this repo only go in this file. Rules for sessions started in `~/.claude` go in `~/.claude/.claude/CLAUDE.md`.
 - `runner/` is a third kind: `wf`, the workflow runner (spec 0001). `install.sh` symlinks `runner/wf.py` to `~/.local/bin/wf` and `~/.local/bin/next` (called as `next`, it acts as `wf next`), so edit it here. Python 3 stdlib only, tests are `unittest`, external commands go through `subprocess` with argument lists, never a shell string.
 - This repo is public. No client or employer names, repo names, domains, or env-file names. `sync.sh` strips `autoMode` from settings.json; client skills are gitignored.
-- Do not edit vendored trees: `agents/` (27 of 31 from ECC), `rules/ecc/` (except the 7 `index.md` and the local additions in `common/code-review.md`, `common/testing.md`), `skills/anti-ai-writing/`. Provenance lives in `NOTICE.md`; update it when adding an authored or redistributed path.
+- Do not edit vendored trees: `live/agents/` (27 of 31 from ECC), `live/rules/ecc/` (except the 7 `index.md` and the local additions in `common/code-review.md`, `common/testing.md`), `live/skills/anti-ai-writing/`. Provenance lives in `NOTICE.md`; update it when adding an authored or redistributed path.
 - ASCII only in repo-owned markdown: no em dashes, smart quotes, Unicode bullets.
 - Conventional Commits (`feat(scope):`, `fix(scope):`, `chore:`, `docs:`); a gsd hook enforces the format.
 - Comments explain why, usually naming the past failure ("this used to..."). Keep that style when fixing a script.
@@ -67,8 +74,8 @@ wf auto on|off|status|start|wait|hook|bar          # autonomous mode (spec 0030)
 
 ## Gotchas
 
-- Root `CLAUDE.md` is NOT this repo's context. It is the payload copy of `~/.claude/CLAUDE.md` that `sync.sh` overwrites and `install.sh` ships. Repo context is this file, loaded via `.claude/CLAUDE.md`.
-- `asciify.py` skips only `agents/`, `rules/` and `anti-ai-writing`, so it flags the committed `culori` README. Never run it without `--check` first.
+- Root `CLAUDE.md` only imports this file. The payload copy of `~/.claude/CLAUDE.md` is `live/CLAUDE.md`, which `sync.sh` overwrites and `install.sh` ships (spec 0035 AC-4: it used to sit at the root and load twice).
+- `asciify.py` skips `live/agents/`, `live/rules/`, `anti-ai-writing` and `node_modules/`. Without `--check` it rewrites files; always run `--check` first.
 - The middle dot `·` is allowed in repo markdown despite the ASCII rule: it is the scope tag separator (`rules/scope-contract.md`) that `runner/wf.py` parses, and `asciify.py` keeps it.
 - `jjstack/` is gitignored /review scratch; reports never enter the repo from there.
 - Private names live in `~/.claude/private/` (`names.txt`, `work.md`, `gitignore`, settings fragments), never in the repo (spec 0013). Without `names.txt`, `sync.sh` and every commit here fail closed. `sync.sh` moves name bearing settings entries into the fragments and `install.sh` merges them back. The `pre-commit` and `commit-msg` hooks are copies of `scripts/private-names.py`, not links: after editing the checker, rerun `./install.sh` to refresh them. Hit lines print the `names.txt` line number, never the name.
@@ -99,6 +106,6 @@ Declined: Agent Skill and MCP discovery for this stack (2026-10-11)
 
 ## Context files
 
-- [skills/design/AGENTS.md](skills/design/AGENTS.md): design and brand pipeline scripts, the run ledger, and its Stop hook
+- [live/skills/design/AGENTS.md](live/skills/design/AGENTS.md): design and brand pipeline scripts, the run ledger, and its Stop hook
 
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._

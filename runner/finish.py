@@ -173,6 +173,9 @@ def shape(root, span):
         if os.path.islink(p) or not inside(src, root) or src == root or not os.path.isfile(src):
             return None
         rel = os.path.relpath(src, root)
+        # Spec 0035 AC-3: claude-config keeps the live dir's files under live/, so live/rules/x.md is ~/.claude/rules/x.md.
+        if rel.startswith("live" + os.sep):
+            rel = rel[len("live" + os.sep):]
         if rel in NEVER_COPIED or rel.split(os.sep)[0] == "private":
             return None
         dst = os.path.join(live_dir(), rel)

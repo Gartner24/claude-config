@@ -254,17 +254,17 @@ class TestInstallStage(unittest.TestCase):
         tmp = Path(tempfile.mkdtemp()).resolve()
         self.addCleanup(shutil.rmtree, tmp)
         repo = tmp / "repo"
-        for d in ("agents", "rules", "hooks", "scripts", "runner"):
+        for d in ("live/agents", "live/rules", "live/hooks", "live/scripts", "scripts", "runner"):
             (repo / d).mkdir(parents=True)
         shutil.copy(RUNNER.parent / "install.sh", repo / "install.sh")
         shutil.copy(RUNNER / "finish.py", repo / "runner" / "finish.py")
         for f in ("run.py", "wf.py", "ntfy.py", "report.py", "telegram.py", "plain.py", "context.py"):
             shutil.copy(RUNNER / f, repo / "runner" / f)
         for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py", "hooks/context-monitor.js", "scripts/chroma-reaper.sh"):
-            (repo / f).write_text("#!/bin/sh\n")
+            (repo / "live" / f).write_text("#!/bin/sh\n")
         (repo / "scripts" / "private-names.py").write_text("#!/usr/bin/env python3\n# c\n")
-        (repo / "settings.json").write_text("{}")
-        (repo / "CLAUDE.md").write_text("# r\n")
+        (repo / "live" / "settings.json").write_text("{}")
+        (repo / "live" / "CLAUDE.md").write_text("# r\n")
         subprocess.run(["git", "init", "-q", str(repo)], check=True, stdin=subprocess.DEVNULL)
         hooks = repo / ".git" / "hooks"
         hooks.mkdir(exist_ok=True)
@@ -275,7 +275,8 @@ class TestInstallStage(unittest.TestCase):
             live = home / ".claude"
             (live / "private").mkdir(parents=True)
             (live / "private" / "names.txt").write_text("x\n")
-            env = {**os.environ, "HOME": str(home), "CLAUDE_LIVE_DIR": str(live), "GIT_CONFIG_GLOBAL": "/dev/null"}
+            (live / "settings.json").write_text('{"old": 1}')
+            env ={**os.environ, "HOME": str(home), "CLAUDE_LIVE_DIR": str(live), "GIT_CONFIG_GLOBAL": "/dev/null"}
             env.pop("WF_STAGE", None)
             if staged:
                 env["WF_STAGE"] = "1"
@@ -287,6 +288,10 @@ class TestInstallStage(unittest.TestCase):
                 self.assertEqual((hooks / "pre-commit").exists(), not staged, r.stdout + r.stderr)
                 self.assertTrue((live / "rules").is_dir())
                 self.assertTrue((live / "settings.json").exists(), r.stdout + r.stderr)
+                # covers: spec 0035 AC-7 (the old settings are backed up under backups/settings/, never at the top)
+                baks = list((live / "backups" / "settings").glob("settings.json.bak.*"))
+                self.assertEqual([b.read_text() for b in baks], ['{"old": 1}'], r.stdout + r.stderr)
+                self.assertEqual([p.name for p in live.glob("*.bak.*")], [])
 
 
 if __name__ == "__main__":

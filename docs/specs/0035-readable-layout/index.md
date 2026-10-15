@@ -1,7 +1,7 @@
 # 0035 · A layout a person can read: ~/.claude and claude-config
 
 **Date**: 2026-10-14
-**Status**: Proposed
+**Status**: In Progress
 **Paths:** `README.md`, `AGENTS.md`, `CLAUDE.md`, `.claude/CLAUDE.md`, `live/` (new: today's `agents/`, `rules/`, `hooks/`, `commands/`, `skills/`, `settings.json`, `settings.local.json`, the global `CLAUDE.md` and `scripts/chroma-reaper.sh` move under it), the docs guides folder (new: `HOOKS.md`, `MCP.md`, `PLUGINS.md`, `SKILLS.md`, `SKILLS-EVALUATION.md`, `USAGE.md`, `DESIGN-PIPELINE.md` move there), `sync.sh`, `install.sh`, `scripts/check-routing.py`, `scripts/gen-agent-index.py`, `scripts/asciify.py`, `scripts/private-names.py`, `runner/tests/` (tests that read repo `rules/` paths, for example `runner/tests/test_one_command.py:12`)
 **Amends**: none. Carries out the claude-config placement already decided in the dotfiles repo (its spec 0001 AC-16: claude-config becomes a git submodule of dotfiles at `claude-config/`).
 

@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-13
 **Status**: Accepted (built f1ff8e1; security review AC-9a, AC-12, AC-13 built 0e018ed, AC-14 built b424cd5)
-**Paths:** `runner/pr.py`, `runner/run.py`, `runner/auto.py`, `runner/plain.py`, `runner/tests/test_adopt.py`, `runner/tests/test_pr.py`, `runner/tests/test_run.py`, `rules/branch-pr.md`
+**Paths:** `runner/pr.py`, `runner/run.py`, `runner/auto.py`, `runner/plain.py`, `runner/tests/test_adopt.py`, `runner/tests/test_pr.py`, `runner/tests/test_run.py`, `live/rules/branch-pr.md`
 **Amends**: [0026](../0026-branch-pr-flow/index.md) AC-9 (one allow listed merge), AC-11 (no `--max-wait` cutoff while a PR is watched), AC-12 (asked comments are not judged twice), AC-15 (the approval question merges on your tap), standard rule 6, and architecture invariants 1 and 5; [0030](../0030-autonomous-mode/index.md) AC-5 and AC-8 (watched PRs count as work in the fingerprint).
 **Amended by**: [0039](../0039-questions-while-off/index.md) - security review: an answer typed at the keyboard counts as yours, so it can approve a merge or a post.
 

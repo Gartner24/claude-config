@@ -5,7 +5,7 @@
 #
 # What this does NOT install: the frameworks (gstack, jjstack, get-shit-done-cc)
 # and the Claude Code plugins. They manage themselves and are not vendored here -
-# SKILLS.md documents how to install each. Run this first, then those.
+# docs/guides/SKILLS.md documents how to install each. Run this first, then those.
 #
 #   ./install.sh            install
 #   ./install.sh --dry-run  print what would happen, touch nothing
@@ -40,12 +40,12 @@ done
 # Copied: these are files the harness reads directly.
 echo "copy:"
 for d in agents rules; do
-  note "$d/ ($(find "$REPO/$d" -type f | wc -l) files)"
-  run cp -a "$REPO/$d/." "$LIVE/$d/"
+  note "$d/ ($(find "$REPO/live/$d" -type f | wc -l) files)"
+  run cp -a "$REPO/live/$d/." "$LIVE/$d/"
 done
 for f in hooks/block-destructive.sh hooks/review-stack-pre-push hooks/plain-panel.py hooks/context-monitor.js scripts/chroma-reaper.sh; do
   note "$f"
-  run cp -a "$REPO/$f" "$LIVE/$f"
+  run cp -a "$REPO/live/$f" "$LIVE/$f"
   run chmod +x "$LIVE/$f"
 done
 
@@ -53,7 +53,7 @@ done
 # truth. This is how the existing install is already wired.
 echo "symlink:"
 for d in commands skills; do
-  for src in "$REPO/$d"/*; do
+  for src in "$REPO/live/$d"/*; do
     [ -e "$src" ] || continue
     name="$(basename "$src")"
     dst="$LIVE/$d/$name"
@@ -128,18 +128,20 @@ if isinstance(d, dict) and "autoMode" in d:
 fi
 [ -n "$keep_auto" ] && [ "$DRY" = 1 ] && note "would keep autoMode"
 if [ -e "$LIVE/settings.json" ] && [ "$DRY" = 0 ]; then
-  bak="$LIVE/settings.json.bak.$(date +%Y%m%d-%H%M%S)"
+  # Spec 0035 AC-7: backups used to pile up as settings.json.bak.* at the top of the live dir.
+  mkdir -p "$LIVE/backups/settings"
+  bak="$LIVE/backups/settings/settings.json.bak.$(date +%Y%m%d-%H%M%S)"
   cp "$LIVE/settings.json" "$bak"
-  note "backed up existing -> $(basename "$bak")"
+  note "backed up existing -> backups/settings/$(basename "$bak")"
 fi
-n=$(grep -c '/home/santiago' "$REPO/settings.json" || true)
+n=$(grep -c '/home/santiago' "$REPO/live/settings.json" || true)
 note "rewriting $n hardcoded path(s) to \$HOME"
 if [ "$DRY" = 0 ]; then
-  sed "s|/home/santiago|$HOME|g" "$REPO/settings.json" > "$LIVE/settings.json.tmp"
+  sed "s|/home/santiago|$HOME|g" "$REPO/live/settings.json" > "$LIVE/settings.json.tmp"
   python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$LIVE/settings.json.tmp"
   mv "$LIVE/settings.json.tmp" "$LIVE/settings.json"
 fi
-[ -e "$LIVE/CLAUDE.md" ] || run cp "$REPO/CLAUDE.md" "$LIVE/CLAUDE.md"
+[ -e "$LIVE/CLAUDE.md" ] || run cp "$REPO/live/CLAUDE.md" "$LIVE/CLAUDE.md"
 
 # Spec 0013: sync.sh strips name bearing entries out of both settings files into
 # ~/.claude/private/. Merging them back is what keeps a reinstall from silently dropping
@@ -235,11 +237,11 @@ else
     && note "guard hook: all self-checks passed" \
     || { echo "  guard hook SELF-CHECK FAILED - do not rely on it" >&2; exit 1; }
   python3 "$REPO/scripts/gen-agent-index.py" --check >/dev/null \
-    && note "agent index: matches agents/" || note "agent index: DRIFTED (regenerate)"
-  bash "$REPO/skills/design/scripts/test-ledger.sh" >/dev/null 2>&1 \
+    && note "agent index: matches live/agents/" || note "agent index: DRIFTED (regenerate)"
+  bash "$REPO/live/skills/design/scripts/test-ledger.sh" >/dev/null 2>&1 \
     && note "design ledger + Stop hook: 37 assertions pass" \
     || { echo "  DESIGN LEDGER SELF-CHECK FAILED - the Stop hook may block or leak" >&2; exit 1; }
-  node "$REPO/skills/design/scripts/build-ramp.mjs" --check >/dev/null 2>&1 \
+  node "$REPO/live/skills/design/scripts/build-ramp.mjs" --check >/dev/null 2>&1 \
     && note "colour ramp: solver targets and emitted pairs meet AA" \
     || { echo "  RAMP SELF-CHECK FAILED - generated palettes may ship below AA" >&2; exit 1; }
   # The suite builds its own temp homes; the stage or live dir this install writes must not leak into it.
@@ -257,13 +259,13 @@ else
   while read -r imp; do
     real="${imp/#@\~/$HOME}"
     [ -f "$real" ] || missing=$((missing + 1))
-  done < <(grep -hoE '^@~/[^ ]+' "$REPO"/rules/ecc/*/index.md)
+  done < <(grep -hoE '^@~/[^ ]+' "$REPO"/live/rules/ecc/*/index.md)
   [ "$missing" -eq 0 ] && note "rule imports: all resolve" || note "rule imports: $missing dangling"
 fi
 
 cat <<EOF
 
-done. Still to install, none of it vendored here (see SKILLS.md):
+done. Still to install, none of it vendored here (see docs/guides/SKILLS.md):
   gstack / jjstack / get-shit-done-cc, and the Claude Code plugins.
 
 Activate the rules per project by adding one line to that project's CLAUDE.md:

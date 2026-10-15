@@ -605,11 +605,11 @@ def selftest():
     code, out = run(script=sync_repo / "sync.sh", cwd=sync_repo, extra=sync_env)
     ok(code == 0, f"AC-3 clean sync passes: {out.strip()}")
     # covers: spec 0037 AC-7, sync copies the context monitor hook back into the repo
-    synced_hook = sync_repo / "hooks" / "context-monitor.js"
+    synced_hook = sync_repo / "live" / "hooks" / "context-monitor.js"
     ok(synced_hook.exists() and synced_hook.read_text() == (slive / "hooks" / "context-monitor.js").read_text(),
        "0037 AC-7 sync copies hooks/context-monitor.js")
-    synced = [(sync_repo / f).read_text() for f in ("settings.json", "settings.local.json")
-              if (sync_repo / f).exists()]
+    synced = [(sync_repo / "live" / f).read_text() for f in ("settings.json", "settings.local.json")
+              if (sync_repo / "live" / f).exists()]
     ok(len(synced) == 2 and "autoMode" not in synced[0] and not leaks("".join(synced)),
        "AC-3 synced settings hold no name and no autoMode")
     pfrag = slive / "private" / "settings.json"
@@ -662,14 +662,14 @@ def selftest():
     # untouched. It exits 1 at its own verify step (the scratch repo has no design scripts),
     # which runs after every spec 0013 part, so outcomes are asserted, not the exit code.
     irepo = new_repo("install")
-    for d in ("agents", "rules", "hooks", "scripts"):
-        (irepo / d).mkdir()
+    for d in ("live/agents", "live/rules", "live/hooks", "live/scripts", "scripts"):
+        (irepo / d).mkdir(parents=True)
     shutil.copy(real_repo / "install.sh", irepo / "install.sh")
     shutil.copy(SCRIPT, irepo / "scripts" / "private-names.py")
     for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py", "hooks/context-monitor.js", "scripts/chroma-reaper.sh"):
-        (irepo / f).write_text("#!/bin/sh\n")
-    (irepo / "CLAUDE.md").write_text("# rules\n")
-    (irepo / "settings.json").write_text(json.dumps({"permissions": {"deny": ["Bash(rm:*)", "Read(~/x)"]}}))
+        (irepo / "live" / f).write_text("#!/bin/sh\n")
+    (irepo / "live" / "CLAUDE.md").write_text("# rules\n")
+    (irepo / "live" / "settings.json").write_text(json.dumps({"permissions": {"deny": ["Bash(rm:*)", "Read(~/x)"]}}))
     hooks = irepo / ".git" / "hooks"
     hooks.mkdir(exist_ok=True)
     ichecker = irepo / "scripts" / "private-names.py"
