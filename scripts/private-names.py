@@ -583,13 +583,15 @@ def selftest():
     ok(not (slive / "private" / "settings.json").exists(), "AC-3 refused sync writes no fragment")
     (slive / "rules" / "r.md").write_text("rule\n")
     # covers: AC-4, every source is checked, not only rules/
-    for rel, body in (("CLAUDE.md", "# rules\nsee zorblex\n"), ("agents/a.md", "agent\nQuux-Labs\n")):
+    for rel, body in (("CLAUDE.md", "# rules\nsee zorblex\n"), ("agents/a.md", "agent\nQuux-Labs\n"),
+                      ("hooks/context-monitor.js", "#!/bin/sh\nzorblex\n")):
         (slive / rel).write_text(body)
         code, out = run(script=sync_repo / "sync.sh", cwd=sync_repo, extra=sync_env)
         ok(code == 1 and f"{slive}/{rel}:2: names.txt line" in out and not leaks(out)
            and tree_state() == before, f"AC-4 sync refuses a name in live {rel}")
     (slive / "CLAUDE.md").write_text("# rules\n")
     (slive / "agents" / "a.md").write_text("agent\n")
+    (slive / "hooks" / "context-monitor.js").write_text("#!/bin/sh\n")
     (slive / "settings.json").write_text(json.dumps(dict(settings, env={"X": "zorblex"})))
     code, out = run(script=sync_repo / "sync.sh", cwd=sync_repo, extra=sync_env)
     ok(code == 1 and "settings.json (stripped):" in out and not leaks(out) and tree_state() == before,

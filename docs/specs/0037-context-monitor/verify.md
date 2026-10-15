@@ -9,11 +9,14 @@
   transcript under `~/.claude/projects/<cwd slug>/<session>.jsonl` read with
   `jq -c 'select(.type=="assistant") | {sc: .isSidechain, u: .message.usage}'` shows
   `isSidechain: false` and all three of `input_tokens`, `cache_creation_input_tokens`,
-  `cache_read_input_tokens` on every assistant line (for example 2 + 212 + 93373). The hook
-  input half (`transcript_path` in the PostToolUse input) needs a real `claude -p` with a
-  temp settings file, which a sandboxed `wf` call cannot start: unconfirmed, owed to you.
-- **P2** `additionalContext` reaches the model: needs a real `claude -p`; unconfirmed, owed to
-  you. Commands are in the spec's Probes section.
+  `cache_read_input_tokens` on every assistant line (for example 2 + 212 + 93373).
+  Hook input half, 2026-10-15, conductor session, real `claude -p` in an empty folder: the
+  PostToolUse input had `transcript_path` naming a file that exists, and its last 20 lines gave
+  `{"input_tokens":2,"cache_creation_input_tokens":51248,"cache_read_input_tokens":16599}`.
+  Confirmed. The spec's command puts the prompt after `--allowedTools`, which takes many values
+  and swallows it; the probe ran `claude -p "<prompt>" --settings <file> --allowedTools "Bash(echo hi)"`.
+- **P2** `additionalContext` reaches the model, 2026-10-15, same way: the reply quoted
+  `PostToolUse:Bash hook additional context: P2-MARKER`. Confirmed.
 
 ## Verify run 2026-10-14 (`/check verify context monitor`, FAIL)
 
@@ -48,11 +51,12 @@ with `WF_RUN` unset and `TMPDIR` a temp dir.
   name in live `plain-panel.py`: `sync refused ... nothing was copied`. Fix: add
   `"$LIVE/hooks/context-monitor.js"` to the `check` list, and a case to the
   `private-names.py --test` sync checks.
+  Fixed 2026-10-15: `sync.sh` checks `$LIVE/hooks/context-monitor.js` before copying, and
+  `private-names.py --test` gained the case (mutation checked: red without the sync line, green with it).
 - [ ] NOT APPLIED, AC-9: the scope box "Install it live" is ticked, but
   `~/.claude/hooks/context-monitor.js` does not exist and live `settings.json` PostToolUse still
   runs `gsd-context-monitor.js`. The install likely ran from a checkout without this branch.
   Rerun `./install.sh` from this branch (or after merge) and untick the box until then.
-- Not exercised: P1 hook input half (`transcript_path` in a real PostToolUse input) and P2
-  (`additionalContext` reaches the model); both need a real `claude -p`, owed to you.
+- P1 hook input half and P2: confirmed 2026-10-15 on the real `claude -p` (Probes above).
 - Docs rows (`NOTICE.md`, `HOOKS.md`, `AGENTS.md`) read, present; not counted, a read of text
   the change added cannot fail.

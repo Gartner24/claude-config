@@ -46,26 +46,26 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 32 | One command: wf | Release 6 | done |
 | 33 | Ask, never stop | Release 6 | done |
 | 34 | Report names repos | Release 6 | in-progress |
-| 35 | Several features of one repo at once | Release 6 | in-progress |
+| 35 | Several features of one repo at once | Release 6 | done |
 | 36 | Telegram instead of ntfy | Release 6 | done |
 | 37 | Autonomous mode | Release 6 | in-progress |
 | 31 | Guard baseline check between repos | Release 6 | done |
-| 23 | Understand everything | Release 6 | in-progress |
+| 23 | Understand everything | Release 6 | done |
 | 15 | Cheap worker tier | Release 6 | done |
 | 16 | Issues and mixed source of truth | Release 6 | done |
 | 11 | Autopilot offer and batch design | Deferred | dropped |
 | 12 | Usage limit planning | Release 6 | done |
-| 14 | Branch and PR flow | Release 6 | in-progress |
-| 38 | Adopt your open PRs | Release 7 | in-progress |
-| 39 | Review requests to you | Release 7 | in-progress |
+| 14 | Branch and PR flow | Release 6 | done |
+| 38 | Adopt your open PRs | Release 7 | done |
+| 39 | Review requests to you | Release 7 | done |
 | 40 | Context and links in every message | Release 7 | in-progress |
-| 41 | Styled Telegram messages | Release 7 | in-progress |
-| 42 | Answer questions while wf is off | Release 7 | in-progress |
-| 43 | Runs adapt to setup changes | Release 7 | in-progress |
+| 41 | Styled Telegram messages | Release 7 | done |
+| 42 | Answer questions while wf is off | Release 7 | done |
+| 43 | Runs adapt to setup changes | Release 7 | done |
 | 44 | A run does its own copy steps | Release 7 | in-progress |
 | 45 | Each step gets the feature's brief | Release 8 | planned |
 | 46 | Missed-skill detector | Release 8 | planned |
-| 47 | Context monitor that fires | Release 8 | planned |
+| 47 | Context monitor that fires | Release 8 | in-progress |
 | 48 | Readable layout for ~/.claude and claude-config | Release 8 | planned |
 | 49 | Fast runner | Release 8 | in-progress |
 
@@ -537,7 +537,7 @@ The `wf` screen says whether tonight's picks fit your 5 hour window and your wee
 - [x] Sync docs: `/sync usage limit planning`
 Spec [0022](../specs/0022-usage-limit-planning/index.md) · Source: your message 2026-10-13 (agreed, not optional).
 
-### 14. Branch and PR flow · in-progress · auto
+### 14. Branch and PR flow · done · auto
 One branch per spec (stacked only when the spec says so, at most 3 deep), one squashed commit per feature. In repos that opt in with `- push: draft PR`, `wf` (never a call) pushes the branch and opens a draft PR after the private names and attribution scans; a pre-push hook refusal keeps the branch local. After you mark it ready, review comments are fixed, pushed and answered with an @mention; declines are asked first. It never marks ready or merges.
 **Done when:** a finished feature ends as one commit with a draft PR (or a local branch when the hook refuses), and the review loop answers every comment until the required approver approves.
 - [x] Design it (spec): `/architect branch and PR flow`
@@ -547,10 +547,10 @@ One branch per spec (stacked only when the spec says so, at most 3 deep), one sq
 - [x] Copy the rule live: `cp ~/claude-config/rules/branch-pr.md ~/.claude/rules/branch-pr.md` · waits on you · live
 - [x] Add the branch-pr pointer line to `~/.claude/CLAUDE.md` · waits on you
 - [x] Probes P7 and P8 on a scratch GitHub repo (they post) · waits on you
-- [ ] Sync docs: `/sync branch and PR flow`
+- [x] Sync docs: `/sync branch and PR flow`
 Spec [0026](../specs/0026-branch-pr-flow/index.md) · Source: personal scope rows 11 and 27; your message 2026-10-13.
 
-### 35. Several features of one repo at once · in-progress · auto
+### 35. Several features of one repo at once · done · auto
 A repo that opts in with `- parallel: <n>` builds up to n features at once, each in its own worktree on its own branch; features whose spec paths overlap never run together.
 **Done when:** `runner/e2e/run.py --same-repo` passes on the real claude.
 - [x] Design it (spec): `/architect several features of one repo at once`
@@ -558,7 +558,7 @@ A repo that opts in with `- parallel: <n>` builds up to n features at once, each
 - [x] Verify it: `/check verify several features of one repo at once`
 - [x] Test it: `/test several features of one repo at once`
 - [x] Real check: `python3 runner/e2e/run.py --same-repo` · waits on you · live
-- [ ] Sync docs: `/sync several features of one repo at once`
+- [x] Sync docs: `/sync several features of one repo at once`
 Spec [0027](../specs/0027-same-repo-parallel/index.md) · Source: personal scope row 23.
 
 ### 15. Cheap worker tier · done · auto
@@ -574,7 +574,7 @@ Boring reading jobs go to the free claude-fb models through `fb-ask` (text only,
 - [x] Sync docs: `/sync cheap worker tier`
 Spec [0023](../specs/0023-cheap-worker-tier/index.md) · Source: your message 2026-10-13 (agreed, not optional).
 
-### 23. Understand everything · in-progress · auto
+### 23. Understand everything · done · auto
 Everything Claude tells you uses words you can follow; every question panel ends with "Learn this first"; phone questions carry a short explanation and a learn option; the runner speaks plain words, with a jargon test.
 **Done when:** a panel in a fresh session offers "Learn this first", a runner report holds no word from the jargon list, and the rule survives a pull of the vendored skills.
 - [x] Research it: done inside spec 0028 (rationale.md)
@@ -585,7 +585,7 @@ Everything Claude tells you uses words you can follow; every question panel ends
 - [x] Copy the rule live: `cp ~/claude-config/rules/plain-questions.md ~/.claude/rules/plain-questions.md` · waits on you · live
 - [x] Real check of the LEARN line: `python3 docs/specs/0028-understand-everything/probes/learn-line.py` · waits on you · live
 - [x] A panel is refused without "Learn this first" in a real session (P3) · waits on you
-- [ ] Sync docs: `/sync understand everything`
+- [x] Sync docs: `/sync understand everything`
 Spec [0028](../specs/0028-understand-everything/index.md) · Source: your messages 2026-10-12 and 2026-10-13.
 
 ### 36. Telegram instead of ntfy · done · auto
@@ -611,7 +611,7 @@ Spec [0029](../specs/0029-telegram/index.md) · Source: personal scope row 26.
 - [ ] Sync docs: `/sync autonomous mode`
 Spec [0030](../specs/0030-autonomous-mode/index.md) · Source: your message 2026-10-13; [docs/briefs/autonomous-mode.md](../briefs/autonomous-mode.md).
 
-### 38. Adopt your open PRs · in-progress · auto
+### 38. Adopt your open PRs · done · auto
 wf adopts the open PRs you list in pr.json, runs the review loop on them, watches each until it merges, and merges only on your explicit merge now tap.
 **Done when:** an adopted PR gets its review round, is watched until merged, and merges only on your tap.
 - [x] Design it (spec): `/architect adopt open prs`
@@ -620,18 +620,18 @@ wf adopts the open PRs you list in pr.json, runs the review loop on them, watche
 - [x] Test it: `/test adopt open prs`
 - [x] Write `~/.claude/private/pr.json` for the repos to adopt · waits on you · later boxes go on
 - [x] Probes P3 and P4 on a scratch GitHub repo (they post) · waits on you · later boxes go on
-- [ ] Sync docs: `/sync adopt open prs`
+- [x] Sync docs: `/sync adopt open prs`
 Spec [0031](../specs/0031-adopt-open-prs/index.md) · Source: your message 2026-10-13 (the gap after the draft PR until approved and merged).
 
-### 39. Review requests to you · in-progress · auto
+### 39. Review requests to you · done · auto
 A PR review requested of you becomes a question: wf drafts the review in an isolated call and posts it only on your tap.
 **Done when:** a review request arrives as a question, the draft shows, and only post as my review posts it.
 - [x] Design it (spec): `/architect review requests`
 - [x] Build it: `/develop review requests`
-- [ ] Verify it: `/check verify review requests`
-- [ ] Test it: `/test review requests`
+- [x] Verify it: `/check verify review requests`
+- [x] Test it: `/test review requests`
 - [x] Probes P3 to P5 on a scratch GitHub repo (they post) · waits on you · later boxes go on
-- [ ] Sync docs: `/sync review requests`
+- [x] Sync docs: `/sync review requests`
 Spec [0032](../specs/0032-review-requests/index.md) · Source: your message 2026-10-13 (watch for review requests to me).
 
 ### 40. Context and links in every message · in-progress · auto
@@ -639,41 +639,41 @@ Every question and report on your phone says where it comes from: repo, feature,
 **Done when:** a question on the phone shows its from block with working links and the why line.
 - [x] Design it (spec): `/architect context in messages`
 - [x] Build it: `/develop context in messages`
-- [ ] Verify it: `/check verify context in messages`
-- [ ] Test it: `/test context in messages`
+- [x] Verify it: `/check verify context in messages`
+- [x] Test it: `/test context in messages`
 - [ ] Probe P1: read a real question on your phone and say whether it explains itself · waits on you · later boxes go on
 - [ ] Sync docs: `/sync context in messages`
 Spec [0033](../specs/0033-context-in-messages/index.md) · Source: your message 2026-10-13 (context, links and the why in every message).
 
-### 41. Styled Telegram messages · in-progress · auto
+### 41. Styled Telegram messages · done · auto
 Telegram questions in bold and italics with tappable links and the step's own words in an expandable quote; every inserted value escaped.
 **Done when:** a real question arrives styled, its links open, and injected markup shows as plain text.
 - [x] Design it (spec): `/architect styled telegram`
 - [x] Build it: `/develop styled telegram`
-- [ ] Verify it: `/check verify styled telegram`
-- [ ] Test it: `/test styled telegram`
-- [ ] Sync docs: `/sync styled telegram`
+- [x] Verify it: `/check verify styled telegram`
+- [x] Test it: `/test styled telegram`
+- [x] Sync docs: `/sync styled telegram`
 Spec [0038](../specs/0038-styled-telegram/index.md) · Source: your message 2026-10-14 01:30.
 
-### 42. Answer questions while wf is off · in-progress · auto
+### 42. Answer questions while wf is off · done · auto
 Open questions show on the wf screen to answer at the keyboard; `wf questions` lists them with links; a user timer keeps Telegram taps while wf is off.
 **Done when:** a question answered at the keyboard resumes its call on the next run, and a tap made while wf was off is kept.
 - [x] Design it (spec): `/architect questions while off`
 - [x] Build it: `/develop questions while off`
-- [ ] Verify it: `/check verify questions while off`
-- [ ] Test it: `/test questions while off`
+- [x] Verify it: `/check verify questions while off`
+- [x] Test it: `/test questions while off`
 - [x] Turn the timer on: `wf telegram timer on` · waits on you · later boxes go on
-- [ ] Sync docs: `/sync questions while off`
+- [x] Sync docs: `/sync questions while off`
 Spec [0039](../specs/0039-questions-while-off/index.md) · Source: your message 2026-10-14 02:20.
 
-### 43. Runs adapt to setup changes · in-progress · auto
+### 43. Runs adapt to setup changes · done · auto
 A run switches to Telegram set up mid run, retakes a step the old setup refused once the new one allows it, and the design gate finds the right base in a shallow clone.
 **Done when:** each of the three happens in a real run without a new wf.
 - [x] Design it (spec): `/architect runs adapt to setup changes`
 - [x] Build it: `/develop runs adapt to setup changes`
-- [ ] Verify it: `/check verify runs adapt to setup changes`
-- [ ] Test it: `/test runs adapt to setup changes`
-- [ ] Sync docs: `/sync runs adapt to setup changes`
+- [x] Verify it: `/check verify runs adapt to setup changes`
+- [x] Test it: `/test runs adapt to setup changes`
+- [x] Sync docs: `/sync runs adapt to setup changes`
 Spec [0040](../specs/0040-runs-adapt-to-setup-changes/index.md) · Source: the night of 2026-10-13, morning list 2026-10-14.
 
 ### 44. A run does its own copy steps · in-progress · auto
@@ -708,11 +708,11 @@ A hook notes when a session could have used a skill it did not, and a weekly rep
 - [ ] Sync docs: `/sync missed skill detector`
 Spec [0036](../specs/0036-missed-skill-detector/index.md) · Source: personal scope row 20.
 
-### 47. Context monitor that fires · planned · auto
+### 47. Context monitor that fires · in-progress · auto
 A context monitor that actually warns at the thresholds, wired to the status line in use.
 **Done when:** a long session gets the warning at the threshold.
 - [x] Design it (spec): `/architect context monitor`
-- [ ] Build it: `/develop context monitor`
+- [x] Build it: `/develop context monitor`
 - [ ] Verify it: `/check verify context monitor`
 - [ ] Test it: `/test context monitor`
 - [x] Install it live: `./install.sh` · waits on you · live
