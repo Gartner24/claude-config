@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-13
 **Status**: Accepted
-**Paths:** `live/hooks/block-destructive.sh`
+**Paths:** `claude-home/hooks/block-destructive.sh`
 
 ## Summary
 

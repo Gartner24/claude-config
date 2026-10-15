@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-15
 **Status**: Accepted
-**Paths:** `runner/auto.py`, `runner/run.py`, `live/settings.json`, `live/skills/auto/SKILL.md`, `runner/tests/test_auto.py`, `runner/tests/test_auto_chats.py`, `runner/tests/test_fewer_stops.py`
+**Paths:** `runner/auto.py`, `runner/run.py`, `claude-home/settings.json`, `claude-home/skills/auto/SKILL.md`, `runner/tests/test_auto.py`, `runner/tests/test_auto_chats.py`, `runner/tests/test_fewer_stops.py`
 **Amends**: [0046](../0046-autonomous-mode-per-chat/index.md) (AC-2, AC-3, AC-4, AC-7), [0045](../0045-fewer-avoidable-stops/index.md) (AC-1)
 
 ## What you're agreeing to

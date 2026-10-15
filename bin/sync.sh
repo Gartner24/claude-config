@@ -4,7 +4,8 @@
 # manage themselves and are documented, not vendored.
 set -euo pipefail
 
-REPO="$(cd "$(dirname "$0")" && pwd)"
+# Spec 0048 AC-1: this script lives in bin/, the repo is one folder up.
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
 # CLAUDE_LIVE_DIR is for the self checks only: they sync a temp live tree, never ~/.claude.
 LIVE="${CLAUDE_LIVE_DIR:-$HOME/.claude}"
 NAMES=(python3 "$REPO/scripts/private-names.py")
@@ -13,7 +14,7 @@ NAMES=(python3 "$REPO/scripts/private-names.py")
 # Every source is checked BEFORE anything is copied, so a refused sync leaves the repo
 # byte for byte unchanged. The settings files are stripped into a temp dir first (autoMode
 # and every name bearing array string or object key out); the stripped entries become the
-# private fragments install.sh merges back. Temp files also mean a malformed settings.json
+# private fragments bin/install.sh merges back. Temp files also mean a malformed settings.json
 # can never leave a committable 0-byte file here, as `jq ... > dest` once did.
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -23,6 +24,11 @@ fail=0
 "${NAMES[@]}" check "$LIVE/CLAUDE.md" "$LIVE/agents" "$LIVE/rules" \
   "$LIVE/hooks/block-destructive.sh" "$LIVE/hooks/review-stack-pre-push" "$LIVE/hooks/plain-panel.py" "$LIVE/hooks/context-monitor.js" \
   "$LIVE/scripts/chroma-reaper.sh" || fail=1
+# Spec 0048: these may be missing from a live tree (first install, the self checks' temp trees).
+OPTIONAL=(hooks/claude-config-reminder.py hooks/workflow-start.sh hooks/claude-mem-install.sh scripts/claude-ram-watch.sh)
+for f in "${OPTIONAL[@]}"; do
+  if [ -e "$LIVE/$f" ]; then "${NAMES[@]}" check "$LIVE/$f" || fail=1; fi
+done
 if [ "$fail" = 1 ]; then
   echo "sync refused: a private name (or no names list) in the sources above; nothing was copied" >&2
   exit 1
@@ -30,24 +36,28 @@ fi
 mv "$tmp/private-settings.json" "$LIVE/private/settings.json"
 mv "$tmp/private-settings.local.json" "$LIVE/private/settings.local.json"
 
-mkdir -p "$REPO/live"
-cp "$LIVE/CLAUDE.md"            "$REPO/live/CLAUDE.md"
-mv "$tmp/settings.json"         "$REPO/live/settings.json"
-mv "$tmp/settings.local.json"   "$REPO/live/settings.local.json"
+mkdir -p "$REPO/claude-home"
+cp "$LIVE/CLAUDE.md"            "$REPO/claude-home/CLAUDE.md"
+mv "$tmp/settings.json"         "$REPO/claude-home/settings.json"
+mv "$tmp/settings.local.json"   "$REPO/claude-home/settings.local.json"
 
 # ponytail: copy-over, no delete - stale files show up in git status, delete by hand
-mkdir -p "$REPO/live/agents" "$REPO/live/rules"
-cp -a "$LIVE/agents/." "$REPO/live/agents/"
-cp -a "$LIVE/rules/."  "$REPO/live/rules/"
+mkdir -p "$REPO/claude-home/agents" "$REPO/claude-home/rules"
+cp -a "$LIVE/agents/." "$REPO/claude-home/agents/"
+cp -a "$LIVE/rules/."  "$REPO/claude-home/rules/"
 
 # Hooks + scripts that are real files here (the rest are framework symlinks).
-mkdir -p "$REPO/live/hooks" "$REPO/live/scripts"
-cp "$LIVE/hooks/block-destructive.sh"     "$REPO/live/hooks/"
-cp "$LIVE/hooks/review-stack-pre-push" "$REPO/live/hooks/"
-cp "$LIVE/hooks/plain-panel.py"        "$REPO/live/hooks/"
+mkdir -p "$REPO/claude-home/hooks" "$REPO/claude-home/scripts"
+cp "$LIVE/hooks/block-destructive.sh"     "$REPO/claude-home/hooks/"
+cp "$LIVE/hooks/review-stack-pre-push" "$REPO/claude-home/hooks/"
+cp "$LIVE/hooks/plain-panel.py"        "$REPO/claude-home/hooks/"
 # Not live until the first install after spec 0037; a missing file used to stop the sync half way.
-if [ -e "$LIVE/hooks/context-monitor.js" ]; then cp "$LIVE/hooks/context-monitor.js" "$REPO/live/hooks/"; fi
-cp "$LIVE/scripts/chroma-reaper.sh"   "$REPO/live/scripts/"
+if [ -e "$LIVE/hooks/context-monitor.js" ]; then cp "$LIVE/hooks/context-monitor.js" "$REPO/claude-home/hooks/"; fi
+# Spec 0048 AC-11 and AC-5: same, the reminder until the first install after spec 0048.
+for f in "${OPTIONAL[@]}"; do
+  if [ -e "$LIVE/$f" ]; then cp "$LIVE/$f" "$REPO/claude-home/$f"; fi
+done
+cp "$LIVE/scripts/chroma-reaper.sh"   "$REPO/claude-home/scripts/"
 
 
 # cp -a never deletes, and the header's claim that stale files show up in `git status`
@@ -61,10 +71,16 @@ for d in agents rules; do
     orphans=$((orphans + 1))
     [ "$orphans" -le 10 ] && \
       echo "  ORPHAN: $d/$rel is tracked here but gone from $LIVE/$d - delete it by hand"
-  done < <(cd "$REPO/live/$d" && find . -type f -printf '%P\n')
+  done < <(cd "$REPO/claude-home/$d" && find . -type f -printf '%P\n')
 done
 [ "$orphans" -gt 10 ] && echo "  ... and $((orphans - 10)) more"
 [ "$orphans" -gt 0 ] && echo "  $orphans orphan(s); nothing was auto-deleted. A full list means $LIVE is incomplete, not that this repo is stale."
+
+# Spec 0048 AC-7: an edit to a downloaded skill becomes (or refreshes) its patch. A scratch copy of
+# this script with no tool (the spec 0013 self checks) skips it.
+if [ -f "$REPO/bin/claude-config.py" ] && [ -f "$REPO/config/manifest.json" ]; then
+  python3 "$REPO/bin/claude-config.py" patches || echo "  some patches not refreshed (above); rerun sync with network" >&2
+fi
 
 # Last line of defence: a name already in a repo-only file (README, a doc) is caught here.
 # The copy stays; the pre-commit hook still blocks the commit.

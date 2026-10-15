@@ -838,10 +838,11 @@ class TestRepoAndRun(NeverStopCase):
     def test_run_limit_keep_going(self):
         self.committed("two", TWO)
         self.reply("{id} 1")
-        self.steps([{"sleep": 1.2}, {}, {"tick": False}, B_DONE, {"tick": False}])
-        r = self.wf("two", "-y", "--max-hours", "0.0003", "--max-wait", "0.01", mode="fast")
+        # 0.0003h (~1s) let a loaded machine run past the extension too and ask a second time (exit 6).
+        self.steps([{"sleep": 4.0}, {}, {"tick": False}, B_DONE, {"tick": False}])
+        r = self.wf("two", "-y", "--max-hours", "0.001", "--max-wait", "0.01", mode="fast")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertRegex(r.stdout, r"answered: [a-z0-9]{4} keep going, 0.0003h more\n")
+        self.assertRegex(r.stdout, r"answered: [a-z0-9]{4} keep going, 0.001h more\n")
         self.assertIn("done: 2. B", r.stdout)
 
     # covers: U9 (a question whose ping failed is pinged again once its retry time came; one sent is not)

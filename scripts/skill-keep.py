@@ -3,7 +3,7 @@
 
 Sets every other installed own skill and command to `name-only` in `$CLAUDE_LIVE_DIR/settings.json`
 (default ~/.claude), and reports every installed plugin. `--dry-run` prints the changes, writes nothing.
-Run `./sync.sh` right after a real run: `install.sh` rebuilds the live file from the repo copy.
+Run `bin/sync.sh` right after a real run: `bin/install.sh` rebuilds the live file from the repo copy.
 """
 import argparse
 import json
@@ -98,7 +98,7 @@ def report(live, settings, names, keep):
 
 
 def write(path, data):
-    # Same backup folder as install.sh (spec 0035 AC-7).
+    # Same backup folder as bin/install.sh (spec 0035 AC-7).
     bak = path.parent / "backups" / "settings"
     bak.mkdir(parents=True, exist_ok=True)
     shutil.copy2(path, bak / f"settings.json.bak.{time.strftime('%Y%m%d-%H%M%S')}")
@@ -136,7 +136,7 @@ def main(argv=None):
     for line in report(live, {**settings, "skillOverrides": new}, names, keep):
         print(line)
     if not args.dry_run:
-        print("next: run ./sync.sh now, before any install.sh")
+        print("next: run bin/sync.sh now, before any bin/install.sh")
     return 0
 
 

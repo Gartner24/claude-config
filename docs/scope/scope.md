@@ -80,7 +80,7 @@ Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules ev
 ## Existing
 
 ### A. Sync and install · existing
-`sync.sh` pulls live `~/.claude` into the repo, `install.sh` puts it back with self checks. code in `sync.sh`, `install.sh`
+`bin/sync.sh` pulls live `~/.claude` into the repo, `bin/install.sh` puts it back with self checks. code in `bin/sync.sh`, `bin/install.sh`
 
 ### B. Design pipeline and gate · existing
 Run ledger, Stop hook, font and colour scripts behind `design`, `brand-system`, `design-gate`. code in `skills/design/`, `skills/design-gate/`
@@ -89,13 +89,13 @@ Run ledger, Stop hook, font and colour scripts behind `design`, `brand-system`, 
 Multi agent pre ship review with a blind lane and a pre push receipt hook. code in `skills/review-stack/`, `hooks/review-stack-pre-push`
 
 ### D. Skill routing · existing
-`USAGE.md` routing table, the intent router, and its regression check. code in `skills/intent-router/`, `scripts/check-routing.py`
+`config/routing.md` routing table, the intent router, and its regression check. code in `skills/intent-router/`, `scripts/check-routing.py`
 
 ## Foundations
 
 ### 1. Runner stack and layout · done
 Pick the language, the entry point, how it installs onto your PATH, and how it is tested. Code lives in `~/claude-config` (decided).
-**Done when:** a spec records the choice, and an empty runner installs through `install.sh` and passes its own self check.
+**Done when:** a spec records the choice, and an empty runner installs through `bin/install.sh` and passes its own self check.
 - [x] Design it (spec): `/architect runner stack and layout`
 - [x] Scaffold from the decision: `/develop runner stack and layout`
 Spec [0001](../specs/0001-runner-stack-and-layout.md) · code in `runner/`
@@ -330,29 +330,29 @@ Source: [docs/briefs/runner-review-stack-2026-10-12.md](../briefs/runner-review-
 
 ### 21. Work names out of the public repo · done
 The merge of the runner branch to main waits on this. Built by `wf run`; no `wf` step writes `.git/hooks` or `~/.claude` (those steps are yours, marked below).
-Work org and tool names sit in public files on main (`CLAUDE.md`, `HOOKS.md`, `SKILLS.md`, `NOTICE.md`, `README.md`, `.gitignore`). They move to one local untracked file, and the public files refer to it instead of naming anything. Root `CLAUDE.md` is the synced copy of `~/.claude/CLAUDE.md`, so `sync.sh` and `install.sh` have to keep the split. Then you decide whether main's history is rewritten too.
-**Done when:** no tracked file on the branch or main names a work org or tool, a fresh `install.sh` plus the local file gives the same behavior as today, `sync.sh` cannot put a name back, and the history decision is recorded (and carried out if the answer is rewrite).
+Work org and tool names sit in public files on main (`CLAUDE.md`, `HOOKS.md`, `SKILLS.md`, `NOTICE.md`, `README.md`, `.gitignore`). They move to one local untracked file, and the public files refer to it instead of naming anything. Root `CLAUDE.md` is the synced copy of `~/.claude/CLAUDE.md`, so `bin/sync.sh` and `bin/install.sh` have to keep the split. Then you decide whether main's history is rewritten too.
+**Done when:** no tracked file on the branch or main names a work org or tool, a fresh `bin/install.sh` plus the local file gives the same behavior as today, `bin/sync.sh` cannot put a name back, and the history decision is recorded (and carried out if the answer is rewrite).
 - [x] Design it (spec): `/architect work names out of the public repo`
 - [x] Build the code: `/develop work names out of the public repo`
    - [x] Checker `scripts/private-names.py` with its self checks, temp files and made up names only (AC-1, AC-3, AC-6, AC-8, AC-10, AC-12)
-   - [x] `sync.sh` and `install.sh` changes, tested on temp live trees through `CLAUDE_LIVE_DIR`, never run against the real `~/.claude` or `.git/hooks` (AC-3 to AC-7)
+   - [x] `bin/sync.sh` and `bin/install.sh` changes, tested on temp live trees through `CLAUDE_LIVE_DIR`, never run against the real `~/.claude` or `.git/hooks` (AC-3 to AC-7)
 - [x] Create `~/.claude/private/` (`names.txt`, `work.md`, `gitignore`), move the name bearing passages of `~/.claude/CLAUDE.md` into `work.md` behind the import line, then run probe P1 from `docs/specs/0013-work-names-out/verify.md` (AC-1, AC-2) · waits on you
 - [x] Reword tracked files: `/develop work names out of the public repo`
    - [x] Every file `python3 scripts/private-names.py check` reports reworded per the AC-9 rule, until it exits 0 (AC-9)
-- [x] Run `./sync.sh` (it writes the private settings fragments under `~/.claude/private/`), confirm it exits 0 and `check` still exits 0 (AC-3, AC-4, AC-5) · waits on you
-- [x] Run `./install.sh` (fragment merge, exclude lines, `pre-commit` and `commit-msg` hook links), then the AC-11 settings compare from verify.md (AC-6, AC-7, AC-11) · waits on you
+- [x] Run `bin/sync.sh` (it writes the private settings fragments under `~/.claude/private/`), confirm it exits 0 and `check` still exits 0 (AC-3, AC-4, AC-5) · waits on you
+- [x] Run `bin/install.sh` (fragment merge, exclude lines, `pre-commit` and `commit-msg` hook links), then the AC-11 settings compare from verify.md (AC-6, AC-7, AC-11) · waits on you
 - [x] Verify it: `/check verify work names out of the public repo`
 - [x] Test it: `/test work names out of the public repo`
 - [x] Swap the two hook links for copies by hand, before the build below: `cp --remove-destination scripts/private-names.py .git/hooks/pre-commit`, same for `commit-msg` (spec 0013 build plan 7a) · waits on you
 - [x] Copy the hooks instead of linking them: `/develop work names out of the public repo`
-   - [x] `install.sh` copies and refreshes the hooks per the amended AC-7; `--test` hook fixtures copy the checker, install assertions cover the AC-7 scenario, docstring line 19 says copied, line 2 unchanged (spec 0013 build plan 7b)
+   - [x] `bin/install.sh` copies and refreshes the hooks per the amended AC-7; `--test` hook fixtures copy the checker, install assertions cover the AC-7 scenario, docstring line 19 says copied, line 2 unchanged (spec 0013 build plan 7b)
 - [x] Verify the hook copy: `/check verify work names out of the public repo`
 - [x] Test the hook copy: `/test work names out of the public repo`
-- [x] Rerun `./install.sh`: both hooks print `refreshed` or `up to date`, and neither is a symlink (spec 0013 build plan 7c, AC-7) · waits on you
+- [x] Rerun `bin/install.sh`: both hooks print `refreshed` or `up to date`, and neither is a symlink (spec 0013 build plan 7c, AC-7) · waits on you
 - [x] Sync docs for feature 21: `/sync work names out of the public repo`
 - [x] Merge `feat/autonomous-runner` into `main` locally, then rewrite history in a fresh clone per the spec 0013 migration plan phases 1 and 2, `check-history` exits 0 (AC-10) · waits on you
 - [x] Delete and recreate `Gartner24/claude-config`, push `main`, `check-history` on a fresh clone of the new remote, swap folders (migration plan phases 3 to 5, AC-10) · waits on you
-Spec: [0013](../specs/0013-work-names-out/index.md) · code in `scripts/private-names.py`, `sync.sh`, `install.sh`
+Spec: [0013](../specs/0013-work-names-out/index.md) · code in `scripts/private-names.py`, `bin/sync.sh`, `bin/install.sh`
 Source: [docs/briefs/work-names-out.md](../briefs/work-names-out.md) (decisions); your message of 2026-10-12 (`/scope` request after the runner branch review); your `/architect` amendment of AC-7, 2026-10-12 (hooks copied, not linked, after a `wf run` stopped `guard_changed` on `.git/hooks/commit-msg`).
 
 ## Release 4: resilience and checks
@@ -395,16 +395,16 @@ One always loaded rule file the vendored skills cannot overwrite: verify steps a
 **Done when:** the spec is built, a planted check that cannot fail is rejected, a commit touching an accepted spec's files is flagged by `/sync`, a dropped brief item is named by the cross check, and an update of the vendored skills keeps all three.
 - [x] Design it (spec): `/architect checks that cannot lie`
 - [x] Build it: `/develop checks that cannot lie`
-   - [x] `scripts/spec-paths.py` with `--test` and its `install.sh` link (AC-6)
+   - [x] `scripts/spec-paths.py` with `--test` and its `bin/install.sh` link (AC-6)
    - [x] Rule 11a, the `unchecked` park and prompt lines (AC-4)
    - [x] `rules/check-gates.md` repo copy, `NOTICE.md`, `**Paths:**` backfill on specs 0001 to 0015 (AC-1 to AC-3, AC-5, AC-7 to AC-9)
    - [x] Probe scripts P1 to P3 written (AC-10)
 - [x] Verify it: `/check verify checks that cannot lie`
 - [x] Test it: `/test checks that cannot lie`
-- [x] Copy the rule live and link the script: `cp ~/claude-config/rules/check-gates.md ~/.claude/rules/check-gates.md`, then `./install.sh` (AC-1, AC-6) · waits on you
+- [x] Copy the rule live and link the script: `cp ~/claude-config/rules/check-gates.md ~/.claude/rules/check-gates.md`, then `bin/install.sh` (AC-1, AC-6) · waits on you
 - [x] Run probes P1 to P3 with `!` and record them in `docs/specs/0015-checks-that-cannot-lie/verify.md` (AC-10) · waits on you
 - [x] Sync docs: `/sync checks that cannot lie`
-Spec [0015](../specs/0015-checks-that-cannot-lie/index.md) · code in `runner/run.py`, `scripts/spec-paths.py`, `rules/check-gates.md`, `install.sh`, tests in `runner/tests/test_checks.py`, `runner/tests/test_spec_paths.py`
+Spec [0015](../specs/0015-checks-that-cannot-lie/index.md) · code in `runner/run.py`, `scripts/spec-paths.py`, `rules/check-gates.md`, `bin/install.sh`, tests in `runner/tests/test_checks.py`, `runner/tests/test_spec_paths.py`
 Source: [~/projects/docs/briefs/runner-ideas-2026-10-12.md](../../../../projects/docs/briefs/runner-ideas-2026-10-12.md) (spec B, ideas 7 and 8; item 7 narrowed to changed tests, agreed 2026-10-13); personal scope rows 19 and 12 part 2.
 
 ### 29. Several repos at once · done · auto
@@ -427,21 +427,21 @@ Source: personal scope row 23 (`~/projects/docs/scope/scope.md`; your message of
 The 2026-10-13 night run ended at 03:20 with no message and six manual steps over four features. Designed together on 2026-10-13 (specs 0018, 0019); the next `wf run` builds 30 first, then 13.
 
 ### 30. Live setup steps in one command · done · auto
-The runner keeps building and gathers every waits-on-you step of the run that copies into `~/.claude`, runs `install.sh` or runs a real claude check, then gives you one command that does them all and ticks their boxes. The unattended calls still never write `~/.claude` themselves. Built before feature 13, which reads its ` · live` tag.
+The runner keeps building and gathers every waits-on-you step of the run that copies into `~/.claude`, runs `bin/install.sh` or runs a real claude check, then gives you one command that does them all and ticks their boxes. The unattended calls still never write `~/.claude` themselves. Built before feature 13, which reads its ` · live` tag.
 **Done when:** a run whose features end in live setup steps leaves you one command, and running it does every step, keeps `autoMode`, and ticks the boxes so the next run can `/sync`.
 - [x] Design it (spec): `/architect live setup steps in one command`
 - [x] Build it: `/develop live setup steps in one command`
    - [x] ` · live` tag, shapes, plan and confirm in `runner/finish.py` and `wf finish` (AC-1 to AC-3)
    - [x] Phases, backups, logs, failure policy, Ctrl C (AC-4)
    - [x] Record in verify.md, tick, commit, end lines, report.seen, exit codes (AC-5 to AC-8)
-   - [x] `install.sh` keeps `autoMode`, its self checks; repo copies of `rules/scope-contract.md` and `rules/runner-handoff.md` (AC-9, AC-10)
+   - [x] `bin/install.sh` keeps `autoMode`, its self checks; repo copies of `rules/scope-contract.md` and `rules/runner-handoff.md` (AC-9, AC-10)
 - [x] Verify it: `/check verify live setup steps in one command`
 - [x] Test it: `/test live setup steps in one command`
 - [x] Copy the scope contract live: `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` (AC-10) · waits on you · live
 - [x] Copy the handoff rule live: `cp ~/claude-config/rules/runner-handoff.md ~/.claude/rules/runner-handoff.md` (AC-10) · waits on you · live
-- [x] Install, keeping your autoMode: `./install.sh` (AC-9) · waits on you · live
+- [x] Install, keeping your autoMode: `bin/install.sh` (AC-9) · waits on you · live
 - [x] Sync docs: `/sync live setup steps in one command`
-Spec [0019](../specs/0019-live-setup-steps/index.md) · code in `runner/finish.py`, `runner/wf.py`, `install.sh`, tests in `runner/tests/test_finish.py`, `scripts/private-names.py --test`
+Spec [0019](../specs/0019-live-setup-steps/index.md) · code in `runner/finish.py`, `runner/wf.py`, `bin/install.sh`, tests in `runner/tests/test_finish.py`, `scripts/private-names.py --test`
 Source: [docs/briefs/morning-report-and-live-steps.md](../briefs/morning-report-and-live-steps.md) (fix A).
 
 ### 13. Morning report · done · auto
@@ -455,7 +455,7 @@ When a run ends, for any reason, one phone message: what got built, what waits o
    - [x] `runner/e2e/run.py` report checks (AC-8)
 - [x] Verify it: `/check verify morning report`
 - [x] Test it: `/test morning report`
-- [x] Install the session hook: `./install.sh` (AC-7) · waits on you · live
+- [x] Install the session hook: `bin/install.sh` (AC-7) · waits on you · live
 - [x] Copy the handoff rule live: `cp ~/claude-config/rules/runner-handoff.md ~/.claude/rules/runner-handoff.md` (AC-7) · waits on you · live
 - [x] Real end to end with the report: `python3 runner/e2e/run.py` (AC-8) · waits on you · live
 - [x] Real parallel end to end with one report: `python3 runner/e2e/run.py --parallel` (AC-8) · waits on you · live
@@ -470,17 +470,17 @@ You type only `wf`. After one confirm screen it shows the report, applies pendin
 **Done when:** with a run going in another repo, one `wf` does all five steps, that run keeps going and its next call uses the new setup, a change to `~/.claude` not made by `wf` still stops the run, and no skill, rule or report tells you to type any `wf` subcommand.
 - [x] Design it (spec): `/architect one command wf`
 - [x] Build it: `/develop one command wf`
-   - [x] Runner copy: `install_runner` in `runner/finish.py`, `install.sh` calls it, deny `~/.local/share/wf` (AC-12)
+   - [x] Runner copy: `install_runner` in `runner/finish.py`, `bin/install.sh` calls it, deny `~/.local/share/wf` (AC-12)
    - [x] Locks: holder line by every taker, `wf finish` without repo locks, held repos skipped (AC-9, AC-7)
    - [x] Runs take a `wf` swap: `live_dir()`, ledger acceptance, live dir guard rebuild, state folder deny (AC-5)
-   - [x] Staged setup and swap: `WF_STAGE` in `install.sh`, stage, journal, ledger, ordered renames, crash finish (AC-3, AC-4)
+   - [x] Staged setup and swap: `WF_STAGE` in `bin/install.sh`, stage, journal, ledger, ordered renames, crash finish (AC-3, AC-4)
    - [x] Retakes by reason, then bare `wf`: screen, order, builds, checks beside them, commit retries (AC-6, AC-1, AC-2, AC-7, AC-8)
    - [x] One command texts and rule copies, corpus test, `runner/e2e/run.py --beside` (AC-10, AC-11)
 - [x] Verify it: `/check verify one command wf`
 - [x] Test it: `/test one command wf`
 - [x] Copy the handoff rule live: `cp ~/claude-config/rules/runner-handoff.md ~/.claude/rules/runner-handoff.md` (AC-10) · waits on you · live
 - [x] Copy the scope contract live: `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` (AC-10) · waits on you · live
-- [x] Install the runner copy: `./install.sh` (AC-12) · waits on you · live
+- [x] Install the runner copy: `bin/install.sh` (AC-12) · waits on you · live
 - [x] Real check beside a run: `python3 runner/e2e/run.py --beside` (AC-11) · waits on you · live
 - [x] Sync docs: `/sync one command wf`
 Spec [0020](../specs/0020-one-command-wf/index.md)
@@ -612,7 +612,7 @@ Spec [0029](../specs/0029-telegram/index.md) · Source: personal scope row 26.
 - [x] Build it: `/develop autonomous mode`
 - [x] Verify it: `/check verify autonomous mode`
 - [x] Test it: `/test autonomous mode`
-- [x] Install the hooks, skill and status bar: `./install.sh` · waits on you · live
+- [x] Install the hooks, skill and status bar: `bin/install.sh` · waits on you · live
 - [x] Probes P1 to P4 in a real session (`/clear`, closing the window, idle bar refresh, the skill argument) · waits on you
 - [x] Sync docs: `/sync autonomous mode`
 Spec [0030](../specs/0030-autonomous-mode/index.md) · Source: your message 2026-10-13; [docs/briefs/autonomous-mode.md](../briefs/autonomous-mode.md).
@@ -726,7 +726,7 @@ A context monitor that actually warns at the thresholds, wired to the status lin
 Spec [0037](../specs/0037-context-monitor/index.md) · Source: personal scope row 6.
 
 ### 48. Readable layout for ~/.claude and claude-config · done · auto
-One README map of what lives where, everything installed under live/, guides under docs/guides/, ~/.claude tidied with nothing lost.
+One README map of what lives where, everything installed under claude-home/, guides under docs/guides/, ~/.claude tidied with nothing lost.
 **Done when:** the README map is true, the repo has its new shape, and every migration step passed its check.
 - [x] Design it (spec): `/architect readable layout`
 - [x] Build it: `/develop readable layout`
@@ -734,7 +734,7 @@ One README map of what lives where, everything installed under live/, guides und
 - [x] Test it: `/test readable layout`
 - [x] Run the live migration steps in the spec's migrate.md, one at a time with their checks · waits on you (2026-10-15, all steps passed; step 4 left until the open freelance design run closes)
 - [x] Sync docs: `/sync readable layout`
-Spec [0035](../specs/0035-readable-layout/index.md) · code in `live/`, `sync.sh`, `install.sh`, `scripts/`, `runner/finish.py`, `README.md` · Source: personal scope row 9.
+Spec [0035](../specs/0035-readable-layout/index.md) · code in `claude-home/`, `bin/sync.sh`, `bin/install.sh`, `scripts/`, `runner/finish.py`, `README.md` · Source: personal scope row 9.
 
 ### 50. Fewer avoidable stops · done · auto
 The runner stops less for things that need nothing from you: a check that cannot pass in the sandbox leaves those parts to the plan's later box, a retry that cannot help is not recommended, and quoted test values in the attribution scan are handled as you decide.
@@ -767,7 +767,7 @@ Only you release a repo from a chat; a check handing parts to a later step needs
 - [x] Test it: `/test review leftovers 2026-10-15`
 - [x] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
 - [x] Sync docs: `/sync review leftovers 2026-10-15`
-Spec [0047](../specs/0047-review-leftovers/index.md) · code in `runner/auto.py`, `runner/run.py`, `live/settings.json`, `live/skills/auto/SKILL.md` · Source: [review](../reviews/review-2026-10-15.md) (Leftovers).
+Spec [0047](../specs/0047-review-leftovers/index.md) · code in `runner/auto.py`, `runner/run.py`, `claude-home/settings.json`, `claude-home/skills/auto/SKILL.md` · Source: [review](../reviews/review-2026-10-15.md) (Leftovers).
 
 ### 53. Only a typed /auto turns on or releases · in-progress · auto
 `wf auto on` and `wf auto release` always refuse; only your typed `/auto` turns a chat on or releases a repo, and `wf auto hook` is denied to Claude.
@@ -781,7 +781,7 @@ Spec [0047](../specs/0047-review-leftovers/index.md) · code in `runner/auto.py`
 - [x] Test it: `/test only a typed auto turns on or releases`
 - [ ] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync only a typed auto turns on or releases`
-Spec [0049](../specs/0049-typed-auto-only/index.md) · code in `runner/auto.py`, `runner/wf.py`, `live/settings.json`, `live/skills/auto/SKILL.md` · Source: [review](../reviews/review-2026-10-15-0047.md) (Leftovers).
+Spec [0049](../specs/0049-typed-auto-only/index.md) · code in `runner/auto.py`, `runner/wf.py`, `claude-home/settings.json`, `claude-home/skills/auto/SKILL.md` · Source: [review](../reviews/review-2026-10-15-0047.md) (Leftovers).
 
 ### 54. Organize claude-config and ~/.claude, sync what you use daily · in-progress · auto
 A folder structure and docs that are easy to read, and a repo that holds (or names) everything you use every day, without losing any skill.
@@ -805,14 +805,14 @@ Spec [0048](../specs/0048-organize-and-sync/index.md) · Source: [brief](../brie
 
 ### 55. Fewer skills described in every session · done
 A fixed keep list of 37 skills keeps its description in every session; a script sets every other own skill and command to name only and reports every installed plugin. No skill is deleted, and the six long descriptions you rely on stay unchanged.
-**Done when:** after the script and `./sync.sh`, a new session describes only keep list skills among your own, the report lists every installed plugin (sentry-skills and turned off ones included), and every skill still runs by name.
+**Done when:** after the script and `bin/sync.sh`, a new session describes only keep list skills among your own, the report lists every installed plugin (sentry-skills and turned off ones included), and every skill still runs by name.
 - [x] Design it (spec): `/architect fewer skills described in every session`
 - [x] Build it: `/develop fewer skills described in every session`
   - [x] Keep list and script: write, backup, dry run, plugin report (AC-1 to AC-7, AC-9)
   - [x] Tests against a temp live dir (AC-8)
 - [x] Verify it: `/check verify fewer skills described in every session`
 - [x] Test it: `/test fewer skills described in every session`
-- [x] Run `python3 scripts/skill-keep.py --dry-run`, then without it, then `./sync.sh` right away (AC-7) · waits on you · later boxes go on
+- [x] Run `python3 scripts/skill-keep.py --dry-run`, then without it, then `bin/sync.sh` right away (AC-7) · waits on you · later boxes go on
 - [x] Sync docs: `/sync fewer skills described in every session`
 Spec [0050](../specs/0050-fixed-skill-keep-list/index.md) · code in `scripts/skill-keep.py`, `scripts/skill-keep.txt`, `runner/tests/test_skill_keep.py` · Source: [research](../research/organize-and-sync-review-2026-10-15.md), section 5, and the [brief](../briefs/organize-and-sync.md).
 

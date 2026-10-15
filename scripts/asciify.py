@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Enforce the ASCII-only house rule (CLAUDE.md) on repo-owned markdown.
 
-Skips vendored trees - live/agents/ and live/rules/ecc/ are ECC cherry-picks and
+Skips vendored trees - claude-home/agents/ and claude-home/rules/ecc/ are ECC cherry-picks and
 skills/anti-ai-writing is third-party; all are overwritten on reinstall, so
 editing them is diff noise. Proper nouns keep their accents.
 
@@ -16,7 +16,7 @@ import sys
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 
-SKIP_PREFIXES = ("live/agents/", "live/rules/")
+SKIP_PREFIXES = ("claude-home/agents/", "claude-home/rules/")
 SKIP_SUBSTR = ("anti-ai-writing", "node_modules/")
 
 # Accented characters inside real names. Stripping these corrupts the name.

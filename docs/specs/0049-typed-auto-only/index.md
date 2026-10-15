@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-15
 **Status**: Proposed
-**Paths:** `runner/auto.py`, `runner/wf.py`, `live/settings.json`, `live/skills/auto/SKILL.md`, `runner/tests/test_auto.py`, `runner/tests/test_auto_chats.py`, `AGENTS.md`
+**Paths:** `runner/auto.py`, `runner/wf.py`, `claude-home/settings.json`, `claude-home/skills/auto/SKILL.md`, `runner/tests/test_auto.py`, `runner/tests/test_auto_chats.py`, `AGENTS.md`
 **Amends**: [0030](../0030-autonomous-mode/index.md) (AC-3), [0047](../0047-review-leftovers/index.md) (AC-1, AC-2, AC-6)
 
 ## What you're agreeing to

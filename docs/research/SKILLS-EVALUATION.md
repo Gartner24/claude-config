@@ -4,8 +4,8 @@ Every third-party skill/tool considered for this stack, its verdict, and where i
 antidote to loose, forgotten skills (like the client CMS skill once was). Evaluated 2026-07 during the
 services-pivot revision. Full research + rationale: `~/Downloads/marketing-playbook/REVISION-PLAN.md` sec. 3/sec. 9.
 
-**Rule:** nothing is installed-and-forgotten. Adopted -> lives in `claude-config/skills/` (or PLUGINS.md),
-registered in `USAGE.md` + `SKILLS.md`, and referenced by the command that uses it (`/new-site`,
+**Rule:** nothing is installed-and-forgotten. Adopted -> lives in `claude-home/skills/` (or a plugin, docs/guides/SETUP.md),
+registered in `config/routing.md` + `config/manifest.json`, and referenced by the command that uses it (`/new-site`,
 `/monthly-ops`, `/brand-system`).
 
 ## Adopted

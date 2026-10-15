@@ -113,7 +113,7 @@ class Overrides(unittest.TestCase):
         self.assertIn("name-only: fresh", out)
         self.assertIn("name-only: cmd", out)
         self.assertNotIn("name-only: free", out)
-        self.assertEqual(out[-1], "next: run ./sync.sh now, before any install.sh")
+        self.assertEqual(out[-1], "next: run bin/sync.sh now, before any bin/install.sh")
 
     def test_no_overrides_key_appended_last(self):
         live = Live(self, {"a": 1, "b": 2}, skills=["x"])
@@ -129,7 +129,7 @@ class Overrides(unittest.TestCase):
         self.assertEqual(live.path.read_text(), before)
         self.assertEqual(live.backups(), [])
         self.assertEqual(out[:3], ["kept as off: frozen", "described: kept", "name-only: other"])
-        self.assertNotIn("next: run ./sync.sh now, before any install.sh", out)
+        self.assertNotIn("next: run bin/sync.sh now, before any bin/install.sh", out)
 
     def test_backup_mode_and_format(self):
         live = Live(self, {"skillOverrides": {}, "note": "café"}, skills=["x"])

@@ -24,7 +24,7 @@ WAITING = """
 ### 3. C · in-progress
 - [x] (spec)
 - [ ] Copy it: `cp a b` · waits on you · live
-- [ ] Install: `./install.sh` · waits on you · live
+- [ ] Install: `bin/install.sh` · waits on you · live
 - [ ] Check the phone · waits on you · later boxes go on
 
 ## Deferred

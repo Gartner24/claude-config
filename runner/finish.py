@@ -26,7 +26,7 @@ import wf
 SPAN = re.compile(r"`([^`]+)`")
 SPEC_LINK = re.compile(r"(?:^|/)specs/[^/]+/index\.md$")
 PROBE = re.compile(r"docs/specs/[^/]+/probes/[^/]+")
-# Spec 0020 AC-3: what the stage copies from the live dir; install.sh writes the first eight and reads the last two.
+# Spec 0020 AC-3: what the stage copies from the live dir; bin/install.sh writes the first eight and reads the last two.
 STAGED = ("agents", "rules", "hooks", "scripts", "commands", "skills", "settings.json", "settings.local.json",
           "CLAUDE.md", "private")
 # AC-4: renamed last, settings.json very last (verify.md P1: a running call rereads settings mid call).
@@ -168,14 +168,18 @@ def shape(root, span):
     except ValueError:
         return None
     if len(t) == 3 and t[0] == "cp" and not t[1].startswith("-") and not t[2].startswith("-"):
+        # Spec 0048 AC-4: the temporary live -> claude-home link would otherwise let the old shape through.
+        if os.path.normpath(t[1]).split(os.sep)[0] == "live":
+            return None
         p = os.path.join(root, os.path.expanduser(t[1]))
         src = os.path.realpath(p)
         if os.path.islink(p) or not inside(src, root) or src == root or not os.path.isfile(src):
             return None
         rel = os.path.relpath(src, root)
-        # Spec 0035 AC-3: claude-config keeps the live dir's files under live/, so live/rules/x.md is ~/.claude/rules/x.md.
-        if rel.startswith("live" + os.sep):
-            rel = rel[len("live" + os.sep):]
+        # Spec 0048 AC-4 (was 0035 AC-3): claude-config keeps the live dir's files under claude-home/,
+        # so claude-home/rules/x.md is ~/.claude/rules/x.md.
+        if rel.startswith("claude-home" + os.sep):
+            rel = rel[len("claude-home" + os.sep):]
         if rel in NEVER_COPIED or rel.split(os.sep)[0] == "private":
             return None
         dst = os.path.join(live_dir(), rel)
@@ -184,7 +188,7 @@ def shape(root, span):
         if os.path.realpath(target) != dst:
             return None
         return "copy", {"src": src, "dst": dst, "rel": rel}
-    if t == ["./install.sh"] and repo_file(root, "install.sh"):
+    if t == ["bin/install.sh"] and repo_file(root, "bin/install.sh"):
         return "install", {"argv": t}
     # Specs 0017, 0020 AC-11, 0027 AC-10: the e2e flags a live box may name.
     if t[:2] == ["python3", "runner/e2e/run.py"] and t[2:] in ([], ["--parallel"], ["--beside"], ["--same-repo"]) \
@@ -390,10 +394,10 @@ def line2(path):
 
 
 def hook_copies(repo, stage):
-    """AC-4: [(checker, hook)] install.sh:159-187 would copy, with its replace rules; none without the names list."""
+    """AC-4: [(checker, hook)] bin/install.sh:159-187 would copy, with its replace rules; none without the names list."""
     if not os.path.exists(os.path.join(stage, "private", "names.txt")):
         return []
-    # Plain git as install.sh runs it: wf.git sets core.hooksPath=/dev/null, which --git-path then names.
+    # Plain git as bin/install.sh runs it: wf.git sets core.hooksPath=/dev/null, which --git-path then names.
     try:
         r = subprocess.run(["git", "-C", repo, "rev-parse", "--git-path", "hooks"], capture_output=True, text=True,
                            stdin=subprocess.DEVNULL, timeout=wf.GIT_TIMEOUT)
@@ -419,7 +423,7 @@ def hook_copies(repo, stage):
     return out
 
 def spec_paths_link(repo, home):
-    """install.sh's spec-paths link (spec 0015 AC-6): [(link, target)], none when a real file is in the way."""
+    """bin/install.sh's spec-paths link (spec 0015 AC-6): [(link, target)], none when a real file is in the way."""
     link = os.path.join(home, ".local", "bin", "spec-paths")
     if os.path.exists(link) and not os.path.islink(link):
         print(f"  SKIP spec-paths (a real file is already at {link})")
@@ -446,7 +450,7 @@ def renames_blocked(renames):
 
 def swap(folder, stamp, stage, repos):
     """AC-4: rename the changed set into place. repos: the repos of the install steps, whose runner copy, bin links
-    and git hooks install.sh left to wf under WF_STAGE. Order: journal, asides, ledger line, renames (runner folder,
+    and git hooks bin/install.sh left to wf under WF_STAGE. Order: journal, asides, ledger line, renames (runner folder,
     bin links, the rest, settings.local.json, settings.json). Nothing is deleted from the live dir. Raises OSError
     before any rename, the asides removed. Returns the number of renames."""
     live, home = live_dir(), os.path.expanduser("~")
@@ -938,7 +942,7 @@ def usage_fit(numbered, chosen=None):
     percent for every numbered line it covers; None with nothing numbered. Any failure reads as unknown, starts now."""
     if not numbered:
         return None
-    # Imported here: install.sh loads this module from a runner folder that may not hold usage.py yet.
+    # Imported here: bin/install.sh loads this module from a runner folder that may not hold usage.py yet.
     import usage
     idx = list(range(len(numbered))) if not chosen else [i - 1 for i in chosen]
     try:

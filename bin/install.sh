@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-# Install this config into ~/.claude. The counterpart to sync.sh, which only ever
+# Install this config into ~/.claude. The counterpart to bin/sync.sh, which only ever
 # ran the other direction (live -> repo), so "restore on a new machine" was a claim
 # the repo could not actually deliver.
 #
 # What this does NOT install: the frameworks (gstack, jjstack, get-shit-done-cc)
 # and the Claude Code plugins. They manage themselves and are not vendored here -
-# docs/guides/SKILLS.md documents how to install each. Run this first, then those.
+# docs/guides/SETUP.md documents how to install each. Run this first, then those.
 #
-#   ./install.sh            install
-#   ./install.sh --dry-run  print what would happen, touch nothing
+#   bin/install.sh            install
+#   bin/install.sh --dry-run  print what would happen, touch nothing
 set -euo pipefail
 
-REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Spec 0048 AC-1: this script lives in bin/, the repo is one folder up.
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # CLAUDE_LIVE_DIR is for the self checks only: they install into a temp live tree.
 LIVE="${CLAUDE_LIVE_DIR:-$HOME/.claude}"
 DRY=0
@@ -26,9 +27,9 @@ echo "installing $REPO -> $LIVE"
 # Spec 0036 AC-4: a dry run used to pass a settings file that does not parse; only the real
 # install caught it, after the copies. Refuse first, in both modes, naming the file.
 for f in settings.json settings.local.json; do
-  [ -e "$REPO/live/$f" ] || continue
-  if ! err=$(python3 -c 'import json, sys; json.load(open(sys.argv[1]))' "$REPO/live/$f" 2>&1); then
-    echo "refused: $REPO/live/$f does not parse: ${err##*$'\n'}" >&2
+  [ -e "$REPO/claude-home/$f" ] || continue
+  if ! err=$(python3 -c 'import json, sys; json.load(open(sys.argv[1]))' "$REPO/claude-home/$f" 2>&1); then
+    echo "refused: $REPO/claude-home/$f does not parse: ${err##*$'\n'}" >&2
     exit 1
   fi
 done
@@ -40,12 +41,20 @@ done
 # Copied: these are files the harness reads directly.
 echo "copy:"
 for d in agents rules; do
-  note "$d/ ($(find "$REPO/live/$d" -type f | wc -l) files)"
-  run cp -a "$REPO/live/$d/." "$LIVE/$d/"
+  note "$d/ ($(find "$REPO/claude-home/$d" -type f | wc -l) files)"
+  run cp -a "$REPO/claude-home/$d/." "$LIVE/$d/"
 done
 for f in hooks/block-destructive.sh hooks/review-stack-pre-push hooks/plain-panel.py hooks/context-monitor.js scripts/chroma-reaper.sh; do
   note "$f"
-  run cp -a "$REPO/live/$f" "$LIVE/$f"
+  run cp -a "$REPO/claude-home/$f" "$LIVE/$f"
+  run chmod +x "$LIVE/$f"
+done
+# Spec 0048 AC-11: the weekly upstream reminder; AC-5: your own hooks that used to be live only.
+# A scratch copy of this script (the self checks) may lack them.
+for f in hooks/claude-config-reminder.py hooks/workflow-start.sh hooks/claude-mem-install.sh scripts/claude-ram-watch.sh; do
+  [ -e "$REPO/claude-home/$f" ] || continue
+  note "$f"
+  run cp -a "$REPO/claude-home/$f" "$LIVE/$f"
   run chmod +x "$LIVE/$f"
 done
 
@@ -53,16 +62,30 @@ done
 # truth. This is how the existing install is already wired.
 echo "symlink:"
 for d in commands skills; do
-  for src in "$REPO/live/$d"/*; do
+  for src in "$REPO/claude-home/$d"/*; do
     [ -e "$src" ] || continue
     name="$(basename "$src")"
     dst="$LIVE/$d/$name"
-    [ -L "$dst" ] && [ "$(readlink -f "$dst")" = "$(readlink -f "$src")" ] && continue
+    # Spec 0048 AC-15: a link through the old "live" folder resolves to the same file while the
+    # compatibility link exists, but breaks once it is removed, so it is relinked too.
+    [ -L "$dst" ] && [ "$(readlink -f "$dst")" = "$(readlink -f "$src")" ] \
+      && [[ "$(readlink "$dst")" != */live/* ]] && continue
     [ -e "$dst" ] && ! [ -L "$dst" ] && { note "SKIP $d/$name (a real file is already there)"; continue; }
     note "$d/$name"
     run ln -sfn "$src" "$dst"
   done
 done
+
+# Spec 0048 AC-7: an edited downloaded skill that is missing (a new machine) is rebuilt from upstream at
+# its pinned commit plus its patch; an installed one is never overwritten.
+if [ -f "$REPO/config/manifest.json" ]; then
+  echo "downloaded skills:"
+  if [ "$DRY" = 1 ]; then
+    note "would: python3 bin/claude-config.py restore"
+  else
+    python3 "$REPO/bin/claude-config.py" restore || { echo "  a missing edited skill was not rebuilt (above)" >&2; exit 1; }
+  fi
+fi
 
 # The runner goes on PATH as a copy outside the repo (spec 0020 AC-12). It used to link into
 # runner/, and the SessionStart hook naming wf then made every wf run call's guard deny runner/.
@@ -134,14 +157,14 @@ if [ -e "$LIVE/settings.json" ] && [ "$DRY" = 0 ]; then
   cp "$LIVE/settings.json" "$bak"
   note "backed up existing -> backups/settings/$(basename "$bak")"
 fi
-n=$(grep -c '/home/santiago' "$REPO/live/settings.json" || true)
+n=$(grep -c '/home/santiago' "$REPO/claude-home/settings.json" || true)
 note "rewriting $n hardcoded path(s) to \$HOME"
 if [ "$DRY" = 0 ]; then
-  sed "s|/home/santiago|$HOME|g" "$REPO/live/settings.json" > "$LIVE/settings.json.tmp"
+  sed "s|/home/santiago|$HOME|g" "$REPO/claude-home/settings.json" > "$LIVE/settings.json.tmp"
   python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$LIVE/settings.json.tmp"
   mv "$LIVE/settings.json.tmp" "$LIVE/settings.json"
 fi
-[ -e "$LIVE/CLAUDE.md" ] || run cp "$REPO/live/CLAUDE.md" "$LIVE/CLAUDE.md"
+[ -e "$LIVE/CLAUDE.md" ] || run cp "$REPO/claude-home/CLAUDE.md" "$LIVE/CLAUDE.md"
 
 # Spec 0013: sync.sh strips name bearing entries out of both settings files into
 # ~/.claude/private/. Merging them back is what keeps a reinstall from silently dropping
@@ -237,11 +260,11 @@ else
     && note "guard hook: all self-checks passed" \
     || { echo "  guard hook SELF-CHECK FAILED - do not rely on it" >&2; exit 1; }
   python3 "$REPO/scripts/gen-agent-index.py" --check >/dev/null \
-    && note "agent index: matches live/agents/" || note "agent index: DRIFTED (regenerate)"
-  bash "$REPO/live/skills/design/scripts/test-ledger.sh" >/dev/null 2>&1 \
+    && note "agent index: matches claude-home/agents/" || note "agent index: DRIFTED (regenerate)"
+  bash "$REPO/claude-home/skills/design/scripts/test-ledger.sh" >/dev/null 2>&1 \
     && note "design ledger + Stop hook: 37 assertions pass" \
     || { echo "  DESIGN LEDGER SELF-CHECK FAILED - the Stop hook may block or leak" >&2; exit 1; }
-  node "$REPO/live/skills/design/scripts/build-ramp.mjs" --check >/dev/null 2>&1 \
+  node "$REPO/claude-home/skills/design/scripts/build-ramp.mjs" --check >/dev/null 2>&1 \
     && note "colour ramp: solver targets and emitted pairs meet AA" \
     || { echo "  RAMP SELF-CHECK FAILED - generated palettes may ship below AA" >&2; exit 1; }
   # The suite builds its own temp homes; the stage or live dir this install writes must not leak into it.
@@ -259,13 +282,13 @@ else
   while read -r imp; do
     real="${imp/#@\~/$HOME}"
     [ -f "$real" ] || missing=$((missing + 1))
-  done < <(grep -hoE '^@~/[^ ]+' "$REPO"/live/rules/ecc/*/index.md)
+  done < <(grep -hoE '^@~/[^ ]+' "$REPO"/claude-home/rules/ecc/*/index.md)
   [ "$missing" -eq 0 ] && note "rule imports: all resolve" || note "rule imports: $missing dangling"
 fi
 
 cat <<EOF
 
-done. Still to install, none of it vendored here (see docs/guides/SKILLS.md):
+done. Still to install, none of it vendored here (see docs/guides/SETUP.md):
   gstack / jjstack / get-shit-done-cc, and the Claude Code plugins.
 
 Activate the rules per project by adding one line to that project's CLAUDE.md:

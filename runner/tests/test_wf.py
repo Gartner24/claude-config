@@ -856,7 +856,7 @@ class TestHostileFolders(CliCase):
         self.assertEqual(r.stdout.decode(), "bad\t\t\t/develop b\tno git\t-\n")
         repo = scope(self.root / "branchy", "# Scope: g\n- [ ] `/develop g`\n")
         subprocess.run([b"git", b"-C", os.fsencode(repo), b"init", b"-q", b"-b", b"m\xff"], check=True)
-        # No stdin: run from a terminal (install.sh under wf finish), next would wait on its prompt.
+        # No stdin: run from a terminal (bin/install.sh under wf finish), next would wait on its prompt.
         r = subprocess.run([sys.executable, str(WF), "next", "branchy"], capture_output=True, env=env,
                            stdin=subprocess.DEVNULL)
         self.assertEqual(r.returncode, 130, r.stderr)

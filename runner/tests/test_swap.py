@@ -32,7 +32,7 @@ def sha(b):
 class TestStagedFinish(FinishCase):
     # covers: AC-3 (stage built, install into it with WF_STAGE), AC-4 (ledger, journal done, stage deleted, no asides)
     def test_ledger_and_journal(self):
-        (self.repo / "install.sh").write_text('#!/bin/sh\necho "$WF_STAGE" > "$CLAUDE_LIVE_DIR/install.count"\n')
+        (self.repo / "bin/install.sh").write_text('#!/bin/sh\necho "$WF_STAGE" > "$CLAUDE_LIVE_DIR/install.count"\n')
         r = self.wf("-y")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         live = self.live.resolve()
@@ -50,7 +50,7 @@ class TestStagedFinish(FinishCase):
 
     # covers: AC-3 (a failed install: live dir untouched, stage kept, checks skipped, the failed step and its log named)
     def test_failed_install(self):
-        (self.repo / "install.sh").write_text('#!/bin/sh\necho x > "$CLAUDE_LIVE_DIR/install.count"\nexit 3\n')
+        (self.repo / "bin/install.sh").write_text('#!/bin/sh\necho x > "$CLAUDE_LIVE_DIR/install.count"\nexit 3\n')
         r = self.wf("-y")
         self.assertEqual(r.returncode, 1, r.stdout)
         self.assertFalse((self.live / "install.count").exists())
@@ -59,7 +59,7 @@ class TestStagedFinish(FinishCase):
         self.assertFalse((self.state / "wf" / "swaps.jsonl").exists())
         stage = next((self.state / "wf" / "finish").glob("*/stage"))
         self.assertEqual((stage / "install.count").read_text(), "x\n")
-        self.assertRegex(r.stdout, r"FAIL: r: \./install\.sh \(log \S+/step-01\.log\)")
+        self.assertRegex(r.stdout, r"FAIL: r: bin/install\.sh \(log \S+/step-01\.log\)")
         self.assertNotIn("- [x]", self.scope())
 
     # covers: AC-3, AC-9 (a held swap lock skips setup and checks with the one line; two finishes never overlap)
@@ -180,7 +180,7 @@ class SwapUnit(unittest.TestCase):
         self.assertEqual(run.accepted_by(str(self.hooks / "pre-commit"), run.ledger()), STAMP)
         self.assertEqual((self.folder / "claude" / "rules" / "a.md").read_text(), "old\n")
 
-    # covers: AC-4 (the hook replace rules of install.sh: an up to date copy and a hand written hook are left alone)
+    # covers: AC-4 (the hook replace rules of bin/install.sh: an up to date copy and a hand written hook are left alone)
     def test_hooks_left_alone(self):
         checker = self.repo / "scripts" / "private-names.py"
         shutil.copy(checker, self.hooks / "pre-commit")
@@ -247,24 +247,24 @@ class SwapUnit(unittest.TestCase):
 
 
 class TestInstallStage(unittest.TestCase):
-    """AC-3: install.sh with WF_STAGE=1 writes no bin link and no git hook; without it, as today. A scratch repo with
-    a copy of install.sh, as scripts/private-names.py tests it: it stops at its own verify step, after every write."""
+    """AC-3: bin/install.sh with WF_STAGE=1 writes no bin link and no git hook; without it, as today. A scratch repo with
+    a copy of bin/install.sh, as scripts/private-names.py tests it: it stops at its own verify step, after every write."""
 
     def test_stage(self):
         tmp = Path(tempfile.mkdtemp()).resolve()
         self.addCleanup(shutil.rmtree, tmp)
         repo = tmp / "repo"
-        for d in ("live/agents", "live/rules", "live/hooks", "live/scripts", "scripts", "runner"):
+        for d in ("claude-home/agents", "claude-home/rules", "claude-home/hooks", "claude-home/scripts", "scripts", "runner", "bin"):
             (repo / d).mkdir(parents=True)
-        shutil.copy(RUNNER.parent / "install.sh", repo / "install.sh")
+        shutil.copy(RUNNER.parent / "bin/install.sh", repo / "bin/install.sh")
         shutil.copy(RUNNER / "finish.py", repo / "runner" / "finish.py")
         for f in ("run.py", "wf.py", "ntfy.py", "report.py", "telegram.py", "plain.py", "context.py"):
             shutil.copy(RUNNER / f, repo / "runner" / f)
         for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py", "hooks/context-monitor.js", "scripts/chroma-reaper.sh"):
-            (repo / "live" / f).write_text("#!/bin/sh\n")
+            (repo / "claude-home" / f).write_text("#!/bin/sh\n")
         (repo / "scripts" / "private-names.py").write_text("#!/usr/bin/env python3\n# c\n")
-        (repo / "live" / "settings.json").write_text("{}")
-        (repo / "live" / "CLAUDE.md").write_text("# r\n")
+        (repo / "claude-home" / "settings.json").write_text("{}")
+        (repo / "claude-home" / "CLAUDE.md").write_text("# r\n")
         subprocess.run(["git", "init", "-q", str(repo)], check=True, stdin=subprocess.DEVNULL)
         hooks = repo / ".git" / "hooks"
         hooks.mkdir(exist_ok=True)
@@ -280,7 +280,7 @@ class TestInstallStage(unittest.TestCase):
             env.pop("WF_STAGE", None)
             if staged:
                 env["WF_STAGE"] = "1"
-            r = subprocess.run(["bash", str(repo / "install.sh")], env=env, capture_output=True, text=True,
+            r = subprocess.run(["bash", str(repo / "bin/install.sh")], env=env, capture_output=True, text=True,
                                stdin=subprocess.DEVNULL, timeout=120)
             with self.subTest(staged=staged):
                 self.assertEqual(("staged: bin links and git hooks left to wf" in r.stdout), staged, r.stdout + r.stderr)

@@ -119,7 +119,7 @@ class SwapTake(RunCase):
 
     def text_blocked(self):
         return {**self.swap_step(), "tick": False,
-                "json": {"result": "runner/ is write denied here\nBLOCKED: run ./install.sh live first"}}
+                "json": {"result": "runner/ is write denied here\nBLOCKED: run bin/install.sh live first"}}
 
     # covers: spec 0040 AC-2 (a block the call only stated in text, with no recorded denial, is tried once more after
     # a newer setup is taken)
@@ -137,7 +137,7 @@ class SwapTake(RunCase):
     # covers: spec 0040 AC-2 (blocked again after its retry, it parks with the new setup and is not tried again)
     def test_text_block_no_loop(self):
         self.ledger({str(self.live / "settings.json"): sha(self.new), str(self.hook): sha("#!/bin/sh\n")})
-        again = {"tick": False, "json": {"result": "still no\nBLOCKED: run ./install.sh live first"}}
+        again = {"tick": False, "json": {"result": "still no\nBLOCKED: run bin/install.sh live first"}}
         self.steps([self.text_blocked(), again, {}, {}])
         r = self.wf("demo", "-y")
         folder, rec = self.run_record()
@@ -150,7 +150,7 @@ class SwapTake(RunCase):
     # covers: spec 0040 AC-2 (a text block from an earlier run stays parked with no newer setup, and is retaken once
     # a newer swaps.jsonl line exists)
     def test_earlier_run_text_block(self):
-        self.steps([{"tick": False, "json": {"result": "no\nBLOCKED: run ./install.sh live first"}}, {}, {}, {"tick": False}])
+        self.steps([{"tick": False, "json": {"result": "no\nBLOCKED: run bin/install.sh live first"}}, {}, {}, {"tick": False}])
         self.wf("demo", "-y")
         self.wf("demo", "-y")
         self.assertEqual(len(self.calls()), 1, "no newer setup: it must stay parked")

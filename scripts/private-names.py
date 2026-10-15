@@ -545,10 +545,11 @@ def selftest():
     code, out = run("check-range", old, "feat/zorblex-x", cwd=rng)
     ok(code == 1 and "branch name: names.txt line 3" in out and not leaks(out), "spec 0026 check-range branch name")
 
-    # AC-3 to AC-5: sync.sh on a temp repo and a temp live tree
+    # AC-3 to AC-5: bin/sync.sh on a temp repo and a temp live tree
     sync_repo = new_repo("sync")
-    (sync_repo / "scripts").mkdir()
-    shutil.copy(SCRIPT.parent.parent / "sync.sh", sync_repo / "sync.sh")
+    for d in ("scripts", "bin"):
+        (sync_repo / d).mkdir()
+    shutil.copy(SCRIPT.parent.parent / "bin/sync.sh", sync_repo / "bin/sync.sh")
     shutil.copy(SCRIPT, sync_repo / "scripts" / "private-names.py")
     # this file holds the made up names, so the temp repo must not track its copy
     (sync_repo / ".git" / "info").mkdir(exist_ok=True)
@@ -576,7 +577,7 @@ def selftest():
 
     (slive / "rules" / "r.md").write_text("rule\nask the Zorblex bot\n")
     before = tree_state()
-    code, out = run(script=sync_repo / "sync.sh", cwd=sync_repo, extra=sync_env)
+    code, out = run(script=sync_repo / "bin/sync.sh", cwd=sync_repo, extra=sync_env)
     ok(code == 1 and f"{slive}/rules/r.md:2: names.txt line 3" in out and not leaks(out),
        f"AC-4 sync refuses a name in a live rule file: {out.strip()}")
     ok(tree_state() == before, "AC-4 refused sync leaves the repo byte for byte unchanged")
@@ -586,30 +587,30 @@ def selftest():
     for rel, body in (("CLAUDE.md", "# rules\nsee zorblex\n"), ("agents/a.md", "agent\nQuux-Labs\n"),
                       ("hooks/context-monitor.js", "#!/bin/sh\nzorblex\n")):
         (slive / rel).write_text(body)
-        code, out = run(script=sync_repo / "sync.sh", cwd=sync_repo, extra=sync_env)
+        code, out = run(script=sync_repo / "bin/sync.sh", cwd=sync_repo, extra=sync_env)
         ok(code == 1 and f"{slive}/{rel}:2: names.txt line" in out and not leaks(out)
            and tree_state() == before, f"AC-4 sync refuses a name in live {rel}")
     (slive / "CLAUDE.md").write_text("# rules\n")
     (slive / "agents" / "a.md").write_text("agent\n")
     (slive / "hooks" / "context-monitor.js").write_text("#!/bin/sh\n")
     (slive / "settings.json").write_text(json.dumps(dict(settings, env={"X": "zorblex"})))
-    code, out = run(script=sync_repo / "sync.sh", cwd=sync_repo, extra=sync_env)
+    code, out = run(script=sync_repo / "bin/sync.sh", cwd=sync_repo, extra=sync_env)
     ok(code == 1 and "settings.json (stripped):" in out and not leaks(out) and tree_state() == before,
        "AC-4 sync refuses a name in a settings string value")
     (slive / "settings.json").write_text(json.dumps(settings))
     (slive / "private" / "names.txt").unlink()
-    code, out = run(script=sync_repo / "sync.sh", cwd=sync_repo, extra=sync_env)
+    code, out = run(script=sync_repo / "bin/sync.sh", cwd=sync_repo, extra=sync_env)
     ok(code == 1 and "private names list missing" in out and tree_state() == before,
        "AC-1 sync refuses without a names list")
     shutil.copy(names_file, slive / "private" / "names.txt")
-    code, out = run(script=sync_repo / "sync.sh", cwd=sync_repo, extra=sync_env)
+    code, out = run(script=sync_repo / "bin/sync.sh", cwd=sync_repo, extra=sync_env)
     ok(code == 0, f"AC-3 clean sync passes: {out.strip()}")
     # covers: spec 0037 AC-7, sync copies the context monitor hook back into the repo
-    synced_hook = sync_repo / "live" / "hooks" / "context-monitor.js"
+    synced_hook = sync_repo / "claude-home" / "hooks" / "context-monitor.js"
     ok(synced_hook.exists() and synced_hook.read_text() == (slive / "hooks" / "context-monitor.js").read_text(),
        "0037 AC-7 sync copies hooks/context-monitor.js")
-    synced = [(sync_repo / "live" / f).read_text() for f in ("settings.json", "settings.local.json")
-              if (sync_repo / "live" / f).exists()]
+    synced = [(sync_repo / "claude-home" / f).read_text() for f in ("settings.json", "settings.local.json")
+              if (sync_repo / "claude-home" / f).exists()]
     ok(len(synced) == 2 and "autoMode" not in synced[0] and not leaks("".join(synced)),
        "AC-3 synced settings hold no name and no autoMode")
     pfrag = slive / "private" / "settings.json"
@@ -621,14 +622,14 @@ def selftest():
     ok(not (sync_repo / "private").exists(), "sync copies nothing from private/")
     # covers: AC-3, the fragment is replaced on every passing sync, never accumulated
     (slive / "settings.local.json").write_text(json.dumps({"permissions": {"allow": ["Read"]}}))
-    code, _ = run(script=sync_repo / "sync.sh", cwd=sync_repo, extra=sync_env)
+    code, _ = run(script=sync_repo / "bin/sync.sh", cwd=sync_repo, extra=sync_env)
     ok(code == 0 and json.loads(lfrag.read_text()) == {}, "AC-3 a passing sync replaces the fragment")
     (sync_repo / "README.md").write_text("public\nby quux-labs\n")
-    code, out = run(script=sync_repo / "sync.sh", cwd=sync_repo, extra=sync_env)
+    code, out = run(script=sync_repo / "bin/sync.sh", cwd=sync_repo, extra=sync_env)
     ok(code == 1 and "README.md:2: names.txt line 4" in out and not leaks(out),
        "AC-5 sync final check catches a name already in the repo")
 
-    # AC-6, AC-7: install.sh --dry-run on a temp HOME; writes nothing, real hooks untouched
+    # AC-6, AC-7: bin/install.sh --dry-run on a temp HOME; writes nothing, real hooks untouched
     real_repo = SCRIPT.parent.parent
     hooks_dir = real_repo / ".git" / "hooks"
     hooks_before = sorted(os.listdir(hooks_dir)) if hooks_dir.is_dir() else []
@@ -641,7 +642,7 @@ def selftest():
         return sorted(str(p) for p in d.rglob("*"))
 
     snap = files_under(home)
-    code, out = run("--dry-run", script=real_repo / "install.sh", extra=ienv)
+    code, out = run("--dry-run", script=real_repo / "bin/install.sh", extra=ienv)
     ok(code == 0 and out.count("no private settings fragment, private entries not installed") == 2,
        "AC-6 install without fragments warns and goes on")
     ok("no private names list, exclude lines and commit hooks skipped" in out, "AC-7 install skips without names")
@@ -650,7 +651,7 @@ def selftest():
     (ilive / "private" / "settings.local.json").write_text("{}")
     (ilive / "private" / "gitignore").write_text("skills/zorblex-site/\n")
     snap = files_under(home)
-    code, out = run("--dry-run", script=real_repo / "install.sh", extra=ienv)
+    code, out = run("--dry-run", script=real_repo / "bin/install.sh", extra=ienv)
     ok(code == 0 and out.count("merge-settings") == 2, "AC-6 dry run prints both merges")
     ok("exclude:" in out and ("pre-commit" in out) and ("commit-msg" in out) and not leaks(out),
        "AC-7 dry run prints the exclude lines and hook links without a name")
@@ -662,14 +663,14 @@ def selftest():
     # untouched. It exits 1 at its own verify step (the scratch repo has no design scripts),
     # which runs after every spec 0013 part, so outcomes are asserted, not the exit code.
     irepo = new_repo("install")
-    for d in ("live/agents", "live/rules", "live/hooks", "live/scripts", "scripts"):
+    for d in ("claude-home/agents", "claude-home/rules", "claude-home/hooks", "claude-home/scripts", "scripts", "bin"):
         (irepo / d).mkdir(parents=True)
-    shutil.copy(real_repo / "install.sh", irepo / "install.sh")
+    shutil.copy(real_repo / "bin/install.sh", irepo / "bin/install.sh")
     shutil.copy(SCRIPT, irepo / "scripts" / "private-names.py")
     for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py", "hooks/context-monitor.js", "scripts/chroma-reaper.sh"):
-        (irepo / "live" / f).write_text("#!/bin/sh\n")
-    (irepo / "live" / "CLAUDE.md").write_text("# rules\n")
-    (irepo / "live" / "settings.json").write_text(json.dumps({"permissions": {"deny": ["Bash(rm:*)", "Read(~/x)"]}}))
+        (irepo / "claude-home" / f).write_text("#!/bin/sh\n")
+    (irepo / "claude-home" / "CLAUDE.md").write_text("# rules\n")
+    (irepo / "claude-home" / "settings.json").write_text(json.dumps({"permissions": {"deny": ["Bash(rm:*)", "Read(~/x)"]}}))
     hooks = irepo / ".git" / "hooks"
     hooks.mkdir(exist_ok=True)
     ichecker = irepo / "scripts" / "private-names.py"
@@ -681,7 +682,7 @@ def selftest():
     (ilive / "private" / "settings.local.json").write_text(json.dumps({"permissions": {"allow": ["Read(~/quux-labs)"]}}))
     excl = irepo / ".git" / "info" / "exclude"
     excl_before = excl.read_text() if excl.exists() else ""
-    code, out = run(script=irepo / "install.sh", extra=ienv)
+    code, out = run(script=irepo / "bin/install.sh", extra=ienv)
     live_s = json.loads((ilive / "settings.json").read_text())
     ok(live_s.get("permissions", {}).get("deny") == ["Bash(rm:*)", "Read(~/x)", f"Read({home}/zorblex/**)"]
        and live_s.get("skillOverrides") == {"zorblex-site": {"on": True}},
@@ -701,7 +702,7 @@ def selftest():
     # covers: spec 0037 AC-7, install copies the context monitor hook live, executable
     live_hook = ilive / "hooks" / "context-monitor.js"
     ok(live_hook.exists() and os.access(live_hook, os.X_OK), "0037 AC-7 install copies hooks/context-monitor.js, executable")
-    code, out = run(script=irepo / "install.sh", extra=ienv)
+    code, out = run(script=irepo / "bin/install.sh", extra=ienv)
     ok(excl.read_text().count("skills/zorblex-site/") == 1, "AC-7 install rerun adds no exclude line twice")
     ok(json.loads((ilive / "settings.json").read_text()) == live_s, "AC-6 install rerun gives the same settings")
     ok(all(f"{h}: up to date" in out and is_copy(h) for h in ("pre-commit", "commit-msg")),
@@ -710,13 +711,13 @@ def selftest():
     ok("autoMode" not in live_s, "0019 AC-9 a live file with no autoMode yields none")
     auto = {"environment": ["trusted repo"], "allow": ["x"]}
     (ilive / "settings.json").write_text(json.dumps({**live_s, "autoMode": auto}))
-    code, out = run("--dry-run", script=irepo / "install.sh", extra=ienv)
+    code, out = run("--dry-run", script=irepo / "bin/install.sh", extra=ienv)
     ok("would keep autoMode" in out, "0019 AC-9 dry run says it would keep autoMode")
-    code, out = run(script=irepo / "install.sh", extra=ienv)
+    code, out = run(script=irepo / "bin/install.sh", extra=ienv)
     kept = json.loads((ilive / "settings.json").read_text())
     ok(kept == {**live_s, "autoMode": auto}, f"0019 AC-9 install keeps the live autoMode: {kept}")
     (ilive / "settings.json").write_text("{not json")
-    code, out = run(script=irepo / "install.sh", extra=ienv)
+    code, out = run(script=irepo / "bin/install.sh", extra=ienv)
     ok("autoMode not kept: " in out and json.loads((ilive / "settings.json").read_text()) == live_s,
        "0019 AC-9 an unreadable live file warns and installs on")
     # the old install: a link to the checker, and an older copy recognized by line 2
@@ -725,19 +726,19 @@ def selftest():
     lines = ichecker.read_text().splitlines(keepends=True)
     (hooks / "commit-msg").write_text("".join(lines[:2]) + "old\n")
     before_checker = ichecker.read_bytes()
-    code, out = run(script=irepo / "install.sh", extra=ienv)
+    code, out = run(script=irepo / "bin/install.sh", extra=ienv)
     ok(all(f"{h}: refreshed" in out and is_copy(h) for h in ("pre-commit", "commit-msg")),
        "AC-7 install refreshes a link to the checker and an older copy")
     ok(ichecker.read_bytes() == before_checker, "AC-7 refreshing a link never writes into the checker")
     # an identical copy missing its execute bit is refreshed, not up to date
     (hooks / "pre-commit").chmod(0o644)
-    code, out = run(script=irepo / "install.sh", extra=ienv)
+    code, out = run(script=irepo / "bin/install.sh", extra=ienv)
     ok("pre-commit: refreshed" in out and is_copy("pre-commit"), "AC-7 install restores a lost execute bit")
     # hand written hook and a link elsewhere are left alone; dry run writes nothing
     (hooks / "commit-msg").write_text("#!/bin/sh\nexit 0\n")
     (hooks / "pre-commit").unlink()
     (hooks / "pre-commit").symlink_to(irepo / "CLAUDE.md")
-    code, out = run(script=irepo / "install.sh", extra=ienv)
+    code, out = run(script=irepo / "bin/install.sh", extra=ienv)
     ok(all(f"hook exists, not replaced: {h}" in out for h in ("pre-commit", "commit-msg"))
        and (hooks / "commit-msg").read_text() == "#!/bin/sh\nexit 0\n"
        and os.readlink(hooks / "pre-commit") == str(irepo / "CLAUDE.md"),
@@ -746,7 +747,7 @@ def selftest():
     (hooks / "commit-msg").write_text("".join(lines[:2]) + "old\n")
     snap = files_under(irepo / ".git")
     old_msg = (hooks / "commit-msg").read_bytes()
-    code, out = run("--dry-run", script=irepo / "install.sh", extra=ienv)
+    code, out = run("--dry-run", script=irepo / "bin/install.sh", extra=ienv)
     ok("would: pre-commit: copied" in out and "would: commit-msg: refreshed" in out
        and files_under(irepo / ".git") == snap and (hooks / "commit-msg").read_bytes() == old_msg,
        "AC-7 install --dry-run prints the hook copies and writes nothing")
@@ -758,26 +759,26 @@ def selftest():
     xt.write_text(f"#!/bin/sh\necho x >> {tmp}/triggers.ran\n")
     xt.chmod(0o755)
     ran = tmp / "triggers.ran"
-    code, out = run("--dry-run", script=irepo / "install.sh", extra=ienv)
+    code, out = run("--dry-run", script=irepo / "bin/install.sh", extra=ienv)
     ok(f"would: {xt}" in out and not ran.exists(), "0036 AC-6 dry run names the trigger index rebuild, runs nothing")
-    code, out = run(script=irepo / "install.sh", extra=dict(ienv, WF_STAGE="1"))
+    code, out = run(script=irepo / "bin/install.sh", extra=dict(ienv, WF_STAGE="1"))
     ok(not ran.exists() and "skill trigger index not rebuilt" in out,
        "0036 AC-6 a staged install leaves the index to you and says so")
-    code, out = run(script=irepo / "install.sh", extra=ienv)
+    code, out = run(script=irepo / "bin/install.sh", extra=ienv)
     ok(ran.exists() and ran.read_text() == "x\n", "0036 AC-6 install rebuilds the skill trigger index")
-    good = (irepo / "live" / "settings.json").read_text()
-    (irepo / "live" / "settings.json").write_text('{"permissions": {"deny": ["Bash(rm:*)",]}}')
-    code, out = run("--dry-run", script=irepo / "install.sh", extra=ienv)
-    ok(code != 0 and f"{irepo}/live/settings.json does not parse" in out,
+    good = (irepo / "claude-home" / "settings.json").read_text()
+    (irepo / "claude-home" / "settings.json").write_text('{"permissions": {"deny": ["Bash(rm:*)",]}}')
+    code, out = run("--dry-run", script=irepo / "bin/install.sh", extra=ienv)
+    ok(code != 0 and f"{irepo}/claude-home/settings.json does not parse" in out,
        f"0036 AC-4 dry run refuses a settings.json that does not parse: {out.strip()[-200:]}")
     live_before = (ilive / "settings.json").read_bytes()
-    code, out = run(script=irepo / "install.sh", extra=ienv)
+    code, out = run(script=irepo / "bin/install.sh", extra=ienv)
     ok(code != 0 and (ilive / "settings.json").read_bytes() == live_before,
        "0036 AC-5 install of a settings.json that does not parse leaves the live file unchanged")
-    (irepo / "live" / "settings.json").write_text(good)
-    (irepo / "live" / "settings.local.json").write_text("{")
-    code, out = run("--dry-run", script=irepo / "install.sh", extra=ienv)
-    ok(code != 0 and f"{irepo}/live/settings.local.json does not parse" in out,
+    (irepo / "claude-home" / "settings.json").write_text(good)
+    (irepo / "claude-home" / "settings.local.json").write_text("{")
+    code, out = run("--dry-run", script=irepo / "bin/install.sh", extra=ienv)
+    ok(code != 0 and f"{irepo}/claude-home/settings.local.json does not parse" in out,
        "0036 AC-4 dry run refuses a settings.local.json that does not parse")
 
     shutil.rmtree(tmp)

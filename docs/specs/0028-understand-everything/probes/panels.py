@@ -21,7 +21,7 @@ def main():
     home = os.path.expanduser("~/.claude")
     hook = os.path.join(home, "hooks", "plain-panel.py")
     if not os.path.exists(hook):
-        print("hook not installed: run ./install.sh first")
+        print("hook not installed: run bin/install.sh first")
         return 1
     since = datetime.datetime.fromtimestamp(os.path.getmtime(hook), datetime.timezone.utc)
     n, fails = 0, []

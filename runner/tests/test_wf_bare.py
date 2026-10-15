@@ -252,9 +252,10 @@ class TestSetupAndChecks(BareCase):
 
     # covers: AC-3, AC-8 (a failed install: live dir untouched, checks skipped, the build still starts, exit 1)
     def test_failed_install(self):
-        repo = self.committed("ri", LIVE + "- [ ] Install: `./install.sh` · waits on you · live\n")
-        (repo / "install.sh").write_text("#!/bin/sh\nexit 4\n")
-        (repo / "install.sh").chmod(0o755)
+        repo = self.committed("ri", LIVE + "- [ ] Install: `bin/install.sh` · waits on you · live\n")
+        (repo / "bin").mkdir()
+        (repo / "bin/install.sh").write_text("#!/bin/sh\nexit 4\n")
+        (repo / "bin/install.sh").chmod(0o755)
         self.commit(repo)
         self.trust(repo)
         self.env["CLAUDE_CONFIG_DIR"] = str(self.live)
@@ -263,7 +264,7 @@ class TestSetupAndChecks(BareCase):
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
         self.assertNotIn("probe ran", r.stdout)
         self.assertIn("[ri] done: 1. A", r.stdout)
-        self.assertRegex(r.stdout, r"FAIL: ri: \./install\.sh \(log \S+step-01\.log\)")
+        self.assertRegex(r.stdout, r"FAIL: ri: bin/install\.sh \(log \S+step-01\.log\)")
         self.assertIn("FAIL: ri: python3 docs/specs/0001-x/probes/p.py (not run)", r.stdout)
 
 

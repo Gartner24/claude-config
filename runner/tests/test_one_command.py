@@ -9,7 +9,7 @@ from pathlib import Path
 RUNNER = Path(__file__).resolve().parent.parent
 TYPE_IT = re.compile(r"\b(type|run|then|next:)\s+`?wf (finish|unpark|report|queue|run)\b", re.I)
 TO_DO = re.compile(r"\bwf (finish|unpark|report|queue|run) to (retry|accept)\b", re.I)
-RULES = ("live/rules/runner-handoff.md", "live/rules/scope-contract.md")
+RULES = ("claude-home/rules/runner-handoff.md", "claude-home/rules/scope-contract.md")
 
 
 def constants(path):

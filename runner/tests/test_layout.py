@@ -7,10 +7,14 @@ import unittest
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-TOP = {"README.md", "AGENTS.md", "CLAUDE.md", "NOTICE.md", "LICENSE", "install.sh", "sync.sh", "mcp-config.json",
-       "test-preferences.json", "live", "runner", "scripts", "docs", ".claude", ".gitignore"}
+# Spec 0048 AC-1: four files plus folders. `live` is allowed only as the temporary link to claude-home (AC-15).
+TOP = {"README.md", "AGENTS.md", "CLAUDE.md", "LICENSE", "bin", "config", "claude-home", "runner", "scripts", "docs",
+       ".claude", ".gitignore"}
+# Spec 0048 AC-3: the old paths, outside the doc folders that record history.
+OLD = re.compile(r"(?<![\w./~-])live[/]|(?<![\w/.-])\.[/](install|sync)\.sh\b|(?<![\w/.-])(mcp-config|test-preferences)\.json")
+HISTORY = ("docs/specs/", "docs/reviews/", "docs/briefs/")
 # Vendored trees are not repo owned (AGENTS.md `## Rules`), so their links are upstream's.
-VENDORED = ("live/agents/", "live/rules/ecc/", "live/skills/anti-ai-writing/")
+VENDORED = ("claude-home/agents/", "claude-home/rules/ecc/", "claude-home/skills/anti-ai-writing/")
 LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 
 
@@ -26,10 +30,31 @@ def links(text):
 
 
 class TestShape(unittest.TestCase):
-    # covers: AC-3 (the repo top holds only the listed entries; the old agents/, rules/, skills/, guides are gone)
+    # covers: spec 0048 AC-1 (the repo top holds only the listed entries; scripts in bin/, configs in config/)
     def test_top(self):
-        extra = sorted({p.split("/")[0] for p in tracked()} - TOP)
-        self.assertEqual(extra, [], f"{len(extra)} top level entries outside spec 0035 AC-3: {extra}")
+        top = {p.split("/")[0] for p in tracked()}
+        if "live" in top and os.path.islink(REPO / "live") and os.readlink(REPO / "live") == "claude-home":
+            top.discard("live")
+        extra = sorted(top - TOP)
+        self.assertEqual(extra, [], f"{len(extra)} top level entries outside spec 0048 AC-1: {extra}")
+        for rel in ("bin/install.sh", "bin/sync.sh", "config/mcp-config.json", "config/test-preferences.json",
+                    "docs/NOTICE.md"):
+            self.assertEqual(tracked(rel), [rel])
+
+    # covers: spec 0048 AC-3 (no file outside docs/specs, docs/reviews, docs/briefs names an old path)
+    def test_old_paths(self):
+        hits = []
+        for rel in tracked():
+            p = REPO / rel
+            if rel.startswith(HISTORY) or p.is_symlink() or not p.is_file():
+                continue
+            try:
+                text = p.read_text()
+            except UnicodeDecodeError:
+                continue
+            hits += [f"{rel}:{n}: {line.strip()[:80]}" for n, line in enumerate(text.splitlines(), 1)
+                     if OLD.search(line)]
+        self.assertEqual(hits, [], f"{len(hits)} old path hits:\n" + "\n".join(hits))
 
     # covers: AC-3 (every relative markdown link in repo owned markdown resolves; a link out of the repo is
     # checked from ~/claude-config by hand, migrate.md step 12)
@@ -52,11 +77,11 @@ class TestShape(unittest.TestCase):
                     bad.append(f"{rel}: {target}")
         self.assertEqual(bad, [], f"{len(bad)} broken links:\n" + "\n".join(bad))
 
-    # covers: AC-4 (root CLAUDE.md only imports AGENTS.md, .claude/CLAUDE.md is gone, live/CLAUDE.md is the payload)
+    # covers: AC-4 (root CLAUDE.md only imports AGENTS.md, .claude/CLAUDE.md is gone, claude-home/CLAUDE.md is the payload)
     def test_single_load(self):
         self.assertEqual((REPO / "CLAUDE.md").read_text().strip(), "@AGENTS.md")
         self.assertEqual(tracked(".claude/CLAUDE.md"), [])
-        self.assertEqual(tracked("live/CLAUDE.md"), ["live/CLAUDE.md"])
+        self.assertEqual(tracked("claude-home/CLAUDE.md"), ["claude-home/CLAUDE.md"])
 
 
 class TestReadme(unittest.TestCase):
@@ -73,6 +98,63 @@ class TestReadme(unittest.TestCase):
                             ("Frameworks", "their installer wins"), ("Private", "live only"),
                             ("Claude Code state", "Claude Code only")):
             self.assertEqual(rows.get(kind), truth, kind)
+
+
+GUIDES = {"SETUP.md", "DAILY-USE.md", "SKILLS.md", "HOOKS.md", "DESIGN-PIPELINE.md"}
+TYPES = {"Type: tutorial", "Type: how to", "Type: reference", "Type: explanation"}
+REWRITTEN = ["README.md", "AGENTS.md", "docs/architecture.md", "config/routing.md"] + [f"docs/guides/{g}" for g in GUIDES]
+
+
+def load(rel):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(Path(rel).stem.replace("-", "_"), REPO / rel)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+class TestDocs(unittest.TestCase):
+    # covers: spec 0048 AC-12 (AGENTS.md under 200 lines, README and AGENTS.md each open with who they are for)
+    def test_readers(self):
+        agents = (REPO / "AGENTS.md").read_text().splitlines()
+        self.assertLess(len(agents), 200, f"AGENTS.md has {len(agents)} lines")
+        self.assertRegex(agents[2], r"^For an AI agent")
+        self.assertRegex((REPO / "README.md").read_text().splitlines()[2], r"^For you")
+
+    # covers: AC-13 (exactly the 5 guides, each with its type on line 2; the evaluation log moved to research)
+    def test_guides(self):
+        have = {Path(p).name for p in tracked("docs/guides/")}
+        self.assertEqual(have, GUIDES)
+        for g in sorted(GUIDES):
+            self.assertIn((REPO / "docs/guides" / g).read_text().splitlines()[1], TYPES, g)
+        self.assertEqual(tracked("docs/research/SKILLS-EVALUATION.md"), ["docs/research/SKILLS-EVALUATION.md"])
+
+    # covers: AC-13 (the committed SKILLS.md equals a fresh `bin/claude-config.py docs`, which reads the repo only)
+    def test_skills_generated(self):
+        tool = load("bin/claude-config.py")
+        self.assertEqual((REPO / "docs/guides/SKILLS.md").read_text(), tool.docs_text(),
+                         "docs/guides/SKILLS.md is stale: run python3 bin/claude-config.py docs")
+
+    # covers: AC-13 (every rewritten file passes the ASCII rule)
+    def test_ascii(self):
+        asciify = load("scripts/asciify.py")
+        bad = [rel for rel in REWRITTEN if asciify.convert((REPO / rel).read_text())[0] != (REPO / rel).read_text()]
+        self.assertEqual(bad, [])
+
+    # covers: AC-12 (every old item has a row in docs-map.md, no row lands nowhere, every target file exists)
+    def test_docs_map(self):
+        rows = [r for r in (REPO / "docs/specs/0048-organize-and-sync/docs-map.md").read_text().splitlines()
+                if re.match(r"\| [A-Z]+\d+ \|", r)]
+        self.assertGreater(len(rows), 300)
+        bad = []
+        for r in rows:
+            cells = [c.strip() for c in r.strip("|").split("|")]
+            target, heading = cells[3].strip("`"), cells[4]
+            if "nowhere" in heading.lower() or not heading:
+                bad.append(r)
+            elif not heading.startswith("dropped:") and not (REPO / target).exists():
+                bad.append(r)
+        self.assertEqual(bad, [], f"{len(bad)} rows land nowhere:\n" + "\n".join(bad[:20]))
 
 
 if __name__ == "__main__":

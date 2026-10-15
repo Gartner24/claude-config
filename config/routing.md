@@ -1,6 +1,8 @@
-# Usage Guide
+# Routing table
 
-Decision guide for skill routing. The intent-router reads only the `TRIGGERS`, `BLOCKS`,
+The hand written source of skill routing (spec 0048 moved it here from `docs/guides/USAGE.md`).
+`bin/claude-config.py docs` copies it into `docs/guides/SKILLS.md` under `## Routing`; check an edit
+with `python3 scripts/check-routing.py`. The intent-router reads only the `TRIGGERS`, `BLOCKS`,
 and `PRIORITY` fields when scoring a prompt. The `WHAT` and `EXAMPLE` lines are human-facing
 - they explain what each skill does and show a prompt that would route to it - and the router
 ignores them.
