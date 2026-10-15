@@ -1,7 +1,7 @@
 # 0046 · Autonomous mode per chat
 
 **Date**: 2026-10-15
-**Status**: Accepted
+**Status**: Proposed
 **Paths:** `runner/auto.py`, `runner/wf.py`, `runner/finish.py`, `runner/run.py`, `skills/auto/SKILL.md`, `settings.json`, `runner/tests/test_auto.py`, `runner/tests/test_auto_chats.py`
 **Amends**: [0030](../0030-autonomous-mode/index.md) (one driving folder becomes one per chat)
 
