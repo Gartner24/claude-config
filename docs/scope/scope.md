@@ -795,8 +795,8 @@ A folder structure and docs that are easy to read, and a repo that holds (or nam
   - [x] Manifest from the lock file, framework checkouts and the traced brief, pins by history walk, patches, private store, NOTICE (AC-5 to AC-8)
   - [x] Update with the patch carried forward, conflicts and `--resolved`, the state file and the weekly reminder hook (AC-10, AC-11)
   - [x] Docs map first, then the rewrite, a short AGENTS.md and the 5 typed guides (AC-12, AC-13)
-- [ ] Verify it: `/check verify organize and sync claude-config with ~/.claude`
-- [ ] Test it: `/test organize and sync claude-config with ~/.claude`
+- [x] Verify it: `/check verify organize and sync claude-config with ~/.claude`
+- [x] Test it: `/test organize and sync claude-config with ~/.claude`
 - [ ] Back up `~/.claude` and the repo, as `migrate.md` step 0 says (AC-14) · waits on you
 - [ ] Install the new layout by running `bin/install.sh` yourself (the old runner copy does not know this path yet) · waits on you
 - [ ] Check every skill name still opens, then remove the temporary `live` link (AC-15) · waits on you
