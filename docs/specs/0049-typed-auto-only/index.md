@@ -1,7 +1,7 @@
 # 0049 · Only a typed /auto turns on or releases
 
 **Date**: 2026-10-15
-**Status**: Proposed
+**Status**: In Progress
 **Paths:** `runner/auto.py`, `runner/wf.py`, `claude-home/settings.json`, `claude-home/skills/auto/SKILL.md`, `runner/tests/test_auto.py`, `runner/tests/test_auto_chats.py`, `AGENTS.md`
 **Amends**: [0030](../0030-autonomous-mode/index.md) (AC-3), [0047](../0047-review-leftovers/index.md) (AC-1, AC-2, AC-6)
 
@@ -58,6 +58,7 @@ Close the door instead of guarding it: the command refuses `on` and `release` it
 **Positive**: the review's P1 closes by construction; the deny pattern list no longer carries the safety.
 **Negative**: no `! wf auto on` backup; a hook that misses means typing `/auto` again.
 **Neutral**: deliberate scripts stay possible, as named in the security model.
+**Known risk (accepted 2026-10-15)**: `wf auto hook` still switches a chat from the prompt it reads on stdin, so a fake prompt piped into it by an odd spelling the text deny rules miss (two spaces, `python3 runner/wf.py`) turns a chat on or releases a repo. No fix exists today: when the hook runs, the prompt is not in the transcript yet, and a Bash call looks like a hook in the process tree (probe of 2026-10-15), so nothing proves the prompt was typed. You chose to ship: the open path before this spec (`wf auto on` itself) was wider. A later Claude Code hook field that marks a typed prompt is the fix to watch for.
 
 ## Rationale
 

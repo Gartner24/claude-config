@@ -682,10 +682,10 @@ def build_parser():
     aw = sub.add_parser("allow-writes", help="let wf run calls in this repo write a path (spec 0021 AC-7)")
     aw.add_argument("target", help="a path, folder name or scope title")
     aw.add_argument("path", help="the file or folder its calls may write")
-    auto = sub.add_parser("auto", help="autonomous mode per chat: on [repos] | off [now] | status | start | wait | "
-                                             "take <repos> | release <repos> | hook | bar")
+    auto = sub.add_parser("auto", help="autonomous mode per chat: off [now] | status | start | wait | take <repos> | "
+                                             "hook | bar; on and release are typed as /auto in the chat (spec 0049)")
     auto.add_argument("words", nargs=argparse.REMAINDER,
-                      help="on [repos], off, off now, status, start, wait, take, release, hook or bar")
+                      help="off, off now, status, start, wait, take, hook or bar")
     ntfy = sub.add_parser("ntfy", help="set up and test phone pings for wf run")
     nsub = ntfy.add_subparsers(dest="action", metavar="<action>", required=True)
     init = nsub.add_parser("init", help="create the topic and one time codes")

@@ -29,10 +29,10 @@ class ChatCase(AutoCase):
         """The chat of folder has not had its bar run for an hour."""
         auto.change(lambda s: s["chats"][str(folder)].update(seen=OLD))
 
-    def in_folder(self, folder, *words):
+    def in_folder(self, folder, fn, *words):
         os.chdir(folder)
         try:
-            return self.cli(*words)
+            return fn(*words)
         finally:
             os.chdir(self.folder)
 
@@ -78,12 +78,12 @@ class TestOnNames(ChatCase):
                             (("-y",), 'refused: "-y" is not a repo name'),
                             (("web;rm",), 'refused: "web;rm" is not a repo name'),
                             (("web$(x)",), 'refused: "web$(x)" is not a repo name')):
-            code, out = self.cli("on", *words)
+            code, out = self.on(*words)
             self.assertEqual(code, 5, words)
             self.assertTrue(out.startswith(line), out)
             self.assertFalse(os.path.exists(auto.path()), words)
-        self.assertIn("allowed: work, other, api, api, Web", self.cli("on", "we")[1])
-        self.assertEqual(self.cli("on", "WEB", "other"), (0, "autonomous: on in work: work, Web, other\n"))
+        self.assertIn("allowed: work, other, api, api, Web", self.on("we")[1])
+        self.assertEqual(self.on("WEB", "other"), (0, "autonomous: on in work: work, Web, other\n"))
         self.assertEqual(self.chat()["repos"], [str(self.folder), str(web), str(self.other)])
 
     # covers: AC-2 (a folder in no allowed repo with no names turns on with no repos and lists the allowed names; the
@@ -137,7 +137,7 @@ class TestTypedRelease(ChatCase):
     # covers: spec 0047 AC-1 (/auto release typed by you drops the repos from the chat of the hook's folder, not the
     # process's; a bare one prints its usage on stdout; Claude's own claude -p typing it releases nothing)
     def test_release_typed(self):
-        self.cli("on", "other")
+        self.on("other")
         side = self.tmp / "side"
         side.mkdir()
         with mock.patch.object(auto, "interactive", return_value=True):
@@ -155,7 +155,7 @@ class TestTypedRelease(ChatCase):
         self.assertEqual(self.chat()["repos"], [str(self.folder)])
         with mock.patch.object(auto, "interactive", return_value=True), mock.patch.dict(os.environ, {"WF_RUN": "1"}):
             self.typed(self.folder, "/auto release work")
-            self.assertEqual(self.cli("release", "work"), (5, "refused: user_only\n"))
+            self.assertEqual(self.rel("work"), (5, "refused: user_only\n"))
         self.assertEqual(self.chat()["repos"], [str(self.folder)])
 
 
@@ -200,12 +200,12 @@ class TestOneOwner(ChatCase):
     # covers: AC-2, AC-4 (a repo a live chat holds is left out of another chat's /auto on and named; an idle chat's
     # repo is taken because you typed it, with that repo's open features' briefs named)
     def test_on_live_and_idle_holder(self):
-        self.cli("on", "other")
+        self.on("other")
         self.assertEqual(self.chat()["repos"], [str(self.folder), str(self.other)])
         side = self.tmp / "side"
         side.mkdir()
         os.chdir(side)
-        self.assertEqual(self.cli("on", "other"), (0, "autonomous: on in side: no repos\n"
+        self.assertEqual(self.on("other"), (0, "autonomous: on in side: no repos\n"
                                                       "left out other: held by the chat in work: ask the user to type "
                                                       "/auto release other in that chat\n"
                                                       "allowed repos to name: work, other\n"))
@@ -218,7 +218,7 @@ class TestOneOwner(ChatCase):
         (scope / "scope.md").write_text(
             "# Plan\n\n### 1. Open\n- [ ] Build it: `/develop x`\nSource: [brief](../briefs/b.md).\n\n"
             "### 2. Shut · done\n- [x] Build it: `/develop y`\nSource: [brief](../briefs/done.md).\n")
-        code, out = self.cli("on", "other")
+        code, out = self.on("other")
         self.assertEqual(code, 0)
         self.assertEqual(out, "autonomous: on in side: other\nother: taken from the chat in work, idle since "
                               f"{OLD}; its briefs: docs/briefs/b.md\n")
@@ -229,29 +229,34 @@ class TestOneOwner(ChatCase):
     # it, then take adds it; take and release name each repo; with this chat's unit running they apply at the next
     # start)
     def test_take_and_release(self):
-        self.cli("on")
-        self.in_folder(self.other, "on")
+        self.on()
+        self.in_folder(self.other, self.on)
         self.assertEqual(self.cli("take", "other"), (5, "refused: other is held by the chat in other: ask the user to "
                                                         "type /auto release other in that chat\n"))
         self.idle(self.other)
         self.assertEqual(self.cli("take", "other"), (5, "refused: other is held by the chat in other, idle: only the "
                                                         "user moves it, by typing /auto release other there or "
                                                         "/auto on other here\n"))
-        self.assertEqual(self.in_folder(self.other, "release", "nope"),
+        self.assertEqual(self.in_folder(self.other, self.rel, "nope"),
                          (5, "refused: nope matches no chat's repo; chat's: other\n"))
-        self.assertEqual(self.in_folder(self.other, "release", "other"), (0, "released: other\n"))
+        self.assertEqual(self.in_folder(self.other, self.rel, "other"), (0, "released: other\n"))
         self.assertEqual(self.chat(self.other)["repos"], [])
         self.states("active")
         self.assertEqual(self.cli("take", "other"), (0, "taken: other\napplies at the next wf auto start\n"))
         self.assertEqual(self.chat()["repos"], [str(self.folder), str(self.other)])
         self.states("inactive")
-        self.assertEqual(self.cli("release", "OTHER"), (0, "released: other\n"))
+        # Spec 0049 AC-5 (inverts 0047's direct release): the command refuses, the chat keeps the repo; only the
+        # switch your typed /auto release reaches drops it.
+        self.assertEqual(self.cli("release", "OTHER"),
+                         (5, "refused: user_only: type /auto release <names> in the chat\n"))
+        self.assertEqual(self.chat()["repos"], [str(self.folder), str(self.other)])
+        self.assertEqual(self.rel("OTHER"), (0, "released: other\n"))
 
     # covers: AC-3 (take refuses with this folder's chat off, a - argument, more than 6 names, a name not on the
     # allow list, and a repo whose runner lock another unit holds, its own or a feature worktree's)
     def test_take_refusals(self):
         self.assertEqual(self.cli("take", "other"), (5, "refused: off\n"))
-        self.cli("on")
+        self.on()
         self.assertEqual(self.cli("take", "--all"), (5, 'refused: "--all" is not a repo name\n'))
         self.assertEqual(self.cli("take", *["other"] * 7), (5, "refused: at most 6 repos at once\n"))
         self.assertTrue(self.cli("take", "elsewhere")[1].startswith("refused: elsewhere matches no allowed repo"))
@@ -272,7 +277,7 @@ class TestOneOwner(ChatCase):
         # A build step inside a wf run call can neither widen nor shrink the chat (review 2026-10-15).
         with mock.patch.dict(os.environ, {"WF_RUN": "1"}):
             self.assertEqual(self.cli("take", "other"), (5, "refused: user_only\n"))
-            self.assertEqual(self.cli("release", "work"), (5, "refused: user_only\n"))
+            self.assertEqual(self.rel("work"), (5, "refused: user_only\n"))
         self.assertEqual(self.chat()["repos"], [str(self.folder)])
         self.assertEqual(self.cli("take", "other"), (0, "taken: other\n"))
 
@@ -286,7 +291,7 @@ class TestOneOwner(ChatCase):
 class TestLive(ChatCase):
     # covers: AC-4 (the bar marks the chat live at most once a minute; a chat is live for 10 minutes after)
     def test_bar_seen(self):
-        self.cli("on")
+        self.on()
         self.idle(self.folder)
         c = self.chat()
         self.assertFalse(auto.live(c))
@@ -312,10 +317,10 @@ class TestSuggest(ChatCase):
         owned = self.repo("owned", "elsewhere")
         odd = self.repo("has space")
         self.allow(self.folder, self.other, owned, far, *near, odd)
-        self.in_folder(self.other, "on")
+        self.in_folder(self.other, self.on)
         origin = {str(self.folder): ("me", "work"), str(owned): ("ME", "owned"), str(far): ("you", "far")}
         with mock.patch("run.github_origin", lambda p: origin.get(str(p))):
-            self.cli("on")
+            self.on()
             # A mid-session /auto on: the line comes with the text that says to ask and take (review 2026-10-15).
             out = self.hook("UserPromptSubmit")[1]
             self.assertIn(auto.DRIVE, out)
@@ -329,7 +334,7 @@ class TestSuggest(ChatCase):
     def test_no_repos(self):
         plain = self.tmp / "x" / "plain"
         plain.mkdir(parents=True)
-        self.in_folder(self.other, "on")
+        self.in_folder(self.other, self.on)
         self.on_in(plain)
         self.assertEqual(self.hook_lines(plain), ['suggested repos: "work"'])
 

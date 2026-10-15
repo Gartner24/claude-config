@@ -1,5 +1,6 @@
 # Autonomous mode (spec 0030, one chat per folder since spec 0046): a Claude session drives the runner for its own
-# repos. `/auto on` writes that folder's chat into <state>/auto.json; the session hooks tell the chat's sessions to
+# repos. `/auto on` (typed, through the prompt hook; the command refuses it, spec 0049) writes that folder's chat into
+# <state>/auto.json; the session hooks tell the chat's sessions to
 # start `wf -y --repos ...` as the chat's own user unit and relay its questions; `/auto off` deletes only that chat, so
 # its unit finishes its current features (run.py checks the file in pick() and end_wait()).
 import datetime
@@ -29,7 +30,7 @@ SEEN_EVERY = 60
 MAX_TAKE = 6
 NAME = re.compile(r"[A-Za-z0-9._-]+")
 GREEN, RESET = "\033[32m", "\033[0m"
-USAGE = "usage: wf auto on [repos] | off [now] | status | start | wait | take <repos> | release <repos> | hook | bar"
+USAGE = "usage: wf auto off [now] | status | start | wait | take <repos> | hook | bar"
 # AC-4: printed as is.
 DRIVE = ("Autonomous mode is on for this chat (the user turned it on with /auto on). You drive the wf runner for this "
          "chat's repos only, named in the status line: "
@@ -454,8 +455,7 @@ def take(words):
 
 def release(words, folder=None):
     """AC-4: drop repos from folder's chat. Spec 0047 AC-1: only you release, by typing /auto release in that chat (the
-    hook passes its folder); a deny rule keeps Claude from running it, so no chat loses a repo to another chat's
-    session."""
+    hook passes its folder); the command refuses it (spec 0049), so no chat loses a repo to another chat's session."""
     if os.environ.get("WF_RUN"):
         print("refused: user_only")
         return 5
@@ -665,14 +665,15 @@ def bar():
 
 
 def cmd_auto(words):
-    if words[:1] == ["on"]:
-        return on(None, words[1:])
+    # Spec 0049 AC-1: only your typed /auto (the prompt hook, which calls on() and release() itself) switches. The
+    # deny rules matched text, so an odd spelling (two spaces, quotes, python3 runner/wf.py) used to slip past them.
+    if words[:1] in (["on"], ["release"]):
+        print(f"refused: user_only: type /auto {'on' if words[0] == 'on' else 'release <names>'} in the chat")
+        return 5
     if words and words[0] == "off" and words[1:] in ([], ["now"], ["--now"]):
         return off(bool(words[1:]))
     if words[:1] == ["take"]:
         return take(words[1:])
-    if words[:1] == ["release"]:
-        return release(words[1:])
     if words == ["status"]:
         print(status_line(os.getcwd()))
         return 0
