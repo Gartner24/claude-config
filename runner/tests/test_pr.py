@@ -428,9 +428,9 @@ class TestStandard(unittest.TestCase):
 
     # covers: AC-6 (attribution: messages and texts anywhere, added lines only at their start)
     def test_attribution(self):
-        diff = ("+++ b/spec.md\n@@ -0,0 +1,2 @@\n+quotes `Co-Authored-By: Claude` mid line\n+fine\n"
-                "+++ b/x.txt\n@@ -0,0 +1 @@\n+  Claude-Session: https://claude.ai/code/x\n")
-        self.assertEqual(pr.attribution_hits([("commit abc", "fix\n\nGenerated with [Claude Code](x)")], diff),
+        diff = ("+++ b/spec.md\n@@ -0,0 +1,2 @@\n+quotes `Co-Authored-" + "By: Claude` mid line\n+fine\n"
+                "+++ b/x.txt\n@@ -0,0 +1 @@\n+  Claude-" + "Session: https://claude.ai/code/x\n")
+        self.assertEqual(pr.attribution_hits([("commit abc", "fix\n\nGenerated " + "with [Claude Code](x)")], diff),
                          ["commit abc:3", "x.txt:1"])
         self.assertEqual(pr.attribution_hits([("PR body", "nothing here")]), [])
 

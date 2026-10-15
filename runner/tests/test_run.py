@@ -1641,7 +1641,8 @@ class TestStandingAnswers(RunCase):
         _, rec = self.run_record()
         self.assertEqual([c["command"] for c in rec["calls"]], ["/check verify a", "/test a", "/sync"])
         said = run.UNATTENDED_PROMPT + run.ANSWERS_INTRO + run.SUITE_PROMPT.format("python3 runner/tests/fast.py")
-        self.assertEqual([self.prompt(n) for n in (1, 2, 3)], [said, said, run.UNATTENDED_PROMPT])
+        self.assertEqual([self.prompt(n) for n in (1, 2, 3)],
+                         [said + run.UNREACHABLE_PROMPT, said + run.UNREACHABLE_PROMPT, run.UNATTENDED_PROMPT])
         self.assertIn("run the whole suite once with `python3 runner/tests/fast.py`", said)
         self.assertEqual(run.unattended_prompt({}, False, None, True), run.UNATTENDED_PROMPT)
 
@@ -1721,7 +1722,8 @@ class TestStandingAnswers(RunCase):
         with mock.patch.object(run.subprocess, "Popen", spawn):
             rec = r.call(1, "/test a", last_box=True)[0]
         self.assertEqual((r.answers, r.repo.get("answers", {}), rec["last_box"]), ({}, {}, True))
-        self.assertEqual(seen[0][seen[0].index("--append-system-prompt") + 1], run.UNATTENDED_PROMPT)
+        self.assertEqual(seen[0][seen[0].index("--append-system-prompt") + 1],
+                         run.UNATTENDED_PROMPT + run.UNREACHABLE_PROMPT)
 
     # covers: spec 0006 AC-4, spec 0011 AC-6, AC-9 (a call that changes the section's values stops its repo before the
     # next call; the answers stay those read at start; prose edits elsewhere in AGENTS.md do not stop)
@@ -1740,7 +1742,7 @@ class TestStandingAnswers(RunCase):
                 r = self.wf(name, "-y")
                 if name == "prose":
                     self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-                    self.assertEqual([self.prompt(n) for n in (1, 2, 3)], [SUITE] * 3)
+                    self.assertEqual([self.prompt(n) for n in (1, 2, 3)], [SUITE, SUITE + run.UNREACHABLE_PROMPT, SUITE])
                     continue
                 rec = self.assert_stopped(r, "guard_changed", code=6, calls=1, repo=True)
                 self.assertEqual(rec["detail"], "AGENTS.md standing answers changed during the run; "
@@ -1754,7 +1756,7 @@ class TestStandingAnswers(RunCase):
         self.steps([{}, {}, {"tick": False}])
         r = self.wf("demo", "-y")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertEqual([self.prompt(n) for n in (1, 2, 3)], [SUITE, SUITE_DONE, SUITE])
+        self.assertEqual([self.prompt(n) for n in (1, 2, 3)], [SUITE, SUITE_DONE + run.UNREACHABLE_PROMPT, SUITE])
         self.assertTrue(SUITE_DONE.endswith(
             " Standing answers for this repo, use them instead of asking: Run tests?, Yes, run and fix to green. "
             "When /test or /check verify offers to mark the feature done after its last open box passed: "
@@ -1797,7 +1799,8 @@ class TestStandingAnswers(RunCase):
                           ("/sync", False)])
         done = run.UNATTENDED_PROMPT + run.ANSWERS_INTRO + run.DONE_YES
         self.assertEqual([self.prompt(n) for n in (1, 2, 3, 4, 5)],
-                         [run.UNATTENDED_PROMPT, done, done, done, run.UNATTENDED_PROMPT])
+                         [run.UNATTENDED_PROMPT + run.UNREACHABLE_PROMPT, done + run.UNREACHABLE_PROMPT,
+                          done + run.UNREACHABLE_PROMPT, done, run.UNATTENDED_PROMPT])
 
     # covers: spec 0006 AC-8 (/architect still refused manual_box with a full section)
     def test_architect_still_refused(self):

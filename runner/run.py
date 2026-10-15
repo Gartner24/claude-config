@@ -429,6 +429,17 @@ BLOCKED = re.compile(r"^[ \t>*-]*BLOCKED:\**[ \t]*(\S.*)$")
 VERIFY_FAIL = re.compile(r"^[ \t>*-]*VERIFY FAIL:\**[ \t]*(\S.*)$")
 # Spec 0015 AC-4: the proof line a ticked /check verify or /test box must end with.
 CAN_FAIL = re.compile(r"^[ \t>*-]*CAN FAIL CHECKED:\**[ \t]*(\d+)")
+# Spec 0045 AC-1, AC-2: a check left to a later box waiting on you, and a check the sandbox cannot reach.
+LEFT_TO_BOX = re.compile(r"^[ \t>*-]*LEFT TO BOX:\**[ \t]*(\S.*)$")
+UNREACHABLE_LINE = re.compile(r"^[ \t>*-]*UNREACHABLE:\**[ \t]*(\S.*)$")
+LEFT_PROMPT = (" Some checks may need what this sandbox cannot give: a real interactive Claude session, a real claude -p "
+               "call, the user's phone, or days of real use. A check like that which belongs to one of this feature's "
+               "later boxes listed below is not a failure: record it in verify.md as \"left to the box: <box text>\", "
+               "end your final message with one line LEFT TO BOX: <the exact box text from the list> for each, and tick "
+               "the Verify box when every other check passed. Later boxes that wait on the user:")
+UNREACHABLE_PROMPT = (" When a check cannot run because it needs something this sandbox cannot reach, end your final "
+                      "message with one line per such check that starts with UNREACHABLE: and names it.")
+UNREACHABLE_WHY = "a retry runs in the same sandbox, so it cannot reach this either"
 MUTATION = re.compile(r"^[ \t>*-]*MUTATION CHECKED:\**[ \t]*(\d+)")
 MAX_OPTIONS = 9
 MAX_DEBUG = 2
@@ -922,6 +933,8 @@ class Run:
         self.denied_at = None
         # Spec 0033 AC-1: what the last call said beside its question or block (did, why, steps), for the next ask.
         self.call_context = {}
+        # Spec 0045 AC-1, AC-2: the verify call's later boxes waiting on you, and what the last check could not reach.
+        self.left_boxes, self.unreachable = [], []
         # Spec 0033 AC-9: (repo, feature) -> (HEAD when it started this run, its branch), for the report.
         self.head0 = {}
         # U2: hours added by `keep going` and the run's question id; U4: outage minutes added by `keep waiting`;
@@ -1690,6 +1703,10 @@ class Run:
         F10 leaves a `· live` box to wf (spec 0019, 0020). Returns the Decision, else None."""
         text, command = self.case_box()
         steps, plan = [], []
+        # Spec 0045 AC-2: a check that could not reach something cannot reach it on a retry either.
+        far = reason in ("verify_failed", "no_progress") and getattr(self, "unreachable", [])
+        if far:
+            detail = f"could not reach: {'; '.join(far)}; {detail}"
         if reason in ("waiting", "manual_box") and text and wf.LIVE.search(text):
             # A live box: the run offers to run the repo's live steps itself (`wf finish`), on your tap.
             plan = self.live_plan()
@@ -1699,6 +1716,8 @@ class Run:
             reason, detail = "live_step", "; ".join(steps)
         # Spec 0028 AC-12: the plain words, the detail with its codes read as words, and a learn line.
         options, question, path = CASES[reason][1], plain_question(reason, self.feature, detail), None
+        if far:
+            options = (SKIP_IT, "try again")
         if reason in ("waiting", "manual_box") and text and (self.feature, text) not in getattr(self, "tried", set()):
             # Spec 0044 AC-4: a build call may try it, once per box per run (a live box became live_step above).
             options = ("done", DO_IT, SKIP_IT)
@@ -1734,12 +1753,12 @@ class Run:
             what = self.explain(self.feature, text or "", facts).get("what")
             if what:
                 self.call_context = {**self.call_context, "what": f"{EXPLAINED_UNVERIFIED} {what}"}
-        why = plain.WHY.get(reason)
+        why = UNREACHABLE_WHY if far else plain.WHY.get(reason)
         if reason in context.AUTH:
             # Security review (steered authorization): the runner's fixed why and options, no call steps.
             self.call_context.pop("steps", None)
             self.call_context["why"] = why
-        elif why and not self.call_context.get("why"):
+        elif why and (far or not self.call_context.get("why")):
             self.call_context["why"] = why
         calls = self.entry["calls"]
         last = self.record["calls"][calls[-1] - 1] if calls else {}
@@ -2870,7 +2889,9 @@ class Run:
         Returns (call record, parsed JSON or None, timed out, stderr tail, spawn error)."""
         a = self.args
         checking = command.lstrip().startswith(("/test", "/check verify"))
-        prompt = unattended_prompt(self.answers, last_box, sha, checking) + (SYNC_BOX_PROMPT if synced else "") + \
+        prompt = unattended_prompt(self.answers, last_box, sha, checking) + (UNREACHABLE_PROMPT if checking else "") + \
+            (left_prompt(self.left_boxes) if command.lstrip().startswith("/check verify") else "") + \
+            (SYNC_BOX_PROMPT if synced else "") + \
             (HINT_PROMPT.format(flat(self.hint)) if self.hint else "") + self.issue_prompt
         tail = BROWSER_PROMPT.format(self.browser["url"], self.browser["shots"]) if browser else ""
         if not isolated and self.brief[0] is not None and self.brief[0] == self.feature:
@@ -3054,7 +3075,11 @@ class Run:
                 after = self.snapshot()
                 n = None if any(is_test_file(rel) and snapshot.get(rel) != after.get(rel)
                                 for rel in set(snapshot or {}) | set(after)) else 0
-            if n is None or (n == 0 and pattern is CAN_FAIL):
+            # Spec 0045 AC-1: every check left to a later box waiting on you is a pass, but only with a valid line.
+            left = pattern is CAN_FAIL and n == 0 and any(
+                norm(m.group(1).strip().strip("*").strip())[:200] in self.left_boxes
+                for m in map(LEFT_TO_BOX.match, result.split("\n")) if m)
+            if n is None or (n == 0 and pattern is CAN_FAIL and not left):
                 return "end", "unchecked", f"{box.box_text} ticked without a valid {name} line; " \
                                            "untick it to rerun"
             rec["marker"] = rec["marker"] or marker
@@ -3513,7 +3538,7 @@ class Run:
         # first call setup and died on an unset `last` (internal_error, review M1).
         self.entry, self.feature, self.retried, self.limit_rerun, self.outage_rerun = e, f.name, False, False, False
         do_it = None
-        self.hint, self.denied_at, self.live_failed = None, None, None
+        self.hint, self.denied_at, self.live_failed, self.unreachable = None, None, None, []
         try:
             if self.answers.get("branches") == "per spec":
                 import pr
@@ -3708,12 +3733,17 @@ class Run:
             # Spec 0014 AC-4: the feature's boxes right before the call, to name what a timed out call ticked.
             scope = self.reread()
             before = box_states(scope[0] if scope else None)
+            verify = kind == "box" and command.split()[:2] == ["/check", "verify"]
+            self.left_boxes = later_owed(scope[0] if scope else None, box.box_text) if verify else []
             rec, data, timed_out, tail, spawn_error = self.call(
                 seq, command, resume and (resume["session_id"], resume_prompt(resume["answer"])), last, base,
                 app is not None,
                 kind == "sync" and box is not None)
             # Spec 0021 AC-7: before any check reads the guard, this call's own writes under allowed paths are taken.
             self.accept_allowed()
+            if verify or (kind == "box" and command.split()[0] == "/test"):
+                # Spec 0045 AC-2: a /debug call between keeps the check's list.
+                self.unreachable = unreachable(str((data or {}).get("result") or ""))
             rec.update(kind=kind, box_text=box.box_text if kind in ("box", "sync") and box else None,
                        resumes=[resume["id"]] if resume else [], retry_of=retry_of, app=app, feature=e["n"])
             calls.append(rec)
@@ -5276,6 +5306,32 @@ def brief_data(label, text, cap, where):
     while f"BRIEF-DATA-{n}" in text:
         n += 1
     return f"{label}:\nBEGIN BRIEF-DATA-{n}\n{text}\nEND BRIEF-DATA-{n}\n"
+
+
+def later_owed(feature, box_text):
+    """Spec 0045 AC-1: the feature's open boxes waiting on you after box_text, tags and control characters out, cut to
+    200 characters, at most 5."""
+    boxes = feature.boxes if feature else []
+    i = next((i for i, b in enumerate(boxes) if b.text == box_text), None)
+    if i is None:
+        return []
+    return [norm(context.untagged(b.text))[:200] for b in boxes[i + 1:] if b.open and wf.OWED.search(b.text)][:5]
+
+
+def left_prompt(boxes):
+    """Spec 0045 AC-1: LEFT_PROMPT and the boxes between the lowest numbered markers their text does not contain."""
+    if not boxes:
+        return ""
+    text = "\n".join(boxes)
+    n = 0
+    while f"BOXES-DATA-{n}" in text:
+        n += 1
+    return f"{LEFT_PROMPT}\nBEGIN BOXES-DATA-{n}\n{text}\nEND BOXES-DATA-{n}\n"
+
+
+def unreachable(result):
+    """Spec 0045 AC-2: the call's UNREACHABLE: lines, control characters out, cut to 120 characters, at most 3."""
+    return [norm(m.group(1).strip())[:120] for m in map(UNREACHABLE_LINE.match, result.split("\n")) if m][:3]
 
 
 def brief_parts(repo, scope_dir, lines):
