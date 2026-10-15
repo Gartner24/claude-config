@@ -11,6 +11,14 @@
 - Every downloaded skill records where it came from, so it can be updated later.
 - A downloaded skill you edit is detached from its source, so an update never overwrites your changes. On update, you see what changed upstream for that skill and choose per change: take it into your version, or keep yours.
 - A new skill (working name: update claude-config) syncs and updates your whole Claude setup. It never breaks or changes a working skill on its own; the reorganization only moves and organizes.
+- Downloaded skills: the repo holds a manifest (each skill's source, pinned version, install command) and copies only of the ones you edited, kept detached. Plugins and frameworks (gstack, jjstack, get-shit-done, vendor-jsm-skills) go in the same manifest. (answer 2026-10-15)
+- Skills with no recorded source (~160 of 178 real folders; only 10 in `~/.agents/.skill-lock.json`, 4 git checkouts): the build traces each on GitHub and skills.sh; found goes in the manifest, not found is copied into the repo marked "source unknown". No skill is ever only listed. (answer 2026-10-15)
+- Repo top holds only `README.md`, `AGENTS.md`, `CLAUDE.md`, `LICENSE` plus folders. Scripts (`install.sh`, `sync.sh`) move to `bin/`, config files (`mcp-config.json`, `test-preferences.json`) to `config/`, `NOTICE.md` to `docs/`. The runner's live step shape `./install.sh` and `rules/scope-contract.md` follow the new path. (answer 2026-10-15)
+- `live/` is renamed `claude-home/`, still a path for path mirror of `~/.claude`. Own skills and edited copies of downloaded skills both live in `claude-home/skills/`, the manifest says which is which. (answer 2026-10-15)
+- Docs: every file rewritten, one reader per file (README for you, AGENTS.md for AI), and "without losing quality": every command, fact and decision in the old docs is listed and mapped to where it lands; nothing may map to nowhere. (answer 2026-10-15)
+- Guides regrouped by task into 5: setup (install, restore, MCP, plugins), daily-use (workflow chain and wf), skills (generated from the manifest, plus routing), hooks, design-pipeline. SKILLS-EVALUATION moves to `docs/research/`. (answer 2026-10-15)
+- The new skill is `/claude-config`. Drift check runs only inside it, never at session start. Upstream update check runs only when you run it; a weekly reminder line appears at session start when 7 days passed since the last upstream check. Every upstream change is shown and you take it or keep yours, per change. (answers 2026-10-15)
+- Measured 2026-10-15: an old `scripts/skills-audit.sh` already hashes every skill into `~/.claude/.skills-manifest.json` and guards 3 local overrides (industrial-brutalist-ui, minimalist-ui, high-end-visual-design); build on it, do not duplicate it. `install.sh`/`sync.sh` are named in `runner/finish.py`, `runner/run.py`, `runner/e2e/run.py`, about 15 runner tests, `scripts/private-names.py`, `scripts/gen-agent-index.py`, `live/settings.json`, `live/rules/scope-contract.md`, `live/skills/review-stack/SKILL.md`. dotfiles code does not call them (only its specs mention them).
 - Follow ups to keep tracking after the clear: the missed-skill report on 2026-10-18 (plan row 46), then delete `~/claude-migration-20261015/` and `~/claude-config-old` once that report is in and nothing broke.
 
 ## Measured 2026-10-15 (input for /architect, not a decision)
@@ -23,7 +31,4 @@
 
 ## Open for /architect
 
-- What the repo holds for third party skills: copies, or a manifest naming each source and its install command.
-- The target folder layout for the repo and for `~/.claude`.
-- Which docs are rewritten, and for which reader.
-- How sync stays current afterwards (sync.sh scope, a check that flags drift).
+- Nothing open from the interview. Left to the spec writer: manifest file name and format (JSON, stdlib), where it lives outside claude-home/, how an edited skill is detected (hash vs upstream at its pinned version), migration steps and checks (same method as 0035).
