@@ -5,6 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import unittest  # noqa: E402
 from test_parallel_repo import ANSWERS, RepoCase  # noqa: E402
 
 
@@ -96,6 +97,36 @@ class TestCombine(RepoCase):
                 [d] = [d for d in q["decisions"] if d.get("case") == "combine_conflict"]
                 self.assertEqual(d["feature"], "3. C")
                 self.assertIn("feat/0003-c left out of " + b, d["question"] + json.dumps(d))
+
+
+    # covers: security review (validator bypass): a resolve call that also stages another file, or commits the merge
+    # itself, leaves that branch out
+    def test_resolve_contained(self):
+        git = ["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid"]
+        cases = (([["git", "add", "other.txt"]], "staged or added other files"),
+                 ([["git", "add", "shared.txt"], [*git, "commit", "-qm", "self"]], "committed, merged or switched"))
+        for run_, why in cases:
+            with self.subTest(why=why):
+                self.setUp()
+                self.answers()
+                (self.fakes / "combine.json").write_text(json.dumps({"write": [["shared.txt", "A\nC\n"],
+                                                                                 ["other.txt", "x\n"]], "run": run_}))
+                self.steps({"feat-0001-a": feature("a", "A\n"), "feat-0002-b": feature("b"),
+                            "feat-0003-c": feature("c", "C\n")})
+                self.wf("-y", "--jobs", "3")
+                logs = "".join(p.read_text() for p in (self.state / "wf" / "runs").glob("wf-combined-*/log.txt"))
+                self.assertIn(f"combine: left out feat/0003-c: the resolve call {why}", logs)
+
+
+class TestResolveUnit(unittest.TestCase):
+    # covers: security review (fail open): unreadable standing answers never let a resolved clash be committed
+    def test_unreadable_answers(self):
+        import types
+        import run
+        r = run.Run.__new__(run.Run)
+        r.c = types.SimpleNamespace(path="/nowhere", scope_dir="docs/scope")
+        why = r.resolve("feat/x", ["a.txt"], run.Stop("answers_unreadable", "AGENTS.md:3: bad"), [])
+        self.assertEqual(why, "the main checkout's standing answers cannot be read: AGENTS.md:3: bad")
 
 
 if __name__ == "__main__":

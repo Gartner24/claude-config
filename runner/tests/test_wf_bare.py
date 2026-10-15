@@ -302,7 +302,8 @@ class TestCommitRetry(BareCase):
                 mock.patch.dict(os.environ, {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
                                              "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}):
             self.assertFalse(finish.commit(c, [str(repo / "x.md")], 1))
-        self.assertEqual([x.args for x in sleep.call_args_list], [(2,)] * 3)
+        # subprocess's own wait loop sleeps a few milliseconds when the machine is busy; only the retries count.
+        self.assertEqual([x.args for x in sleep.call_args_list if x.args[0] >= 1], [(2,)] * 3)
         self.assertTrue(out.getvalue().startswith("edits left uncommitted in rl: "), out.getvalue())
 
 

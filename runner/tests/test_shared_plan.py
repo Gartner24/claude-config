@@ -89,6 +89,20 @@ class TestSplice(unittest.TestCase):
         self.assertNotIn("- by A", self.plan())
         self.assertEqual(r.notes, ["1. A: its plan copy changed scope.md outside its own section; only its section was kept"])
 
+    # covers: security review (path traversal): a worktree whose scope folder a call turned into a symlink gets no
+    # plan written through it
+    def test_symlinked_copy(self):
+        r = self.tree("ta", "1. A")
+        outside = self.tmp / "outside"
+        outside.mkdir()
+        scope = Path(r.c.path) / "docs" / "scope"
+        (scope / "scope.md").unlink()
+        scope.rmdir()
+        scope.symlink_to(outside)
+        pr.plan_in(r)
+        self.assertEqual(list(outside.iterdir()), [])
+        self.assertEqual(r.notes, ["plan copy skipped scope.md: not a plain file inside the worktree"])
+
     # covers: AC-4 (two children syncing at the same moment both land, under the lock)
     def test_two_at_once(self):
         ra, rb = self.tree("ta", "1. A"), self.tree("tb", "2. B")

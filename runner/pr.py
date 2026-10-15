@@ -429,6 +429,14 @@ def splice(dst, src, feature):
     return "\n".join(d)
 
 
+def inside(path, root):
+    """Security review (path traversal): a plan file the runner writes is a real file under its checkout, never a
+    symlink and never reached through one a call made."""
+    real = os.path.realpath(path)
+    return not os.path.islink(path) and real.startswith(os.path.realpath(root) + os.sep) and \
+        os.path.realpath(os.path.dirname(path)) == os.path.dirname(real)
+
+
 def plan_dirs(r):
     return os.path.join(run.key_of(r.c), r.c.scope_dir), os.path.join(r.c.path, r.c.scope_dir)
 
@@ -441,6 +449,11 @@ def plan_in(r):
         for src in plan_files(main):
             rel = os.path.relpath(os.path.realpath(src), os.path.realpath(main))
             dst = os.path.join(tree, rel)
+            parent = os.path.realpath(os.path.dirname(dst))
+            if rel.startswith("..") or not parent.startswith(os.path.realpath(r.c.path) + os.sep) or \
+                    (os.path.lexists(dst) and not inside(dst, r.c.path)):
+                r.note(f"plan copy skipped {rel}: not a plain file inside the worktree")
+                continue
             os.makedirs(os.path.dirname(dst), exist_ok=True)
             text = wf.read(src)
             write_whole(dst, text)
@@ -456,7 +469,7 @@ def plan_out(r, feature):
         for src in plan_files(tree):
             rel = os.path.relpath(os.path.realpath(src), os.path.realpath(tree))
             dst = os.path.join(main, rel)
-            if not os.path.isfile(dst):
+            if rel.startswith("..") or not os.path.isfile(dst) or not inside(dst, run.key_of(r.c)):
                 continue
             t, m = wf.read(src), wf.read(dst)
             new = splice(m, t, feature)

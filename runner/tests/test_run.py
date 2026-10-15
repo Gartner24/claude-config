@@ -52,6 +52,8 @@ if any("You are combining finished feature branches" in a for a in sys.argv[1:])
     spec = json.load(open(p)) if os.path.exists(p) else {{}}
     for path, text in spec.get("write", []):
         open(os.path.join(os.getcwd(), path), "w").write(text)
+    for argv in spec.get("run", []):
+        subprocess.run(argv, cwd=os.getcwd(), capture_output=True)
     print(json.dumps({{"type": "result", "subtype": "success", "is_error": False, "result": "settled",
                       "total_cost_usd": 0.1, "session_id": "combine-%d" % k, "num_turns": 1}}))
     sys.exit(0)

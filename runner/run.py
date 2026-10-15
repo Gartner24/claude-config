@@ -2304,8 +2304,10 @@ class Run:
         import pr
         tree, key = self.c.path, key_of(self.c)
         # Security review: the suite command comes from the main checkout, never from a merged branch's AGENTS.md.
-        main_answers, _ = read_answers(types.SimpleNamespace(path=key, scope_dir=self.c.scope_dir))
-        suite = (main_answers or {}).get("suite")
+        main_answers, err = read_answers(types.SimpleNamespace(path=key, scope_dir=self.c.scope_dir))
+        # Security review (fail open): unreadable answers never mean "no suite"; a clash then cannot be committed.
+        suite = (main_answers or {}).get("suite") if err is None else Stop("answers_unreadable", err)
+        main_answers = main_answers or {}
         done = {"branch": self.branch, "merged": [], "left_out": [], "pr": None}
         self.record["combined"] = done
         e = {"n": len(self.record["features"]) + 1, "repo": key, "feature": "combine", "outcome": None, "detail": None,
@@ -2355,6 +2357,11 @@ class Run:
         else why it may not."""
         import pr
         key, tree = key_of(self.c), self.c.path
+        if isinstance(suite, Stop):
+            return f"the main checkout's standing answers cannot be read: {flat(suite.detail)[:200]}"
+        state = lambda: [wf.git(tree, *a) for a in (("rev-parse", "HEAD"), ("ls-files", "-s"),
+                                                    ("ls-files", "--others", "--exclude-standard"))]
+        before = state()
         specs = []
         for p in pr.records(self, key):
             if p["branch"] in (branch, *merged):
@@ -2382,9 +2389,18 @@ class Run:
             path = os.path.join(tree, x)
             if os.path.isfile(path) and MARKER.search(wf.read(path)):
                 return f"conflict markers left in {x}"
+        # Security review (validator bypass): the call may only edit the clashing files in the work tree. Its HEAD, the
+        # merge in progress, every other index entry and the untracked files stay exactly as they were.
+        after = state()
+        lines = lambda res: [x for x in (res.stdout.split("\n") if res is not None and res.returncode == 0 else []) if x]
+        others = lambda res: [x for x in lines(res) if x.split("\t", 1)[-1] not in files]
+        merging = wf.git(tree, "rev-parse", "--quiet", "--verify", "MERGE_HEAD")
+        if lines(before[0]) != lines(after[0]) or merging is None or merging.returncode:
+            return "the resolve call committed, merged or switched branches itself"
+        if others(before[1]) != others(after[1]) or lines(before[2]) != lines(after[2]):
+            return "the resolve call staged or added other files"
         stray = wf.git(tree, "diff", "--name-only")
-        extra = [x for x in (stray.stdout.split("\n") if stray is not None and stray.returncode == 0 else [])
-                 if x and x not in files]
+        extra = [x for x in lines(stray) if x not in files]
         if extra:
             return f"the resolve call edited other files: {', '.join(extra[:5])}"
         wf.git(tree, "add", "--", *files)
