@@ -66,8 +66,9 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 45 | Each step gets the feature's brief | Release 8 | done |
 | 46 | Missed-skill detector | Release 8 | in-progress |
 | 47 | Context monitor that fires | Release 8 | in-progress |
-| 48 | Readable layout for ~/.claude and claude-config | Release 8 | planned |
+| 48 | Readable layout for ~/.claude and claude-config | Release 8 | in-progress |
 | 49 | Fast runner | Release 8 | in-progress |
+| 50 | Fewer avoidable stops | Release 8 | needs a decision |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -719,16 +720,26 @@ A context monitor that actually warns at the thresholds, wired to the status lin
 - [ ] Sync docs: `/sync context monitor`
 Spec [0037](../specs/0037-context-monitor/index.md) · Source: personal scope row 6.
 
-### 48. Readable layout for ~/.claude and claude-config · planned · auto
+### 48. Readable layout for ~/.claude and claude-config · in-progress · auto
 One README map of what lives where, everything installed under live/, guides under docs/guides/, ~/.claude tidied with nothing lost.
 **Done when:** the README map is true, the repo has its new shape, and every migration step passed its check.
 - [x] Design it (spec): `/architect readable layout`
-- [ ] Build it: `/develop readable layout`
+- [x] Build it: `/develop readable layout`
 - [ ] Verify it: `/check verify readable layout`
 - [ ] Test it: `/test readable layout`
 - [ ] Run the live migration steps in the spec's migrate.md, one at a time with their checks · waits on you
 - [ ] Sync docs: `/sync readable layout`
-Spec [0035](../specs/0035-readable-layout/index.md) · Source: personal scope row 9.
+Spec [0035](../specs/0035-readable-layout/index.md) · code in `live/`, `sync.sh`, `install.sh`, `scripts/`, `runner/finish.py`, `README.md` · Source: personal scope row 9.
+
+### 50. Fewer avoidable stops · needs a decision
+The runner stops less for things that need nothing from you: a check that cannot pass in the sandbox leaves those parts to the plan's later box, a retry that cannot help is not recommended, and quoted test values in the attribution scan are handled as you decide.
+**Done when:** a run with features like 46 and 47 (checks needing a real session or days of use) finishes them up to their waiting box without a question, a stop where a retry cannot help recommends skip, and the attribution scan follows your rule for quoted test values.
+- [ ] Design it (spec): `/architect fewer avoidable stops`
+- [ ] Build it: `/develop fewer avoidable stops`
+- [ ] Verify it: `/check verify fewer avoidable stops`
+- [ ] Test it: `/test fewer avoidable stops`
+- [ ] Sync docs: `/sync fewer avoidable stops`
+Source: [brief](../briefs/fewer-stops.md) (lands with the `fix/questions-explained` merge).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
