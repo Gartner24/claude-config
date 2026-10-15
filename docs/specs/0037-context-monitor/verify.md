@@ -60,3 +60,37 @@ with `WF_RUN` unset and `TMPDIR` a temp dir.
 - P1 hook input half and P2: confirmed 2026-10-15 on the real `claude -p` (Probes above).
 - Docs rows (`NOTICE.md`, `HOOKS.md`, `AGENTS.md`) read, present; not counted, a read of text
   the change added cannot fail.
+
+## Verify run 2026-10-15 (`/check verify context monitor`, PASS for AC-1 to AC-8)
+
+Each hook step pipes `{"session_id":..,"transcript_path":..}` into the real
+`node hooks/context-monitor.js` with `WF_RUN` unset and `TMPDIR` a temp dir.
+
+- [x] `node hooks/context-monitor.js --test` -> `context-monitor: all checks passed`, exit 0 -> AC-8.
+  can fail: a fixture's expected output differs from the hook's.
+- [x] One session climbing 100000, 149999, 150000, 200000, 249999, 250000, 350000, 550000,
+  649999, 650000, 699000 -> WARNING at 150k, 250k, 350k, 550k, CRITICAL at 650k, silent on the
+  rest, exact AC-5 text, state file `{"last":650000}` -> AC-1, AC-4, AC-5.
+  can fail: a repeat inside a 100k band, CRITICAL twice, or a threshold off by one.
+- [x] Main line 160k, newer sidechain line 900k -> WARNING names 160k -> AC-3.
+  can fail: the hook reads the sidechain usage.
+- [x] `WF_RUN=1` at 700k -> no output, exit 0, no state file -> AC-6. can fail: the env check is dropped.
+- [x] Garbage stdin, missing transcript, session id `../x` -> no output, exit 0, no
+  `context-monitor-x*` file outside the temp dir -> AC-3, AC-4. can fail: an uncaught throw, or a path escape.
+- [x] The three newest real transcripts (1.6 to 2.1 MB), every usage doubled -> the hook names
+  the sum of the newest main usage line in the last 256 KB as jq computes it (188172 -> 188k,
+  220410 -> 220k, 208990 -> 208k) -> AC-3. can fail: a wrong field sum, or the wrong line on a real layout.
+- [x] Temp copies: header WARN_TOKENS 140000, header CRITICAL_TOKENS 600000, settings
+  `autoCompactWindow` 800000, code WARN_TOKENS 100000 -> `--test` exit 1 each; clean copy exit 0 -> AC-2.
+  can fail: the drift check ignores the header, the code or settings.json.
+- [x] Repo `settings.json:331-337` PostToolUse matcher `Bash|Edit|Write|MultiEdit|Agent|Task` runs
+  `node .../hooks/context-monitor.js`; no `gsd-context-monitor` left in it. `./install.sh --dry-run`
+  -> `would: cp -a .../hooks/context-monitor.js ~/.claude/hooks/context-monitor.js` and chmod -> AC-7.
+  can fail: the hook missing from the install list or still the gsd file wired.
+- [x] `python3 scripts/private-names.py --test` green; with `"$LIVE/hooks/context-monitor.js"` cut
+  from the `sync.sh` check list it goes red (`FAIL: AC-4 sync refuses a name in live
+  hooks/context-monitor.js`), green again after restore -> AC-7 (the 2026-10-14 FAIL, now fixed).
+  can fail: sync copies the hook before checking it for private names.
+- `python3 runner/tests/fast.py` -> 751 tests, 0 failed.
+- AC-9 not run here: it writes `~/.claude`, which this step cannot. The scope box "Install it
+  live after the merge" owns it (`./install.sh` from main, then the `json.load` check).
