@@ -644,6 +644,8 @@ def build_parser():
     parser.add_argument("-y", "--yes", action="store_true", help="go without the confirm prompt")
     parser.add_argument("--jobs", type=positive(int), help="repos built at once (default: every repo with work)")
     parser.add_argument("--only", help="build only these numbered features of the screen, e.g. 1,2,4 or 1-3")
+    # Spec 0046 AC-5: an autonomous chat's unit builds only its own repos; not for you to type.
+    parser.add_argument("--repos", action="append", help=argparse.SUPPRESS)
     caps(parser)
     sub = parser.add_subparsers(dest="command", metavar="<command>")
     nxt = sub.add_parser("next", help="open a session running a repo's next scope step")
@@ -680,8 +682,10 @@ def build_parser():
     aw = sub.add_parser("allow-writes", help="let wf run calls in this repo write a path (spec 0021 AC-7)")
     aw.add_argument("target", help="a path, folder name or scope title")
     aw.add_argument("path", help="the file or folder its calls may write")
-    auto = sub.add_parser("auto", help="autonomous mode: on | off [now] | status | start | wait | hook | bar")
-    auto.add_argument("words", nargs=argparse.REMAINDER, help="on, off, off now, status, start, wait, hook or bar")
+    auto = sub.add_parser("auto", help="autonomous mode per chat: on [repos] | off [now] | status | start | wait | "
+                                             "take <repos> | release <repos> | hook | bar")
+    auto.add_argument("words", nargs=argparse.REMAINDER,
+                      help="on [repos], off, off now, status, start, wait, take, release, hook or bar")
     ntfy = sub.add_parser("ntfy", help="set up and test phone pings for wf run")
     nsub = ntfy.add_subparsers(dest="action", metavar="<action>", required=True)
     init = nsub.add_parser("init", help="create the topic and one time codes")
