@@ -2,6 +2,14 @@
   "cleanupPeriodDays": 365,
   "includeCoAuthoredBy": false,
   "permissions": {
+    "allow": [
+      "Bash(wf auto start)",
+      "Bash(wf auto wait)",
+      "Bash(wf auto status)",
+      "Bash(wf queue)",
+      "Bash(wf questions)",
+      "Bash(wf report)"
+    ],
     "deny": [
       "Bash(*wf auto on*)",
       "Bash(*wf.py auto on*)",
