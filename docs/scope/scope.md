@@ -705,7 +705,7 @@ A hook notes when a session could have used a skill it did not, and a weekly rep
 - [x] Build it: `/develop missed skill detector`
 - [ ] Verify it: `/check verify missed skill detector`
 - [ ] Test it: `/test missed skill detector`
-- [x] Install it live: `./install.sh` · waits on you · live
+- [ ] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
 - [ ] After 3 days, run the report and write its verdict into verify.md · waits on you · later boxes go on
 - [ ] Sync docs: `/sync missed skill detector`
 Spec [0036](../specs/0036-missed-skill-detector/index.md) · Source: personal scope row 20.
