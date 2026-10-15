@@ -75,6 +75,15 @@ class Unit(unittest.TestCase):
                          + full.splitlines()[3:5]
                          + [f"next: wf, then review and merge: {label}"])
 
+    # covers: worktree children of one repo list its plan's live and yours lines once, not once per child
+    def test_children_share_plan(self):
+        p = self.repo("demo", "# Scope: x\n" + WAITING)
+        sources = [dict(self.source(p, rec([("2. B", "feature_done", None)])), name="demo: 2. B"),
+                   dict(self.source(p, rec([])), name="demo: 5. E")]
+        lines = report.render(sources, CFG)[0].splitlines()
+        self.assertEqual([x for x in lines if x.startswith(("setup steps:", "for you:"))],
+                         ["setup steps: 3. C: 2 step(s) (demo: 2. B)", "for you: 3. C: Check the phone (demo: 2. B)"])
+
     # covers: AC-2 (internal_error reads crash; distinct reasons in run order; question ids; stopped lines;
     # each repo suffix; no record, no end and not started rows)
     def test_status_and_rows(self):
