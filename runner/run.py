@@ -2090,7 +2090,8 @@ class Run:
     def stale(self, d, feats):
         """AC-13: an answered Decision whose branch moved or whose feature is no longer queued (heading gone, `· auto`
         removed, marked done) is never resumed."""
-        return d["answer"] is not None and (d["branch"] != self.branch or
+        # A question asked in a feature's worktree records the start branch (ask()), never the tree's own.
+        return d["answer"] is not None and (d["branch"] not in (self.branch, (self.repo or {}).get("start_branch")) or
                                             not any(f.name == d["feature"] and f.queued for f in feats))
 
     def gone(self, d, q, feats):
@@ -2109,7 +2110,7 @@ class Run:
         """AC-6: (may resume, plan line) for this repo's Decisions, oldest asked first."""
         out = []
         for d in sorted((d for d in q["decisions"] if d["repo"] == key_of(self.c)), key=asked_at):
-            if self.gone(d, q, feats):
+            if self.wanted(d["feature"]) and self.gone(d, q, feats):
                 out.append((False, f"stale: {d['id']} {d['feature']}"))
             else:
                 # AC-7: a parked feature's answer waits for the park to clear; its parked line comes from survey().
@@ -2166,9 +2167,14 @@ class Run:
             dropped, freed = [], []
 
             def clear(q):
-                freed[:] = [p for p in q["parks"] if p["repo"] == key_of(self.c) and self.freed(p)]
-                keep = [p for p in q["parks"] if p["repo"] != key_of(self.c) or self.applies(p, feats)]
-                dropped[:] = [d for d in q["decisions"] if d["repo"] == key_of(self.c) and self.gone(d, q, feats)]
+                freed[:] = [p for p in q["parks"] if p["repo"] == key_of(self.c) and self.wanted(p["feature"]) and self.freed(p)]
+                # A feature's worktree child judges only its own feature's parks and questions: its copy of the plan
+                # and its branch say nothing about the others (an answered question of another feature was dropped
+                # as stale there, and your answer lost).
+                keep = [p for p in q["parks"] if p["repo"] != key_of(self.c) or not self.wanted(p["feature"])
+                        or self.applies(p, feats)]
+                dropped[:] = [d for d in q["decisions"] if d["repo"] == key_of(self.c) and self.wanted(d["feature"])
+                              and self.gone(d, q, feats)]
                 changed = len(keep) != len(q["parks"]) or bool(dropped)
                 q["parks"] = keep
                 q["decisions"] = [d for d in q["decisions"] if d not in dropped]

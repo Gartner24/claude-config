@@ -5,6 +5,7 @@ import subprocess
 import sys
 import threading
 import time
+import types
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -280,6 +281,39 @@ class TestChildWait(NeverStopCase):
         self.assertLess(time.monotonic() - t0, 20, r.stdout)
         last = max((self.state / "wf" / "runs").iterdir(), key=lambda p: p.stat().st_mtime)
         self.assertNotIn("wait answers", (last / "log.txt").read_text())
+
+
+class TestChildKeepsAnswers(NeverStopCase):
+    # A child never drops another feature's answered question: x5qg's done was dropped as stale by feature 35's child.
+    def test_other_features_answer_kept(self):
+        two = self.make_repo("two", TWO)
+        for argv in (["add", "-A"], ["commit", "-qm", "base"]):
+            subprocess.run(["git", *GIT_ID, "-C", str(two), *argv], check=True, capture_output=True)
+        self.steps([BLOCKED])
+        self.wf("two", "-y", "--only-feature", "1. A")
+        p = self.state / "wf" / "queue.json"
+        q = json.loads(p.read_text())
+        q["decisions"][0].update(answer="done, go on", branch="feat/0001-elsewhere")
+        # A's section as A's own worktree sees it, not as B's copy does: B leaves the park alone.
+        q["parks"][0]["section_sha"] = "0" * len(q["parks"][0]["section_sha"])
+        p.write_text(json.dumps(q))
+        self.steps([B_DONE, {"tick": False}])
+        (self.fakes / "count").unlink()
+        r = self.wf("two", "-y", "--only-feature", "2. B", mode="fast")
+        self.assertIn("done: 2. B", r.stdout, r.stdout + r.stderr)
+        self.assertNotIn("stale: ", r.stdout)
+        self.assertEqual([d["feature"] for d in self.queue()["decisions"]], ["1. A"], r.stdout)
+        self.assertEqual([p["feature"] for p in self.queue()["parks"]], ["1. A"], r.stdout)
+
+    # A question asked in a feature's worktree records the start branch; the child on its feature branch resumes it.
+    def test_start_branch_not_stale(self):
+        r = run.Run.__new__(run.Run)
+        r.branch, r.repo = "feat/0033-x", {"start_branch": "feat/release-4"}
+        feats = [types.SimpleNamespace(name="40. X", queued=True)]
+        d = {"answer": "done", "feature": "40. X"}
+        self.assertFalse(r.stale({**d, "branch": "feat/release-4"}, feats))
+        self.assertFalse(r.stale({**d, "branch": "feat/0033-x"}, feats))
+        self.assertTrue(r.stale({**d, "branch": "main"}, feats))
 
 
 if __name__ == "__main__":
