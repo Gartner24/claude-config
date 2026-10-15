@@ -71,6 +71,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 50 | Fewer avoidable stops | Release 8 | done |
 | 51 | Autonomous mode per chat | Release 8 | in-progress |
 | 52 | Review leftovers 2026-10-15 | Release 8 | in-progress |
+| 53 | Only a typed /auto turns on or releases | Release 8 | needs a decision |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -765,6 +766,16 @@ Only you release a repo from a chat; a check handing parts to a later step needs
 - [ ] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync review leftovers 2026-10-15`
 Spec [0047](../specs/0047-review-leftovers/index.md) · code in `runner/auto.py`, `runner/run.py`, `live/settings.json`, `live/skills/auto/SKILL.md` · Source: [review](../reviews/review-2026-10-15.md) (Leftovers).
+
+### 53. Only a typed /auto turns on or releases · needs a decision
+`wf auto on` and `wf auto release` refuse unless the hook recorded that you typed them, so no spelling of the command lets Claude run them.
+**Done when:** Claude cannot turn a chat on or release a repo by any spelling, and your typed `/auto on` and `/auto release` still work.
+- [ ] Design it (spec): `/architect only a typed auto turns on or releases`
+- [ ] Build it: `/develop only a typed auto turns on or releases`
+- [ ] Verify it: `/check verify only a typed auto turns on or releases`
+- [ ] Test it: `/test only a typed auto turns on or releases`
+- [ ] Sync docs: `/sync only a typed auto turns on or releases`
+Source: [review](../reviews/review-2026-10-15-0047.md) (Leftovers).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
