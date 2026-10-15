@@ -773,11 +773,11 @@ Spec [0047](../specs/0047-review-leftovers/index.md) · code in `runner/auto.py`
 `wf auto on` and `wf auto release` always refuse; only your typed `/auto` turns a chat on or releases a repo, and `wf auto hook` is denied to Claude.
 **Done when:** Claude cannot turn a chat on or release a repo through any spelling of `wf auto on` or `wf auto release`, and your typed `/auto on` and `/auto release` still work.
 - [x] Design it (spec): `/architect only a typed auto turns on or releases`
-- [ ] Build it: `/develop only a typed auto turns on or releases`
-  - [ ] Command refuses on and release, help texts and comments (AC-1, AC-2, AC-3, AC-4)
-  - [ ] Deny `wf auto hook`, the /auto skill text (AC-1b, AC-4)
-  - [ ] Tests moved to direct calls, refusal and typed path tests (AC-5)
-- [ ] Verify it: `/check verify only a typed auto turns on or releases`
+- [x] Build it: `/develop only a typed auto turns on or releases`
+  - [x] Command refuses on and release, help texts and comments (AC-1, AC-2, AC-3, AC-4)
+  - [x] Deny `wf auto hook`, the /auto skill text (AC-1b, AC-4)
+  - [x] Tests moved to direct calls, refusal and typed path tests (AC-5)
+- [x] Verify it: `/check verify only a typed auto turns on or releases`
 - [ ] Test it: `/test only a typed auto turns on or releases`
 - [ ] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync only a typed auto turns on or releases`
@@ -808,14 +808,14 @@ Spec [0048](../specs/0048-organize-and-sync/index.md) · Source: [brief](../brie
 A fixed keep list of 37 skills keeps its description in every session; a script sets every other own skill and command to name only and reports every installed plugin. No skill is deleted, and the six long descriptions you rely on stay unchanged.
 **Done when:** after the script and `./sync.sh`, a new session describes only keep list skills among your own, the report lists every installed plugin (sentry-skills and turned off ones included), and every skill still runs by name.
 - [x] Design it (spec): `/architect fewer skills described in every session`
-- [ ] Build it: `/develop fewer skills described in every session`
-  - [ ] Keep list and script: write, backup, dry run, plugin report (AC-1 to AC-7, AC-9)
-  - [ ] Tests against a temp live dir (AC-8)
-- [ ] Verify it: `/check verify fewer skills described in every session`
-- [ ] Test it: `/test fewer skills described in every session`
+- [x] Build it: `/develop fewer skills described in every session`
+  - [x] Keep list and script: write, backup, dry run, plugin report (AC-1 to AC-7, AC-9)
+  - [x] Tests against a temp live dir (AC-8)
+- [x] Verify it: `/check verify fewer skills described in every session`
+- [x] Test it: `/test fewer skills described in every session`
 - [ ] Run `python3 scripts/skill-keep.py --dry-run`, then without it, then `./sync.sh` right away (AC-7) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync fewer skills described in every session`
-Spec [0050](../specs/0050-fixed-skill-keep-list/index.md) · code in `scripts/skill-keep.py`, `scripts/skill-keep.txt` · Source: [research](../research/organize-and-sync-review-2026-10-15.md), section 5, and the [brief](../briefs/organize-and-sync.md).
+Spec [0050](../specs/0050-fixed-skill-keep-list/index.md) · code in `scripts/skill-keep.py`, `scripts/skill-keep.txt`, `runner/tests/test_skill_keep.py` · Source: [research](../research/organize-and-sync-review-2026-10-15.md), section 5, and the [brief](../briefs/organize-and-sync.md).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
