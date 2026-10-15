@@ -72,7 +72,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 51 | Autonomous mode per chat | Release 8 | in-progress |
 | 52 | Review leftovers 2026-10-15 | Release 8 | done |
 | 53 | Only a typed /auto turns on or releases | Release 8 | in-progress |
-| 54 | Organize claude-config and ~/.claude, sync what you use daily | Release 8 | needs a decision |
+| 54 | Organize claude-config and ~/.claude, sync what you use daily | Release 8 | in-progress |
 | 55 | Fewer skills described in every session | Release 8 | in-progress |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
@@ -783,19 +783,18 @@ Spec [0047](../specs/0047-review-leftovers/index.md) · code in `runner/auto.py`
 - [ ] Sync docs: `/sync only a typed auto turns on or releases`
 Spec [0049](../specs/0049-typed-auto-only/index.md) · code in `runner/auto.py`, `runner/wf.py`, `live/settings.json`, `live/skills/auto/SKILL.md` · Source: [review](../reviews/review-2026-10-15-0047.md) (Leftovers).
 
-### 54. Organize claude-config and ~/.claude, sync what you use daily · needs a decision
+### 54. Organize claude-config and ~/.claude, sync what you use daily · in-progress · auto
 A folder structure and docs that are easy to read, and a repo that holds (or names) everything you use every day, without losing any skill.
 **Done when:** the new layout is live, the rewritten docs read plainly, every skill still works, and a check shows no drift between the repo and `~/.claude`.
 - [x] Design it (spec): `/architect organize and sync claude-config with ~/.claude`
-- [ ] Fill in the skill sources in [untraced-skills.md](../briefs/untraced-skills.md) · waits on you
-- [ ] Amend the spec (original plus patch, untraced skills, short AGENTS.md): `/architect amend 0048 organize and sync`
+- [x] Fill in the skill sources in [untraced-skills.md](../briefs/untraced-skills.md) · waits on you
+- [x] Amend the spec (original plus patch, untraced skills, short AGENTS.md): `/architect amend 0048 organize and sync`
 - [ ] Build it: `/develop organize and sync claude-config with ~/.claude`
   - [ ] Probes P1 and P2, then the repo shape: `claude-home/`, `bin/`, `config/`, every path reference and the live step shapes (AC-1 to AC-4, AC-16)
   - [ ] `bin/claude-config.py` sync, install, drift and the `/claude-config` skill, folding in `skills-audit.sh` (AC-7, AC-9)
-  - [ ] Manifest from the lock file and framework checkouts, edited skills copied in (AC-5, AC-7, AC-8)
-  - [ ] Update one change at a time, the state file and the weekly reminder hook (AC-10, AC-11)
-  - [ ] Docs map first, then the rewrite and the 5 guides (AC-12, AC-13)
-- [ ] Trace the untraced skills in a chat session, write the trace report, copy in what is not found (AC-6, AC-8) · waits on you · later boxes go on
+  - [ ] Manifest from the lock file, framework checkouts and the traced brief, pins by history walk, patches, private store, NOTICE (AC-5 to AC-8)
+  - [ ] Update with the patch carried forward, conflicts and `--resolved`, the state file and the weekly reminder hook (AC-10, AC-11)
+  - [ ] Docs map first, then the rewrite, a short AGENTS.md and the 5 typed guides (AC-12, AC-13)
 - [ ] Verify it: `/check verify organize and sync claude-config with ~/.claude`
 - [ ] Test it: `/test organize and sync claude-config with ~/.claude`
 - [ ] Back up `~/.claude` and the repo, as `migrate.md` step 0 says (AC-14) · waits on you

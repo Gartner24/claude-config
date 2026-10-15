@@ -40,5 +40,13 @@ The manifest is JSON read with the standard library because every other tool her
 
 Edited detection compares a hash of the whole installed folder to the hash of the upstream folder at the pinned version. That needs no network at drift time and catches edits to any file, where the old `skills-audit.sh` hashed only `SKILL.md` and needed a marker string per override.
 
+## Amendment 2026-10-15
+A research review ([docs/research/organize-and-sync-review-2026-10-15.md](../../research/organize-and-sync-review-2026-10-15.md)) kept Option 2's shape and changed three parts. You agreed to all three (brief: [organize-and-sync.md](../../briefs/organize-and-sync.md)).
+
+- **Pin plus patch, not a detached copy.** Chromium treats a diverged copy as a hard fork that can no longer be updated; patch-package and Debian quilt keep the upstream pinned and the edits as a patch. `git merge-file` gives the same result as reviewing each hunk, with far less code, and stops only where your edit and upstream's change overlap (probe P1). A yes per skill stays, so no skill changes without you.
+- **Nothing unlicensed in the public repo.** No license means all rights reserved, so copying untraceable skills in "marked source unknown" would republish files nobody granted. The traced sources in [untraced-skills.md](../../briefs/untraced-skills.md) settle each group's license. Skills whose license forbids publishing are cite only, and packshot (author unknown) gets a private backup copy so it can still be restored.
+- **Short AGENTS.md, typed guides.** Claude Code's memory docs say longer files reduce adherence (about 200 lines); a 2026 study found repository overviews in context files do not help, while non standard rules do. Diataxis keeps tutorial, how to, reference and explanation apart.
+- **Pinning by history walk.** Many installed skills are older upstream versions, so the newest upstream commit cannot be the base. Walking the path's history for a commit with the same folder hash finds the true base; when none matches, `unpinned` says so plainly instead of guessing which lines are yours.
+
 ## References
 Not requested (references level: none).
