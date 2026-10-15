@@ -314,8 +314,9 @@ class Topic(ntfy.Topic):
                 try:
                     return str(api(self.cfg["token"], "sendMessage", {**p, "text": styled, "parse_mode": "HTML"})
                                ["message_id"])
-                except ApiError:
-                    pass
+                except ApiError as e:
+                    # A refused styled message used to fall back silently, so a plain message had no cause to read.
+                    print(f"warning: Telegram refused the styled message, sent plain: {e}", flush=True)
             return str(api(self.cfg["token"], "sendMessage", p)["message_id"])
         mid = retry(self.cfg, send, stopped)
         if mid:

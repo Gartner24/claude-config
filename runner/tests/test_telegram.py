@@ -1,4 +1,5 @@
 import ast
+import contextlib
 import fcntl
 import io
 import json
@@ -260,7 +261,11 @@ class TestSend(TelegramCase):
         self.bot.fail = 1
         t = telegram.Topic(self.cfg, "demo", "loop")
         d = self.decision()
-        self.assertEqual(t.ping(d, lambda: False), "101")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(t.ping(d, lambda: False), "101")
+        # The refusal's reason is printed, so a plain message has a cause you can read in the log.
+        self.assertIn("warning: Telegram refused the styled message, sent plain: sendMessage", out.getvalue())
         first, second = self.bot.sent()
         self.assertEqual(first.get("parse_mode"), "HTML")
         self.assertNotIn("parse_mode", second)
