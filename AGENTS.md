@@ -82,6 +82,10 @@ wf auto on|off|status|start|wait|hook|bar          # autonomous mode (spec 0030)
 
 - run suite: yes
 - done: yes
+- branches: per spec
+- push: draft PR
+- parallel: 4
+- suite: python3 runner/tests/fast.py
 
 ## Agent skills
 
