@@ -143,6 +143,7 @@ function selfTest() {
   assert.strictEqual(run([asst(260000)], s), '');
   assert.strictEqual(run([asst(650000)], s), crit(650));
   assert.strictEqual(run([asst(690000)], s), '');
+  assert.strictEqual(run([asst(760000)], s), '');
 
   // A newer sidechain line is ignored either way.
   assert.strictEqual(run([asst(100000), asst(200000, { isSidechain: true })]), '');
@@ -153,14 +154,26 @@ function selfTest() {
   // Only the last 256 KB is read.
   assert.strictEqual(run([asst(200000), ...Array(3000).fill(userLine.replace('hi', 'x'.repeat(100)))]), '');
   assert.strictEqual(run([asst(650000)], { env: { WF_RUN: '1' } }), '');
-  assert.strictEqual(run([asst(650000)], { session: '../escape' }), '');
+  // Without the guard this id would write dir/escape.json and speak.
+  assert.strictEqual(run([asst(650000)], { session: 'x/../escape' }), '');  // AC-3: a read or parse error is silent, exit 0.
+  for (const input of ['{not json', JSON.stringify({ session_id: 'gone', transcript_path: path.join(dir, 'none.jsonl') })]) {
+    const r = spawnSync(process.execPath, [__filename], { input, env: Object.assign({}, process.env, { TMPDIR: dir, WF_RUN: '' }), encoding: 'utf8' });
+    assert.strictEqual(r.status, 0, r.stderr);
+    assert.strictEqual(r.stdout + r.stderr, '');
+  }
 
   const src = fs.readFileSync(__filename, 'utf8');
   const settings = fs.readFileSync(path.join(__dirname, '..', 'settings.json'), 'utf8');
   assert.deepStrictEqual(driftFindings(src, settings), []);
   assert.strictEqual(driftFindings(src.replace(/(\/\/\s+WARN_TOKENS\s+)150000/, '$1140000'), settings).length, 1);
   assert.strictEqual(driftFindings(src.replace(/(\/\/\s+CRITICAL_TOKENS\s+)650000/, '$1600000'), settings).length, 1);
+  assert.strictEqual(driftFindings(src.replace(/(\/\/\s+AUTOCOMPACT_TOKENS\s+)700000/, '$1800000'), settings).length, 1);
   assert.strictEqual(driftFindings(src, settings.replace(/"autoCompactWindow":\s*700000/, '"autoCompactWindow": 800000')).length, 1);
+
+  // AC-7: PostToolUse runs this hook, and no longer the gsd one.
+  const post = JSON.parse(settings).hooks.PostToolUse.flatMap(h => h.hooks.map(c => c.command));
+  assert.ok(post.some(c => /node "?[^"]*\/\.claude\/hooks\/context-monitor\.js"?$/.test(c)), post.join('\n'));
+  assert.ok(!post.some(c => c.includes('gsd-context-monitor')), post.join('\n'));
 
   fs.rmSync(dir, { recursive: true, force: true });
   console.log('context-monitor: all checks passed');

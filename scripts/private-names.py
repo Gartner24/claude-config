@@ -604,6 +604,10 @@ def selftest():
     shutil.copy(names_file, slive / "private" / "names.txt")
     code, out = run(script=sync_repo / "sync.sh", cwd=sync_repo, extra=sync_env)
     ok(code == 0, f"AC-3 clean sync passes: {out.strip()}")
+    # covers: spec 0037 AC-7, sync copies the context monitor hook back into the repo
+    synced_hook = sync_repo / "hooks" / "context-monitor.js"
+    ok(synced_hook.exists() and synced_hook.read_text() == (slive / "hooks" / "context-monitor.js").read_text(),
+       "0037 AC-7 sync copies hooks/context-monitor.js")
     synced = [(sync_repo / f).read_text() for f in ("settings.json", "settings.local.json")
               if (sync_repo / f).exists()]
     ok(len(synced) == 2 and "autoMode" not in synced[0] and not leaks("".join(synced)),
@@ -694,6 +698,9 @@ def selftest():
     ok(all(is_copy(h) and f"{h}: copied" in out for h in ("pre-commit", "commit-msg")),
        "AC-7 install copies both hooks, regular 0755 files equal to the checker")
     ok(not leaks(out), "install output never holds a name")
+    # covers: spec 0037 AC-7, install copies the context monitor hook live, executable
+    live_hook = ilive / "hooks" / "context-monitor.js"
+    ok(live_hook.exists() and os.access(live_hook, os.X_OK), "0037 AC-7 install copies hooks/context-monitor.js, executable")
     code, out = run(script=irepo / "install.sh", extra=ienv)
     ok(excl.read_text().count("skills/zorblex-site/") == 1, "AC-7 install rerun adds no exclude line twice")
     ok(json.loads((ilive / "settings.json").read_text()) == live_s, "AC-6 install rerun gives the same settings")
