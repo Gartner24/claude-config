@@ -181,6 +181,61 @@ class TestUpdate(Case):
         self.assertEqual(self.tool("update", "--plan").returncode, 0)
         self.assertIn("last_upstream_check", (self.live / "state" / "claude-config.json").read_text())
 
+    def plain(self, status="downloaded", fetch="git", base_hash=None):
+        """An unedited live skill at pinned with its manifest entry."""
+        s = self.live / "skills" / "s"
+        s.mkdir()
+        (s / "SKILL.md").write_text(SKILL)
+        (s / "ref.md").write_text("ref\n")
+        pinned = None if status == "unpinned" else self.pinned
+        self.manifest({"s": {"kind": "skill", "status": status, "source": str(self.up), "path": "skills/s",
+                             "pinned": pinned, "base_hash": base_hash or (None if pinned is None else cc.folder_hash(s)),
+                             "license": "MIT", "publish": True, "patch": None, "fetch": fetch, "install": "x",
+                             "framework": None}})
+        return s
+
+    # covers: AC-10 (a downloaded entry is replaced with upstream now; pinned moves, no patch)
+    def test_downloaded_replaced(self):
+        s = self.plain()
+        head = self.commit({"skills/s/SKILL.md": SKILL + "line 7\n", "skills/s/ref.md": None})
+        r = self.tool("update", "--apply", "s")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual((s / "SKILL.md").read_text(), SKILL + "line 7\n")
+        self.assertFalse((s / "ref.md").exists())
+        e = self.manifest()["entries"]["s"]
+        self.assertEqual((e["pinned"], e["status"], e["patch"], e["base_hash"]), (head, "downloaded", None, cc.folder_hash(s)))
+
+    # covers: AC-10 (an unpinned entry, on yes, is replaced and becomes downloaded)
+    def test_unpinned_becomes_downloaded(self):
+        s = self.plain(status="unpinned")
+        (s / "SKILL.md").write_text("mine, no known base\n")
+        head = self.commit({"skills/s/SKILL.md": SKILL + "line 7\n"})
+        self.assertIn("s (unpinned): upstream", self.tool("update", "--plan").stdout)
+        r = self.tool("update", "--apply", "s")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual((s / "SKILL.md").read_text(), SKILL + "line 7\n")
+        e = self.manifest()["entries"]["s"]
+        self.assertEqual((e["pinned"], e["status"]), (head, "downloaded"))
+
+    # covers: AC-10 (--apply refuses a fetch: manual entry; the plan lists it as update by hand)
+    def test_manual_refused(self):
+        self.plain(fetch="manual")
+        self.commit({"skills/s/SKILL.md": SKILL + "line 7\n"})
+        before = self.state()
+        self.assertEqual(self.tool("update", "--apply", "s").returncode, 1)
+        self.assertEqual(self.state(), before)
+        self.assertIn("s: update by hand, not checked", self.tool("update", "--plan").stdout)
+
+    # covers: AC-10 (the base fetched again by commit no longer hashes to base_hash: reported, nothing changes)
+    def test_base_moved(self):
+        self.plain(base_hash="0" * 64)
+        self.commit({"skills/s/SKILL.md": SKILL + "line 7\n"})
+        before = self.state()
+        r = self.tool("update", "--apply", "s")
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertIn("no longer hashes to base_hash", r.stdout)
+        self.assertEqual(self.state(), before)
+
     # covers: AC-10 (a file upstream deleted is deleted when you did not edit it, a conflict when you did)
     def test_merge_deletes(self):
         base, mine, theirs, out = (self.tmp / n for n in ("b", "m", "t", "o"))
@@ -223,6 +278,27 @@ class TestDrift(Case):
         (support / "ref.md").write_text("ref\n")
         r = self.tool("drift")
         self.assertEqual((r.returncode, r.stdout.strip()), (0, "drift: none"), r.stdout + r.stderr)
+
+    # covers: AC-9 (settings compare after the sync transform: the home path swap and the ignored keys are not
+    # drift, a real difference is, under kind setting)
+    def test_settings(self):
+        home = self.tmp / "home"
+        home.mkdir()
+        self.env["HOME"] = str(home)
+        (self.repo / "config" / "drift-ignore.json").write_text(json.dumps(["skillOverrides.x"]))
+        repo = {"model": "a", "hooks": {"Stop": cc.AUTHOR_HOME + "/.claude/hooks/h.sh"},
+                "skillOverrides": {"x": "off", "y": "on"}}
+        (self.repo / "claude-home" / "settings.json").write_text(json.dumps(repo))
+        live = {"model": "a", "hooks": {"Stop": f"{home}/.claude/hooks/h.sh"}, "skillOverrides": {"x": "on", "y": "on"}}
+        (self.live / "settings.json").write_text(json.dumps(live))
+        r = self.tool("drift")
+        self.assertEqual((r.returncode, r.stdout.strip()), (0, "drift: none"), r.stdout + r.stderr)
+        live["model"] = "b"
+        live["skillOverrides"]["y"] = "off"
+        (self.live / "settings.json").write_text(json.dumps(live))
+        r = self.tool("drift")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("setting:\n  settings.json: model: differs\n  settings.json: skillOverrides: differs", r.stdout)
 
     # covers: AC-7 (the old override guard: a reinstall over an edited skill shows in drift)
     def test_override_lost(self):
@@ -285,6 +361,24 @@ class TestBuild(Case):
         self.assertIn("- fig:", not_redistributed)
         self.assertIn("- unknown: source unknown (unknown)", not_redistributed)
         self.assertNotIn("- a:", not_redistributed)
+
+    # covers: AC-8 (a skill holding a private name gets no manifest entry, goes to the private store, stays
+    # installed untouched, and drift still accounts for it)
+    def test_private_name_skill(self):
+        s = self.live / "skills" / "secret"
+        s.mkdir()
+        (s / "SKILL.md").write_text("made for Zorblex\n")
+        self.manifest({})
+        (self.repo / "docs").mkdir()
+        self.env.update(CLAUDE_CONFIG_LOCK=str(self.tmp / "nolock.json"), XDG_CACHE_HOME=str(self.tmp / "cache"))
+        r = self.tool("build")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("secret: private name, copied to the private store only", r.stdout)
+        self.assertNotIn("secret", self.manifest()["entries"])
+        self.assertNotIn("zorblex", (self.repo / "config" / "manifest.json").read_text().lower())
+        self.assertEqual((self.live / "private" / "skills" / "secret" / "SKILL.md").read_text(), "made for Zorblex\n")
+        self.assertEqual((s / "SKILL.md").read_text(), "made for Zorblex\n")
+        self.assertEqual(self.tool("drift").returncode, 0, self.tool("drift").stdout)
 
     # covers: AC-6 (the history walk passes over the commit that deleted the folder and finds the older match)
     def test_pin_past_deletion(self):
