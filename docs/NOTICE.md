@@ -47,3 +47,39 @@ The 6-line "Prompt Defense Baseline" block after the frontmatter of 29 files in 
 (the 27 ECC agents plus `regression-hunter.md` and `pr-intent-verifier.md`) is upstream
 ECC boilerplate. Editing one copy does not change the other 28. `scout.md` and
 `researcher.md` do not carry it.
+
+<!-- manifest:start -->
+
+## Downloaded skills with a public patch
+
+Written by `bin/claude-config.py build` from `config/manifest.json`; edit the manifest, not this part.
+
+## Not redistributed
+
+Named in the manifest only; no file or patch of these is in this repo.
+
+- astro: astrolicious/agent-skills (unknown)
+- figma-code-connect: figma/mcp-server-guide (none)
+- figma-create-new-file: figma/mcp-server-guide (none)
+- figma-design-to-code: figma/mcp-server-guide (none)
+- figma-generate-design: figma/mcp-server-guide (none)
+- figma-generate-diagram: figma/mcp-server-guide (none)
+- figma-generate-library: figma/mcp-server-guide (none)
+- figma-generative-plugins: figma/mcp-server-guide (none)
+- figma-implement-motion: figma/mcp-server-guide (none)
+- figma-shaders: figma/mcp-server-guide (none)
+- figma-swiftui: figma/mcp-server-guide (none)
+- figma-use: figma/mcp-server-guide (none)
+- figma-use-figjam: figma/mcp-server-guide (none)
+- figma-use-motion: figma/mcp-server-guide (none)
+- figma-use-slides: figma/mcp-server-guide (none)
+- high-end-visual-design: Leonxlnx/taste-skill (unknown)
+- industrial-brutalist-ui: Leonxlnx/taste-skill (unknown)
+- minimalist-ui: Leonxlnx/taste-skill (unknown)
+- packshot: source unknown (unknown)
+- project-finder: source unknown (unknown)
+- tailwind-4-docs: lombiq/tailwind-agent-skills (unknown)
+- transitions-dev: Jakubantalik/transitions.dev (custom)
+- transitions-polish: Jakubantalik/transitions.dev (custom)
+
+<!-- manifest:end -->
