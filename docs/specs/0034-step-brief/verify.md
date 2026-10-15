@@ -2,7 +2,7 @@
 _Steps derived from spec 0034 acceptance criteria. `/check verify` runs these; `/test` locks the durable ones._
 
 ## Commands
-- [x] `python3 -B -m unittest discover -s runner/tests -p test_brief.py` -> 18 tests OK -> AC-1 to AC-10
+- [x] `python3 -B -m unittest discover -s runner/tests -p test_brief.py` -> 33 tests OK -> AC-1 to AC-10 (2026-10-15, after the PR 9 review fixes)
 - [x] In a scratch repo, a feature with `Source: [brief](../briefs/a.md)` whose brief says "Store rows in SQLite" under `## Agreed so far, do not ask again`: run `wf run <repo> -y` with the fake claude, read call 1's `--append-system-prompt` -> it holds that line between `BEGIN BRIEF-DATA-0` and `END BRIEF-DATA-0`, after the unattended prompt -> AC-1, AC-2, AC-5
 - [x] Same repo, step 1 rewrites the brief to "Postgres" -> call 2's prompt says Postgres, not SQLite -> AC-7
 - [x] Same repo, `Spec [0001](../specs/0001-a/index.md)` on the feature: the spec's `## What you're agreeing to` section is in the block, its `## Acceptance criteria` is not -> AC-3
@@ -13,7 +13,7 @@ _Steps derived from spec 0034 acceptance criteria. `/check verify` runs these; `
 - [x] An issues repo feature with three 20000 character issues of two byte characters plus a brief -> the call still starts, the brief part is replaced by "Left out for size: ...", and the run notes it -> AC-9
 
 ## Acceptance-criteria coverage
-- AC-1 `TestWhichBrief.test_found`, `test_refused` · AC-2 `TestSections.test_levels` · AC-3 `TestWhichSpec`, `TestSections.test_spec_level` · AC-4 `TestBlock.test_cap`, `test_cap_outside` · AC-5 `TestBlock.test_block`, `test_marker` · AC-6 `TestBlock.test_gaps`, `TestCalls.test_no_brief` · AC-7 `TestCalls.test_every_call` · AC-8 `TestBlock.test_unreadable` · AC-9 `TestSize`, `TestIssueSize.test_pushed_out` · AC-10 this file
+- AC-1 `TestWhichBrief.test_found`, `test_refused` · AC-2 `TestSections.test_levels` · AC-3 `TestWhichSpec`, `TestSections.test_spec_level` · AC-4 `TestBlock.test_cap`, `test_cap_outside` · AC-5 `TestBlock.test_block`, `test_marker` · AC-6 `TestBlock.test_gaps`, `TestCalls.test_no_brief` · AC-5, AC-7 `TestCallGuard`, `TestNoBriefRead` · AC-7 `TestCalls.test_every_call` · review of PR 9 `TestReviewFixes`, `TestUnreadablePlan` · AC-8 `TestBlock.test_unreadable` · AC-9 `TestSize`, `TestIssueSize.test_pushed_out` · AC-10 this file
 
 ## Run 2026-10-14 (/check verify, PASS)
 Steps 2 to 9 were driven by a scratch driver: real `wf run <repo> -y` on temp repos with the test suite's fake claude, each call's `--append-system-prompt` read back from its saved argv. Each step was then run again against a broken `runner/run.py` (restored after each break) to confirm it can fail:

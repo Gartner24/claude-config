@@ -18,7 +18,7 @@
 - **Fence**: two marker lines (`BEGIN X` and `END X`) around text that is data. The marker is chosen so the text cannot contain it, so the text cannot close its own block and pose as instructions (same as `issue_block`, `runner/run.py:4522-4538`).
 
 ## Acceptance criteria
-- **AC-1** (which brief): `wf` reads the feature's uncommented `Source:` lines outside fenced code blocks (the same lines `linked_issues` reads, `runner/run.py:4343-4368`). Every markdown link target or backticked path on them that ends in `.md` is a candidate. Relative paths resolve from the scope file's folder, `~` expands to the home folder. A candidate counts as a brief only when its real path (symlinks resolved) is a regular file whose parent folder is named `briefs` and that lies inside the repo or inside `~/projects`. At most 3 briefs, in order, each once.
+- **AC-1** (which brief): `wf` reads the feature's uncommented `Source:` lines outside fenced code blocks (the same lines `linked_issues` reads, `runner/run.py:4343-4368`). Every markdown link target or backticked path on them, after `Source:` and up to the next `·` (so the row's own `Spec [..](..)` link is not read as a brief), that ends in `.md` is a candidate. Relative paths resolve from the scope file's folder, `~` expands to the home folder. A candidate counts as a brief only when its real path (symlinks resolved) is a regular file whose parent folder is named `briefs` and that lies inside the repo or inside `~/projects`. At most 3 briefs, in order, each once.
 - **AC-2** (which section): from each brief, the section whose heading starts with "Agreed so far" (any heading level, case ignored), up to the next heading of the same or a higher level. Nothing else from the brief is sent.
 - **AC-3** (which spec summary): `wf` reads the feature's `Spec` lines for links into the repo's `docs/specs/` (or `.workflow/specs/` for a `.workflow/scope` base). For each linked spec (at most 3; a folder link means its `index.md`), the `## What you're agreeing to` section up to the next `##` heading. The real path must stay inside that specs folder.
 - **AC-4** (cap): each brief section is cut at 6000 characters and each spec section at 2000; a cut section ends with the line `[cut at <n> characters; the full text is in <path relative to the repo, or the file name for a brief outside it>]`. Control characters other than newline are removed (`PROMPT_CONTROL`, `runner/run.py:398`).
@@ -30,9 +30,9 @@
 - **AC-10** (tests, `runner/tests/test_brief.py`): a fixture scope and brief cover AC-1 (a symlink from `docs/briefs/` to a file outside any `briefs` folder is refused; a `../` path leaving the repo and `~/projects` is refused), AC-2 (heading levels), AC-3, AC-4 (cut line), AC-5 (a brief containing `END BRIEF-DATA-0` gets marker 1), AC-6 (each gap sentence and note), AC-9 (an oversized issue block pushes the brief out, the call still starts).
 
 ## Build plan
-1. Readers: `brief_paths`, `agreed_section`, `spec_summary` beside `linked_issues` in `runner/run.py`, with the AC-1 path rules. AC-1, AC-2, AC-3.
-2. Block: `brief_block` with cap, control strip and fence, and the gap sentences and notes. AC-4, AC-5, AC-6.
-3. Wiring: `self.brief_prompt` set next to `self.issue_check()` before every call, appended in `call()` after `self.issue_prompt`; the size guard. AC-7, AC-8, AC-9.
+1. Readers: `brief_paths`, `spec_paths`, `md_section` beside `linked_issues` in `runner/run.py`, with the AC-1 path rules. AC-1, AC-2, AC-3.
+2. Block: `brief_data` and `brief_parts` with cap, control strip and fence, and the gap sentences and notes. AC-4, AC-5, AC-6.
+3. Wiring: `Run.brief_check` sets `self.brief` next to `self.issue_check()` before every call; `call()` appends it after `self.issue_prompt` for that feature's own calls (never an isolated call); the size guard `brief_fit`. AC-7, AC-8, AC-9.
 4. Tests and the `docs/architecture.md` components row for `claude -p` calls ("each gets the unattended prompt, the brief and spec summary, ..."). AC-10.
 
 ## Probes

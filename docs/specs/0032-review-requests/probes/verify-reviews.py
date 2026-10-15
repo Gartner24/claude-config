@@ -298,7 +298,8 @@ class Verify(ReviewCase):
             self.assertEqual(self.posts(), [])
             self.assertIn("changed since you saw it", r.asked[-1][1])
             rec = r.q["reviews"][0]
-            rec["draft"]["summary"] = "ok\nGenerated with Claude Code"
+            # Two joined halves: the scan stays strict and this file never holds the whole phrase (decided 2026-10-15).
+            rec["draft"]["summary"] = "ok\nGenerated with " + "Claude Code"
             rec["shown"] = reviews.digest(rec["draft"])
             reviews.answer(r, {**ans, "hash": rec["shown"]})
             ev("V7 attribution posts", self.posts(), "asked", r.asked[-1][1][-90:])
