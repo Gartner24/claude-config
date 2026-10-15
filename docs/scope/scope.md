@@ -72,7 +72,8 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 51 | Autonomous mode per chat | Release 8 | in-progress |
 | 52 | Review leftovers 2026-10-15 | Release 8 | done |
 | 53 | Only a typed /auto turns on or releases | Release 8 | needs a decision |
-| 54 | Organize claude-config and ~/.claude, sync what you use daily | Release 8 | in-progress |
+| 54 | Organize claude-config and ~/.claude, sync what you use daily | Release 8 | needs a decision |
+| 55 | Fewer skills described in every session | Release 8 | needs a decision |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -778,10 +779,12 @@ Spec [0047](../specs/0047-review-leftovers/index.md) · code in `runner/auto.py`
 - [ ] Sync docs: `/sync only a typed auto turns on or releases`
 Source: [review](../reviews/review-2026-10-15-0047.md) (Leftovers).
 
-### 54. Organize claude-config and ~/.claude, sync what you use daily · in-progress · auto
+### 54. Organize claude-config and ~/.claude, sync what you use daily · needs a decision
 A folder structure and docs that are easy to read, and a repo that holds (or names) everything you use every day, without losing any skill.
 **Done when:** the new layout is live, the rewritten docs read plainly, every skill still works, and a check shows no drift between the repo and `~/.claude`.
 - [x] Design it (spec): `/architect organize and sync claude-config with ~/.claude`
+- [ ] Fill in the skill sources in [untraced-skills.md](../briefs/untraced-skills.md) · waits on you
+- [ ] Amend the spec (original plus patch, untraced skills, short AGENTS.md): `/architect amend 0048 organize and sync`
 - [ ] Build it: `/develop organize and sync claude-config with ~/.claude`
   - [ ] Probes P1 and P2, then the repo shape: `claude-home/`, `bin/`, `config/`, every path reference and the live step shapes (AC-1 to AC-4, AC-16)
   - [ ] `bin/claude-config.py` sync, install, drift and the `/claude-config` skill, folding in `skills-audit.sh` (AC-7, AC-9)
@@ -796,6 +799,12 @@ A folder structure and docs that are easy to read, and a repo that holds (or nam
 - [ ] Check every skill name still opens, then remove the temporary `live` link (AC-15) · waits on you
 - [ ] Sync docs: `/sync organize and sync claude-config with ~/.claude`
 Spec [0048](../specs/0048-organize-and-sync/index.md) · Source: [brief](../briefs/organize-and-sync.md).
+
+### 55. Fewer skills described in every session · needs a decision
+Claude picks the right skill more often and spends less context: only about 35 skills keep their description in every session, the rest stay installed and callable by name. No skill is deleted.
+**Done when:** `/doctor` shows about 35 described skills, the 8 descriptions over 1,024 characters are shortened or name only, plugin skills are reviewed, and every skill still runs by name.
+- [ ] Design it (spec): `/architect fewer skills described in every session`
+Source: [research](../research/organize-and-sync-review-2026-10-15.md), section 5, and the [brief](../briefs/organize-and-sync.md).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
