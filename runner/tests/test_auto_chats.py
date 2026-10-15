@@ -182,6 +182,19 @@ class TestRunningCount(ChatCase):
         with mock.patch("run.read_active", lambda: act):
             self.assertEqual(auto.counts({str(self.folder)})[0], "")
 
+    # A chat holding its repo through a symlink still counts the runs and questions the runner files by real path.
+    def test_symlinked_repo(self):
+        link = self.tmp / "link"
+        link.symlink_to(self.folder)
+        Path(auto.path()).parent.mkdir(parents=True, exist_ok=True)
+        Path(auto.path()).write_text(json.dumps({"version": 2, "chats": {str(self.folder): {"repos": [str(link)]}}}))
+        act = [{"repo": str(self.folder), "feature": "1. A"}]
+        q = [{"id": "ab12", "repo": str(self.folder), "answer": None}]
+        with mock.patch("run.read_active", lambda: act), mock.patch("auto.held", lambda p: True), \
+                mock.patch("run.queue_transact", lambda: {"decisions": q}):
+            line = auto.status_line(str(self.folder))
+        self.assertIn("wf running 1 feature(s) in 1 repo(s), 1 question(s)", line)
+
 
 class TestOneOwner(ChatCase):
     # covers: AC-2, AC-4 (a repo a live chat holds is left out of another chat's /auto on and named; an idle chat's

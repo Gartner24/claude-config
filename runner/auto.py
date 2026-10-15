@@ -82,6 +82,9 @@ def load():
         if not isinstance(chats, dict) or not all(isinstance(c, dict) and isinstance(c.get("repos"), list)
                                                   for c in chats.values()):
             return None
+        # The runner writes real paths to active.json and queue.json; a repo kept through a symlink matched neither.
+        for c in chats.values():
+            c["repos"] = list(dict.fromkeys(os.path.realpath(p) for p in c["repos"]))
         return s
     chats = {}
     if s.get("on") is True and isinstance(s.get("folder"), str):
