@@ -386,7 +386,7 @@ Eight runner changes: wait through an API outage, stop on a crash loop, count to
 - [x] Run the real end to end with `!`: `python3 runner/e2e/run.py`, record it in `docs/specs/0014-runner-resilience/verify.md` (AC-5, AC-9) · waits on you
 - [x] Sync docs: `/sync runner resilience`
 Spec [0014](../specs/0014-runner-resilience/index.md) · code in `runner/run.py`, `runner/wf.py`, `runner/e2e/`, tests in `runner/tests/test_resilience.py`
-Source: [~/projects/docs/briefs/runner-ideas-2026-10-12.md](../../../projects/docs/briefs/runner-ideas-2026-10-12.md) (spec A, ideas 1 to 6); personal scope row 24 (skip ahead and `/sync` box notes); personal scope row 18.
+Source: [~/projects/docs/briefs/runner-ideas-2026-10-12.md](../../../../projects/docs/briefs/runner-ideas-2026-10-12.md) (spec A, ideas 1 to 6); personal scope row 24 (skip ahead and `/sync` box notes); personal scope row 18.
 
 ### 25. Checks that cannot lie · done · auto
 One always loaded rule file the vendored skills cannot overwrite: verify steps and tests must be able to fail, every spec lists its files and `/sync` warns on stale ones, and cross checks compare against the brief. Under `wf run` a pass without its check line parks `unchecked`.
@@ -403,7 +403,7 @@ One always loaded rule file the vendored skills cannot overwrite: verify steps a
 - [x] Run probes P1 to P3 with `!` and record them in `docs/specs/0015-checks-that-cannot-lie/verify.md` (AC-10) · waits on you
 - [x] Sync docs: `/sync checks that cannot lie`
 Spec [0015](../specs/0015-checks-that-cannot-lie/index.md) · code in `runner/run.py`, `scripts/spec-paths.py`, `rules/check-gates.md`, `install.sh`, tests in `runner/tests/test_checks.py`, `runner/tests/test_spec_paths.py`
-Source: [~/projects/docs/briefs/runner-ideas-2026-10-12.md](../../../projects/docs/briefs/runner-ideas-2026-10-12.md) (spec B, ideas 7 and 8; item 7 narrowed to changed tests, agreed 2026-10-13); personal scope rows 19 and 12 part 2.
+Source: [~/projects/docs/briefs/runner-ideas-2026-10-12.md](../../../../projects/docs/briefs/runner-ideas-2026-10-12.md) (spec B, ideas 7 and 8; item 7 narrowed to changed tests, agreed 2026-10-13); personal scope rows 19 and 12 part 2.
 
 ### 29. Several repos at once · done · auto
 Bare `wf run` becomes a parent that starts today's single repo run once per repo with work, side by side: `--jobs N` caps it, repos sharing an app port, git dir or folder never run together, lines are prefixed `[<repo>]` with one summary at the end. Several features inside one repo at once still waits on feature 14.
@@ -730,7 +730,7 @@ One README map of what lives where, everything installed under live/, guides und
 - [x] Build it: `/develop readable layout`
 - [x] Verify it: `/check verify readable layout`
 - [x] Test it: `/test readable layout`
-- [ ] Run the live migration steps in the spec's migrate.md, one at a time with their checks · waits on you
+- [x] Run the live migration steps in the spec's migrate.md, one at a time with their checks · waits on you (2026-10-15, all steps passed; step 4 left until the open freelance design run closes)
 - [ ] Sync docs: `/sync readable layout`
 Spec [0035](../specs/0035-readable-layout/index.md) · code in `live/`, `sync.sh`, `install.sh`, `scripts/`, `runner/finish.py`, `README.md` · Source: personal scope row 9.
 
