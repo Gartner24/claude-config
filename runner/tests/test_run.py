@@ -43,20 +43,6 @@ if any("BEGIN PLAN-DATA-" in a for a in sys.argv[1:]):
     print(json.dumps({{"type": "result", "subtype": "success", "is_error": False, "result": text,
                       "total_cost_usd": 0.1, "session_id": "explain-%d" % k, "num_turns": 1}}))
     sys.exit(0)
-if any("You are combining finished feature branches" in a for a in sys.argv[1:]):
-    # Spec 0043 AC-3: a combine resolve call takes no build step; combine.json scripts the files it writes.
-    k = len([f for f in os.listdir(d) if f.startswith("combine-argv-")]) + 1
-    json.dump({{"argv": sys.argv[1:], "cwd": os.getcwd(), "pid": os.getpid(), "pgid": os.getpgid(0)}},
-              open(os.path.join(d, f"combine-argv-{{k}}.json"), "w"))
-    p = os.path.join(d, "combine.json")
-    spec = json.load(open(p)) if os.path.exists(p) else {{}}
-    for path, text in spec.get("write", []):
-        open(os.path.join(os.getcwd(), path), "w").write(text)
-    for argv in spec.get("run", []):
-        subprocess.run(argv, cwd=os.getcwd(), capture_output=True)
-    print(json.dumps({{"type": "result", "subtype": "success", "is_error": False, "result": "settled",
-                      "total_cost_usd": 0.1, "session_id": "combine-%d" % k, "num_turns": 1}}))
-    sys.exit(0)
 steps = json.load(open(os.path.join(d, "steps.json")))
 key = ""
 if isinstance(steps, dict):

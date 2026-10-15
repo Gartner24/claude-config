@@ -20,7 +20,7 @@ NO_STEPS = "I could not work out the steps; open a session in the {} repo ({}) a
 # Security review (steered authorization): questions whose answer widens what a call may write, merges, posts, pushes
 # or clears a gate. Their why is the runner's fixed line, call text shows only quoted as unverified, never steps.
 AUTH = frozenset(("denied", "approved", "review_draft", "foreign_commits", "guard_changed", "rebase", "private_names",
-                  "attribution", "live_step"))
+                  "attribution", "live_step", "merge_ready"))
 UNVERIFIED = "what the step said, unverified:"
 
 

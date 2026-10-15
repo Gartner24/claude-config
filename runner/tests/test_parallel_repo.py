@@ -121,8 +121,9 @@ class TestSameRepo(RepoCase):
         self.assertNotIn("waits:", r.stdout)
         self.assertEqual((self.repo / ".git" / "HEAD").read_text(), "ref: refs/heads/work\n")
         s = summary(r.stdout)
-        # Spec 0043 AC-3: the combine child after the features.
-        self.assertEqual([x.split(": exit")[0] for x in s], ["  par: 1. A", "  par: 2. B", "  par: 3. C", "  par: combine"])
+        # Spec 0051 AC-2: no combine child after the features, and no wf/combined-* branch; each keeps its own.
+        self.assertEqual([x.split(": exit")[0] for x in s], ["  par: 1. A", "  par: 2. B", "  par: 3. C"])
+        self.assertNotIn("wf/combined-", self.git("branch", "--format=%(refname:short)"))
         feats = self.by_feature()
         (ra, ea), (rb, eb), (rc, ec) = feats["1. A"], feats["2. B"], feats["3. C"]
         ca, cb, cc = ra["calls"][0], rb["calls"][0], rc["calls"][0]

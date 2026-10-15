@@ -307,10 +307,10 @@ class TestCallGuard(unittest.TestCase):
     def test_own_feature(self):
         self.assertIn(run.BRIEF_PROMPT + "Agreed:\nBEGIN BRIEF-DATA-0\n- Store rows in SQLite.\n", self.prompt("1. A"))
 
-    # covers: AC-7 (only that feature's calls get it: a later call for another feature, a PR review or the combine
-    # step, never gets the last feature's brief)
+    # covers: AC-7 (only that feature's calls get it: a later call for another feature or a PR review never gets the
+    # last feature's brief)
     def test_other_feature(self):
-        for feature in ("2. B", "combine", None):
+        for feature in ("2. B", None):
             with self.subTest(feature):
                 self.assertNotIn("SQLite", self.prompt(feature))
 

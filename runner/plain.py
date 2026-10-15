@@ -110,10 +110,12 @@ PLAIN = {
     "rebase_conflict": ("moving the branch hit clashing edits",
                         "Moving this work on top of the newer work found the same lines changed both ways. Leave it "
                         "for you to sort out, or try again."),
-    "combine_conflict": ("this feature could not join the combined branch",
-                         "At the end of the run every finished feature is joined into one branch. This one changed the "
-                         "same lines as another, and the automatic fix did not pass its checks, so it stayed out. Its own "
-                         "branch is untouched. Leave it for you, or let the next run try again."),
+    "merge_ready": ("a PR passed its checks and waits for your review",
+                    "The work passed every check, but it is too big or touches files that need a person to look. "
+                    "Run your review on it, then merge now joins it to the main line; later leaves it waiting."),
+    "merge_conflict": ("the branch clashes with the newest main line",
+                       "Before joining, the build brings each branch up to date with the main line. This one changed "
+                       "the same lines as newer work there. Leave it for you, or let the next run try again."),
     "app_failed": ("the app would not start for the checks",
                    "To check the feature it starts your app, like turning a machine on before testing it. "
                    "The app did not come up. Retry starts it again; skip moves on."),
@@ -198,7 +200,8 @@ WHY = {
     "approved": "it was approved at exactly this code, and only your tap merges it",
     "rebase": "moving it now keeps the review request current with the work below it",
     "rebase_conflict": "clashing edits need a person to choose between them",
-    "combine_conflict": "a clash the automatic fix could not settle needs a person to choose what stays",
+    "merge_ready": "it passed every check at exactly this code, and only your tap merges it",
+    "merge_conflict": "clashing edits need a person to choose between them",
     "review_request": "a draft costs one read only call and posts nothing without your tap",
     "review_draft": "it is exactly the draft shown above; nothing else is posted",
     "foreign_commits": "files that can run code were changed by someone else, so look first",
