@@ -1,0 +1,55 @@
+{
+  "entries": {},
+  "frameworks": {
+    "anthropic-security-review": {
+      "dir": "~/.claude/skills/anthropic-security-review",
+      "fetch": "git",
+      "install": "git clone https://github.com/anthropics/claude-code-security-review ~/.claude/skills/anthropic-security-review",
+      "license": "MIT",
+      "pinned": "0c6a49f1fa56a1d472575da86a94dbc1edb78eda",
+      "source": "github:anthropics/claude-code-security-review"
+    },
+    "get-shit-done": {
+      "dir": "~/.claude/get-shit-done",
+      "fetch": "manual",
+      "install": "npx get-shit-done-cc (pinned at 1.34.2: read docs/guides/SKILLS.md first, a rerun reinstalls the purged routes)",
+      "license": "unknown",
+      "owns": ["hooks/gsd-*"],
+      "pinned": "1.34.2",
+      "source": "npm:get-shit-done-cc"
+    },
+    "getsentry-skills": {
+      "dir": "~/.claude/skills/getsentry-skills",
+      "fetch": "git",
+      "install": "git clone https://github.com/getsentry/skills ~/.claude/skills/getsentry-skills",
+      "license": "Apache-2.0",
+      "pinned": "c2f99a5b04b4cd992ec3022d7c2c3e23e938d241",
+      "source": "github:getsentry/skills"
+    },
+    "gstack": {
+      "dir": "~/.claude/skills/gstack",
+      "fetch": "git",
+      "install": "installed by jjstack's ./setup (it clones garrytan/gstack); update with git -C ~/.claude/skills/gstack merge --ff-only origin/main && ./setup, before jjstack's",
+      "license": "MIT",
+      "pinned": "b9706f3635b6a545f46fae607ae9d6bcbfb69b91",
+      "source": "github:garrytan/gstack"
+    },
+    "jjstack": {
+      "dir": "~/.claude/skills/jjstack",
+      "fetch": "manual",
+      "install": "git clone <jjstack source from ~/.claude/private/work.md> ~/.claude/skills/jjstack && cd ~/.claude/skills/jjstack && ./setup",
+      "license": "MIT",
+      "pinned": "0b659d3c395fc56cf8b1d576a01b825efb0f165f",
+      "source": "private: ~/.claude/private/work.md"
+    },
+    "vendor-jsm-skills": {
+      "dir": "~/.claude/vendor-jsm-skills",
+      "fetch": "git",
+      "install": "git clone https://github.com/JavaScript-Mastery-Pro/skills ~/.claude/vendor-jsm-skills, then link each skills/<name> into ~/.claude/skills",
+      "license": "MIT",
+      "pinned": "43b69e44c9ca905fe3a3418ccdf4102255e20d40",
+      "source": "github:JavaScript-Mastery-Pro/skills"
+    }
+  },
+  "version": 1
+}

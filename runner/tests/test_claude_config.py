@@ -224,6 +224,53 @@ class TestDrift(Case):
         self.assertIn("s: your edit is no longer in it", self.tool("drift").stdout)
 
 
+class TestBuild(Case):
+    # covers: AC-5, AC-6, AC-7, AC-8 happy path: an older pinned commit found by the history walk, a lock entry
+    # edited after install pinned by its tree hash with a public patch, a cite only skill with nothing in the repo,
+    # an untraceable one in the private store, and every live skill accounted for
+    def test_build(self):
+        self.git(self.up, "config", "uploadpack.allowFilter", "true")
+        old = self.commit({"skills/a/SKILL.md": "---\ndescription: Does a. More.\n---\nA\n", "skills/b/SKILL.md": SKILL,
+                           "skills/fig/SKILL.md": "fig\n", "LICENSE": "MIT\nPermission is hereby granted, free of charge\n"})
+        tree_b = self.git(self.up, "rev-parse", f"{old}:skills/b")
+        self.commit({"skills/a/SKILL.md": "---\ndescription: Does a. More.\n---\nA newer\n"})
+        sk = self.live / "skills"
+        for name, body in (("a", "---\ndescription: Does a. More.\n---\nA\n"), ("b", SKILL.replace("line 3", "mine")),
+                           ("fig", "fig mine\n"), ("unknown", "who\n")):
+            (sk / name).mkdir()
+            (sk / name / "SKILL.md").write_text(body)
+        own = self.repo / "claude-home" / "skills" / "own"
+        own.mkdir()
+        (own / "SKILL.md").write_text("own\n")
+        (sk / "own").symlink_to(own)
+        src = f"file://{self.up}"
+        (self.repo / "docs" / "briefs").mkdir(parents=True)
+        (self.repo / "docs" / "briefs" / "untraced-skills.md").write_text(
+            f"# t\n\n## G\na\nSource: {src}, `skills/<name>/SKILL.md`. Confirmed.\nLicense: MIT (x).\n"
+            f"Publish an edited copy: yes, keep the notice.\n\nfig\nSource: {src}, `skills/<name>/`.\nLicense: none.\n"
+            f"Publish an edited copy: NO.\n\n## Formerly unclear\n- unknown: author UNKNOWN. Publish: no, cite only.\n")
+        lock = self.tmp / "lock.json"
+        lock.write_text(json.dumps({"skills": {"b": {"source": "x/y", "sourceType": "git", "sourceUrl": src,
+                                                     "skillPath": "skills/b/SKILL.md", "skillFolderHash": tree_b}}}))
+        self.manifest({})
+        self.env.update(CLAUDE_CONFIG_LOCK=str(lock), XDG_CACHE_HOME=str(self.tmp / "cache"))
+        r = self.tool("build")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("accounting: 0 skill(s)", r.stdout)
+        e = self.manifest()["entries"]
+        self.assertEqual((e["a"]["status"], e["a"]["pinned"], e["a"]["license"], e["a"]["description"]),
+                         ("downloaded", old, "MIT", "Does a."))
+        self.assertEqual((e["b"]["status"], e["b"]["pinned"], e["b"]["patch"]), ("edited", old, "config/patches/b.patch"))
+        self.assertIn("+mine", (self.repo / "config" / "patches" / "b.patch").read_text())
+        self.assertEqual((e["fig"]["status"], e["fig"]["publish"]), ("unpinned", False))
+        self.assertEqual(sorted(p.name for p in (self.repo / "config" / "patches").iterdir()), ["b.patch"])
+        self.assertTrue((self.live / "private" / "skills" / "fig" / "SKILL.md").exists())
+        self.assertEqual((e["unknown"]["status"], e["unknown"]["install"]), ("source-unknown", None))
+        self.assertTrue((self.live / "private" / "skills" / "unknown" / "SKILL.md").exists())
+        self.assertNotIn("own", e)
+        self.assertEqual(self.tool("drift").returncode, 0, self.tool("drift").stdout)
+
+
 class TestReminder(unittest.TestCase):
     _spec = importlib.util.spec_from_file_location("reminder", REAL / "claude-home" / "hooks" / "claude-config-reminder.py")
     hook = importlib.util.module_from_spec(_spec)

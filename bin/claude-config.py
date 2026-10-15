@@ -8,11 +8,14 @@
   update --apply <entry> [--resolved]
                     install upstream now for one entry, your patch merged in; exit 2 on a conflict
   restore           rebuild missing edited skills from upstream at pinned plus their patch (bin/install.sh)
+  patches           (re)write the patch of every edited downloaded skill (bin/sync.sh)
+  build             manifest entries for every downloaded skill folder: lock file, traced brief, history walk
   hash <folder>     the folder hash the manifest's base_hash uses
 
 CLAUDE_LIVE_DIR and CLAUDE_CONFIG_REPO point it at temp trees, for the self checks only.
 Python 3 standard library only.
 """
+import fnmatch
 import hashlib
 import json
 import os
@@ -82,6 +85,7 @@ def linked_kind(kind, manifest, fw, out):
     own = {p.name for p in (HOME_DIR / kind).iterdir()} if (HOME_DIR / kind).is_dir() else set()
     private = LIVE / "private" / kind
     entries = {n: e for n, e in manifest.get("entries", {}).items() if e.get("kind") == label}
+    owns = [g for f in manifest.get("frameworks", {}).values() for g in f.get("owns", [])]
     seen = set()
     for p in live_items(kind):
         name = p.name
@@ -92,7 +96,7 @@ def linked_kind(kind, manifest, fw, out):
                 out.append((label, name, "in the repo, but live is not a link to it"))
         elif p.is_symlink() and not p.exists():
             out.append((label, name, "live link is broken"))
-        elif inside(real, fw):
+        elif inside(real, fw) or any(fnmatch.fnmatch(f"{kind}/{name}", g) for g in owns):
             continue
         elif name in entries:
             e = entries[name]
@@ -143,10 +147,11 @@ def copied_trees(out):
 def other_hooks(manifest, fw, out):
     """Live hooks and scripts outside the copied list: framework links or manifest entries, else drift."""
     entries = manifest.get("entries", {})
+    owns = [g for f in manifest.get("frameworks", {}).values() for g in f.get("owns", [])]
     for kind in ("hooks", "scripts"):
         for p in live_items(kind):
             rel = f"{kind}/{p.name}"
-            if rel in COPIED_FILES or inside(p.resolve(), fw):
+            if rel in COPIED_FILES or inside(p.resolve(), fw) or any(fnmatch.fnmatch(rel, g) for g in owns):
                 continue
             e = entries.get(p.name)
             if e and e.get("kind") == kind.rstrip("s"):
@@ -541,6 +546,216 @@ def restore():
     return bad
 
 
+# ---------------------------------------------------------------- manifest build (AC-5, AC-6, AC-8)
+
+BRIEF = REPO / "docs" / "briefs" / "untraced-skills.md"
+LOCK = Path(os.environ.get("CLAUDE_CONFIG_LOCK") or Path.home() / ".agents" / ".skill-lock.json")
+CACHE = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "claude-config"
+WALK = 200
+
+
+def to_source(u):
+    u = u.rstrip(",.;)")
+    return "github:" + u[len("https://github.com/"):].removesuffix(".git") if u.startswith("https://github.com/") else u
+
+
+def spdx(text):
+    t = text.strip()
+    for key, val in (("MIT", "MIT"), ("Apache-2.0", "Apache-2.0"), ("custom", "custom"), ("none", "none")):
+        if t.startswith(key) or (key in ("MIT", "Apache-2.0") and f" {key}" in f" {t}"):
+            return val
+    return "unknown"
+
+
+def first_sentence(text):
+    text = " ".join(text.split())
+    return text.split(". ")[0].rstrip(".") + "." if text else None
+
+
+def parse_brief(text):
+    """name -> {source, path, license, publish, install, fetch, pinned} from the traced brief's group blocks
+    (names line, Source:, License:, Publish an edited copy:) and its bullet lines (- names: url, `path`. ...)."""
+    import re
+    out, block = {}, None
+
+    def emit(b):
+        for n in b.get("names", []):
+            out[n] = {k: v for k, v in b.items() if k != "names"}
+
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line.startswith("## "):
+            block = None
+        elif line.startswith("- ") and re.match(r"- [a-z0-9_][a-z0-9_, -]*:", line):
+            names, rest = line[2:].split(":", 1)
+            u = re.search(r"(https://github\.com/[^\s,]+|file://[^\s,]+)", rest)
+            if not u:
+                out.update({n.strip(): {"source": None} for n in names.split(",")})  # packshot: author unknown
+                continue
+            path = re.match(r",\s*`([^`]+)`", rest[u.end():])  # only a path right after the URL
+            pip = re.search(r"`(pip install [^`]+)` then `([^`]+)`.*?\(v([\d.]+)\)", rest)
+            lic = re.findall(r"\b(MIT|Apache-2\.0)\b", rest)
+            b = {"names": [n.strip() for n in names.split(",")], "source": to_source(u.group(1)),
+                 "path": path.group(1) if path else ".", "license": lic[0] if lic else "unknown",
+                 "publish": not re.search(r"Publish: no", rest, re.I)}
+            if pip:
+                b.update(fetch="manual", install=f"{pip.group(1)} && {pip.group(2)}", pinned=pip.group(3))
+            emit(b)
+        elif line.startswith("Source:") and block is not None:
+            u = re.search(r"(https://github\.com/[^\s,]+|file://[^\s,]+)", line)
+            path = re.search(r"`([^`]+)`", line)
+            block.update(source=to_source(u.group(1)) if u else None, path=path.group(1) if path else ".")
+            npm = re.search(r"`(npm pack [^`]+)` then `([^`]+)`", line)
+            if npm:
+                block["install"] = f"{npm.group(1)} && {npm.group(2)}"
+        elif line.startswith("License:") and block is not None:
+            block["license"] = spdx(line[len("License:"):])
+        elif line.startswith("Publish an edited copy:") and block is not None:
+            block["publish"] = not line.split(":", 1)[1].strip().upper().startswith("NO")
+            emit(block)
+            block = None
+        elif line and not line.startswith(("#", "-", "3 skills", "Real folders", '"Publish', "Whole file")) \
+                and "," in line + "," and " " not in line.replace(", ", ","):
+            block = {"names": [n.strip() for n in line.split(",")]}
+    for e in out.values():
+        if e.get("path"):
+            e["path"] = e["path"].removesuffix("/SKILL.md").rstrip("/")
+    return out
+
+
+def lock_entries():
+    if not LOCK.exists():
+        return {}
+    skills = json.loads(LOCK.read_text()).get("skills", {})
+    return {n: {"source": "github:" + s["source"] if s.get("sourceType") == "github" else s.get("sourceUrl"),
+                "path": str(Path(s["skillPath"]).parent), "tree": s.get("skillFolderHash"),
+                "install": f"npx skills add {s['source']}"} for n, s in skills.items()}
+
+
+def clone(source):
+    d = CACHE / source.replace(":", "_").replace("/", "_")
+    if d.is_dir():
+        git("fetch", "-q", "origin", cwd=d)
+    else:
+        d.parent.mkdir(parents=True, exist_ok=True)
+        git("clone", "-q", "--filter=blob:none", "--no-checkout", url(source), str(d))
+    return d
+
+
+def pin(repo, path, want_hash, tree, tmp):
+    """AC-6: newest first, at most WALK commits touching path, the first whose folder hashes like the
+    installed one. A lock file entry also matches on its recorded upstream tree hash, which finds the base
+    of a skill you edited after installing it."""
+    log = git("log", "--format=%H", f"-n{WALK}", "HEAD", "--", path, cwd=repo).stdout.decode().split()
+    for c in log:
+        if tree and git("rev-parse", f"{c}:{path}", cwd=repo, check=False).stdout.decode().strip() == tree:
+            return c, folder_hash(export(repo, c, path, tmp))
+        if folder_hash(export(repo, c, path, tmp)) == want_hash:
+            return c, want_hash
+    return None, None
+
+
+def license_at(repo, commit):
+    for name in ("LICENSE", "LICENSE.md", "LICENSE.txt"):
+        r = git("show", f"{commit}:{name}", cwd=repo, check=False)
+        if r.returncode == 0:
+            t = r.stdout.decode(errors="replace")
+            if "Permission is hereby granted, free of charge" in t:
+                return "MIT"
+            if "Apache License" in t and "Version 2.0" in t:
+                return "Apache-2.0"
+            return "unknown"
+    return "unknown"
+
+
+def description(folder):
+    p = Path(folder) / "SKILL.md"
+    if not p.is_file():
+        return None
+    text = p.read_text(errors="replace")
+    if not text.startswith("---"):
+        return None
+    for line in text.split("---", 2)[1].splitlines():
+        if line.startswith("description:"):
+            return first_sentence(line.split(":", 1)[1].strip().strip("'\""))
+    return None
+
+
+def to_private(name, folder):
+    dst = LIVE / "private" / "skills" / name
+    if not dst.exists():
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(folder, dst, symlinks=True, ignore=shutil.ignore_patterns(*SKIP))
+
+
+def build():
+    """Write config/manifest.json entries for every real downloaded skill folder in ~/.claude/skills."""
+    m = load_manifest()
+    fw = framework_dirs(m)
+    fw_by_source = {f.get("source"): k for k, f in m.get("frameworks", {}).items()}
+    own = {p.name for p in (HOME_DIR / "skills").iterdir()} if (HOME_DIR / "skills").is_dir() else set()
+    traced, locked = parse_brief(BRIEF.read_text()) if BRIEF.exists() else {}, lock_entries()
+    report, bad = [], 0
+    with tempfile.TemporaryDirectory() as tmp:
+        for p in live_items("skills"):
+            name = p.name
+            if name in own or inside(p.resolve(), fw):
+                continue
+            if not (p / "SKILL.md").exists():
+                continue
+            if private_name_hit(b"".join(f.read_bytes() for f in sorted(p.rglob("*"))
+                                         if f.is_file() and not SKIP & set(f.relative_to(p).parts))):
+                to_private(name, p)  # AC-8: no manifest entry, the drift check reads the private store
+                report.append(f"{name}: private name, copied to the private store only")
+                continue
+            src = {**traced.get(name, {}), **({k: v for k, v in locked[name].items()} if name in locked else {})}
+            if not src.get("source"):
+                if (LIVE / "private" / "skills" / name).exists() and name not in traced:
+                    continue  # yours or private, kept in the private store
+                to_private(name, p)
+                m["entries"][name] = {"kind": "skill", "status": "source-unknown", "source": None, "path": None,
+                                      "pinned": None, "base_hash": folder_hash(p), "license": "unknown",
+                                      "publish": False, "patch": None, "description": description(p),
+                                      "fetch": "manual", "install": None, "framework": None}
+                report.append(f"{name}: source unknown, copied to the private store")
+                continue
+            fetch_kind = src.get("fetch") or ("git" if src["source"].startswith(("github:", "file://", "/"))
+                                               else "manual")
+            path = name if src.get("path") == "<name>" else src.get("path", ".").replace("<name>", name)
+            e = {"kind": "skill", "source": src["source"], "path": path, "license": src.get("license", "unknown"),
+                 "publish": bool(src.get("publish", False)), "patch": None, "description": description(p),
+                 "fetch": fetch_kind, "framework": fw_by_source.get(src["source"]),
+                 "install": src.get("install") or f"npx skills add {src['source'].removeprefix('github:')}/{path}"}
+            if fetch_kind == "manual":
+                e.update(status="downloaded", pinned=src.get("pinned"), base_hash=folder_hash(p))
+            else:
+                try:
+                    repo = clone(src["source"])
+                    commit, base = pin(repo, path, folder_hash(p), src.get("tree"), tmp)
+                except Gone as err:
+                    report.append(f"{name}: source not reached, entry left as it was: {err}")
+                    bad = 1
+                    continue
+                if name in locked:
+                    e["license"] = license_at(repo, commit or "HEAD")
+                    e["publish"] = e["license"] in ("MIT", "Apache-2.0")
+                e.update(status="downloaded" if commit else "unpinned", pinned=commit, base_hash=base)
+                if commit and base != folder_hash(p):
+                    e["status"] = "edited"
+                    store_patch(name, e, make_patch(export(repo, commit, path, tmp), p, tmp))
+            if not e["publish"] and e["status"] in ("edited", "unpinned"):
+                to_private(name, p)  # cite only: no public files, so the private store keeps your copy
+            m["entries"][name] = e
+            report.append(f"{name}: {e['status']}")
+    save_manifest(m)
+    print("\n".join(report))
+    out = []
+    linked_kind("skills", m, fw, out)
+    left = [f"  {n}: {why}" for k, n, why in out if "live only" in why]
+    print(f"accounting: {len(left)} skill(s) not accounted for" + ("".join("\n" + x for x in left)))
+    return 1 if bad or left else 0
+
+
 def main(argv):
     if not argv or argv[0] in ("-h", "--help"):
         print(__doc__.strip())
@@ -560,6 +775,8 @@ def main(argv):
         return restore()
     if cmd == "patches" and not rest:
         return patches()
+    if cmd == "build" and not rest:
+        return build()
     if cmd == "hash" and len(rest) == 1:
         print(folder_hash(rest[0]))
         return 0
