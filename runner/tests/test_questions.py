@@ -16,6 +16,7 @@ import pr  # noqa: E402
 import questions  # noqa: E402
 import run  # noqa: E402
 import telegram  # noqa: E402
+import wf  # noqa: E402
 from test_queue import DecisionCase, ONE, decision  # noqa: E402
 from test_telegram import TelegramCase, msg_update  # noqa: E402
 from test_wf_bare import BareCase  # noqa: E402
@@ -75,6 +76,28 @@ class TestAnswer(TelegramCase):
             self.assertEqual(questions.screen(False), 130)
         self.assertIsNone(self.queue()[1]["answer"])
 
+    # covers: AC-1, AC-2 (control characters go; a label matches ignoring case; the phone getting there first says
+    # already answered; end of input cancels with 130; an unreadable queue warns and the screen goes on)
+    def test_screen_edges(self):
+        write_queue(self.state, [decision("/r/demo", "1. A", question="Which\x1b[31m engine?"),
+                                 decision("/r/demo", "2. B", did="cd34")])
+        # The second prompt is where the phone answers cd34 while you are still typing.
+        typed = lambda prompt: "sqlite" if "ab12" in prompt else questions.answer("cd34", "1") and "2"
+        out = io.StringIO()
+        with redirect_stdout(out), mock.patch("builtins.input", side_effect=typed):
+            self.assertIsNone(questions.screen(False))
+        self.assertIn("  ab12 demo: 1. A: Which[31m engine?\n", out.getvalue())
+        self.assertIn("answered: ab12 SQLite (keyboard)\n", out.getvalue())
+        self.assertIn("already answered: cd34\n", out.getvalue())
+        write_queue(self.state, [decision("/r/demo", "1. A")])
+        with redirect_stdout(io.StringIO()), mock.patch("builtins.input", side_effect=EOFError):
+            self.assertEqual(questions.screen(False), 130)
+        (self.state / "wf" / "queue.json").write_text("{")
+        out = io.StringIO()
+        with redirect_stdout(out), mock.patch("builtins.input", side_effect=AssertionError("asked")):
+            self.assertIsNone(questions.screen(False))
+        self.assertTrue(out.getvalue().startswith("warning: questions not read: "), out.getvalue())
+
     # covers: AC-5 (links from context and asked; read only: no state folder is made; an unreadable queue refuses)
     def test_command(self):
         out = io.StringIO()
@@ -92,8 +115,10 @@ class TestAnswer(TelegramCase):
             f"  spec: {ctx['spec']}", "  issue: https://github.com/acme/demo/issues/3",
             "  PR: #7 https://github.com/acme/demo/pull/7", "  asked: 2026-10-12T09:00:00+02:00"])
         p.write_text("{")
-        with redirect_stdout(io.StringIO()):
-            self.assertEqual(questions.cmd_questions(), 5)
+        out = io.StringIO()
+        with redirect_stdout(out):
+            self.assertEqual(wf.main(["questions"]), 5)
+        self.assertTrue(out.getvalue().startswith("refused: queue_unreadable: "), out.getvalue())
 
 
 class TestResume(DecisionCase):
@@ -186,7 +211,11 @@ class TestTimer(TelegramCase):
         self.assertIn(" telegram fetch\n", service)
         self.assertIn(f'Environment="XDG_STATE_HOME={self.tmp / "state"}"\n', service)
         self.assertIn("Type=oneshot\n", service)
-        self.assertIn("OnUnitActiveSec=5min\n", (self.units / "wf-telegram-fetch.timer").read_text())
+        self.assertIn(f'Environment="XDG_CONFIG_HOME={self.tmp / "config"}"\n', service)
+        self.assertIn(f'ExecStart="{sys.executable}" ', service)
+        timer = (self.units / "wf-telegram-fetch.timer").read_text()
+        for line in ("OnBootSec=1min\n", "OnUnitActiveSec=5min\n", "WantedBy=timers.target\n"):
+            self.assertIn(line, timer)
         self.assertEqual(self.calls, [["daemon-reload"], ["enable", "--now", "wf-telegram-fetch.timer"]])
         self.calls.clear()
         self.assertEqual(self.timer("off")[0], 0)
