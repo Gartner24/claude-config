@@ -642,7 +642,7 @@ Every question and report on your phone says where it comes from: repo, feature,
 - [x] Build it: `/develop context in messages`
 - [x] Verify it: `/check verify context in messages`
 - [x] Test it: `/test context in messages`
-- [ ] Probe P1: read a real question on your phone and say whether it explains itself · waits on you · later boxes go on
+- [x] Probe P1: read a real question on your phone and say whether it explains itself · waits on you · later boxes go on
 - [ ] Sync docs: `/sync context in messages`
 Spec [0033](../specs/0033-context-in-messages/index.md) · Source: your message 2026-10-13 (context, links and the why in every message).
 

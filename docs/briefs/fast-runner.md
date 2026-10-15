@@ -25,7 +25,10 @@ Source: your message of 2026-10-14, about 18:45, after a 5.3 hour run closed 6 f
 - Reviewers on an approved PR question (answered 2026-10-14): by role from your private PR settings ("your approver: approved, review bot: not yet"), never by name.
 - Telegram style (answered 2026-10-14): short tappable link labels (spec and repo), no lone `from:` line; the long explanation folded after its first sentence; numbered steps on every step only you can do, or a line saying none apply.
 - Order (answered 2026-10-14): start the runner now with the fast runner; build the message improvements in parallel, live at the next run.
-- Answers for a step only you can do (2026-10-14): add "do it for me" (a build call tries it; if it truly needs you it asks again saying why) and "reply with a note" (your text goes to the next step as an instruction). You also asked to learn the ideas first; explained in chat, asked again before building.
+- Answers for a step only you can do (2026-10-14): add "do it for me" (a build call tries it; if it truly needs you it asks again saying why) and "reply with a note" (your text goes to the next step as an instruction). You also asked to learn the ideas first; explained in chat, then confirmed: "Those two extra answers as you explained them sound great, build them like that".
+- Spec 0044 cross check gaps (answered 2026-10-14): apply every recommended fix, including keeping keys and logins, autostart and login programs, shell and editor startup files and every other repo's git hooks and git settings blocked when the home folder opens, and taking a typed note only from your private Telegram chat.
+- Missing risky places in the home folder (answered 2026-10-14): watch and stop. Nothing is created in your home; anything a step puts in such a place stops that repo right after the step and you are told. Not: creating empty folders to lock them.
+- Spec 0044 goes live (answered 2026-10-14): merge into `feat/release-4` locally and install once the runner is idle; no push.
 - Claude plans and builds it in the conductor session, not the runner. When it is fast, `wf` runs the remaining features (39 to 44, then 45 to 48).
 
 ## Measured (2026-10-14 run)

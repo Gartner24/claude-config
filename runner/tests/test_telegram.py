@@ -1,4 +1,5 @@
 import ast
+import contextlib
 import fcntl
 import io
 import json
@@ -249,7 +250,8 @@ class TestSend(TelegramCase):
         self.assertIn("\n1 &lt;a href=x&gt;ok\n2 no &amp; &lt;b&gt;\n", html_)
         self.assertIn("<i>learn: a &lt;tag&gt; &amp; more</i>", html_)
         self.assertIn('spec: <a href="https://github.com/o/r/blob/main/a.md">https://github.com/o/r/blob/main/a.md</a>', html_)
-        self.assertIn('PR: #7 <a href="https://github.com/o/r/pull/7">https://github.com/o/r/pull/7</a>', html_)
+        # Spec 0044 AC-1: a short label for the link.
+        self.assertIn('PR: <a href="https://github.com/o/r/pull/7">#7</a>', html_)
         self.assertIn("<blockquote expandable>", html_)
         self.assertEqual(re.findall(r"<a href", html_), ["<a href"] * 2)
         self.assertTrue(d["sent"].startswith("Question ab12 (its name, so your reply finds it):\nShip <i>it & go?"))
@@ -259,7 +261,11 @@ class TestSend(TelegramCase):
         self.bot.fail = 1
         t = telegram.Topic(self.cfg, "demo", "loop")
         d = self.decision()
-        self.assertEqual(t.ping(d, lambda: False), "101")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(t.ping(d, lambda: False), "101")
+        # The refusal's reason is printed, so a plain message has a cause you can read in the log.
+        self.assertIn("warning: Telegram refused the styled message, sent plain: sendMessage", out.getvalue())
         first, second = self.bot.sent()
         self.assertEqual(first.get("parse_mode"), "HTML")
         self.assertNotIn("parse_mode", second)
@@ -577,7 +583,9 @@ class TestRunChannel(test_run.RunCase):
         self.assertIn("\n1 Postgres (recommended)\n2 SQLite\n", texts[0])
         # Spec 0033 AC-4: the from block, with the repo and feature.
         # No names list in the test home: the repo shows by its hashed label (security review, information disclosure).
-        self.assertRegex(texts[0], r"\n<b>from:</b>\nrepo: repo-[0-9a-f]{4}\nfeature: 1\. Loop\n")
+        # Spec 0044 AC-1: no lone from: line.
+        self.assertRegex(texts[0], r"\nrepo: repo-[0-9a-f]{4}\nfeature: 1\. Loop\n")
+        self.assertNotIn("from:", texts[0])
         self.assertTrue(any(t.endswith(f"\nGot your answer to question {d['id']}: SQLite. Resuming.") for t in texts))
         self.assertEqual(self.bot.sent("answerCallbackQuery"), [{"callback_query_id": "cq1000"}])
 

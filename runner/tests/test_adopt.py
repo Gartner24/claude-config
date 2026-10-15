@@ -177,7 +177,7 @@ class TestAdoptUnit(AdoptCase):
     def test_plain_words(self):
         import plain
         text = plain.PLAIN["approved"][1]
-        for word in ("Merge now", "Later", "I merged it", "only your tap"):
+        for word in ("merge now", "Later", "I merged it", "only your tap"):
             self.assertIn(word, text)
 
     # covers: AC-3 (a local branch ahead of the PR head is left alone and the round waits)
@@ -252,7 +252,7 @@ class TestAdoptUnit(AdoptCase):
             pr.approved_answer(r, rec, ans("merge now"))
             self.assertEqual(len(merges()), 1)
             pr.ask_merge(r, rec)
-            self.assertIn("merge it, then tell me", r.asked[-1][1])
+            self.assertIn("Merge it, then tell me.", r.asked[-1][1])
             pr.approved_answer(r, rec, ans("I merged it"))
             self.assertEqual(rec["state"], "merged")
 

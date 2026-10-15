@@ -158,8 +158,9 @@ EXPLAIN_PROMPT = (
     "WHAT: two or three plain sentences: what this step is and what it checks, each technical term explained in a "
     "few words.\n"
     "WHY: one sentence: why this step matters for the feature.\n"
-    "STEP: one line per thing to do, in order, at most 6: what to do, where (which terminal, chat, website or "
-    "folder), the exact command or text to type or the button to tap, and how they know it worked.\n")
+    "STEP: one line per thing to do, in order, one to six of them: what to do, where (which terminal, chat, website or "
+    "folder), the exact command or text to type or the button to tap, and how they know it worked. When the data shows "
+    "the step is already done, give one STEP line saying how to check that it is done.\n")
 EXPLAINED_UNVERIFIED = "(explained by a model from the step's own data, unverified)"
 EXPLAIN_DECISION_PROMPT = (
     "You explain one question an unattended build asks its owner, who was not watching and wants to understand it "
@@ -283,6 +284,10 @@ RUN_STOPS = frozenset(("interrupted", "run_limit", "usage_limit", "spawn_failed"
 # first). A row with no options never asks: R1 makes the branch, R4 and U1 stop, U3 sleeps to the reset, U9 keeps
 # building, U10 stops that repo with its traceback in the report.
 MORE, SKIP_IT, STOP_REPO = "give it more", "skip", "stop this repo"
+# Spec 0044 AC-4: a step only you can do, handed to one build call that tries it.
+DO_IT = "do it for me"
+DO_IT_PROMPT = ("Do this step of the plan yourself: {}. When it is done, tick its box in the plan. When it needs the owner "
+                "(a login, their phone, a purchase, someone else's action), change nothing and end with BLOCKED: <why>.")
 CASES = {
     "denied": ("F1", ("allow once", "always", SKIP_IT)),
     "blocked": ("F2", ("done, go on", SKIP_IT)),
@@ -348,6 +353,21 @@ CASES = {
 }
 # Spec 0021 F1: an answer may never make one of these writable; `~/.claude/` ones in every claude dir.
 SECRETS = (*CREDENTIAL_PATHS, "~/.gnupg", "~/.claude/private", "~/.claude/.credentials.json")
+# Spec 0044 AC-7: with the home folder writable, what still runs at login or holds a key stays never writable.
+HOME_NEVER = ("~/.config/systemd", "~/.config/autostart", "~/.config/autostart-scripts", "~/.config/plasma-workspace",
+              "~/.config/environment.d", "~/.local/share/applications", "~/.local/share/systemd",
+              "~/.local/share/dbus-1", "~/.config/containers/systemd", "~/.config/user-tmpfiles.d",
+              "~/.vscode", "~/.vscode-oss",
+              "~/.zlogin", "~/.zlogout", "~/.bash_login", "~/.bash_logout", "~/.bash_aliases", "~/.config/fish",
+              "~/.inputrc", "~/.vimrc", "~/.config/nvim", "~/.zsh", "~/.config/zsh", "~/.oh-my-zsh",
+              "~/.xprofile", "~/.xinitrc", "~/.xsession", "~/.xsessionrc", "~/.pam_environment",
+              "~/.tmux.conf", "~/.config/tmux", "~/.config/direnv", "~/.ipython",
+              "~/.config/ghostty", "~/.config/alacritty", "~/.config/kitty", "~/.config/Code/User",
+              # Python runs a .pth or usercustomize in the user site folder at every start.
+              "~/.local/lib",
+              "~/.cargo/credentials", "~/.cargo/credentials.toml", "~/.config/pip", "~/.gem/credentials",
+              "~/.terraform.d", "~/.terraformrc", "~/.config/glab-cli", "~/.local/share/keyrings",
+              "~/.mozilla", "~/.config/google-chrome", "~/.config/chromium", "~/.config/BraveSoftware")
 # Spec 0021 AC-7: in every claude dir, never writable whatever allow.json says (with settings*.json, see refused()).
 CLAUDE_NEVER = ("settings.json", "settings.local.json", "hooks", "rules", "agents", "skills", "scripts", "commands",
                 "private", "CLAUDE.md")
@@ -914,6 +934,8 @@ class Run:
         self.record["notes"] = []
         # Spec 0027 AC-6: the sibling feature a drift question waits for.
         self.overlap_other = None
+        # Spec 0044 AC-4: (feature, box) handed to `do it for me` this run, so a box is tried once.
+        self.tried = set()
         if c is not None:
             self.add(c)
 
@@ -1276,9 +1298,15 @@ class Run:
         self.common = common
         never = never_writable(repo, common)
         allowed = self.allowed()
-        # A never writable path inside an allowed one (~/.claude/settings.json in ~/.claude) stays denied.
-        kept = [s for s in never if under(s, allowed)]
-        write = sorted({repo, common, *(os.path.expanduser(p) for p in CACHE_DIRS), *allowed})
+        # Spec 0044 AC-7: the home folder is writable (the write list only, never `allowed`, so no deny is carved),
+        # so every never writable path and every hooks folder git config names is denied outright. The sandbox
+        # plants an empty file at an absent denied path (a stray ~/.config/fish file would break fish), so an
+        # absent one is an Edit rule and watched instead: content there stops the repo after the call (moved()).
+        # ponytail: Bash can still create an absent one, caught after the call, not prevented.
+        kept = list(dict.fromkeys([*never, *outside]))
+        # One inside an allowed path stays a sandbox deny, absent or not, as before.
+        sandboxed = [p for p in kept if os.path.lexists(p) or under(p, allowed)]
+        write = sorted({repo, common, *(os.path.expanduser(p) for p in CACHE_DIRS), *allowed, os.path.expanduser("~")})
         self.repo["guard"] = {"hosts": hosts, "write_paths": write, "deny_paths": deny, "binaries": binaries,
                               "allowed": list(dict.fromkeys(allowed + [os.path.realpath(a) for a in allowed])),
                               "never": never,
@@ -1294,7 +1322,7 @@ class Run:
                         "filesystem": {"allowWrite": write,
                                        "denyWrite": carve([p for p in deny if p != common] +
                                                           [os.path.join(common, "config"), hooks_dir, *sub_git], allowed)
-                                       + kept,
+                                       + sandboxed,
                                        "denyRead": [x for p in CREDENTIAL_PATHS for x in expand(p)]}},
             "hooks": {"PreToolUse": [{"matcher": "Agent", "hooks": [{"type": "command", "timeout": 10, "command": hook}]}]}}
         # AC-3 step 5: the jail cannot bind an absent path, so an app could plant .git/hooks/post-commit in a
@@ -1306,6 +1334,9 @@ class Run:
             r = os.path.realpath(p)
             if not os.path.exists(r) and under(r, binds) and r not in guarded and p not in guarded:
                 absent.append(r)
+        # The runner makes its own state and config folders as it runs; they keep their Edit rules.
+        own = [state_dir(), os.path.dirname(ntfy.path())]
+        absent += [p for p in kept if p not in sandboxed and p not in guarded and not under(p, own)]
         self.repo["guard"]["absent_denied"] = list(dict.fromkeys(absent))
         self.base_deny = list(self.guard_settings["sandbox"]["filesystem"]["denyWrite"])
         if self.repo.get("tree"):
@@ -1665,6 +1696,9 @@ class Run:
             reason, detail = "live_step", "; ".join(steps)
         # Spec 0028 AC-12: the plain words, the detail with its codes read as words, and a learn line.
         options, question, path = CASES[reason][1], plain_question(reason, self.feature, detail), None
+        if reason in ("waiting", "manual_box") and text and (self.feature, text) not in getattr(self, "tried", set()):
+            # Spec 0044 AC-4: a build call may try it, once per box per run (a live box became live_step above).
+            options = ("done", DO_IT, SKIP_IT)
         if reason in ("waiting", "manual_box") and text and hasattr(self, "explain"):
             # Spec 0042 AC-1, AC-2: the step in plain words, explained with numbered steps you can follow.
             question = self.plain_box(self.feature, text)
@@ -1730,6 +1764,10 @@ class Run:
         elif opt is None and d.get("case") == "live_step":
             # F16 (security review): free text never runs a live step.
             opt = "not now"
+        elif opt is None and d.get("case") in ("waiting", "manual_box") and DO_IT in d["options"] and answer:
+            # Spec 0044 AC-5: your note is the instruction for the try, from your Telegram chat or keyboard only.
+            import pr
+            opt, self.hint = (DO_IT, answer[:300]) if pr.strong(self, d) else (d["options"][0], answer)
         elif opt is None:
             opt, self.hint = d["options"][0], answer
         print(f"answered: {d['id']} {d['feature']}: {opt}", flush=True)
@@ -1749,6 +1787,10 @@ class Run:
             else:
                 self.allow_once = [d["allow"]]
             self.regard()
+        elif opt == DO_IT and d["box_text"]:
+            import pr
+            if pr.strong(self, d):
+                self.tried.add((f.name, d["box_text"]))
         elif opt in ("done", "skip the box") and d["box_text"]:
             self.mark_box(f.name, d["box_text"], "x", " · skipped" if opt == "skip the box" else "")
         elif opt == "undo them and try again":
@@ -2060,7 +2102,8 @@ class Run:
     def stale(self, d, feats):
         """AC-13: an answered Decision whose branch moved or whose feature is no longer queued (heading gone, `· auto`
         removed, marked done) is never resumed."""
-        return d["answer"] is not None and (d["branch"] != self.branch or
+        # A question asked in a feature's worktree records the start branch (ask()), never the tree's own.
+        return d["answer"] is not None and (d["branch"] not in (self.branch, (self.repo or {}).get("start_branch")) or
                                             not any(f.name == d["feature"] and f.queued for f in feats))
 
     def gone(self, d, q, feats):
@@ -2079,7 +2122,7 @@ class Run:
         """AC-6: (may resume, plan line) for this repo's Decisions, oldest asked first."""
         out = []
         for d in sorted((d for d in q["decisions"] if d["repo"] == key_of(self.c)), key=asked_at):
-            if self.gone(d, q, feats):
+            if self.wanted(d["feature"]) and self.gone(d, q, feats):
                 out.append((False, f"stale: {d['id']} {d['feature']}"))
             else:
                 # AC-7: a parked feature's answer waits for the park to clear; its parked line comes from survey().
@@ -2136,9 +2179,14 @@ class Run:
             dropped, freed = [], []
 
             def clear(q):
-                freed[:] = [p for p in q["parks"] if p["repo"] == key_of(self.c) and self.freed(p)]
-                keep = [p for p in q["parks"] if p["repo"] != key_of(self.c) or self.applies(p, feats)]
-                dropped[:] = [d for d in q["decisions"] if d["repo"] == key_of(self.c) and self.gone(d, q, feats)]
+                freed[:] = [p for p in q["parks"] if p["repo"] == key_of(self.c) and self.wanted(p["feature"]) and self.freed(p)]
+                # A feature's worktree child judges only its own feature's parks and questions: its copy of the plan
+                # and its branch say nothing about the others (an answered question of another feature was dropped
+                # as stale there, and your answer lost).
+                keep = [p for p in q["parks"] if p["repo"] != key_of(self.c) or not self.wanted(p["feature"])
+                        or self.applies(p, feats)]
+                dropped[:] = [d for d in q["decisions"] if d["repo"] == key_of(self.c) and self.wanted(d["feature"])
+                              and self.gone(d, q, feats)]
                 changed = len(keep) != len(q["parks"]) or bool(dropped)
                 q["parks"] = keep
                 q["decisions"] = [d for d in q["decisions"] if d not in dropped]
@@ -2270,7 +2318,7 @@ class Run:
             return None
         return next((f for f in feats if f.name == name), None)
 
-    def pr_ask(self, rec, case, detail, options=None, **extra):
+    def pr_ask(self, rec, case, detail, options=None, reviewers=None, **extra):
         """AC-17: a PR question for rec's feature, recommended first; it never holds back another feature."""
         # Spec 0033 AC-10: the PR the runner read from gh, the step, and why the first option is recommended.
         n = rec.get("number")
@@ -2281,11 +2329,13 @@ class Run:
         if self.c is not None:
             try:
                 ctx = context.build(self, rec["feature"], f"{step} on PR #{n}" if n else step,
-                                    {"pr": {"number": n, "url": url} if n else None, "why": plain.WHY.get(case)})
+                                    {"pr": {"number": n, "url": url} if n else None, "why": plain.WHY.get(case),
+                                     "reviewers": reviewers})
             except Exception as ex:
                 self.log(f"context: {flat(ex)[:120]}")
-        # Spec 0028 AC-12: plain words and a learn line, as every other case question.
-        self.ask(plain_question(case, rec["feature"], detail)[:300], options or CASES[case][1], feature=rec["feature"],
+        # Spec 0028 AC-12: plain words and a learn line, as every other case question; spec 0044 AC-6: the approved
+        # question is already its own plain sentence.
+        self.ask((flat(detail) if case == "approved" else plain_question(case, rec["feature"], detail))[:300], options or CASES[case][1], feature=rec["feature"],
                  repo=rec["repo"], case=case, pr=True, learn=plain.PLAIN.get(case, (None, None))[1],
                  **({"context": ctx} if ctx else {}), **extra)
 
@@ -3377,8 +3427,11 @@ class Run:
                 # Spec 0031 AC-5 (amends 0026 AC-11): a ready or approved PR of a held repo that has not ended is
                 # watched with no --max-wait cutoff, until it is merged or closed, or Ctrl C.
                 watched = any(p["state"] in ("ready", "approved") and p["repo"] in waiting for p in q.get("prs", []))
+                # A feature's worktree child waits only for its own feature's questions: a question of another
+                # feature of the repo held all four children for --max-wait (12 hours) after their features ended.
+                only = getattr(self.args, "only_feature", None) or ()
                 if not watched and (left <= 0 or not any(
-                        d["answer"] is None and d.get("level") != "run" and
+                        d["answer"] is None and d.get("level") != "run" and (not only or d.get("feature") in only) and
                         (d["repo"] in waiting or (d.get("level") == "repo" and d["repo"] in held))
                         for d in q["decisions"])):
                     return False
@@ -3437,6 +3490,7 @@ class Run:
         # A limit rerun ended by a repo stop used to carry into the next feature, whose loop then skipped its
         # first call setup and died on an unset `last` (internal_error, review M1).
         self.entry, self.feature, self.retried, self.limit_rerun, self.outage_rerun = e, f.name, False, False, False
+        do_it = None
         self.hint, self.denied_at, self.live_failed = None, None, None
         try:
             if self.answers.get("branches") == "per spec":
@@ -3460,10 +3514,18 @@ class Run:
                 # Spec 0024 AC-7: update the spec first skips the feature for this run and keeps the old baseline.
                 if opt in (SKIP_IT, "skip the feature", UPDATE_SPEC, "wait for the bottom to merge", "not now"):
                     raise Stop("skipped", f"{d['id']}: {opt}")
+                box_text = d.get("box_text")
+                import pr
+                # Security review: a build call on a box only you can do runs only on your own tap; any other tap
+                # reaches the box's refusal below, which asks again.
+                mine = opt == DO_IT and pr.strong(self, d)
                 f, d = self.apply_case(d, opt, f), d.get("then")
                 if d is None and f.finished():
                     raise Stop("feature_done", None)
-                refusal = d is None and f.next and box_refusal(f.next)
+                if mine and d is None and f.next and f.next.box_text == box_text:
+                    # Spec 0044 AC-4: the box's own call, with its prompt in place of the command it does not have.
+                    do_it = DO_IT_PROMPT.format(flat(box_text))
+                refusal = d is None and f.next and not do_it and box_refusal(f.next)
                 if refusal:
                     raise Stop(*refusal)
             if d:
@@ -3482,7 +3544,7 @@ class Run:
                     raise Stop("design_gate", problem)
                 self.loop("sync", f.sync, f.sync.command if f.sync else "/sync")
             else:
-                self.loop("box", f.next, f.next.command)
+                self.loop("box", f.next, do_it or f.next.command)
         except Stop as s:
             # Spec 0021 AC-5: only your Ctrl C ends the run here; every other reason ends at most this repo.
             if s.reason == "interrupted":
@@ -4786,10 +4848,39 @@ def never_writable(repo, common):
             os.path.join(home, ".gitconfig"), os.path.join(home, ".config", "git"), os.path.join(home, ".local", "bin"),
             *(os.path.abspath(d) for d in os.environ.get("PATH", "").split(os.pathsep) if d),
             os.path.join(home, ".local", "share", "wf"), os.path.join(home, ".local", "share", "claude"), state_dir(),
-            *expand("~/.config/wf")]
+            *expand("~/.config/wf"), *(os.path.expanduser(p) for p in HOME_NEVER), *known_git()]
     if common:
         out += [os.path.join(common, n) for n in ("config", "hooks", "info")]
     return list(dict.fromkeys(out + [os.path.realpath(p) for p in out]))
+
+
+def known_git():
+    """Spec 0044 AC-7: the git config, hooks and info of every repo the runner knows (the wf allow list and the git
+    repos under the scanned roots; worktrees share their main's), each worktree's config.worktree, and the hooks
+    folder a repo's core.hooksPath names (a .husky folder in the checkout)."""
+    repos = [d for root, lo, hi in wf.scan_roots() for d in wf.walk(root, lo, hi) if os.path.exists(os.path.join(d, ".git"))]
+    out = []
+    for repo in dict.fromkeys(repos + (read_allowed()[0] or [])):
+        c = common_dir(repo)
+        if not c:
+            continue
+        out += [os.path.join(c, n) for n in ("config", "hooks", "info")]
+        out += glob.glob(os.path.join(glob.escape(c), "worktrees", "*", "config.worktree"))
+        cfg = os.path.join(c, "config")
+        if os.path.isabs(wf.GIT):
+            # The git binary is pinned (freeze_guard): git reads the config and its includes as git will.
+            try:
+                out += hooks_paths([cfg, *include_targets([cfg])], repo)
+            except ValueError:
+                pass
+        # Before the pin no git runs, so the text too; the union keeps either reading.
+        try:
+            text = wf.read(cfg)
+        except (OSError, UnicodeDecodeError):
+            continue
+        for v in re.findall(r"(?im)^\s*(?:\[core\]\s*)?hookspath\s*=\s*(.+?)\s*$", text):
+            out.append(os.path.normpath(os.path.join(repo, os.path.expanduser(v.strip('"')))))
+    return list(dict.fromkeys(out))
 
 
 def refused(path, never):
