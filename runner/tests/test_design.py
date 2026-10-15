@@ -166,6 +166,39 @@ class TestChanged(RunCase):
         self.assertEqual(run.frontend_changed(str(r)), (sha("beta"), ["committed.tsx", "second.tsx"]))
         self.assertEqual(run.test_base(str(r)), sha("beta"))
 
+    # covers: spec 0040 AC-3 (a real shallow clone whose main shares no commit within the depth: the base is the
+    # parent branch's tip, the clone's upstream origin/work is skipped, /test gets the same base)
+    def test_shallow_clone_base(self):
+        o = self.make_repo("origin", UI)
+        git(o, "checkout", "-qb", "main")
+        for i in range(3):
+            (o / f"Main{i}.tsx").write_text("x")
+            git(o, "add", "-A")
+            git(o, "commit", "-qm", f"m{i}")
+        git(o, "checkout", "-qb", "beta")
+        for i in range(3):
+            (o / f"Beta{i}.tsx").write_text("x")
+            git(o, "add", "-A")
+            git(o, "commit", "-qm", f"b{i}")
+        beta = subprocess.run(["git", "-C", str(o), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+        git(o, "checkout", "-qb", "work")
+        for n in ("Work1", "Work2"):
+            (o / f"{n}.tsx").write_text("x")
+            git(o, "add", "-A")
+            git(o, "commit", "-qm", n)
+        git(o, "checkout", "-q", "main")
+        for i in range(10):
+            (o / f"Late{i}.tsx").write_text("x")
+            git(o, "add", "-A")
+            git(o, "commit", "-qm", f"late{i}")
+        c = self.tmp / "clone"
+        subprocess.run(["git", "clone", "-q", "--depth", "4", "--no-single-branch", "-b", "work", f"file://{o}", str(c)],
+                       check=True)
+        git(c, "branch", "-q", "main", "origin/main")
+        self.assertNotEqual(subprocess.run(["git", "-C", str(c), "merge-base", "HEAD", "main"]).returncode, 0)
+        self.assertEqual(run.frontend_changed(str(c)), (beta, ["Work1.tsx", "Work2.tsx"]))
+        self.assertEqual(run.test_base(str(c)), beta)
+
     # covers: AC-1 (a git failure raises; an empty list would let /sync run unchecked)
     def test_git_failure(self):
         plain = self.tmp / "not-a-repo"

@@ -562,6 +562,32 @@ class TestRunChannel(test_run.RunCase):
         self.assertEqual(log.count("phone channel now Telegram, open questions sent again there"), 1, log)
         self.assertTrue(any(t.startswith(f"<b>Question {d['id']} (") for t in (p_["text"] for p_ in self.bot.sent())))
 
+    # covers: spec 0040 AC-1 (a refused telegram.json mid wait keeps ntfy, logs why and sends nothing to the bot; a
+    # valid file written later switches once)
+    def test_refused_file_kept(self):
+        self.bot.taps = ["{id} 2"]
+        self.steps([test_run.ask(), {}, {}, {"tick": False}])
+        p = self.start("demo", "-y", "--max-wait", "0.01", mode="fast")
+        logs = lambda: "".join(f.read_text() for f in self.state.glob("wf/**/log.txt"))
+        end = time.monotonic() + 20
+        while not any(re.match(r"^[a-z0-9]{4}: ", m["message"]) for m in self.report_ntfy.messages):
+            self.assertLess(time.monotonic(), end, "no question on ntfy")
+            time.sleep(0.05)
+        write_cfg(self.tmp / "config", chat_id="x")
+        while "phone channel kept" not in logs():
+            self.assertLess(time.monotonic(), end, "no kept line")
+            time.sleep(0.05)
+        self.assertEqual(self.bot.sent(), [], "nothing may go to the bot while the file is refused")
+        time.sleep(0.05)
+        write_cfg(self.tmp / "config")
+        out, err = p.communicate(timeout=60)
+        self.assertEqual(p.returncode, 0, out + err)
+        folder, rec = self.run_record()
+        log = (folder / "log.txt").read_text()
+        self.assertIn("phone channel kept: no_telegram: chat_id must be an integer", log)
+        self.assertEqual(log.count("phone channel now Telegram"), 1, log)
+        self.assertEqual((rec["decisions"][0]["answer"], rec["decisions"][0]["source"]), ("SQLite", "phone"))
+
 
 if __name__ == "__main__":
     unittest.main()
