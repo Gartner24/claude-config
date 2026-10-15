@@ -46,7 +46,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 32 | One command: wf | Release 6 | done |
 | 33 | Ask, never stop | Release 6 | done |
 | 34 | Report names repos | Release 6 | in-progress |
-| 35 | Several features of one repo at once | Release 6 | in-progress |
+| 35 | Several features of one repo at once | Release 6 | done |
 | 36 | Telegram instead of ntfy | Release 6 | done |
 | 37 | Autonomous mode | Release 6 | in-progress |
 | 31 | Guard baseline check between repos | Release 6 | done |
@@ -55,7 +55,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 16 | Issues and mixed source of truth | Release 6 | done |
 | 11 | Autopilot offer and batch design | Deferred | dropped |
 | 12 | Usage limit planning | Release 6 | done |
-| 14 | Branch and PR flow | Release 6 | in-progress |
+| 14 | Branch and PR flow | Release 6 | done |
 | 38 | Adopt your open PRs | Release 7 | done |
 | 39 | Review requests to you | Release 7 | in-progress |
 | 40 | Context and links in every message | Release 7 | in-progress |
@@ -537,7 +537,7 @@ The `wf` screen says whether tonight's picks fit your 5 hour window and your wee
 - [x] Sync docs: `/sync usage limit planning`
 Spec [0022](../specs/0022-usage-limit-planning/index.md) · Source: your message 2026-10-13 (agreed, not optional).
 
-### 14. Branch and PR flow · in-progress · auto
+### 14. Branch and PR flow · done · auto
 One branch per spec (stacked only when the spec says so, at most 3 deep), one squashed commit per feature. In repos that opt in with `- push: draft PR`, `wf` (never a call) pushes the branch and opens a draft PR after the private names and attribution scans; a pre-push hook refusal keeps the branch local. After you mark it ready, review comments are fixed, pushed and answered with an @mention; declines are asked first. It never marks ready or merges.
 **Done when:** a finished feature ends as one commit with a draft PR (or a local branch when the hook refuses), and the review loop answers every comment until the required approver approves.
 - [x] Design it (spec): `/architect branch and PR flow`
@@ -547,10 +547,10 @@ One branch per spec (stacked only when the spec says so, at most 3 deep), one sq
 - [x] Copy the rule live: `cp ~/claude-config/rules/branch-pr.md ~/.claude/rules/branch-pr.md` · waits on you · live
 - [x] Add the branch-pr pointer line to `~/.claude/CLAUDE.md` · waits on you
 - [x] Probes P7 and P8 on a scratch GitHub repo (they post) · waits on you
-- [ ] Sync docs: `/sync branch and PR flow`
+- [x] Sync docs: `/sync branch and PR flow`
 Spec [0026](../specs/0026-branch-pr-flow/index.md) · Source: personal scope rows 11 and 27; your message 2026-10-13.
 
-### 35. Several features of one repo at once · in-progress · auto
+### 35. Several features of one repo at once · done · auto
 A repo that opts in with `- parallel: <n>` builds up to n features at once, each in its own worktree on its own branch; features whose spec paths overlap never run together.
 **Done when:** `runner/e2e/run.py --same-repo` passes on the real claude.
 - [x] Design it (spec): `/architect several features of one repo at once`
@@ -558,7 +558,7 @@ A repo that opts in with `- parallel: <n>` builds up to n features at once, each
 - [x] Verify it: `/check verify several features of one repo at once`
 - [x] Test it: `/test several features of one repo at once`
 - [x] Real check: `python3 runner/e2e/run.py --same-repo` · waits on you · live
-- [ ] Sync docs: `/sync several features of one repo at once`
+- [x] Sync docs: `/sync several features of one repo at once`
 Spec [0027](../specs/0027-same-repo-parallel/index.md) · Source: personal scope row 23.
 
 ### 15. Cheap worker tier · done · auto
