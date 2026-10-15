@@ -26,9 +26,9 @@ echo "installing $REPO -> $LIVE"
 # Spec 0036 AC-4: a dry run used to pass a settings file that does not parse; only the real
 # install caught it, after the copies. Refuse first, in both modes, naming the file.
 for f in settings.json settings.local.json; do
-  [ -e "$REPO/$f" ] || continue
-  if ! err=$(python3 -c 'import json, sys; json.load(open(sys.argv[1]))' "$REPO/$f" 2>&1); then
-    echo "refused: $REPO/$f does not parse: ${err##*$'\n'}" >&2
+  [ -e "$REPO/live/$f" ] || continue
+  if ! err=$(python3 -c 'import json, sys; json.load(open(sys.argv[1]))' "$REPO/live/$f" 2>&1); then
+    echo "refused: $REPO/live/$f does not parse: ${err##*$'\n'}" >&2
     exit 1
   fi
 done

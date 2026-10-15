@@ -765,19 +765,19 @@ def selftest():
        "0036 AC-6 a staged install leaves the index to you and says so")
     code, out = run(script=irepo / "install.sh", extra=ienv)
     ok(ran.exists() and ran.read_text() == "x\n", "0036 AC-6 install rebuilds the skill trigger index")
-    good = (irepo / "settings.json").read_text()
-    (irepo / "settings.json").write_text('{"permissions": {"deny": ["Bash(rm:*)",]}}')
+    good = (irepo / "live" / "settings.json").read_text()
+    (irepo / "live" / "settings.json").write_text('{"permissions": {"deny": ["Bash(rm:*)",]}}')
     code, out = run("--dry-run", script=irepo / "install.sh", extra=ienv)
-    ok(code != 0 and f"{irepo}/settings.json does not parse" in out,
+    ok(code != 0 and f"{irepo}/live/settings.json does not parse" in out,
        f"0036 AC-4 dry run refuses a settings.json that does not parse: {out.strip()[-200:]}")
     live_before = (ilive / "settings.json").read_bytes()
     code, out = run(script=irepo / "install.sh", extra=ienv)
     ok(code != 0 and (ilive / "settings.json").read_bytes() == live_before,
        "0036 AC-5 install of a settings.json that does not parse leaves the live file unchanged")
-    (irepo / "settings.json").write_text(good)
-    (irepo / "settings.local.json").write_text("{")
+    (irepo / "live" / "settings.json").write_text(good)
+    (irepo / "live" / "settings.local.json").write_text("{")
     code, out = run("--dry-run", script=irepo / "install.sh", extra=ienv)
-    ok(code != 0 and f"{irepo}/settings.local.json does not parse" in out,
+    ok(code != 0 and f"{irepo}/live/settings.local.json does not parse" in out,
        "0036 AC-4 dry run refuses a settings.local.json that does not parse")
 
     shutil.rmtree(tmp)
