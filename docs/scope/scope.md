@@ -706,7 +706,7 @@ A hook notes when a session could have used a skill it did not, and a weekly rep
 - [x] Build it: `/develop missed skill detector`
 - [x] Verify it: `/check verify missed skill detector`
 - [x] Test it: `/test missed skill detector`
-- [ ] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
+- [x] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
 - [ ] After 3 days, run the report and write its verdict into verify.md · waits on you · later boxes go on
 - [ ] Sync docs: `/sync missed skill detector`
 Spec [0036](../specs/0036-missed-skill-detector/index.md) · Source: personal scope row 20.
@@ -718,7 +718,7 @@ A context monitor that actually warns at the thresholds, wired to the status lin
 - [x] Build it: `/develop context monitor`
 - [x] Verify it: `/check verify context monitor`
 - [x] Test it: `/test context monitor`
-- [ ] Install it live after the merge, from main (the first install ran without this branch) · waits on you · later boxes go on
+- [x] Install it live after the merge, from main (the first install ran without this branch) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync context monitor`
 Spec [0037](../specs/0037-context-monitor/index.md) · Source: personal scope row 6.
 
@@ -750,7 +750,7 @@ Several Claude chats each drive the runner for their own repos at once; a repo b
 - [x] Build it: `/develop autonomous mode per chat`
 - [x] Verify it: `/check verify autonomous mode per chat`
 - [x] Test it: `/test autonomous mode per chat`
-- [ ] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
+- [x] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
 - [ ] Two real chats in two folders: each turns on its own repos, the bars show only their own, a take of the other's repo is refused (AC-11) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync autonomous mode per chat`
 Spec [0046](../specs/0046-autonomous-mode-per-chat/index.md) · Source: [brief](../briefs/autonomous-per-chat.md) · code in `runner/auto.py`.
