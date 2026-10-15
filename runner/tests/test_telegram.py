@@ -265,6 +265,45 @@ class TestSend(TelegramCase):
         self.assertNotIn("parse_mode", second)
         self.assertTrue(second["text"].startswith(d["sent"] + "\n"))
 
+    # covers: spec 0038 AC-3 (the 4096 limit holds for the visible text, the escaping is not counted against it)
+    def test_styled_length(self):
+        import html
+        t = telegram.Topic(self.cfg, "demo", "loop")
+        d = self.decision()
+        d.update(question='& < > " ' * 250, case="denied", allow="/r/x", context={
+            "repo": "demo", "did": '& < > " ' * 400,
+            "issues": [f"https://github.com/o/r/issues/{n}" for n in range(1000, 1100)]})
+        with mock.patch.object(ntfy, "private_names", return_value=["zzz"]):
+            t.ping(d, lambda: False)
+        p = self.bot.sent()[0]
+        self.assertEqual(p["parse_mode"], "HTML")
+        visible = html.unescape(re.sub(r"<[^>]+>", "", p["text"]))
+        self.assertLessEqual(len(visible), telegram.MAX)
+        self.assertGreater(len(p["text"]), len(visible) + 1500)
+
+    # covers: spec 0038 AC-4 (d["sent"] stays plain; a reply to the styled message still finds the question)
+    def test_styled_reply(self):
+        import html
+        t = telegram.Topic(self.cfg, "demo", "loop")
+        d = self.decision()
+        d["question"] = "Ship <b>it</b> & go?"
+        t.ping(d, lambda: False)
+        self.assertEqual(d["sent"].split("\n")[:2], ["Question ab12 (its name, so your reply finds it):",
+                                                     "Ship <b>it</b> & go?"])
+        visible = html.unescape(re.sub(r"<[^>]+>", "", self.bot.sent()[0]["text"]))
+        line, _, hint = telegram.entry(self.cfg, msg_update(5, "2", reply_to=visible))
+        self.assertEqual((line["message"], hint), ("ab12 2", False))
+
+    # covers: spec 0038 AC-6 (acks and reports keep plain text, no parse_mode)
+    def test_acks_reports_plain(self):
+        telegram.Topic(self.cfg, "demo", "loop").publish("ab12 accepted <b>x</b> & y", 2)
+        telegram.send_report(self.cfg, "wf report <b>x</b> & y\nnext: wf")
+        ack, report = self.bot.sent()
+        self.assertNotIn("parse_mode", ack)
+        self.assertNotIn("parse_mode", report)
+        self.assertEqual(ack["text"], "wf demo: loop\nab12 accepted <b>x</b> & y")
+        self.assertEqual(report["text"], "wf report <b>x</b> & y\nnext: wf")
+
     # covers: spec 0029 AC-4 (a send that fails while the run is stopping gives None after one try, no PingFailed)
     def test_ping_stopped(self):
         self.bot.fail = 3
