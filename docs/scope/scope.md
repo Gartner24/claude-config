@@ -842,9 +842,9 @@ Code reaches main only through its own squash merged PR, branches and worktrees 
   - [x] Settings check, `bin/repo-settings.sh`, `bin/docs-pr.sh` (AC-10, AC-11)
   - [x] Rules, architecture, Amended by lines (AC-14)
 - [ ] Verify it: `/check verify clean branches, PRs and commits`
-- [ ] Test it: `/test clean branches, PRs and commits`
-- [ ] Set the GitHub settings: `bin/repo-settings.sh Gartner24/claude-config`, then `--check` exits 0 · waits on you
-- [ ] Turn self merge on: `"auto_merge": true` in the claude-config entry of `~/.claude/private/pr.json` · waits on you
+- [x] Test it: `/test clean branches, PRs and commits` (967 tests pass; 41 build and 15 review mutation checks)
+- [x] Set the GitHub settings: `bin/repo-settings.sh Gartner24/claude-config`, then `--check` exits 0 · waits on you
+- [x] Turn self merge on: `"auto_merge": true` in the claude-config entry of `~/.claude/private/pr.json` · waits on you
 - [ ] Sync docs: `/sync clean branches, PRs and commits`
 Spec [0051](../specs/0051-clean-branches-commits/index.md) · Source: [brief](../briefs/clean-branches-and-commits.md).
 ### 66. Update Claude Code through /claude-config
