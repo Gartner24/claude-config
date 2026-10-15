@@ -747,7 +747,7 @@ Several Claude chats each drive the runner for their own repos at once; a repo b
 **Done when:** two chats in two folders each run autonomous mode for their own repos, their bars and questions show only their repos, and a take of a repo the other live chat holds is refused.
 - [x] Design it (spec): `/architect autonomous mode per chat`
 - [x] Build it: `/develop autonomous mode per chat`
-- [ ] Verify it: `/check verify autonomous mode per chat`
+- [x] Verify it: `/check verify autonomous mode per chat`
 - [ ] Test it: `/test autonomous mode per chat`
 - [ ] Install it live: `./install.sh` · waits on you · live
 - [ ] Two real chats in two folders: each turns on its own repos, the bars show only their own, a take of the other's repo is refused (AC-11) · waits on you · later boxes go on
