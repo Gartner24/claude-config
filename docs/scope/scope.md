@@ -70,7 +70,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 49 | Fast runner | Release 8 | in-progress |
 | 50 | Fewer avoidable stops | Release 8 | done |
 | 51 | Autonomous mode per chat | Release 8 | in-progress |
-| 52 | Review leftovers 2026-10-15 | Release 8 | planned |
+| 52 | Review leftovers 2026-10-15 | Release 8 | in-progress |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -755,16 +755,16 @@ Several Claude chats each drive the runner for their own repos at once; a repo b
 - [ ] Sync docs: `/sync autonomous mode per chat`
 Spec [0046](../specs/0046-autonomous-mode-per-chat/index.md) · Source: [brief](../briefs/autonomous-per-chat.md) · code in `runner/auto.py`.
 
-### 52. Review leftovers 2026-10-15 · planned · auto
+### 52. Review leftovers 2026-10-15 · in-progress · auto
 Only you release a repo from a chat; a check handing parts to a later step needs a written note; the bar's running count checks each run's own lock.
 **Done when:** `/auto release` works only when you type it, Claude's `wf auto release` is denied, a left to the box pass needs its verify.md note, and a stale run never shows as running.
 - [x] Design it (spec): `/architect review leftovers 2026-10-15`
-- [ ] Build it: `/develop review leftovers 2026-10-15`
-- [ ] Verify it: `/check verify review leftovers 2026-10-15`
-- [ ] Test it: `/test review leftovers 2026-10-15`
+- [x] Build it: `/develop review leftovers 2026-10-15`
+- [x] Verify it: `/check verify review leftovers 2026-10-15`
+- [x] Test it: `/test review leftovers 2026-10-15`
 - [ ] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync review leftovers 2026-10-15`
-Spec [0047](../specs/0047-review-leftovers.md) · Source: [review](../reviews/review-2026-10-15.md) (Leftovers).
+Spec [0047](../specs/0047-review-leftovers/index.md) · code in `runner/auto.py`, `runner/run.py`, `live/settings.json`, `live/skills/auto/SKILL.md` · Source: [review](../reviews/review-2026-10-15.md) (Leftovers).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
