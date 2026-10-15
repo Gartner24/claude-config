@@ -71,7 +71,7 @@ def open_questions(path, items):
 def collect(sources):
     """AC-2: (items, records) over sources in run order. A source is {path, name, folder, code, rec}: folder None
     with code None is a parent row that never started, folder None with a code a child that printed no folder."""
-    items, recs = [], []
+    items, recs, seen = [], [], set()
     for s in sources:
         mine = []
         if s["folder"] is None:
@@ -104,7 +104,13 @@ def collect(sources):
         mine = open_questions(s["path"], mine) + scope_items(s["path"]) + approved(s["path"])
         for item in mine:
             item.update(repo=s["path"], name=s["name"])
-        items += mine
+            # Worktree children of one repo share its plan and queue: its yours, live, approved and question
+            # items are listed once, not once per child (17 copies of each in the 2026-10-15 run).
+            key = (item["kind"], s["path"], item.get("feature"), item.get("id"), item.get("text"), item.get("number"))
+            if item["kind"] in ("yours", "live", "approved", "question") and key in seen:
+                continue
+            seen.add(key)
+            items.append(item)
     items.sort(key=lambda i: ORDER.index(SLOT.get(i["kind"], i["kind"])))
     return items, recs
 
