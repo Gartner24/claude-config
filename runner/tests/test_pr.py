@@ -535,7 +535,10 @@ class TestReview(PrCase):
         rec = self.rec()
         # Spec 0031 AC-4: the asked comment is seen too, so no later poll judges it again.
         self.assertEqual((rec["state"], rec["rounds"], sorted(rec["seen"])), ("merged", 1, ["c12", "c13", "i11"]))
-        self.assertEqual(len([c for c in self.gh_calls() if c[:2] == ["pr", "view"]]), 2)
+        # Two polls, then spec 0051 AC-7's cleanup reads the merged PR's head once.
+        views = [c for c in self.gh_calls() if c[:2] == ["pr", "view"]]
+        self.assertEqual(len(views), 3)
+        self.assertEqual(views[-1][views[-1].index("--json") + 1], "state,headRefOid")
         [d] = self.queue()["decisions"]
         self.assertEqual((d["case"], d["options"][0]), ("review_ask", "send that reply"))
         self.assertEqual(d["question"], "a reviewer asked a question on the review request in 1. A. PR #7 @bob: Why not X?: proposed: Not needed, see AC-2.")

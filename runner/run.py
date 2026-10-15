@@ -2350,7 +2350,7 @@ class Run:
         # Spec 0033 AC-10: the PR the runner read from gh, the step, and why the first option is recommended.
         n = rec.get("number")
         url = rec.get("pr") if isinstance(rec.get("pr"), str) else rec.get("url")
-        step = {"approved": "merge", "review_request": "review request", "review_draft": "your review",
+        step = {"approved": "merge", "merge_ready": "merge", "review_request": "review request", "review_draft": "your review",
                 "review_edit": "your review", "foreign_commits": "review round", "review_ask": "review round",
                 "review_rounds": "review round"}.get(case, "branch and PR flow")
         ctx = None
@@ -2362,10 +2362,28 @@ class Run:
             except Exception as ex:
                 self.log(f"context: {flat(ex)[:120]}")
         # Spec 0028 AC-12: plain words and a learn line, as every other case question; spec 0044 AC-6: the approved
-        # question is already its own plain sentence.
-        self.ask((flat(detail) if case == "approved" else plain_question(case, rec["feature"], detail))[:300], options or CASES[case][1], feature=rec["feature"],
+        # question is already its own plain sentence, and so is spec 0051 AC-8's merge_ready.
+        self.ask((flat(detail) if case in ("approved", "merge_ready") else plain_question(case, rec["feature"], detail))[:300], options or CASES[case][1], feature=rec["feature"],
                  repo=rec["repo"], case=case, pr=True, learn=plain.PLAIN.get(case, (None, None))[1],
                  **({"context": ctx} if ctx else {}), **extra)
+
+    def each_repo(self, what, fn):
+        """Spec 0051: pr.<fn> for every held repo that has not ended; a failure is a report line, never a stop."""
+        import pr
+        cur = self.repo
+        try:
+            for h in list(self.held):
+                if h["repo"].get("ended"):
+                    continue
+                self.use(h)
+                try:
+                    getattr(pr, fn)(self)
+                except Exception as ex:
+                    self.trace(ex)
+                    self.note(f"{what}: internal_error: {flat(traceback.format_exception_only(ex)[-1])}")
+        finally:
+            if cur is not None:
+                self.use(next(h for h in self.held if h["repo"] is cur))
 
     def pr_poll(self, force=False):
         """AC-11: review polling of every opted in held repo (spec 0031 AC-1: push: draft PR or adopt in pr.json,
@@ -3888,6 +3906,8 @@ class Run:
             self.poll()
             self.sample_usage()
             self.plan_check()
+            # Spec 0051 AC-10: each opted in repo's merge settings, before any poll could merge.
+            self.each_repo("settings check", "settings_check")
             self.pr_poll(force=True)
             while True:
                 if self.interrupted:
@@ -3897,6 +3917,8 @@ class Run:
                     self.run_feature(*picked)
                 elif not self.end_wait():
                     break
+            # Spec 0051 AC-15: the plan only commits on the start branch, through a docs PR.
+            self.each_repo("plan landing", "land_plan")
             reason = "queue_done"
         except Stop as s:
             reason, detail = s.reason, s.detail
@@ -4992,6 +5014,11 @@ def built_stats(r, f, e):
         files = wf.git(r.c.path, "diff", "-z", "--name-only", "--no-renames", h0, f"refs/heads/{branch}")
         files = [x for x in files.stdout.split("\0") if x] if files is not None and files.returncode == 0 else []
         out.update(commits=len(shas), range=f"{shas[0][:7]}..{shas[-1][:7]}" if shas else None, files=len(files))
+    import pr
+    rec = pr.find(r, key_of(r.c), f.name)
+    if rec:
+        # Spec 0051 AC-12: size and age warnings, never a block.
+        out["warn"] = pr.warnings(r, rec)
     c = context.build(r, f.name)
     if c.get("spec"):
         out["spec"] = c["spec"]
@@ -5734,15 +5761,29 @@ def tree_cleanup(r, jobs):
     """Spec 0027 AC-8: after the children, each worktree whose PR merged or closed, or whose feature built nothing,
     goes; the report lines of those kept."""
     import pr
-    notes = []
+    notes, mains = [], {}
     for j in jobs:
         if not j.get("tree"):
             continue
         r.use(j["held"])
+        mains[j["key"]] = j["held"]
         rec = pr.find(r, j["key"], j["feature"])
+        if rec and rec["state"] in ("merged", "closed"):
+            # Spec 0051 AC-7: its worktree child could not remove its own tree or branch; the parent does.
+            notes += pr.cleanup(r, rec)
+            continue
         line = rec and pr.remove_tree(r, rec)
         if line:
             notes.append(line)
+    for h in mains.values():
+        # Spec 0051 AC-15: the parallel repo's plan commits, once all its children ended.
+        r.use(h)
+        before = len(r.record["notes"])
+        try:
+            pr.land_plan(r)
+        except Exception as ex:
+            r.note(f"plan landing: internal_error: {flat(ex)[:120]}")
+        notes += r.record["notes"][before:]
     return notes
 
 

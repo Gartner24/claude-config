@@ -1,6 +1,7 @@
 # Branch and PR flow (spec 0026). One branch per spec, one squashed commit per feature, and in a repo whose standing
 # answers say `push: draft PR` a push and a draft PR made by the runner process itself, after two scans. Calls never
-# push (spec 0007 holds); this module never marks a PR ready and has no way to merge.
+# push (spec 0007 holds). Spec 0031 merges on your merge now; spec 0051 merges a small low risk green PR itself in a
+# privately opted in repo, lands plan only commits through a docs PR, and cleans up after every merge.
 import contextlib
 import datetime
 import fcntl
@@ -11,6 +12,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 
 import ntfy
 import run
@@ -44,6 +46,9 @@ API_GET = re.compile(r"repos/[\w.-]+/[\w.-]+/(pulls/\d+/(comments|reviews)|issue
 REVIEW_POST = re.compile(r"repos/[\w.-]+/[\w.-]+/pulls/\d+/reviews")
 REPO = re.compile(r"[\w.-]+/[\w.-]+")
 API_POST = re.compile(r"repos/[\w.-]+/[\w.-]+/(pulls/\d+/comments/\d+/replies|issues/\d+/comments)")
+# Spec 0051 AC-9: the rulesets read of AC-10 and the docs PR branch of AC-15.
+RULESETS = re.compile(r"repos/[\w.-]+/[\w.-]+/rulesets")
+PLAN_BRANCH = re.compile(r"docs/plan-\d{8}-\d{4}")
 SORT = ("Sort each comment: fix now when the change is local, changes no accepted spec text and no behavior the user "
         "would notice, and adds no value without a source; ask when it would change spec text, pick between behaviors, "
         "trade safety for convenience or leave a known risk, when you think the comment is wrong, or when it is a "
@@ -57,12 +62,25 @@ class Refused(Exception):
     pass
 
 
-def allowed(args, merging=False, posting=False):
+def allowed(args, merging=False, posting=False, green=False, plan=False):
     """AC-9: the allow list. args: the gh argv after the binary. Spec 0031 AC-9: `pr merge` only from merge(), with
     a method and the approved head, never --admin, --auto or --delete-branch. Spec 0032 AC-9: the review request
-    search, and one review post only from reviews.post."""
+    search, and one review post only from reviews.post. Spec 0051 AC-9: the squash merge with --delete-branch and
+    `pr ready` only with green (merge_green, land_plan), the docs PR create without --draft only with plan
+    (land_plan), and the rulesets read."""
     a = list(args)
     flags = {x for x in a if x.startswith("-")}
+    if green and a[:2] == ["pr", "merge"] and len(a) == 9:
+        return a[2].isdigit() and a[3] == "--repo" and bool(REPO.fullmatch(a[4])) and \
+            a[5:8] == ["--squash", "--delete-branch", "--match-head-commit"] and bool(SHA.fullmatch(a[8]))
+    if a[:2] == ["pr", "ready"]:
+        return green and len(a) == 5 and a[2].isdigit() and a[3] == "--repo" and bool(REPO.fullmatch(a[4]))
+    if plan and a[:2] == ["pr", "create"]:
+        return len(a) == 12 and a[2] == "--repo" and bool(REPO.fullmatch(a[3])) and a[4] == "--base" and \
+            not a[5].startswith("-") and a[6] == "--head" and bool(PLAN_BRANCH.fullmatch(a[7])) and \
+            a[8] == "--title" and a[10] == "--body-file" and os.path.isabs(a[11])
+    if a[:1] == ["api"] and len(a) == 2 and RULESETS.fullmatch(a[1]):
+        return True
     if a[:2] == ["search", "prs"]:
         return len(a) == 11 and a[2:6] == ["--review-requested=@me", "--state", "open", "--repo"] and \
             bool(REPO.fullmatch(a[6])) and a[7] == "--json" and a[9] == "--limit" and a[10].isdigit()
@@ -88,17 +106,19 @@ def allowed(args, merging=False, posting=False):
     return False
 
 
-def gh(binary, *args, timeout=GH_TIMEOUT, merging=False, posting=False):
+def gh(binary, *args, timeout=GH_TIMEOUT, merging=False, posting=False, green=False, plan=False):
     """AC-9: the one way this module runs gh, in the runner process with your login. Raises Refused for anything off
     the allow list (ready, a create without --draft, graphql, any other write, a merge outside merge(), a review
     post outside reviews.post())."""
-    if not allowed(args, merging, posting):
+    if not allowed(args, merging, posting, green, plan):
         raise Refused("gh " + " ".join(args[:3]))
     if not binary:
         return subprocess.CompletedProcess(args, 127, "", "gh missing")
     try:
+        # Spec 0051 AC-7: a --delete-branch merge runs outside any checkout, so gh never deletes or switches a local
+        # branch itself; cleanup() does that, only when the tip matches the PR.
         return subprocess.run([binary, *args], capture_output=True, text=True, errors="replace", timeout=timeout,
-                              stdin=subprocess.DEVNULL)
+                              stdin=subprocess.DEVNULL, cwd=tempfile.gettempdir() if green else None)
     except subprocess.TimeoutExpired:
         return subprocess.CompletedProcess(args, 124, "", "gh timed out")
     except OSError as e:
@@ -726,12 +746,17 @@ def local(r, rec, e, why):
 def publish(r, rec, e=None, skip=(), base_too=False, default_base=False):
     """AC-6 to AC-8: scans, push, and the draft PR (an open one reused). Each failure is a question."""
     name, binary = origin_repo(r), r.gh
+    if rec.get("combined"):
+        # Spec 0051 AC-2: an old combined record is never published again.
+        return r.note(f"{rec['feature']}: a combined branch, not published")
     if name is None:
         return r.pr_ask(rec, "pr_failed", f"{rec['feature']}: origin is not a github.com repo")
     if default_base:
         rec["base"] = default_branch(r)
     f = r.feature_named(rec["feature"])
     subject, body = message(r, f, rec)
+    # Spec 0051 AC-12: size and age warnings in the PR body, never a block.
+    body = "\n\n".join(x for x in (body, "\n".join(warnings(r, rec))) if x)
     frm = rec["pushed_sha"] or rec["base_sha"]
     head = tip(r, rec["branch"])
     hit = scans(r, rec, frm, [("PR title", subject), ("PR body", body)], skip)
@@ -783,6 +808,11 @@ def publish(r, rec, e=None, skip=(), base_too=False, default_base=False):
     if e is not None:
         e["pr"] = {"branch": rec["branch"], "state": "draft", "url": url, "number": number}
     print(f"draft PR: {rec['feature']}: {url}", flush=True)
+    if auto(r):
+        # Spec 0051 AC-5: in an opted in repo the self merge is tried at once.
+        merge_green(r, rec)
+        if e is not None and rec["state"] == "merged":
+            e["pr"]["state"] = "merged"
 
 
 def answer(r, d):
@@ -802,6 +832,10 @@ def answer(r, d):
         # Spec 0031 AC-8: never the recommended fallback; only the exact label merges.
         print(f"answered: {d['id']} {d['feature']}: {run.flat(d['answer'])[:60]}", flush=True)
         return rec and approved_answer(r, rec, d)
+    if d["case"] == "merge_ready":
+        # Spec 0051 AC-8: never the recommended fallback; only the exact label, from you, merges.
+        print(f"answered: {d['id']} {d['feature']}: {run.flat(d['answer'])[:60]}", flush=True)
+        return rec and ready_answer(r, rec, d)
     text = run.flat(d["answer"])
     opt = next((o for o in d["options"] if o.casefold() == text.casefold()), d["options"][0] if d["options"] else None)
     print(f"answered: {d['id']} {d['feature']}: {opt}", flush=True)
@@ -828,6 +862,10 @@ def answer(r, d):
         return rebase(r, rec, d.get("onto"), force=True)
     if case == "rebase_conflict" and opt == "try again":
         return rebase(r, rec, d.get("onto"), force=bool(rec["pushed_sha"]))
+    if case == "merge_conflict" and opt == "try again at the next run":
+        # Spec 0051 AC-6: not again in this run.
+        rec["merge_after"] = getattr(r, "run_id", None)
+        return save(r, rec)
     if opt == "leave it for you":
         rec["left"] = True
         save(r, rec)
@@ -864,7 +902,8 @@ def approved_answer(r, rec, d):
         return merge(r, rec)
     if chose(d, "I merged it"):
         rec["state"] = "merged"
-        return save(r, rec)
+        save(r, rec)
+        return cleanup(r, rec)
     if not chose(d, "later"):
         r.note(f"PR #{rec['number']}: your reply was not an option, nothing merged")
 
@@ -885,7 +924,8 @@ def merge(r, rec):
     """AC-9: the one merge, by the wf process: the PR still open at the approved head, the repo's first allowed
     method, --match-head-commit. A failure asks the merge question again."""
     name, binary = origin_repo(r), r.gh
-    if not flag(r, "merge"):
+    if not flag(r, "merge") or rec.get("combined"):
+        # Spec 0051 AC-2: an old combined record is never merged.
         return r.note(f"PR #{rec['number']}: merging is off for this repo in pr.json, nothing merged")
     view, why = gh_json(binary, "pr", "view", str(rec["number"]), "--repo", name or "", "--json",
                         "state,isDraft,headRefOid,reviewDecision")
@@ -893,7 +933,8 @@ def merge(r, rec):
         return ask_merge(r, rec, f"the PR could not be read: {why}")
     if view.get("state") in ("MERGED", "CLOSED"):
         rec["state"] = view["state"].casefold()
-        return save(r, rec)
+        save(r, rec)
+        return cleanup(r, rec)
     if view.get("isDraft"):
         rec["state"] = "draft"
         save(r, rec)
@@ -930,6 +971,493 @@ def merge(r, rec):
     act(r, rec, "merge", number=rec["number"], method=method[2:], commit=head)
     r.note(f"merged: PR #{rec['number']} ({method[2:]})")
     print(f"merged: PR #{rec['number']}", flush=True)
+    cleanup(r, rec)
+
+
+# -- small, low risk and green: the self merge (spec 0051 AC-3 to AC-8) ----------------------
+
+# AC-3: whole repo relative paths (fnmatch, case folded) a self merge never touches; the installed runner copy holds
+# them, so a branch cannot change them. *token* and *session* are left out on purpose: they match harmless names.
+RISK_PATHS = ("*auth*", "*login*", "*payment*", "*billing*", "*invoice*", "*migration*", "*permission*", "*crypto*",
+              "*secret*", "*credential*", ".github/*", "*.env*", "AGENTS.md", "*/AGENTS.md", "CLAUDE.md",
+              "*/CLAUDE.md", "claude-home/settings*.json", "claude-home/hooks/*", "claude-home/rules/*", "runner/*",
+              "bin/*", "scripts/*", "docs/scope/*", ".workflow/*")
+TEST_NAMES = ("test_*.py", "*_test.py", "*.test.*", "*.spec.*")
+TEST_SKIP = re.compile(r"@unittest\.skip|pytest\.mark\.skip|\.skip\(|\bxit\(")
+TOP_DEF = re.compile(r"^(?:async\s+)?(?:def|class)\s+(\w+)")
+FLAG_ARG = re.compile(r"add_argument\(\s*[\"'](--[\w-]+)")
+ENV_KEY = re.compile(r"os\.environ(?:\.get\(|\.pop\(|\.setdefault\(|\[)\s*[\"']([^\"']+)[\"']")
+SMALL_LINES, SMALL_FILES = 200, 10
+# AC-12: a warning in the PR body and the built: line, never a block.
+LARGE_LINES, OLD_DAYS = 400, 2
+CHECKS_OK = ("SUCCESS", "NEUTRAL", "SKIPPED")
+MERGEABLE_READS, MERGEABLE_WAIT = 3, 10
+RULESET = "main only through a PR"
+# AC-10: what bin/repo-settings.sh sets, as gh repo view names it.
+SETTINGS = (("squashMergeAllowed", True), ("mergeCommitAllowed", False), ("rebaseMergeAllowed", False),
+            ("deleteBranchOnMerge", True))
+
+
+def auto(r):
+    """AC-1: the self merge runs only with branches per spec and push draft PR, the pr.json entry's auto_merge: true
+    (which no call can write: ~/.claude/private is in run.SECRETS), and AC-10's settings check passed this run."""
+    return pushing(r) and flag(r, "auto_merge") and not (r.repo or {}).get("settings_off")
+
+
+def is_test(path):
+    name = os.path.basename(path)
+    return any(fnmatch(name, p) for p in TEST_NAMES) or "/tests/" in "/" + path or "/__tests__/" in "/" + path
+
+
+def small_safe(r, rec, base, head):
+    """AC-3: (ok, reasons) over `git diff <base>...<head>`, one short reason per failed rule."""
+    repo, g = r.c.path, gitbin(r)
+    num = git(g, repo, "diff", "-z", "--numstat", "--no-renames", f"{base}...{head}")
+    names = git(g, repo, "diff", "-z", "--name-status", "--no-renames", f"{base}...{head}")
+    text = git(g, repo, "diff", "--no-renames", "--no-ext-diff", "--no-textconv", "-U0", f"{base}...{head}")
+    if any(x.returncode for x in (num, names, text)):
+        # Security review (fail open): a diff that cannot be read is never small.
+        return False, ["the diff could not be read"]
+    lines, files = 0, []
+    for item in num.stdout.split("\0"):
+        parts = item.split("\t", 2)
+        if len(parts) == 3:
+            lines += sum(int(x) for x in parts[:2] if x.isdigit())
+            files.append(parts[2])
+    reasons = []
+    if lines > SMALL_LINES or len(files) > SMALL_FILES:
+        reasons.append(", ".join(x for x in (f"{lines} lines" if lines > SMALL_LINES else "",
+                                               f"{len(files)} files" if len(files) > SMALL_FILES else "") if x))
+    risky = RISK_PATHS + (r.c.scope_dir.rstrip("/") + "/*",)
+    hit = next((p for p in files if any(fnmatch(p.casefold(), x.casefold()) for x in risky)), None)
+    if hit:
+        reasons.append(f"touches {hit}")
+    status = names.stdout.split("\0")
+    deleted = [status[i + 1] for i in range(0, len(status) - 1, 2) if status[i] == "D"]
+    added, removed, inside = [], [], False
+    for line in text.stdout.split("\n"):
+        if line.startswith("diff --git "):
+            inside = False
+        elif line.startswith("@@"):
+            inside = True
+        elif inside and line.startswith("+"):
+            added.append(line[1:])
+        elif inside and line.startswith("-"):
+            removed.append(line[1:])
+    if any(is_test(p) for p in deleted) or any(TEST_SKIP.search(l) for l in added):
+        reasons.append("deletes or skips a test")
+    plus = "\n".join(added)
+    gone = next((f"removes def {m.group(1)}" for m in map(TOP_DEF.match, removed)
+                 if m and not re.search(rf"\b{re.escape(m.group(1))}\b", plus)), None) or \
+        next((f"removes flag {m.group(1)}" for l in removed for m in [FLAG_ARG.search(l)]
+              if m and m.group(1) not in plus), None) or \
+        next((f"removes env {m.group(1)}" for l in removed for m in [ENV_KEY.search(l)]
+              if m and m.group(1) not in plus), None)
+    if gone:
+        reasons.append(gone)
+    return not reasons, reasons
+
+
+def boxes_ticked(r, feature):
+    """AC-4: the feature's /check verify and /test boxes in the main checkout's plan (spec 0043 AC-4, never a branch's
+    copy) exist and are ticked, none of them skipped."""
+    try:
+        _, feats = run.repo_features(run.key_of(r.c), r.c.scope_dir)
+    except (OSError, StopIteration):
+        return False
+    f = next((x for x in feats if x.name == feature), None)
+    cmds = [((b.command() or "").split()[:2], b) for b in (f.boxes if f else [])]
+    verify = [b for c, b in cmds if c == ["/check", "verify"]]
+    tests = [b for c, b in cmds if c[:1] == ["/test"]]
+    return bool(verify and tests) and all(not b.open and not run.SKIPPED.search(b.text) for b in verify + tests)
+
+
+def main_suite(r, default):
+    """AC-4: the suite standing answer of origin/<default>'s AGENTS.md, read by read_answers' parser; None without."""
+    rel = run.ANSWERS_FILE[r.c.scope_dir]
+    shown = wf.git(run.key_of(r.c), "show", f"origin/{default}:{rel}")
+    if shown is None or shown.returncode:
+        return None
+    answers, err = run.parse_answers(rel, shown.stdout.split("\n"))
+    return (answers or {}).get("suite") if err is None else None
+
+
+def green(r, rec, head, why=None):
+    """AC-4: True when the plan's verify and test boxes are ticked, main's own suite passes on head's tree, both scans
+    pass on pushed_sha..head, and every check GitHub reports is fine. why, a list, gets the first reason it is not."""
+    why = why if why is not None else []
+    default = default_branch(r)
+    if not boxes_ticked(r, rec["feature"]):
+        why.append("verify and test not ticked in the plan")
+        return False
+    suite = main_suite(r, default)
+    if not suite:
+        why.append(f"no suite answer on origin/{default}")
+        return False
+    code, lines = r.clean_suite(run.key_of(r.c), suite, rev=head)
+    if code:
+        why.append(f"main's suite failed: {run.flat(' '.join(lines[-2:]))[:120]}")
+        return False
+    hit = scans(r, rec, rec["pushed_sha"] or rec["base_sha"], [])
+    if hit:
+        why.append(f"{hit[0]}: {hit[1]}"[:150])
+        return False
+    view, err = gh_json(r.gh, "pr", "view", str(rec["number"]), "--repo", origin_repo(r) or "", "--json",
+                        "statusCheckRollup")
+    if not isinstance(view, dict):
+        why.append(f"checks not read: {err}")
+        return False
+    for c in view.get("statusCheckRollup") or []:
+        state = (c.get("conclusion") or c.get("state") or "") if isinstance(c, dict) else ""
+        if state not in CHECKS_OK:
+            why.append(f"check {c.get('name') or c.get('context') if isinstance(c, dict) else '?'}: "
+                       f"{state.casefold() or 'pending'}")
+            return False
+    return True
+
+
+def warnings(r, rec):
+    """AC-12: `large: ...` over 400 added plus deleted lines since base_sha, `old: ...` when the branch's first commit
+    after base_sha is more than 2 days old."""
+    g, repo, b = gitbin(r), r.c.path, rec["branch"]
+    out_ = []
+    num = out(git(g, repo, "diff", "-z", "--numstat", "--no-renames", f"{rec['base_sha']}...{b}")) or ""
+    n = sum(int(x) for item in num.split("\0") for x in item.split("\t")[:2] if x.isdigit())
+    if n > LARGE_LINES:
+        out_.append(f"large: {n} lines changed (over {LARGE_LINES})")
+    first = (out(git(g, repo, "log", "--reverse", "--format=%ct", f"{rec['base_sha']}..{b}")) or "").split("\n")[0]
+    if first.isdigit():
+        days = int((datetime.datetime.now().timestamp() - int(first)) // 86400)
+        if days > OLD_DAYS:
+            out_.append(f"old: branch {days} days (over {OLD_DAYS})")
+    return out_
+
+
+@contextlib.contextmanager
+def merge_lock(r):
+    """AC-5: one update, test and merge per repo at a time, across every child."""
+    folder = os.path.join(run.state_dir(), "locks")
+    os.makedirs(folder, mode=0o700, exist_ok=True)
+    name = hashlib.sha1(run.key_of(r.c).encode()).hexdigest()
+    fd = os.open(os.path.join(folder, f"merge-{name}.lock"), os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(fd)
+
+
+def checkout_of(r, rec):
+    """(folder, made): where rec's branch is checked out, else a worktree made for it (made True), else (None, why)."""
+    main = run.key_of(r.c)
+    for p in dict.fromkeys([r.c.path, main, rec.get("tree"), *wf.worktrees(main)]):
+        if p and os.path.isdir(p) and wf.head_branch(p) == rec["branch"]:
+            return p, False
+    os.makedirs(run.trees_root(), mode=0o700, exist_ok=True)
+    tmp = tempfile.mkdtemp(prefix="wf-merge-", dir=run.trees_root())
+    res = wf.git(main, "worktree", "add", "--quiet", tmp, rec["branch"])
+    if res is None or res.returncode:
+        os.rmdir(tmp)
+        return None, run.flat(res and res.stderr)[:120] or "worktree add failed"
+    return tmp, True
+
+
+def up_to_date(r, rec, default):
+    """AC-6: an unstacked branch that does not contain origin/<default> gets it by `git merge --no-edit`, never a
+    rebase; then both scans on pushed_sha..HEAD, a fast forward push, pushed_sha updated. False when it stopped (a
+    merge_conflict question or a note)."""
+    if rec.get("stacked_on") or rec["base"] != r.repo.get("start_branch"):
+        return True
+    target = f"origin/{default}"
+    if merged(r, target, rec["branch"]):
+        return True
+    where, made = checkout_of(r, rec)
+    if where is None:
+        r.note(f"PR #{rec['number']}: not brought up to date: {made}")
+        return False
+    try:
+        if run.dirty(where):
+            r.note(f"PR #{rec['number']}: not brought up to date, {where} has uncommitted changes")
+            return False
+        g = gitbin(r)
+        res = git(g, where, "merge", "--no-edit", target)
+        if res.returncode:
+            git(g, where, "merge", "--abort")
+            r.pr_ask(rec, "merge_conflict", f"{rec['branch']} clashes with {target}: "
+                                            f"{run.flat(res.stdout or res.stderr)[:150]}")
+            return False
+    finally:
+        if made:
+            wf.git(run.key_of(r.c), "worktree", "remove", "--force", where)
+            wf.git(run.key_of(r.c), "worktree", "prune")
+    head = tip(r, rec["branch"])
+    hit = scans(r, rec, rec["pushed_sha"] or rec["base_sha"], [])
+    if hit:
+        r.pr_ask(rec, hit[0], f"{rec['feature']}: {hit[1]}")
+        return False
+    state, detail = push(r, rec, sha=head)
+    if state != "ok":
+        r.note(f"PR #{rec['number']}: the update was not pushed: {detail or 'kept local by the pre-push hook'}")
+        return False
+    old, rec["pushed_sha"] = rec["pushed_sha"], head
+    if rec.get("adopted") and rec.get("cleared") == old:
+        # AC-6: commits reachable from origin/<default> never count for spec 0031 AC-12's foreign change check.
+        rec["cleared"] = head
+    save(r, rec)
+    act(r, rec, "update", onto=target, commit=head)
+    return True
+
+
+def mergeable(r, rec, name):
+    """AC-5: the PR view; UNKNOWN mergeable is read again after 10 seconds, at most 3 times."""
+    view = None
+    for i in range(MERGEABLE_READS):
+        view, why = gh_json(r.gh, "pr", "view", str(rec["number"]), "--repo", name, "--json",
+                            "state,isDraft,headRefOid,mergeable")
+        if not isinstance(view, dict):
+            return None, why
+        if view.get("mergeable") != "UNKNOWN":
+            break
+        if i + 1 < MERGEABLE_READS:
+            time.sleep(MERGEABLE_WAIT)
+    return view, None
+
+
+def merge_green(r, rec, approved=None):
+    """AC-5: under the repo's merge lock, AC-6 then small_safe, green and the PR's state, head and mergeable, then
+    `gh pr ready` for a draft and the one squash merge at the tested head. approved: the head you said merge now to
+    (AC-8): small_safe is not asked then, green is, and only that head merges."""
+    name = origin_repo(r)
+    if rec.get("combined") or not name or rec.get("number") is None:
+        return None
+    if rec.get("left") or rec.get("merge_after") == getattr(r, "run_id", None):
+        return None
+    if rec.get("stacked_on"):
+        # Bottom up: a stacked record merges once its base merged and it moved onto the start branch.
+        return None
+    if approved is None and any(d.get("case") in ("merge_ready", "merge_conflict") and d["repo"] == rec["repo"]
+                                and d["feature"] == rec["feature"] for d in r.queue()["decisions"]):
+        return None
+    default = default_branch(r)
+    with merge_lock(r):
+        for attempt in range(2):
+            wf.git(r.c.path, "fetch", "--quiet", "origin")
+            if not up_to_date(r, rec, default):
+                return None
+            at = out(wf.git(r.c.path, "rev-parse", f"origin/{default}"))
+            tested = tip(r, rec["branch"])
+            if approved is not None and tested != approved:
+                # AC-8: a head that moved asks again, naming the new head; only a new merge now merges it.
+                return ask_ready(r, rec, tested, rec.get("ready_reasons") or [],
+                                 f"new commits since you were asked, the head is now {str(tested)[:7]}")
+            base = f"origin/{default}" if not rec.get("stacked_on") else rec["base"]
+            ok, reasons = small_safe(r, rec, base, tested) if approved is None else (True, [])
+            why = []
+            if not green(r, rec, tested, why):
+                return r.note(f"PR #{rec['number']}: not merged, not green: {why[0] if why else 'unknown'}")
+            if not ok:
+                return ask_ready(r, rec, tested, reasons)
+            view, err = mergeable(r, rec, name)
+            if not isinstance(view, dict):
+                return r.note(f"PR #{rec['number']}: not merged, the PR could not be read: {err}")
+            if view.get("state") != "OPEN" or view.get("headRefOid") != tested or view.get("mergeable") != "MERGEABLE":
+                return r.note(f"PR #{rec['number']}: not merged: {str(view.get('state')).casefold()}, head "
+                              f"{str(view.get('headRefOid'))[:7]}, {str(view.get('mergeable')).casefold()}")
+            wf.git(r.c.path, "fetch", "--quiet", "origin")
+            if out(wf.git(r.c.path, "rev-parse", f"origin/{default}")) == at:
+                break
+        else:
+            return r.note(f"PR #{rec['number']}: not merged, origin/{default} kept moving")
+        try:
+            if view.get("isDraft"):
+                res = gh(r.gh, "pr", "ready", str(rec["number"]), "--repo", name, green=True)
+                if res.returncode:
+                    return r.note(f"PR #{rec['number']}: not marked ready: {run.flat(res.stderr)[:120]}")
+            res = gh(r.gh, "pr", "merge", str(rec["number"]), "--repo", name, "--squash", "--delete-branch",
+                     "--match-head-commit", tested, green=True)
+        except Refused as e:
+            return r.note(f"PR #{rec['number']}: {e}")
+        if res.returncode:
+            return r.note(f"PR #{rec['number']}: not merged: {run.flat(res.stderr or res.stdout)[:150]}")
+    rec["state"] = "merged"
+    rec.pop("asked_head", None)
+    save(r, rec)
+    act(r, rec, "merge", number=rec["number"], method="squash", commit=tested)
+    r.note(f"merged: {rec['feature']}: PR #{rec['number']} " +
+           ("(small and low risk)" if approved is None else "(your merge now)"))
+    print(f"merged: PR #{rec['number']}", flush=True)
+    cleanup(r, rec)
+    return True
+
+
+def ask_ready(r, rec, head, reasons, why=""):
+    """AC-8: the green PR that needs your review stays a draft; the report line and the merge_ready question, which
+    stores the head it names."""
+    rec["ready_reasons"], rec["asked_head"] = list(reasons), head
+    save(r, rec)
+    said = ", ".join(reasons) or "your review"
+    r.note(f"next: run /review on PR #{rec['number']} ({said}), then answer merge now")
+    r.queue(lambda q: q.update(decisions=[d for d in q["decisions"] if not (
+        d.get("case") == "merge_ready" and d["repo"] == rec["repo"] and d["feature"] == rec["feature"])]) or True)
+    r.pr_ask(rec, "merge_ready", f"PR #{rec['number']} passed its checks but needs your review ({said}). Merge it "
+                                 f"now? (head {str(head)[:7]})" + (f" Note: {why}" if why else ""), asked_head=head)
+
+
+def ready_answer(r, rec, d):
+    """AC-8: only merge now (that exact option, from you) merges, through merge_green at the asked head with green
+    judged again; later or any other reply merges nothing."""
+    if chose(d, MERGE_NOW):
+        if not strong(r, d):
+            return ask_ready(r, rec, d.get("asked_head"), rec.get("ready_reasons") or [],
+                             f"on ntfy merging needs one of your one time codes: reply {run.NEW_ID} <code> merge now")
+        if isinstance(d.get("asked_head"), str) and SHA.fullmatch(d["asked_head"]):
+            return merge_green(r, rec, approved=d["asked_head"])
+    if chose(d, "later"):
+        # Not asked again at every poll for the same head.
+        rec["later"] = d.get("asked_head")
+        return save(r, rec)
+    r.note(f"PR #{rec['number']}: your reply was not an option, nothing merged")
+
+
+# -- cleanup after a merge or close (spec 0051 AC-7) -----------------------------------
+
+def cleanup(r, rec):
+    """AC-7: prune, the clean worktree, the local branch only at or behind the PR's head, a closed PR's remote branch
+    (spec 0026 AC-7's refusals), then prune worktrees. A failed step is one note; none asks. Returns the notes."""
+    main, g, b = run.key_of(r.c), gitbin(r), rec["branch"]
+    said = []
+
+    def note(text):
+        said.append(text)
+        r.note(text)
+    wf.git(main, "fetch", "--quiet", "--prune", "origin")
+    path = rec.get("tree")
+    if r.repo.get("tree"):
+        # A feature's own worktree child runs inside its tree: the parent's tree_cleanup removes it and the branch.
+        path = None
+    elif path and os.path.isdir(path):
+        if run.dirty(path):
+            note(f"left: {path}: uncommitted changes")
+        else:
+            line = remove_tree(r, rec)
+            if line:
+                note(line)
+    name = origin_repo(r)
+    view, why = gh_json(r.gh, "pr", "view", str(rec["number"]), "--repo", name or "", "--json", "state,headRefOid") \
+        if rec.get("number") is not None else (None, "no PR")
+    state = view.get("state") if isinstance(view, dict) else None
+    local = tip(r, b)
+    if state in ("MERGED", "CLOSED") and local and not r.repo.get("tree"):
+        pr_head = view.get("headRefOid")
+        if isinstance(pr_head, str) and (local == pr_head or merged(r, local, pr_head)):
+            res = wf.git(main, "branch", "-D", b)
+            if res is None or res.returncode:
+                note(f"kept: {b}: {run.flat(res and res.stderr)[:120]}")
+        else:
+            note(f"kept: {b}: commits after the PR")
+    elif state is None:
+        note(f"kept: {b}: the PR could not be read: {why}")
+    if state == "CLOSED" and out(wf.git(main, "ls-remote", "--heads", "origin", f"refs/heads/{b}")):
+        if b in run.MAIN_BRANCHES or b == default_branch(r):
+            note(f"kept: origin {b}: a main branch")
+        elif out(wf.git(main, "config", "--get", "remote.origin.url")) != r.repo.get("origin_url"):
+            note(f"kept: origin {b}: origin changed since the run started")
+        else:
+            res = git(g, main, "push", "origin", "--delete", f"refs/heads/{b}")
+            if res.returncode:
+                note(f"kept: origin {b}: {run.flat(res.stderr)[:120]}")
+    wf.git(main, "worktree", "prune")
+    return said
+
+
+# -- plan commits by a docs PR (spec 0051 AC-15) ----------------------------------------
+
+def land_plan(r):
+    """AC-15: at a run's end, the start branch's commits ahead of origin/<default>, when every one of them touches only
+    the scope folder, through a docs PR merged by the runner; then the local branch reset to origin only when origin
+    holds the same plan. A failed step is one note and leaves the local commits."""
+    main, g = run.key_of(r.c), gitbin(r)
+    if r.answers.get("push") != "draft pr" or r.repo.get("tree"):
+        return None
+    default, name = default_branch(r), origin_repo(r)
+    if not name or r.repo.get("start_branch") != default or wf.head_branch(main) != default:
+        return None
+    with merge_lock(r):
+        wf.git(main, "fetch", "--quiet", "origin")
+        head = out(wf.git(main, "rev-parse", "HEAD"))
+        frm = out(wf.git(main, "rev-parse", f"origin/{default}"))
+        ahead = (out(wf.git(main, "rev-list", f"{frm}..{head}")) or "").split() if head and frm else []
+        if not ahead:
+            return None
+        # -m: a merge commit's own changes count too, so nothing outside the plan rides along.
+        files = out(wf.git(main, "log", "-m", "-z", "--format=", "--name-only", "--no-renames", f"{frm}..{head}"))
+        scope = r.c.scope_dir.rstrip("/")
+        outside = [p for p in (files or "").replace("\n", "\0").split("\0") if p and not run.under(p, [scope])]
+        if files is None or outside:
+            return r.note(f"plan not landed: {outside[0] if outside else 'the commits'} is outside {scope}")
+        stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M")
+        branch = f"docs/plan-{stamp}"
+        rec = {"repo": main, "feature": "plan", "branch": head}
+        subjects = (out(wf.git(main, "log", "--format=- %s", f"{frm}..{head}")) or "").strip()
+        title, body = f"docs(scope): plan updates {stamp}", f"Plan only changes from wf runs:\n\n{subjects}\n"
+        hit = scans(r, rec, frm, [("PR title", title), ("PR body", body)])
+        if hit:
+            return r.note(f"plan not landed: {hit[0]}: {hit[1]}"[:200])
+        if out(wf.git(main, "config", "--get", "remote.origin.url")) != r.repo.get("origin_url"):
+            return r.note("plan not landed: origin changed since the run started")
+        res = git(g, main, "push", "--porcelain", "origin", f"{head}:refs/heads/{branch}")
+        if res.returncode:
+            return r.note(f"plan not landed: push: {run.flat(res.stderr or res.stdout)[:120]}")
+        fd, body_file = tempfile.mkstemp(prefix="wf-plan-", suffix=".md")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(body)
+            res = gh(r.gh, "pr", "create", "--repo", name, "--base", default, "--head", branch, "--title", title,
+                     "--body-file", body_file, plan=True)
+        finally:
+            os.unlink(body_file)
+        m = re.search(r"/pull/(\d+)", res.stdout or "") if res.returncode == 0 else None
+        if not m:
+            return r.note(f"plan not landed: PR: {run.flat(res.stderr or res.stdout)[:120]}")
+        res = gh(r.gh, "pr", "merge", m.group(1), "--repo", name, "--squash", "--delete-branch", "--match-head-commit",
+                 head, green=True)
+        if res.returncode:
+            return r.note(f"plan not landed: PR #{m.group(1)} not merged: {run.flat(res.stderr or res.stdout)[:120]}")
+        wf.git(main, "fetch", "--quiet", "--prune", "origin")
+        same = wf.git(main, "diff", "--quiet", head, f"origin/{default}", "--", scope)
+        if same is None or same.returncode:
+            return r.note(f"plan landed in PR #{m.group(1)}; origin's plan differs, the local commits stay")
+        res = wf.git(main, "reset", "--quiet", "--keep", f"origin/{default}")
+        if res is None or res.returncode:
+            return r.note(f"plan landed in PR #{m.group(1)}; reset failed: {run.flat(res and res.stderr)[:120]}")
+        r.note(f"plan landed: PR #{m.group(1)}, {len(ahead)} commits")
+        return True
+
+
+# -- repo settings (spec 0051 AC-10) ---------------------------------------------------
+
+def settings_check(r):
+    """AC-10: at a run's start, an AC-1 repo's merge settings and its ruleset; any difference is one report line and
+    turns the self merge off for this run."""
+    if not (pushing(r) and flag(r, "auto_merge")):
+        return None
+    name = origin_repo(r)
+    view, why = gh_json(r.gh, "repo", "view", name or "", "--json", ",".join(k for k, _ in SETTINGS))
+    sets, why2 = gh_json(r.gh, "api", f"repos/{name}/rulesets")
+    off = []
+    if not isinstance(view, dict):
+        off.append(f"settings not read ({why})")
+    else:
+        off += [f"{k} is {str(view.get(k)).casefold()}" for k, want in SETTINGS if view.get(k) is not want]
+    if not isinstance(sets, list):
+        off.append(f"rulesets not read ({why2})")
+    elif not any(isinstance(s, dict) and s.get("name") == RULESET and s.get("enforcement") == "active"
+                 and s.get("target") == "branch" for s in sets):
+        off.append(f"no active ruleset {RULESET!r}")
+    if off:
+        r.repo["settings_off"] = True
+        r.note(f"settings: {name}: {'; '.join(off)}; run bin/repo-settings.sh {name}")
+    return off
 
 
 # -- adopt your open PRs (spec 0031 AC-1 to AC-3) ---------------------------------------
@@ -1084,8 +1612,8 @@ def foreign_answer(r, rec, d):
 def withdraw(r, rec):
     """AC-5: a merged or closed PR's open merge question goes."""
     r.queue(lambda q: q.update(decisions=[d for d in q["decisions"] if not (
-        d.get("pr") and d["repo"] == rec["repo"] and d["feature"] == rec["feature"] and d.get("case") == "approved")])
-        or True)
+        d.get("pr") and d["repo"] == rec["repo"] and d["feature"] == rec["feature"]
+        and d.get("case") in ("approved", "merge_ready", "merge_conflict"))]) or True)
 
 
 # -- review loop (AC-11 to AC-16) ---------------------------------------------------
@@ -1200,10 +1728,15 @@ def poll_one(r, rec):
         rec["state"] = view["state"].casefold()
         save(r, rec)
         withdraw(r, rec)
+        cleanup(r, rec)
         return
     if view.get("isDraft"):
         rec["state"] = "draft"
-        return save(r, rec)
+        save(r, rec)
+        if auto(r) and rec.get("later") != tip(r, rec["branch"]):
+            # Spec 0051 AC-5: a failure left the PR open with a note; each poll tries again.
+            merge_green(r, rec)
+        return
     if rec["state"] == "draft":
         rec["state"] = "ready"
     cfg = private_config(name)

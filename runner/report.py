@@ -193,6 +193,8 @@ def item_line(i, multi, phone, cfg, wide=False):
                 text += f": draft PR {url}" if not phone else f": PR #{pr['number']}" + (f" {url}" if url else "")
         elif b.get("branch") and not phone:
             text += f", branch {wf.clean(b['branch'])}"
+        # Spec 0051 AC-12: size and age, a warning only.
+        text += "".join(f"; {wf.clean(str(w))}" for w in b.get("warn") or [])
         if b:
             # Spec 0033 AC-9: this feature's next step and why it is yours.
             text += "; next: mark it ready, only you do that" if pr.get("number") else \
