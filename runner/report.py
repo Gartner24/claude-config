@@ -153,7 +153,8 @@ def approved(path):
 def next_line(items, name):
     kinds = {i["kind"] for i in items}
     # Spec 0026 AC-10: a draft PR is marked ready and an approved one merged by you; the runner never does either.
-    ready = [f"PR #{i['pr']['number']}" for i in items if i["kind"] == "built" and (i.get("pr") or {}).get("number")]
+    ready = [f"PR #{i['pr']['number']}" for i in items if i["kind"] == "built" and (i.get("pr") or {}).get("number")
+             and i["pr"].get("state") != "merged"]
     no_pr = [name(i) for i in items if i["kind"] == "built" and not (i.get("pr") or {}).get("number")]
     steps = ([f"mark ready: {', '.join(ready)}"] if ready else []) + \
         [f"merge PR #{i['number']}" for i in items if i["kind"] == "approved"] + \
@@ -190,11 +191,14 @@ def item_line(i, multi, phone, cfg, wide=False):
                 text += f": PR #{pr['number']}"
             else:
                 url = wf.clean(str(pr.get("url"))) if not phone else context.link(cfg, pr.get("url"))
-                text += f": draft PR {url}" if not phone else f": PR #{pr['number']}" + (f" {url}" if url else "")
+                kind = "merged PR" if pr.get("state") == "merged" else "draft PR"
+                text += f": {kind} {url}" if not phone else f": PR #{pr['number']}" + (f" {url}" if url else "")
         elif b.get("branch") and not phone:
             text += f", branch {wf.clean(b['branch'])}"
-        if b:
-            # Spec 0033 AC-9: this feature's next step and why it is yours.
+        # Spec 0051 AC-12: size and age, a warning only.
+        text += "".join(f"; {wf.clean(str(w))}" for w in b.get("warn") or [])
+        if b and pr.get("state") != "merged":
+            # Spec 0033 AC-9: this feature's next step and why it is yours; spec 0051 AC-5: none once merged.
             text += "; next: mark it ready, only you do that" if pr.get("number") else \
                 "; next: review and merge it, it was built on its branch with no PR"
     elif k == "parked":
