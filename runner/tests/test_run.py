@@ -243,6 +243,19 @@ def alive(pid):
         return False
 
 
+def before_brief(prompt):
+    """The appended prompt before the spec 0034 brief block, for the older tests that pin what comes before it."""
+    return prompt.split(run.BRIEF_PROMPT)[0]
+
+
+BRIEF_GAPS = ("no brief linked: ", "no spec linked: ")
+
+
+def without_brief_gaps(lines):
+    """Report notes or log lines without spec 0034's gap notes for a fixture feature linking no brief and no spec."""
+    return [l for l in lines if not l.startswith(BRIEF_GAPS)]
+
+
 class RunCase(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp()).resolve()
@@ -445,6 +458,8 @@ class TestHappyPath(RunCase):
         self.assertEqual(a["argv"][4], "--session-id")
         self.assertEqual(str(uuid.UUID(a["argv"][5], version=4)), a["argv"][5])
         del a["argv"][4:6]
+        i = a["argv"].index("--append-system-prompt") + 1
+        a["argv"][i] = before_brief(a["argv"][i])
         self.assertEqual(a["argv"][:11] + a["argv"][12:15] + a["argv"][16:], [
             "-p", "/develop loop", "--output-format", "json", "--permission-mode", "auto",
             "--permission-prompts", "none", "--max-budget-usd", "2.5", "--disallowedTools",
@@ -1589,7 +1604,7 @@ class TestStandingAnswers(RunCase):
 
     def prompt(self, n):
         a = self.argv(n)["argv"]
-        return a[a.index("--append-system-prompt") + 1]
+        return before_brief(a[a.index("--append-system-prompt") + 1])
 
     # covers: spec 0043 AC-8 (with a suite answer, /check verify and /test calls get the suite sentence with the command
     # as written; the /sync call and a repo without the answer do not)

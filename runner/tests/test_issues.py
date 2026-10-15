@@ -12,7 +12,7 @@ import run  # noqa: E402
 import wf  # noqa: E402
 from test_park import GIT_ID  # noqa: E402
 from test_queue import DONE_A, DONE_B, TICK_A, TICK_B  # noqa: E402
-from test_run import SCOPE, WF, RunCase  # noqa: E402
+from test_run import SCOPE, WF, RunCase, before_brief, without_brief_gaps  # noqa: E402
 
 # A scriptable gh: gh.json maps "<owner>/<repo>#<n>" to the issue (`issue view`) and to the history answer
 # (`api graphql`); an entry {"stderr": ..., "rc": n} fails. Every argv goes to gh-argv.jsonl with the GH_TOKEN it saw.
@@ -109,10 +109,10 @@ class IssueCase(RunCase):
 
     def prompt(self, n):
         a = self.argv(n)["argv"]
-        return a[a.index("--append-system-prompt") + 1]
+        return before_brief(a[a.index("--append-system-prompt") + 1])
 
     def notes(self):
-        return self.run_record()[1]["notes"]
+        return without_brief_gaps(self.run_record()[1]["notes"])
 
     def reply(self, *texts):
         self.report_ntfy.replies = list(texts)
