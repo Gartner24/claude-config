@@ -31,3 +31,8 @@ Source: your messages of 2026-10-15 ("we have a lot of closed prs and non delete
 ## Open, for /architect
 - How the runner's plan updates (scope ticks, verify notes; 38 direct commits to `main` on 2026-10-15) reach `main` once rule 1 blocks direct pushes.
 - What happens to the branches kept on purpose: `feat/seo-ops-refs`, `sync-settings`, and the closed combined PRs' branches `wf/combined-20261015-0244` and `wf/combined-20261015-0308` (work not yet compared with `main`).
+
+## Cross check answers (2026-10-15, after the second model's 12 gaps)
+- Self merge ships today, with its 4 security fixes: green is judged from main's AGENTS.md suite answer and main's plan, never the PR's; the head you approved is pinned; one merge lock covers update, test and merge; a probe shows a build step cannot write `~/.claude/private/pr.json`.
+- The runner lands its own plan only commits through a docs PR it merges itself, only when every changed file is inside the plan folder.
+- All 8 smaller fixes are applied (exact "merge now" from you only, pinned head, update pushed and rescanned before merging, UNKNOWN mergeable waits, Conventional Commit PR title, local branch deleted only when its tip matches the merged PR, stale "combined" text, amended spec lines named).

@@ -73,7 +73,8 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 52 | Review leftovers 2026-10-15 | Release 8 | done |
 | 53 | Only a typed /auto turns on or releases | Release 8 | done |
 | 54 | Organize claude-config and ~/.claude, sync what you use daily | Release 8 | done |
-| 55 | Fewer skills described in every session | Release 8 | in-progress |
+| 55 | Fewer skills described in every session | Release 8 | done |
+| 56 | Clean branches, PRs and commits | Release 8 | in-progress |
 | 66 | Update Claude Code through /claude-config | Release 9 | needs a decision |
 | 57 | Move my own skills out of jjstack | Release 9 | needs a decision |
 | 58 | Own status bar and dashboards with mods | Release 9 | needs a decision |
@@ -829,6 +830,23 @@ Spec [0050](../specs/0050-fixed-skill-keep-list/index.md) · code in `scripts/sk
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
 
+### 56. Clean branches, PRs and commits · in-progress
+Code reaches main only through its own squash merged PR, branches and worktrees are deleted after a merge, no combined branches, small low risk PRs merge themselves in an opted in repo, plan commits land by a docs PR, and big or old features get a warning.
+**Done when:** a runner built feature ends as one squash commit on main through its PR with its branch and worktree gone, a direct push to main is refused by GitHub, and the runner's plan commits reach main by a docs PR.
+- [x] Design it (spec): `/architect clean branches, PRs and commits`
+- [ ] Build it: `/develop clean branches, PRs and commits`
+  - [ ] Probe P1, combine step removed (AC-1, AC-2)
+  - [ ] Small and low risk, green from main, size and age lines (AC-3, AC-4, AC-12)
+  - [ ] Merge lock, update by merge, self merge, merge now question, allow list (AC-5, AC-6, AC-8, AC-9, AC-13)
+  - [ ] Cleanup after merge, plan commits by docs PR (AC-7, AC-15)
+  - [ ] Settings check, `bin/repo-settings.sh`, `bin/docs-pr.sh` (AC-10, AC-11)
+  - [ ] Rules, architecture, Amended by lines (AC-14)
+- [ ] Verify it: `/check verify clean branches, PRs and commits`
+- [ ] Test it: `/test clean branches, PRs and commits`
+- [ ] Set the GitHub settings: `bin/repo-settings.sh Gartner24/claude-config`, then `--check` exits 0 · waits on you
+- [ ] Turn self merge on: `"auto_merge": true` in the claude-config entry of `~/.claude/private/pr.json` · waits on you
+- [ ] Sync docs: `/sync clean branches, PRs and commits`
+Spec [0051](../specs/0051-clean-branches-commits/index.md) · Source: [brief](../briefs/clean-branches-and-commits.md).
 ### 66. Update Claude Code through /claude-config
 Update Claude Code and check drift between the repo and `~/.claude` before the tool review.
 **Done when:** Claude Code is current and `bin/claude-config.py drift` prints `drift: none`.
