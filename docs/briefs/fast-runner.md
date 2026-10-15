@@ -29,6 +29,9 @@ Source: your message of 2026-10-14, about 18:45, after a 5.3 hour run closed 6 f
 - Spec 0044 cross check gaps (answered 2026-10-14): apply every recommended fix, including keeping keys and logins, autostart and login programs, shell and editor startup files and every other repo's git hooks and git settings blocked when the home folder opens, and taking a typed note only from your private Telegram chat.
 - Missing risky places in the home folder (answered 2026-10-14): watch and stop. Nothing is created in your home; anything a step puts in such a place stops that repo right after the step and you are told. Not: creating empty folders to lock them.
 - Spec 0044 goes live (answered 2026-10-14): merge into `feat/release-4` locally and install once the runner is idle; no push.
+- The night of 2026-10-15 (answered about 00:50): finish all claude-config and runner work tonight; the conductor runs and watches the runner, answers mechanical questions itself, fixes what it finds, and leaves as few morning questions as possible. Dotfiles, freelance and work are out of scope tonight (the CMS session does the work items).
+- Merge to main and push tonight: yes, once the review findings are fixed, every test passes, and the private names and attribution scans are clean.
+- Readable layout live migration tonight: yes, one step at a time with its check, after a full backup of `~/.claude`; a failed check restores the backup and stops.
 - Claude plans and builds it in the conductor session, not the runner. When it is fast, `wf` runs the remaining features (39 to 44, then 45 to 48).
 
 ## Measured (2026-10-14 run)
