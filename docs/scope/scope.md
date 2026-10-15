@@ -62,7 +62,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 41 | Styled Telegram messages | Release 7 | done |
 | 42 | Answer questions while wf is off | Release 7 | done |
 | 43 | Runs adapt to setup changes | Release 7 | done |
-| 44 | A run does its own copy steps | Release 7 | in-progress |
+| 44 | A run does its own copy steps | Release 7 | done |
 | 45 | Each step gets the feature's brief | Release 8 | done |
 | 46 | Missed-skill detector | Release 8 | in-progress |
 | 47 | Context monitor that fires | Release 8 | in-progress |
@@ -676,14 +676,14 @@ A run switches to Telegram set up mid run, retakes a step the old setup refused 
 - [x] Sync docs: `/sync runs adapt to setup changes`
 Spec [0040](../specs/0040-runs-adapt-to-setup-changes/index.md) · Source: the night of 2026-10-13, morning list 2026-10-14.
 
-### 44. A run does its own copy steps · in-progress · auto
+### 44. A run does its own copy steps · done · auto
 When a build reaches a copy of a rule, agent, command or skill into ~/.claude, it asks you on the phone and runs exactly the approved copy itself.
 **Done when:** a live copy box is asked, run on your tap and ticked, and the build goes on in the same run.
 - [x] Design it (spec): `/architect live steps in a run`
 - [x] Build it: `/develop live steps in a run`
 - [x] Verify it: `/check verify live steps in a run`
-- [ ] Test it: `/test live steps in a run`
-- [ ] Sync docs: `/sync live steps in a run`
+- [x] Test it: `/test live steps in a run`
+- [x] Sync docs: `/sync live steps in a run`
 Spec [0041](../specs/0041-live-steps-in-a-run/index.md) · Source: your message 2026-10-14 (fix the reason it stopped).
 
 ### 45. Each step gets the feature's brief · done · auto
