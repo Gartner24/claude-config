@@ -36,7 +36,9 @@ IGNORE = REPO / "config" / "drift-ignore.json"
 COPIED_FILES = ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py",
                 "hooks/context-monitor.js", "hooks/claude-config-reminder.py", "scripts/chroma-reaper.sh",
                 "hooks/workflow-start.sh", "hooks/claude-mem-install.sh", "scripts/claude-ram-watch.sh")
-SKIP = {".git", "__pycache__", "node_modules", ".plugin-version"}
+# .in_use/<pid> is a marker Claude Code drops in a plugin folder per running session; it used to make 10
+# of 12 plugin base_hash values go stale as soon as any session started.
+SKIP = {".git", "__pycache__", "node_modules", ".plugin-version", ".in_use"}
 # The home path settings.json is committed with; bin/install.sh swaps it for $HOME.
 AUTHOR_HOME = "/home/santiago"
 

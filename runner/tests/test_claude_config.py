@@ -347,6 +347,16 @@ class TestPlugins(Case):
         self.assertIn("| `p1@mk` | o/mk | abc123 | MIT | Does p1. |",
                       (self.repo / "docs" / "guides" / "SKILLS.md").read_text())
 
+    # a running session drops .in_use/<pid> in the plugin folder; it used to make 10 of 12 base_hash values stale
+    def test_in_use_marker_not_hashed(self):
+        folder = self.live / "plugins" / "cache" / "mk" / "p1" / "1.2.0"
+        folder.mkdir(parents=True)
+        (folder / "plugin.md").write_text("p1\n")
+        before = cc.folder_hash(folder)
+        (folder / ".in_use").mkdir()
+        (folder / ".in_use" / "4242").write_text('{"pid": 4242}\n')
+        self.assertEqual(cc.folder_hash(folder), before)
+
 
 class TestDescription(unittest.TestCase):
     # covers: spec 0048 AC-5 and AC-13 (a folded `>` description is read whole, not as the bare `>`)

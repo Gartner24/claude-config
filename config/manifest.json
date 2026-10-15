@@ -406,7 +406,7 @@
       "status": "downloaded"
     },
     "clangd-lsp@claude-plugins-official": {
-      "base_hash": "f7f0c4d929662b895492321a773898d6b0500ddd36332cb309ef6f1019d1e691",
+      "base_hash": "8ebad196a24c20c6d0dcf5a440ea662e3c94839f20a5a6f590e1130bf5e9bcf9",
       "description": null,
       "fetch": "manual",
       "framework": null,
@@ -511,7 +511,7 @@
       "status": "downloaded"
     },
     "code-review@claude-plugins-official": {
-      "base_hash": "63555e1d6f03ea402c7b30419670fa269b6d377d7c1a60eb09cb10362571ca44",
+      "base_hash": "18c45fc0baa302543fe87acbbf7ea9c171bc8cccdcc4db7ffacd594580223654",
       "description": "Automated code review for pull requests using multiple specialized agents with confidence-based scoring.",
       "fetch": "manual",
       "framework": null,
@@ -526,7 +526,7 @@
       "status": "downloaded"
     },
     "code-simplifier@claude-plugins-official": {
-      "base_hash": "30cf95eb60ae0dcccb63f94ce6e2e1822dfa9e27cdd22dade1340667fe956fa8",
+      "base_hash": "cea4a992018dc5bcb1c60286cf2271034e55b19419cd6b0c2d6683b0f009852b",
       "description": "Agent that simplifies and refines code for clarity, consistency, and maintainability while preserving functionality.",
       "fetch": "manual",
       "framework": null,
@@ -931,7 +931,7 @@
       "status": "downloaded"
     },
     "feature-dev@claude-plugins-official": {
-      "base_hash": "7c64ce1b2c030769294e4d78a24d1908793f010cd5a25fdf0df5f41340c2c9b6",
+      "base_hash": "8caf0e9990630d32216fd61b88cd1845a0f31014ec9387fd6d93189890e15423",
       "description": "Comprehensive feature development workflow with specialized agents for codebase exploration, architecture design, and quality review.",
       "fetch": "manual",
       "framework": null,
@@ -1186,7 +1186,7 @@
       "status": "unpinned"
     },
     "frontend-design@claude-plugins-official": {
-      "base_hash": "a0ef38cca13078f86fc38958ead839089ee53c780d0e3d660c297ef93bade924",
+      "base_hash": "b1435b212534340ac3afea487e5100fcb6de8f67565dc3e2da7f368152608656",
       "description": "Frontend design skill for UI/UX implementation.",
       "fetch": "manual",
       "framework": null,
@@ -2011,7 +2011,7 @@
       "status": "downloaded"
     },
     "ponytail@ponytail": {
-      "base_hash": "18848cbd04d923054d347c35dec9e868096b815482fae50adf2677ccf086397f",
+      "base_hash": "3af76f5f109f614b88834f3c673843e49f6ce4daff0905e7f91d231c0ffd8856",
       "description": "Lazy senior dev mode.",
       "fetch": "manual",
       "framework": null,
@@ -2161,7 +2161,7 @@
       "status": "downloaded"
     },
     "ralph-loop@claude-plugins-official": {
-      "base_hash": "323ff2af6ad7048125e78f6f44f8fda2b56e22f78694bf57d82d767cd342bf99",
+      "base_hash": "af78d179bc1a66165fcf418acb4c835031111fa7163d62cb0c2bf11d12a89321",
       "description": "Continuous self-referential AI loops for interactive iterative development, implementing the Ralph Wiggum technique.",
       "fetch": "manual",
       "framework": null,
@@ -2311,7 +2311,7 @@
       "status": "downloaded"
     },
     "security-guidance@claude-plugins-official": {
-      "base_hash": "850f8a395d052546acb7ea2869beb96cebcb1485c43623bd7487ee2119b13ae2",
+      "base_hash": "e97f95a349d5b155c81bcb2e266e52dab2d9731541b3a5b19fdb2a0593424508",
       "description": "Security review for Claude-generated code.",
       "fetch": "manual",
       "framework": null,
@@ -2431,7 +2431,7 @@
       "status": "unpinned"
     },
     "superpowers@claude-plugins-official": {
-      "base_hash": "72144a41eab9b31bc9eca12ecea8335f36231b48b4f458e3997773869e97e8f7",
+      "base_hash": "9c694fcbe46336131c4c4842a6621cf23ee994efa935f5fd8fefa91ea9ff4acd",
       "description": "Core skills library for Claude Code: TDD, debugging, collaboration patterns, and proven techniques.",
       "fetch": "manual",
       "framework": null,
@@ -2746,7 +2746,7 @@
       "status": "downloaded"
     },
     "watch@claude-video": {
-      "base_hash": "abe323ab90641c0c060f072face9d00800f20e6447ca4725c8b1bc998abff7f7",
+      "base_hash": "591f7ff15e1792a1cff2d2c5c63124be5fa7c72c10716f3d7de041ced03bc0f2",
       "description": "Give an agent video evidence: timestamped frames and native captions, with optional local WhisperX or Groq/OpenAI transcription.",
       "fetch": "manual",
       "framework": null,
