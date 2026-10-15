@@ -57,7 +57,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 12 | Usage limit planning | Release 6 | done |
 | 14 | Branch and PR flow | Release 6 | done |
 | 38 | Adopt your open PRs | Release 7 | done |
-| 39 | Review requests to you | Release 7 | in-progress |
+| 39 | Review requests to you | Release 7 | done |
 | 40 | Context and links in every message | Release 7 | in-progress |
 | 41 | Styled Telegram messages | Release 7 | done |
 | 42 | Answer questions while wf is off | Release 7 | in-progress |
@@ -623,15 +623,15 @@ wf adopts the open PRs you list in pr.json, runs the review loop on them, watche
 - [x] Sync docs: `/sync adopt open prs`
 Spec [0031](../specs/0031-adopt-open-prs/index.md) · Source: your message 2026-10-13 (the gap after the draft PR until approved and merged).
 
-### 39. Review requests to you · in-progress · auto
+### 39. Review requests to you · done · auto
 A PR review requested of you becomes a question: wf drafts the review in an isolated call and posts it only on your tap.
 **Done when:** a review request arrives as a question, the draft shows, and only post as my review posts it.
 - [x] Design it (spec): `/architect review requests`
 - [x] Build it: `/develop review requests`
 - [x] Verify it: `/check verify review requests`
-- [ ] Test it: `/test review requests`
+- [x] Test it: `/test review requests`
 - [x] Probes P3 to P5 on a scratch GitHub repo (they post) · waits on you · later boxes go on
-- [ ] Sync docs: `/sync review requests`
+- [x] Sync docs: `/sync review requests`
 Spec [0032](../specs/0032-review-requests/index.md) · Source: your message 2026-10-13 (watch for review requests to me).
 
 ### 40. Context and links in every message · in-progress · auto
@@ -639,7 +639,7 @@ Every question and report on your phone says where it comes from: repo, feature,
 **Done when:** a question on the phone shows its from block with working links and the why line.
 - [x] Design it (spec): `/architect context in messages`
 - [x] Build it: `/develop context in messages`
-- [ ] Verify it: `/check verify context in messages`
+- [x] Verify it: `/check verify context in messages`
 - [ ] Test it: `/test context in messages`
 - [ ] Probe P1: read a real question on your phone and say whether it explains itself · waits on you · later boxes go on
 - [ ] Sync docs: `/sync context in messages`
