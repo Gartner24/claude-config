@@ -117,6 +117,21 @@ class TestLeftToBox(NeverStopCase):
     def test_stale_note_parks(self):
         self.parks_without_note(says("LEFT TO BOX: Use it for a week\nCAN FAIL CHECKED: 0"), NOTE[0][1])
 
+    # covers: spec 0047 AC-4 (a call that edits verify.md but keeps an older note, adding none, parks unchecked;
+    # review 2026-10-15)
+    def test_kept_old_note_parks(self):
+        self.parks_without_note(says("LEFT TO BOX: Use it for a week\nCAN FAIL CHECKED: 0",
+                                     write_file=[[VERIFY, NOTE[0][1] + "\n## Run 2\n- nothing checked\n"]]), NOTE[0][1])
+
+    # covers: spec 0047 AC-4 (a failed attempt's note does not back its retry's claim; review 2026-10-15)
+    def test_retry_needs_its_own_note(self):
+        self.make_repo("c", OWED)
+        self.steps([{"tick": False, "rc": 1, "write_file": NOTE,
+                     "json": {"is_error": True, "subtype": "success", "result": "boom"}},
+                    says("LEFT TO BOX: Use it for a week\nCAN FAIL CHECKED: 0")])
+        rec = self.assert_stopped(self.wf("c", "-y"), "unchecked", calls=3)
+        self.assertIn("CAN FAIL CHECKED", rec["detail"])
+
     # covers: spec 0047 AC-4 (a resumed verify needs its note written in the resume itself; one written by the call
     # that asked parks unchecked, one written by the resume passes)
     def test_resume_needs_its_own_note(self):

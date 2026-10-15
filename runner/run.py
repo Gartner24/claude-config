@@ -3090,7 +3090,7 @@ class Run:
             # Spec 0045 AC-1: every check left to a later box waiting on you is a pass, but only with a valid line.
             # Spec 0047 AC-4: and only with its note in a verify.md this call changed; a model used to claim the pass
             # with the line alone and check nothing.
-            noted = left_notes(self.c.path, snapshot, self.snapshot()) if pattern is CAN_FAIL and n == 0 else set()
+            noted = left_notes(snapshot, self.snapshot()) if pattern is CAN_FAIL and n == 0 else set()
             left = pattern is CAN_FAIL and n == 0 and any(
                 t in self.left_boxes and t.casefold() in noted
                 for t in (norm(m.group(1).strip().strip("*").strip())[:200]
@@ -3733,10 +3733,13 @@ class Run:
                     # AC-13: a debug resume takes a fresh snapshot, but it is not another attempt.
                     snapshot = self.snapshot()
                     e["debug_attempts"] += not resume
-                elif kind == "box" and (command.split()[0] == "/test" or command.split()[:2] == ["/check", "verify"]):
-                    # Spec 0015 AC-4: rule 11a asks whether a test file changed during the call. Spec 0047 AC-4: a
-                    # verify call's left to the box notes count only from a verify.md it changed.
+                elif kind == "box" and command.split()[0] == "/test":
+                    # Spec 0015 AC-4: rule 11a asks whether a test file changed during the call.
                     snapshot = self.snapshot()
+            if kind == "box" and command.split()[:2] == ["/check", "verify"]:
+                # Spec 0047 AC-4: a verify call's left to the box notes count only when this very attempt wrote them,
+                # so a retry, limit or outage rerun takes its own snapshot too (review 2026-10-15).
+                snapshot = self.snapshot()
             if self.limit_rerun:
                 self.record["limit_wait"]["resumed"] = now()
                 self.limit_rerun = False
@@ -3966,7 +3969,7 @@ class Run:
                             # Never read past the cap: a sparse `truncate -s 1T` file used to tie wf up for hours. Past
                             # it, the key adds size, inode and ctime: any write moves ctime and no call can set it back,
                             # so an edit after the first SNAPSHOT_CAP bytes is still seen (both commit reviews).
-                            key, text = raw, raw.decode(errors="replace") if is_test else None
+                            key, text = raw, raw.decode(errors="replace") if is_test or os.path.basename(rel) == "verify.md" else None
                             if st.st_size > SNAPSHOT_CAP or (len(raw) == SNAPSHOT_CAP and f.read(1)):
                                 key = raw + b"\0oversize:%d:%d:%d" % (st.st_size, st.st_ino, st.st_ctime_ns)
                                 # No text: a skip added past the cap used to hide behind identical first bytes, so
@@ -5345,25 +5348,24 @@ def later_owed(feature, box_text):
     return [norm(context.untagged(b.text))[:200] for b in boxes[i + 1:] if b.open and wf.OWED.search(b.text)][:5]
 
 
-def left_notes(repo, before, after):
-    """Spec 0047 AC-4: the left to the box note texts, case folded and cut to 200 characters, of every file named
-    verify.md whose hash changed between the two snapshots."""
+def left_notes(before, after):
+    """Spec 0047 AC-4: the left to the box note texts, case folded and cut to 200 characters, that a verify.md gained
+    between the two snapshots. A note already there before the call does not count, though the call edited the file
+    (review 2026-10-15): the note must be written in the call that claims it."""
     out = set()
     # No snapshot before the call: nothing can be shown to be this call's own note.
-    for rel in after if before is not None else ():
-        if os.path.basename(rel) != "verify.md" or before.get(rel, (None,))[0] == after[rel][0]:
+    for rel, (h, text) in after.items() if before is not None else ():
+        old_h, old_text = before.get(rel, (None, None))
+        # snapshot() keeps verify.md text up to SNAPSHOT_CAP; past it there is no text, so nothing counts.
+        if os.path.basename(rel) != "verify.md" or old_h == h or text is None:
             continue
-        try:
-            # As in snapshot(): a link is never followed and only a regular file is read, at most SNAPSHOT_CAP bytes.
-            with os.fdopen(os.open(os.path.join(repo, rel), os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), "rb") as f:
-                if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
-                    continue
-                text = f.read(SNAPSHOT_CAP).decode(errors="replace")
-        except OSError:
-            continue
-        out |= {norm(m.group(1).strip().strip("*").strip())[:200].casefold()
-                for m in map(LEFT_NOTE.match, text.replace("\r", "").split("\n")) if m}
+        out |= notes(text) - notes(old_text or "")
     return out
+
+
+def notes(text):
+    return {norm(m.group(1).strip().strip("*").strip())[:200].casefold()
+            for m in map(LEFT_NOTE.match, text.replace("\r", "").split("\n")) if m}
 
 
 def left_prompt(boxes):
