@@ -63,7 +63,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 42 | Answer questions while wf is off | Release 7 | done |
 | 43 | Runs adapt to setup changes | Release 7 | done |
 | 44 | A run does its own copy steps | Release 7 | in-progress |
-| 45 | Each step gets the feature's brief | Release 8 | planned |
+| 45 | Each step gets the feature's brief | Release 8 | done |
 | 46 | Missed-skill detector | Release 8 | in-progress |
 | 47 | Context monitor that fires | Release 8 | in-progress |
 | 48 | Readable layout for ~/.claude and claude-config | Release 8 | planned |
@@ -686,15 +686,15 @@ When a build reaches a copy of a rule, agent, command or skill into ~/.claude, i
 - [ ] Sync docs: `/sync live steps in a run`
 Spec [0041](../specs/0041-live-steps-in-a-run/index.md) · Source: your message 2026-10-14 (fix the reason it stopped).
 
-### 45. Each step gets the feature's brief · planned · auto
+### 45. Each step gets the feature's brief · done · auto
 Every unattended step gets the feature's brief (the agreed decisions) so nothing agreed in chat is lost between steps.
 **Done when:** a step's prompt carries the brief and a test shows a decision from the brief reaching the call.
 - [x] Design it (spec): `/architect step brief`
-- [ ] Build it: `/develop step brief`
-- [ ] Verify it: `/check verify step brief`
-- [ ] Test it: `/test step brief`
-- [ ] Sync docs: `/sync step brief`
-Spec [0034](../specs/0034-step-brief/index.md) · Source: personal scope row 12 (session handoff fidelity, last part).
+- [x] Build it: `/develop step brief`
+- [x] Verify it: `/check verify step brief`
+- [x] Test it: `/test step brief`
+- [x] Sync docs: `/sync step brief`
+Spec [0034](../specs/0034-step-brief/index.md) · Source: personal scope row 12 (session handoff fidelity, last part). Code in `runner/run.py` (`brief_parts`, `brief_fit`, `Run.brief_check`).
 
 ### 46. Missed-skill detector · in-progress · auto
 A hook notes when a session could have used a skill it did not, and a weekly report lists the top misses.
