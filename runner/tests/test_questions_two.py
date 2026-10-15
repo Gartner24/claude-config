@@ -1,5 +1,7 @@
 """Spec 0044: questions, round two."""
 import sys
+import threading
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -10,6 +12,7 @@ import context  # noqa: E402
 import ntfy  # noqa: E402
 import run  # noqa: E402
 import telegram  # noqa: E402
+from test_never_stop import NeverStopCase  # noqa: E402
 
 CFG = {"block": [], "chat_id": 7, "aliases": {}, "token": "1"}
 SPEC = "https://github.com/acme/widgets/blob/work/docs/specs/0031-adopt-open-prs/index.md"
@@ -91,6 +94,109 @@ class TestSteps(unittest.TestCase):
     def test_prompt(self):
         self.assertIn("one to six of them", run.EXPLAIN_PROMPT)
         self.assertIn("already done, give one STEP line saying how to check that it is done", run.EXPLAIN_PROMPT)
+
+
+class TestDoIt(unittest.TestCase):
+    # covers: AC-4, AC-5 (the do it for me answer and the note line reach both messages; every option stays in the
+    # styled one)
+    def test_message(self):
+        d = question(what="It writes the file.")
+        d["options"] = ["done", run.DO_IT, run.SKIP_IT]
+        m = sent(d)
+        for body in (m["plain"], m["styled"]):
+            self.assertIn("\n1 done\n2 do it for me\n3 skip\nor reply with a note: it goes to the step as your "
+                          "instruction\ntap a button", body)
+
+
+PHONE = "# Scope: m\n**Autopilot:** allowed\n### 1. M · auto\n- [x] (spec)\n- [ ] `/develop m`\n" \
+        "- [ ] Check it on the phone: `/qa m`\n- [ ] `/test m`\n"
+BOX = "Check it on the phone: `/qa m`"
+
+
+class TestDoItRun(NeverStopCase):
+    def setUp(self):
+        super().setUp()
+        self.make_repo("m", PHONE)
+
+    def run_m(self):
+        return self.wf("m", "-y", "--max-wait", "0.01", mode="fast")
+
+    # covers: AC-4 (do it for me runs the box's own call with DO_IT_PROMPT; its tick ends the question)
+    def test_do_it_ticks(self):
+        self.reply("{id} code0001 do it for me")
+        self.steps([{}, {}, {}, {"tick": False}])
+        r = self.run_m()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("answered: ", r.stdout)
+        self.assertEqual([self.argv(n)["argv"][1] for n in (2, 3, 4)],
+                         [run.DO_IT_PROMPT.format(BOX), "/test m", "/sync"])
+        self.assertIn("- [x] Check it on the phone", (self.tmp / "root/m/docs/scope/scope.md").read_text())
+
+    # covers: AC-4 (the offer is done, do it for me, skip; BLOCKED asks again, without do it for me)
+    def test_blocked_asks_again(self):
+        self.reply("{id} code0001 do it for me")
+        self.steps([{}, {"tick": False, "json": {"result": "BLOCKED: it needs your phone"}}])
+        r = self.run_m()
+        self.assertEqual(self.argv(2)["argv"][1], run.DO_IT_PROMPT.format(BOX), r.stdout)
+        [d] = self.queue()["decisions"]
+        self.assertEqual((d["case"], d["detail"]), ("blocked", "it needs your phone"))
+        self.assertNotIn(run.DO_IT, d["options"])
+        self.assertIn("- [ ] Check it on the phone", (self.tmp / "root/m/docs/scope/scope.md").read_text())
+
+    # covers: AC-4 (one try per box per run: a try that leaves the box open asks again without do it for me)
+    def test_one_try(self):
+        # The try changes nothing; try again on that question reaches the box, asked again with no second try.
+        self.reply("{id} code0001 do it for me")
+        self.steps([{}, {"tick": False}])
+        fake, done = self.report_ntfy, threading.Event()
+
+        def later():
+            # try again on the no progress question, then skip on the box's question, so the run ends by itself.
+            seen = 1
+            for words, answer in (("changed nothing", "{id} 1"), ("needs one step", "{id} 2")):
+                while not done.is_set():
+                    at = next((i for i, p in enumerate(fake.pings()) if i >= seen and words in p["message"]), None)
+                    if at is not None:
+                        seen = at + 1
+                        break
+                    time.sleep(0.05)
+                fake.replies = [answer]
+        threading.Thread(target=later, daemon=True).start()
+        self.addCleanup(done.set)
+        r = self.wf("m", "-y", "--max-wait", "0.015", mode="fast")
+        self.assertEqual(len(self.calls()), 2, r.stdout + r.stderr)
+        third = [p["message"] for p in fake.pings() if "needs one step" in p["message"]][-1]
+        self.assertIn("needs one step only you can do", third, r.stdout)
+        self.assertIn("\n1 done\n2 skip", third)
+        self.assertNotIn(run.DO_IT, third)
+
+    # covers: AC-4 security review (an ntfy tap without your one time code runs no call; the box asks again)
+    def test_weak_tap(self):
+        self.reply("{id} 2")
+        self.steps([{}])
+        r = self.run_m()
+        self.assertEqual(len(self.calls()), 1, r.stdout + r.stderr)
+        self.assertIn("answered: ", r.stdout)
+        [d] = self.queue()["decisions"]
+        self.assertEqual((d["case"], d["answer"]), ("manual_box", None))
+        self.assertIn(run.DO_IT, d["options"])
+
+    # covers: AC-5 (a strong typed note runs the try with the note as its hint)
+    def test_strong_note(self):
+        self.reply("{id} code0001 use the spare phone")
+        self.steps([{}, {}, {}, {"tick": False}])
+        r = self.run_m()
+        self.assertEqual(self.argv(2)["argv"][1], run.DO_IT_PROMPT.format(BOX), r.stdout + r.stderr)
+        self.assertIn(run.HINT_PROMPT.format("use the spare phone"), self.prompt(2))
+
+    # covers: AC-5 (a note anyone could post on ntfy, with no one time code, runs nothing; the question stays)
+    def test_weak_note(self):
+        self.reply("{id} use the spare phone")
+        self.steps([{}])
+        r = self.run_m()
+        self.assertEqual(len(self.calls()), 1, r.stdout + r.stderr)
+        [d] = self.queue()["decisions"]
+        self.assertEqual((d["case"], d["answer"]), ("manual_box", None))
 
 
 if __name__ == "__main__":

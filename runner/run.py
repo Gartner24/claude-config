@@ -284,6 +284,10 @@ RUN_STOPS = frozenset(("interrupted", "run_limit", "usage_limit", "spawn_failed"
 # first). A row with no options never asks: R1 makes the branch, R4 and U1 stop, U3 sleeps to the reset, U9 keeps
 # building, U10 stops that repo with its traceback in the report.
 MORE, SKIP_IT, STOP_REPO = "give it more", "skip", "stop this repo"
+# Spec 0044 AC-4: a step only you can do, handed to one build call that tries it.
+DO_IT = "do it for me"
+DO_IT_PROMPT = ("Do this step of the plan yourself: {}. When it is done, tick its box in the plan. When it needs the owner "
+                "(a login, their phone, a purchase, someone else's action), change nothing and end with BLOCKED: <why>.")
 CASES = {
     "denied": ("F1", ("allow once", "always", SKIP_IT)),
     "blocked": ("F2", ("done, go on", SKIP_IT)),
@@ -903,6 +907,8 @@ class Run:
         self.record["notes"] = []
         # Spec 0027 AC-6: the sibling feature a drift question waits for.
         self.overlap_other = None
+        # Spec 0044 AC-4: (feature, box) handed to `do it for me` this run, so a box is tried once.
+        self.tried = set()
         if c is not None:
             self.add(c)
 
@@ -1654,6 +1660,9 @@ class Run:
             reason, detail = "live_step", "; ".join(steps)
         # Spec 0028 AC-12: the plain words, the detail with its codes read as words, and a learn line.
         options, question, path = CASES[reason][1], plain_question(reason, self.feature, detail), None
+        if reason in ("waiting", "manual_box") and text and (self.feature, text) not in getattr(self, "tried", set()):
+            # Spec 0044 AC-4: a build call may try it, once per box per run (a live box became live_step above).
+            options = ("done", DO_IT, SKIP_IT)
         if reason in ("waiting", "manual_box") and text and hasattr(self, "explain"):
             # Spec 0042 AC-1, AC-2: the step in plain words, explained with numbered steps you can follow.
             question = self.plain_box(self.feature, text)
@@ -1719,6 +1728,10 @@ class Run:
         elif opt is None and d.get("case") == "live_step":
             # F16 (security review): free text never runs a live step.
             opt = "not now"
+        elif opt is None and d.get("case") in ("waiting", "manual_box") and DO_IT in d["options"] and answer:
+            # Spec 0044 AC-5: your note is the instruction for the try, from your Telegram chat or keyboard only.
+            import pr
+            opt, self.hint = (DO_IT, answer[:300]) if pr.strong(self, d) else (d["options"][0], answer)
         elif opt is None:
             opt, self.hint = d["options"][0], answer
         print(f"answered: {d['id']} {d['feature']}: {opt}", flush=True)
@@ -1738,6 +1751,10 @@ class Run:
             else:
                 self.allow_once = [d["allow"]]
             self.regard()
+        elif opt == DO_IT and d["box_text"]:
+            import pr
+            if pr.strong(self, d):
+                self.tried.add((f.name, d["box_text"]))
         elif opt in ("done", "skip the box") and d["box_text"]:
             self.mark_box(f.name, d["box_text"], "x", " · skipped" if opt == "skip the box" else "")
         elif opt == "undo them and try again":
@@ -3409,6 +3426,7 @@ class Run:
         # A limit rerun ended by a repo stop used to carry into the next feature, whose loop then skipped its
         # first call setup and died on an unset `last` (internal_error, review M1).
         self.entry, self.feature, self.retried, self.limit_rerun, self.outage_rerun = e, f.name, False, False, False
+        do_it = None
         self.hint, self.denied_at, self.live_failed = None, None, None
         try:
             if self.answers.get("branches") == "per spec":
@@ -3432,10 +3450,18 @@ class Run:
                 # Spec 0024 AC-7: update the spec first skips the feature for this run and keeps the old baseline.
                 if opt in (SKIP_IT, "skip the feature", UPDATE_SPEC, "wait for the bottom to merge", "not now"):
                     raise Stop("skipped", f"{d['id']}: {opt}")
+                box_text = d.get("box_text")
+                import pr
+                # Security review: a build call on a box only you can do runs only on your own tap; any other tap
+                # reaches the box's refusal below, which asks again.
+                mine = opt == DO_IT and pr.strong(self, d)
                 f, d = self.apply_case(d, opt, f), d.get("then")
                 if d is None and f.finished():
                     raise Stop("feature_done", None)
-                refusal = d is None and f.next and box_refusal(f.next)
+                if mine and d is None and f.next and f.next.box_text == box_text:
+                    # Spec 0044 AC-4: the box's own call, with its prompt in place of the command it does not have.
+                    do_it = DO_IT_PROMPT.format(flat(box_text))
+                refusal = d is None and f.next and not do_it and box_refusal(f.next)
                 if refusal:
                     raise Stop(*refusal)
             if d:
@@ -3454,7 +3480,7 @@ class Run:
                     raise Stop("design_gate", problem)
                 self.loop("sync", f.sync, f.sync.command if f.sync else "/sync")
             else:
-                self.loop("box", f.next, f.next.command)
+                self.loop("box", f.next, do_it or f.next.command)
         except Stop as s:
             # Spec 0021 AC-5: only your Ctrl C ends the run here; every other reason ends at most this repo.
             if s.reason == "interrupted":

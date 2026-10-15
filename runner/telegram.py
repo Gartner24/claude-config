@@ -340,16 +340,21 @@ class Topic(ntfy.Topic):
         block = context.telegram_block(self.cfg, d, MAX - len("\n".join(lines)) - options_len)
         if block:
             lines.append(block)
+        # The options and the closing lines, styled as they are; counted from here, never back from the end.
+        tail_at = len(lines)
         for n, label in enumerate(d["options"], 1):
             label = context.safe(self.cfg, label, 200) or f"option {n}"
             lines.append(f"{n} {label}")
             rows.append([{"text": f"{n} {ntfy.cut(label, 40)}", "callback_data": f"{d['id']} {n}"}])
         panel = d["kind"] == "panel"
+        if "do it for me" in d["options"]:
+            # Spec 0044 AC-5: a typed reply is the instruction for the try.
+            lines.append("or reply with a note: it goes to the step as your instruction")
         lines.append("tap a button, or reply to this message" if panel else "reply to this message with your answer")
         d["sent"] = "\n".join(lines)
         e = html.escape
         styled = [f"<b>{e(lines[0])}</b>", f"<b>{e(question)}</b>"] + ([f"<i>{e(lines[2])}</i>"] if learn else []) + \
-            ([styled_block(block)] if block else []) + [e(x) for x in lines[len(lines) - len(rows) - 1:]] + [e(self.title)]
+            ([styled_block(block)] if block else []) + [e(x) for x in lines[tail_at:]] + [e(self.title)]
         return self.publish(d["sent"] + "\n" + self.title, 4, stopped=stopped, title="",
                             markup={"inline_keyboard": rows} if panel and rows else None, styled="\n".join(styled))
 
