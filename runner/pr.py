@@ -44,11 +44,16 @@ REVIEW_LINE = re.compile(r"^[ \t>*-]*REVIEW (FIXED|ASK|NEVER):\**[ \t]*(\S+)[ \t
 # AC-9: every gh command line this module may run.
 API_GET = re.compile(r"repos/[\w.-]+/[\w.-]+/(pulls/\d+/(comments|reviews)|issues/\d+/comments)")
 REVIEW_POST = re.compile(r"repos/[\w.-]+/[\w.-]+/pulls/\d+/reviews")
-REPO = re.compile(r"[\w.-]+/[\w.-]+")
+# Security review (parser differential): gh reads a "-" leading word anywhere as a flag, so no value slot may start
+# with one.
+REPO = re.compile(r"[\w.][\w.-]*/[\w.][\w.-]*")
 API_POST = re.compile(r"repos/[\w.-]+/[\w.-]+/(pulls/\d+/comments/\d+/replies|issues/\d+/comments)")
 # Spec 0051 AC-9: the rulesets read of AC-10 and the docs PR branch of AC-15.
 RULESETS = re.compile(r"repos/[\w.-]+/[\w.-]+/rulesets")
 PLAN_BRANCH = re.compile(r"docs/plan-\d{8}-\d{4}")
+PLAN_TITLE = re.compile(r"docs\(scope\): plan updates \d{8}-\d{4}")
+PLAN_BODY = re.compile(r"/[^\0]*/wf-plan-\w+\.md")
+BRANCH = re.compile(r"[\w.][\w./-]*")
 SORT = ("Sort each comment: fix now when the change is local, changes no accepted spec text and no behavior the user "
         "would notice, and adds no value without a source; ask when it would change spec text, pick between behaviors, "
         "trade safety for convenience or leave a known risk, when you think the comment is wrong, or when it is a "
@@ -77,8 +82,9 @@ def allowed(args, merging=False, posting=False, green=False, plan=False):
         return green and len(a) == 5 and a[2].isdigit() and a[3] == "--repo" and bool(REPO.fullmatch(a[4]))
     if plan and a[:2] == ["pr", "create"]:
         return len(a) == 12 and a[2] == "--repo" and bool(REPO.fullmatch(a[3])) and a[4] == "--base" and \
-            not a[5].startswith("-") and a[6] == "--head" and bool(PLAN_BRANCH.fullmatch(a[7])) and \
-            a[8] == "--title" and a[10] == "--body-file" and os.path.isabs(a[11])
+            bool(BRANCH.fullmatch(a[5])) and a[6] == "--head" and bool(PLAN_BRANCH.fullmatch(a[7])) and \
+            a[8] == "--title" and bool(PLAN_TITLE.fullmatch(a[9])) and a[10] == "--body-file" and \
+            bool(PLAN_BODY.fullmatch(a[11]))
     if a[:1] == ["api"] and len(a) == 2 and RULESETS.fullmatch(a[1]):
         return True
     if a[:2] == ["search", "prs"]:
@@ -618,7 +624,9 @@ def names_hits(r, *args):
         return ["private names checker missing"]
     env = {**os.environ, "CLAUDE_LIVE_DIR": run.live_dir()}
     try:
-        res = subprocess.run([shutil.which("python3") or "python3", c, *args], cwd=r.c.path, capture_output=True,
+        # Spec 0051 security review (module shadowing): -I, so no PYTHON* variable, script folder or cwd module can
+        # stand in for one the checker imports; the checker itself is the runner copy's, never the tree's.
+        res = subprocess.run([shutil.which("python3") or "python3", "-I", c, *args], cwd=r.c.path, capture_output=True,
                              text=True, errors="replace", timeout=GIT_TIMEOUT, stdin=subprocess.DEVNULL, env=env)
     except (OSError, subprocess.TimeoutExpired) as e:
         return [f"private names checker failed: {type(e).__name__}"]

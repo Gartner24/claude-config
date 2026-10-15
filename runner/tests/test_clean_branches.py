@@ -123,8 +123,8 @@ class Case(test_pr.PrCase):
 class TestAllowList(unittest.TestCase):
     MERGE = ["pr", "merge", "7", "--repo", "o/r", "--squash", "--delete-branch", "--match-head-commit", SHA]
     READY = ["pr", "ready", "7", "--repo", "o/r"]
-    CREATE = ["pr", "create", "--repo", "o/r", "--base", "main", "--head", "docs/plan-20261015-0101", "--title", "t",
-              "--body-file", "/tmp/b.md"]
+    CREATE = ["pr", "create", "--repo", "o/r", "--base", "main", "--head", "docs/plan-20261015-0101", "--title",
+              "docs(scope): plan updates 20261015-0101", "--body-file", "/tmp/wf-plan-x1.md"]
 
     # covers: AC-9 (the squash merge with --delete-branch and pr ready only with green, from merge_green and land_plan;
     # any other caller raises; --admin and --auto never; spec 0031's merge entry unchanged)
@@ -160,6 +160,22 @@ class TestAllowList(unittest.TestCase):
                     ["api", "repos/o/r/rulesets/1"]):
             with self.subTest(bad), self.assertRaises(pr.Refused):
                 pr.gh("/bin/false", *bad, green=True)
+
+    # covers: security review (parser differential): gh reads a "-" leading word anywhere as a flag, so every value
+    # slot of the new entries refuses one, and a flag given twice refuses
+    def test_value_slots(self):
+        for args, kw in ((self.MERGE, {"green": True}), (self.READY, {"green": True}), (self.CREATE, {"plan": True})):
+            self.assertTrue(pr.allowed(args, **kw))
+            for i, x in enumerate(args):
+                if i < 2 or x.startswith("--"):
+                    continue
+                for bad in ("--admin", "-F", "--auto=true", "-o/r"):
+                    with self.subTest(args=args[:2], slot=i, bad=bad), self.assertRaises(pr.Refused):
+                        pr.gh("/bin/false", *args[:i], bad, *args[i + 1:], **kw)
+            for i, x in enumerate(args):
+                if x.startswith("--"):
+                    with self.subTest(args=args[:2], twice=x), self.assertRaises(pr.Refused):
+                        pr.gh("/bin/false", *args[:i + 2], x, *args[i + 1:], **kw)
 
 
 class TestPrivateSwitch(RunCase):
@@ -549,6 +565,23 @@ class TestLandPlan(Case):
         self.assertEqual(self.r.notes, ["plan landed in PR #7; origin's plan differs, the local commits stay"])
 
 
+class TestLandPlanIsolated(Case):
+    plan_commit = TestLandPlan.plan_commit
+
+    # covers: security review (module shadowing): land_plan's names scan runs the checker with python -I, so a
+    # PYTHONPATH holding a planted module cannot make a private name in the plan commits pass
+    def test_planted_module(self):
+        planted = self.tmp / "planted"
+        planted.mkdir()
+        (planted / "subprocess.py").write_text("import sys\nsys.exit(0)\n")
+        self.plan_commit(text=SCOPE + "\nmade for Zorblex\n")
+        self.gh({"land": str(self.origin)})
+        with mock.patch.dict(os.environ, {"PYTHONPATH": str(planted)}):
+            self.assertIsNone(pr.land_plan(self.r))
+        self.assertEqual(self.gh_calls(), [])
+        self.assertTrue(self.r.notes[0].startswith("plan not landed: private_names:"), self.r.notes)
+
+
 class TestSettings(Case):
     # covers: AC-10 (at a run's start an AC-1 repo's settings and ruleset are read; a difference is one report line and
     # the self merge is off for the run; matching settings leave it on)
@@ -718,6 +751,29 @@ class TestDocsPr(Case):
         self.assertEqual(merge[3:], ["--squash", "--delete-branch", "--match-head-commit", head])
         self.assertEqual(self.git("rev-parse", "work"), self.git("rev-parse", "work", repo=self.origin))
         self.assertEqual(self.git("symbolic-ref", "--short", "HEAD"), "work")
+
+    # covers: security review (module shadowing): the scanners run from the script repo's origin copy with python
+    # -I, so an untracked module planted next to the tree's checker does not turn a private name hit into a pass
+    def test_planted_checker(self):
+        import shutil
+        top = BIN.parent
+        (self.repo / "bin").mkdir()
+        shutil.copy(BIN / "docs-pr.sh", self.repo / "bin" / "docs-pr.sh")
+        (self.repo / "scripts").mkdir()
+        shutil.copy(top / "scripts" / "private-names.py", self.repo / "scripts" / "private-names.py")
+        shutil.copytree(top / "runner", self.repo / "runner", ignore=shutil.ignore_patterns("tests", "__pycache__", "e2e"))
+        self.git("add", "-A")
+        self.git("commit", "-qm", "tools")
+        self.git("push", "-q", "origin", "work")
+        self.commit("docs/notes.md", "made for Zorblex\n")
+        # Untracked, so the tree check does not see it; python's script folder would.
+        (self.repo / "scripts" / "subprocess.py").write_text("import sys\nsys.exit(0)\n")
+        self.gh({"land": str(self.origin)})
+        r = subprocess.run(["bash", str(self.repo / "bin" / "docs-pr.sh")], cwd=self.repo, capture_output=True,
+                           text=True, env={**os.environ, "GH": str(self.bin / "gh")}, timeout=60)
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn("docs-pr: private names scan hit", r.stderr)
+        self.assertEqual(self.gh_calls(), [])
 
 
 if __name__ == "__main__":

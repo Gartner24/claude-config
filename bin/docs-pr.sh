@@ -27,9 +27,16 @@ range="origin/$default..$old"
 outside="$(git log -m --format= --name-only --no-renames "$range" | grep -v -e '^docs/' -e '^$' | head -n 1 || true)"
 [[ -z "$outside" ]] || die "a commit touches $outside, outside docs/"
 
-# Spec 0026 AC-6: both scans on the range before anything leaves.
-python3 "$HERE/../scripts/private-names.py" check-range "origin/$default" "$old" >&2 || die "private names scan hit"
-python3 - "$HERE/../runner" "origin/$default" "$old" <<'EOF' || die "attribution scan hit"
+# Spec 0026 AC-6: both scans on the range before anything leaves. Security review (module shadowing): the checker
+# and the runner modules come from this script's repo at its origin default branch, unpacked outside any working
+# tree, and run with python -I, so nothing in the tree being landed (an untracked module next to the checker, a
+# PYTHONPATH) can stand in for them.
+trusted="$(mktemp -d)"
+trap 'rm -rf "$trusted"' EXIT
+src="$(git -C "$HERE/.." symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/main)"
+git -C "$HERE/.." archive "$src" runner scripts/private-names.py | tar -x -C "$trusted" || die "cannot read the scanners from $src"
+python3 -I "$trusted/scripts/private-names.py" check-range "origin/$default" "$old" >&2 || die "private names scan hit"
+python3 -I - "$trusted/runner" "origin/$default" "$old" <<'EOF' || die "attribution scan hit"
 import subprocess, sys
 sys.path.insert(0, sys.argv[1])
 import pr
