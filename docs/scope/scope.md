@@ -70,6 +70,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 49 | Fast runner | Release 8 | in-progress |
 | 50 | Fewer avoidable stops | Release 8 | done |
 | 51 | Autonomous mode per chat | Release 8 | in-progress |
+| 52 | Review leftovers 2026-10-15 | Release 8 | needs a decision |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -753,6 +754,16 @@ Several Claude chats each drive the runner for their own repos at once; a repo b
 - [ ] Two real chats in two folders: each turns on its own repos, the bars show only their own, a take of the other's repo is refused (AC-11) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync autonomous mode per chat`
 Spec [0046](../specs/0046-autonomous-mode-per-chat/index.md) · Source: [brief](../briefs/autonomous-per-chat.md) · code in `runner/auto.py`.
+
+### 52. Review leftovers 2026-10-15 · needs a decision
+Two review findings that change an accepted design, and one small bar count fix.
+**Done when:** `wf auto take` and `release` act only on the session's own chat, a verify passes on "left to the box" only with a matching entry in verify.md, and the bar's running count no longer depends on another runner's lock.
+- [ ] Design it (spec): `/architect review leftovers 2026-10-15`
+- [ ] Build it: `/develop review leftovers 2026-10-15`
+- [ ] Verify it: `/check verify review leftovers 2026-10-15`
+- [ ] Test it: `/test review leftovers 2026-10-15`
+- [ ] Sync docs: `/sync review leftovers 2026-10-15`
+Source: [review](../reviews/review-2026-10-15.md) (Leftovers).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
