@@ -43,6 +43,18 @@ if any("BEGIN PLAN-DATA-" in a for a in sys.argv[1:]):
     print(json.dumps({{"type": "result", "subtype": "success", "is_error": False, "result": text,
                       "total_cost_usd": 0.1, "session_id": "explain-%d" % k, "num_turns": 1}}))
     sys.exit(0)
+if any("You are combining finished feature branches" in a for a in sys.argv[1:]):
+    # Spec 0043 AC-3: a combine resolve call takes no build step; combine.json scripts the files it writes.
+    k = len([f for f in os.listdir(d) if f.startswith("combine-argv-")]) + 1
+    json.dump({{"argv": sys.argv[1:], "cwd": os.getcwd(), "pid": os.getpid(), "pgid": os.getpgid(0)}},
+              open(os.path.join(d, f"combine-argv-{{k}}.json"), "w"))
+    p = os.path.join(d, "combine.json")
+    spec = json.load(open(p)) if os.path.exists(p) else {{}}
+    for path, text in spec.get("write", []):
+        open(os.path.join(os.getcwd(), path), "w").write(text)
+    print(json.dumps({{"type": "result", "subtype": "success", "is_error": False, "result": "settled",
+                      "total_cost_usd": 0.1, "session_id": "combine-%d" % k, "num_turns": 1}}))
+    sys.exit(0)
 steps = json.load(open(os.path.join(d, "steps.json")))
 key = ""
 if isinstance(steps, dict):
@@ -1574,6 +1586,23 @@ class TestStandingAnswers(RunCase):
         a = self.argv(n)["argv"]
         return a[a.index("--append-system-prompt") + 1]
 
+    # covers: spec 0043 AC-8 (with a suite answer, /check verify and /test calls get the suite sentence with the command
+    # as written; the /sync call and a repo without the answer do not)
+    def test_suite_answer(self):
+        plan = ("# Scope: x\n**Autopilot:** allowed\n### 1. A · in-progress · auto\n- [x] (spec)\n"
+                "- [ ] Verify it: `/check verify a`\n- [ ] Test it: `/test a`\n")
+        repo = self.make_repo("sa", plan)
+        (repo / "AGENTS.md").write_text("## Standing answers\n- suite: python3 runner/tests/fast.py\n")
+        self.steps([{}, {}, {}])
+        r = self.wf("sa", "-y", mode="fast")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        _, rec = self.run_record()
+        self.assertEqual([c["command"] for c in rec["calls"]], ["/check verify a", "/test a", "/sync"])
+        said = run.UNATTENDED_PROMPT + run.ANSWERS_INTRO + run.SUITE_PROMPT.format("python3 runner/tests/fast.py")
+        self.assertEqual([self.prompt(n) for n in (1, 2, 3)], [said, said, run.UNATTENDED_PROMPT])
+        self.assertIn("run the whole suite once with `python3 runner/tests/fast.py`", said)
+        self.assertEqual(run.unattended_prompt({}, False, None, True), run.UNATTENDED_PROMPT)
+
     # covers: spec 0006 AC-1, AC-2 (mixed case, spaces, prose and blanks, table order, section bounds)
     def test_parse(self):
         (self.repo / "AGENTS.md").write_text(
@@ -1602,7 +1631,8 @@ class TestStandingAnswers(RunCase):
     # covers: spec 0006 AC-1, AC-2, AC-3 (each refusal, its line, exit 5, no call, no run folder, first problem wins)
     def test_refusals(self):
         hint = (" (expected: - run suite: yes|ask, - done: yes|ask, - app start: <command>, "
-                "- app url: http://localhost:<port>, - branches: per spec, - push: draft PR|off, - parallel: 1-4)")
+                "- app url: http://localhost:<port>, - branches: per spec, - push: draft PR|off, - parallel: 1-4, "
+                "- suite: <command>)")
         cases = [
             ("form", "## Standing answers\n- run suite yes\n", "AGENTS.md:2: not a - key: value entry"),
             ("unknown", "## Standing answers\n- cross check: yes\n", "AGENTS.md:2: unknown key cross check"),

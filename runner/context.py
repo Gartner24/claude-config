@@ -106,6 +106,34 @@ def link(cfg, url):
     return safe(cfg, url, 400, paths=True) if url.startswith("https://") and " " not in url else ""
 
 
+WHAT_MAX = 1200
+
+
+def untagged(text):
+    """Spec 0043 AC-9: a box's text without the plan's tags (waits on you, live, later boxes go on)."""
+    for tag in (wf.OWED, wf.LIVE, wf.SKIP_AHEAD):
+        text = tag.sub("", text)
+    return " ".join(text.split())
+
+
+def explained(d):
+    """Spec 0043 AC-9: a step only you can do that carries a model's explanation; its filler lines are left out."""
+    return d.get("case") in ("waiting", "manual_box") and bool((d.get("context") or {}).get("what"))
+
+
+def shorter(text, over):
+    """text cut by over characters and a little more, or "" when under 40 would be left (ntfy.cut on a limit near 0
+    gave back nearly the whole text, and the fitting loop never ended)."""
+    left = len(text) - over - 4
+    return ntfy.cut(text, left) if left >= 40 else ""
+
+
+def kept(cfg, text, limit):
+    """Spec 0043 AC-9: Telegram text with its paths and commands, else (no readable names list, or a path that fails
+    the checks) the scrubbed text, never nothing for a field that only held a path."""
+    return safe(cfg, text, limit, paths=True) or safe(cfg, text, limit)
+
+
 def step_line(cfg, text):
     """AC-6 on Telegram: a step keeps its paths and commands (a private chat), through safe()."""
     return safe(cfg, text, 300, paths=True)
@@ -127,7 +155,7 @@ def telegram_block(cfg, d, room):
         if v:
             head.append(f"spec: {v}")
     if c.get("step"):
-        v = step_line(cfg, c["step"])
+        v = step_line(cfg, untagged(c["step"]))
         if v:
             head.append(f"step: {v}")
     if d.get("allow"):
@@ -142,28 +170,33 @@ def telegram_block(cfg, d, room):
             tail.append(f"PR: #{number} {url}".strip())
     import plain
     gated = auth(d)
-    why = field(cfg, plain.WHY.get(d.get("case")) if gated else c.get("why"), 300)
-    if why:
-        tail.append(f"why recommended: {why}")
+    why = "" if explained(d) else field(cfg, plain.WHY.get(d.get("case")) if gated else c.get("why"), 300)
     steps = [] if gated else [step_line(cfg, s) for s in c.get("steps") or []]
     steps = [f"{i}. {s}" for i, s in enumerate((s for s in steps if s), 1)]
     did = field(cfg, c.get("did"), DID_MAX)
-    # Spec 0042 AC-3: what a step only you can do is, in plain words, right under where it comes from.
-    what = "" if gated else field(cfg, c.get("what"), 500)
-    head += [f"what this is: {what}"] if what else []
+    # Spec 0042 AC-3: what a step only you can do is, in plain words, right under where it comes from. Spec 0043 AC-9:
+    # on Telegram it keeps its file names and commands and may run to WHAT_MAX.
+    what = "" if gated else kept(cfg, c.get("what"), WHAT_MAX)
     while True:
+        top = head + ([f"what this is: {what}"] if what else [])
+        end = tail + ([f"why recommended: {why}"] if why else [])
         if gated:
             # The runner's facts first; the call's words last, quoted and marked unverified.
-            lines = head + tail + ([UNVERIFIED, f"> {did}"] if did else [])
+            lines = top + end + ([UNVERIFIED, f"> {did}"] if did else [])
         else:
-            lines = head + ([f"did: {did}"] if did else []) + tail + (["steps:"] + steps if steps else [])
+            lines = top + ([f"did: {did}"] if did else []) + end + (["steps:"] + steps if steps else [])
         text = "\n".join(lines) if len(lines) > 1 else ""
         if len(text) <= room:
             return text
+        # Spec 0043 AC-9: the step's own words and the reason go first, then the steps, the explanation last.
         if did:
-            did = ntfy.cut(did, max(0, len(did) - (len(text) - room) - 4)) if len(did) > 40 else ""
+            did = shorter(did, len(text) - room)
+        elif why:
+            why = ""
         elif steps:
             steps.pop()
+        elif what:
+            what = shorter(what, len(text) - room)
         else:
             return ""
 

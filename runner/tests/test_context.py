@@ -92,6 +92,51 @@ class TestUnit(unittest.TestCase):
         d["case"] = "blocked"
         self.assertIn("1. run chmod 777 runner", context.telegram_block(CFG, d, 4000))
 
+    # covers: spec 0043 AC-9 (on Telegram an explained step only you can do keeps its file names in the question and
+    # the explanation, the whole explanation past the old 500, no plan tags, no generic learn or reason line; ntfy
+    # still scrubs)
+    def test_explained_on_telegram(self):
+        import ntfy
+        from unittest import mock
+        what = "The file `~/.claude/private/pr.json` lists the repos whose pull requests wf may look after. " + "More. " * 120
+        d = {"id": "1zim", "case": "waiting", "kind": "panel", "repo": "/r", "feature": "38. Adopt",
+             "question": "38. Adopt needs one step only you can do: Write `~/.claude/private/pr.json` for the repos",
+             "learn": "GENERIC-LEARN", "options": ["done", "skip"],
+             "context": {"feature": "38. Adopt", "what": what, "why": "CIRCULAR-WHY",
+                         "step": "Write `~/.claude/private/pr.json` for the repos · waits on you · later boxes go on"}}
+        cfg_t = {"block": [], "chat_id": 7, "aliases": {}, "token": "1"}
+        sent = {}
+        with mock.patch.object(ntfy, "private_names", return_value=["zzz"]), \
+                mock.patch.object(telegram.Topic, "publish", lambda self, m, *a, **k: sent.update(m=m) or "1"):
+            telegram.Topic(cfg_t, "demo", "f").ping(dict(d), lambda: False)
+            lines = context.ntfy_lines(cfg_t, d)
+        m = sent["m"]
+        self.assertIn("one step only you can do: Write `~/.claude/private/pr.json` for the repos", m)
+        self.assertIn("what this is: The file `~/.claude/private/pr.json` lists", m)
+        self.assertGreater(len(m.split("what this is: ")[1].split("\n")[0]), 600)
+        self.assertIn("\nstep: Write `~/.claude/private/pr.json` for the repos\n", m)
+        for gone in ("waits on you", "later boxes go on", "GENERIC-LEARN", "CIRCULAR-WHY", "why recommended"):
+            self.assertNotIn(gone, m)
+        self.assertLessEqual(len(m), telegram.MAX)
+        self.assertNotIn("~/.claude", " ".join(lines))
+        self.assertTrue(any(l.startswith("what: ") for l in lines), lines)
+
+    # covers: spec 0043 AC-9 (over the room, the step's own words and the reason go before the steps, the explanation
+    # last)
+    def test_cut_order(self):
+        d = {"case": "unchecked", "context": {"feature": "1. Loop", "what": "W" * 900, "why": "Y" * 200,
+                                             "did": "D" * 300, "steps": ["S" * 200, "T" * 200]}}
+        full = context.telegram_block(CFG, d, 4000)
+        self.assertIn("why recommended: " + "Y" * 200, full)
+        block = context.telegram_block(CFG, d, len(full) - 450)
+        self.assertNotIn("why recommended", block)
+        self.assertIn("W" * 900, block)
+        self.assertIn("1. " + "S" * 200, block)
+        tight = context.telegram_block(CFG, d, 600)
+        self.assertLessEqual(len(tight), 600)
+        self.assertIn("what this is: WWW", tight)
+        self.assertNotIn("steps:", tight)
+
     # covers: AC-5 (the swipe reply finds the labeled first line and the old one; typed replies unchanged)
     def test_swipe(self):
         for first in (context.label("w8d0") + ":\nShip it?", "w8d0: Ship it?"):
