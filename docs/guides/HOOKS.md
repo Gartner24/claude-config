@@ -2,7 +2,7 @@
 
 Most hooks in `settings.json` are auto-managed - they come from gstack, jjstack, or claude-mem,
 and reinstalling those frameworks restores them. Two are hand-written and live in this repo
-(`live/hooks/block-destructive.sh`, `live/scripts/chroma-reaper.sh`); those you do maintain.
+(`claude-home/hooks/block-destructive.sh`, `claude-home/scripts/chroma-reaper.sh`); those you do maintain.
 
 ## Where each hook comes from
 
@@ -24,9 +24,9 @@ and reinstalling those frameworks restores them. Two are hand-written and live i
 | `skill-miss-detect.sh` | jjstack | **UserPromptSubmit** (spec 0036). Logs to `~/.jjstack/skill-misses.jsonl` (rotated at 500 lines): `trigger_miss` when your message matched a skill's trigger words (index `~/.jjstack/skill-triggers.json`) and no skill ran before your next message, `user_correction` for `/missed <skill>`, `wrong_skill` for a correction ("no", "use /x", "wrong skill", any `/word`) within 5 minutes of a skill firing. Never blocks. Off when `WF_RUN` is set. Called at `~/.claude/skills/jjstack/hooks/` |
 | `skill-fired-clear.sh` | jjstack | **PreToolUse** on `Skill` (spec 0036). Records the firing skill in `~/.jjstack/skill-last-fired.json` and clears its pending note, so a skill that did run is not logged as a miss. Off when `WF_RUN` is set. Read the misses with `~/.claude/skills/jjstack/bin/jjstack-skill-miss-report` (top missed skills for 24 h, 72 h, lifetime, and a HOT / WARM / COLD verdict) |
 | `block-destructive.sh` | **hand-written** (this repo, `hooks/`) | PreToolUse gate on Bash - hard-blocks `rm -rf` against absolute/home/parent/wildcard targets |
-| `context-monitor.js` | **derived** (this repo, `live/hooks/`, from get-shit-done-cc) | PostToolUse on Bash/Edit/Write/MultiEdit/Agent/Task - reads the session transcript and tells the model at 150k tokens used (again every 100k) to finish the step and `/rollover`, and once at 650k that autocompact is 50k away. Silent under `wf`. `node live/hooks/context-monitor.js --test` (spec 0037) |
+| `context-monitor.js` | **derived** (this repo, `claude-home/hooks/`, from get-shit-done-cc) | PostToolUse on Bash/Edit/Write/MultiEdit/Agent/Task - reads the session transcript and tells the model at 150k tokens used (again every 100k) to finish the step and `/rollover`, and once at 650k that autocompact is 50k away. Silent under `wf`. `node claude-home/hooks/context-monitor.js --test` (spec 0037) |
 | `review-stack-pre-push` | **hand-written** (this repo, `hooks/`) | **A git hook, not a Claude Code hook.** Symlink it into a repo's `.git/hooks/pre-push` - never a bot-reviewed repo (the work orgs listed in your private `work.md`); it refuses to push a commit with no `/review-stack` receipt, or one whose receipt says `BLOCK`. Calls no model |
-| `gate.sh` | **hand-written** (this repo, `live/skills/design/scripts/`) | **Stop** hook, and the only one registered from SKILL.md frontmatter rather than `settings.json` - `design` and `brand-system` both declare it. Exits 0 immediately unless `~/.claude/.design-active` exists, so it never touches an unrelated session. When a run is open it exits 2 (blocking) with the unclosed ledger rows, at most twice; the third stop releases and marks the run `escaped:true`. An abandoned ledger (>24h) or an unreadable one also releases. Verified by `live/skills/design/scripts/test-ledger.sh`. |
+| `gate.sh` | **hand-written** (this repo, `claude-home/skills/design/scripts/`) | **Stop** hook, and the only one registered from SKILL.md frontmatter rather than `settings.json` - `design` and `brand-system` both declare it. Exits 0 immediately unless `~/.claude/.design-active` exists, so it never touches an unrelated session. When a run is open it exits 2 (blocking) with the unclosed ledger rows, at most twice; the third stop releases and marks the run `escaped:true`. An abandoned ledger (>24h) or an unreadable one also releases. Verified by `claude-home/skills/design/scripts/test-ledger.sh`. |
 | `chroma-reaper.sh` | **hand-written** (this repo, `scripts/`) | Background reaper started once per session; keeps claude-mem's chroma processes from piling up |
 
 ## Key behaviors these enable

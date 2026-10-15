@@ -24,17 +24,17 @@ SCOPE = """# Scope: r
 
 ### 1. One · in-progress · auto
 - [ ] Copy: `cp rules/a.md ~/.claude/rules/a.md` · waits on you · live
-- [ ] Install: `./install.sh` · waits on you · live
+- [ ] Install: `bin/install.sh` · waits on you · live
 - [ ] Probe: `python3 docs/specs/0001-x/probes/p.py` · waits on you · live
 - [ ] Phone check · waits on you
 Spec [0001](../specs/0001-x/index.md)
 
 ### 2. Two · auto
-- [ ] Install again: `./install.sh` · live · waits on you
+- [ ] Install again: `bin/install.sh` · live · waits on you
 - [ ] Probe b: `python3 docs/specs/0002-y/probes/q.py` · waits on you · live
 - [ ] Bad: `rm -rf x` · waits on you · live
-- [ ] Half: `./install.sh` then check `!` · waits on you · live
-- [ ] No tag: `./install.sh` · live
+- [ ] Half: `bin/install.sh` then check `!` · waits on you · live
+- [ ] No tag: `bin/install.sh` · live
 Spec [0002](../specs/0002-y/index.md)
 
 ### 3. Old · done
@@ -97,8 +97,9 @@ class FinishCase(unittest.TestCase):
         (repo / "docs" / "scope" / "scope.md").write_text(scope)
         (repo / "rules").mkdir()
         (repo / "rules" / "a.md").write_text("new\n")
-        (repo / "install.sh").write_text(INSTALL)
-        (repo / "install.sh").chmod(0o755)
+        (repo / "bin").mkdir()
+        (repo / "bin/install.sh").write_text(INSTALL)
+        (repo / "bin/install.sh").chmod(0o755)
         for spec, probe in (("0001-x", "p.py"), ("0002-y", "q.py")):
             d = repo / "docs" / "specs" / spec
             (d / "probes").mkdir(parents=True)
@@ -135,17 +136,17 @@ class TestHappyPath(FinishCase):
         out = r.stdout
         self.assertEqual(r.returncode, 0, out + r.stderr)
         self.assertIn("copy: r: 1. One: cp rules/a.md ~/.claude/rules/a.md", out)
-        self.assertIn("install: r: 1. One, 2. Two: ./install.sh", out)
+        self.assertIn("install: r: 1. One, 2. Two: bin/install.sh", out)
         self.assertIn("check: r: 1. One: python3 docs/specs/0001-x/probes/p.py", out)
         self.assertIn("yours: r: 2. Two: Bad: `rm -rf x` · waits on you · live (not a live step: rm -rf x)", out)
         self.assertIn("(not a live step: !)", out)
-        self.assertIn("No tag: `./install.sh` · live (live needs waits on you)", out)
+        self.assertIn("No tag: `bin/install.sh` · live (live needs waits on you)", out)
         self.assertNotIn("Copy old", out)
         self.assertNotIn("Copy later", out)
         self.assertNotIn("Phone check", out)
         # phases in order, copy before install before checks
-        self.assertLess(out.index("copy: r: cp"), out.index("install: r: ./install.sh"))
-        self.assertLess(out.index("install: r: ./install.sh"), out.index("check: r: python3"))
+        self.assertLess(out.index("copy: r: cp"), out.index("install: r: bin/install.sh"))
+        self.assertLess(out.index("install: r: bin/install.sh"), out.index("check: r: python3"))
         self.assertEqual((self.live / "rules" / "a.md").read_text(), "new\n")
         self.assertEqual((self.live / "install.count").read_text(), "installing\n")
         self.assertIn("install done", out)
@@ -170,7 +171,7 @@ class TestHappyPath(FinishCase):
                                            "docs/specs/0002-y/verify.md"])
         self.assertIn("notes.md", self.git(self.repo, "status", "--porcelain").stdout)
         self.assertEqual(out.splitlines()[-1], "next: wf")
-        self.assertIn("PASS: r: ./install.sh", out)
+        self.assertIn("PASS: r: bin/install.sh", out)
         self.assertTrue((self.state / "wf" / "report.seen").exists())
 
     # covers: AC-5 (a second run appends under the existing heading, before a later heading)
@@ -232,7 +233,7 @@ class TestFailures(FinishCase):
         self.assertFalse((self.live / "install.count").exists())
         self.assertFalse((self.probe_dir("0001-x") / "ran").exists())
         self.assertIn("FAIL: r: cp rules/a.md ~/.claude/rules/a.md", r.stdout)
-        self.assertIn("FAIL: r: ./install.sh (not run)", r.stdout)
+        self.assertIn("FAIL: r: bin/install.sh (not run)", r.stdout)
         self.assertNotIn("- [x]", self.scope())
         self.assertEqual(r.stdout.splitlines()[-1], "next: fix the FAIL lines, then wf")
 
@@ -250,7 +251,7 @@ class TestFailures(FinishCase):
     # covers: AC-6 (a box edited between the plan and the tick is not ticked)
     def test_box_changed(self):
         scope = self.repo / "docs" / "scope" / "scope.md"
-        (self.repo / "install.sh").write_text(INSTALL + f"sed -i 's/^- \\[ \\] Probe b:/- [ ] Probe B:/' {scope}\n")
+        (self.repo / "bin/install.sh").write_text(INSTALL + f"sed -i 's/^- \\[ \\] Probe b:/- [ ] Probe B:/' {scope}\n")
         r = self.wf("-y")
         self.assertIn("box changed, not ticked: Probe b:", r.stdout)
         self.assertIn("- [ ] Probe B:", self.scope())
@@ -353,7 +354,7 @@ class TestShapes(FinishCase):
         (self.repo / "link.md").symlink_to(self.repo / "rules" / "a.md")
         (self.repo / "runner" / "e2e").mkdir(parents=True)
         (self.repo / "runner" / "e2e" / "run.py").write_text("")
-        good = {"cp rules/a.md ~/.claude/rules/a.md": "copy", "./install.sh": "install",
+        good = {"cp rules/a.md ~/.claude/rules/a.md": "copy", "bin/install.sh": "install",
                 "python3 runner/e2e/run.py": "check", "python3 runner/e2e/run.py --parallel": "check",
                 "python3 runner/e2e/run.py --beside": "check", "python3 runner/e2e/run.py --same-repo": "check",
                 "python3 docs/specs/0001-x/probes/p.py": "check"}
@@ -362,8 +363,11 @@ class TestShapes(FinishCase):
                "cp private/n.txt ~/.claude/private/n.txt", "cp link.md ~/.claude/link.md",
                "cp ../x ~/.claude/x", "python3 docs/specs/0001-x/probes/p.py --fast",
                "bash docs/specs/0001-x/probes/p.py", "python3 docs/specs/0001-x/probes/missing.py",
-               "python3 runner/e2e/run.py --other", "install.sh", "./install.sh -y", "bash ./install.sh", "!",
-               "cp 'unclosed"]
+               # "." + "/install.sh": the old path grep (test_layout) fails on the whole old shape in any file.
+               "python3 runner/e2e/run.py --other", "install.sh", "." + "/install.sh", "bin/install.sh -y",
+               "bash bin/install.sh", "./bin/install.sh", "!", "cp 'unclosed"]
+        # Spec 0048 AC-4: the old top level shape is refused even with a file there to run.
+        shutil.copy(self.repo / "bin" / "install.sh", self.repo / "install.sh")
         env = os.environ.copy()
         os.environ.update(CLAUDE_CONFIG_DIR=str(self.live), HOME=str(self.home))
         try:
@@ -372,29 +376,32 @@ class TestShapes(FinishCase):
             for span in bad:
                 self.assertIsNone(finish.shape(root, span), span)
             self.assertEqual(finish.not_live(root, []), "no command in backticks")
-            self.assertEqual(finish.not_live(root, ["./install.sh", "!"]), "not a live step: !")
-            self.assertEqual(finish.not_live(root, ["./install.sh", "./install.sh"]), "not a live step: ./install.sh")
-            self.assertIsNone(finish.not_live(root, ["./install.sh"]))
+            self.assertEqual(finish.not_live(root, ["bin/install.sh", "!"]), "not a live step: !")
+            self.assertEqual(finish.not_live(root, ["bin/install.sh", "bin/install.sh"]), "not a live step: bin/install.sh")
+            self.assertIsNone(finish.not_live(root, ["bin/install.sh"]))
         finally:
             os.environ.clear()
             os.environ.update(env)
 
-    # covers: spec 0035 AC-3 (live/<path> in the repo is ~/.claude/<path>; live/settings.json and live/private stay refused)
+    # covers: spec 0048 AC-4, was 0035 AC-3 (claude-home/<path> in the repo is ~/.claude/<path>; claude-home/settings.json
+    # and claude-home/private stay refused; the old "live" shape is refused even through the compatibility link)
     def test_live_prefix(self):
         root = str(self.repo.resolve())
-        (self.repo / "live" / "rules").mkdir(parents=True)
-        (self.repo / "live" / "rules" / "b.md").write_text("b\n")
-        (self.repo / "live" / "settings.json").write_text("{}")
-        (self.repo / "live" / "private").mkdir()
-        (self.repo / "live" / "private" / "n.txt").write_text("x")
+        (self.repo / "claude-home" / "rules").mkdir(parents=True)
+        (self.repo / "claude-home" / "rules" / "b.md").write_text("b\n")
+        (self.repo / "claude-home" / "settings.json").write_text("{}")
+        (self.repo / "claude-home" / "private").mkdir()
+        (self.repo / "claude-home" / "private" / "n.txt").write_text("x")
+        (self.repo / "live").symlink_to("claude-home")
         env = os.environ.copy()
         os.environ.update(CLAUDE_CONFIG_DIR=str(self.live), HOME=str(self.home))
         try:
-            phase, fields = finish.shape(root, "cp live/rules/b.md ~/.claude/rules/b.md")
+            phase, fields = finish.shape(root, "cp claude-home/rules/b.md ~/.claude/rules/b.md")
             self.assertEqual((phase, fields["dst"], fields["rel"]),
                              ("copy", str(self.live.resolve() / "rules" / "b.md"), os.path.join("rules", "b.md")))
-            for span in ("cp live/rules/b.md ~/.claude/live/rules/b.md", "cp live/settings.json ~/.claude/settings.json",
-                         "cp live/private/n.txt ~/.claude/private/n.txt"):
+            for span in ("cp claude-home/rules/b.md ~/.claude/live/rules/b.md", "cp claude-home/settings.json ~/.claude/settings.json",
+                         "cp claude-home/private/n.txt ~/.claude/private/n.txt",
+                         "cp live" + "/rules/b.md ~/.claude/rules/b.md", "cp ./live" + "/rules/b.md ~/.claude/rules/b.md"):
                 self.assertIsNone(finish.shape(root, span), span)
         finally:
             os.environ.clear()

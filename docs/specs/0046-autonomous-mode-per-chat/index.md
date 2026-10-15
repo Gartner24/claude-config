@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-15
 **Status**: Proposed
-**Paths:** `runner/auto.py`, `runner/wf.py`, `runner/finish.py`, `runner/run.py`, `live/skills/auto/SKILL.md`, `live/settings.json`, `runner/tests/test_auto.py`, `runner/tests/test_auto_chats.py`
+**Paths:** `runner/auto.py`, `runner/wf.py`, `runner/finish.py`, `runner/run.py`, `claude-home/skills/auto/SKILL.md`, `claude-home/settings.json`, `runner/tests/test_auto.py`, `runner/tests/test_auto_chats.py`
 **Amends**: [0030](../0030-autonomous-mode/index.md) (one driving folder becomes one per chat)
 
 ## What you're agreeing to

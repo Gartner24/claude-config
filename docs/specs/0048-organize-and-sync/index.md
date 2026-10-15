@@ -1,8 +1,8 @@
 # 0048. Organize claude-config and ~/.claude, and keep them in sync
 
 **Date**: 2026-10-15
-**Status**: Proposed
-**Paths:** `README.md`, `AGENTS.md`, `CLAUDE.md`, `LICENSE`, `live/**`, `claude-home/**`, `bin/**`, `config/**`, `docs/NOTICE.md`, `docs/guides/**`, `scripts/**`, `runner/finish.py`, `runner/run.py`, `runner/e2e/run.py`, `runner/tests/**`
+**Status**: In Progress
+**Paths:** `README.md`, `AGENTS.md`, `CLAUDE.md`, `LICENSE`, `claude-home/**`, `bin/**`, `config/**`, `scripts/**`, `runner/finish.py`, `runner/run.py`, `runner/e2e/run.py`, `runner/tests/**`
 **Amended**: 2026-10-15, after the research review ([docs/research/organize-and-sync-review-2026-10-15.md](../../research/organize-and-sync-review-2026-10-15.md)): edited skills are a pin plus a patch, nothing untraceable or unlicensed enters the public repo, AGENTS.md shrinks under 200 lines.
 **Amends**: [0035](../0035-readable-layout/index.md) (AC-3 repo shape: `live/` becomes `claude-home/`, and the top level holds only four files plus folders) and [0003](../0003-scope-contract/index.md) as carried in `rules/scope-contract.md` (the live step shapes: `./install.sh` becomes `bin/install.sh`, and the `cp` shape drops a leading `claude-home/` instead of `live/`).
 

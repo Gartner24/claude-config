@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-13
 **Status**: Accepted
-**Paths:** `runner/report.py`, `runner/ntfy.py`, `runner/run.py`, `runner/wf.py`, `runner/e2e/run.py`, `live/settings.json`, `live/rules/runner-handoff.md`
+**Paths:** `runner/report.py`, `runner/ntfy.py`, `runner/run.py`, `runner/wf.py`, `runner/e2e/run.py`, `claude-home/settings.json`, `claude-home/rules/runner-handoff.md`
 **Amends**: [0005](../0005-decision-parking-phone-pings/index.md) and architecture invariant 4 (one report note at the end of every run joins the question pings), [0017](../0017-several-repos-at-once/index.md) (the parent sends one note for all its children). Uses the `· live` tag of [0019](../0019-live-setup-steps/index.md).
 
 ## Summary

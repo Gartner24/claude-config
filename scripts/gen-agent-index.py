@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate (or drift-check) live/rules/ecc/common/agents.md from live/agents/.
+"""Generate (or drift-check) claude-home/rules/ecc/common/agents.md from claude-home/agents/.
 
 That file is an agent index that loads into every session importing the common
 rules. It was upstream's, never regenerated after the cherry-pick, and had drifted
@@ -7,7 +7,7 @@ to listing 11 agents - one of which did not exist - while omitting 19 that did.
 An index that names a nonexistent agent is worse than no index: the model routes
 to it and gets nothing.
 
-  python3 scripts/gen-agent-index.py            rewrite the file from live/agents/
+  python3 scripts/gen-agent-index.py            rewrite the file from claude-home/agents/
   python3 scripts/gen-agent-index.py --check    exit 1 if it has drifted
 
 Run --check alongside check-routing.py. Same idea, different table.
@@ -17,8 +17,8 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-AGENTS = ROOT / "live" / "agents"
-INDEX = ROOT / "live" / "rules" / "ecc" / "common" / "agents.md"
+AGENTS = ROOT / "claude-home" / "agents"
+INDEX = ROOT / "claude-home" / "rules" / "ecc" / "common" / "agents.md"
 
 HEADER = """# Agent Orchestration
 
@@ -113,7 +113,7 @@ def main():
     INDEX.write_text(new, encoding="utf-8")
     print("wrote %s (%d agents)" % (INDEX.relative_to(ROOT), len(rows)))
 
-    # sync.sh pulls rules/ FROM ~/.claude, so a file generated only into the repo is
+    # bin/sync.sh pulls rules/ FROM ~/.claude, so a file generated only into the repo is
     # silently reverted on the next sync. Write both copies. (This bit twice: once
     # here, once on CLAUDE.md.)
     live = pathlib.Path.home() / ".claude" / "rules" / "ecc" / "common" / "agents.md"

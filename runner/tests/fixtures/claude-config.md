@@ -13,7 +13,7 @@ Trimmed copy of a real scope (the `· done` tag style).
 ## Existing
 
 ### A. Sync and install · existing
-`sync.sh` pulls live `~/.claude` into the repo.
+`bin/sync.sh` pulls live `~/.claude` into the repo.
 
 ## Foundations
 

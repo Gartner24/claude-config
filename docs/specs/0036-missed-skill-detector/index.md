@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-14
 **Status**: In Progress
-**Paths:** `live/settings.json`, `install.sh`, `scripts/private-names.py`, `AGENTS.md`
+**Paths:** `claude-home/settings.json`, `bin/install.sh`, `scripts/private-names.py`, `AGENTS.md`
 
 ## What you're agreeing to
 - Two small jjstack hooks get switched on: one notes when your message matched a skill's trigger words but no skill ran, the other notes which skill did run. A report command then shows which skills get missed most.

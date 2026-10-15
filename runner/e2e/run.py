@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Spec 0014 AC-5: `wf run` end to end in a throwaway copy of fixture/. It makes real claude calls, so you run it
-# yourself with `!` after a Claude Code upgrade or a runner change; install.sh and the unittest suite never do.
+# yourself with `!` after a Claude Code upgrade or a runner change; bin/install.sh and the unittest suite never do.
 # Spec 0017 AC-8: `--parallel` runs a bare `wf run` over two copies and checks their calls overlapped.
 # Spec 0018 AC-8: both forms also check the morning report. Every check talks to a silent local Telegram bot
 # (fake_telegram.py, the same path your runs use) that taps an answer to each question itself, so nothing reaches

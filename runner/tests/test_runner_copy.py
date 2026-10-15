@@ -114,7 +114,7 @@ class TestRunnerCopy(unittest.TestCase):
     def test_install_sh_dry_run_names_copy(self):
         real = RUNNER.parent
         env = {**os.environ, "HOME": str(self.home), "CLAUDE_LIVE_DIR": str(self.tmp / "live")}
-        r = subprocess.run(["bash", str(real / "install.sh"), "--dry-run"], capture_output=True, text=True, env=env)
+        r = subprocess.run(["bash", str(real / "bin/install.sh"), "--dry-run"], capture_output=True, text=True, env=env)
         self.assertEqual(r.returncode, 0, r.stderr)
         fp = finish.runner_fp(str(RUNNER))
         self.assertIn(f"would: copy runner/*.py to {self.share}/{fp}", r.stdout)

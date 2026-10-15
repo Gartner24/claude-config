@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 import unittest
 
-SETTINGS = pathlib.Path(__file__).resolve().parents[2] / "live" / "settings.json"
+SETTINGS = pathlib.Path(__file__).resolve().parents[2] / "claude-home" / "settings.json"
 DETECT = "~/.claude/skills/jjstack/hooks/skill-miss-detect.sh"
 CLEAR = "~/.claude/skills/jjstack/hooks/skill-fired-clear.sh"
 
