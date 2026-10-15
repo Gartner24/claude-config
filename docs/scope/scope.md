@@ -64,7 +64,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 43 | Runs adapt to setup changes | Release 7 | done |
 | 44 | A run does its own copy steps | Release 7 | in-progress |
 | 45 | Each step gets the feature's brief | Release 8 | planned |
-| 46 | Missed-skill detector | Release 8 | planned |
+| 46 | Missed-skill detector | Release 8 | in-progress |
 | 47 | Context monitor that fires | Release 8 | planned |
 | 48 | Readable layout for ~/.claude and claude-config | Release 8 | planned |
 | 49 | Fast runner | Release 8 | in-progress |
@@ -696,11 +696,11 @@ Every unattended step gets the feature's brief (the agreed decisions) so nothing
 - [ ] Sync docs: `/sync step brief`
 Spec [0034](../specs/0034-step-brief/index.md) · Source: personal scope row 12 (session handoff fidelity, last part).
 
-### 46. Missed-skill detector · planned · auto
+### 46. Missed-skill detector · in-progress · auto
 A hook notes when a session could have used a skill it did not, and a weekly report lists the top misses.
 **Done when:** the hook runs in real sessions and the report names the top missed skills.
 - [x] Design it (spec): `/architect missed skill detector`
-- [ ] Build it: `/develop missed skill detector`
+- [x] Build it: `/develop missed skill detector`
 - [ ] Verify it: `/check verify missed skill detector`
 - [ ] Test it: `/test missed skill detector`
 - [x] Install it live: `./install.sh` · waits on you · live
