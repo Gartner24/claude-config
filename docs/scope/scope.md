@@ -749,7 +749,7 @@ Several Claude chats each drive the runner for their own repos at once; a repo b
 - [x] Build it: `/develop autonomous mode per chat`
 - [x] Verify it: `/check verify autonomous mode per chat`
 - [x] Test it: `/test autonomous mode per chat`
-- [ ] Install it live: `./install.sh` · waits on you · live
+- [ ] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
 - [ ] Two real chats in two folders: each turns on its own repos, the bars show only their own, a take of the other's repo is refused (AC-11) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync autonomous mode per chat`
 Spec [0046](../specs/0046-autonomous-mode-per-chat/index.md) · Source: [brief](../briefs/autonomous-per-chat.md) · code in `runner/auto.py`.
