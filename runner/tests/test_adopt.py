@@ -177,7 +177,7 @@ class TestAdoptUnit(AdoptCase):
     def test_plain_words(self):
         import plain
         text = plain.PLAIN["approved"][1]
-        for word in ("Merge now", "Later", "I merged it", "only your tap"):
+        for word in ("merge now", "Later", "I merged it", "only your tap"):
             self.assertIn(word, text)
 
     # covers: AC-3 (a local branch ahead of the PR head is left alone and the round waits)

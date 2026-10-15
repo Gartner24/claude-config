@@ -6,7 +6,8 @@ import re
 PLAIN = {
     "denied": ("a step was refused something it tried to do",
                "The build is kept in a locked room, and it tried to touch a file or run a command outside it. "
-               "Allow it if you trust the step, like letting a plumber into one more room; skip to leave it out."),
+               "Your keys, startup files and live Claude setup stay locked always; for any other place you can allow "
+               "just that path, like letting a plumber into one more room. Skip leaves it out."),
     "blocked": ("the step needs something only you can do",
                 "The build hit a task it cannot do alone, such as typing a password or installing a program. "
                 "Do it yourself, then say done so it goes on, or skip this feature for now."),
@@ -87,9 +88,10 @@ PLAIN = {
     "review_rounds": ("the review went back and forth many times",
                       "The reviewer and the build traded fixes five times without finishing. Allow five more rounds, "
                       "or leave the rest to you."),
-    "approved": ("the review request was approved",
-                 "A reviewer said yes. Merge now joins it to the main line for you, and only your tap does that. "
-                 "Later leaves it waiting; I merged it says you already did."),
+    "approved": ("your PR was approved",
+                 "A reviewer said yes. Where merging from your phone is on, merge now joins it to the main line for "
+                 "you, and only your tap does that; elsewhere you merge it on GitHub and tap I merged it. Later leaves "
+                 "it waiting."),
     "foreign_commits": ("someone else changed files that can run code on this PR",
                         "Another person's commit on your PR changes files that tools load and run, like the model's "
                         "settings or hooks (scripts that run on events) or package scripts. Nothing runs on it until "
@@ -165,7 +167,7 @@ PLAIN = {
 
 # Spec 0033 AC-3: why the first option of each case question is the recommended one.
 WHY = {
-    "denied": "allowing it once lets this step finish without widening what later steps may write",
+    "denied": "nothing outside the build changes until you choose, and an allow covers only the one path named",
     "blocked": "it goes on as soon as you have done the steps; skip drops this feature for now",
     "verify_failed": "most check failures are fixed by one more try with the failure in hand",
     "no_progress": "a fresh try often gets past a step that stalled once",
