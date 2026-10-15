@@ -37,6 +37,20 @@ Ran in the feature worktree with scratch trees under `/tmp/claude/v0048/` (scrat
 - [x] AC-16: `bin/install.sh --dry-run` exit 0 (would relink exactly the 22 drift items); `bin/sync.sh` round trip on an exported repo and a scratch live dir exit 0, `claude-home/` unchanged; `check-routing`, `gen-agent-index --check`, `asciify --check`, `block-destructive --test`, `plain-panel --test`, `context-monitor --test`, `test-ledger.sh` (107 pass), `build-ramp --check`, `private-names --test`, `spec-paths --test`, `fb-ask --test` all exit 0.
 - [ ] `python3 runner/tests/fast.py` -> 903 tests, 1 failed: `test_never_stop.TestRepoAndRun.test_run_limit_keep_going` (exit 6, second keep going question arrives after feature B's `/sync`). It fails the same way on a `main` export, so it predates this branch.
 
+## /check verify rerun (2026-10-15, under wf run, after 483eea4 and 59f521a): FAIL
+
+Scratch in `/tmp/claude/v0048b/`; the committed branch tested from a `git archive HEAD` export made into a throwaway git repo.
+
+### Commands
+- [x] Manifest audit (`/tmp/claude/v0048b/audit.py`): 187 entries, 175 `skill` and 12 `plugin`; the 12 plugin keys equal the 12 keys of `~/.claude/plugins/installed_plugins.json`; every entry has all AC-5 fields, allowed `kind` and `status`, patch iff `edited`; plugins are `fetch: manual`, `publish: false`, `install: claude plugin install <key>` -> AC-5 (was missing). can fail: an installed plugin with no entry.
+- [x] The 7 broken descriptions are gone: `21st-ai`, `design-dna`, `humanizer`, `skill-router` rows in `docs/guides/SKILLS.md` show their real sentence; `clangd-lsp` shows `no description` (its plugin has no `plugin.json` description) -> AC-5, AC-13. can fail: a `>-.` row left.
+- [x] `bin/claude-config.py docs` then `git diff --stat -- docs/guides/SKILLS.md` -> empty -> AC-13. can fail: a stale generated file.
+- [ ] Plugin `base_hash`: a fresh `plugin_entries()` differs from `config/manifest.json` for 10 of 12 plugins, on `base_hash` only. Cause: Claude Code writes `.in_use/<pid>` marker files into each plugin's install folder for every running session (e.g. `cache/claude-plugins-official/code-review/8f814f49002f/.in_use/1169238`, written 15:31, after the 15:28 build), and `folder_hash` counts them (`SKIP` in `bin/claude-config.py:39` lacks `.in_use`). The 10 differing plugins are exactly the 10 whose `.in_use` changed after the build. So a plugin's `base_hash` describes the sessions running at build time, not the plugin, and every `build` rewrites it -> AC-5 bug, run `/debug`.
+- [x] `python3 -B -m unittest runner.tests.test_claude_config runner.tests.test_layout` on the export -> 30 tests OK -> AC-1, AC-3, AC-5 to AC-13. In the worktree the same run fails `test_old_paths` with 14 hits, all in `docs/scope/scope.md`, whose uncommitted working copy is byte equal to `main`'s (put there by the runner, not by this branch); this shows the old path test can fail.
+- [x] `drift` on the real `~/.claude` -> exit 1 with the 26 items `bin/install.sh` would fix (22 links, the new hook, the new skill, `scope-contract.md`, two settings keys); no plugin listed, no unaccounted skill -> AC-9. can fail: an unknown skill passing silently.
+- [x] `private-names.py check` on the export exit 0 (AC-8); `asciify.py --check` 0 changes; `check-routing.py` routing OK; `bin/install.sh --dry-run` exit 0 -> AC-16.
+- [ ] `python3 runner/tests/fast.py` -> 904 tests, 1 failed: `test_old_paths`, only from the runner's `main` copy of `docs/scope/scope.md` described above. The earlier keep going failure is fixed (17ecbaa).
+
 ### Not run here
 - `update --plan` against GitHub: the sandbox denies github.com; the tool reported every source unreached and wrote no state (the specced no network path).
 - `python3 runner/e2e/run.py`: needs a real `claude -p`.
