@@ -7,6 +7,7 @@ import html
 import json
 import os
 import re
+import urllib.parse
 import secrets
 import shutil
 import subprocess
@@ -248,21 +249,45 @@ def fetch(cfg):
         os.close(fd)
 
 
-LINKED = re.compile(r"^((?:spec|issue|PR): (?:#\d+ )?)(https://\S+)$")
+LINKED = re.compile(r"^((?:spec|issue|PR|repo): (?:#\d+ |[^ ]+ )?)(https://\S+)$")
+SPEC_FOLDER = re.compile(r"/specs/(?:[^/]+/)*(\d{4})-([^/]+?)(?:/index)?(?:\.md)?$")
+SENTENCE = re.compile(r"^(.+?[.!?])\s+(\S.*)$", re.S)
+
+
+def label(kind, head, url):
+    """Spec 0044 AC-1: the short text of a link: `0031 adopt open prs` for a spec, `#7` for an issue or PR, the
+    label already on the line for a repo, else the address itself."""
+    if kind == "spec":
+        m = SPEC_FOLDER.search(urllib.parse.urlsplit(url).path)
+        return f"{m.group(1)} {m.group(2).replace('-', ' ')}" if m else url
+    rest = head.split(": ", 1)[1].strip()
+    return rest or url
 
 
 def styled_block(block):
-    """Spec 0038 AC-2: the from: block as escaped HTML; a spec, issue or PR link is an anchor whose text is its
-    href, and the step's unverified words go in a collapsed quote."""
+    """Spec 0038 AC-2: the context block as escaped HTML; a spec, repo, issue or PR link is an anchor with a short
+    label (spec 0044 AC-1), the explanation's first sentence shows and the rest folds (AC-2), and the step's unverified
+    words go in a collapsed quote."""
     e, out, quote = html.escape, [], []
     for line in block.split("\n"):
         m = LINKED.match(line)
         if quote or line == context.UNVERIFIED:
             quote.append(line)
-        elif line == "from:":
-            out.append("<b>from:</b>")
         elif m:
-            out.append(f'{e(m.group(1))}<a href="{e(m.group(2))}">{e(m.group(2))}</a>')
+            kind = m.group(1).split(":", 1)[0]
+            out.append(f'{e(kind)}: <a href="{e(m.group(2))}">{e(label(kind, m.group(1), m.group(2)))}</a>')
+        elif line.startswith("what this is: "):
+            text = line[len("what this is: "):]
+            # Spec 0044 AC-2: the unverified marker stays with the first sentence.
+            mark = context.run.EXPLAINED_UNVERIFIED
+            lead, text = (mark + " ", text[len(mark):].lstrip()) if text.startswith(mark) else ("", text)
+            f = SENTENCE.match(text)
+            first, rest = (f.group(1), f.group(2)) if f else (text, "")
+            if len(first) > context.FIRST_MAX:
+                cut = ntfy.cut(first, context.FIRST_MAX)
+                first, rest = cut, (first[len(cut) - 3:].lstrip() + " " + rest).strip()
+            out.append(f"<b>what this is:</b> {e(lead + first)}" +
+                       (f"\n<blockquote expandable>{e(rest)}</blockquote>" if rest else ""))
         else:
             out.append(e(line))
     if quote:

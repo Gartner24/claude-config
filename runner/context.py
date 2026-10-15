@@ -76,6 +76,8 @@ def build(r, feature, step=None, extra=None):
         rel = os.path.relpath(top, r.c.path) if top else None
         ctx["spec"] = spec_link(origin, ctx["branch"], rel)
         ctx["issues"] = [f"https://github.com/{o}/{n}/issues/{k}" for o, n, k in run.linked_issues(f.lines, origin)]
+    # Spec 0044 AC-1: the repo line links to the repo's GitHub page.
+    ctx["repo_url"] = f"https://github.com/{name}" if name else None
     if step:
         ctx["step"] = step
     ctx.update({k: v for k, v in (extra or {}).items() if v})
@@ -107,6 +109,9 @@ def link(cfg, url):
 
 
 WHAT_MAX = 1200
+# Spec 0044 AC-2: the explanation's first sentence, longer ones cut at a word with the rest folded.
+FIRST_MAX = 300
+NO_STEPS_LINE = "steps: none given; reply with a note if something is unclear"
 
 
 def untagged(text):
@@ -142,13 +147,17 @@ def step_line(cfg, text):
 def telegram_block(cfg, d, room):
     """AC-4: the from: block for a Telegram question, at most room characters (did cut first, then steps)."""
     c = d.get("context") or {}
-    head = ["from:"]
+    # Spec 0044 AC-1: no lone from: line; the repo links to its GitHub page when the runner knows it.
+    head = [""]
     # The alias or hashed label ntfy uses, never the raw folder name of a private repo.
     repo = ntfy.repo_label(cfg, d["repo"]) if d.get("repo") else c.get("repo")
     for name, v, n in (("repo", repo, 80), ("feature", c.get("feature"), 120)):
         v = field(cfg, v, n)
         if v:
-            head.append(f"{name}: {v}")
+            # Spec 0044 AC-1: a link only next to the repo's own name, never next to a private repo's alias or hash.
+            own = d.get("repo") and v == os.path.basename(str(d["repo"]).rstrip("/"))
+            url = link(cfg, c.get("repo_url")) if name == "repo" and own else ""
+            head.append(f"{name}: {v} {url}".strip())
     spec = c.get("spec")
     if spec:
         v = link(cfg, spec) if spec.startswith("https://") else field(cfg, os.path.basename(spec), 120)
@@ -163,7 +172,7 @@ def telegram_block(cfg, d, room):
         v = step_line(cfg, d["allow"])
         if v:
             head.append(f"path: {v}")
-    tail = [f"issue: {u}" for u in map(lambda x: link(cfg, x), c.get("issues") or []) if u]
+    tail = [f"issue: #{u.rstrip('/').rsplit('/', 1)[-1]} {u}" for u in map(lambda x: link(cfg, x), c.get("issues") or []) if u]
     if c.get("pr"):
         number, url = (c["pr"].get("number"), link(cfg, c["pr"].get("url"))) if isinstance(c["pr"], dict) else (None, "")
         if number or url:
@@ -184,8 +193,11 @@ def telegram_block(cfg, d, room):
             # The runner's facts first; the call's words last, quoted and marked unverified.
             lines = top + end + ([UNVERIFIED, f"> {did}"] if did else [])
         else:
-            lines = top + ([f"did: {did}"] if did else []) + end + (["steps:"] + steps if steps else [])
-        text = "\n".join(lines) if len(lines) > 1 else ""
+            # Spec 0044 AC-3: a step only you can do always says what to do, or that no steps were given.
+            none = [NO_STEPS_LINE] if explained(d) and not steps else []
+            lines = top + ([f"did: {did}"] if did else []) + end + (["steps:"] + steps if steps else none)
+        lines = [x for x in lines if x]
+        text = "\n".join(lines) if lines else ""
         if len(text) <= room:
             return text
         # Spec 0043 AC-9: the step's own words and the reason go first, then the steps, the explanation last.

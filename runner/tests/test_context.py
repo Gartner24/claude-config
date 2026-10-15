@@ -47,7 +47,7 @@ class TestUnit(unittest.TestCase):
                          "pr": {"number": 7, "url": "https://github.com/acme/widgets/pull/7"}, "why": "it is faster"}}
         block = context.telegram_block(CFG, d, 4000)
         self.assertIn("\nspec: https://github.com/acme/widgets/blob/work/a.md\n", block)
-        self.assertIn("\nissue: https://github.com/acme/widgets/issues/4\n", block)
+        self.assertIn("\nissue: #4 https://github.com/acme/widgets/issues/4\n", block)
         self.assertNotIn("zorblex", block)
         self.assertIn("\nPR: #7 https://github.com/acme/widgets/pull/7\n", block)
         self.assertIn("\nwhy recommended: it is faster", block)
@@ -71,7 +71,7 @@ class TestUnit(unittest.TestCase):
             self.assertIn("\nfeature: 1. Loop", block)
         with mock.patch.object(ntfy, "private_names", return_value=["quuxcorp"]):
             block = context.telegram_block(CFG, d, 4000)
-            self.assertIn(f"\nrepo: {ntfy.repo_label(CFG, '/w/quuxcorp-cms')}\n", block)
+            self.assertTrue(block.startswith(f"repo: {ntfy.repo_label(CFG, '/w/quuxcorp-cms')}\n"), block)
             self.assertNotIn("quuxcorp", block)
             self.assertIn("\nspec: https://github.com/acme/widgets/blob/work/a.md", block)
 

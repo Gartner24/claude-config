@@ -158,8 +158,9 @@ EXPLAIN_PROMPT = (
     "WHAT: two or three plain sentences: what this step is and what it checks, each technical term explained in a "
     "few words.\n"
     "WHY: one sentence: why this step matters for the feature.\n"
-    "STEP: one line per thing to do, in order, at most 6: what to do, where (which terminal, chat, website or "
-    "folder), the exact command or text to type or the button to tap, and how they know it worked.\n")
+    "STEP: one line per thing to do, in order, one to six of them: what to do, where (which terminal, chat, website or "
+    "folder), the exact command or text to type or the button to tap, and how they know it worked. When the data shows "
+    "the step is already done, give one STEP line saying how to check that it is done.\n")
 EXPLAINED_UNVERIFIED = "(explained by a model from the step's own data, unverified)"
 EXPLAIN_DECISION_PROMPT = (
     "You explain one question an unattended build asks its owner, who was not watching and wants to understand it "
