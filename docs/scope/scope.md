@@ -640,7 +640,7 @@ Every question and report on your phone says where it comes from: repo, feature,
 - [x] Design it (spec): `/architect context in messages`
 - [x] Build it: `/develop context in messages`
 - [x] Verify it: `/check verify context in messages`
-- [ ] Test it: `/test context in messages`
+- [x] Test it: `/test context in messages`
 - [ ] Probe P1: read a real question on your phone and say whether it explains itself · waits on you · later boxes go on
 - [ ] Sync docs: `/sync context in messages`
 Spec [0033](../specs/0033-context-in-messages/index.md) · Source: your message 2026-10-13 (context, links and the why in every message).
@@ -671,7 +671,7 @@ A run switches to Telegram set up mid run, retakes a step the old setup refused 
 **Done when:** each of the three happens in a real run without a new wf.
 - [x] Design it (spec): `/architect runs adapt to setup changes`
 - [x] Build it: `/develop runs adapt to setup changes`
-- [ ] Verify it: `/check verify runs adapt to setup changes`
+- [x] Verify it: `/check verify runs adapt to setup changes`
 - [ ] Test it: `/test runs adapt to setup changes`
 - [ ] Sync docs: `/sync runs adapt to setup changes`
 Spec [0040](../specs/0040-runs-adapt-to-setup-changes/index.md) · Source: the night of 2026-10-13, morning list 2026-10-14.
