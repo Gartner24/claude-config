@@ -48,7 +48,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 34 | Report names repos | Release 6 | in-progress |
 | 35 | Several features of one repo at once | Release 6 | done |
 | 36 | Telegram instead of ntfy | Release 6 | done |
-| 37 | Autonomous mode | Release 6 | in-progress |
+| 37 | Autonomous mode | Release 6 | done |
 | 31 | Guard baseline check between repos | Release 6 | done |
 | 23 | Understand everything | Release 6 | done |
 | 15 | Cheap worker tier | Release 6 | done |
@@ -58,19 +58,19 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 14 | Branch and PR flow | Release 6 | done |
 | 38 | Adopt your open PRs | Release 7 | done |
 | 39 | Review requests to you | Release 7 | done |
-| 40 | Context and links in every message | Release 7 | in-progress |
+| 40 | Context and links in every message | Release 7 | done |
 | 41 | Styled Telegram messages | Release 7 | done |
 | 42 | Answer questions while wf is off | Release 7 | done |
 | 43 | Runs adapt to setup changes | Release 7 | done |
 | 44 | A run does its own copy steps | Release 7 | done |
 | 45 | Each step gets the feature's brief | Release 8 | done |
 | 46 | Missed-skill detector | Release 8 | in-progress |
-| 47 | Context monitor that fires | Release 8 | in-progress |
-| 48 | Readable layout for ~/.claude and claude-config | Release 8 | in-progress |
+| 47 | Context monitor that fires | Release 8 | done |
+| 48 | Readable layout for ~/.claude and claude-config | Release 8 | done |
 | 49 | Fast runner | Release 8 | in-progress |
 | 50 | Fewer avoidable stops | Release 8 | done |
 | 51 | Autonomous mode per chat | Release 8 | in-progress |
-| 52 | Review leftovers 2026-10-15 | Release 8 | in-progress |
+| 52 | Review leftovers 2026-10-15 | Release 8 | done |
 | 53 | Only a typed /auto turns on or releases | Release 8 | needs a decision |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
@@ -603,7 +603,7 @@ Questions come to your own Telegram bot with buttons, and you can reply in your 
 - [x] Sync docs: `/sync telegram`
 Spec [0029](../specs/0029-telegram/index.md) · Source: personal scope row 26.
 
-### 37. Autonomous mode · in-progress · auto
+### 37. Autonomous mode · done · auto
 `/auto on` ties a session to the runner: it starts `wf` when there is work, relays questions and the report, stays on through `/clear`, shows AUTO in the status bar; `/auto off` finishes running work, `/auto off now` stops it. Claude can never turn it on.
 **Done when:** after `/auto on` and `/clear`, the new session still drives `wf`, the bar shows AUTO, and `/auto off` stops new starts.
 - [x] Design it (spec): `/architect autonomous mode`
@@ -612,7 +612,7 @@ Spec [0029](../specs/0029-telegram/index.md) · Source: personal scope row 26.
 - [x] Test it: `/test autonomous mode`
 - [x] Install the hooks, skill and status bar: `./install.sh` · waits on you · live
 - [x] Probes P1 to P4 in a real session (`/clear`, closing the window, idle bar refresh, the skill argument) · waits on you
-- [ ] Sync docs: `/sync autonomous mode`
+- [x] Sync docs: `/sync autonomous mode`
 Spec [0030](../specs/0030-autonomous-mode/index.md) · Source: your message 2026-10-13; [docs/briefs/autonomous-mode.md](../briefs/autonomous-mode.md).
 
 ### 38. Adopt your open PRs · done · auto
@@ -638,7 +638,7 @@ A PR review requested of you becomes a question: wf drafts the review in an isol
 - [x] Sync docs: `/sync review requests`
 Spec [0032](../specs/0032-review-requests/index.md) · Source: your message 2026-10-13 (watch for review requests to me).
 
-### 40. Context and links in every message · in-progress · auto
+### 40. Context and links in every message · done · auto
 Every question and report on your phone says where it comes from: repo, feature, spec link, step, what it did, issue and PR links, and why the recommended answer is recommended.
 **Done when:** a question on the phone shows its from block with working links and the why line.
 - [x] Design it (spec): `/architect context in messages`
@@ -646,7 +646,7 @@ Every question and report on your phone says where it comes from: repo, feature,
 - [x] Verify it: `/check verify context in messages`
 - [x] Test it: `/test context in messages`
 - [x] Probe P1: read a real question on your phone and say whether it explains itself · waits on you · later boxes go on
-- [ ] Sync docs: `/sync context in messages`
+- [x] Sync docs: `/sync context in messages`
 Spec [0033](../specs/0033-context-in-messages/index.md) · Source: your message 2026-10-13 (context, links and the why in every message).
 
 ### 41. Styled Telegram messages · done · auto
@@ -712,7 +712,7 @@ A hook notes when a session could have used a skill it did not, and a weekly rep
 - [ ] Sync docs: `/sync missed skill detector`
 Spec [0036](../specs/0036-missed-skill-detector/index.md) · Source: personal scope row 20.
 
-### 47. Context monitor that fires · in-progress · auto
+### 47. Context monitor that fires · done · auto
 A context monitor that actually warns at the thresholds, wired to the status line in use.
 **Done when:** a long session gets the warning at the threshold.
 - [x] Design it (spec): `/architect context monitor`
@@ -720,10 +720,10 @@ A context monitor that actually warns at the thresholds, wired to the status lin
 - [x] Verify it: `/check verify context monitor`
 - [x] Test it: `/test context monitor`
 - [x] Install it live after the merge, from main (the first install ran without this branch) · waits on you · later boxes go on
-- [ ] Sync docs: `/sync context monitor`
+- [x] Sync docs: `/sync context monitor`
 Spec [0037](../specs/0037-context-monitor/index.md) · Source: personal scope row 6.
 
-### 48. Readable layout for ~/.claude and claude-config · in-progress · auto
+### 48. Readable layout for ~/.claude and claude-config · done · auto
 One README map of what lives where, everything installed under live/, guides under docs/guides/, ~/.claude tidied with nothing lost.
 **Done when:** the README map is true, the repo has its new shape, and every migration step passed its check.
 - [x] Design it (spec): `/architect readable layout`
@@ -731,7 +731,7 @@ One README map of what lives where, everything installed under live/, guides und
 - [x] Verify it: `/check verify readable layout`
 - [x] Test it: `/test readable layout`
 - [x] Run the live migration steps in the spec's migrate.md, one at a time with their checks · waits on you (2026-10-15, all steps passed; step 4 left until the open freelance design run closes)
-- [ ] Sync docs: `/sync readable layout`
+- [x] Sync docs: `/sync readable layout`
 Spec [0035](../specs/0035-readable-layout/index.md) · code in `live/`, `sync.sh`, `install.sh`, `scripts/`, `runner/finish.py`, `README.md` · Source: personal scope row 9.
 
 ### 50. Fewer avoidable stops · done · auto
@@ -756,7 +756,7 @@ Several Claude chats each drive the runner for their own repos at once; a repo b
 - [ ] Sync docs: `/sync autonomous mode per chat`
 Spec [0046](../specs/0046-autonomous-mode-per-chat/index.md) · Source: [brief](../briefs/autonomous-per-chat.md) · code in `runner/auto.py`.
 
-### 52. Review leftovers 2026-10-15 · in-progress · auto
+### 52. Review leftovers 2026-10-15 · done · auto
 Only you release a repo from a chat; a check handing parts to a later step needs a written note; the bar's running count checks each run's own lock.
 **Done when:** `/auto release` works only when you type it, Claude's `wf auto release` is denied, a left to the box pass needs its verify.md note, and a stale run never shows as running.
 - [x] Design it (spec): `/architect review leftovers 2026-10-15`
@@ -764,7 +764,7 @@ Only you release a repo from a chat; a check handing parts to a later step needs
 - [x] Verify it: `/check verify review leftovers 2026-10-15`
 - [x] Test it: `/test review leftovers 2026-10-15`
 - [x] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
-- [ ] Sync docs: `/sync review leftovers 2026-10-15`
+- [x] Sync docs: `/sync review leftovers 2026-10-15`
 Spec [0047](../specs/0047-review-leftovers/index.md) · code in `runner/auto.py`, `runner/run.py`, `live/settings.json`, `live/skills/auto/SKILL.md` · Source: [review](../reviews/review-2026-10-15.md) (Leftovers).
 
 ### 53. Only a typed /auto turns on or releases · needs a decision

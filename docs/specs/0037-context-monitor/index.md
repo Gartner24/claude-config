@@ -1,7 +1,7 @@
 # 0037 · Context monitor: one set of thresholds that actually fires
 
 **Date**: 2026-10-14
-**Status**: In Progress
+**Status**: Accepted
 **Paths:** `live/hooks/context-monitor.js` (new, a copied file like `live/hooks/block-destructive.sh`), `live/settings.json`, `sync.sh`, `install.sh`, `NOTICE.md`, `AGENTS.md`
 
 ## What you're agreeing to
