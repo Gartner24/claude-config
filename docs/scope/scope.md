@@ -789,12 +789,12 @@ A folder structure and docs that are easy to read, and a repo that holds (or nam
 - [x] Design it (spec): `/architect organize and sync claude-config with ~/.claude`
 - [x] Fill in the skill sources in [untraced-skills.md](../briefs/untraced-skills.md) · waits on you
 - [x] Amend the spec (original plus patch, untraced skills, short AGENTS.md): `/architect amend 0048 organize and sync`
-- [ ] Build it: `/develop organize and sync claude-config with ~/.claude`
-  - [ ] Probes P1 and P2, then the repo shape: `claude-home/`, `bin/`, `config/`, every path reference and the live step shapes (AC-1 to AC-4, AC-16)
-  - [ ] `bin/claude-config.py` sync, install, drift and the `/claude-config` skill, folding in `skills-audit.sh` (AC-7, AC-9)
-  - [ ] Manifest from the lock file, framework checkouts and the traced brief, pins by history walk, patches, private store, NOTICE (AC-5 to AC-8)
+- [x] Build it: `/develop organize and sync claude-config with ~/.claude`
+  - [x] Probes P1 and P2, then the repo shape: `claude-home/`, `bin/`, `config/`, every path reference and the live step shapes (AC-1 to AC-4, AC-16)
+  - [x] `bin/claude-config.py` sync, install, drift and the `/claude-config` skill, folding in `skills-audit.sh` (AC-7, AC-9)
+  - [x] Manifest from the lock file, framework checkouts and the traced brief, pins by history walk, patches, private store, NOTICE (AC-5 to AC-8)
   - [x] Update with the patch carried forward, conflicts and `--resolved`, the state file and the weekly reminder hook (AC-10, AC-11)
-  - [ ] Docs map first, then the rewrite, a short AGENTS.md and the 5 typed guides (AC-12, AC-13)
+  - [x] Docs map first, then the rewrite, a short AGENTS.md and the 5 typed guides (AC-12, AC-13)
 - [ ] Verify it: `/check verify organize and sync claude-config with ~/.claude`
 - [ ] Test it: `/test organize and sync claude-config with ~/.claude`
 - [ ] Back up `~/.claude` and the repo, as `migrate.md` step 0 says (AC-14) · waits on you
