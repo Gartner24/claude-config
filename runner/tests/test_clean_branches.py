@@ -840,6 +840,29 @@ class TestReviewFixes(Case):
         pr.poll_one(self.r, rec)
         self.assertEqual(rec["state"], "merged")
 
+    # covers: AC-5 with spec 0026 AC-11 (a self readied PR whose merge keeps failing still gets its review round)
+    def test_ready_still_reviewed(self):
+        rec, head = self.branch()
+        rec["self_ready"] = True
+        v = {"state": "OPEN", "isDraft": False, "headRefOid": head, "mergeable": "MERGEABLE", "statusCheckRollup": [],
+             "reviewDecision": "REVIEW_REQUIRED", "url": "u"}
+        self.gh({"views": [v], "methods": GOOD, "rulesets": RULES, "merge_rc": True})
+        pr.poll_one(self.r, rec)
+        self.assertEqual(len(self.merges()), 1)
+        self.assertIn(["api", "repos/acme/widgets/pulls/7/reviews", "--paginate"], self.gh_calls())
+
+    # covers: AC-6 (a branch that already holds origin/<default> is not pushed by the update, even with commits of
+    # its own not yet pushed)
+    def test_unpushed_own_commits(self):
+        rec, old = self.branch()
+        self.git("switch", "-q", "feat/0001-a")
+        (self.repo / "b.txt").write_text("waits\n")
+        self.git("add", "-A")
+        self.git("commit", "-qm", "not yet pushed")
+        self.git("switch", "-q", "work")
+        self.assertTrue(pr.up_to_date(self.r, rec, "work"))
+        self.assertEqual(self.git("rev-parse", "feat/0001-a", repo=self.origin), old)
+
     # covers: AC-7 (a closed PR's remote branch is deleted only while it is still at the PR's head)
     def test_closed_moved(self):
         rec, head = self.branch()

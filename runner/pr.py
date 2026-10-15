@@ -1187,9 +1187,9 @@ def up_to_date(r, rec, default):
     if rec.get("stacked_on") or rec["base"] != r.repo.get("start_branch"):
         return True
     target = f"origin/{default}"
-    if merged(r, target, rec["branch"]) and tip(r, rec["branch"]) == rec["pushed_sha"]:
+    if merged(r, target, rec["branch"]) and tip(r, rec["branch"]) != rec.get("update_unpushed"):
         return True
-    # Review: a merge whose push failed earlier is pushed now (the merge below is then a no op).
+    # Review: only this update's own merge, whose push failed earlier, is pushed now (the merge below is a no op).
     where, made = checkout_of(r, rec)
     if where is None:
         r.note(f"PR #{rec['number']}: not brought up to date: {made}")
@@ -1209,7 +1209,8 @@ def up_to_date(r, rec, default):
         if made:
             wf.git(run.key_of(r.c), "worktree", "remove", "--force", where)
             wf.git(run.key_of(r.c), "worktree", "prune")
-    head = tip(r, rec["branch"])
+    head = rec["update_unpushed"] = tip(r, rec["branch"])
+    save(r, rec)
     hit = scans(r, rec, rec["pushed_sha"] or rec["base_sha"], [])
     if hit:
         r.pr_ask(rec, hit[0], f"{rec['feature']}: {hit[1]}")
@@ -1218,6 +1219,7 @@ def up_to_date(r, rec, default):
     if state != "ok":
         r.note(f"PR #{rec['number']}: the update was not pushed: {detail or 'kept local by the pre-push hook'}")
         return False
+    rec.pop("update_unpushed", None)
     old, rec["pushed_sha"] = rec["pushed_sha"], head
     if rec.get("adopted") and rec.get("cleared") == old:
         # AC-6: commits reachable from origin/<default> never count for spec 0031 AC-12's foreign change check.
@@ -1758,14 +1760,18 @@ def poll_one(r, rec):
         withdraw(r, rec)
         cleanup(r, rec)
         return
-    if view.get("isDraft") or (rec.get("self_ready") and auto(r)):
-        # Review: self_ready, the runner marked it ready and its merge then failed; it is still the self merge's.
-        rec["state"] = "draft" if view.get("isDraft") else rec["state"]
+    if view.get("isDraft"):
+        rec["state"] = "draft"
         save(r, rec)
         if auto(r) and rec.get("later") != tip(r, rec["branch"]):
             # Spec 0051 AC-5: a failure left the PR open with a note; each poll tries again.
             merge_green(r, rec)
         return
+    if rec.get("self_ready") and auto(r) and rec.get("later") != tip(r, rec["branch"]):
+        # Review: the runner marked it ready and its merge then failed; try again, and the review loop still runs.
+        merge_green(r, rec)
+        if rec["state"] == "merged":
+            return
     if rec["state"] == "draft":
         rec["state"] = "ready"
     cfg = private_config(name)
