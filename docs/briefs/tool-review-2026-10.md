@@ -9,6 +9,9 @@ Source: your message of 2026-10-15 evening, at the end of the clean branches ses
 - **Security**: scan every skill or plugin before adopting it with NVIDIA's skill scanner, `skillspector`.
 - **Never commit to jjstack** for any of this.
 - **The plan below is the whole list** (agreed 2026-10-15): nothing is added, dropped or swapped without your yes, and every session reads it before other work here.
+- **A4 answers** (2026-10-15): claude-seo's `curl | bash` install scripts are fine, keep them. Do not install Antigravity: never run the installer jjstack's `antigravity` skill names; the skill itself stays.
+- **A5 to A9 may run while the A4 model scan runs** (your ask, 2026-10-16). A5 is PR #26, waiting for your merge.
+- **A6 backup** (your answer, 2026-10-16): add a second Ollama Cloud model (for example `qwen3-coder`) as order 3 in both `fb-safe` and `fb-any` in `~/.config/claude-fb/litellm.yaml`. No OpenRouter, no new account or key.
 
 ## The plan, enforced until done (agreed 2026-10-15)
 
