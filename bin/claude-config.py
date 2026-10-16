@@ -34,8 +34,8 @@ IGNORE = REPO / "config" / "drift-ignore.json"
 # The hand written hooks and scripts bin/sync.sh copies; every other live hook belongs to a framework
 # or has a manifest entry.
 COPIED_FILES = ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py",
-                "hooks/context-monitor.js", "hooks/claude-config-reminder.py", "scripts/chroma-reaper.sh",
-                "hooks/workflow-start.sh", "hooks/claude-mem-install.sh", "scripts/claude-ram-watch.sh")
+                "hooks/context-monitor.js", "hooks/claude-config-reminder.py",
+                "hooks/workflow-start.sh", "scripts/claude-ram-watch.sh")
 # .in_use/<pid> is a marker Claude Code drops in a plugin folder per running session; it used to make 10
 # of 12 plugin base_hash values go stale as soon as any session started.
 SKIP = {".git", "__pycache__", "node_modules", ".plugin-version", ".in_use"}

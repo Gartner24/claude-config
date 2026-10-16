@@ -22,10 +22,9 @@ fail=0
 "${NAMES[@]}" strip-settings "$LIVE/settings.json" "$tmp/settings.json" "$tmp/private-settings.json" || fail=1
 "${NAMES[@]}" strip-settings "$LIVE/settings.local.json" "$tmp/settings.local.json" "$tmp/private-settings.local.json" || fail=1
 "${NAMES[@]}" check "$LIVE/CLAUDE.md" "$LIVE/agents" "$LIVE/rules" \
-  "$LIVE/hooks/block-destructive.sh" "$LIVE/hooks/review-stack-pre-push" "$LIVE/hooks/plain-panel.py" "$LIVE/hooks/context-monitor.js" \
-  "$LIVE/scripts/chroma-reaper.sh" || fail=1
+  "$LIVE/hooks/block-destructive.sh" "$LIVE/hooks/review-stack-pre-push" "$LIVE/hooks/plain-panel.py" "$LIVE/hooks/context-monitor.js" || fail=1
 # Spec 0048: these may be missing from a live tree (first install, the self checks' temp trees).
-OPTIONAL=(hooks/claude-config-reminder.py hooks/workflow-start.sh hooks/claude-mem-install.sh scripts/claude-ram-watch.sh)
+OPTIONAL=(hooks/claude-config-reminder.py hooks/workflow-start.sh scripts/claude-ram-watch.sh)
 for f in "${OPTIONAL[@]}"; do
   if [ -e "$LIVE/$f" ]; then "${NAMES[@]}" check "$LIVE/$f" || fail=1; fi
 done
@@ -57,7 +56,6 @@ if [ -e "$LIVE/hooks/context-monitor.js" ]; then cp "$LIVE/hooks/context-monitor
 for f in "${OPTIONAL[@]}"; do
   if [ -e "$LIVE/$f" ]; then cp "$LIVE/$f" "$REPO/claude-home/$f"; fi
 done
-cp "$LIVE/scripts/chroma-reaper.sh"   "$REPO/claude-home/scripts/"
 
 
 # cp -a never deletes, and the header's claim that stale files show up in `git status`

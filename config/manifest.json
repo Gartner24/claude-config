@@ -420,21 +420,6 @@
       "source": "github:anthropics/claude-plugins-official",
       "status": "downloaded"
     },
-    "claude-mem@thedotmack": {
-      "base_hash": "dd9d5d1353574ed6f33d4232211d432079350589cd45da6e7b24d3645dea5889",
-      "description": "Memory compression system for Claude Code - persist context across sessions.",
-      "fetch": "manual",
-      "framework": null,
-      "install": "claude plugin install claude-mem@thedotmack",
-      "kind": "plugin",
-      "license": "unknown",
-      "patch": null,
-      "path": "claude-mem",
-      "pinned": "fef3402e674bebbf72a23aeb735e91c92cd34afd",
-      "publish": false,
-      "source": "github:thedotmack/claude-mem",
-      "status": "downloaded"
-    },
     "claude-seo@agricidaniel-claude-seo": {
       "base_hash": "89719a84597046299bdad42eceb294facc541f8a2ef86b17520f568ebc50648b",
       "description": "Comprehensive SEO analysis plugin for Claude Code.",
