@@ -48,15 +48,14 @@ Do the steps in order. Hook paths in `settings.json` are hardcoded to the old ho
 7. In Claude Code settings, go to MCP and enable the context7 connector.
 8. Copy `settings.json` and change the old home folder paths to match the new username and home folder.
 9. Copy `settings.local.json` as it is.
-10. If you ever need the agents, rules, hook and script by hand, they come from this repo, not from upstream ECC:
+10. If you ever need the agents, rules and hook by hand, they come from this repo, not from upstream ECC:
 
 ```bash
 cp -a claude-home/agents/. ~/.claude/agents/
 mkdir -p ~/.claude/rules
 cp -a claude-home/rules/. ~/.claude/rules/
 cp -a claude-home/hooks/block-destructive.sh ~/.claude/hooks/
-cp -a claude-home/scripts/chroma-reaper.sh ~/.claude/scripts/
-chmod +x ~/.claude/hooks/block-destructive.sh ~/.claude/scripts/chroma-reaper.sh
+chmod +x ~/.claude/hooks/block-destructive.sh
 bash ~/.claude/hooks/block-destructive.sh --test   # must print "all self-checks passed"
 ```
 
@@ -337,12 +336,11 @@ The skill carries its own `.graphify_version`. If that drifts from the package v
 
 Plugins install with `claude plugin install` and update on Claude Code launch.
 
-superpowers and claude-mem were installed together as a unit. superpowers gives the skill workflows (debugging, TDD, review, planning). claude-mem gives memory across sessions. Neither is useful without the other: without claude-mem, superpowers forgets context between sessions, and without superpowers, claude-mem has no structured workflows to remember outcomes from.
+superpowers gives the skill workflows (debugging, TDD, review, planning). claude-mem, once paired with it for memory across sessions, was removed for good on 2026-10-15; `~/.claude/projects/*/memory/` holds memory now.
 
 | Plugin | Source | Install | What it adds |
 |--------|--------|---------|--------------|
 | superpowers | `claude-plugins-official/superpowers` | `claude plugin install superpowers` | 13 skills: `/brainstorming`, `/test-driven-development`, `/systematic-debugging`, `/writing-plans`, `/executing-plans`, `/subagent-driven-development`, `/dispatching-parallel-agents`, `/requesting-code-review`, `/receiving-code-review`, `/finishing-a-development-branch`, `/using-git-worktrees`, `/verification-before-completion`, `/writing-skills`. The foundation: always loaded, and other skills integrate with it. |
-| claude-mem | `thedotmack/claude-mem` | `claude plugin install claude-mem` | 15 skills: `/mem-search`, `/learn-codebase`, `/smart-explore`, `/knowledge-agent`, `/make-plan`, `/do`, `/babysit`, `/weekly-digests`, `/timeline-report`, `/pathfinder`, `/wowerpoint`, `/oh-my-issues`, `/how-it-works`, `/design-is`, `/version-bump`. Run `/learn-codebase` on a new repo and `/mem-search` to recall past work. |
 | frontend-design | `claude-plugins-official/frontend-design` | `claude plugin install frontend-design` | `/frontend-design`. Anthropic's baseline UI skill. impeccable and the taste skills build on it. |
 | code-review | `claude-plugins-official/code-review` | `claude plugin install code-review` | `/code-review:code-review` reviews a GitHub pull request with parallel agents and posts one comment. Effort levels, `ultra`, `--comment` and `--fix` belong to the built-in `/code-review`, which has no file on disk. `CLAUDE.md` says which to use. Use it as a focused diff review before merging, next to gstack `/review`. |
 | feature-dev | `claude-plugins-official/feature-dev` | `claude plugin install feature-dev` | Agents `code-architect`, `code-explorer`, `code-reviewer`. Skills that need codebase analysis use them as subagents. |
@@ -419,7 +417,6 @@ Versions below were last verified on 2026-09-02. The pinned commits in [`../../c
 | @21st-dev/cli | 1.17.0 | `npm install -g @21st-dev/cli@latest` |
 | Claude Code | 2.1.259 | `claude update` |
 | superpowers | v6.3.0 | plugin update, below |
-| claude-mem | v13.24.0 | plugin update, below |
 | code-simplifier | v1.0.0 | plugin update, below |
 | ralph-loop | v1.0.0 | plugin update, below |
 | clangd-lsp | v1.0.0 | plugin update, below |
@@ -438,7 +435,7 @@ Upgrade order for gstack and jjstack matters:
 Plugins:
 
 ```bash
-for m in claude-plugins-official thedotmack ponytail agricidaniel-claude-seo; do
+for m in claude-plugins-official ponytail agricidaniel-claude-seo; do
   claude plugin marketplace update "$m"
 done
 claude plugin list

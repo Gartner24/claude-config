@@ -44,14 +44,14 @@ for d in agents rules; do
   note "$d/ ($(find "$REPO/claude-home/$d" -type f | wc -l) files)"
   run cp -a "$REPO/claude-home/$d/." "$LIVE/$d/"
 done
-for f in hooks/block-destructive.sh hooks/review-stack-pre-push hooks/plain-panel.py hooks/context-monitor.js scripts/chroma-reaper.sh; do
+for f in hooks/block-destructive.sh hooks/review-stack-pre-push hooks/plain-panel.py hooks/context-monitor.js; do
   note "$f"
   run cp -a "$REPO/claude-home/$f" "$LIVE/$f"
   run chmod +x "$LIVE/$f"
 done
 # Spec 0048 AC-11: the weekly upstream reminder; AC-5: your own hooks that used to be live only.
 # A scratch copy of this script (the self checks) may lack them.
-for f in hooks/claude-config-reminder.py hooks/workflow-start.sh hooks/claude-mem-install.sh scripts/claude-ram-watch.sh; do
+for f in hooks/claude-config-reminder.py hooks/workflow-start.sh scripts/claude-ram-watch.sh; do
   [ -e "$REPO/claude-home/$f" ] || continue
   note "$f"
   run cp -a "$REPO/claude-home/$f" "$LIVE/$f"

@@ -93,7 +93,7 @@ says how to load one per project.
 Languages          Markdown (skills, agents, rules), Bash, Python 3 stdlib, one Node ESM script
 Key dependencies   jq (bin/sync.sh), fontTools (design font scripts), culori (build-ramp.mjs,
                    node_modules committed on purpose); no package manager at the root
-Plugins            superpowers, claude-mem, frontend-design, code-review, feature-dev,
+Plugins            superpowers, frontend-design, code-review, feature-dev,
                    code-simplifier, ralph-loop, clangd-lsp, ponytail, security-guidance
 Skill frameworks   gstack, then jjstack on top; get-shit-done-cc pinned at 1.34.2, hooks only;
                    ECC commands; the JSM skills; sentry skills; anthropic security review

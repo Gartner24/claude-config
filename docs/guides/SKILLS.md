@@ -63,7 +63,6 @@ Installed by Claude Code's plugin system, never copied here.
 | Plugin | Source | Version | License | What it does |
 |---|---|---|---|---|
 | `clangd-lsp@claude-plugins-official` | anthropics/claude-plugins-official | 1.0.0 | Apache-2.0 | no description |
-| `claude-mem@thedotmack` | thedotmack/claude-mem | fef3402e674bebbf72a23aeb735e91c92cd34afd | unknown | Memory compression system for Claude Code - persist context across sessions. |
 | `claude-seo@agricidaniel-claude-seo` | AgriciDaniel/claude-seo | e77e783e38eeb738424eb72117abbd2dacdd88af | MIT | Comprehensive SEO analysis plugin for Claude Code. |
 | `code-review@claude-plugins-official` | anthropics/claude-plugins-official | 8f814f49002ff824e8a9ba43cf96112dc7f5948d | Apache-2.0 | Automated code review for pull requests using multiple specialized agents with confidence-based scoring. |
 | `code-simplifier@claude-plugins-official` | anthropics/claude-plugins-official | 1.0.0 | Apache-2.0 | Agent that simplifies and refines code for clarity, consistency, and maintainability while preserving functionality. |
