@@ -270,6 +270,8 @@ def export(repo, commit, path, tmp):
         raise Gone(f"{path} is not in {commit[:12]}")
     with tarfile.open(fileobj=io.BytesIO(r.stdout)) as t:
         t.extractall(out, filter="data")
+    if (out / path).is_symlink():
+        raise Gone(f"{path} is a link to {os.readlink(out / path)} in {commit[:12]}, renamed upstream")
     return out / path
 
 

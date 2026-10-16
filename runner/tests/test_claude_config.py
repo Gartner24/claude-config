@@ -181,6 +181,17 @@ class TestUpdate(Case):
         self.assertEqual(self.tool("update", "--plan").returncode, 0)
         self.assertIn("last_upstream_check", (self.live / "state" / "claude-config.json").read_text())
 
+    # an upstream folder replaced by a link (a rename) is reported, never a crash
+    def test_renamed_to_link(self):
+        self.install_edited()
+        shutil.move(self.up / "skills" / "s", self.up / "skills" / "t")
+        (self.up / "skills" / "s").symlink_to("t")
+        self.git(self.up, "add", "-A")
+        self.git(self.up, "commit", "-q", "-m", "rename")
+        r = self.tool("update", "--plan")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("s: source not reached, nothing changes: skills/s is a link to t", r.stdout)
+
     def plain(self, status="downloaded", fetch="git", base_hash=None):
         """An unedited live skill at pinned with its manifest entry."""
         s = self.live / "skills" / "s"
