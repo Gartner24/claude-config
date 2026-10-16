@@ -13,6 +13,7 @@ Source: your message of 2026-10-15 evening, at the end of the clean branches ses
 - **A5 to A9 may run while the A4 model scan runs** (your ask, 2026-10-16). A5 is PR #26, waiting for your merge.
 - **A6 backup** (your answer, 2026-10-16): add a second Ollama Cloud model (for example `qwen3-coder`) as order 3 in both `fb-safe` and `fb-any` in `~/.config/claude-fb/litellm.yaml`. No OpenRouter, no new account or key.
 - **D2 answer** (2026-10-16): the graphify test (A8) uses your studio's engine repo under `~/projects/freelance/` (name kept out of this public file).
+- **A8 answer** (2026-10-16): keep graphify installed even though it failed the A/B test (+35% tokens, 0 of 3 unasked uses, quality not graded). Never remove it without asking. B9 (its hook and CLAUDE.md line) is not decided.
 - **A7 runs in a parallel session** (your answer, 2026-10-16), so this one goes on with A8 meanwhile.
 
 ## The plan, enforced until done (agreed 2026-10-15)
