@@ -8,6 +8,68 @@ Source: your message of 2026-10-15 evening, at the end of the clean branches ses
 - **Order**: start by updating Claude Code through `/claude-config` (row 66), then the rest.
 - **Security**: scan every skill or plugin before adopting it with NVIDIA's skill scanner, `skillspector`.
 - **Never commit to jjstack** for any of this.
+- **The plan below is the whole list** (agreed 2026-10-15): nothing is added, dropped or swapped without your yes, and every session reads it before other work here.
+
+## The plan, enforced until done (agreed 2026-10-15)
+
+This is the whole list. Nothing is added, dropped or swapped without your yes, and every session reads this section before any other work in claude-config. Tick a box only with the evidence named on it. Research behind each line: [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/).
+
+### A. Install or set up (I guide you, in this order)
+- [ ] A1. Update Claude Code through `/claude-config`, then `drift: none` (row 66)
+- [ ] A2. Update claude-config's docs for the new setup: SETUP.md, DAILY-USE.md, SKILLS.md (row 66)
+- [ ] A3. Install skillspector: `uv tool install git+https://github.com/NVIDIA/skillspector.git`, both passes, model pass on the Claude login (row 65)
+- [ ] A4. Scan every installed skill and plugin with skillspector; remove or report each failure (row 65)
+- [ ] A5. Copy your `spawn-review` skill from jjstack's branch into claude-config as yours; no commit to jjstack (row 57)
+- [ ] A6. Add free backup models to fb-ask's LiteLLM settings (row 61, Soup research)
+- [ ] A7. Local model trial: `ollama-vulkan` (your sudo), `qwen2.5-coder:14b`, context 16k, speed test, one opencode task against claude-fb's cloud model, its own `fb-local` group; never while wf builds (row 67)
+- [ ] A8. graphify test: update it, map one large own repo code only with AI keys hidden, 8 to 10 questions with and without the map; keep only if it wins by 25% and Claude uses it unasked, else uninstall it and remove the skill. Never claude-config, client or work repos (row 70)
+- [ ] A9. MemPalace trial, after skillspector passes it: Docker, read only mount, loaded by hand, no auto save, one wing per project, no client or work repos, two weeks (row 59)
+
+### B. Build (each gets `/architect`, then the runner)
+- [ ] B1. Finish clean branches and PRs: `/check verify` and `/sync` (row 56)
+- [ ] B2. Runner with more than 4 features at once: any number, default top 6 (8 max until measured), starts a feature only with over 4.5 GB free memory and the 5 hour use under 80%, the same files rule back from each spec's Paths line, a spec with no Paths runs alone, worktrees kept (row 68)
+- [ ] B3. wf-dash, our own mod: status band with jjstack's segments plus wf counts, an agents pane, a runner pane, alerts; the shell status line stays as fallback; replaces jjstack's status line (rows 58, 64, closes 57)
+- [ ] B4. Sessions pass work on: SessionStart hook loads a waiting handover (you type only `/clear`), then a probe of a mod doing the `/clear`, built if it works; the handover loads first and memory gets the space left (row 60)
+- [ ] B5. Runner that improves itself: reads every run.json while idle, sets baselines, writes proposals to a separate inbox file the session shows you, reads `/insights` too, never edits guards or deny lists (row 62)
+- [ ] B6. Cheap work on cheap models: read only helper agents pinned to Haiku, fb-ask used for big inputs; an `agent.spawn` routing mod only after measuring the savings (row 61)
+- [ ] B7. Skill scan script: skillspector over every skill and plugin, both passes, rerun before every install (row 65)
+- [ ] B8. Local model wired in, only if A7 passes: `fb-local` group in fb-ask for private text (row 67)
+- [ ] B9. graphify in the workflow, only if A8 wins: its hook and one CLAUDE.md line in that repo only (row 70)
+- [ ] B10. Lead finder (idea from Harvey): a skill that audits local business sites for no website, no booking, an old blog or an incumbent agency, and lists 10 to 20 for you to contact by hand; nothing is ever sent by it (row 69)
+- [ ] B11. Reaction tester (idea from MiroFish): Claude agents play your target customers and react to an idea, offer or page, then a summary (row 69)
+- [ ] B12. Idea scorecard (idea from claude-skills-founder): a 7 point score ending in build, change course or drop, in your idea review skill (row 69)
+- [ ] B13. New number replaces old (idea from claude-skills-founder): a new figure replaces a saved one and says what it replaced, never an invented number; in customer-research and offers (row 69)
+- [ ] B14. Session save and check memory first (idea from the NotebookLM post): done locally through the MemPalace trial, nothing to Google (row 59)
+
+### C. Not installing or building, with the reason
+- Harvey: unattended Claude on the subscription breaks the terms, no legal footer, poor fit for Colombia.
+- Soup: trains models, does not route them; needs a strong GPU.
+- MiroFish: two paid outside clouds, unproven, AGPL.
+- NotebookLM and its MCP servers: text goes to Google, unofficial browser login, 50 chats a day, "free and open source" is false.
+- claude-mem: off for good.
+- Headroom: saves tokens against this week's goal, cost tripling bug unreleased; trial later (D3).
+- claude-skills-founder as a plugin: duplicates our skills, no gain on Opus 5 by its own evals.
+- Other people's mods (claude-mods, claude-statuspane, whats-agent-doing): young, none covers wf.
+- Snyk Agent Scan and Cisco skill-scanner: backups only if skillspector misses something.
+- claude-code-router and any gateway to non-Claude models for Claude Code: unsupported by Anthropic.
+- Gatekeeper auto-router mod and Claude-to-Claude mod: `/architect` then `/develop`, wf and model pins already do it.
+- A full repo clone per runner feature: worktrees already isolate each feature and each has its own PR.
+- Claude Code itself on the local model: prefill takes minutes and the context does not fit.
+- gpt-oss:20b and qwen3-coder:30b locally: larger than the 11 GB the GPU can use.
+
+### D. Open, needs your answer
+- [ ] D1. Review leftovers from PR #18 (row 71): add hook scripts, `config/`, skills, agents and `package.json` to the never-self-merge list (recommended yes); date the old branch warning from the first commit (recommended yes); wait for at least one check before a self merge (recommended yes)
+- [ ] D2. Which large own repo the graphify test (A8) uses
+- [ ] D3. Headroom trial, next week or later
+- [ ] D4. fb-ask on client repos when the model is local (only if A7 passes)
+- [ ] D5. Kept branches `feat/seo-ops-refs` and `sync-settings`: keep or delete
+
+### E. Housekeeping still open
+- [ ] E1. Row 46 missed skill detector: the 3 day report verdict, then `/sync`
+- [ ] E2. Row 51 autonomous mode per chat: the two real chats check, then `/sync`
+- [ ] E3. Two bugs found today: `bin/repo-settings.sh` failed its first run then passed; `bin/docs-pr.sh` leaves local main diverged after the squash merge (row 71)
+- [ ] E4. Small notes from the PR #18 review: stale "combined at the end" line in scope.md, contradicting lines in architecture.md invariant 1 and claude-home/CLAUDE.md:41, `--fill` titles in docs-pr.sh, runner/context.py missing from spec 0051's Paths (row 71)
+- [ ] E5. Rebuild the master list after each phase
 
 ## Items
 1. **Update Claude Code first** (row 66): run `/claude-config` to update and check drift.
