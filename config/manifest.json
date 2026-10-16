@@ -1,7 +1,7 @@
 {
   "entries": {
     "21st-ai": {
-      "base_hash": "5d139134635f4e2e76f19648d59d35068a21f9214d04f1790f2cf72f68e06fb3",
+      "base_hash": "138e1daa22414b31ba4b51bb90cc1dc54dcabd5c5b5debd57632b6ed4303a7d3",
       "description": "Generate and iterate on UI with 21st AI from the terminal via the `21st` CLI (`@21st-dev/cli`): sketch a UI from a prompt, preview the variants in the browser, edit any variant in place with a natural-language change, and pull the final code into the project.",
       "fetch": "git",
       "framework": null,
@@ -10,13 +10,13 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "plugins/21st/skills/21st-ai",
-      "pinned": "fa71f44e63247b912daab56f3d6d23700e1e3f71",
+      "pinned": "f76b07aec6e65a582abe4b20bf3ec7b0fa64968a",
       "publish": true,
       "source": "github:21st-dev/claude-code-plugin",
       "status": "downloaded"
     },
     "21st-cli-use": {
-      "base_hash": "2915d150bbee810ea170115dc3f775c6dec60d90e67b4da8d7b4016d0b33c865",
+      "base_hash": "4d3d34dd9b01afb9bd171f50aca26fc82b3072fc334eb0b04fd0736d87cbf63a",
       "description": "Search, install and pull code from the 21st.dev catalog with the `21st` CLI (`@21st-dev/cli`): find React/shadcn components, themes and templates, print a component's code or a theme's CSS, install an item into the project, or generate a new component with 21st AI.",
       "fetch": "git",
       "framework": null,
@@ -25,7 +25,7 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "plugins/21st/skills/21st-cli-use",
-      "pinned": "887200a32152ad2a4af240d4ebb2f2da631f1c23",
+      "pinned": "f76b07aec6e65a582abe4b20bf3ec7b0fa64968a",
       "publish": true,
       "source": "github:21st-dev/claude-code-plugin",
       "status": "downloaded"
@@ -46,7 +46,7 @@
       "status": "downloaded"
     },
     "21st-registry": {
-      "base_hash": null,
+      "base_hash": "b540e0977fdb4a62f2368acc9ee8c905f6575d23815c8e84c0c1ebd6814c9db1",
       "description": "Publish your own work to 21st.dev and manage it from the terminal with the `21st` CLI (`@21st-dev/cli`): publish a React component to a team library, publish a CSS theme or a template listing, edit / unpublish / delete your published items, list and reopen existing component work, and read/replace your public profile page (bento board).",
       "fetch": "git",
       "framework": null,
@@ -55,13 +55,13 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "plugins/21st/skills/21st-registry",
-      "pinned": null,
+      "pinned": "f76b07aec6e65a582abe4b20bf3ec7b0fa64968a",
       "publish": true,
       "source": "github:21st-dev/claude-code-plugin",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "21st-ui-build": {
-      "base_hash": null,
+      "base_hash": "b59b813de51f87c37ef2ca34258857a9a3edd441529c327b6a1b9b66d04142ad",
       "description": "Build or substantially change production UI using the current project's design context, existing components, and grounded 21st inspiration.",
       "fetch": "git",
       "framework": null,
@@ -70,13 +70,13 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "plugins/21st/skills/21st-ui-build",
-      "pinned": null,
+      "pinned": "f76b07aec6e65a582abe4b20bf3ec7b0fa64968a",
       "publish": true,
       "source": "github:21st-dev/claude-code-plugin",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "21st-ui-explore": {
-      "base_hash": null,
+      "base_hash": "4d257d9b027c6c0b082ded7a892744f04db7d2c929ee85046a1465b1dac8308f",
       "description": "Explore and compare multiple meaningfully different UI directions grounded in the current project's design system and 21st inspiration.",
       "fetch": "git",
       "framework": null,
@@ -85,13 +85,13 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "plugins/21st/skills/21st-ui-explore",
-      "pinned": null,
+      "pinned": "f76b07aec6e65a582abe4b20bf3ec7b0fa64968a",
       "publish": true,
       "source": "github:21st-dev/claude-code-plugin",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "21st-ui-review": {
-      "base_hash": null,
+      "base_hash": "1571b2cabd515ffc03ac630dbfbb3e64f0a86335ba9f2083dbb725d375a04329",
       "description": "Review existing UI against the project's design context, accessibility expectations, responsive behavior, interaction quality, and high-confidence production rules.",
       "fetch": "git",
       "framework": null,
@@ -100,28 +100,13 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "plugins/21st/skills/21st-ui-review",
-      "pinned": null,
+      "pinned": "f76b07aec6e65a582abe4b20bf3ec7b0fa64968a",
       "publish": true,
       "source": "github:21st-dev/claude-code-plugin",
-      "status": "unpinned"
-    },
-    "_gstack-command": {
-      "base_hash": null,
-      "description": "Router for the gstack skill suite.",
-      "fetch": "git",
-      "framework": "gstack",
-      "install": "npx skills add garrytan/gstack/_gstack-command",
-      "kind": "skill",
-      "license": "MIT",
-      "patch": null,
-      "path": "_gstack-command",
-      "pinned": null,
-      "publish": true,
-      "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "a11y-debugging": {
-      "base_hash": "7a53ae69721c9bbfeefc145439bfdab7f3c018199ac855fcb2602eada8b02816",
+      "base_hash": "decfde3d07c1a005cd72212fffca93d5cf6056d9706eb1a6a82f317e830b21aa",
       "description": "Uses Chrome DevTools MCP for accessibility (a11y) debugging and auditing based on web.dev guidelines.",
       "fetch": "git",
       "framework": null,
@@ -130,13 +115,13 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "skills/a11y-debugging",
-      "pinned": "50a16fae69c5c28990328160f79db50af260e256",
+      "pinned": "6606011ab3cdbc018904554dceae6ad6c5477fde",
       "publish": true,
       "source": "github:ChromeDevTools/chrome-devtools-mcp",
       "status": "downloaded"
     },
     "ab-testing": {
-      "base_hash": "f3bbdd2fb9bc268c7719415cb3ff7bde22637d3d634c405c0f81252580c63e5f",
+      "base_hash": "447d4c3472aac0baf5ca7eeaba4bfd8821a03733fe6bcd63906be18568261dc8",
       "description": "When the user wants to plan, design, or implement an A/B test or experiment, or build a growth experimentation program.",
       "fetch": "git",
       "framework": null,
@@ -145,13 +130,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/ab-testing",
-      "pinned": "30f9b9a729bbbe3da562fc1108c31f3a35afcca1",
+      "pinned": "365b412152b9542499ca1439426f7fc3cc92bb65",
       "publish": true,
       "source": "github:coreyhaines31/marketingskills",
       "status": "downloaded"
     },
     "agents-sdk": {
-      "base_hash": "ae2446393b1d2e9facca16cefde947b6706b1536b8e368a43f7ece963641c6e6",
+      "base_hash": "2478e987398c6cc78b8d10ae43d4b2d64bd04f61745bacb3c1e04d321de1f63c",
       "description": "Build, debug, or review Cloudflare Agents SDK applications using the agents package.",
       "fetch": "git",
       "framework": null,
@@ -160,13 +145,13 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "skills/agents-sdk",
-      "pinned": "179051fddf2f2ce3f57ae5f410c587b791abd866",
+      "pinned": "86505e44f87d801aa1864a3c4109e9a8ae5c409f",
       "publish": true,
       "source": "github:cloudflare/skills",
       "status": "downloaded"
     },
     "animate": {
-      "base_hash": "df134fad9615382f66117ecc6971b73865e2682ebaf3d3b65c223e353140509f",
+      "base_hash": "87a631a25ab067a5b62018ba6b11d139783d396a835e21d3f8429e51b43e2dfb",
       "description": "Build an animation from scratch, making the decisions in the order that determines whether it feels right \u2014 should it animate at all, what purpose, which tool, which properties, which curve and duration, how it interrupts, how it exits.",
       "fetch": "git",
       "framework": null,
@@ -175,13 +160,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/animate",
-      "pinned": "e879241fab3cdb22e8d95587cdbf40b57a88d7da",
+      "pinned": "2d228630ba1446365f614a108cb8252f1feda202",
       "publish": true,
       "source": "github:emilkowalski/skills",
       "status": "downloaded"
     },
     "animation-vocabulary": {
-      "base_hash": "f13610a3a0352c2d5a5033962753551b5ff6e1d52f02b1801947c098ae6f234e",
+      "base_hash": "ef1a69a37989a38363ee799b9097fedb9300bd132514c109bf7de1855d43aff3",
       "description": "Reverse-lookup glossary that turns a vague description of a web animation or motion effect into its exact term (\"the bouncy thing when a popover opens\" \u2192 Pop in; \"the iOS rubber-band scroll\" \u2192 Rubber-banding).",
       "fetch": "git",
       "framework": null,
@@ -190,13 +175,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/animation-vocabulary",
-      "pinned": "107aeda7d9886d25bb812097a30a05bda3e5a92f",
+      "pinned": "2d228630ba1446365f614a108cb8252f1feda202",
       "publish": true,
       "source": "github:emilkowalski/skills",
       "status": "downloaded"
     },
     "api-connector-builder": {
-      "base_hash": "476107247760b42358a3760bf1d63309af71b3328d44e7722ae47b192cf0bf40",
+      "base_hash": "d07940735b468ec8b1fc9ab41f3c113d895d223cd12bc34c1159e6d495f13c5d",
       "description": "Build a new API connector or provider by matching the target repo's existing integration pattern exactly.",
       "fetch": "git",
       "framework": "ecc",
@@ -205,13 +190,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/api-connector-builder",
-      "pinned": "9bd8e8b3c7e1677bd8c7753fa405f57ee4353c0a",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "api-design": {
-      "base_hash": "299dc78d8812b115ba2b484394eb71744930f2a9d2730c1478017d11c2c2a189",
+      "base_hash": "98423d5b6ab09ba04c4a64dc957be0394f359d896f560d077ec9efb2db37258b",
       "description": "REST API design patterns including resource naming, status codes, pagination, filtering, error responses, versioning, and rate limiting for production APIs.",
       "fetch": "git",
       "framework": "ecc",
@@ -220,13 +205,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/api-design",
-      "pinned": "48dafdd288ca415bed92be9fc86580cb742e0363",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "apple-design": {
-      "base_hash": "2309f0c6a47e839c716ca42c4d25a7cfda9879df1819874729ff5bbf1c938dca",
+      "base_hash": "6278a8cd13e3d324a7302e343e818bd6fbe33810295796842ef7d21e0a799efc",
       "description": "Apple's approach to interface design and fluid, physical motion, translated for the web.",
       "fetch": "git",
       "framework": null,
@@ -235,13 +220,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/apple-design",
-      "pinned": "56de6f5d6642f761b5e17629fccf53e303b3da9b",
+      "pinned": "2d228630ba1446365f614a108cb8252f1feda202",
       "publish": true,
       "source": "github:emilkowalski/skills",
       "status": "downloaded"
     },
     "architecture-decision-records": {
-      "base_hash": "8663a72bc213b4f1e4a840b2eede64565dc9791b87682e0491e08906e5a10659",
+      "base_hash": "c9f94e083d721052a5d8dd3f0516c6a6907298cf552856c411ef96e497d397c9",
       "description": "Capture architectural decisions made during Claude Code sessions as structured ADRs.",
       "fetch": "git",
       "framework": "ecc",
@@ -250,13 +235,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/architecture-decision-records",
-      "pinned": "d697f2ebac97f03844d53d91bb50f66293420299",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "article-writing": {
-      "base_hash": "96018b0e34d9de4cb8fe24f60e0da9e7d333fcf2f7fd413c328fa48ae1c62091",
+      "base_hash": "337f4ee88b0486227b2f4faa1f67f235a70781cf5f0d4ba6a4073b088e5b5ea4",
       "description": "Write articles, guides, blog posts, tutorials, newsletter issues, and other long-form content in a distinctive voice derived from supplied examples or brand guidance.",
       "fetch": "git",
       "framework": "ecc",
@@ -265,7 +250,7 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/article-writing",
-      "pinned": "635fcbd71566a2403bcb9bdbf2b3fef35ce189fb",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
@@ -286,7 +271,7 @@
       "status": "downloaded"
     },
     "autonomous-loops": {
-      "base_hash": "0ac580d850d4feb96dcd4cb9fd453fa9d718eebd612e3981e74dd6a504584743",
+      "base_hash": "922ff42249a2bbd772db4b964a7666efbbee20b035615d51e6785ef573a9db1d",
       "description": "Patterns and architectures for autonomous Claude Code loops \u2014 from simple sequential pipelines to RFC-driven multi-agent DAG systems.",
       "fetch": "git",
       "framework": "ecc",
@@ -295,13 +280,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/autonomous-loops",
-      "pinned": "6b2de1baff924427f8e59e62cf0d6004b0835238",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "backend-patterns": {
-      "base_hash": "29aeb6ff550a1c260039894a59d0e3e091b6f69863015274f37aa8a6e21603ae",
+      "base_hash": "481919808723dd010e32c5b97be0835c5fccbfe880508f5042916b0cd6911155",
       "description": "Backend architecture patterns, API design, database optimization, and server-side best practices for Node.js, Express, and Next.js API routes.",
       "fetch": "git",
       "framework": "ecc",
@@ -310,13 +295,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/backend-patterns",
-      "pinned": "d8f879e671fa2e522df8cdf80472250b0b736b0f",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "benchmark": {
-      "base_hash": null,
+      "base_hash": "d2e2bddef36d959ada3c63eeeb7c0ab962985245214890352b97b519a6563f28",
       "description": "Performance regression detection.",
       "fetch": "git",
       "framework": "gstack",
@@ -325,13 +310,13 @@
       "license": "MIT",
       "patch": null,
       "path": "benchmark",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "benchmark-models": {
-      "base_hash": null,
+      "base_hash": "ec2a08bb92826bacc8bf992505bafe90b744c8b999a5235a6f35231ff9f353a2",
       "description": "Cross-model benchmark for gstack skills.",
       "fetch": "git",
       "framework": "gstack",
@@ -340,13 +325,13 @@
       "license": "MIT",
       "patch": null,
       "path": "benchmark-models",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "canary": {
-      "base_hash": null,
+      "base_hash": "4f1fcdbe4702ca3123f7ac6aef51e64554bdff81bd3d5438f9bc38769651bea4",
       "description": "Post-deploy canary monitoring.",
       "fetch": "git",
       "framework": "gstack",
@@ -355,13 +340,13 @@
       "license": "MIT",
       "patch": null,
       "path": "canary",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "careful": {
-      "base_hash": null,
+      "base_hash": "6b8b5578f7b716571afd8c4d510eadbed27396ce8a81061569394fb90b6ae26e",
       "description": "Safety guardrails for destructive commands.",
       "fetch": "git",
       "framework": "gstack",
@@ -370,13 +355,13 @@
       "license": "MIT",
       "patch": null,
       "path": "careful",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "chrome-devtools": {
-      "base_hash": null,
+      "base_hash": "80342c3ce64d5f6ec584e71e6f417664e2123dd034dbae16ceefb6f41ed08298",
       "description": "Uses Chrome DevTools via MCP for efficient debugging, troubleshooting and browser automation.",
       "fetch": "git",
       "framework": null,
@@ -385,13 +370,13 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "skills/chrome-devtools",
-      "pinned": null,
+      "pinned": "6606011ab3cdbc018904554dceae6ad6c5477fde",
       "publish": true,
       "source": "github:ChromeDevTools/chrome-devtools-mcp",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "chrome-devtools-cli": {
-      "base_hash": "b9345091deb027c4d4ab23f9ccb23533dc603797685dd22167d7b17cf2b06036",
+      "base_hash": "9903bc198932b5e5b5d4d85dec9712c080011a837a047d49c78594ee5b49a00d",
       "description": "Use this skill to write shell scripts or run shell commands to automate tasks in the browser or otherwise use Chrome DevTools via CLI.",
       "fetch": "git",
       "framework": null,
@@ -400,7 +385,7 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "skills/chrome-devtools-cli",
-      "pinned": "2dc104ce1bec57f17763cb7d72b33e03057a79bc",
+      "pinned": "6606011ab3cdbc018904554dceae6ad6c5477fde",
       "publish": true,
       "source": "github:ChromeDevTools/chrome-devtools-mcp",
       "status": "downloaded"
@@ -436,7 +421,7 @@
       "status": "downloaded"
     },
     "cloudflare": {
-      "base_hash": null,
+      "base_hash": "6ec17d29f2882f01671dad0414d6d58d494146236ba092950f19d73362af98d5",
       "description": "Discover and choose Cloudflare products for apps, APIs, AI agents, storage, networking, and security.",
       "fetch": "git",
       "framework": null,
@@ -445,13 +430,13 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "skills/cloudflare",
-      "pinned": null,
+      "pinned": "86505e44f87d801aa1864a3c4109e9a8ae5c409f",
       "publish": true,
       "source": "github:cloudflare/skills",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "cloudflare-email-service": {
-      "base_hash": "301feb09d87b17348be128424ea2aaf9564e65e784387725b654317e59afc33a",
+      "base_hash": "5ffc9a47cae3045716003c032d4d35ce0452e33822498b96458ff1086ab587e4",
       "description": "Implement or troubleshoot Cloudflare Email Sending and Email Routing integrations and their delivery configuration.",
       "fetch": "git",
       "framework": null,
@@ -460,13 +445,13 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "skills/cloudflare-email-service",
-      "pinned": "36904a7dd696c7a03c59956705661bab9cf06a2c",
+      "pinned": "86505e44f87d801aa1864a3c4109e9a8ae5c409f",
       "publish": true,
       "source": "github:cloudflare/skills",
       "status": "downloaded"
     },
     "cloudflare-one": {
-      "base_hash": "1460fc5b910dddeb558b13894a93ad8b3fb9c78bcb696ad23b7a8734b82a98f3",
+      "base_hash": "dbc327dbf1c14f97e64a943b2e04c5c7974c09a50e6f737511b817cac7aa665a",
       "description": "Design, configure, troubleshoot, or review Cloudflare One Zero Trust and SASE deployments.",
       "fetch": "git",
       "framework": null,
@@ -475,13 +460,13 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "skills/cloudflare-one",
-      "pinned": "3e78c0bf46bdebe6b11fc62be960ef9e995d8d8f",
+      "pinned": "86505e44f87d801aa1864a3c4109e9a8ae5c409f",
       "publish": true,
       "source": "github:cloudflare/skills",
       "status": "downloaded"
     },
     "cloudflare-one-migrations": {
-      "base_hash": "d8a56f163cbcd3538c4644d736da1bc3193d8b4674cd9c6cb1637c86f16aabea",
+      "base_hash": "53eedade3e49dbf0a1d706cee8345e7fa95389bd0da35a77ab1e73be60371009",
       "description": "Assess and plan migrations from existing VPN, SWG, or SASE platforms to Cloudflare One, including policy mapping, parity gaps, and rollout.",
       "fetch": "git",
       "framework": null,
@@ -490,7 +475,7 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "skills/cloudflare-one-migrations",
-      "pinned": "791012421c900f3fd4f007be6cd84f2ff42f100a",
+      "pinned": "86505e44f87d801aa1864a3c4109e9a8ae5c409f",
       "publish": true,
       "source": "github:cloudflare/skills",
       "status": "downloaded"
@@ -526,7 +511,7 @@
       "status": "downloaded"
     },
     "codebase-onboarding": {
-      "base_hash": "09fc94bea5b82a5898eee28a9bf5f3273743bf29152ad8a274b6a5d745757152",
+      "base_hash": "234c0a6de5af1d636ce53db7ed19f0a47afbff1e793b2efe6bc0bfc2edacf08d",
       "description": "Analyze an unfamiliar codebase and generate a structured onboarding guide with architecture map, key entry points, conventions, and a starter CLAUDE.md.",
       "fetch": "git",
       "framework": "ecc",
@@ -535,13 +520,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/codebase-onboarding",
-      "pinned": "72c013d212ef150e2336a1d5fa4fe61ab2f84f05",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "codex": {
-      "base_hash": null,
+      "base_hash": "55cdd9000953eb7871922caef9544774e3319d4449d34f9a8763395b2de4fea3",
       "description": "OpenAI Codex CLI wrapper \u2014 three modes.",
       "fetch": "git",
       "framework": "gstack",
@@ -550,13 +535,13 @@
       "license": "MIT",
       "patch": null,
       "path": "codex",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "coding-standards": {
-      "base_hash": "2ce476dca9090e98244af94d9fdca8ae7f8aab438514edb94d64ad15ae802f0c",
+      "base_hash": "17b19930413af6a2860f738a229a4ddd83809f981948e7967e3f699af931936d",
       "description": "Baseline cross-project coding conventions for naming, readability, immutability, and code-quality review.",
       "fetch": "git",
       "framework": "ecc",
@@ -565,28 +550,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/coding-standards",
-      "pinned": "c547823c534d7e163dc6d96cee35009e6425647b",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
-    "connect-chrome": {
-      "base_hash": null,
-      "description": "Launch GStack Browser \u2014 AI-controlled Chromium with the sidebar extension baked in.",
-      "fetch": "git",
-      "framework": "gstack",
-      "install": "npx skills add garrytan/gstack/connect-chrome",
-      "kind": "skill",
-      "license": "MIT",
-      "patch": null,
-      "path": "connect-chrome",
-      "pinned": null,
-      "publish": true,
-      "source": "github:garrytan/gstack",
-      "status": "unpinned"
-    },
     "context-restore": {
-      "base_hash": null,
+      "base_hash": "29510e0e622ba20ad06ce2b0e8da30a6091277586a0fcb1215280b7feb5db278",
       "description": "Restore working context saved earlier by /context-save.",
       "fetch": "git",
       "framework": "gstack",
@@ -595,13 +565,13 @@
       "license": "MIT",
       "patch": null,
       "path": "context-restore",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "context-save": {
-      "base_hash": null,
+      "base_hash": "f75a3f1077245ea99dc7fee87d51ebd45882ff3913d0c280494ecd90c8fd3b26",
       "description": "Save working context.",
       "fetch": "git",
       "framework": "gstack",
@@ -610,13 +580,13 @@
       "license": "MIT",
       "patch": null,
       "path": "context-save",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "cookie-debugging": {
-      "base_hash": "1df8649c51cde95dc8da1af70b06a7be91188e949a8c5adbf81bbf379e173484",
+      "base_hash": "5a9fa9127541a2caf09cd67d4de9da7b527bebce852d4129276687794393e603",
       "description": "Uses Chrome DevTools MCP for inspecting, debugging, and testing cookies, session state, authentication issues, and cookie consent compliance.",
       "fetch": "git",
       "framework": null,
@@ -625,13 +595,13 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "skills/cookie-debugging",
-      "pinned": "6a67552771e8e7d6b2e3180f607175ab515e4027",
+      "pinned": "6606011ab3cdbc018904554dceae6ad6c5477fde",
       "publish": true,
       "source": "github:ChromeDevTools/chrome-devtools-mcp",
       "status": "downloaded"
     },
     "cro": {
-      "base_hash": "ba1905547debccaf90e97a54abe193e46764102e3440c0e97e0a25628a5ac440",
+      "base_hash": "24398e9d0fb40d1173c9636df692df2dfc6974b9d9bf61c85124c8c3daa7c154",
       "description": "When the user wants to optimize, improve, or increase conversions on any marketing page or form \u2014 including homepage, landing pages, pricing pages, feature pages, lead capture forms, or contact forms.",
       "fetch": "git",
       "framework": null,
@@ -640,13 +610,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/cro",
-      "pinned": "30f9b9a729bbbe3da562fc1108c31f3a35afcca1",
+      "pinned": "365b412152b9542499ca1439426f7fc3cc92bb65",
       "publish": true,
       "source": "github:coreyhaines31/marketingskills",
       "status": "downloaded"
     },
     "customer-research": {
-      "base_hash": "80675488692f52ccae9c9f8c931be0374c21d5473b95d0bb65d32020b9e504a1",
+      "base_hash": "2135503c33170ae810594dde7e8601acae7eed0136750c1a24d2ee5b9e45288f",
       "description": "When the user wants to conduct, analyze, or synthesize customer research.",
       "fetch": "git",
       "framework": null,
@@ -655,13 +625,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/customer-research",
-      "pinned": "56202d1c47f7ccd5d96fac6ae65fc6fda7c27180",
+      "pinned": "365b412152b9542499ca1439426f7fc3cc92bb65",
       "publish": true,
       "source": "github:coreyhaines31/marketingskills",
       "status": "downloaded"
     },
     "database-migrations": {
-      "base_hash": "56feb37c15865cd87e36fe087b953cf88021e155484102309599af4bcdb95bbd",
+      "base_hash": "fdb43d5382270ad8f221317bed117246484e142da5301336a1f07f6e5fd161f5",
       "description": "Database migration best practices for schema changes, data migrations, rollbacks, and zero-downtime deployments across PostgreSQL, MySQL, and common ORMs (Prisma, Drizzle, Kysely, Django, TypeORM, golang-migrate).",
       "fetch": "git",
       "framework": "ecc",
@@ -670,13 +640,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/database-migrations",
-      "pinned": "83d3279fd8bd2e0ea0182a28c4506d7e5b5e4564",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "debug-optimize-lcp": {
-      "base_hash": "496446404d3ef66604c771dc245173c42051047166ba1c01270ebcfd094ad0b4",
+      "base_hash": "5f3530713ab27e3dfd7c895b2bc02a8fe7c3e63df2cc49d1bd0fb76f31e7afda",
       "description": "Guides debugging and optimizing Largest Contentful Paint (LCP) using Chrome DevTools MCP tools.",
       "fetch": "git",
       "framework": null,
@@ -685,13 +655,13 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "skills/debug-optimize-lcp",
-      "pinned": "50a16fae69c5c28990328160f79db50af260e256",
+      "pinned": "6606011ab3cdbc018904554dceae6ad6c5477fde",
       "publish": true,
       "source": "github:ChromeDevTools/chrome-devtools-mcp",
       "status": "downloaded"
     },
     "deployment-patterns": {
-      "base_hash": "1511a25685909e960f783ce0ceb1a980f070c91b7305f7fd1c87187c12e4d4b1",
+      "base_hash": "235b54183ac69eac4ed74417807bf8b1fe809753d24c22d01ddc2987d9a2dbed",
       "description": "Deployment workflows, CI/CD pipeline patterns, Docker containerization, health checks, rollback strategies, and production readiness checklists for web applications.",
       "fetch": "git",
       "framework": "ecc",
@@ -700,13 +670,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/deployment-patterns",
-      "pinned": "48dafdd288ca415bed92be9fc86580cb742e0363",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "design-dna": {
-      "base_hash": null,
+      "base_hash": "7a80aaf8f61b689c6a4cf8984ea53a2de2705d7a2b074f8f10fb2fd61225a0e3",
       "description": "Extract, define, and apply design DNA across three dimensions: design system (tokens), design style (qualitative feel), and visual effects (Canvas, WebGL, 3D, particles, shaders, scroll effects, etc.).",
       "fetch": "git",
       "framework": null,
@@ -715,13 +685,13 @@
       "license": "MIT",
       "patch": null,
       "path": ".",
-      "pinned": null,
+      "pinned": "593e39bc9e3652734653bd75544a333d7d43615e",
       "publish": true,
       "source": "github:zanwei/design-dna",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "design-html": {
-      "base_hash": null,
+      "base_hash": "97197d8b07e5fa4fd44c705958de78e63191aa78bb135f8eb802b34ed218901b",
       "description": "Design finalization: generates production-quality Pretext-native HTML/CSS.",
       "fetch": "git",
       "framework": "gstack",
@@ -730,10 +700,10 @@
       "license": "MIT",
       "patch": null,
       "path": "design-html",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "design-motion-principles": {
       "base_hash": "22c06fcea5d4fdd7102154c067357e4b95598ba8c2f5b49f7abc395b2ba747dc",
@@ -751,7 +721,7 @@
       "status": "downloaded"
     },
     "design-shotgun": {
-      "base_hash": null,
+      "base_hash": "2288d58ab51566d001a1edf047f994a9da489b486d066b9c992355886b8b215d",
       "description": "Design shotgun: generate multiple AI design variants, open a comparison board, collect structured feedback, and iterate.",
       "fetch": "git",
       "framework": "gstack",
@@ -760,13 +730,13 @@
       "license": "MIT",
       "patch": null,
       "path": "design-shotgun",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "devex-review": {
-      "base_hash": null,
+      "base_hash": "7bd1553027a9c1f90ef21030e8a217b067fa193ddd752b4695e6e8dd02680231",
       "description": "Live developer experience audit.",
       "fetch": "git",
       "framework": "gstack",
@@ -775,13 +745,13 @@
       "license": "MIT",
       "patch": null,
       "path": "devex-review",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "diagram": {
-      "base_hash": null,
+      "base_hash": "d220c1b9eb0d6214b9a097d62b5eb663da2088c9e7f48a0afa75d8c3a542e9ba",
       "description": "Turn an English description (or mermaid source) into a diagram triplet: the source, an editable .excalidraw file you can open on excalidraw.com, and rendered SVG + PNG.",
       "fetch": "git",
       "framework": "gstack",
@@ -790,13 +760,13 @@
       "license": "MIT",
       "patch": null,
       "path": "diagram",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "django-patterns": {
-      "base_hash": "7e24cf38ce9d4f93c4eca65dee84697e2a13e45125ced96fb71b742d4a1499a6",
+      "base_hash": "8846fbdf3827c8dda36635c1d9db0fb60376f7c71ef5fcca3837f90371a2cceb",
       "description": "Django architecture patterns, REST API design with DRF, ORM best practices, caching, signals, middleware, and production-grade Django apps.",
       "fetch": "git",
       "framework": "ecc",
@@ -805,13 +775,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/django-patterns",
-      "pinned": "48dafdd288ca415bed92be9fc86580cb742e0363",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "docker-patterns": {
-      "base_hash": "d2f937fc7c6e57253d4879f8215bf60a6c925f041ff56a4b3ad5e179efd3fb8e",
+      "base_hash": "b00ef23ee01e802481064a134e802979a13cceb3ab2e36954030370a18374956",
       "description": "Docker and Docker Compose patterns for local development, container security, networking, volume strategies, and multi-service orchestration.",
       "fetch": "git",
       "framework": "ecc",
@@ -820,13 +790,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/docker-patterns",
-      "pinned": "48dafdd288ca415bed92be9fc86580cb742e0363",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "document-generate": {
-      "base_hash": null,
+      "base_hash": "68a024f6d476ca8095b91139972e28a13f123942746abd1d43e369d2d3f9c8ac",
       "description": "Generate missing documentation from scratch for a feature, module, or entire project.",
       "fetch": "git",
       "framework": "gstack",
@@ -835,13 +805,13 @@
       "license": "MIT",
       "patch": null,
       "path": "document-generate",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "durable-objects": {
-      "base_hash": "ba5ecb761bcf10ed2e5f2e0fb80b9d6f865b6df5f5e8c44075139d0926a6018c",
+      "base_hash": "f75b651ef8a6caa3a88f79e9d71475bfb3c94a39f50d4494b222e327459e7990",
       "description": "Build, debug, or review Cloudflare Durable Objects code for persistent state and coordination.",
       "fetch": "git",
       "framework": null,
@@ -850,13 +820,13 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "skills/durable-objects",
-      "pinned": "c57a2d8dfcaf3432c8ebdc3e4b79cc9643dea871",
+      "pinned": "86505e44f87d801aa1864a3c4109e9a8ae5c409f",
       "publish": true,
       "source": "github:cloudflare/skills",
       "status": "downloaded"
     },
     "e2e-testing": {
-      "base_hash": "9d38585f9f86547f461c9d538c6da75178f8bebac3385e978f3937591ed38eb6",
+      "base_hash": "b1048eeaa3e5a7bb0244cad46831715d2c64f8d92f98ff74d4b12dff897fbe74",
       "description": "Playwright E2E testing patterns, Page Object Model, configuration, CI/CD integration, artifact management, and flaky test strategies.",
       "fetch": "git",
       "framework": "ecc",
@@ -865,13 +835,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/e2e-testing",
-      "pinned": "48dafdd288ca415bed92be9fc86580cb742e0363",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "emil-design-eng": {
-      "base_hash": "35b30993486deb9b5f5e116c5a66d47f50fc7389feb16d7619dee98f48b1d0cd",
+      "base_hash": "c5674d10846ebb953176c1a4f17d5b0433c93d9d1dbe2fde8e10f3ca3e79791e",
       "description": "This skill encodes Emil Kowalski's philosophy on UI polish, component design, animation decisions, and the invisible details that make software feel great.",
       "fetch": "git",
       "framework": null,
@@ -880,13 +850,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/emil-design-eng",
-      "pinned": "86cf9f7d91c6de0215cbb2e36fccfe6c8127a841",
+      "pinned": "2d228630ba1446365f614a108cb8252f1feda202",
       "publish": true,
       "source": "github:emilkowalski/skills",
       "status": "downloaded"
     },
     "error-handling": {
-      "base_hash": "0c6770c719bf01f974724c0f4a7420a5db4b7007ad71bc8c6a44f7f74d8d8d11",
+      "base_hash": "5496517e3b51b910935dd20c00ecf9381598685e3533e213f4a8d0183eaa8442",
       "description": "Patterns for robust error handling across TypeScript, Python, and Go.",
       "fetch": "git",
       "framework": "ecc",
@@ -895,13 +865,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/error-handling",
-      "pinned": "629d4c0c61874242f5374efcb20eee4f25427106",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "fastapi-patterns": {
-      "base_hash": "7a15ce1c38a7c4afe61261c0de803dd2616514fcede9042571fd6787d1effb5e",
+      "base_hash": "f4d6880712e575b52b9428954d551da57f80f5921664ba0d36ad64a46a5708ad",
       "description": "FastAPI patterns for async APIs, dependency injection, Pydantic request and response models, OpenAPI docs, tests, security, and production readiness.",
       "fetch": "git",
       "framework": "ecc",
@@ -910,7 +880,7 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/fastapi-patterns",
-      "pinned": "d52cdccb0d8aec469b0184a8a15cee16789fde7a",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
@@ -946,7 +916,7 @@
       "status": "downloaded"
     },
     "figma-create-new-file": {
-      "base_hash": "12eb12fb51530bb11e11a69db73e0281a0c3f431afc49ec5e08a7f3815e7fa6a",
+      "base_hash": "13717325ae7c26b855e51e1cf49c891b9513001685f5c3707d867693181857e4",
       "description": "**MANDATORY prerequisite** \u2014 you MUST invoke this skill BEFORE every `create_new_file` tool call.",
       "fetch": "git",
       "framework": null,
@@ -955,13 +925,13 @@
       "license": "none",
       "patch": null,
       "path": "skills/figma-create-new-file",
-      "pinned": "ae28e4b9e920b06a7b10b05af117f004d7f2b1ae",
+      "pinned": "f2789420e7e8b4e2465dfeb1e12e1fc6a31397e5",
       "publish": false,
       "source": "github:figma/mcp-server-guide",
       "status": "downloaded"
     },
     "figma-design-to-code": {
-      "base_hash": "6095f04caada92bbef46b82026163ef0337e5456c7a824a1ce3811134a7a9642",
+      "base_hash": "edf72b858e63ec46175c1262032135783438b56f35bf386a60f45673ffe5f68c",
       "description": "**MANDATORY prerequisite** \u2014 you MUST invoke this skill BEFORE calling the `get_design_context` Figma MCP tool.",
       "fetch": "git",
       "framework": null,
@@ -970,13 +940,13 @@
       "license": "none",
       "patch": null,
       "path": "skills/figma-design-to-code",
-      "pinned": "ae7e5e5f80da20f1dd7445e0c6ae5ac58a5b0bce",
+      "pinned": "f2789420e7e8b4e2465dfeb1e12e1fc6a31397e5",
       "publish": false,
       "source": "github:figma/mcp-server-guide",
       "status": "downloaded"
     },
     "figma-generate-design": {
-      "base_hash": "bf28ece7f8ad79514f61c9a6dbc9fe7182c6b619b8b7a9c10c9da2f84203c216",
+      "base_hash": "4f8b2d0c486451e028fc71737fa255e82b936aae4dd08fc9685e0ace5ea5b64c",
       "description": "Use this skill alongside figma-use when the task involves translating an application page, view, or multi-section layout into Figma.",
       "fetch": "git",
       "framework": null,
@@ -985,7 +955,7 @@
       "license": "none",
       "patch": null,
       "path": "skills/figma-generate-design",
-      "pinned": "f74a51c9aaec87a2e65c9121753b63fb42203d96",
+      "pinned": "f2789420e7e8b4e2465dfeb1e12e1fc6a31397e5",
       "publish": false,
       "source": "github:figma/mcp-server-guide",
       "status": "downloaded"
@@ -1006,7 +976,7 @@
       "status": "downloaded"
     },
     "figma-generate-library": {
-      "base_hash": "2fd1c647e00c6d7d6ad7ccad8f29557f47d92a218cf0de6a2aa3be4f9474199c",
+      "base_hash": "490dcbce545478e0f72934b15d79b4428f0d2e5b1a1993d667198f521dc5224a",
       "description": "Build or update a professional-grade design system in Figma from a codebase.",
       "fetch": "git",
       "framework": null,
@@ -1015,7 +985,7 @@
       "license": "none",
       "patch": null,
       "path": "skills/figma-generate-library",
-      "pinned": "d638a5e055e8d95e0394a94350860398cf424b74",
+      "pinned": "f2789420e7e8b4e2465dfeb1e12e1fc6a31397e5",
       "publish": false,
       "source": "github:figma/mcp-server-guide",
       "status": "downloaded"
@@ -1036,7 +1006,7 @@
       "status": "downloaded"
     },
     "figma-implement-motion": {
-      "base_hash": "befb0933c08f59b5c832ef9077b4e69a07cb06d1c4ed26eb271332ff62ede3f7",
+      "base_hash": "85819bebb34e6ba299b5fedb84d80db76d2ad41e315bc6ff7c035061b8e380aa",
       "description": "Translates Figma motion and animations into production-ready application code.",
       "fetch": "git",
       "framework": null,
@@ -1045,7 +1015,7 @@
       "license": "none",
       "patch": null,
       "path": "skills/figma-implement-motion",
-      "pinned": "864d2111a3fb990323d73e38133f297345b3ea38",
+      "pinned": "f2789420e7e8b4e2465dfeb1e12e1fc6a31397e5",
       "publish": false,
       "source": "github:figma/mcp-server-guide",
       "status": "downloaded"
@@ -1066,7 +1036,7 @@
       "status": "downloaded"
     },
     "figma-swiftui": {
-      "base_hash": "707d3decd85a11515bab9914e05b03221286e92fb6e2005183a38a9e6137f7ec",
+      "base_hash": "44d750319715178bc5bd6acbdc6e89ff61eb406ab615f17ba37793953b5baa38",
       "description": "SwiftUI \u2194 Figma translation.",
       "fetch": "git",
       "framework": null,
@@ -1075,13 +1045,13 @@
       "license": "none",
       "patch": null,
       "path": "skills/figma-swiftui",
-      "pinned": "54ad156019d7362a56d8024b9adbe99952aa29b6",
+      "pinned": "f2789420e7e8b4e2465dfeb1e12e1fc6a31397e5",
       "publish": false,
       "source": "github:figma/mcp-server-guide",
       "status": "downloaded"
     },
     "figma-use": {
-      "base_hash": "e0e0eaf60b9d1ca44240d9c5601dd04ab126dbb575f531f065dbe163f427720e",
+      "base_hash": "1beda86b3a6291ae7f189ba7da814e906292370fcedcb9a6d6a85a044211951f",
       "description": "**MANDATORY prerequisite** \u2014 you MUST invoke this skill BEFORE every `use_figma` tool call.",
       "fetch": "git",
       "framework": null,
@@ -1090,7 +1060,7 @@
       "license": "none",
       "patch": null,
       "path": "skills/figma-use",
-      "pinned": "d638a5e055e8d95e0394a94350860398cf424b74",
+      "pinned": "f2789420e7e8b4e2465dfeb1e12e1fc6a31397e5",
       "publish": false,
       "source": "github:figma/mcp-server-guide",
       "status": "downloaded"
@@ -1111,7 +1081,7 @@
       "status": "downloaded"
     },
     "figma-use-motion": {
-      "base_hash": "b67187343e00176ff1dd0fbd839d3585dd7a4d0c99325ba4059ff8a1145cba52",
+      "base_hash": "4a13f6c50224b6afaf11e05af4b905f1a342de52192af20a4b36ee61b2dd87d3",
       "description": "Motion / animation context for the `use_figma` MCP tool \u2014 animating Figma nodes via manual keyframes, animation styles, easing, and timeline duration.",
       "fetch": "git",
       "framework": null,
@@ -1120,13 +1090,13 @@
       "license": "none",
       "patch": null,
       "path": "skills/figma-use-motion",
-      "pinned": "864d2111a3fb990323d73e38133f297345b3ea38",
+      "pinned": "f2789420e7e8b4e2465dfeb1e12e1fc6a31397e5",
       "publish": false,
       "source": "github:figma/mcp-server-guide",
       "status": "downloaded"
     },
     "figma-use-slides": {
-      "base_hash": "dd0a856af79a34774f1f7f9a10255137d4a0b0a174f0642ecc4bd21799fcc740",
+      "base_hash": "6ecef07f8dbd5aaa94aa1077171dda86b9466bdd42a492cb6c89eefa6903e997",
       "description": "This skill helps agents use Figma's use_figma MCP tool in the Slides context.",
       "fetch": "git",
       "framework": null,
@@ -1135,13 +1105,13 @@
       "license": "none",
       "patch": null,
       "path": "skills/figma-use-slides",
-      "pinned": "e9b24716b29676c08c59f98deda37e43af31dff4",
+      "pinned": "f2789420e7e8b4e2465dfeb1e12e1fc6a31397e5",
       "publish": false,
       "source": "github:figma/mcp-server-guide",
       "status": "downloaded"
     },
     "find-animation-opportunities": {
-      "base_hash": "595d84348e201fb144bceb6912f119f585d069473abf9c123c7b5803813bad8e",
+      "base_hash": "477dcb21fd687df6d72d170f916315559361eb72e672510e398c0841af681649",
       "description": "Search a codebase or UI for places that don't animate but should, and reject everything that shouldn't.",
       "fetch": "git",
       "framework": null,
@@ -1150,13 +1120,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/find-animation-opportunities",
-      "pinned": "86cf9f7d91c6de0215cbb2e36fccfe6c8127a841",
+      "pinned": "2d228630ba1446365f614a108cb8252f1feda202",
       "publish": true,
       "source": "github:emilkowalski/skills",
       "status": "downloaded"
     },
     "freeze": {
-      "base_hash": null,
+      "base_hash": "a79daca9d8acc93f1d99a48fc8eb7196db1ef874cfa759d39220322330fcdcb6",
       "description": "Restrict file edits to a specific directory for the session.",
       "fetch": "git",
       "framework": "gstack",
@@ -1165,10 +1135,10 @@
       "license": "MIT",
       "patch": null,
       "path": "freeze",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "frontend-design@claude-plugins-official": {
       "base_hash": "b1435b212534340ac3afea487e5100fcb6de8f67565dc3e2da7f368152608656",
@@ -1186,7 +1156,7 @@
       "status": "downloaded"
     },
     "frontend-patterns": {
-      "base_hash": "cc07c8436025c5a64c56179eb1d95eeb5993bfbfac70d1c66eaea8e6d18a7154",
+      "base_hash": "02b7880ad4a8437fcf1c425ed3a4da01e0adeed69c4d0a9b8f2be91602eea372",
       "description": "Frontend development patterns for React, Next.js, state management, performance optimization, and UI best practices.",
       "fetch": "git",
       "framework": "ecc",
@@ -1195,13 +1165,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/frontend-patterns",
-      "pinned": "866d9ebb5364a579ac7d2a8fb79bb421bf9d7052",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "git-workflow": {
-      "base_hash": "3faebe23facf1f2a0e64ab0b6ec1571c5f897ed77f8daed79587ea26094551c6",
+      "base_hash": "88d0311fbe6047d77e9c59f489c9b8b7992da037fb2ea1c272a7cfb1643dfb8f",
       "description": "Git workflow patterns including branching strategies, commit conventions, merge vs rebase, conflict resolution, and collaborative development best practices for teams of all sizes.",
       "fetch": "git",
       "framework": "ecc",
@@ -1210,13 +1180,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/git-workflow",
-      "pinned": "866d9ebb5364a579ac7d2a8fb79bb421bf9d7052",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "github-ops": {
-      "base_hash": "75a227be020fd93b52e009832e1953c26078942a5172655ae325d4abe4e26994",
+      "base_hash": "3992c54fd6d50cd43265212c1652b8e35fc1d45b8aaaf73415cfb63b62af92a7",
       "description": "GitHub repository operations, automation, and management.",
       "fetch": "git",
       "framework": "ecc",
@@ -1225,13 +1195,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/github-ops",
-      "pinned": "6eba30f02b950eac14c2599243ba77eb69009229",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "golang-patterns": {
-      "base_hash": "735a1c5fda1f577f4fa1336c15db7432e3738389ebc1fe3fa920749e10ebad88",
+      "base_hash": "e38c260e85d78c79c47ee2058e03333d38f8a7367abf94a9ad692c2952368deb",
       "description": "Idiomatic Go patterns, best practices, and conventions for building robust, efficient, and maintainable Go applications.",
       "fetch": "git",
       "framework": "ecc",
@@ -1240,13 +1210,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/golang-patterns",
-      "pinned": "48dafdd288ca415bed92be9fc86580cb742e0363",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "golang-testing": {
-      "base_hash": "5effc5c2925f6b17fa47f9c4804fd3e593c2330d1647ed0dc78de0c612662876",
+      "base_hash": "5efb8f56ec747c3739525389c4f463f904c2141028aaf85f45381565ea966151",
       "description": "Go testing patterns including table-driven tests, subtests, benchmarks, fuzzing, and test coverage.",
       "fetch": "git",
       "framework": "ecc",
@@ -1255,7 +1225,7 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/golang-testing",
-      "pinned": "48dafdd288ca415bed92be9fc86580cb742e0363",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
@@ -1396,7 +1366,7 @@
       "status": "downloaded"
     },
     "gstack-upgrade": {
-      "base_hash": null,
+      "base_hash": "162bbcf5809f094edcb95683ef26c021b582d7492cd5d2e87103b64e5a5a3899",
       "description": "Upgrade gstack to the latest version.",
       "fetch": "git",
       "framework": "gstack",
@@ -1405,13 +1375,13 @@
       "license": "MIT",
       "patch": null,
       "path": "gstack-upgrade",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "guard": {
-      "base_hash": null,
+      "base_hash": "9bf906a96ecee9681f65ab42a2bc42f33a3e7857fb5db2e6a7680068f193dba6",
       "description": "Full safety mode: destructive command warnings + directory-scoped edits.",
       "fetch": "git",
       "framework": "gstack",
@@ -1420,13 +1390,13 @@
       "license": "MIT",
       "patch": null,
       "path": "guard",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "health": {
-      "base_hash": null,
+      "base_hash": "4d86b77e8d57adaaec2c7cc82f1e087301f47ec2910d22f486d136517ead3d07",
       "description": "Code quality dashboard.",
       "fetch": "git",
       "framework": "gstack",
@@ -1435,13 +1405,13 @@
       "license": "MIT",
       "patch": null,
       "path": "health",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "hexagonal-architecture": {
-      "base_hash": "9681be7a89b1d1864f1bc00479930d5bd8886877c82801c6e157678a3e9d0824",
+      "base_hash": "ccdf7d13d7e3b5c2daa7d7fc6339f6eb544fedd92d0b19ab462c436bdeb480e4",
       "description": "Design, implement, and refactor Ports & Adapters systems with clear domain boundaries, dependency inversion, and testable use-case orchestration across TypeScript, Java, Kotlin, and Go services.",
       "fetch": "git",
       "framework": "ecc",
@@ -1450,7 +1420,7 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/hexagonal-architecture",
-      "pinned": "a60d5fbc0054c44cc4cde7dba2ec183cf519c105",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
@@ -1471,7 +1441,7 @@
       "status": "edited"
     },
     "humanizer": {
-      "base_hash": null,
+      "base_hash": "83b8af39dfd4ea3d971f1561a3c2036a009b366180d389da774cae66c9f005b8",
       "description": "Rewrite AI-sounding text so it reads naturally without changing what it says.",
       "fetch": "git",
       "framework": null,
@@ -1480,13 +1450,13 @@
       "license": "MIT",
       "patch": null,
       "path": ".",
-      "pinned": null,
+      "pinned": "225a6f39ac85f76ee48dbad772ea4abe4ed6c9d8",
       "publish": true,
       "source": "github:blader/humanizer",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "impeccable": {
-      "base_hash": "83942ab0c35762b894b4c654d2d1df7e19203132bf5f0915e5b7cf54d9467879",
+      "base_hash": "8829e563ab649987ba74e074c022e839550c17b93b5a61834caa4d0ffccfc625",
       "description": "Use when the user wants to design, redesign, shape, critique, audit, polish, clarify, distill, harden, optimize, adapt, animate, colorize, extract, or otherwise improve a frontend interface.",
       "fetch": "git",
       "framework": null,
@@ -1495,13 +1465,13 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": ".agents/skills/impeccable",
-      "pinned": "5a7e2837d2036b2ea8386031c2cd9a539b0dab13",
+      "pinned": "40b1a8e1cda245b4f5cf82103171807791ef1250",
       "publish": true,
       "source": "github:pbakaus/impeccable",
       "status": "downloaded"
     },
     "improve-animations": {
-      "base_hash": "cbd5b1338d11ff110700833e4d82392cf16ddb40cbb613388c32384c7a93928c",
+      "base_hash": "6ea12e3dc1c414a0f823b5c983164eae0675716039e27a4878b19c6379b6b571",
       "description": "Survey a codebase's animation and motion code as a senior motion advisor, then produce a prioritized audit and self-contained implementation plans for other agents (or cheaper models) to execute.",
       "fetch": "git",
       "framework": null,
@@ -1510,7 +1480,7 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/improve-animations",
-      "pinned": "86cf9f7d91c6de0215cbb2e36fccfe6c8127a841",
+      "pinned": "2d228630ba1446365f614a108cb8252f1feda202",
       "publish": true,
       "source": "github:emilkowalski/skills",
       "status": "downloaded"
@@ -1531,7 +1501,7 @@
       "status": "edited"
     },
     "ios-clean": {
-      "base_hash": null,
+      "base_hash": "2775b1d3d0ced0197750e41119b8b64e784ae92df5b5778463a431754574a5c9",
       "description": "Remove the DebugBridge SPM package and all #if DEBUG wiring from an iOS app.",
       "fetch": "git",
       "framework": "gstack",
@@ -1540,13 +1510,13 @@
       "license": "MIT",
       "patch": null,
       "path": "ios-clean",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "ios-design-review": {
-      "base_hash": null,
+      "base_hash": "a2c59a83fc6f7711374b8df5d505ad54a2e33f0b8e5f5370ca10e2b07aa7bce4",
       "description": "Visual design audit for iOS apps on real hardware.",
       "fetch": "git",
       "framework": "gstack",
@@ -1555,13 +1525,13 @@
       "license": "MIT",
       "patch": null,
       "path": "ios-design-review",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "ios-fix": {
-      "base_hash": null,
+      "base_hash": "21d7c15dba31ba9c3378974cea74d9855c7b7689a5eaf6e75068be2b57ceb2b8",
       "description": "Autonomous iOS bug fixer.",
       "fetch": "git",
       "framework": "gstack",
@@ -1570,13 +1540,13 @@
       "license": "MIT",
       "patch": null,
       "path": "ios-fix",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "ios-qa": {
-      "base_hash": null,
+      "base_hash": "169b0c6558d81133840078cc7ee8d5e695ae94c8d3fd510bd920cb3886746bcb",
       "description": "Live-device iOS QA for SwiftUI apps.",
       "fetch": "git",
       "framework": "gstack",
@@ -1585,13 +1555,13 @@
       "license": "MIT",
       "patch": null,
       "path": "ios-qa",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "ios-sync": {
-      "base_hash": null,
+      "base_hash": "32491739b14ba3572b51c55fb0f5eaae75456f747debbd3e1ba21079303cf1ac",
       "description": "Regenerate the iOS debug bridge against the latest upstream gstack templates.",
       "fetch": "git",
       "framework": "gstack",
@@ -1600,13 +1570,13 @@
       "license": "MIT",
       "patch": null,
       "path": "ios-sync",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "iterative-retrieval": {
-      "base_hash": "dcb92c66502880654ff320bacead2196ccd093569fd9cb826d26d66576d9bc9d",
+      "base_hash": "526fc3bebc528e0c0f4c6fe92ace6ba4c1ec6fd54c1a84a2be9abe9d14c25152",
       "description": "Pattern for progressively refining context retrieval to solve the subagent context problem.",
       "fetch": "git",
       "framework": "ecc",
@@ -1615,13 +1585,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/iterative-retrieval",
-      "pinned": "866d9ebb5364a579ac7d2a8fb79bb421bf9d7052",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "java-coding-standards": {
-      "base_hash": "6a6caed9f34edeb164d59f2b525cd7d5573037ddd3ab2f66570539698fc693c8",
+      "base_hash": "63df227914bcb5fcd7c77085634594a6f00e392c275220aa4ba52c8c110beda1",
       "description": "Java coding standards for Spring Boot and Quarkus services: naming, immutability, Optional usage, streams, exceptions, generics, CDI, reactive patterns, and project layout.",
       "fetch": "git",
       "framework": "ecc",
@@ -1630,13 +1600,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/java-coding-standards",
-      "pinned": "f03e200136642a4f1f5c1202d1603d9135d73606",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "jpa-patterns": {
-      "base_hash": "c86cc48e7292f0b8520216a965b0ae3b92ba7c15a6be914fdcd10341aff4c828",
+      "base_hash": "23e8af112c5575451ad4f5672aea5ace4bcb101334f50c47f1e82ff8e4e24183",
       "description": "JPA/Hibernate patterns for entity design, relationships, query optimization, transactions, auditing, indexing, pagination, and pooling in Spring Boot.",
       "fetch": "git",
       "framework": "ecc",
@@ -1645,13 +1615,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/jpa-patterns",
-      "pinned": "48dafdd288ca415bed92be9fc86580cb742e0363",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "land-and-deploy": {
-      "base_hash": null,
+      "base_hash": "238b28fd7552fa376561bf6edad9a3a7910066c8e8783f943a5d936382768ab3",
       "description": "Land and deploy workflow.",
       "fetch": "git",
       "framework": "gstack",
@@ -1660,13 +1630,13 @@
       "license": "MIT",
       "patch": null,
       "path": "land-and-deploy",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "landing-report": {
-      "base_hash": null,
+      "base_hash": "58165323782b96bc3a17140adf20e0fae467530ecb4ca2adf17d81de4b629efb",
       "description": "Read-only queue dashboard for workspace-aware ship.",
       "fetch": "git",
       "framework": "gstack",
@@ -1675,13 +1645,13 @@
       "license": "MIT",
       "patch": null,
       "path": "landing-report",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "launch": {
-      "base_hash": "3cb81ca72a2cf5f237099b30c7f4dde6748240000f1599d0526d04d276413bff",
+      "base_hash": "e1c25d33074b73b71b7042fe13fc6c9f93d16b07799e5ebc71a820e920f38779",
       "description": "When the user wants to plan a product launch, feature announcement, or release strategy.",
       "fetch": "git",
       "framework": null,
@@ -1690,13 +1660,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/launch",
-      "pinned": "8d877c663e9c8a4adafab595417f156ededf1b92",
+      "pinned": "365b412152b9542499ca1439426f7fc3cc92bb65",
       "publish": true,
       "source": "github:coreyhaines31/marketingskills",
       "status": "downloaded"
     },
     "lead-magnets": {
-      "base_hash": "24c83bde06ba3b600eb83f5e992dee15495aed20f7f5353979ffd113d2f06cc1",
+      "base_hash": "a60ea962945a689f3322da00dcb1538c1ae22f568f8a65d60bb22605217bfae7",
       "description": "When the user wants to create, plan, or optimize a lead magnet for email capture or lead generation.",
       "fetch": "git",
       "framework": null,
@@ -1705,13 +1675,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/lead-magnets",
-      "pinned": "30f9b9a729bbbe3da562fc1108c31f3a35afcca1",
+      "pinned": "365b412152b9542499ca1439426f7fc3cc92bb65",
       "publish": true,
       "source": "github:coreyhaines31/marketingskills",
       "status": "downloaded"
     },
     "learn": {
-      "base_hash": null,
+      "base_hash": "0ddf95ac93dfc738c787ca69a3ed8e6b3845b935e7c886f600f827bfd66af208",
       "description": "Manage project learnings.",
       "fetch": "git",
       "framework": "gstack",
@@ -1720,13 +1690,13 @@
       "license": "MIT",
       "patch": null,
       "path": "learn",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "make-pdf": {
-      "base_hash": null,
+      "base_hash": "592ca295390c640fa0cfa2def2247bbd3649cc546df8416a6558ac9b92dcb79a",
       "description": "Turn any markdown file into a publication-quality PDF.",
       "fetch": "git",
       "framework": "gstack",
@@ -1735,10 +1705,10 @@
       "license": "MIT",
       "patch": null,
       "path": "make-pdf",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "marketing-psychology": {
       "base_hash": "162aa8147519816c091c51175009418c4bbe5cb54ce3f6872da8c1b8b0e8af63",
@@ -1756,7 +1726,7 @@
       "status": "downloaded"
     },
     "mcp-server-patterns": {
-      "base_hash": "8b76f99c609c9a9bf9dd63a549694eefe3c9080151814dc0dbbe7761c9b39200",
+      "base_hash": "2f37eb685120ee1057c16b176d3f5468f92d61e53af9450382be59f4afdb1dba",
       "description": "Build MCP servers with Node/TypeScript SDK \u2014 tools, resources, prompts, Zod validation, stdio vs Streamable HTTP.",
       "fetch": "git",
       "framework": "ecc",
@@ -1765,7 +1735,7 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/mcp-server-patterns",
-      "pinned": "572c7a8fe61112e67c5b41f6e9e53af0fd0310e1",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
@@ -1786,7 +1756,7 @@
       "status": "downloaded"
     },
     "minimalist-ui": {
-      "base_hash": "be58cc25ef7c117f31e8453653537315a19e2272f9509bc4bc5dbaecfa00cba7",
+      "base_hash": "b0671c81006506d47444bb3a9cf0f2130708ec4749ac1933d5df77b9c692df11",
       "description": "Clean editorial-style interfaces.",
       "fetch": "git",
       "framework": null,
@@ -1795,13 +1765,13 @@
       "license": "unknown",
       "patch": "~/.claude/private/patches/minimalist-ui.patch",
       "path": "skills/minimalist-skill",
-      "pinned": "3206dd44fce91412cbfd5b2dbead29fb29a91bb9",
+      "pinned": "f624f37a8c650b9cc550253104925efe4c8de246",
       "publish": false,
       "source": "github:Leonxlnx/taste-skill",
       "status": "edited"
     },
     "nestjs-patterns": {
-      "base_hash": "c231efa95e635895e974507fb5ab2194d5b098a7866cb308b006e118f3bad17e",
+      "base_hash": "983c40146055bb37b9019934ea5d6ff59b937d5ff8a414cf76f9537bd2e6f9aa",
       "description": "NestJS architecture patterns for modules, controllers, providers, DTO validation, guards, interceptors, config, and production-grade TypeScript backends.",
       "fetch": "git",
       "framework": "ecc",
@@ -1810,13 +1780,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/nestjs-patterns",
-      "pinned": "5df943ed2bdfaf1297775066d84e1e1e0fc1d579",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "nextjs-on-cloudflare": {
-      "base_hash": "8c8b8eeacf4f30ccb428fbfe336c65c6dc947c1742054d9fa881b8c2843c64ee",
+      "base_hash": "0d645fdff7f93e34eacc77581385bf1f14ad0922d7f4d277c0becc1d398b7442",
       "description": "Build, migrate, and deploy Next.js apps on Cloudflare Workers with vinext.",
       "fetch": "git",
       "framework": null,
@@ -1825,13 +1795,13 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "skills/nextjs-on-cloudflare",
-      "pinned": "1b1b11404285b92583a51c546cace84b835dfb84",
+      "pinned": "86505e44f87d801aa1864a3c4109e9a8ae5c409f",
       "publish": true,
       "source": "github:cloudflare/skills",
       "status": "downloaded"
     },
     "nextjs-turbopack": {
-      "base_hash": "6f9a60756fd7e9f6d25a392f790af25348e597c0a2aef35ddb858cb7eb2bd876",
+      "base_hash": "264e966ca7a299985eb6b90c2c890178053b14713bfbc1c3cfea8440d596d4e6",
       "description": "Next.js 16+ and Turbopack \u2014 incremental bundling, FS caching, dev speed, and when to use Turbopack vs webpack.",
       "fetch": "git",
       "framework": "ecc",
@@ -1840,13 +1810,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/nextjs-turbopack",
-      "pinned": "228ceb8913d9c76e97a4930943e101b1a64523eb",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "offers": {
-      "base_hash": "22f66feda47d3321f2cd6257738a4ac9c690fe23b35bc8b116d772eed7ee23b0",
+      "base_hash": "5a0e1f2a164e010ec6f51323d8c6fa11bcb0940e8f1fef8015e82775bc200113",
       "description": "When the user wants to design, construct, or improve an offer \u2014 the thing they actually sell \u2014 including value framing, bonus stacking, guarantee design, scarcity/urgency, naming, and payment structure.",
       "fetch": "git",
       "framework": null,
@@ -1855,13 +1825,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/offers",
-      "pinned": "d09209bc4fc62da69a0d53581d2cb5b74f969896",
+      "pinned": "365b412152b9542499ca1439426f7fc3cc92bb65",
       "publish": true,
       "source": "github:coreyhaines31/marketingskills",
       "status": "downloaded"
     },
     "onboarding": {
-      "base_hash": "7db5347fcbbdc0df8c6eebf7b5c842690bdcc6bb745bbbaa6104c9efef6b8703",
+      "base_hash": "34217fc77855013ee6e05189dccbacb11f6f17f760fef386607b54b3a0cca97d",
       "description": "When the user wants to optimize post-signup onboarding, user activation, first-run experience, or time-to-value.",
       "fetch": "git",
       "framework": null,
@@ -1870,13 +1840,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/onboarding",
-      "pinned": "b5fa22ea776409e1e794648d15dc3bdb69a4b888",
+      "pinned": "365b412152b9542499ca1439426f7fc3cc92bb65",
       "publish": true,
       "source": "github:coreyhaines31/marketingskills",
       "status": "downloaded"
     },
     "open-gstack-browser": {
-      "base_hash": null,
+      "base_hash": "8278d148b06df7f2d3e56329c4cc4209285d1acca4a0d54bbc9c6d0b043fa3ba",
       "description": "Launch GStack Browser \u2014 AI-controlled Chromium with the sidebar extension baked in.",
       "fetch": "git",
       "framework": "gstack",
@@ -1885,10 +1855,10 @@
       "license": "MIT",
       "patch": null,
       "path": "open-gstack-browser",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "packshot": {
       "base_hash": "e5bfe6508122e519c71ea7f685a8767b30c4f8f9ff13e0baa671520b28fa7325",
@@ -1906,7 +1876,7 @@
       "status": "source-unknown"
     },
     "pair-agent": {
-      "base_hash": null,
+      "base_hash": "652fcf95e9ed27ccfb257e1bd70fb5d87094985868034e19286421d0e627e582",
       "description": "Pair a remote AI agent with your browser.",
       "fetch": "git",
       "framework": "gstack",
@@ -1915,10 +1885,10 @@
       "license": "MIT",
       "patch": null,
       "path": "pair-agent",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "paywalls": {
       "base_hash": "98c28e026b510e34fc4bdc0d35fb39c94670a04c9b6ec3eddf451f7d16cbff2c",
@@ -1936,7 +1906,7 @@
       "status": "downloaded"
     },
     "pick-ui-library": {
-      "base_hash": "fd9393c360a7f9953d5f24b5ec4befd2834076dd4584d1da9fa2e80aa5e87360",
+      "base_hash": "4318227d6e08a76fef94ae8cbd0b69ebca959055b11a8fd08a46d1cc34976393",
       "description": "Pick the right library for a given frontend task from a curated, opinionated list \u2014 numbers, OTP inputs, charts, command menus, virtualization, drag and drop, toasts, state, styling, and more.",
       "fetch": "git",
       "framework": null,
@@ -1945,13 +1915,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/pick-ui-library",
-      "pinned": "f6f79ca1d8e9e2d82c8b90d7481b70ca66f4adfb",
+      "pinned": "2d228630ba1446365f614a108cb8252f1feda202",
       "publish": true,
       "source": "github:emilkowalski/skills",
       "status": "downloaded"
     },
     "plan-devex-review": {
-      "base_hash": null,
+      "base_hash": "79b696407ae5b32c56b064cdb5ac2b1362f404f1ffb70e5e16434a3719d95b56",
       "description": "Interactive developer experience plan review.",
       "fetch": "git",
       "framework": "gstack",
@@ -1960,13 +1930,13 @@
       "license": "MIT",
       "patch": null,
       "path": "plan-devex-review",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "plan-tune": {
-      "base_hash": null,
+      "base_hash": "aa643ed1b65ff97179897b5bf595106431ab90af50e382f5de2954b3a958ff24",
       "description": "Self-tuning question sensitivity + developer psychographic for gstack (v1: observational).",
       "fetch": "git",
       "framework": "gstack",
@@ -1975,10 +1945,10 @@
       "license": "MIT",
       "patch": null,
       "path": "plan-tune",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "playwright-best-practices": {
       "base_hash": "3ce5d3d24a4ebed1fceb38e656b8e2e83ca90d57dc807e8b0c366ddebb774c49",
@@ -2026,7 +1996,7 @@
       "status": "downloaded"
     },
     "postgres-patterns": {
-      "base_hash": "0e411ed82e9e1384fd439fadcead6e2dc4d92bbbff8ddf084dda0643612e06da",
+      "base_hash": "19f56ffcdf14d19afe99f01a9cd6a4d8f90f7fb8d5d3377a9cf6eb57fa8c67c1",
       "description": "PostgreSQL database patterns for query optimization, schema design, indexing, and security.",
       "fetch": "git",
       "framework": "ecc",
@@ -2035,13 +2005,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/postgres-patterns",
-      "pinned": "32e9c293f0d6f04e3b9bf804887747d5c8b5dc10",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "pricing": {
-      "base_hash": "d15f10ee32cbb1c922119b9252c782bf2acb6a8712dcee1c11f2849e712a56c2",
+      "base_hash": "9bf16d5b237f2e5db226b736e5d56c49a905301baa70691ce678dd0f85dc74a7",
       "description": "When the user wants help with pricing decisions, packaging, or monetization strategy.",
       "fetch": "git",
       "framework": null,
@@ -2050,13 +2020,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/pricing",
-      "pinned": "b6605e4ed2a776388910ea95bc486ef2eb68d133",
+      "pinned": "365b412152b9542499ca1439426f7fc3cc92bb65",
       "publish": true,
       "source": "github:coreyhaines31/marketingskills",
       "status": "downloaded"
     },
     "prisma-patterns": {
-      "base_hash": "aa98d1bb99ecc0a6b8b579c76333b2663dea60dc74071ce8840f45145a2ad60f",
+      "base_hash": "1e5ac91d9d1187066f396129a90b4804de0574e4bf23b14d711e4fdb6cc47343",
       "description": "Prisma ORM patterns for TypeScript backends \u2014 schema design, query optimization, transactions, pagination, and critical traps like updateMany returning count not records, $transaction timeouts, migrate dev resetting the DB, @updatedAt skipped on bulk writes, and serverless connection exhaustion.",
       "fetch": "git",
       "framework": "ecc",
@@ -2065,13 +2035,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/prisma-patterns",
-      "pinned": "375d750b4c14369b6c8ffbdcff442d5dd8292276",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "production-audit": {
-      "base_hash": "5f62d8b2fd56d1cdf64f1eaf62ed8bd849cc2dad00ef1de8991a756ab29579dc",
+      "base_hash": "d9e3fb64a27d3385d67596150b368e6303e4ed933392cca936352bab035b1957",
       "description": "Local-evidence production readiness audit for shipped apps, pre-launch reviews, post-merge checks, and \"what breaks in prod?\" questions without sending repo data to an external audit service.",
       "fetch": "git",
       "framework": "ecc",
@@ -2080,7 +2050,7 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/production-audit",
-      "pinned": "6c699df1821c8da2e498ee6c6a8e288a17a1302e",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
@@ -2101,7 +2071,7 @@
       "status": "source-unknown"
     },
     "prototype": {
-      "base_hash": "f7031adaa8b7e471bc9d9677faac43b452a38edee1f96b7db07c2d99f4ea6652",
+      "base_hash": "0b07d74e180aedacaec00ebd51cf66ddd858b390cc98622687957a166cbebaa1",
       "description": "Build multiple genuinely different versions of a UI piece you describe, rendered behind a visual picker so you can flip through them live and promote the one that feels right.",
       "fetch": "git",
       "framework": null,
@@ -2110,13 +2080,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/prototype",
-      "pinned": "70744e3816f1d93eafb697161a8b880a7384c5ff",
+      "pinned": "2d228630ba1446365f614a108cb8252f1feda202",
       "publish": true,
       "source": "github:emilkowalski/skills",
       "status": "downloaded"
     },
     "python-patterns": {
-      "base_hash": "91299551f09892c96c26dffcdf2efd5884de492bc957d32cd8819ddca02ef014",
+      "base_hash": "35cf42706fee0e34811d7b31e3d3006dc66e8581719d8d09879e64cbd6d4237c",
       "description": "Pythonic idioms, PEP 8 standards, type hints, and best practices for building robust, efficient, and maintainable Python applications.",
       "fetch": "git",
       "framework": "ecc",
@@ -2125,13 +2095,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/python-patterns",
-      "pinned": "48dafdd288ca415bed92be9fc86580cb742e0363",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "python-testing": {
-      "base_hash": "261cf1c8565824904d64754eebfaafe5768f818763f604dad72b499837e11e3e",
+      "base_hash": "e61acf373af75412d35a96907c28bfd9504db0b963dc55b53bb233a514516303",
       "description": "Python testing strategies using pytest, TDD methodology, fixtures, mocking, parametrization, and coverage requirements.",
       "fetch": "git",
       "framework": "ecc",
@@ -2140,7 +2110,7 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/python-testing",
-      "pinned": "48dafdd288ca415bed92be9fc86580cb742e0363",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
@@ -2161,7 +2131,7 @@
       "status": "downloaded"
     },
     "redis-patterns": {
-      "base_hash": "82e677637c3ea4f19729c136f379b42dbe6db225dd34ebda23cc5cca2cecb55b",
+      "base_hash": "e7777b4ac9c8e1b2dd363a63b4f0600b78a4675a449ea94036b1df27f4ee9504",
       "description": "Redis data structure patterns, caching strategies, distributed locks, rate limiting, pub/sub, and connection management for production applications.",
       "fetch": "git",
       "framework": "ecc",
@@ -2170,13 +2140,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/redis-patterns",
-      "pinned": "b39d2244cf93d2e39eb7e3dfc375b737b75ca14d",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "review-animations": {
-      "base_hash": "6d154de8e52168494e37c5177e30ede67f24dafc2d36cfb6447f5a5d208745f2",
+      "base_hash": "2527e40363b1143ef2d5f2b0d837c49b8438ab6a578c2e308e7b22448c29c84f",
       "description": "Reviews animation and motion code against a high craft bar derived from Emil Kowalski's design engineering philosophy.",
       "fetch": "git",
       "framework": null,
@@ -2185,13 +2155,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/review-animations",
-      "pinned": "86cf9f7d91c6de0215cbb2e36fccfe6c8127a841",
+      "pinned": "2d228630ba1446365f614a108cb8252f1feda202",
       "publish": true,
       "source": "github:emilkowalski/skills",
       "status": "downloaded"
     },
     "rust-patterns": {
-      "base_hash": "9fd1b57a0fe5914c987b00ba23d3e81820b429a9b9d89ad09a6562cc65ad1be4",
+      "base_hash": "46b218703bae7c4bbe9fe485f33467a23ff5160b6b182071e06ab16669f066fb",
       "description": "Idiomatic Rust patterns, ownership, error handling, traits, concurrency, and best practices for building safe, performant applications.",
       "fetch": "git",
       "framework": "ecc",
@@ -2200,13 +2170,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/rust-patterns",
-      "pinned": "6836e9875d16bc727358b8a97842f7a9cc5a0343",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "rust-testing": {
-      "base_hash": "df891927d5ba87d38dead444b5be5dcbad04e3ce20800497999be0d34c531f48",
+      "base_hash": "21f5d1aa1c85e796b5d23fd64e5897df2c97162b68c1b01a7df2b102920f9c5c",
       "description": "Rust testing patterns including unit tests, integration tests, async testing, property-based testing, mocking, and coverage.",
       "fetch": "git",
       "framework": "ecc",
@@ -2215,13 +2185,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/rust-testing",
-      "pinned": "ebd8c8c6fa262f52236b2832eb770999421fc485",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
     "sandbox-migrate-to-next": {
-      "base_hash": "2459caef072af6e6140bd9fc532ce7d796b882913b9f438d4b1030f356e6cf52",
+      "base_hash": "c247d1b21d45687b0c02e767dd42283b9cf6d60116bbb892103e02b89d8b943d",
       "description": "Migrate Cloudflare Sandbox apps from stable @cloudflare/sandbox to @cloudflare/sandbox@next (SDK 1.0 preview).",
       "fetch": "git",
       "framework": null,
@@ -2230,13 +2200,13 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "skills/sandbox-migrate-to-next",
-      "pinned": "791012421c900f3fd4f007be6cd84f2ff42f100a",
+      "pinned": "86505e44f87d801aa1864a3c4109e9a8ae5c409f",
       "publish": true,
       "source": "github:cloudflare/skills",
       "status": "downloaded"
     },
     "sandbox-next": {
-      "base_hash": "e5f55244839337257a0641e8d6286c47d76331d5c5cc1a30e7f0c31e68ad4a18",
+      "base_hash": "c92960962ce50e5f773ac242f0cb95735deba6cedad4cf46b41106ad5bd39ee3",
       "description": "Build or maintain Cloudflare Sandbox apps on @cloudflare/sandbox@next (SDK 1.0 preview).",
       "fetch": "git",
       "framework": null,
@@ -2245,13 +2215,13 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "skills/sandbox-next",
-      "pinned": "cfbd759d464bb5e03ccbdb3e584d74315e97dbab",
+      "pinned": "86505e44f87d801aa1864a3c4109e9a8ae5c409f",
       "publish": true,
       "source": "github:cloudflare/skills",
       "status": "downloaded"
     },
     "sandbox-stable": {
-      "base_hash": "1e7a81f5e086a1d51859854a0d786587db5d1911acf8c4151f3d50785a379e91",
+      "base_hash": "0f56ba7eb265e47542769a844b70fcf9c146b42387d418b6dcb1d73724e95c79",
       "description": "Build or maintain Cloudflare Sandbox apps on the stable @cloudflare/sandbox package.",
       "fetch": "git",
       "framework": null,
@@ -2260,13 +2230,13 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "skills/sandbox-stable",
-      "pinned": "791012421c900f3fd4f007be6cd84f2ff42f100a",
+      "pinned": "86505e44f87d801aa1864a3c4109e9a8ae5c409f",
       "publish": true,
       "source": "github:cloudflare/skills",
       "status": "downloaded"
     },
     "scrape": {
-      "base_hash": null,
+      "base_hash": "761fc927120626f50d3199c94b8775de355365b7e849988e84536a56ffb9bfe1",
       "description": "Pull data from a web page through the Aside browser \u2014 your real, already signed-in sessions.",
       "fetch": "git",
       "framework": "gstack",
@@ -2275,13 +2245,13 @@
       "license": "MIT",
       "patch": null,
       "path": "scrape",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "search-first": {
-      "base_hash": "aeb5a24d2856518d565e089d111acdecdd81d0b5a72b103852d6729a4ad8b0b0",
+      "base_hash": "489ef428321570818718f31345f133e48e429632e5925f5353e0eba7aaae0def",
       "description": "Research-before-coding workflow.",
       "fetch": "git",
       "framework": "ecc",
@@ -2290,7 +2260,7 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/search-first",
-      "pinned": "d8f879e671fa2e522df8cdf80472250b0b736b0f",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
@@ -2311,7 +2281,7 @@
       "status": "downloaded"
     },
     "setup-browser-cookies": {
-      "base_hash": null,
+      "base_hash": "3f83f6c0418f21ee27e3cee1b201d1944467b2b496f1650987335950f885fa84",
       "description": "Import cookies from your real Chromium browser into the headless browse session.",
       "fetch": "git",
       "framework": "gstack",
@@ -2320,13 +2290,13 @@
       "license": "MIT",
       "patch": null,
       "path": "setup-browser-cookies",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "setup-deploy": {
-      "base_hash": null,
+      "base_hash": "a51ea7002fb3c2ed83aa48d95484c5a7689e62c70d2955810811d17b3a5ca0ef",
       "description": "Configure deployment settings for /land-and-deploy.",
       "fetch": "git",
       "framework": "gstack",
@@ -2335,13 +2305,13 @@
       "license": "MIT",
       "patch": null,
       "path": "setup-deploy",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "setup-gbrain": {
-      "base_hash": null,
+      "base_hash": "da23e49365248b3dc442fde0b7825e6392ef7144b233a8ef688f4a65fbb1099b",
       "description": "Set up gbrain for this coding agent: install the CLI, initialize a local PGLite or Supabase brain, register MCP, capture per-remote trust policy.",
       "fetch": "git",
       "framework": "gstack",
@@ -2350,13 +2320,13 @@
       "license": "MIT",
       "patch": null,
       "path": "setup-gbrain",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "signup": {
-      "base_hash": "21ae375df1f4d4bd175c6107f4dee095647c106289bbf26c0f25cd40b5578084",
+      "base_hash": "6693362477a52178713d19b55084fd86cd68a933386c69147ac5542ee524f1dc",
       "description": "When the user wants to optimize signup, registration, account creation, or trial activation flows.",
       "fetch": "git",
       "framework": null,
@@ -2365,7 +2335,7 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/signup",
-      "pinned": "30f9b9a729bbbe3da562fc1108c31f3a35afcca1",
+      "pinned": "365b412152b9542499ca1439426f7fc3cc92bb65",
       "publish": true,
       "source": "github:coreyhaines31/marketingskills",
       "status": "downloaded"
@@ -2386,7 +2356,7 @@
       "status": "downloaded"
     },
     "skillify": {
-      "base_hash": null,
+      "base_hash": "8e5908144c7f8c96edc12adcf27ce14e8e8062d4640f3c379a1334026cdd5568",
       "description": "Codify the most recent successful /scrape flow into a permanent browser-skill on disk.",
       "fetch": "git",
       "framework": "gstack",
@@ -2395,13 +2365,13 @@
       "license": "MIT",
       "patch": null,
       "path": "skillify",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "spec": {
-      "base_hash": null,
+      "base_hash": "92096dcab0aee9b9ec71e29bcff9653a852d90183b9a4ce5d1c8bffe0767529b",
       "description": "Turn vague intent into a precise, executable spec in five phases.",
       "fetch": "git",
       "framework": "gstack",
@@ -2410,10 +2380,10 @@
       "license": "MIT",
       "patch": null,
       "path": "spec",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "superpowers@claude-plugins-official": {
       "base_hash": "9c694fcbe46336131c4c4842a6621cf23ee994efa935f5fd8fefa91ea9ff4acd",
@@ -2431,7 +2401,7 @@
       "status": "downloaded"
     },
     "sync-gbrain": {
-      "base_hash": null,
+      "base_hash": "0018d831aac7f7f24716a8692d11b9b8698741c1e4f0f19120d9ac6b4718d5c1",
       "description": "Keep gbrain current with this repo's code and refresh agent search guidance in CLAUDE.md.",
       "fetch": "git",
       "framework": "gstack",
@@ -2440,10 +2410,10 @@
       "license": "MIT",
       "patch": null,
       "path": "sync-gbrain",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "tailwind-4-docs": {
       "base_hash": "65f58ddb91a5e7ddb0fafddbfc6cff14811bb092a23e1ea7f1df6c71b96b4c40",
@@ -2461,7 +2431,7 @@
       "status": "downloaded"
     },
     "tdd-workflow": {
-      "base_hash": "e2b8ba85fc5802160deeb7e0429c85756161b87141b4e03abe5c319e707ffbe3",
+      "base_hash": "b3889bee79b4dbe7010513b9df714053f1d9058368f2060e2bf81aaeb22e3091",
       "description": "Use this skill when writing new features, fixing bugs, or refactoring code.",
       "fetch": "git",
       "framework": "ecc",
@@ -2470,7 +2440,7 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/tdd-workflow",
-      "pinned": "866d9ebb5364a579ac7d2a8fb79bb421bf9d7052",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
@@ -2626,7 +2596,7 @@
       "status": "downloaded"
     },
     "transitions-dev": {
-      "base_hash": "3ad38946ff0e7a14e3986775bbb44d8277ea6c77075207dbbb7088a9e3280adb",
+      "base_hash": "9e011d8284be54a8a662d0ee39dd15561cf4351638ab3a481d776bbd28184783",
       "description": "Production-ready CSS transitions for web apps.",
       "fetch": "git",
       "framework": null,
@@ -2635,13 +2605,13 @@
       "license": "custom",
       "patch": null,
       "path": "skills/transitions-dev",
-      "pinned": "2dfdb5a7f34f083af94434dbe8aa89c5e6c8ff6d",
+      "pinned": "6c4de5444cee0a4a949d48857196c1f1a245862f",
       "publish": false,
       "source": "github:Jakubantalik/transitions.dev",
       "status": "downloaded"
     },
     "transitions-polish": {
-      "base_hash": "f6e52e42ccb1459f094ce7fde2bc1467852c754b45e4cacf568373e6810bc110",
+      "base_hash": "45eb4b1a7b5d91aab970909f35bf6e1842d4ef16bfd5c15b5caf50d916ee8a34",
       "description": "Polish and refine existing motion against the transitions.dev motion-token scale \u2014 duration, distance, scale, blur, and easing \u2014 plus the rules for WHEN each token applies (open/close asymmetry, hover-in vs hover-out, stagger offsets, and intent delays).",
       "fetch": "git",
       "framework": null,
@@ -2650,13 +2620,13 @@
       "license": "custom",
       "patch": null,
       "path": "skills/transitions-polish",
-      "pinned": "76e39064953b8d1cf088fa7342ac68e4e074c3a6",
+      "pinned": "6c4de5444cee0a4a949d48857196c1f1a245862f",
       "publish": false,
       "source": "github:Jakubantalik/transitions.dev",
       "status": "downloaded"
     },
     "troubleshooting": {
-      "base_hash": "3062cf0b6afb5d98728973ed6ac2dd50eb4d49c1bd508acd0dfe23e3eb4423e9",
+      "base_hash": "08901ab8e12cdd87fd5dadf4d6867ae6e5a23669141bc4b2dcd711b800a76ca5",
       "description": "Uses Chrome DevTools MCP and documentation to troubleshoot connection and target issues.",
       "fetch": "git",
       "framework": null,
@@ -2665,13 +2635,13 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "skills/troubleshooting",
-      "pinned": "50a16fae69c5c28990328160f79db50af260e256",
+      "pinned": "6606011ab3cdbc018904554dceae6ad6c5477fde",
       "publish": true,
       "source": "github:ChromeDevTools/chrome-devtools-mcp",
       "status": "downloaded"
     },
     "turnstile-spin": {
-      "base_hash": null,
+      "base_hash": "7ae067b29b637d06eee7ba849a024c29315a0bc1a29322e0062c509b6d528203",
       "description": "Set up, repair, or migrate to Cloudflare Turnstile bot verification in an existing frontend and backend, including server-side Siteverify.",
       "fetch": "git",
       "framework": null,
@@ -2680,13 +2650,13 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "skills/turnstile-spin",
-      "pinned": null,
+      "pinned": "86505e44f87d801aa1864a3c4109e9a8ae5c409f",
       "publish": true,
       "source": "github:cloudflare/skills",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "ui-ux-pro-max": {
-      "base_hash": null,
+      "base_hash": "3d49fd3418b2b129d7ec08bb188bb5d1f3a633afc6919e1e6fb4fb39294b3eac",
       "description": "UI/UX design intelligence.",
       "fetch": "git",
       "framework": null,
@@ -2695,13 +2665,13 @@
       "license": "MIT",
       "patch": null,
       "path": ".claude/skills/ui-ux-pro-max",
-      "pinned": null,
+      "pinned": "56ea9cf174ed86786187daa9de0e6247cb0747e4",
       "publish": true,
       "source": "github:nextlevelbuilder/ui-ux-pro-max-skill",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "unfreeze": {
-      "base_hash": null,
+      "base_hash": "53d97e31088b801e3bcf11d119ac2b085a48b82dd02e435f7e0584477a413694",
       "description": "Clear the freeze boundary set by /freeze, allowing edits to all directories again.",
       "fetch": "git",
       "framework": "gstack",
@@ -2710,13 +2680,13 @@
       "license": "MIT",
       "patch": null,
       "path": "unfreeze",
-      "pinned": null,
+      "pinned": "47d639abffa882b8cbb641d7d1dedf08ecada9ec",
       "publish": true,
       "source": "github:garrytan/gstack",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "vite-patterns": {
-      "base_hash": "5444b3b73e11b064362e9e27cce5a6c0430c60102a8dc30ca02c3ea019b6c8c1",
+      "base_hash": "07e5db80bedfffe4df59f14e982a41c66f8f506be163adf34ae2bd6b3959dc1a",
       "description": "Vite build tool patterns including config, plugins, HMR, env variables, proxy setup, SSR, library mode, dependency pre-bundling, and build optimization.",
       "fetch": "git",
       "framework": "ecc",
@@ -2725,7 +2695,7 @@
       "license": "MIT",
       "patch": null,
       "path": "skills/vite-patterns",
-      "pinned": "b39d2244cf93d2e39eb7e3dfc375b737b75ca14d",
+      "pinned": "76aaa77df6adc5b889e689007bf99b9a4f74af34",
       "publish": true,
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
@@ -2761,7 +2731,7 @@
       "status": "downloaded"
     },
     "workers-best-practices": {
-      "base_hash": null,
+      "base_hash": "5a87cd3e1e08462f23345040c2715aa1b987c4fb7cd858e3cf48ab5b363000b2",
       "description": "Cloudflare Workers best practices for production applications.",
       "fetch": "git",
       "framework": null,
@@ -2770,13 +2740,13 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "skills/workers-best-practices",
-      "pinned": null,
+      "pinned": "86505e44f87d801aa1864a3c4109e9a8ae5c409f",
       "publish": true,
       "source": "github:cloudflare/skills",
-      "status": "unpinned"
+      "status": "downloaded"
     },
     "wrangler": {
-      "base_hash": "1872517163d5a9b4a6e3fe40b9f8ce0131270a4967d7e54f0a003c807cb5d434",
+      "base_hash": "c2614ff18a0f885fcc8cfaebef76f7b6c7428f586273a96cedd4dc10ca027ba8",
       "description": "Run or troubleshoot Wrangler CLI commands and configure Worker projects for local development, Previews, deployment, and Cloudflare resource management.",
       "fetch": "git",
       "framework": null,
@@ -2785,7 +2755,7 @@
       "license": "Apache-2.0",
       "patch": null,
       "path": "skills/wrangler",
-      "pinned": "b90d284ac134ad2749130e87ee7e6f054593c8d7",
+      "pinned": "86505e44f87d801aa1864a3c4109e9a8ae5c409f",
       "publish": true,
       "source": "github:cloudflare/skills",
       "status": "downloaded"

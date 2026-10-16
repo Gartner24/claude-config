@@ -89,10 +89,10 @@ License: Apache-2.0.
 | `21st-ai` | downloaded | Generate and iterate on UI with 21st AI from the terminal via the `21st` CLI (`@21st-dev/cli`): sketch a UI from a prompt, preview the variants in the browser, edit any variant in place with a natural-language change, and pull the final code into the project. |
 | `21st-cli-use` | downloaded | Search, install and pull code from the 21st.dev catalog with the `21st` CLI (`@21st-dev/cli`): find React/shadcn components, themes and templates, print a component's code or a theme's CSS, install an item into the project, or generate a new component with 21st AI. |
 | `21st-design-sync` | downloaded | Look at the current project's design (its shadcn / Tailwind CSS variables and color tokens) and publish it to the 21st.dev community as a shareable theme, using `21st publish-theme`. |
-| `21st-registry` | unpinned | Publish your own work to 21st.dev and manage it from the terminal with the `21st` CLI (`@21st-dev/cli`): publish a React component to a team library, publish a CSS theme or a template listing, edit / unpublish / delete your published items, list and reopen existing component work, and read/replace your public profile page (bento board). |
-| `21st-ui-build` | unpinned | Build or substantially change production UI using the current project's design context, existing components, and grounded 21st inspiration. |
-| `21st-ui-explore` | unpinned | Explore and compare multiple meaningfully different UI directions grounded in the current project's design system and 21st inspiration. |
-| `21st-ui-review` | unpinned | Review existing UI against the project's design context, accessibility expectations, responsive behavior, interaction quality, and high-confidence production rules. |
+| `21st-registry` | downloaded | Publish your own work to 21st.dev and manage it from the terminal with the `21st` CLI (`@21st-dev/cli`): publish a React component to a team library, publish a CSS theme or a template listing, edit / unpublish / delete your published items, list and reopen existing component work, and read/replace your public profile page (bento board). |
+| `21st-ui-build` | downloaded | Build or substantially change production UI using the current project's design context, existing components, and grounded 21st inspiration. |
+| `21st-ui-explore` | downloaded | Explore and compare multiple meaningfully different UI directions grounded in the current project's design system and 21st inspiration. |
+| `21st-ui-review` | downloaded | Review existing UI against the project's design context, accessibility expectations, responsive behavior, interaction quality, and high-confidence production rules. |
 
 ### affaan-m/everything-claude-code
 
@@ -153,7 +153,7 @@ License: MIT.
 
 | Skill | Status | What it does |
 |---|---|---|
-| `humanizer` | unpinned | Rewrite AI-sounding text so it reads naturally without changing what it says. |
+| `humanizer` | downloaded | Rewrite AI-sounding text so it reads naturally without changing what it says. |
 
 ### chrishan17/skill-router
 
@@ -170,7 +170,7 @@ License: Apache-2.0.
 | Skill | Status | What it does |
 |---|---|---|
 | `a11y-debugging` | downloaded | Uses Chrome DevTools MCP for accessibility (a11y) debugging and auditing based on web.dev guidelines. |
-| `chrome-devtools` | unpinned | Uses Chrome DevTools via MCP for efficient debugging, troubleshooting and browser automation. |
+| `chrome-devtools` | downloaded | Uses Chrome DevTools via MCP for efficient debugging, troubleshooting and browser automation. |
 | `chrome-devtools-cli` | downloaded | Use this skill to write shell scripts or run shell commands to automate tasks in the browser or otherwise use Chrome DevTools via CLI. |
 | `cookie-debugging` | downloaded | Uses Chrome DevTools MCP for inspecting, debugging, and testing cookies, session state, authentication issues, and cookie consent compliance. |
 | `debug-optimize-lcp` | downloaded | Guides debugging and optimizing Largest Contentful Paint (LCP) using Chrome DevTools MCP tools. |
@@ -201,7 +201,7 @@ License: Apache-2.0.
 | Skill | Status | What it does |
 |---|---|---|
 | `agents-sdk` | downloaded | Build, debug, or review Cloudflare Agents SDK applications using the agents package. |
-| `cloudflare` | unpinned | Discover and choose Cloudflare products for apps, APIs, AI agents, storage, networking, and security. |
+| `cloudflare` | downloaded | Discover and choose Cloudflare products for apps, APIs, AI agents, storage, networking, and security. |
 | `cloudflare-email-service` | downloaded | Implement or troubleshoot Cloudflare Email Sending and Email Routing integrations and their delivery configuration. |
 | `cloudflare-one` | downloaded | Design, configure, troubleshoot, or review Cloudflare One Zero Trust and SASE deployments. |
 | `cloudflare-one-migrations` | downloaded | Assess and plan migrations from existing VPN, SWG, or SASE platforms to Cloudflare One, including policy mapping, parity gaps, and rollout. |
@@ -210,9 +210,9 @@ License: Apache-2.0.
 | `sandbox-migrate-to-next` | downloaded | Migrate Cloudflare Sandbox apps from stable @cloudflare/sandbox to @cloudflare/sandbox@next (SDK 1.0 preview). |
 | `sandbox-next` | downloaded | Build or maintain Cloudflare Sandbox apps on @cloudflare/sandbox@next (SDK 1.0 preview). |
 | `sandbox-stable` | downloaded | Build or maintain Cloudflare Sandbox apps on the stable @cloudflare/sandbox package. |
-| `turnstile-spin` | unpinned | Set up, repair, or migrate to Cloudflare Turnstile bot verification in an existing frontend and backend, including server-side Siteverify. |
+| `turnstile-spin` | downloaded | Set up, repair, or migrate to Cloudflare Turnstile bot verification in an existing frontend and backend, including server-side Siteverify. |
 | `web-perf` | downloaded | Audit, diagnose, or optimize website loading and interaction performance, Core Web Vitals, and Lighthouse performance scores. |
-| `workers-best-practices` | unpinned | Cloudflare Workers best practices for production applications. |
+| `workers-best-practices` | downloaded | Cloudflare Workers best practices for production applications. |
 | `wrangler` | downloaded | Run or troubleshoot Wrangler CLI commands and configure Worker projects for local development, Previews, deployment, and Cloudflare resource management. |
 
 ### coreyhaines31/marketingskills
@@ -285,45 +285,43 @@ License: MIT.
 
 | Skill | Status | What it does |
 |---|---|---|
-| `_gstack-command` | unpinned | Router for the gstack skill suite. |
-| `benchmark` | unpinned | Performance regression detection. |
-| `benchmark-models` | unpinned | Cross-model benchmark for gstack skills. |
-| `canary` | unpinned | Post-deploy canary monitoring. |
-| `careful` | unpinned | Safety guardrails for destructive commands. |
-| `codex` | unpinned | OpenAI Codex CLI wrapper - three modes. |
-| `connect-chrome` | unpinned | Launch GStack Browser - AI-controlled Chromium with the sidebar extension baked in. |
-| `context-restore` | unpinned | Restore working context saved earlier by /context-save. |
-| `context-save` | unpinned | Save working context. |
-| `design-html` | unpinned | Design finalization: generates production-quality Pretext-native HTML/CSS. |
-| `design-shotgun` | unpinned | Design shotgun: generate multiple AI design variants, open a comparison board, collect structured feedback, and iterate. |
-| `devex-review` | unpinned | Live developer experience audit. |
-| `diagram` | unpinned | Turn an English description (or mermaid source) into a diagram triplet: the source, an editable .excalidraw file you can open on excalidraw.com, and rendered SVG + PNG. |
-| `document-generate` | unpinned | Generate missing documentation from scratch for a feature, module, or entire project. |
-| `freeze` | unpinned | Restrict file edits to a specific directory for the session. |
-| `gstack-upgrade` | unpinned | Upgrade gstack to the latest version. |
-| `guard` | unpinned | Full safety mode: destructive command warnings + directory-scoped edits. |
-| `health` | unpinned | Code quality dashboard. |
-| `ios-clean` | unpinned | Remove the DebugBridge SPM package and all #if DEBUG wiring from an iOS app. |
-| `ios-design-review` | unpinned | Visual design audit for iOS apps on real hardware. |
-| `ios-fix` | unpinned | Autonomous iOS bug fixer. |
-| `ios-qa` | unpinned | Live-device iOS QA for SwiftUI apps. |
-| `ios-sync` | unpinned | Regenerate the iOS debug bridge against the latest upstream gstack templates. |
-| `land-and-deploy` | unpinned | Land and deploy workflow. |
-| `landing-report` | unpinned | Read-only queue dashboard for workspace-aware ship. |
-| `learn` | unpinned | Manage project learnings. |
-| `make-pdf` | unpinned | Turn any markdown file into a publication-quality PDF. |
-| `open-gstack-browser` | unpinned | Launch GStack Browser - AI-controlled Chromium with the sidebar extension baked in. |
-| `pair-agent` | unpinned | Pair a remote AI agent with your browser. |
-| `plan-devex-review` | unpinned | Interactive developer experience plan review. |
-| `plan-tune` | unpinned | Self-tuning question sensitivity + developer psychographic for gstack (v1: observational). |
-| `scrape` | unpinned | Pull data from a web page through the Aside browser - your real, already signed-in sessions. |
-| `setup-browser-cookies` | unpinned | Import cookies from your real Chromium browser into the headless browse session. |
-| `setup-deploy` | unpinned | Configure deployment settings for /land-and-deploy. |
-| `setup-gbrain` | unpinned | Set up gbrain for this coding agent: install the CLI, initialize a local PGLite or Supabase brain, register MCP, capture per-remote trust policy. |
-| `skillify` | unpinned | Codify the most recent successful /scrape flow into a permanent browser-skill on disk. |
-| `spec` | unpinned | Turn vague intent into a precise, executable spec in five phases. |
-| `sync-gbrain` | unpinned | Keep gbrain current with this repo's code and refresh agent search guidance in CLAUDE.md. |
-| `unfreeze` | unpinned | Clear the freeze boundary set by /freeze, allowing edits to all directories again. |
+| `benchmark` | downloaded | Performance regression detection. |
+| `benchmark-models` | downloaded | Cross-model benchmark for gstack skills. |
+| `canary` | downloaded | Post-deploy canary monitoring. |
+| `careful` | downloaded | Safety guardrails for destructive commands. |
+| `codex` | downloaded | OpenAI Codex CLI wrapper - three modes. |
+| `context-restore` | downloaded | Restore working context saved earlier by /context-save. |
+| `context-save` | downloaded | Save working context. |
+| `design-html` | downloaded | Design finalization: generates production-quality Pretext-native HTML/CSS. |
+| `design-shotgun` | downloaded | Design shotgun: generate multiple AI design variants, open a comparison board, collect structured feedback, and iterate. |
+| `devex-review` | downloaded | Live developer experience audit. |
+| `diagram` | downloaded | Turn an English description (or mermaid source) into a diagram triplet: the source, an editable .excalidraw file you can open on excalidraw.com, and rendered SVG + PNG. |
+| `document-generate` | downloaded | Generate missing documentation from scratch for a feature, module, or entire project. |
+| `freeze` | downloaded | Restrict file edits to a specific directory for the session. |
+| `gstack-upgrade` | downloaded | Upgrade gstack to the latest version. |
+| `guard` | downloaded | Full safety mode: destructive command warnings + directory-scoped edits. |
+| `health` | downloaded | Code quality dashboard. |
+| `ios-clean` | downloaded | Remove the DebugBridge SPM package and all #if DEBUG wiring from an iOS app. |
+| `ios-design-review` | downloaded | Visual design audit for iOS apps on real hardware. |
+| `ios-fix` | downloaded | Autonomous iOS bug fixer. |
+| `ios-qa` | downloaded | Live-device iOS QA for SwiftUI apps. |
+| `ios-sync` | downloaded | Regenerate the iOS debug bridge against the latest upstream gstack templates. |
+| `land-and-deploy` | downloaded | Land and deploy workflow. |
+| `landing-report` | downloaded | Read-only queue dashboard for workspace-aware ship. |
+| `learn` | downloaded | Manage project learnings. |
+| `make-pdf` | downloaded | Turn any markdown file into a publication-quality PDF. |
+| `open-gstack-browser` | downloaded | Launch GStack Browser - AI-controlled Chromium with the sidebar extension baked in. |
+| `pair-agent` | downloaded | Pair a remote AI agent with your browser. |
+| `plan-devex-review` | downloaded | Interactive developer experience plan review. |
+| `plan-tune` | downloaded | Self-tuning question sensitivity + developer psychographic for gstack (v1: observational). |
+| `scrape` | downloaded | Pull data from a web page through the Aside browser - your real, already signed-in sessions. |
+| `setup-browser-cookies` | downloaded | Import cookies from your real Chromium browser into the headless browse session. |
+| `setup-deploy` | downloaded | Configure deployment settings for /land-and-deploy. |
+| `setup-gbrain` | downloaded | Set up gbrain for this coding agent: install the CLI, initialize a local PGLite or Supabase brain, register MCP, capture per-remote trust policy. |
+| `skillify` | downloaded | Codify the most recent successful /scrape flow into a permanent browser-skill on disk. |
+| `spec` | downloaded | Turn vague intent into a precise, executable spec in five phases. |
+| `sync-gbrain` | downloaded | Keep gbrain current with this repo's code and refresh agent search guidance in CLAUDE.md. |
+| `unfreeze` | downloaded | Clear the freeze boundary set by /freeze, allowing edits to all directories again. |
 
 ### Graphify-Labs/graphify
 
@@ -389,7 +387,7 @@ License: MIT.
 
 | Skill | Status | What it does |
 |---|---|---|
-| `ui-ux-pro-max` | unpinned | UI/UX design intelligence. |
+| `ui-ux-pro-max` | downloaded | UI/UX design intelligence. |
 
 ### pbakaus/impeccable
 
@@ -405,7 +403,7 @@ License: MIT.
 
 | Skill | Status | What it does |
 |---|---|---|
-| `design-dna` | unpinned | Extract, define, and apply design DNA across three dimensions: design system (tokens), design style (qualitative feel), and visual effects (Canvas, WebGL, 3D, particles, shaders, scroll effects, etc.). |
+| `design-dna` | downloaded | Extract, define, and apply design DNA across three dimensions: design system (tokens), design style (qualitative feel), and visual effects (Canvas, WebGL, 3D, particles, shaders, scroll effects, etc.). |
 
 ### source unknown
 
