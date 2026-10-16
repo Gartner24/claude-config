@@ -85,6 +85,11 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 63 | Evaluate Harvey, Soup, MiroFish, claude-skills-founder, Headroom | Release 9 | needs a decision |
 | 64 | Recommended mods: gatekeeper, Claude to Claude, own panel | Release 9 | needs a decision |
 | 65 | Scan skills with skillspector | Release 9 | needs a decision |
+| 67 | Local model on the laptop | Release 9 | needs a decision |
+| 68 | Runner runs more than 4 features at once | Release 9 | needs a decision |
+| 69 | Ideas borrowed from tools we skip | Release 9 | needs a decision |
+| 70 | graphify test on one repo | Release 9 | planned |
+| 71 | Review leftovers 2026-10-15 | Release 9 | planned |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -856,55 +861,55 @@ Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep
 ### 57. Move my own skills out of jjstack
 Find the skills in jjstack that are yours from its git history, and copy your own skills and the jjstack parts you use into claude-config; never commit to jjstack.
 **Done when:** every skill you wrote that lived in jjstack runs from claude-config, the status line no longer needs jjstack, and jjstack has no new commit from this.
-- [ ] Research and compare: `/deep-research which jjstack skills are mine and what I use from jjstack`
+- [x] Research and compare: `/deep-research which jjstack skills are mine and what I use from jjstack` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
 - [ ] Design it (spec): `/architect move my own skills out of jjstack`
 Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
 
 ### 58. Own status bar and dashboards with mods
 Replace jjstack's status line with our own, built on Claude Code mods, plus dashboards; learn from what others built.
 **Done when:** our own status line runs without jjstack and a dashboard shows each running agent and the runner.
-- [ ] Research and compare: `/deep-research Claude Code mods status lines and dashboards`
+- [x] Research and compare: `/deep-research Claude Code mods status lines and dashboards` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
 - [ ] Design it (spec): `/architect own status bar and dashboards with mods`
 Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
 
 ### 59. Memory tool: claude-mem, MemPalace, graphify or NotebookLM
 Pick the memory tool (keep claude-mem, MemPalace, graphify, both, or NotebookLM as a second brain), weighing usage, token cost, memory quality and code memory.
 **Done when:** one memory setup is chosen with its reasons and installed, or each option is rejected with a reason.
-- [ ] Research and compare: `/deep-research memory for Claude Code: claude-mem, MemPalace, graphify, NotebookLM`
+- [x] Research and compare: `/deep-research memory for Claude Code: claude-mem, MemPalace, graphify, NotebookLM` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
 - [ ] Design it (spec): `/architect memory tool`
 Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
 
 ### 60. Sessions pass work to each other
 Use mods so a session hands its work straight to the next one (rollover without the `/clear` relay), and the runner too.
 **Done when:** a rolled over session continues in the next one without you typing `/clear` and `/resume-from-clear`.
-- [ ] Research and compare: `/deep-research Claude Code mods session handoff`
+- [x] Research and compare: `/deep-research Claude Code mods session handoff` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
 - [ ] Design it (spec): `/architect sessions pass work to each other`
 Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
 
 ### 61. Cheap model gatekeeper with open models
 Send easy work to a cheaper model through mods, with open source models (claude-fb's, or Soup's) instead of only `fb-ask`.
 **Done when:** easy steps run on an open model by rule and your weekly limit lasts longer, measured.
-- [ ] Research and compare: `/deep-research cheap model routing with open models: claude-fb, Soup, mods`
+- [x] Research and compare: `/deep-research cheap model routing with open models: claude-fb, Soup, mods` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
 - [ ] Design it (spec): `/architect cheap model gatekeeper`
 Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
 
 ### 62. Runner that improves itself
 Treat the runner as a system with a feedback loop: each run's results improve the next run, and it improves itself while idle.
 **Done when:** the runner records what slowed or broke each run and turns it into a change or a proposal without you asking.
-- [ ] Research and compare: `/deep-research self improving agent runners and feedback loops`
+- [x] Research and compare: `/deep-research self improving agent runners and feedback loops` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
 - [ ] Design it (spec): `/architect runner that improves itself`
 Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
 
 ### 63. Evaluate Harvey, Soup, MiroFish, claude-skills-founder, Headroom
 Research each tool and compare it with the setup: Harvey (repo, site and `~/Downloads/guia-harvey.pdf`), Soup, MiroFish, claude-skills-founder, Headroom.
 **Done when:** each tool is adopted, adapted or rejected with a reason, and each adopted one passed `skillspector`.
-- [ ] Research and compare: `/deep-research Harvey, Soup, MiroFish, claude-skills-founder, Headroom against our setup`
+- [x] Research and compare: `/deep-research Harvey, Soup, MiroFish, claude-skills-founder, Headroom against our setup` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
 Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
 
 ### 64. Recommended mods: gatekeeper, Claude to Claude, own panel
 Check the three recommended mods against what we already have: a gatekeeper to a cheaper model, Claude talking to Claude (one plans, one builds), and an own panel of what each agent does.
 **Done when:** each of the three is kept, built or dropped with a reason.
-- [ ] Research and compare: `/deep-research recommended Claude Code mods against our setup`
+- [x] Research and compare: `/deep-research recommended Claude Code mods against our setup` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
 Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
 
 ### 65. Scan skills with skillspector
@@ -912,6 +917,43 @@ Scan every installed skill and every new candidate with NVIDIA's `skillspector` 
 **Done when:** every installed skill passed the scan or was removed, and new candidates are scanned before install.
 - [ ] Scan the installed skills: `skillspector` · waits on you
 Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
+
+### 67. Local model on the laptop
+Try a model running on the laptop (Ollama with Vulkan, `qwen2.5-coder:14b`) through opencode, and wire it into fb-ask only if it passes.
+**Done when:** the trial's speed and task results are written down, and the model is either an `fb-local` group in fb-ask or rejected with a reason.
+- [x] Research and compare: `/deep-research local coding model on this laptop` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
+- [ ] Install `ollama-vulkan` and join the render and video groups · waits on you
+- [ ] Trial: speed test, one opencode task against claude-fb's cloud model · waits on you
+- [ ] Design it (spec): `/architect local model tier for fb-ask`
+Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items A7, B8.
+
+### 68. Runner runs more than 4 features at once
+Remove the fixed 4: any number up to a ceiling, a live memory and usage brake, and the same files rule back from each spec's Paths line.
+**Done when:** a `wf` run starts more than 4 features when memory and usage allow, never two whose Paths overlap, and holds back when free memory or the 5 hour use crosses its line.
+- [x] Research and compare: `/deep-research runner with n features at once` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
+- [ ] Design it (spec): `/architect runner runs more than 4 features at once`
+Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B2.
+
+### 69. Ideas borrowed from tools we skip
+Build the four ideas taken from Harvey, MiroFish and claude-skills-founder: a lead finder that never sends, a reaction tester, an idea scorecard, and the new number replaces old rule.
+**Done when:** each of the four is in a skill and used once on a real case.
+- [x] Research and compare: `/deep-research Harvey, Soup, MiroFish, claude-skills-founder, Headroom against our setup` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
+- [ ] Design it (spec): `/architect ideas borrowed from tools we skip`
+Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items B10 to B13.
+
+### 70. graphify test on one repo
+Map one large own repo with graphify, code only and AI keys hidden, and ask 8 to 10 questions with and without the map.
+**Done when:** the test's numbers are written down and graphify is kept in that repo or uninstalled with its skill removed.
+- [x] Research and compare: `/deep-research graphify against our setup` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
+- [ ] Run the test on the repo you pick · waits on you
+Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items A8, B9, D2.
+
+### 71. Review leftovers 2026-10-15
+The PR #18 review's open items and two script bugs found while landing it.
+**Done when:** each item is fixed with a test or dropped with a reason.
+- [ ] Decide the three spec items (risk list, old branch date, wait for a check) · waits on you
+- [ ] Fix: `/debug review leftovers 2026-10-15`
+Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items D1, E3, E4.
 
 ### 49. Fast runner · done
 Features build, check and test 4 at a time on their own branches, the branches are combined at the end with clashes resolved, one plan file stays the truth, the suite runs in about a minute, and Telegram questions read clearly.
