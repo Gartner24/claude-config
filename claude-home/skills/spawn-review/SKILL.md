@@ -41,8 +41,8 @@ directory on a second branch. This script does the three steps people get wrong:
 1. resolves a PR number to a real ref (`pull/N/head`), or detaches a branch that is
    already checked out in the main worktree, which is the error everyone hits first:
    `fatal: 'x' is already used by worktree at ...`
-2. opens a tmux window in it and launches Claude seeded with `/review-stack <target>`;
-   for a PR it passes `--setting-sources user --strict-mcp-config`, so the PR's own
+2. opens a tmux window in it and launches Claude seeded with `/review-stack <target>`
+   and `--setting-sources user --strict-mcp-config`, so the reviewed code's own
    `.claude/` settings, hooks and MCP servers never run
 3. registers the worktree so `--cleanup` can remove all of them later
 

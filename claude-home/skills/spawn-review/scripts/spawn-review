@@ -28,7 +28,8 @@ REPO="$(git rev-parse --show-toplevel)"
 WT_ROOT="$REPO/.spawn-review-worktrees"
 PROMPT=""
 TARGET=""
-CLAUDE_FLAGS=""
+# The reviewed code is not trusted: its own .claude/ settings, hooks and MCP servers never load.
+CLAUDE_FLAGS="--setting-sources user --strict-mcp-config "
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -75,7 +76,7 @@ if [[ "$TARGET" =~ ^[0-9]+$ ]]; then
   TITLE=$(gh pr view "$TARGET" --repo "$SLUG" --json title -q .title 2>/dev/null) \
     || die "PR #$TARGET not found in $SLUG"
   # The title is someone else's text; no terminal escapes reach the screen.
-  TITLE=$(printf '%s' "$TITLE" | tr -d '\000-\037\177')
+  TITLE=$(printf '%s' "$TITLE" | LC_ALL=C tr -cd '[:print:]')
   echo "${DIM}fetching PR #$TARGET from $SLUG${RST}"
   git -C "$REPO" fetch -q origin "pull/$TARGET/head:refs/heads/review/pr-$TARGET" 2>/dev/null \
     || git -C "$REPO" fetch -q origin "pull/$TARGET/head" \
@@ -83,8 +84,6 @@ if [[ "$TARGET" =~ ^[0-9]+$ ]]; then
   git -C "$REPO" worktree add -q "$WT" "review/pr-$TARGET"
   WHAT="PR #$TARGET - $TITLE"
   REVIEW_ARG="$TARGET"
-  # A PR's own .claude/ settings, hooks and MCP servers would run its code; load only yours.
-  CLAUDE_FLAGS="--setting-sources user --strict-mcp-config "
 else
   git -C "$REPO" rev-parse --verify -q "$TARGET" >/dev/null || die "no such ref: $TARGET"
   # --detach so a branch already checked out in the main worktree still works
