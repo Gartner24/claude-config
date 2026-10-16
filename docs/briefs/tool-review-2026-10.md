@@ -26,12 +26,12 @@ This is the whole list. Nothing is added, dropped or swapped without your yes, a
 - [x] A1c. claude-mem removed for good: plugin uninstalled 2026-10-15 (done); still to remove its manifest entry, its SessionStart hook `claude-mem-install.sh` from settings.json and `bin/install.sh`, and check `chroma-reaper.sh` is still needed: done 2026-10-16 in PR #23; chroma-reaper.sh removed too (it only served claude-mem), the deny rules for its settings file kept
 - [x] A2. Update claude-config's docs for the new setup: SETUP.md, DAILY-USE.md, SKILLS.md (row 66): PR #21
 - [x] A3. Install skillspector: installed v2.12.0 pinned (`uv tool install "git+https://github.com/NVIDIA/SkillSpector.git@v2.12.0"`); it refuses symlinked paths, so scans must use the real folder (`realpath`); the model pass is `SKILLSPECTOR_PROVIDER=claude_cli` (row 65)
-- [ ] A4. Scan every installed skill and plugin with skillspector; remove or report each failure (row 65)
-- [ ] A5. Copy your `spawn-review` skill from jjstack's branch into claude-config as yours; no commit to jjstack (row 57)
-- [ ] A6. Add free backup models to fb-ask's LiteLLM settings (row 61, Soup research)
+- [x] A4. Scan every installed skill and plugin with skillspector; remove or report each failure (row 65): done 2026-10-16: static pass and model pass over all 221 targets, 0 FAIL. One real report-only finding: getsentry claude-settings-audit SKILL.md:92 suggests `Bash(gh api:*)` as read-only, though `gh api -X DELETE` passes it; not in our settings. graphify findings were false alarms. claude-seo's curl | bash kept, Antigravity never installed (your answers)
+- [x] A5. Copy your `spawn-review` skill from jjstack's branch into claude-config as yours; no commit to jjstack (row 57): done 2026-10-16 in PR #26
+- [x] A6. Add free backup models to fb-ask's LiteLLM settings (row 61, Soup research): done 2026-10-16: `gemma4:31b-cloud` added as order 3 in `fb-safe` and `fb-any` in `~/.config/claude-fb/litellm.yaml`
 - [ ] A7. Local model trial: `ollama-vulkan` (your sudo), `qwen2.5-coder:14b`, context 16k, speed test, one opencode task against claude-fb's cloud model, its own `fb-local` group; never while wf builds (row 67)
-- [ ] A8. graphify test: update it, map one large own repo code only with AI keys hidden, 8 to 10 questions with and without the map; keep only if it wins by 25% and Claude uses it unasked, else uninstall it and remove the skill. Never claude-config, client or work repos (row 70)
-- [ ] A9. MemPalace trial, after skillspector passes it: Docker, read only mount, loaded by hand, no auto save, one wing per project, no client or work repos, two weeks (row 59)
+- [x] A8. graphify test: update it, map one large own repo code only with AI keys hidden, 8 to 10 questions with and without the map; keep only if it wins by 25% and Claude uses it unasked, else uninstall it and remove the skill. Never claude-config, client or work repos (row 70): done 2026-10-16: failed the rule (+35% tokens, 0 of 3 unasked uses); kept installed by your choice, never removed without asking; B9 not decided
+- [x] A9. MemPalace trial, after skillspector passes it: Docker, read only mount, loaded by hand, no auto save, one wing per project, no client or work repos, two weeks (row 59): set up 2026-10-16: image `mempalace:trial`, all 13 wings mined with no errors, `mp` search works (a specific query found the exact A4 result; vague queries find context only; old handover files and error logs add noise). Trial review about 2026-10-30
 
 ### B. Build (each gets `/architect`, then the runner)
 - [ ] B1. Finish clean branches and PRs: `/check verify` and `/sync` (row 56)
@@ -67,7 +67,7 @@ This is the whole list. Nothing is added, dropped or swapped without your yes, a
 
 ### D. Open, needs your answer
 - [ ] D1. Review leftovers from PR #18 (row 71): add hook scripts, `config/`, skills, agents and `package.json` to the never-self-merge list (recommended yes); date the old branch warning from the first commit (recommended yes); wait for at least one check before a self merge (recommended yes)
-- [ ] D2. Which large own repo the graphify test (A8) uses
+- [x] D2. Which large own repo the graphify test (A8) uses: answered 2026-10-16, see Agreed so far
 - [ ] D3. Headroom trial, next week or later
 - [ ] D4. fb-ask on client repos when the model is local (only if A7 passes)
 - [ ] D5. Kept branches `feat/seo-ops-refs` and `sync-settings`: keep or delete
