@@ -15,9 +15,11 @@ Source: your message of 2026-10-15 evening, at the end of the clean branches ses
 This is the whole list. Nothing is added, dropped or swapped without your yes, and every session reads this section before any other work in claude-config. Tick a box only with the evidence named on it. Research behind each line: [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/).
 
 ### A. Install or set up (I guide you, in this order)
-- [ ] A1. Update Claude Code through `/claude-config`, then `drift: none` (row 66)
-- [ ] A2. Update claude-config's docs for the new setup: SETUP.md, DAILY-USE.md, SKILLS.md (row 66)
-- [ ] A3. Install skillspector: `uv tool install git+https://github.com/NVIDIA/skillspector.git`, both passes, model pass on the Claude login (row 65)
+- [x] A1. Update Claude Code through `/claude-config`, then `drift: none` (row 66): Claude Code 2.1.301 is current, drift none, the update crash on a renamed skill fixed in PR #21
+- [ ] A1b. Skill updates, your answer 2026-10-15 "yes to all you recommended": apply every `update --plan` entry from ECC, gstack, Cloudflare, Figma, marketing, animation and design, 21st, Chrome DevTools, transitions-dev, transitions-polish, impeccable, design-dna, ui-ux-pro-max, humanizer and minimalist-ui (edited: merge, show any conflict), each group scanned with skillspector before install; `claude plugin update` for superpowers, code-review, feature-dev, frontend-design, security-guidance, code-simplifier, ralph-loop, clangd-lsp, ponytail, claude-seo, watch; remove the old `connect-chrome` (renamed upstream to `open-gstack-browser`, already installed) and the `_gstack-command` entry (gone upstream); graphify waits for A8
+- [ ] A1c. claude-mem removed for good: plugin uninstalled 2026-10-15 (done); still to remove its manifest entry, its SessionStart hook `claude-mem-install.sh` from settings.json and `bin/install.sh`, and check `chroma-reaper.sh` is still needed
+- [x] A2. Update claude-config's docs for the new setup: SETUP.md, DAILY-USE.md, SKILLS.md (row 66): PR #21
+- [x] A3. Install skillspector: installed v2.12.0 pinned (`uv tool install "git+https://github.com/NVIDIA/SkillSpector.git@v2.12.0"`); it refuses symlinked paths, so scans must use the real folder (`realpath`); the model pass is `SKILLSPECTOR_PROVIDER=claude_cli` (row 65)
 - [ ] A4. Scan every installed skill and plugin with skillspector; remove or report each failure (row 65)
 - [ ] A5. Copy your `spawn-review` skill from jjstack's branch into claude-config as yours; no commit to jjstack (row 57)
 - [ ] A6. Add free backup models to fb-ask's LiteLLM settings (row 61, Soup research)
