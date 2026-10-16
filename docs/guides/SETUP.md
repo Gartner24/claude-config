@@ -27,6 +27,14 @@ mkdir -p ~/.claude/skills/intent-router
 cp ~/claude-config/claude-home/skills/intent-router/SKILL.md ~/.claude/skills/intent-router/SKILL.md
 ```
 
+## Land changes only through PRs (spec 0051)
+
+Each of your own repos gets the same GitHub settings: squash merge only, branches deleted on merge, and a ruleset named "main only through a PR".
+
+1. Set them once per repo: `bin/repo-settings.sh <owner/repo>`. Then `bin/repo-settings.sh --check <owner/repo>` must exit 0.
+2. To let small, low risk runner PRs merge themselves once green, add the repo to `~/.claude/private/pr.json`, for example `"Gartner24/claude-config": {"merge": true, "auto_merge": true}`. Only you write that file. `merge: true` alone keeps the "merge now" question and no self merge.
+3. Docs only commits made in a session go out with `bin/docs-pr.sh <slug>` from the repo, which opens and squash merges a small PR. Afterwards, check that `git diff HEAD origin/main` is empty, then `git reset --hard origin/main` (the script does not realign local main yet, plan item E3).
+
 ## Restore on a new machine
 
 Do the steps in order. Hook paths in `settings.json` are hardcoded to the old home folder, so step 8 matters.
@@ -34,7 +42,7 @@ Do the steps in order. Hook paths in `settings.json` are hardcoded to the old ho
 1. Clone the repo (see above) and run `bin/install.sh --dry-run`, then `bin/install.sh`. It also rebuilds edited downloaded skills from upstream plus their patch, through `bin/claude-config.py restore`.
 2. Install jjstack. It installs gstack and creates the hook symlinks. See [Frameworks](#frameworks).
 3. Install get-shit-done-cc, pinned at 1.34.2. It ships 8 `gsd-*` hooks, and `settings.json` references 6 of them. Without this step the session starts with dead hook entries.
-4. Install the claude-mem plugin (see [Plugins](#plugins)) and the other plugins in that table.
+4. Install the plugins in the [Plugins](#plugins) table, except claude-mem: it stays off for good (decided 2026-10-15, see `docs/briefs/tool-review-2026-10.md`).
 5. Reinstall the downloaded skills. Run each manifest entry's `install` command from `config/manifest.json`, or use the `/claude-config` skill.
 6. Merge `config/mcp-config.json` into `~/.claude.json` (see [MCP servers](#mcp-servers)). Put your own key in `API_KEY`.
 7. In Claude Code settings, go to MCP and enable the context7 connector.

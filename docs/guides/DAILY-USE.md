@@ -53,13 +53,22 @@ Use the `/claude-config` skill (spec 0048, skill file [claude-home/skills/claude
 - `/claude-config drift` (also what you get with no argument): shows where the repo and `~/.claude` differ, grouped as live only, missing live, and differs. Exit 1 means drift was found, not that the tool failed. It changes nothing.
 - `/claude-config sync`: copies `~/.claude` into the repo, then shows `git status --short`. It does not commit unless you ask.
 - `/claude-config install`: runs `--dry-run` first and shows it. It runs for real only after your yes.
-- `/claude-config update`: lists every downloaded skill whose upstream moved, with changed files and line counts. You answer yes or no per entry. On a conflict nothing is installed. You get the files with `<<<<<<<` markers under `~/.claude/state/claude-config-conflicts/<entry>/`, you fix them, and the skill reruns the entry with `--resolved`. Entries marked "update by hand, not checked" are never applied by the tool.
+- `/claude-config update`: lists every downloaded skill whose upstream moved, with changed files and line counts. You answer yes or no per entry. On a conflict nothing is installed. You get the files with `<<<<<<<` markers under `~/.claude/state/claude-config-conflicts/<entry>/`, you fix them, and the skill reruns the entry with `--resolved`. Entries marked "update by hand, not checked" are never applied by the tool. An entry whose upstream folder became a link prints "is a link to <new name>, renamed upstream": point its manifest entry at the new name by hand.
 
 Before every commit in this repo, run `bin/sync.sh` and then look at `git diff`. Files copied from `~/.claude` are overwritten by the next sync, so edit those in `~/.claude`.
 
 The drift check runs only when you ask for it, never at session start. At session start a hook prints one line, "claude-config: upstream not checked for N days, run /claude-config update". It appears when 7 or more days have passed since the last `update --plan`, or when the state file is missing. It only counts days.
 
 The layout of the repo, the manifest and the patches are in [the architecture notes](../architecture.md). Setting up a machine is in [SETUP.md](SETUP.md).
+
+## Land a change
+
+Main takes changes only through a squash merged PR (spec 0051), and GitHub refuses a direct push.
+
+- Runner features: each feature gets its own draft PR. Small, low risk ones merge themselves when green in a repo with `auto_merge` on. Any other PR asks "merge now" on your phone after your review. After a merge, the runner deletes the branch and its worktree.
+- Docs only commits from a session: `bin/docs-pr.sh <slug>` (see [SETUP.md](SETUP.md#land-changes-only-through-prs-spec-0051)).
+- Code from a session: a branch, one commit, a draft PR, then `/review` before you merge.
+- The plan being worked through now is in [the tool review brief](../briefs/tool-review-2026-10.md), section "The plan, enforced until done".
 
 ## Pick a skill
 
