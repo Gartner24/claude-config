@@ -967,11 +967,12 @@ Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep
 Scan every installed skill and every new candidate with NVIDIA's `skillspector`; one `skill-scan` command and a scan before every skill update.
 **Done when:** `skill-scan` runs both passes over every skill and plugin, shows only new serious findings, and `claude-config update --apply` prints a scan of what it installs.
 - [x] Design it (spec): `/architect scan skills with skillspector`
-- [ ] Build it: `/develop scan skills with skillspector`
-  - [ ] Format probe (AC-11)
-  - [ ] `skill-scan` targets, passes, resume, verdict, baseline, delta (AC-1 to AC-6, AC-9)
-  - [ ] Update hook, install link, skill text, bulk baseline (AC-7, AC-8, AC-10, AC-12)
+- [x] Build it: `/develop scan skills with skillspector`
+  - [x] Format probe (AC-11) · notes in [0054 verify.md](../specs/0054-skill-scan-script/verify.md)
+  - [x] `skill-scan` targets, passes, resume, verdict, baseline, delta (AC-1 to AC-6, AC-9)
+  - [x] Update hook, install link, skill text (AC-7, AC-8, AC-10, AC-12) · code in `scripts/skill-scan.py`, `bin/claude-config.py` `scan()`
 - [x] Scan the installed skills: `skillspector` · waits on you (done in plan A4, 2026-10-16)
+- [ ] Bulk baseline (AC-5, build step 5): after this merges, run bin/install.sh, then `! skill-scan static --accept` in a terminal (about 20 minutes; it ends with "static: baseline holds N findings"). The build sandbox cannot write ~/.claude/state · waits on you · later boxes go on
 - [ ] Verify it: `/check verify scan skills with skillspector`
 - [ ] Test it: `/test scan skills with skillspector`
 - [ ] Sync docs: `/sync scan skills with skillspector`
