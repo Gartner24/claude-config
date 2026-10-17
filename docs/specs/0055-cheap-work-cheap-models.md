@@ -1,0 +1,43 @@
+# 0055. Search helpers on Haiku, and a record of what each model costs
+
+**Date**: 2026-10-17
+**Status**: Proposed
+**Paths:** `claude-home/agents/*.md`, `claude-home/rules/lessons.md`, `claude-home/rules/cheap-worker.md`, `runner/run.py`, `runner/report.py`, `runner/tests/test_model_split.py`
+**Amends**: [0014](0014-runner-resilience/index.md) (each call record gains a `models` field)
+
+## What you're agreeing to
+- The code explorer and docs lookup helpers move to Haiku, the cheapest model; reviewers stay on Sonnet.
+- The rule on which model a helper uses gets a Haiku line.
+- Each runner call records how much each model cost, and the morning report shows a weekly split.
+- No routing mod is built now; one is considered only if the numbers show helpers that could move cost over 15% of a week's runner spend.
+
+## Summary
+Cheap, read only work should run on cheap models so your limit lasts. Today only two helpers use Haiku. This moves the two pure search helpers too, writes the rule down, and starts measuring per model cost so a later routing mod is decided by data.
+
+## Context
+Agent pins live in `claude-home/agents/*.md` (31 files, each with a `model:` line); scout and researcher are on haiku; code-explorer (`:4`) and docs-lookup (`:5`) are on sonnet. `claude-home/rules/lessons.md:6-9` never mentions haiku. Runner calls record cost and tokens (`runner/run.py:2866-2868`) but not the per model split, which each `call-NN.json` holds in `modelUsage` (seen in run feat-0047). Plan B6 (brief): a spawn routing mod only after measuring the savings. Your answer (2026-10-17): search helpers only.
+
+## Requirements
+- **AC-1** (pins): `claude-home/agents/code-explorer.md` and `docs-lookup.md` say `model: haiku`; every other agent's `model:` is unchanged. A test over all `claude-home/agents/*.md` counts files without a `model:` line (must be 0) and checks the haiku set is exactly scout, researcher, doc-updater, code-explorer, docs-lookup, printing offenders.
+- **AC-2** (rule): `lessons.md` "Subagent models" reads: haiku for read only search and lookup helpers, sonnet for review and simple edits, opus only for architecture and hard debugging.
+- **AC-3** (record): each call record gains `models`: `{model: {cost_usd, output_tokens}}` copied from the call's `modelUsage`; absent `modelUsage` gives `null`, never `{}` or 0.
+- **AC-4** (report): the morning report (`runner/report.py`) adds one line per run: cost by model and the share spent on non main models; a run with no `models` data says `model split: unknown`.
+- **AC-5** (mod gate): this spec builds no `agent.spawn` routing mod. The report line names the share of cost on sonnet helpers that could move to haiku; above 15% over a week, `/sync` adds a scope row "Consider a routing mod" sourced to this spec. Below, nothing.
+- **AC-6** (probe, build step 1): `claude -p "use the scout agent to list the files here" --output-format json` in a scratch folder; record whether `modelUsage` lists the haiku model as its own key. If it does not, AC-3 and AC-4 record only the main model and say so.
+
+## Decision
+Two pin changes, one rule line, a per model field in call records, one report line, and a written threshold for the mod.
+
+## Rationale
+Moving only pure search keeps review quality, which the lessons rule protects. The threshold turns "after measuring" into a check that can be read off the report.
+
+## Build plan
+1. Probe the `modelUsage` shape, satisfies **AC-6**
+2. Agent pins and their corpus test, satisfies **AC-1**
+3. Rule line, satisfies **AC-2**
+4. `models` field and report line with the gate, satisfies **AC-3** to **AC-5**
+
+## Consequences
+**Positive**: search helpers cost a fraction of before; the next decision has numbers.
+**Negative / tradeoffs**: Haiku traces code less well than Sonnet.
+**Neutral**: the live copy in `~/.claude/agents` updates through `bin/install.sh`.
