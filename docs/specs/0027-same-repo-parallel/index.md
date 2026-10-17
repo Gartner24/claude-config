@@ -4,7 +4,7 @@
 **Status**: Accepted (built f08c6a2)
 **Paths:** `runner/run.py`, `runner/wf.py`, `runner/report.py`, `runner/e2e/run.py`, `runner/tests/test_parallel_repo.py`
 **Amends**: [0017](../0017-several-repos-at-once/index.md) AC-3 (two children may share a git common dir when both are feature worktrees of one repo with disjoint Paths), [0008](../0008-failure-park-policy/index.md) AC-9 (a feature worktree is trusted through its repo), architecture invariant 6 (one feature at a time per repo, unless the repo says `parallel`). Builds on [0026](../0026-branch-pr-flow/index.md) (spec branches, `prs` records).
-**Amended by**: [0043](../0043-fast-runner/index.md) (no Paths overlap wait or stop; branches combined at the end)
+**Amended by**: [0043](../0043-fast-runner/index.md) (no Paths overlap wait or stop; branches combined at the end), [0052](../0052-more-features-at-once.md) (parallel 1 to 8, memory and usage brake, Paths wait back)
 
 ## What you're agreeing to
 - A repo whose AGENTS.md says `- parallel: <n>` builds up to n of its features at the same time, each in its own folder (a git worktree) on its own spec branch; your own checkout is never switched.

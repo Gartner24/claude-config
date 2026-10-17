@@ -4,7 +4,7 @@
 **Status**: Accepted (built 90c9b20; verify and timing skipped, 2026-10-15)
 **Paths:** `runner/run.py`, `runner/pr.py`, `runner/context.py`, `runner/telegram.py`, `runner/tests/fast.py`, `runner/tests/test_fast.py`, `runner/tests/test_shared_plan.py`, `runner/tests/test_explain.py`, `AGENTS.md`
 **Amends**: [0027](../0027-same-repo-parallel/index.md) AC-4 and AC-6 (no Paths overlap wait or stop; the open follow up on scope diffs between branches), [0042](../0042-questions-you-can-act-on/index.md) AC-3 (what a Telegram question keeps)
-**Amended by**: [0051](../0051-clean-branches-commits/index.md) (combine step removed, plan commits land by a docs PR)
+**Amended by**: [0051](../0051-clean-branches-commits/index.md) (combine step removed, plan commits land by a docs PR), [0052](../0052-more-features-at-once.md) (parallel 1 to 8, memory and usage brake, Paths wait back)
 
 ## What you're agreeing to
 - claude-config builds up to 4 features at once, each on its own branch in its own copy of the repo, whatever files they touch; nobody waits for another feature because of a shared file.
