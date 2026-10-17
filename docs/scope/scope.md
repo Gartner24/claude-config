@@ -834,8 +834,8 @@ A fixed keep list of 37 skills keeps its description in every session; a script 
 - [x] Sync docs: `/sync fewer skills described in every session`
 Spec [0050](../specs/0050-fixed-skill-keep-list/index.md) · code in `scripts/skill-keep.py`, `scripts/skill-keep.txt`, `runner/tests/test_skill_keep.py` · Source: [research](../research/organize-and-sync-review-2026-10-15.md), section 5, and the [brief](../briefs/organize-and-sync.md).
 
-## Deferred
-Out of scope for the current build pass, kept so the plan stays honest.
+## Release 7: clean branches and the tool review
+The clean branches feature and the October 2026 tool review plan ([brief](../briefs/tool-review-2026-10.md)).
 
 ### 56. Clean branches, PRs and commits · in-progress · auto
 Code reaches main only through its own squash merged PR, branches and worktrees are deleted after a merge, no combined branches, small low risk PRs merge themselves in an opted in repo, plan commits land by a docs PR, and big or old features get a warning.
@@ -854,6 +854,22 @@ Code reaches main only through its own squash merged PR, branches and worktrees 
 - [x] Turn self merge on: `"auto_merge": true` in the claude-config entry of `~/.claude/private/pr.json` · waits on you
 - [ ] Sync docs: `/sync clean branches, PRs and commits`
 Spec [0051](../specs/0051-clean-branches-commits/index.md) · Source: [brief](../briefs/clean-branches-and-commits.md).
+
+### 68. Runner runs more than 4 features at once · in-progress · auto
+Remove the fixed 4: any number up to a ceiling, a live memory and usage brake, and the same files rule back from each spec's Paths line.
+**Done when:** a `wf` run starts more than 4 features when memory and usage allow, never two whose Paths overlap, and holds back when free memory or the 5 hour use crosses its line.
+- [x] Research and compare: `/deep-research runner with n features at once` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
+- [x] Design it (spec): `/architect runner runs more than 4 features at once`
+- [ ] Build it: `/develop runner runs more than 4 features at once`
+  - [ ] Stress test at 8 and git lock retry, stress test again (AC-7, AC-8)
+  - [ ] Parallel 1 to 8, read loop timeout, memory and usage brake (AC-1, AC-2, AC-3, AC-4)
+  - [ ] Same repo Paths wait and `Paths: none` (AC-5)
+  - [ ] Cores split through `WF_CORES` (AC-6)
+- [ ] Verify it: `/check verify runner runs more than 4 features at once`
+- [ ] Test it: `/test runner runs more than 4 features at once`
+- [ ] Sync docs: `/sync runner runs more than 4 features at once`
+Spec [0052](../specs/0052-more-features-at-once.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B2.
+
 ### 66. Update Claude Code through /claude-config
 Update Claude Code and check drift between the repo and `~/.claude` before the tool review.
 **Done when:** Claude Code is current and `bin/claude-config.py drift` prints `drift: none`.
@@ -971,21 +987,6 @@ fb-ask can send private text to the model on the laptop (`fb-local`) with `--loc
 - [ ] Sync docs: `/sync local model on the laptop`
 Spec [0053](../specs/0053-fb-ask-local-model.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items A7, B8, D4.
 
-### 68. Runner runs more than 4 features at once · in-progress · auto
-Remove the fixed 4: any number up to a ceiling, a live memory and usage brake, and the same files rule back from each spec's Paths line.
-**Done when:** a `wf` run starts more than 4 features when memory and usage allow, never two whose Paths overlap, and holds back when free memory or the 5 hour use crosses its line.
-- [x] Research and compare: `/deep-research runner with n features at once` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
-- [x] Design it (spec): `/architect runner runs more than 4 features at once`
-- [ ] Build it: `/develop runner runs more than 4 features at once`
-  - [ ] Stress test at 8 and git lock retry, stress test again (AC-7, AC-8)
-  - [ ] Parallel 1 to 8, read loop timeout, memory and usage brake (AC-1, AC-2, AC-3, AC-4)
-  - [ ] Same repo Paths wait and `Paths: none` (AC-5)
-  - [ ] Cores split through `WF_CORES` (AC-6)
-- [ ] Verify it: `/check verify runner runs more than 4 features at once`
-- [ ] Test it: `/test runner runs more than 4 features at once`
-- [ ] Sync docs: `/sync runner runs more than 4 features at once`
-Spec [0052](../specs/0052-more-features-at-once.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B2.
-
 ### 69. Ideas borrowed from tools we skip · in-progress · auto
 Build the four ideas taken from Harvey, MiroFish and claude-skills-founder: a lead finder that never sends, a reaction tester, an idea scorecard, and the new number replaces old rule.
 **Done when:** each of the four is in a skill and used once on a real case.
@@ -1046,6 +1047,9 @@ Panes for the whole plan, every agent and the runner, with three confirmed safe 
 - [ ] Install the mod update live after its scan · waits on you · later boxes go on
 - [ ] Sync docs: `/sync wf-dash panes and actions`
 Spec [0060](../specs/0060-wf-dash-panes.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B3, part 3 of 3, with your plan pane ask; stacks on spec 0059.
+
+## Deferred
+Out of scope for the current build pass, kept so the plan stays honest.
 
 ### 49. Fast runner · done
 Features build, check and test 4 at a time on their own branches, one plan file stays the truth, the suite runs in about a minute, and Telegram questions read clearly.
