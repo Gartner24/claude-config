@@ -22,7 +22,9 @@ FAKE_GH = test_pr.FAKE_GH.replace('if a[:2] == ["pr", "merge"]:\n', '''if a[:2] 
     import subprocess
     sha = a[a.index("--match-head-commit") + 1]
     o = cfg["land"]
-    tree = subprocess.run(["git", "--git-dir", o, "rev-parse", sha + "^{tree}"], capture_output=True, text=True).stdout.strip()
+    if cfg.get("dirty"):
+        open("docs/notes.md", "a").write("later work\\n")
+    tree = subprocess.run(["git", "--git-dir", o, "rev-parse", ("refs/heads/work" if cfg.get("land_other") else sha) + "^{tree}"], capture_output=True, text=True).stdout.strip()
     new = subprocess.run(["git", "--git-dir", o, "commit-tree", tree, "-p", "refs/heads/work", "-m", "squash"],
                          capture_output=True, text=True, env={**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@x",
                                                               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@x"}).stdout.strip()
@@ -756,6 +758,33 @@ class TestDocsPr(Case):
         self.assertEqual(merge[3:], ["--squash", "--delete-branch", "--match-head-commit", head])
         self.assertEqual(self.git("rev-parse", "work"), self.git("rev-parse", "work", repo=self.origin))
         self.assertEqual(self.git("symbolic-ref", "--short", "HEAD"), "work")
+
+    # covers: AC-11 (the squash commit differs from the local commits: local default branch is still reset to origin)
+    def test_resyncs_diverged(self):
+        self.commit("docs/notes.md")
+        self.gh({"land": str(self.origin), "land_other": True})
+        r = self.script("notes")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(self.git("rev-parse", "work"), self.git("rev-parse", "work", repo=self.origin))
+
+    # covers: AC-11 (a tree that went dirty during the merge is never reset away)
+    def test_resync_keeps_dirty_tree(self):
+        self.commit("docs/notes.md")
+        self.gh({"land": str(self.origin), "land_other": True, "dirty": True})
+        self.script("notes")
+        self.assertIn("later work", (self.repo / "docs" / "notes.md").read_text())
+
+    # covers: AC-11 (PR title is the newest commit subject, body lists every subject, no --fill)
+    def test_title_and_body_from_commits(self):
+        self.commit("docs/a.md")
+        self.commit("docs/b.md")
+        self.gh({"land": str(self.origin)})
+        r = self.script("notes")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        [create] = [c for c in self.gh_calls() if c[:2] == ["pr", "create"]]
+        self.assertNotIn("--fill", create)
+        self.assertEqual(create[create.index("--title") + 1], "docs: docs/b.md")
+        self.assertEqual(create[create.index("--body") + 1], "- docs: docs/a.md\n- docs: docs/b.md")
 
     # covers: security review (module shadowing): the scanners run from the script repo's origin copy with python
     # -I, so an untracked module planted next to the tree's checker does not turn a private name hit into a pass

@@ -54,16 +54,15 @@ EOF
 branch="docs/$(date +%Y%m%d)-$slug"
 git switch --quiet -c "$branch"
 git push --quiet origin "$old:refs/heads/$branch"
-url="$("$GH" pr create --base "$default" --head "$branch" --fill | tail -n 1)"
+url="$("$GH" pr create --base "$default" --head "$branch" \
+  --title "$(git log -1 --format=%s "$old")" --body "$(git log --reverse --format='- %s' "$range")" | tail -n 1)"
 "$GH" pr merge "$url" --squash --delete-branch --match-head-commit "$old" >&2
 git switch --quiet "$default" 2>/dev/null || true
 git branch -D "$branch" >/dev/null 2>&1 || true
 git fetch --quiet --prune origin
-if git diff --quiet "$old" "origin/$default" -- docs; then
-  git reset --quiet --keep "origin/$default"
-else
-  echo "docs-pr: origin/$default differs in docs/ from your commits; they stay local" >&2
-  echo "$url"
-  exit 1
+# The squash commit holds the same changes as the local commits, so the local default branch is resynced, but only
+# when the tree is clean and HEAD is still the pushed commit: anything newer or uncommitted is someone's work.
+if git diff --quiet && git diff --cached --quiet && [[ "$(git rev-parse HEAD)" == "$old" ]]; then
+  git reset --quiet --hard "origin/$default"
 fi
 echo "$url"
