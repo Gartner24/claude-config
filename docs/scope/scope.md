@@ -939,15 +939,15 @@ Treat the runner as a system with a feedback loop: each run's results improve th
 **Done when:** the runner records what slowed or broke each run and turns it into a change or a proposal without you asking.
 - [x] Research and compare: `/deep-research self improving agent runners and feedback loops` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
 - [x] Design it (spec): `/architect runner that improves itself`
-- [ ] Build it: `/develop runner that improves itself`
-  - [ ] History, baselines, proposals, write fence (AC-1 to AC-4, AC-8)
-  - [ ] End of run call, `wf insights`, hook line, /insights read (AC-5 to AC-7)
-  - [ ] improve-my-system skill and its extract script (AC-9)
+- [x] Build it: `/develop runner that improves itself`
+  - [x] History, baselines, proposals, write fence (AC-1 to AC-4, AC-8)
+  - [x] End of run call, `wf insights`, hook line, /insights read (AC-5 to AC-7)
+  - [x] improve-my-system skill and its extract script (AC-9)
 - [ ] Verify it: `/check verify runner that improves itself`
 - [ ] Test it: `/test runner that improves itself`
 - [ ] Write `~/.claude/private/history-allow.txt` with your own project folders (AC-9) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync runner that improves itself`
-Spec [0061](../specs/0061-runner-improves-itself.md) · Source: [brief](../briefs/tool-review-2026-10.md). Plan item B5.
+Spec [0061](../specs/0061-runner-improves-itself/index.md) · code in `runner/insights.py`, `claude-home/skills/improve-my-system/` · Source: [brief](../briefs/tool-review-2026-10.md). Plan item B5.
 
 ### 63. Evaluate Harvey, Soup, MiroFish, claude-skills-founder, Headroom · done
 Research each tool and compare it with the setup: Harvey (repo, site and `~/Downloads/guia-harvey.pdf`), Soup, MiroFish, claude-skills-founder, Headroom.
@@ -982,16 +982,17 @@ Spec [0054](../specs/0054-skill-scan-script.md) · Source: [brief](../briefs/too
 fb-ask can send private text to the model on the laptop (`fb-local`) with `--local`; client and work text only that way.
 **Done when:** `fb-ask --local` answers through `fb-local` only, client text passes only with it, and a long or cut input falls back.
 - [x] Design it (spec): `/architect local model on the laptop`
-- [ ] Build it: `/develop local model on the laptop`
-  - [ ] `--local` flag, limits, truncation and build checks, gates (AC-1 to AC-6)
-  - [ ] Self checks, rule and docs (AC-7, AC-8)
+- [x] Build it: `/develop local model on the laptop`
+  - [x] `--local` flag, limits, truncation and build checks, gates (AC-1 to AC-6)
+  - [x] Self checks, rule and docs (AC-7, AC-8)
+- [ ] Copy the rule live: `cp claude-home/rules/cheap-worker.md ~/.claude/rules/cheap-worker.md` · waits on you · live · later boxes go on
 - [x] Install `ollama-vulkan` and join the render and video groups · waits on you (done in plan A7)
 - [x] Trial: speed test, one opencode task against claude-fb's cloud model · waits on you (done in plan A7, agent task skipped by your choice)
 - [ ] Verify it: `/check verify local model on the laptop`
 - [ ] Test it: `/test local model on the laptop`
 - [ ] Live probes P1 and P2, never while wf builds (AC-9) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync local model on the laptop`
-Spec [0053](../specs/0053-fb-ask-local-model.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items A7, B8, D4.
+Spec [0053](../specs/0053-fb-ask-local-model.md) · code in `scripts/fb-ask.py` · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items A7, B8, D4.
 
 ### 69. Ideas borrowed from tools we skip · in-progress · auto
 Build the four ideas taken from Harvey, MiroFish and claude-skills-founder: a lead finder that never sends, a reaction tester, an idea scorecard, and the new number replaces old rule.
