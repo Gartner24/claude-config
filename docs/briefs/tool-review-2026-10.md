@@ -92,10 +92,10 @@ This is the whole list. Nothing is added, dropped or swapped without your yes, a
 - [x] D5. Kept branches `feat/seo-ops-refs` and `sync-settings`: keep or delete: answered 2026-10-17: delete both. sync-settings deleted (already in main). feat/seo-ops-refs held 703 unlanded lines of seo-ops ref docs; you chose to land it instead, PR #31
 
 ### E. Housekeeping still open
-- [ ] E1. Row 46 missed skill detector: the 3 day report verdict, then `/sync`
+- [x] E1. Row 46 missed skill detector: the 3 day report verdict, then `/sync`: done 2026-10-17, verdict in spec 0036 verify.md: WARM read as trigger noise, no router
 - [ ] E2. Row 51 autonomous mode per chat: the two real chats check, then `/sync`
 - [x] E3. Two bugs found today: `bin/repo-settings.sh` failed its first run then passed; `bin/docs-pr.sh` leaves local main diverged after the squash merge (row 71): fixed in PR #30 and PR #29
-- [ ] E4. Small notes from the PR #18 review: stale "combined at the end" line in scope.md, contradicting lines in architecture.md invariant 1 and claude-home/CLAUDE.md:41, `--fill` titles in docs-pr.sh, runner/context.py missing from spec 0051's Paths (row 71): scope.md line fixed in PR #30, `--fill` titles in PR #29; the architecture.md contradiction and the Paths line go through `/architect` with D1
+- [x] E4. Small notes from the PR #18 review: stale "combined at the end" line in scope.md, contradicting lines in architecture.md invariant 1 and claude-home/CLAUDE.md:41, `--fill` titles in docs-pr.sh, runner/context.py missing from spec 0051's Paths (row 71): scope.md line fixed in PR #30, `--fill` titles in PR #29; the architecture.md contradiction and the Paths line go through `/architect` with D1: done 2026-10-17: two leftovers written into spec 0051 AC-16 and its Paths
 - [ ] E5. Rebuild the master list after each phase
 
 ## Items

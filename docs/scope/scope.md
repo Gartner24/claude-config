@@ -75,20 +75,20 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 54 | Organize claude-config and ~/.claude, sync what you use daily | Release 8 | done |
 | 55 | Fewer skills described in every session | Release 8 | done |
 | 56 | Clean branches, PRs and commits | Release 8 | in-progress |
-| 66 | Update Claude Code through /claude-config | Release 9 | needs a decision |
-| 57 | Move my own skills out of jjstack | Release 9 | needs a decision |
+| 66 | Update Claude Code through /claude-config | Release 9 | done |
+| 57 | Move my own skills out of jjstack | Release 9 | done |
 | 58 | Own status bar and dashboards with mods | Release 9 | in-progress |
 | 59 | Memory tool: claude-mem, MemPalace, graphify or NotebookLM | Release 9 | planned |
 | 60 | Sessions pass work to each other | Release 9 | in-progress |
 | 61 | Cheap model gatekeeper with open models | Release 9 | in-progress |
 | 62 | Runner that improves itself | Release 9 | in-progress |
-| 63 | Evaluate Harvey, Soup, MiroFish, claude-skills-founder, Headroom | Release 9 | needs a decision |
+| 63 | Evaluate Harvey, Soup, MiroFish, claude-skills-founder, Headroom | Release 9 | done |
 | 64 | Recommended mods: gatekeeper, Claude to Claude, own panel | Release 9 | done |
 | 65 | Scan skills with skillspector | Release 9 | in-progress |
 | 67 | Local model on the laptop | Release 9 | in-progress |
 | 68 | Runner runs more than 4 features at once | Release 9 | in-progress |
 | 69 | Ideas borrowed from tools we skip | Release 9 | in-progress |
-| 70 | graphify test on one repo | Release 9 | planned |
+| 70 | graphify test on one repo | Release 9 | done |
 | 71 | Self merge rules and review notes | Release 9 | in-progress |
 | 72 | wf-dash band and alerts | Release 9 | in-progress |
 | 73 | wf-dash panes and actions | Release 9 | in-progress |
@@ -870,17 +870,18 @@ Remove the fixed 4: any number up to a ceiling, a live memory and usage brake, a
 - [ ] Sync docs: `/sync runner runs more than 4 features at once`
 Spec [0052](../specs/0052-more-features-at-once.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B2.
 
-### 66. Update Claude Code through /claude-config
+### 66. Update Claude Code through /claude-config · done
 Update Claude Code and check drift between the repo and `~/.claude` before the tool review.
 **Done when:** Claude Code is current and `bin/claude-config.py drift` prints `drift: none`.
-- [ ] Update and drift check: `/claude-config` · waits on you
+- [x] Update and drift check: `/claude-config` · waits on you (done in plan A1, PR #21, drift none)
 Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
 
-### 57. Move my own skills out of jjstack
+### 57. Move my own skills out of jjstack · done
 Find the skills in jjstack that are yours from its git history, and copy your own skills and the jjstack parts you use into claude-config; never commit to jjstack.
 **Done when:** every skill you wrote that lived in jjstack runs from claude-config, the status line no longer needs jjstack, and jjstack has no new commit from this.
 - [x] Research and compare: `/deep-research which jjstack skills are mine and what I use from jjstack` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
-- [ ] Design it (spec): `/architect move my own skills out of jjstack`
+- [x] Design it (spec): `/architect move my own skills out of jjstack` · skipped: decided in the research answers 2026-10-15, no spec needed
+Closed 2026-10-17: the research answer for this row says keep jjstack; only its status line goes, replaced by row 58 (spec 0058); spawn-review was copied in plan A5 (PR #26).
 Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
 
 ### 58. Own status bar and dashboards with mods · in-progress · auto
@@ -945,10 +946,11 @@ Treat the runner as a system with a feedback loop: each run's results improve th
 - [ ] Sync docs: `/sync runner that improves itself`
 Spec [0061](../specs/0061-runner-improves-itself.md) · Source: [brief](../briefs/tool-review-2026-10.md). Plan item B5.
 
-### 63. Evaluate Harvey, Soup, MiroFish, claude-skills-founder, Headroom
+### 63. Evaluate Harvey, Soup, MiroFish, claude-skills-founder, Headroom · done
 Research each tool and compare it with the setup: Harvey (repo, site and `~/Downloads/guia-harvey.pdf`), Soup, MiroFish, claude-skills-founder, Headroom.
 **Done when:** each tool is adopted, adapted or rejected with a reason, and each adopted one passed `skillspector`.
 - [x] Research and compare: `/deep-research Harvey, Soup, MiroFish, claude-skills-founder, Headroom against our setup` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
+Closed 2026-10-17: research done, verdicts in brief section C; the ideas kept are row 69.
 Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
 
 ### 64. Recommended mods: gatekeeper, Claude to Claude, own panel · done
@@ -1001,11 +1003,11 @@ Build the four ideas taken from Harvey, MiroFish and claude-skills-founder: a le
 - [ ] Sync docs: `/sync ideas borrowed from tools we skip`
 Spec [0056](../specs/0056-borrowed-ideas.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items B10 to B13.
 
-### 70. graphify test on one repo
+### 70. graphify test on one repo · done
 Map one large own repo with graphify, code only and AI keys hidden, and ask 8 to 10 questions with and without the map.
 **Done when:** the test's numbers are written down and graphify is kept in that repo or uninstalled with its skill removed.
 - [x] Research and compare: `/deep-research graphify against our setup` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
-- [ ] Run the test on the repo you pick · waits on you
+- [x] Run the test on the repo you pick · waits on you (done in plan A8: it failed the rule; kept installed by your choice; B9 dropped)
 Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items A8, B9, D2.
 
 ### 71. Self merge rules and review notes
