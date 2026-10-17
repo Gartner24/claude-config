@@ -16,6 +16,8 @@ Source: your message of 2026-10-15 evening, at the end of the clean branches ses
 - **A8 answer** (2026-10-16): keep graphify installed even though it failed the A/B test (+35% tokens, 0 of 3 unasked uses, quality not graded). Never remove it without asking. B9 (its hook and CLAUDE.md line) is not decided.
 - **A7 runs in a parallel session** (your answer, 2026-10-16), so this one goes on with A8 meanwhile.
 - **A7 to D5 answers** (2026-10-17): close A7 and add fb-local (opt-in, never a fallback); D1 yes to all three; Headroom later; delete both old branches (seo-ops-refs waits for your confirm, it holds unlanded work).
+- **Later answers** (2026-10-17, second session): land seo-ops-refs as a PR (PR #31), not delete it; drop B9 (graphify stays installed and usable by hand, no hook, no CLAUDE.md line); D4 yes, local model only: fb-ask may take client and work repo text only through `fb-local`, the cloud groups stay refused there. D4 is built with B8.
+- **Design sessions** (your words, 2026-10-17): "Yes launch the architect for the ones missing": run `/architect` back to back for B1 to B8, B10 to B14, the D1 amendment to spec 0051, and the two E4 leftovers; recommend an answer on every question and batch them.
 
 ## The plan, enforced until done (agreed 2026-10-15)
 
@@ -43,7 +45,7 @@ This is the whole list. Nothing is added, dropped or swapped without your yes, a
 - [ ] B6. Cheap work on cheap models: read only helper agents pinned to Haiku, fb-ask used for big inputs; an `agent.spawn` routing mod only after measuring the savings (row 61)
 - [ ] B7. Skill scan script: skillspector over every skill and plugin, both passes, rerun before every install (row 65)
 - [ ] B8. Local model wired in, only if A7 passes: `fb-local` group in fb-ask for private text (row 67)
-- [ ] B9. graphify in the workflow, only if A8 wins: its hook and one CLAUDE.md line in that repo only (row 70)
+- [x] B9. graphify in the workflow, only if A8 wins: its hook and one CLAUDE.md line in that repo only (row 70): dropped 2026-10-17, A8 lost; graphify stays installed
 - [ ] B10. Lead finder (idea from Harvey): a skill that audits local business sites for no website, no booking, an old blog or an incumbent agency, and lists 10 to 20 for you to contact by hand; nothing is ever sent by it (row 69)
 - [ ] B11. Reaction tester (idea from MiroFish): Claude agents play your target customers and react to an idea, offer or page, then a summary (row 69)
 - [ ] B12. Idea scorecard (idea from claude-skills-founder): a 7 point score ending in build, change course or drop, in your idea review skill (row 69)
@@ -70,14 +72,14 @@ This is the whole list. Nothing is added, dropped or swapped without your yes, a
 - [x] D1. Review leftovers from PR #18 (row 71): add hook scripts, `config/`, skills, agents and `package.json` to the never-self-merge list (recommended yes); date the old branch warning from the first commit (recommended yes); wait for at least one check before a self merge (recommended yes): answered 2026-10-17: yes to all three; goes through /architect as an amendment to spec 0051
 - [x] D2. Which large own repo the graphify test (A8) uses: answered 2026-10-16, see Agreed so far
 - [x] D3. Headroom trial, next week or later: answered 2026-10-17: Headroom later, not in this round
-- [ ] D4. fb-ask on client repos when the model is local (only if A7 passes)
-- [x] D5. Kept branches `feat/seo-ops-refs` and `sync-settings`: keep or delete: answered 2026-10-17: delete both. sync-settings deleted (already in main). feat/seo-ops-refs held 703 unlanded lines of seo-ops ref docs, kept until you confirm
+- [x] D4. fb-ask on client repos when the model is local (only if A7 passes): answered 2026-10-17: yes, through `fb-local` only; built with B8
+- [x] D5. Kept branches `feat/seo-ops-refs` and `sync-settings`: keep or delete: answered 2026-10-17: delete both. sync-settings deleted (already in main). feat/seo-ops-refs held 703 unlanded lines of seo-ops ref docs; you chose to land it instead, PR #31
 
 ### E. Housekeeping still open
 - [ ] E1. Row 46 missed skill detector: the 3 day report verdict, then `/sync`
 - [ ] E2. Row 51 autonomous mode per chat: the two real chats check, then `/sync`
-- [ ] E3. Two bugs found today: `bin/repo-settings.sh` failed its first run then passed; `bin/docs-pr.sh` leaves local main diverged after the squash merge (row 71)
-- [ ] E4. Small notes from the PR #18 review: stale "combined at the end" line in scope.md, contradicting lines in architecture.md invariant 1 and claude-home/CLAUDE.md:41, `--fill` titles in docs-pr.sh, runner/context.py missing from spec 0051's Paths (row 71)
+- [x] E3. Two bugs found today: `bin/repo-settings.sh` failed its first run then passed; `bin/docs-pr.sh` leaves local main diverged after the squash merge (row 71): fixed in PR #30 and PR #29
+- [ ] E4. Small notes from the PR #18 review: stale "combined at the end" line in scope.md, contradicting lines in architecture.md invariant 1 and claude-home/CLAUDE.md:41, `--fill` titles in docs-pr.sh, runner/context.py missing from spec 0051's Paths (row 71): scope.md line fixed in PR #30, `--fill` titles in PR #29; the architecture.md contradiction and the Paths line go through `/architect` with D1
 - [ ] E5. Rebuild the master list after each phase
 
 ## Items
