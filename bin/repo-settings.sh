@@ -82,5 +82,9 @@ if [[ -n "$id" ]]; then
 else
   printf '%s' "$body" | "$GH" api -X POST "repos/$repo/rulesets" --input - >/dev/null
 fi
-differences
-echo "repo-settings: $repo set"
+# GitHub's rulesets list can lag a moment behind the POST, so a fresh ruleset is not listed yet: read it back with retries.
+for try in 1 2 3 4 5 6; do
+  differences && { echo "repo-settings: $repo set"; exit 0; }
+  [[ "$try" == 6 ]] || sleep "${RS_SLEEP:-2}"
+done
+exit 1
