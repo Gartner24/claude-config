@@ -74,7 +74,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 53 | Only a typed /auto turns on or releases | Release 8 | done |
 | 54 | Organize claude-config and ~/.claude, sync what you use daily | Release 8 | done |
 | 55 | Fewer skills described in every session | Release 8 | done |
-| 56 | Clean branches, PRs and commits | Release 8 | in-progress |
+| 56 | Clean branches, PRs and commits | Release 8 | done |
 | 66 | Update Claude Code through /claude-config | Release 9 | done |
 | 57 | Move my own skills out of jjstack | Release 9 | done |
 | 58 | Own status bar and dashboards with mods | Release 9 | in-progress |
@@ -837,7 +837,7 @@ Spec [0050](../specs/0050-fixed-skill-keep-list/index.md) · code in `scripts/sk
 ## Release 7: clean branches and the tool review
 The clean branches feature and the October 2026 tool review plan ([brief](../briefs/tool-review-2026-10.md)).
 
-### 56. Clean branches, PRs and commits · in-progress · auto
+### 56. Clean branches, PRs and commits · done · auto
 Code reaches main only through its own squash merged PR, branches and worktrees are deleted after a merge, no combined branches, small low risk PRs merge themselves in an opted in repo, plan commits land by a docs PR, and big or old features get a warning.
 **Done when:** a runner built feature ends as one squash commit on main through its PR with its branch and worktree gone, a direct push to main is refused by GitHub, and the runner's plan commits reach main by a docs PR.
 - [x] Design it (spec): `/architect clean branches, PRs and commits`
@@ -848,11 +848,11 @@ Code reaches main only through its own squash merged PR, branches and worktrees 
   - [x] Cleanup after merge, plan commits by docs PR (AC-7, AC-15)
   - [x] Settings check, `bin/repo-settings.sh`, `bin/docs-pr.sh` (AC-10, AC-11)
   - [x] Rules, architecture, Amended by lines (AC-14)
-- [ ] Verify it: `/check verify clean branches, PRs and commits`
+- [x] Verify it: `/check verify clean branches, PRs and commits`
 - [x] Test it: `/test clean branches, PRs and commits` (967 tests pass; 41 build and 15 review mutation checks)
 - [x] Set the GitHub settings: `bin/repo-settings.sh Gartner24/claude-config`, then `--check` exits 0 · waits on you
 - [x] Turn self merge on: `"auto_merge": true` in the claude-config entry of `~/.claude/private/pr.json` · waits on you
-- [ ] Sync docs: `/sync clean branches, PRs and commits`
+- [x] Sync docs: `/sync clean branches, PRs and commits`
 Spec [0051](../specs/0051-clean-branches-commits/index.md) · Source: [brief](../briefs/clean-branches-and-commits.md).
 
 ### 68. Runner runs more than 4 features at once · in-progress · auto
@@ -888,9 +888,9 @@ Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep
 Our own status bar without jjstack: the segments ported into the runner.
 **Done when:** the bottom bar draws every segment it drew before with no jjstack folder, and unknown values show `?`.
 - [x] Design it (spec): `/architect own status bar and dashboards with mods`
-- [ ] Build it: `/develop own status bar and dashboards with mods`
-  - [ ] Ported segments, usage modes, unknown rules (AC-1, AC-3, AC-5)
-  - [ ] `bar()` switch, liveness kept, tests (AC-2, AC-4, AC-6)
+- [x] Build it: `/develop own status bar and dashboards with mods`
+  - [x] Ported segments, usage modes, unknown rules (AC-1, AC-3, AC-5)
+  - [x] `bar()` switch, liveness kept, tests (AC-2, AC-4, AC-6)
 - [ ] Verify it: `/check verify own status bar and dashboards with mods`
 - [ ] Test it: `/test own status bar and dashboards with mods`
 - [ ] Sync docs: `/sync own status bar and dashboards with mods`
@@ -922,10 +922,12 @@ Spec [0057](../specs/0057-handover-on-clear.md) · Source: [brief](../briefs/too
 Search helpers run on Haiku, the model rule says so, and each runner call records cost per model so a routing mod is decided by data.
 **Done when:** code-explorer and docs-lookup are on Haiku, call records carry `models`, and the morning report shows the run and week split with the 15% gate.
 - [x] Design it (spec): `/architect cheap model gatekeeper with open models`
-- [ ] Build it: `/develop cheap model gatekeeper with open models`
-  - [ ] Probe the `modelUsage` shape (AC-6)
-  - [ ] Agent pins and rule (AC-1, AC-2)
-  - [ ] `models` field, run line, week split and gate (AC-3 to AC-5, AC-7)
+- [x] Build it: `/develop cheap model gatekeeper with open models`
+  - [x] Probe the `modelUsage` shape (AC-6) · `claude -p` says Not logged in inside the sandbox; a real run record (feat-0048, 2026-10-15, call-01) lists its Sonnet helper as its own `modelUsage` key, so AC-4 and AC-5 were built
+  - [x] Agent pins and rule (AC-1, AC-2)
+  - [x] `models` field, run line, week split and gate (AC-3 to AC-5, AC-7)
+- [ ] Confirm Haiku gets its own cost key: in an empty folder run `claude -p "use the scout agent to list the files here" --output-format json` and check `modelUsage` lists a haiku model (AC-6) · waits on you · later boxes go on
+- [ ] Copy the new agent pins and rule live: `bin/install.sh` · waits on you · live · later boxes go on
 - [ ] Verify it: `/check verify cheap model gatekeeper with open models`
 - [ ] Test it: `/test cheap model gatekeeper with open models`
 - [ ] Sync docs: `/sync cheap model gatekeeper with open models`
