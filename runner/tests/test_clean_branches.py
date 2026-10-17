@@ -660,7 +660,8 @@ cfg = json.load(open(os.path.join(d, "settings.json")))
 if "-X" in a:
     print("{{}}")
 elif a[1].endswith("/rulesets"):
-    print(cfg.get("id", ""))
+    lists = sum(1 for l in open(os.path.join(d, "gh-argv.jsonl")) if json.loads(l)[1].endswith("/rulesets"))
+    print(cfg.get("id", "") if lists >= cfg.get("listed_at", 0) else "")
 elif "/rulesets/" in a[1]:
     print(cfg["shape"])
 else:
@@ -678,7 +679,8 @@ class TestRepoSettings(RunCase):
         (self.fakes / "gh-argv.jsonl").unlink(missing_ok=True)
         self.fake("gh", SETTINGS_GH)
         return subprocess.run(["bash", str(BIN / "repo-settings.sh"), *args], capture_output=True, text=True,
-                              env={**os.environ, "GH": str(self.bin / "gh"), "FAKE_DIR": str(self.fakes)}, timeout=60)
+                              env={**os.environ, "GH": str(self.bin / "gh"), "FAKE_DIR": str(self.fakes), "RS_SLEEP": "0"},
+                              timeout=60)
 
     def writes(self):
         p = self.fakes / "gh-argv.jsonl"
@@ -710,10 +712,17 @@ class TestRepoSettings(RunCase):
                                      "allow_rebase_merge=false", "-F", "delete_branch_on_merge=true", "-f",
                                      "squash_merge_commit_title=PR_TITLE", "-f", "squash_merge_commit_message=PR_BODY"])
         self.assertEqual(post, ["api", "-X", "POST", "repos/o/r/rulesets", "--input", "-"])
-        self.assertEqual(r.returncode, 1, "the fake still has no ruleset, so the closing check says so")
+        self.assertEqual(r.returncode, 1, "the fake never lists the ruleset, so the closing check says so")
         r = self.script("o/r")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(self.writes()[1], ["api", "-X", "PUT", "repos/o/r/rulesets/5", "--input", "-"])
+
+    # covers: AC-10 (first run: the new ruleset is not listed right after the POST, so the closing check retries)
+    def test_first_run(self):
+        r = self.script("o/r", listed_at=3)  # list 1 is the pre-check, 2 the first closing read, 3 the retry
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(r.stdout.splitlines()[-1], "repo-settings: o/r set")
+        self.assertEqual(self.writes()[1][:3], ["api", "-X", "POST"])
 
 
 class TestDocsPr(Case):
