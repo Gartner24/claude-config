@@ -1028,6 +1028,7 @@ Our own mod draws a band above the prompt with the session and the runner, and a
 **Done when:** the band shows every segment and the runner counts, unknown shows `?`, and alerts fire once per event.
 - [x] Design it (spec): `/architect own status bar and dashboards with mods`
 - [x] Run probes P1 to P5 in a scratch session (spec 0059 AC-6), write results in its verify notes · waits on you (passed 2026-10-17; P4b checked in the build)
+- [ ] Lock the look first: run the `design` pipeline on wf-dash (band, toasts, panes, short bar) in a session and land its locked `design.md` · waits on you
 - [ ] Build it: `/develop wf-dash band and alerts`
   - [ ] `wf status --json` (AC-1)
   - [ ] Band, alerts, short bar (AC-2 to AC-5)
@@ -1043,6 +1044,7 @@ Panes for the whole plan, every agent and the runner, with three confirmed safe 
 **Done when:** `/plan`, `/agents` and `/runner` show every scope, feature state, agent and run, and the safe actions work with a confirm.
 - [x] Design it (spec): `/architect own status bar and dashboards with mods`
 - [ ] Run probes P6 to P9 in a scratch session (spec 0060 AC-6), write results in its verify notes · waits on you
+- [ ] Lock the look first: run the `design` pipeline on wf-dash (band, toasts, panes, short bar) in a session and land its locked `design.md` · waits on you
 - [ ] Build it: `/develop wf-dash panes and actions`
   - [ ] `wf plan --json` and `wf answer` (AC-1, AC-5)
   - [ ] Plan, agents and runner panes (AC-2 to AC-4)
