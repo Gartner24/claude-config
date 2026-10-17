@@ -92,6 +92,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 71 | Self merge rules and review notes | Release 9 | in-progress |
 | 72 | wf-dash band and alerts | Release 9 | in-progress |
 | 73 | wf-dash panes and actions | Release 9 | in-progress |
+| 74 | Fix the runner's plan landing crash | Release 9 | in-progress |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -772,7 +773,7 @@ Several Claude chats each drive the runner for their own repos at once; a repo b
 - [x] Verify it: `/check verify autonomous mode per chat`
 - [x] Test it: `/test autonomous mode per chat`
 - [x] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
-- [ ] Two real chats in two folders: each turns on its own repos, the bars show only their own, a take of the other's repo is refused (AC-11) · waits on you · later boxes go on
+- [x] Two real chats in two folders: each turns on its own repos, the bars show only their own, a take of the other's repo is refused (AC-11) · waits on you · later boxes go on (passed 2026-10-17: the personal chat's take of claude-config was refused, its bar showed only its own)
 - [ ] Sync docs: `/sync autonomous mode per chat`
 Spec [0046](../specs/0046-autonomous-mode-per-chat/index.md) · Source: [brief](../briefs/autonomous-per-chat.md) · code in `runner/auto.py`.
 
@@ -907,7 +908,7 @@ Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep
 After a rollover you type only `/clear`: a start up hook loads the waiting handover; a `/handoff` mod on top if its probe passes.
 **Done when:** a rolled over session continues after only `/clear`, and the mod is built or rejected with its probe result.
 - [x] Design it (spec): `/architect sessions pass work to each other`
-- [ ] Run probes P1 and P2 in a scratch session (spec 0057 AC-9), write results in its verify notes · waits on you
+- [x] Run probes P1 and P2 in a scratch session (spec 0057 AC-9), write results in its verify notes · waits on you (both passed 2026-10-17, P2 with the clear run from a timer)
 - [ ] Build it: `/develop sessions pass work to each other`
   - [ ] Hook, size cap, quiet rules, self check (AC-1, AC-2, AC-4, AC-5, AC-7)
   - [ ] workflow-start yields, wiring, words (AC-3, AC-6, AC-8)
@@ -1026,7 +1027,7 @@ Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced un
 Our own mod draws a band above the prompt with the session and the runner, and alerts on finished runs, parks and questions.
 **Done when:** the band shows every segment and the runner counts, unknown shows `?`, and alerts fire once per event.
 - [x] Design it (spec): `/architect own status bar and dashboards with mods`
-- [ ] Run probes P1 to P5 in a scratch session (spec 0059 AC-6), write results in its verify notes · waits on you
+- [x] Run probes P1 to P5 in a scratch session (spec 0059 AC-6), write results in its verify notes · waits on you (passed 2026-10-17; P4b checked in the build)
 - [ ] Build it: `/develop wf-dash band and alerts`
   - [ ] `wf status --json` (AC-1)
   - [ ] Band, alerts, short bar (AC-2 to AC-5)
@@ -1051,6 +1052,16 @@ Panes for the whole plan, every agent and the runner, with three confirmed safe 
 - [ ] Install the mod update live after its scan · waits on you · later boxes go on
 - [ ] Sync docs: `/sync wf-dash panes and actions`
 Spec [0060](../specs/0060-wf-dash-panes.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B3, part 3 of 3, with your plan pane ask; stacks on spec 0059.
+
+### 74. Fix the runner's plan landing crash · in-progress · auto
+At the end of the 2026-10-17 run, landing the runner's own plan commits failed with "the build tool itself hit a bug: expected str, bytes or os.PathLike object, not NoneType", so the plan commits stayed local until landed by hand (PR #36).
+**Done when:** a run that ends with plan commits lands them through its docs PR with no crash, with a test that fails on the old code.
+- [x] Design it (spec): `/architect fix the runner's plan landing crash` (no new decision: a bug against spec 0051 AC-15)
+- [ ] Fix it: `/debug fix the runner's plan landing crash`
+- [ ] Verify it: `/check verify fix the runner's plan landing crash`
+- [ ] Test it: `/test fix the runner's plan landing crash`
+- [ ] Sync docs: `/sync fix the runner's plan landing crash`
+Spec [0051](../specs/0051-clean-branches-commits/index.md) AC-15 · Source: the run report of 2026-10-17 17:57 (`plan landing:` line, run folders under `~/.local/state/wf/runs/*-20261017-17*`).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
