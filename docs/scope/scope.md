@@ -78,18 +78,18 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 66 | Update Claude Code through /claude-config | Release 9 | needs a decision |
 | 57 | Move my own skills out of jjstack | Release 9 | needs a decision |
 | 58 | Own status bar and dashboards with mods | Release 9 | needs a decision |
-| 59 | Memory tool: claude-mem, MemPalace, graphify or NotebookLM | Release 9 | needs a decision |
-| 60 | Sessions pass work to each other | Release 9 | needs a decision |
-| 61 | Cheap model gatekeeper with open models | Release 9 | needs a decision |
+| 59 | Memory tool: claude-mem, MemPalace, graphify or NotebookLM | Release 9 | planned |
+| 60 | Sessions pass work to each other | Release 9 | in-progress |
+| 61 | Cheap model gatekeeper with open models | Release 9 | in-progress |
 | 62 | Runner that improves itself | Release 9 | needs a decision |
 | 63 | Evaluate Harvey, Soup, MiroFish, claude-skills-founder, Headroom | Release 9 | needs a decision |
 | 64 | Recommended mods: gatekeeper, Claude to Claude, own panel | Release 9 | needs a decision |
-| 65 | Scan skills with skillspector | Release 9 | needs a decision |
-| 67 | Local model on the laptop | Release 9 | needs a decision |
+| 65 | Scan skills with skillspector | Release 9 | in-progress |
+| 67 | Local model on the laptop | Release 9 | in-progress |
 | 68 | Runner runs more than 4 features at once | Release 9 | in-progress |
-| 69 | Ideas borrowed from tools we skip | Release 9 | needs a decision |
+| 69 | Ideas borrowed from tools we skip | Release 9 | in-progress |
 | 70 | graphify test on one repo | Release 9 | planned |
-| 71 | Review leftovers 2026-10-15 | Release 9 | planned |
+| 71 | Self merge rules and review notes | Release 9 | in-progress |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -876,22 +876,36 @@ Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep
 Pick the memory tool (keep claude-mem, MemPalace, graphify, both, or NotebookLM as a second brain), weighing usage, token cost, memory quality and code memory.
 **Done when:** one memory setup is chosen with its reasons and installed, or each option is rejected with a reason.
 - [x] Research and compare: `/deep-research memory for Claude Code: claude-mem, MemPalace, graphify, NotebookLM` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
-- [ ] Design it (spec): `/architect memory tool`
+- [ ] Design it (spec): `/architect memory tool` · waits on you (after the MemPalace trial review, about 2026-10-30; your answer 2026-10-17)
 Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
 
-### 60. Sessions pass work to each other
-Use mods so a session hands its work straight to the next one (rollover without the `/clear` relay), and the runner too.
-**Done when:** a rolled over session continues in the next one without you typing `/clear` and `/resume-from-clear`.
-- [x] Research and compare: `/deep-research Claude Code mods session handoff` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
-- [ ] Design it (spec): `/architect sessions pass work to each other`
-Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
+### 60. Sessions pass work to each other · in-progress · auto
+After a rollover you type only `/clear`: a start up hook loads the waiting handover; a `/handoff` mod on top if its probe passes.
+**Done when:** a rolled over session continues after only `/clear`, and the mod is built or rejected with its probe result.
+- [x] Design it (spec): `/architect sessions pass work to each other`
+- [ ] Run probes P1 and P2 in a scratch session (spec 0057 AC-9), write results in its verify notes · waits on you
+- [ ] Build it: `/develop sessions pass work to each other`
+  - [ ] Hook, size cap, quiet rules, self check (AC-1, AC-2, AC-4, AC-5, AC-7)
+  - [ ] workflow-start yields, wiring, words (AC-3, AC-6, AC-8)
+  - [ ] Mod, only if P2 passed (AC-10)
+- [ ] Verify it: `/check verify sessions pass work to each other`
+- [ ] Test it: `/test sessions pass work to each other`
+- [ ] Copy the hook and settings live, and install the mod if built · waits on you · later boxes go on
+- [ ] Sync docs: `/sync sessions pass work to each other`
+Spec [0057](../specs/0057-handover-on-clear.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B4; the handover first half of B14.
 
-### 61. Cheap model gatekeeper with open models
-Send easy work to a cheaper model through mods, with open source models (claude-fb's, or Soup's) instead of only `fb-ask`.
-**Done when:** easy steps run on an open model by rule and your weekly limit lasts longer, measured.
-- [x] Research and compare: `/deep-research cheap model routing with open models: claude-fb, Soup, mods` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
-- [ ] Design it (spec): `/architect cheap model gatekeeper`
-Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
+### 61. Cheap model gatekeeper with open models · in-progress · auto
+Search helpers run on Haiku, the model rule says so, and each runner call records cost per model so a routing mod is decided by data.
+**Done when:** code-explorer and docs-lookup are on Haiku, call records carry `models`, and the morning report shows the run and week split with the 15% gate.
+- [x] Design it (spec): `/architect cheap model gatekeeper with open models`
+- [ ] Build it: `/develop cheap model gatekeeper with open models`
+  - [ ] Probe the `modelUsage` shape (AC-6)
+  - [ ] Agent pins and rule (AC-1, AC-2)
+  - [ ] `models` field, run line, week split and gate (AC-3 to AC-5, AC-7)
+- [ ] Verify it: `/check verify cheap model gatekeeper with open models`
+- [ ] Test it: `/test cheap model gatekeeper with open models`
+- [ ] Sync docs: `/sync cheap model gatekeeper with open models`
+Spec [0055](../specs/0055-cheap-work-cheap-models.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B6; row 64's gatekeeper rides on it.
 
 ### 62. Runner that improves itself
 Treat the runner as a system with a feedback loop: each run's results improve the next run, and it improves itself while idle.
@@ -912,20 +926,34 @@ Check the three recommended mods against what we already have: a gatekeeper to a
 - [x] Research and compare: `/deep-research recommended Claude Code mods against our setup` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
 Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
 
-### 65. Scan skills with skillspector
-Scan every installed skill and every new candidate with NVIDIA's `skillspector` for hidden attacks.
-**Done when:** every installed skill passed the scan or was removed, and new candidates are scanned before install.
-- [ ] Scan the installed skills: `skillspector` · waits on you
-Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
+### 65. Scan skills with skillspector · in-progress · auto
+Scan every installed skill and every new candidate with NVIDIA's `skillspector`; one `skill-scan` command and a scan before every skill update.
+**Done when:** `skill-scan` runs both passes over every skill and plugin, shows only new serious findings, and `claude-config update --apply` prints a scan of what it installs.
+- [x] Design it (spec): `/architect scan skills with skillspector`
+- [ ] Build it: `/develop scan skills with skillspector`
+  - [ ] Format probe (AC-11)
+  - [ ] `skill-scan` targets, passes, resume, verdict, baseline, delta (AC-1 to AC-6, AC-9)
+  - [ ] Update hook, install link, skill text, bulk baseline (AC-7, AC-8, AC-10, AC-12)
+- [x] Scan the installed skills: `skillspector` · waits on you (done in plan A4, 2026-10-16)
+- [ ] Verify it: `/check verify scan skills with skillspector`
+- [ ] Test it: `/test scan skills with skillspector`
+- [ ] Sync docs: `/sync scan skills with skillspector`
+Spec [0054](../specs/0054-skill-scan-script.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items A3, A4, B7.
 
-### 67. Local model on the laptop
-Try a model running on the laptop (Ollama with Vulkan, `qwen2.5-coder:14b`) through opencode, and wire it into fb-ask only if it passes.
-**Done when:** the trial's speed and task results are written down, and the model is either an `fb-local` group in fb-ask or rejected with a reason.
-- [x] Research and compare: `/deep-research local coding model on this laptop` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
-- [ ] Install `ollama-vulkan` and join the render and video groups · waits on you
-- [ ] Trial: speed test, one opencode task against claude-fb's cloud model · waits on you
-- [ ] Design it (spec): `/architect local model tier for fb-ask`
-Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items A7, B8.
+### 67. Local model on the laptop · in-progress · auto
+fb-ask can send private text to the model on the laptop (`fb-local`) with `--local`; client and work text only that way.
+**Done when:** `fb-ask --local` answers through `fb-local` only, client text passes only with it, and a long or cut input falls back.
+- [x] Design it (spec): `/architect local model on the laptop`
+- [ ] Build it: `/develop local model on the laptop`
+  - [ ] `--local` flag, limits, truncation and build checks, gates (AC-1 to AC-6)
+  - [ ] Self checks, rule and docs (AC-7, AC-8)
+- [x] Install `ollama-vulkan` and join the render and video groups · waits on you (done in plan A7)
+- [x] Trial: speed test, one opencode task against claude-fb's cloud model · waits on you (done in plan A7, agent task skipped by your choice)
+- [ ] Verify it: `/check verify local model on the laptop`
+- [ ] Test it: `/test local model on the laptop`
+- [ ] Live probes P1 and P2, never while wf builds (AC-9) · waits on you · later boxes go on
+- [ ] Sync docs: `/sync local model on the laptop`
+Spec [0053](../specs/0053-fb-ask-local-model.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items A7, B8, D4.
 
 ### 68. Runner runs more than 4 features at once · in-progress · auto
 Remove the fixed 4: any number up to a ceiling, a live memory and usage brake, and the same files rule back from each spec's Paths line.
@@ -942,12 +970,19 @@ Remove the fixed 4: any number up to a ceiling, a live memory and usage brake, a
 - [ ] Sync docs: `/sync runner runs more than 4 features at once`
 Spec [0052](../specs/0052-more-features-at-once.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B2.
 
-### 69. Ideas borrowed from tools we skip
+### 69. Ideas borrowed from tools we skip · in-progress · auto
 Build the four ideas taken from Harvey, MiroFish and claude-skills-founder: a lead finder that never sends, a reaction tester, an idea scorecard, and the new number replaces old rule.
 **Done when:** each of the four is in a skill and used once on a real case.
-- [x] Research and compare: `/deep-research Harvey, Soup, MiroFish, claude-skills-founder, Headroom against our setup` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
-- [ ] Design it (spec): `/architect ideas borrowed from tools we skip`
-Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items B10 to B13.
+- [x] Design it (spec): `/architect ideas borrowed from tools we skip`
+- [ ] Build it: `/develop ideas borrowed from tools we skip`
+  - [ ] lead-finder skill (AC-1 to AC-3, AC-9)
+  - [ ] reaction-tester skill (AC-4, AC-9)
+  - [ ] Scorecard and rule file, manifest test (AC-5, AC-6, AC-8)
+- [ ] Verify it: `/check verify ideas borrowed from tools we skip`
+- [ ] Test it: `/test ideas borrowed from tools we skip`
+- [ ] Use each of the four once on a real case, write it in verify notes (AC-7) · waits on you · later boxes go on
+- [ ] Sync docs: `/sync ideas borrowed from tools we skip`
+Spec [0056](../specs/0056-borrowed-ideas.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items B10 to B13.
 
 ### 70. graphify test on one repo
 Map one large own repo with graphify, code only and AI keys hidden, and ask 8 to 10 questions with and without the map.
@@ -956,11 +991,14 @@ Map one large own repo with graphify, code only and AI keys hidden, and ask 8 to
 - [ ] Run the test on the repo you pick · waits on you
 Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items A8, B9, D2.
 
-### 71. Review leftovers 2026-10-15
+### 71. Self merge rules and review notes
 The PR #18 review's open items and two script bugs found while landing it.
 **Done when:** each item is fixed with a test or dropped with a reason.
-- [ ] Decide the three spec items (risk list, old branch date, wait for a check) · waits on you
-- [ ] Fix: `/debug review leftovers 2026-10-15`
+- [x] Decide the three spec items (risk list, old branch date, wait for a check) · waits on you (answered 2026-10-17, written into spec 0051 AC-3, AC-4, AC-12, AC-16)
+- [ ] Build it: `/develop self merge rules and review notes` (spec 0051 build step 9; tag this feature `· auto` only after row 56 is done, both change `runner/pr.py`)
+- [ ] Verify it: `/check verify self merge rules and review notes`
+- [ ] Test it: `/test self merge rules and review notes`
+- [ ] Sync docs: `/sync self merge rules and review notes`
 Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items D1, E3, E4.
 
 ### 49. Fast runner · done

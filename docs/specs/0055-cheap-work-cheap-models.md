@@ -9,7 +9,7 @@
 - The code explorer and docs lookup helpers move to Haiku, the cheapest model; reviewers stay on Sonnet.
 - The rule on which model a helper uses gets a Haiku line.
 - Each runner call records how much each model cost, and the morning report shows a weekly split.
-- No routing mod is built now; one is considered only if the numbers show helpers that could move cost over 15% of a week's runner spend.
+- No routing mod is built now. When models other than the main one cost over 15% of a week's runner spend (an upper bound, since reviewers count too), the report says so and a "Consider a routing mod" row is added to the plan for you to decide.
 
 ## Summary
 Cheap, read only work should run on cheap models so your limit lasts. Today only two helpers use Haiku. This moves the two pure search helpers too, writes the rule down, and starts measuring per model cost so a later routing mod is decided by data.
@@ -20,10 +20,11 @@ Agent pins live in `claude-home/agents/*.md` (31 files, each with a `model:` lin
 ## Requirements
 - **AC-1** (pins): `claude-home/agents/code-explorer.md` and `docs-lookup.md` say `model: haiku`; every other agent's `model:` is unchanged. A test over all `claude-home/agents/*.md` counts files without a `model:` line (must be 0) and checks the haiku set is exactly scout, researcher, doc-updater, code-explorer, docs-lookup, printing offenders.
 - **AC-2** (rule): `lessons.md` "Subagent models" reads: haiku for read only search and lookup helpers, sonnet for review and simple edits, opus only for architecture and hard debugging.
-- **AC-3** (record): each call record gains `models`: `{model: {cost_usd, output_tokens}}` copied from the call's `modelUsage`; absent `modelUsage` gives `null`, never `{}` or 0.
-- **AC-4** (report): the morning report (`runner/report.py`) adds one line per run: cost by model and the share spent on non main models; a run with no `models` data says `model split: unknown`.
-- **AC-5** (mod gate): this spec builds no `agent.spawn` routing mod. The report line names the share of cost on sonnet helpers that could move to haiku; above 15% over a week, `/sync` adds a scope row "Consider a routing mod" sourced to this spec. Below, nothing.
-- **AC-6** (probe, build step 1): `claude -p "use the scout agent to list the files here" --output-format json` in a scratch folder; record whether `modelUsage` lists the haiku model as its own key. If it does not, AC-3 and AC-4 record only the main model and say so.
+- **AC-3** (record): each call record (`runner/run.py:2827-2868`) gains `models`: `{<raw model id>: {cost_usd: modelUsage[id].costUSD, output_tokens: modelUsage[id].outputTokens}}`, keys exactly as the call's `modelUsage` returns them; absent `modelUsage` gives `null`, never `{}` or 0. The main model of a call is the key with the largest `cost_usd`.
+- **AC-4** (run line): the morning report (`runner/report.py`) adds one line per run: cost by model id and the share spent on models other than each call's main model; when no call of the run has `models`, it says `model split: unknown`.
+- **AC-5** (week and gate): a `week_split()` function walks `~/.local/state/wf/runs/*/run.json`, takes calls whose `started` is in the last 7 days and that have `models`, and sums cost per model id over them; the denominator is the summed `cost_usd` of those same calls. The report prints `week: non main models <p>% of $<total> (upper bound for helper cost; <k> calls without a split skipped)`, and with zero usable calls `week: unknown`, never 0%. When `p` is over 15, the report also prints `consider a routing mod (spec 0055)`, and `/sync` adds a scope row "Consider a routing mod" sourced to this spec if none exists. This spec builds no `agent.spawn` mod. The figure covers runner calls only, not your interactive sessions, and counts reviewers and other helpers too, so it overstates what moving search helpers would save.
+- **AC-6** (probe, build step 1): `claude -p "use the scout agent to list the files here" --output-format json` in a scratch folder; record whether `modelUsage` lists the haiku model as its own key. If it does not, AC-4 and AC-5 are not built (they would always read 0) and the spec says why.
+- **AC-7** (tests): a fixture call with two models gives the exact `models` dict; no `modelUsage` gives `None`; a 7 day fixture over 15% prints the gate line and one under does not; a week with only unsplit calls prints `week: unknown`; mutation checked.
 
 ## Decision
 Two pin changes, one rule line, a per model field in call records, one report line, and a written threshold for the mod.
@@ -35,7 +36,8 @@ Moving only pure search keeps review quality, which the lessons rule protects. T
 1. Probe the `modelUsage` shape, satisfies **AC-6**
 2. Agent pins and their corpus test, satisfies **AC-1**
 3. Rule line, satisfies **AC-2**
-4. `models` field and report line with the gate, satisfies **AC-3** to **AC-5**
+4. `models` field, run line, week split and gate, satisfies **AC-3** to **AC-5**
+5. Tests, satisfies **AC-7**
 
 ## Consequences
 **Positive**: search helpers cost a fraction of before; the next decision has numbers.
