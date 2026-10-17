@@ -956,7 +956,7 @@ The PR #18 review's open items and two script bugs found while landing it.
 Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items D1, E3, E4.
 
 ### 49. Fast runner · done
-Features build, check and test 4 at a time on their own branches, the branches are combined at the end with clashes resolved, one plan file stays the truth, the suite runs in about a minute, and Telegram questions read clearly.
+Features build, check and test 4 at a time on their own branches, one plan file stays the truth, the suite runs in about a minute, and Telegram questions read clearly.
 **Done when:** a `wf` run of features 39 to 48 runs 4 at once, combines its branches into one draft PR, and every question kind reads clearly on your phone.
 - [x] Design it (spec): `/architect fast runner`
 - [x] Build it: `/develop fast runner`
