@@ -17,6 +17,8 @@ Source: your message of 2026-10-15 evening, at the end of the clean branches ses
 - **A7 runs in a parallel session** (your answer, 2026-10-16), so this one goes on with A8 meanwhile.
 - **A7 to D5 answers** (2026-10-17): close A7 and add fb-local (opt-in, never a fallback); D1 yes to all three; Headroom later; delete both old branches (seo-ops-refs waits for your confirm, it holds unlanded work).
 - **Later answers** (2026-10-17, second session): land seo-ops-refs as a PR (PR #31), not delete it; drop B9 (graphify stays installed and usable by hand, no hook, no CLAUDE.md line); D4 yes, local model only: fb-ask may take client and work repo text only through `fb-local`, the cloud groups stay refused there. D4 is built with B8.
+- **B1** (2026-10-17): no new spec; row 56 is tagged `· auto` so the runner runs its verify and `/sync`.
+- **B2 answers** (2026-10-17, spec 0052): no weekly brake; split the cores between running features; retry git lock errors 5 times; the 8 worktree stress test is the build's first step and stops it on failure.
 - **Design sessions** (your words, 2026-10-17): "Yes launch the architect for the ones missing": run `/architect` back to back for B1 to B8, B10 to B14, the D1 amendment to spec 0051, and the two E4 leftovers; recommend an answer on every question and batch them.
 
 ## The plan, enforced until done (agreed 2026-10-15)
