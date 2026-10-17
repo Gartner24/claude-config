@@ -835,7 +835,7 @@ Spec [0050](../specs/0050-fixed-skill-keep-list/index.md) · code in `scripts/sk
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
 
-### 56. Clean branches, PRs and commits · in-progress
+### 56. Clean branches, PRs and commits · in-progress · auto
 Code reaches main only through its own squash merged PR, branches and worktrees are deleted after a merge, no combined branches, small low risk PRs merge themselves in an opted in repo, plan commits land by a docs PR, and big or old features get a warning.
 **Done when:** a runner built feature ends as one squash commit on main through its PR with its branch and worktree gone, a direct push to main is refused by GitHub, and the runner's plan commits reach main by a docs PR.
 - [x] Design it (spec): `/architect clean branches, PRs and commits`
