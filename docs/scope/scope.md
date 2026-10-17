@@ -86,7 +86,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 64 | Recommended mods: gatekeeper, Claude to Claude, own panel | Release 9 | needs a decision |
 | 65 | Scan skills with skillspector | Release 9 | needs a decision |
 | 67 | Local model on the laptop | Release 9 | needs a decision |
-| 68 | Runner runs more than 4 features at once | Release 9 | needs a decision |
+| 68 | Runner runs more than 4 features at once | Release 9 | in-progress |
 | 69 | Ideas borrowed from tools we skip | Release 9 | needs a decision |
 | 70 | graphify test on one repo | Release 9 | planned |
 | 71 | Review leftovers 2026-10-15 | Release 9 | planned |
@@ -927,12 +927,20 @@ Try a model running on the laptop (Ollama with Vulkan, `qwen2.5-coder:14b`) thro
 - [ ] Design it (spec): `/architect local model tier for fb-ask`
 Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items A7, B8.
 
-### 68. Runner runs more than 4 features at once
+### 68. Runner runs more than 4 features at once · in-progress · auto
 Remove the fixed 4: any number up to a ceiling, a live memory and usage brake, and the same files rule back from each spec's Paths line.
 **Done when:** a `wf` run starts more than 4 features when memory and usage allow, never two whose Paths overlap, and holds back when free memory or the 5 hour use crosses its line.
 - [x] Research and compare: `/deep-research runner with n features at once` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
-- [ ] Design it (spec): `/architect runner runs more than 4 features at once`
-Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B2.
+- [x] Design it (spec): `/architect runner runs more than 4 features at once`
+- [ ] Build it: `/develop runner runs more than 4 features at once`
+  - [ ] Stress test at 8 and git lock retry, stress test again (AC-7, AC-8)
+  - [ ] Parallel 1 to 8, read loop timeout, memory and usage brake (AC-1, AC-2, AC-3, AC-4)
+  - [ ] Same repo Paths wait and `Paths: none` (AC-5)
+  - [ ] Cores split through `WF_CORES` (AC-6)
+- [ ] Verify it: `/check verify runner runs more than 4 features at once`
+- [ ] Test it: `/test runner runs more than 4 features at once`
+- [ ] Sync docs: `/sync runner runs more than 4 features at once`
+Spec [0052](../specs/0052-more-features-at-once.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B2.
 
 ### 69. Ideas borrowed from tools we skip
 Build the four ideas taken from Harvey, MiroFish and claude-skills-founder: a lead finder that never sends, a reaction tester, an idea scorecard, and the new number replaces old rule.
