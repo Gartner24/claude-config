@@ -19,6 +19,18 @@ Source: your message of 2026-10-15 evening, at the end of the clean branches ses
 - **Later answers** (2026-10-17, second session): land seo-ops-refs as a PR (PR #31), not delete it; drop B9 (graphify stays installed and usable by hand, no hook, no CLAUDE.md line); D4 yes, local model only: fb-ask may take client and work repo text only through `fb-local`, the cloud groups stay refused there. D4 is built with B8.
 - **B1** (2026-10-17): no new spec; row 56 is tagged `· auto` so the runner runs its verify and `/sync`.
 - **B2 answers** (2026-10-17, spec 0052): no weekly brake; split the cores between running features; retry git lock errors 5 times; the 8 worktree stress test is the build's first step and stops it on failure.
+- **Build everything in parallel** (your words, 2026-10-17 evening): "lets build in parallel what can be done in parallel, and if something is missing an architect lets do it ... just start".
+- **Design answers, batch 2026-10-17 evening**:
+  - D1: a repo with no checks waits up to 10 minutes for one, then self merges anyway. The D1 build waits until row 56's verify and sync finish (same spec).
+  - B8: `--local` skips the private names check and the client repo refusal (nothing leaves the laptop); cloud groups unchanged.
+  - B7: the pre install scan shows new serious findings and never blocks.
+  - B14: designed after the MemPalace trial review (about 2026-10-30); MemPalace is free and open source. The "handover loads first" part goes into B4 now.
+  - B6: move only the search helpers (code-explorer, docs-lookup) to Haiku; reviewers stay on Sonnet.
+  - B13: its own rule file in claude-home/rules, no patches to the downloaded skills.
+  - B10: sources OpenStreetMap (Overpass), the business's own site (at most 3 requests, robots.txt honored), lists you paste, and Chrome browsing one page at a time; never Google Maps or LinkedIn; never sends.
+  - B5: runs at the end of each wf run, plus `wf insights` by hand. You shared a page on Claude improving itself from conversation history to study for B5.
+  - B3: get rid of the jjstack status bar: our own copy of its segments; the mod band shows everything, the bottom bar keeps a short line (it still marks the chat alive).
+  - B4: if the probe proves a mod can do the clear, the mod (`/handoff`) sits on top of the start up hook, which stays as the fallback.
 - **Design sessions** (your words, 2026-10-17): "Yes launch the architect for the ones missing": run `/architect` back to back for B1 to B8, B10 to B14, the D1 amendment to spec 0051, and the two E4 leftovers; recommend an answer on every question and batch them.
 
 ## The plan, enforced until done (agreed 2026-10-15)
