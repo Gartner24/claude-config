@@ -860,11 +860,11 @@ Remove the fixed 4: any number up to a ceiling, a live memory and usage brake, a
 **Done when:** a `wf` run starts more than 4 features when memory and usage allow, never two whose Paths overlap, and holds back when free memory or the 5 hour use crosses its line.
 - [x] Research and compare: `/deep-research runner with n features at once` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
 - [x] Design it (spec): `/architect runner runs more than 4 features at once`
-- [ ] Build it: `/develop runner runs more than 4 features at once`
-  - [ ] Stress test at 8 and git lock retry, stress test again (AC-7, AC-8)
-  - [ ] Parallel 1 to 8, read loop timeout, memory and usage brake (AC-1, AC-2, AC-3, AC-4)
-  - [ ] Same repo Paths wait and `Paths: none` (AC-5)
-  - [ ] Cores split through `WF_CORES` (AC-6)
+- [x] Build it: `/develop runner runs more than 4 features at once`
+  - [x] Stress test at 8 and git lock retry, stress test again (AC-7, AC-8)
+  - [x] Parallel 1 to 8, read loop timeout, memory and usage brake (AC-1, AC-2, AC-3, AC-4)
+  - [x] Same repo Paths wait and `Paths: none` (AC-5)
+  - [x] Cores split through `WF_CORES` (AC-6)
 - [ ] Verify it: `/check verify runner runs more than 4 features at once`
 - [ ] Test it: `/test runner runs more than 4 features at once`
 - [ ] Sync docs: `/sync runner runs more than 4 features at once`
