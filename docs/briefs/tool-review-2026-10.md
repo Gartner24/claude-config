@@ -15,6 +15,7 @@ Source: your message of 2026-10-15 evening, at the end of the clean branches ses
 - **D2 answer** (2026-10-16): the graphify test (A8) uses your studio's engine repo under `~/projects/freelance/` (name kept out of this public file).
 - **A8 answer** (2026-10-16): keep graphify installed even though it failed the A/B test (+35% tokens, 0 of 3 unasked uses, quality not graded). Never remove it without asking. B9 (its hook and CLAUDE.md line) is not decided.
 - **A7 runs in a parallel session** (your answer, 2026-10-16), so this one goes on with A8 meanwhile.
+- **A7 to D5 answers** (2026-10-17): close A7 and add fb-local (opt-in, never a fallback); D1 yes to all three; Headroom later; delete both old branches (seo-ops-refs waits for your confirm, it holds unlanded work).
 
 ## The plan, enforced until done (agreed 2026-10-15)
 
@@ -29,7 +30,7 @@ This is the whole list. Nothing is added, dropped or swapped without your yes, a
 - [x] A4. Scan every installed skill and plugin with skillspector; remove or report each failure (row 65): done 2026-10-16: static pass and model pass over all 221 targets, 0 FAIL. One real report-only finding: getsentry claude-settings-audit SKILL.md:92 suggests `Bash(gh api:*)` as read-only, though `gh api -X DELETE` passes it; not in our settings. graphify findings were false alarms. claude-seo's curl | bash kept, Antigravity never installed (your answers)
 - [x] A5. Copy your `spawn-review` skill from jjstack's branch into claude-config as yours; no commit to jjstack (row 57): done 2026-10-16 in PR #26
 - [x] A6. Add free backup models to fb-ask's LiteLLM settings (row 61, Soup research): done 2026-10-16: `gemma4:31b-cloud` added as order 3 in `fb-safe` and `fb-any` in `~/.config/claude-fb/litellm.yaml`
-- [ ] A7. Local model trial: `ollama-vulkan` (your sudo), `qwen2.5-coder:14b`, context 16k, speed test, one opencode task against claude-fb's cloud model, its own `fb-local` group; never while wf builds (row 67)
+- [x] A7. Local model trial: `ollama-vulkan` (your sudo), `qwen2.5-coder:14b`, context 16k, speed test, one opencode task against claude-fb's cloud model, its own `fb-local` group; never while wf builds (row 67): done 2026-10-17: ollama-vulkan + OLLAMA_IGPU_ENABLE=1, 16k context, Radeon 880M (28/72 CPU/GPU split). 6.1 tok/s generation, 142 tok/s prompt, 120 s cold load, swap full while loaded. 10-item classify 0 misses (median 1.6 s vs cloud 0.5 s). Agent task skipped by your choice (too slow). `fb-local` group added to litellm.yaml, opt-in only, keep_alive 2m, checked through the proxy. Results in ~/.local/share/local-model-trial/
 - [x] A8. graphify test: update it, map one large own repo code only with AI keys hidden, 8 to 10 questions with and without the map; keep only if it wins by 25% and Claude uses it unasked, else uninstall it and remove the skill. Never claude-config, client or work repos (row 70): done 2026-10-16: failed the rule (+35% tokens, 0 of 3 unasked uses); kept installed by your choice, never removed without asking; B9 not decided
 - [x] A9. MemPalace trial, after skillspector passes it: Docker, read only mount, loaded by hand, no auto save, one wing per project, no client or work repos, two weeks (row 59): set up 2026-10-16: image `mempalace:trial`, all 13 wings mined with no errors, `mp` search works (a specific query found the exact A4 result; vague queries find context only; old handover files and error logs add noise). Trial review about 2026-10-30
 
@@ -66,11 +67,11 @@ This is the whole list. Nothing is added, dropped or swapped without your yes, a
 - gpt-oss:20b and qwen3-coder:30b locally: larger than the 11 GB the GPU can use.
 
 ### D. Open, needs your answer
-- [ ] D1. Review leftovers from PR #18 (row 71): add hook scripts, `config/`, skills, agents and `package.json` to the never-self-merge list (recommended yes); date the old branch warning from the first commit (recommended yes); wait for at least one check before a self merge (recommended yes)
+- [x] D1. Review leftovers from PR #18 (row 71): add hook scripts, `config/`, skills, agents and `package.json` to the never-self-merge list (recommended yes); date the old branch warning from the first commit (recommended yes); wait for at least one check before a self merge (recommended yes): answered 2026-10-17: yes to all three; goes through /architect as an amendment to spec 0051
 - [x] D2. Which large own repo the graphify test (A8) uses: answered 2026-10-16, see Agreed so far
-- [ ] D3. Headroom trial, next week or later
+- [x] D3. Headroom trial, next week or later: answered 2026-10-17: Headroom later, not in this round
 - [ ] D4. fb-ask on client repos when the model is local (only if A7 passes)
-- [ ] D5. Kept branches `feat/seo-ops-refs` and `sync-settings`: keep or delete
+- [x] D5. Kept branches `feat/seo-ops-refs` and `sync-settings`: keep or delete: answered 2026-10-17: delete both. sync-settings deleted (already in main). feat/seo-ops-refs held 703 unlanded lines of seo-ops ref docs, kept until you confirm
 
 ### E. Housekeeping still open
 - [ ] E1. Row 46 missed skill detector: the 3 day report verdict, then `/sync`
