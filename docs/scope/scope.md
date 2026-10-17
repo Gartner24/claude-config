@@ -929,8 +929,8 @@ Search helpers run on Haiku, the model rule says so, and each runner call record
   - [x] `models` field, run line, week split and gate (AC-3 to AC-5, AC-7)
 - [ ] Confirm Haiku gets its own cost key: in an empty folder run `claude -p "use the scout agent to list the files here" --output-format json` and check `modelUsage` lists a haiku model (AC-6) · waits on you · later boxes go on
 - [ ] Copy the new agent pins and rule live: `bin/install.sh` · waits on you · live · later boxes go on
-- [ ] Verify it: `/check verify cheap model gatekeeper with open models`
-- [ ] Test it: `/test cheap model gatekeeper with open models`
+- [x] Verify it: `/check verify cheap model gatekeeper with open models`
+- [x] Test it: `/test cheap model gatekeeper with open models`
 - [ ] Sync docs: `/sync cheap model gatekeeper with open models`
 Spec [0055](../specs/0055-cheap-work-cheap-models.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B6; row 64's gatekeeper rides on it.
 
