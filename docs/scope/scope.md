@@ -1039,7 +1039,7 @@ Our own mod draws a band above the prompt with the session, its effort and the r
   - [x] Band with effort, alerts, short bar (AC-2 to AC-5, amended 2026-10-18)
   - [x] Tests and scan (AC-7); the `skill-scan` runs in the install box below
 - [x] Verify it: `/check verify wf-dash band and alerts`
-- [ ] Test it: `/test wf-dash band and alerts`
+- [x] Test it: `/test wf-dash band and alerts`
 - [ ] Install the mod live after its scan · waits on you · later boxes go on
 - [ ] Sync docs: `/sync wf-dash band and alerts`
 Spec [0059](../specs/0059-wf-dash-band.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B3, part 2 of 3; stacks on spec 0058.
