@@ -679,8 +679,19 @@ def scans(r, rec, frm, texts, skip=()):
     if "private_names" not in skip:
         hits = names_hits(r, "check-range", frm, rec["branch"]) if frm else []
         for i, (where, text) in enumerate(texts):
-            p = write_text(r, f"scan-{os.getpid()}-{i}.txt", text)
-            hits += [f"{where}: {h}" for h in names_hits(r, "check-msg", p)]
+            if r.folder:
+                p = write_text(r, f"scan-{os.getpid()}-{i}.txt", text)
+                hits += [f"{where}: {h}" for h in names_hits(r, "check-msg", p)]
+                continue
+            # The parallel parent never runs Run.run, so it has no run folder: land_plan there used to crash with
+            # "expected str, bytes or os.PathLike object, not NoneType" (2026-10-17). A private temp file instead.
+            fd, p = tempfile.mkstemp(prefix="wf-scan-", suffix=".txt")
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                    fh.write(text)
+                hits += [f"{where}: {h}" for h in names_hits(r, "check-msg", p)]
+            finally:
+                os.unlink(p)
         if hits:
             return "private_names", "; ".join(hits)[:250]
     if "attribution" not in skip:
