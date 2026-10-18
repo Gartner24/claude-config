@@ -96,6 +96,10 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 75 | wf-dash stray keys | Release 9 | in-progress |
 | 76 | Auto handoff: our handover, fired on its own | Release 9 | planned |
 | 77 | Auto handoff display: band, viewer pages, link | Release 9 | planned |
+| 78 | Runner bugs found 2026-10-18 | Release 9 | planned |
+| 79 | Security review leftovers 2026-10-18 | Release 9 | planned |
+| 80 | Skill scan trusted list | Release 9 | planned |
+| 81 | wf-dash design should-fixes | Release 9 | planned |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -1107,6 +1111,44 @@ The handoff shows its steps and result in the wf-dash band (toasts where there i
 - [ ] Install both mods live after their scan · waits on you · later boxes go on
 - [ ] Sync docs: `/sync auto handoff display`
 Spec [0064](../specs/0064-auto-handoff-display.md) · Source: [brief](../briefs/auto-handoff.md) (the owner's messages of 2026-10-18).
+
+### 78. Runner bugs found 2026-10-18
+Six runner bugs found while conducting the 2026-10-18 runs: an accepted design park that comes back, a PR that reverts main, a worktree planning from a stale scope, a scope copy that blocks the main merge, a doubled "learn this first", and row 71 never queued.
+**Done when:** each of the six is fixed with a test that fails on the old code, or dropped with a reason.
+- [ ] Fix them: `/debug runner bugs found 2026-10-18`
+- [ ] Verify it: `/check verify runner bugs found 2026-10-18`
+- [ ] Test it: `/test runner bugs found 2026-10-18`
+- [ ] Sync docs: `/sync runner bugs found 2026-10-18`
+Source: [brief](../briefs/leftovers-2026-10-18.md), section Runner bugs.
+
+### 79. Security review leftovers 2026-10-18
+The 2026-10-18 security review's open items in the status bar and the skill scan script.
+**Done when:** each item is fixed with a test that fails on the old code, or dropped with a reason.
+- [ ] Fix them: `/debug security review leftovers 2026-10-18`
+- [ ] Verify it: `/check verify security review leftovers 2026-10-18`
+- [ ] Test it: `/test security review leftovers 2026-10-18`
+- [ ] Sync docs: `/sync security review leftovers 2026-10-18`
+Source: [brief](../briefs/leftovers-2026-10-18.md), section Security review leftovers.
+
+### 80. Skill scan trusted list
+The skill scan skips gstack, jjstack and ui-ux-pro-max and names them in its report, so scans finish inside the time limit.
+**Done when:** a scan skips the three, lists them as skipped, and still scans everything else.
+- [ ] Design it (spec): `/architect skill scan trusted list` (amends spec 0054)
+- [ ] Build it: `/develop skill scan trusted list`
+- [ ] Verify it: `/check verify skill scan trusted list`
+- [ ] Test it: `/test skill scan trusted list`
+- [ ] Sync docs: `/sync skill scan trusted list`
+Source: [brief](../briefs/leftovers-2026-10-18.md), section Spec 0054 AC-13 trusted list.
+
+### 81. wf-dash design should-fixes
+The design gate's seven should-fixes for the wf-dash band; you pick which to build.
+**Done when:** each should-fix is built or dropped by your pick.
+- [ ] Pick which should-fixes to build · waits on you
+- [ ] Build it: `/develop wf-dash design should-fixes`
+- [ ] Verify it: `/check verify wf-dash design should-fixes`
+- [ ] Test it: `/test wf-dash design should-fixes`
+- [ ] Sync docs: `/sync wf-dash design should-fixes`
+Source: [brief](../briefs/leftovers-2026-10-18.md), section Row 72 design gate should-fixes.
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
