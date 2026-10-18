@@ -93,6 +93,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 72 | wf-dash band and alerts | Release 9 | in-progress |
 | 73 | wf-dash panes and actions | Release 9 | in-progress |
 | 74 | Fix the runner's plan landing crash | Release 9 | in-progress |
+| 75 | wf-dash stray keys | Release 9 | planned |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -1030,7 +1031,7 @@ Our own mod draws a band above the prompt with the session and the runner, and a
 **Done when:** the band shows every segment and the runner counts, unknown shows `?`, and alerts fire once per event.
 - [x] Design it (spec): `/architect own status bar and dashboards with mods`
 - [x] Run probes P1 to P5 in a scratch session (spec 0059 AC-6), write results in its verify notes · waits on you (passed 2026-10-17; P4b checked in the build)
-- [ ] Lock the look first: run the `design` pipeline on wf-dash (band, toasts, panes, short bar) in a session and land its locked `design.md` · waits on you
+- [x] Lock the look first: run the `design` pipeline on wf-dash (band, toasts, panes, short bar) in a session and land its locked `design.md` · waits on you (owner accepted the look as is on 2026-10-17 at critique 29/40; stray keys are row 75)
 - [ ] Build it: `/develop wf-dash band and alerts`
   - [ ] `wf status --json` (AC-1)
   - [ ] Band, alerts, short bar (AC-2 to AC-5)
@@ -1046,7 +1047,7 @@ Panes for the whole plan, every agent and the runner, with three confirmed safe 
 **Done when:** `/plan`, `/agents` and `/runner` show every scope, feature state, agent and run, and the safe actions work with a confirm.
 - [x] Design it (spec): `/architect own status bar and dashboards with mods`
 - [ ] Run probes P6 to P9 in a scratch session (spec 0060 AC-6), write results in its verify notes · waits on you
-- [ ] Lock the look first: run the `design` pipeline on wf-dash (band, toasts, panes, short bar) in a session and land its locked `design.md` · waits on you
+- [x] Lock the look first: run the `design` pipeline on wf-dash (band, toasts, panes, short bar) in a session and land its locked `design.md` · waits on you (owner accepted the look as is on 2026-10-17 at critique 29/40; stray keys are row 75)
 - [ ] Build it: `/develop wf-dash panes and actions`
   - [ ] `wf plan --json` and `wf answer` (AC-1, AC-5)
   - [ ] Plan, agents and runner panes (AC-2 to AC-4)
@@ -1066,6 +1067,16 @@ At the end of the 2026-10-17 run, landing the runner's own plan commits failed w
 - [ ] Test it: `/test fix the runner's plan landing crash`
 - [ ] Sync docs: `/sync fix the runner's plan landing crash`
 Spec [0051](../specs/0051-clean-branches-commits/index.md) AC-15 · Source: the run report of 2026-10-17 17:57 (`plan landing:` line, run folders under `~/.local/state/wf/runs/*-20261017-17*`).
+
+### 75. wf-dash stray keys · needs a decision
+In the wf-dash dashboard, a key it does not draw (a filter digit outside Plan, any other letter) types into the chat prompt and takes the keyboard; the "ctrl+x tab returns here" hint did not give the keys back in a tmux test. Critique held at 29/40 mostly on this.
+**Done when:** no key typed while the dashboard has the keyboard reaches the prompt, or the way back is shown and proven in a real terminal.
+- [ ] Design it (spec): `/architect wf-dash stray keys` (choice: catch every key with a surface module `Client` and its `onKey`, or bind more keys on every view)
+- [ ] Build it: `/develop wf-dash stray keys`
+- [ ] Verify it: `/check verify wf-dash stray keys`
+- [ ] Test it: `/test wf-dash stray keys`
+- [ ] Sync docs: `/sync wf-dash stray keys`
+Source: the owner's message of 2026-10-17 ("accept as is") after critique round 10 scored the look 29/40.
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
