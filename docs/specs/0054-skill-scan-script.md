@@ -4,13 +4,14 @@
 **Status**: Accepted
 **Paths:** `scripts/skill-scan.py`, `bin/claude-config.py`, `bin/install.sh`, `claude-home/skills/claude-config/SKILL.md`, `runner/tests/test_skill_scan.py`
 **Amends**: [0048](0048-organize-and-sync/index.md) AC-10 (`update --apply` runs a scan first; it still never asks)
+**Amended**: 2026-10-18 - AC-13 a trusted list the full scan skips and names in its report (gstack, jjstack, ui-ux-pro-max). Not built yet. Source: the brief's "B2 skill scan" line, your words of 2026-10-17.
 
 ## What you're agreeing to
 - One command, `skill-scan`, runs the skillspector security scanner over every installed skill and plugin (quick pass, and the slower model pass when you ask).
 - It shows only new serious findings, compared with a list of known false alarms, each with the file and line.
 - Every skill update through claude-config scans the new version first and prints its new serious findings, then installs anyway. It never blocks.
-- Plugins update outside claude-config, so for them you scan after the fact; the docs say so.
-- Reports stay on your laptop, never in the public repo.
+- Plugins update outside claude-config, so for them you scan after the fact; the docs say so. Reports stay on your laptop, never in the public repo.
+- The full scan skips three well known skill packs you trust (gstack, jjstack, ui-ux-pro-max), which time out, and says so in its report.
 
 ## Summary
 Plan A4 scanned all 221 skills and plugins by hand with throwaway scripts. This turns that into one command and wires it into skill updates. The scanner raises many false alarms, so it compares against a saved list of known ones and shows only what is new.
@@ -32,6 +33,8 @@ The A4 scripts live outside the repo in `~/.local/share/skillspector-delta/` (`f
 - **AC-11** (probe, build step 1): `skillspector scan <realpath of one small skill> --no-llm --format json -o <tmp>; echo $?` records the exit code and the JSON shape the parser relies on. Recorded in verify notes; the build stops if the format differs from `full.py`'s assumption.
 
 - **AC-12** (narrowing said plainly): the plan says "both passes, rerun before every install". The update hook runs only the static pass (the model pass over one skill can take 20 minutes), and plugins can only be scanned before or after their own install. `skill-scan both` remains the full check you run by hand. Spec 0048 AC-10 gains one sentence: "`update --apply` prints a static skill scan of what it installs, and still never asks."
+
+- **AC-13** (trusted list, amended 2026-10-18, your words: "already reviewed by other creators and highly known, let's trust it"): `scripts/skill-scan.py` carries `TRUSTED = ("gstack", "jjstack", "ui-ux-pro-max")`. A run with no path (AC-1) drops every target whose realpath is the realpath of `~/.claude/skills/<name>` for a trusted name, or lies under it (so skills linked into a trusted pack are dropped too, never promoted to targets of their own), before the scans start, in both passes. Its report prints one line `skipped (trusted): <names found>`, and a trusted name with no folder is not listed. Only these three exact names: a separate folder such as `gstack-upgrade` is still scanned. An explicit path and `--against` (AC-6, and so the AC-7 update hook) still scan a trusted pack. Test: a fake home with a trusted pack, a skill symlinked into it and one other skill; only the other skill reaches the fake `skillspector`, and the skip line names the pack; mutation: drop the filter, red.
 
 ## Decision
 One stdlib Python script that folds `full.py`, `triage.py` and `delta.py` together, a baseline of known false alarms, and an advisory call in `update --apply`.
@@ -56,6 +59,7 @@ A blocking gate would stall on false alarms nearly every update; a baseline make
 4. install link, skill text, the 0048 sentence, satisfies **AC-8**, **AC-10**, **AC-12**
 5. Bulk accept of today's static findings as the baseline, satisfies **AC-5**
 6. Tests, all ACs
+7. Trusted list (amendment 2026-10-18), satisfies **AC-13**
 
 ## Consequences
 **Positive**: every skill update shows its new risks before it goes live.
