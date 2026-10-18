@@ -5,6 +5,7 @@
 **Paths:** `claude-home/mods/wf-dash/**`, `runner/statusbar.py`, `runner/auto.py`, `runner/wf.py`, `runner/tests/test_wf_status.py`, `bin/install.sh`
 **Stacks on:** 0058
 **Amended**: 2026-10-18 - AC-2 the band shows the session's effort, handed over by our own bar; AC-3 alerts are top right toasts that stay 15 s, each kept for the dashboard's Alerts view (spec 0060). Source: the locked look in `claude-home/mods/wf-dash/design.md` and the brief's "B3 wf-dash look" line.
+**Amended by**: [0065](0065-wf-dash-should-fixes.md) AC-2 (kind `stopped` for a run that did not finish)
 
 ## What you're agreeing to
 - Our own mod, wf-dash, draws a band above the prompt with everything the status bar shows plus the runner: features running, parked, and questions waiting. It always shows the effort level once Claude Code reports it.
