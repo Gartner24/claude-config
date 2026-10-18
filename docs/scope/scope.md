@@ -916,7 +916,7 @@ After a rollover you type only `/clear`: a start up hook loads the waiting hando
 - [x] Verify it: `/check verify sessions pass work to each other`
 - [x] Test it: `/test sessions pass work to each other` (19 hook checks and 2 mod tests pass; 2 checks mutation checked; suite red only on the two plan links from main, you said go on)
 - [ ] Copy the hook and settings live (`bin/install.sh` copies both and runs the hook self check), and install the mod: `ln -s ~/claude-config/claude-home/mods/wf-handoff ~/.claude/skills/wf-handoff` after a `skillspector scan` with the model pass · waits on you · later boxes go on
-- [ ] Sync docs: `/sync sessions pass work to each other`
+- [x] Sync docs: `/sync sessions pass work to each other`
 Spec [0057](../specs/0057-handover-on-clear.md) · code in `claude-home/hooks/handover-start.sh`, `claude-home/mods/wf-handoff/` · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B4; the handover first half of B14.
 
 ### 61. Cheap model gatekeeper with open models · done · auto
