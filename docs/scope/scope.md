@@ -1002,8 +1002,8 @@ Build the four ideas taken from Harvey, MiroFish and claude-skills-founder: a le
   - [x] lead-finder skill (AC-1 to AC-3, AC-9)
   - [x] reaction-tester skill (AC-4, AC-9)
   - [x] Scorecard and rule file, manifest test (AC-5, AC-6, AC-8)
-- [ ] Verify it: `/check verify ideas borrowed from tools we skip`
-- [ ] Test it: `/test ideas borrowed from tools we skip`
+- [x] Verify it: `/check verify ideas borrowed from tools we skip`
+- [x] Test it: `/test ideas borrowed from tools we skip` (983 tests pass; 11 tests mutation checked, 6 new)
 - [ ] Link the two skills and copy the rule live after the merge: `bin/install.sh` · waits on you · live · later boxes go on
 - [ ] Use each of the four once on a real case, write it in verify notes (AC-7) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync ideas borrowed from tools we skip`
