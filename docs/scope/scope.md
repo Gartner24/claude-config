@@ -928,9 +928,9 @@ Search helpers run on Haiku, the model rule says so, and each runner call record
   - [x] Agent pins and rule (AC-1, AC-2)
   - [x] `models` field, run line, week split and gate (AC-3 to AC-5, AC-7)
 - [ ] Confirm Haiku gets its own cost key: in an empty folder run `claude -p "use the scout agent to list the files here" --output-format json` and check `modelUsage` lists a haiku model (AC-6) · waits on you · later boxes go on
-- [ ] Copy the new agent pins and rule live: `bin/install.sh` · waits on you · live · later boxes go on
-- [ ] Verify it: `/check verify cheap model gatekeeper with open models`
-- [ ] Test it: `/test cheap model gatekeeper with open models`
+- [x] Copy the new agent pins and rule live: `bin/install.sh` · waits on you · live · later boxes go on
+- [x] Verify it: `/check verify cheap model gatekeeper with open models`
+- [x] Test it: `/test cheap model gatekeeper with open models`
 - [ ] Sync docs: `/sync cheap model gatekeeper with open models`
 Spec [0055](../specs/0055-cheap-work-cheap-models.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B6; row 64's gatekeeper rides on it.
 
@@ -939,15 +939,15 @@ Treat the runner as a system with a feedback loop: each run's results improve th
 **Done when:** the runner records what slowed or broke each run and turns it into a change or a proposal without you asking.
 - [x] Research and compare: `/deep-research self improving agent runners and feedback loops` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
 - [x] Design it (spec): `/architect runner that improves itself`
-- [ ] Build it: `/develop runner that improves itself`
-  - [ ] History, baselines, proposals, write fence (AC-1 to AC-4, AC-8)
-  - [ ] End of run call, `wf insights`, hook line, /insights read (AC-5 to AC-7)
-  - [ ] improve-my-system skill and its extract script (AC-9)
-- [ ] Verify it: `/check verify runner that improves itself`
-- [ ] Test it: `/test runner that improves itself`
+- [x] Build it: `/develop runner that improves itself`
+  - [x] History, baselines, proposals, write fence (AC-1 to AC-4, AC-8)
+  - [x] End of run call, `wf insights`, hook line, /insights read (AC-5 to AC-7)
+  - [x] improve-my-system skill and its extract script (AC-9)
+- [x] Verify it: `/check verify runner that improves itself`
+- [x] Test it: `/test runner that improves itself` (984 tests pass; 3 new tests mutation checked)
 - [ ] Write `~/.claude/private/history-allow.txt` with your own project folders (AC-9) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync runner that improves itself`
-Spec [0061](../specs/0061-runner-improves-itself.md) · Source: [brief](../briefs/tool-review-2026-10.md). Plan item B5.
+Spec [0061](../specs/0061-runner-improves-itself/index.md) · code in `runner/insights.py`, `claude-home/skills/improve-my-system/` · Source: [brief](../briefs/tool-review-2026-10.md). Plan item B5.
 
 ### 63. Evaluate Harvey, Soup, MiroFish, claude-skills-founder, Headroom · done
 Research each tool and compare it with the setup: Harvey (repo, site and `~/Downloads/guia-harvey.pdf`), Soup, MiroFish, claude-skills-founder, Headroom.
@@ -967,13 +967,14 @@ Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep
 Scan every installed skill and every new candidate with NVIDIA's `skillspector`; one `skill-scan` command and a scan before every skill update.
 **Done when:** `skill-scan` runs both passes over every skill and plugin, shows only new serious findings, and `claude-config update --apply` prints a scan of what it installs.
 - [x] Design it (spec): `/architect scan skills with skillspector`
-- [ ] Build it: `/develop scan skills with skillspector`
-  - [ ] Format probe (AC-11)
-  - [ ] `skill-scan` targets, passes, resume, verdict, baseline, delta (AC-1 to AC-6, AC-9)
-  - [ ] Update hook, install link, skill text, bulk baseline (AC-7, AC-8, AC-10, AC-12)
+- [x] Build it: `/develop scan skills with skillspector`
+  - [x] Format probe (AC-11) · notes in [0054 verify.md](../specs/0054-skill-scan-script/verify.md)
+  - [x] `skill-scan` targets, passes, resume, verdict, baseline, delta (AC-1 to AC-6, AC-9)
+  - [x] Update hook, install link, skill text (AC-7, AC-8, AC-10, AC-12) · code in `scripts/skill-scan.py`, `bin/claude-config.py` `scan()`
 - [x] Scan the installed skills: `skillspector` · waits on you (done in plan A4, 2026-10-16)
-- [ ] Verify it: `/check verify scan skills with skillspector`
-- [ ] Test it: `/test scan skills with skillspector`
+- [ ] Bulk baseline (AC-5, build step 5): after this merges, run bin/install.sh, then `! skill-scan static --accept` in a terminal (about 20 minutes; it ends with "static: baseline holds N findings"). The build sandbox cannot write ~/.claude/state · waits on you · later boxes go on
+- [x] Verify it: `/check verify scan skills with skillspector`
+- [x] Test it: `/test scan skills with skillspector`
 - [ ] Sync docs: `/sync scan skills with skillspector`
 Spec [0054](../specs/0054-skill-scan-script.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items A3, A4, B7.
 
@@ -981,16 +982,17 @@ Spec [0054](../specs/0054-skill-scan-script.md) · Source: [brief](../briefs/too
 fb-ask can send private text to the model on the laptop (`fb-local`) with `--local`; client and work text only that way.
 **Done when:** `fb-ask --local` answers through `fb-local` only, client text passes only with it, and a long or cut input falls back.
 - [x] Design it (spec): `/architect local model on the laptop`
-- [ ] Build it: `/develop local model on the laptop`
-  - [ ] `--local` flag, limits, truncation and build checks, gates (AC-1 to AC-6)
-  - [ ] Self checks, rule and docs (AC-7, AC-8)
+- [x] Build it: `/develop local model on the laptop`
+  - [x] `--local` flag, limits, truncation and build checks, gates (AC-1 to AC-6)
+  - [x] Self checks, rule and docs (AC-7, AC-8)
+- [ ] Copy the rule live: `cp claude-home/rules/cheap-worker.md ~/.claude/rules/cheap-worker.md` · waits on you · live · later boxes go on
 - [x] Install `ollama-vulkan` and join the render and video groups · waits on you (done in plan A7)
 - [x] Trial: speed test, one opencode task against claude-fb's cloud model · waits on you (done in plan A7, agent task skipped by your choice)
-- [ ] Verify it: `/check verify local model on the laptop`
-- [ ] Test it: `/test local model on the laptop`
+- [x] Verify it: `/check verify local model on the laptop` (AC-1 to AC-8 met, 13 can fail steps; AC-9 left to its box)
+- [x] Test it: `/test local model on the laptop` (21 self check mutants and 4 docs mutants all red, suite 973 green)
 - [ ] Live probes P1 and P2, never while wf builds (AC-9) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync local model on the laptop`
-Spec [0053](../specs/0053-fb-ask-local-model.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items A7, B8, D4.
+Spec [0053](../specs/0053-fb-ask-local-model.md) · code in `scripts/fb-ask.py` · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items A7, B8, D4.
 
 ### 69. Ideas borrowed from tools we skip · in-progress · auto
 Build the four ideas taken from Harvey, MiroFish and claude-skills-founder: a lead finder that never sends, a reaction tester, an idea scorecard, and the new number replaces old rule.
