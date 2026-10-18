@@ -94,7 +94,8 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 73 | wf-dash panes and actions | Release 9 | in-progress |
 | 74 | Fix the runner's plan landing crash | Release 9 | done |
 | 75 | wf-dash stray keys | Release 9 | in-progress |
-| 76 | Auto handoff: our handover, fired on its own | Release 9 | needs a decision |
+| 76 | Auto handoff: our handover, fired on its own | Release 9 | planned |
+| 77 | Auto handoff display: band, viewer pages, link | Release 9 | planned |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -1083,15 +1084,29 @@ In the wf-dash dashboard, a key it does not draw (a filter digit outside Plan, a
 - [ ] Sync docs: `/sync wf-dash stray keys`
 Spec [0062](../specs/0062-wf-dash-stray-keys.md) · Source: the owner's message of 2026-10-17 ("accept as is") after critique round 10 scored the look 29/40.
 
-### 76. Auto handoff: our handover, fired on its own
-At a token line the session hands itself off with no typing: a mod starts our full `/rollover`, clears, and seeds the fresh chat, with every part of alexknowshtml/claude-auto-handoff that beats ours copied in (tool gate, loop guards, facts and numbers by code, last request, progress panel, viewer pages, templates, settings, log).
-**Done when:** a long chat crosses the line and, with nothing typed, the fresh chat resumes from a full handover; every item of the brief's agreed list is built.
-- [ ] Design it (spec): `/architect auto handoff`
+### 76. Auto handoff: our handover, fired on its own · auto
+At 200k tokens a chat hands itself off with nothing typed: the mod gates new tool calls, runs our full `/rollover`, adds facts, numbers and your last request by code, clears, and seeds `/resume-from-clear`; loop guards 40k and 2 in a row.
+**Done when:** a scratch chat crosses the line and resumes in a fresh chat with nothing typed, and every AC of spec 0063 is built.
+- [x] Design it (spec): `/architect auto handoff` (your answers 2026-10-18: 200k, compact stays as backstop, every interactive chat, guards 40k and 2; all cross check fixes applied)
+- [ ] Run probes P1 to P5 in a scratch session with `claude --plugin-dir` (spec 0063 AC-13), write results in its verify notes; a FAIL sends this back to `/architect` · waits on you
 - [ ] Build it: `/develop auto handoff`
 - [ ] Verify it: `/check verify auto handoff`
 - [ ] Test it: `/test auto handoff`
+- [ ] Install the mod live after its scan · waits on you · later boxes go on
 - [ ] Sync docs: `/sync auto handoff`
-Source: [brief](../briefs/auto-handoff.md) (the owner's messages of 2026-10-18).
+Spec [0063](../specs/0063-auto-handoff.md) · Source: [brief](../briefs/auto-handoff.md) (the owner's messages of 2026-10-18).
+
+### 77. Auto handoff display: band, viewer pages, link · auto
+The handoff shows its steps and result in the wf-dash band (toasts where there is no band), each handover gets a readable page served on your Tailscale address, and a chat that came from a handoff links back to it.
+**Done when:** a handoff shows in the band, its page opens from your phone over Tailscale, and every AC of spec 0064 is built.
+- [x] Design it (spec): `/architect auto handoff` (your answers 2026-10-18: progress in the wf-dash band, install Tailscale)
+- [ ] Install Tailscale on this laptop and your phone and log in to both (spec 0064 AC-7) · waits on you · later boxes go on
+- [ ] Build it: `/develop auto handoff display`
+- [ ] Verify it: `/check verify auto handoff display`
+- [ ] Test it: `/test auto handoff display`
+- [ ] Install both mods live after their scan · waits on you · later boxes go on
+- [ ] Sync docs: `/sync auto handoff display`
+Spec [0064](../specs/0064-auto-handoff-display.md) · Source: [brief](../briefs/auto-handoff.md) (the owner's messages of 2026-10-18).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
