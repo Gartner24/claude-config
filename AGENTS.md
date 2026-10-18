@@ -26,6 +26,7 @@ python3 scripts/private-names.py --test         # private names checker self che
 python3 scripts/skill-keep.py --dry-run         # only skills in scripts/skill-keep.txt keep their description; others go name-only in ~/.claude/settings.json, plus a plugin report (spec 0050); without --dry-run it writes, then run bin/sync.sh right away or bin/install.sh undoes it; tests in runner/tests/test_skill_keep.py
 python3 scripts/spec-paths.py --test            # stale spec warner self checks (spec 0015); bin/install.sh links it as ~/.local/bin/spec-paths, which /sync runs as `spec-paths --spec NNNN`
 ~/.claude/skills/jjstack/bin/jjstack-skill-miss-report  # skills your messages matched but that did not run, top misses for 24 h, 72 h and lifetime (spec 0036); the two hooks behind it are in HOOKS.md and stay off under WF_RUN
+wf insights                                     # spec 0061: baselines and repeating problems from past runs; also runs at the end of each wf run, proposals go to an inbox, never applied; tests in runner/tests/test_insights.py
 fb-ask <task> [--file PATH] < input             # cheap worker tier (spec 0023): summarize|triage|extract|classify|commit-msg on the free claude-fb models, exit 3/4 = do it yourself (`claude-home/rules/cheap-worker.md`); `fb-ask --test` self checks, bin/install.sh links it to ~/.local/bin
 ```
 

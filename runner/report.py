@@ -7,6 +7,7 @@ import re
 import tempfile
 
 import context
+import insights
 import ntfy
 import plain
 import run
@@ -438,6 +439,10 @@ def hook():
         print(HOOK_HEAD)
         print(shown(text))
     line = killed_line()
+    if line:
+        print(line)
+    # Spec 0061 AC-6: shown even with no report pending.
+    line = insights.hook_line()
     if line:
         print(line)
 
