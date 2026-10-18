@@ -2050,12 +2050,15 @@ PATHS_LINE = re.compile(r"^\*\*Paths:\*\*(.*)$", re.M)
 
 def globs(repo, scope_dir, lines):
     """AC-5: the backticked spans of the feature's spec top file's **Paths:** line, shared files left out; None (it
-    overlaps every feature) with no spec link, no Paths line or no globs."""
+    overlaps every feature) with no spec link, no Paths line or no globs. Spec 0052 AC-5: [] (overlaps nothing) for
+    `**Paths:** none`, a spec that governs no file."""
     top = spec_file(repo, scope_dir, lines)
     try:
         m = PATHS_LINE.search(wf.read(top)) if top else None
     except OSError:
         m = None
+    if m and m.group(1).strip() == "none":
+        return []
     found = re.findall(r"`([^`]+)`", m.group(1)) if m else []
     kept = [g for g in found if not shared(g, scope_dir)]
     return kept or None
@@ -2067,7 +2070,9 @@ def shared(path, scope_dir):
 
 def overlap(a, b):
     """AC-5: the first glob of a that meets one of b (fnmatch either way, or a folder prefix), "*" when either is
-    None, else None."""
+    None, else None. Spec 0052 AC-5: [] (`Paths: none`) meets nothing, not even None."""
+    if a == [] or b == []:
+        return None
     if a is None or b is None:
         return "*"
     for x in a:

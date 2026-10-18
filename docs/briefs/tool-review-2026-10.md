@@ -19,6 +19,7 @@ Source: your message of 2026-10-15 evening, at the end of the clean branches ses
 - **Later answers** (2026-10-17, second session): land seo-ops-refs as a PR (PR #31), not delete it; drop B9 (graphify stays installed and usable by hand, no hook, no CLAUDE.md line); D4 yes, local model only: fb-ask may take client and work repo text only through `fb-local`, the cloud groups stay refused there. D4 is built with B8.
 - **B1** (2026-10-17): no new spec; row 56 is tagged `· auto` so the runner runs its verify and `/sync`.
 - **B2 answers** (2026-10-17, spec 0052): no weekly brake; split the cores between running features; retry git lock errors 5 times; the 8 worktree stress test is the build's first step and stops it on failure.
+- **B2 parallel 6 timing** (your answer, 2026-10-18): claude-config's AGENTS.md keeps `- parallel: 4` until spec 0052 merges and `bin/install.sh` installs the new runner, then it switches to `- parallel: 6` (the installed old runner refuses anything above 4). Verify passes without the 6.
 - **Build everything in parallel** (your words, 2026-10-17 evening): "lets build in parallel what can be done in parallel, and if something is missing an architect lets do it ... just start".
 - **Design answers, batch 2026-10-17 evening**:
   - D1: a repo with no checks waits up to 10 minutes for one, then self merges anyway. The D1 build waits until row 56's verify and sync finish (same spec).
