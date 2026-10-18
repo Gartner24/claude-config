@@ -86,7 +86,7 @@ fb-ask <task> [--file PATH] < input             # cheap worker tier (spec 0023):
 - done: yes
 - branches: per spec
 - push: draft PR
-- parallel: 4
+- parallel: 6
 - suite: python3 runner/tests/fast.py
 
 An `- allow writes:` line here is ignored now (spec 0021 AC-7); standing write permission is `wf allow-writes <repo> <path>`.
