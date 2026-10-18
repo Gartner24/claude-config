@@ -81,7 +81,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 59 | Memory tool: claude-mem, MemPalace, graphify or NotebookLM | Release 9 | planned |
 | 60 | Sessions pass work to each other | Release 9 | in-progress |
 | 61 | Cheap model gatekeeper with open models | Release 9 | done |
-| 62 | Runner that improves itself | Release 9 | in-progress |
+| 62 | Runner that improves itself | Release 9 | done |
 | 63 | Evaluate Harvey, Soup, MiroFish, claude-skills-founder, Headroom | Release 9 | done |
 | 64 | Recommended mods: gatekeeper, Claude to Claude, own panel | Release 9 | done |
 | 65 | Scan skills with skillspector | Release 9 | done |
@@ -934,7 +934,7 @@ Search helpers run on Haiku, the model rule says so, and each runner call record
 - [x] Sync docs: `/sync cheap model gatekeeper with open models`
 Spec [0055](../specs/0055-cheap-work-cheap-models.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B6; row 64's gatekeeper rides on it.
 
-### 62. Runner that improves itself · in-progress · auto
+### 62. Runner that improves itself · done · auto
 Treat the runner as a system with a feedback loop: each run's results improve the next run, and it improves itself while idle.
 **Done when:** the runner records what slowed or broke each run and turns it into a change or a proposal without you asking.
 - [x] Research and compare: `/deep-research self improving agent runners and feedback loops` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
@@ -945,8 +945,8 @@ Treat the runner as a system with a feedback loop: each run's results improve th
   - [x] improve-my-system skill and its extract script (AC-9)
 - [x] Verify it: `/check verify runner that improves itself`
 - [x] Test it: `/test runner that improves itself` (984 tests pass; 3 new tests mutation checked)
-- [ ] Write `~/.claude/private/history-allow.txt` with your own project folders (AC-9) · waits on you · later boxes go on
-- [ ] Sync docs: `/sync runner that improves itself`
+- [x] Write `~/.claude/private/history-allow.txt` with your own project folders (AC-9) · waits on you · later boxes go on
+- [x] Sync docs: `/sync runner that improves itself`
 Spec [0061](../specs/0061-runner-improves-itself/index.md) · code in `runner/insights.py`, `claude-home/skills/improve-my-system/` · Source: [brief](../briefs/tool-review-2026-10.md). Plan item B5.
 
 ### 63. Evaluate Harvey, Soup, MiroFish, claude-skills-founder, Headroom · done
