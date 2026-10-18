@@ -1,7 +1,7 @@
 # 0054. One skill scan command, run before every skill update
 
 **Date**: 2026-10-17
-**Status**: Proposed
+**Status**: Accepted
 **Paths:** `scripts/skill-scan.py`, `bin/claude-config.py`, `bin/install.sh`, `claude-home/skills/claude-config/SKILL.md`, `runner/tests/test_skill_scan.py`
 **Amends**: [0048](0048-organize-and-sync/index.md) AC-10 (`update --apply` runs a scan first; it still never asks)
 
