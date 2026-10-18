@@ -18,11 +18,11 @@ from contextlib import redirect_stdout
 
 import ntfy
 import run
+import statusbar
 import wf
 
 UNIT = "wf-auto"
 WAIT_EVERY = 30
-BAR_TIMEOUT = 2
 # Spec 0046 AC-4: a chat is live while its status bar ran within LIVE_FOR seconds; the bar writes at most once a minute.
 LIVE_FOR = 600
 SEEN_EVERY = 60
@@ -634,19 +634,17 @@ def hook():
 
 
 def bar():
-    """Spec 0030 AC-10, spec 0046 AC-4, AC-7: jjstack's status line, unchanged, with the autonomous segment on its last
-    line; in a chat that is on it also marks the chat live, at most once a minute."""
+    """Spec 0030 AC-10, spec 0046 AC-4, AC-7, spec 0058: our own status line (it used to run jjstack's script), with
+    the autonomous segment after it; in a chat that is on it also marks the chat live, at most once a minute."""
     raw = sys.stdin.read()
-    try:
-        out = subprocess.run(["bash", os.path.expanduser("~/.claude/skills/jjstack/bin/statusline.sh")], input=raw,
-                             capture_output=True, text=True, timeout=BAR_TIMEOUT)
-        out = out.stdout.rstrip("\n") if out.returncode == 0 else ""
-    except (OSError, subprocess.SubprocessError):
-        out = ""
-    seg = ""
     try:
         data = json.loads(raw or "{}")
         data = data if isinstance(data, dict) else {}
+    except ValueError:
+        data = {}
+    out = statusbar.render(data)
+    seg = ""
+    try:
         folder = (data.get("workspace") or {}).get("current_dir") or data.get("cwd") or os.getcwd()
         s = load()
         key, c = chat(s, folder)
