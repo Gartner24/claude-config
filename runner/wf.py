@@ -672,6 +672,8 @@ def build_parser():
     how = rep.add_mutually_exclusive_group()
     how.add_argument("--seen", action="store_true", help="stop showing the report at session start")
     how.add_argument("--hook", action="store_true", help="the session start form: prints only an unseen report")
+    ins = sub.add_parser("insights", help="read past runs, print baselines and repeating problems (spec 0061)")
+    ins.add_argument("--seen", action="store_true", help="stop counting the proposals now in the inbox as new")
     unpark = sub.add_parser("unpark",help="clear a repo's parked features and open questions")
     unpark.add_argument("target", help="a path, folder name or scope title")
     unpark.add_argument("feature", nargs="?", help="only this feature: its heading, or a unique part of it")
@@ -724,6 +726,9 @@ def main(argv=None):
     if args.command == "report":
         import report
         return report.cmd_report(args)
+    if args.command == "insights":
+        import insights
+        return insights.cmd_insights(args)
     if args.command in ("allow", "queue", "unpark"):
         import run
         return getattr(run, "cmd_" + args.command)(args)

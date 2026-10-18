@@ -31,6 +31,7 @@ import zoneinfo
 from queue import Queue
 
 import context
+import insights
 import ntfy
 import plain
 import report
@@ -3955,6 +3956,8 @@ class Run:
         print(f"run folder: {self.folder}", flush=True)
         # Spec 0018 AC-1: the morning report, after the final save; a report failure never changes the exit code.
         self.record["report"] = report.end_of_run(self)
+        # Spec 0061 AC-5: before prune_runs, so a run about to be pruned is in the history first.
+        insights.end_of_run()
         self.save()
         for p in prune_runs(self.folder):
             print(f"pruned: {p}", flush=True)

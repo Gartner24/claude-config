@@ -948,7 +948,7 @@ Treat the runner as a system with a feedback loop: each run's results improve th
 - [x] Test it: `/test runner that improves itself` (984 tests pass; 3 new tests mutation checked)
 - [ ] Write `~/.claude/private/history-allow.txt` with your own project folders (AC-9) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync runner that improves itself`
-Spec [0061](../specs/0061-runner-improves-itself.md) · code in `runner/insights.py`, `claude-home/skills/improve-my-system/` · Source: [brief](../briefs/tool-review-2026-10.md). Plan item B5.
+Spec [0061](../specs/0061-runner-improves-itself/index.md) · code in `runner/insights.py`, `claude-home/skills/improve-my-system/` · Source: [brief](../briefs/tool-review-2026-10.md). Plan item B5.
 
 ### 63. Evaluate Harvey, Soup, MiroFish, claude-skills-founder, Headroom · done
 Research each tool and compare it with the setup: Harvey (repo, site and `~/Downloads/guia-harvey.pdf`), Soup, MiroFish, claude-skills-founder, Headroom.
