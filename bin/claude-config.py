@@ -35,7 +35,7 @@ IGNORE = REPO / "config" / "drift-ignore.json"
 # or has a manifest entry.
 COPIED_FILES = ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py",
                 "hooks/context-monitor.js", "hooks/claude-config-reminder.py",
-                "hooks/workflow-start.sh", "scripts/claude-ram-watch.sh")
+                "hooks/workflow-start.sh", "hooks/handover-start.sh", "scripts/claude-ram-watch.sh")
 # .in_use/<pid> is a marker Claude Code drops in a plugin folder per running session; it used to make 10
 # of 12 plugin base_hash values go stale as soon as any session started.
 SKIP = {".git", "__pycache__", "node_modules", ".plugin-version", ".in_use"}
@@ -442,6 +442,20 @@ def install_folder(src, dst):
     tmp.rename(dst)
 
 
+def scan(name, live, folder):
+    """Spec 0054 AC-7: print what skillspector finds new in the folder about to go live. Never blocks."""
+    tool = Path(__file__).resolve().parent.parent / "scripts" / "skill-scan.py"
+    r = subprocess.run([sys.executable, str(tool), "--against", str(live), str(folder)],
+                       capture_output=True, text=True)
+    lines = (r.stdout + r.stderr).strip().splitlines() or [f"exit {r.returncode}, no output"]
+    if r.returncode == 1 and not lines[0].startswith("scan failed"):
+        print(f"{name}: skill scan, new serious findings (static):")
+        for line in lines:
+            print(f"  {line}")
+    else:
+        print(f"{name}: skill scan: {lines[0]}")
+
+
 def update_apply(name, resolved=False):
     m = load_manifest()
     e = m["entries"].get(name)
@@ -485,6 +499,7 @@ def update_apply(name, resolved=False):
                 return 2
         else:
             result = now
+        scan(name, live, result)
         install_folder(result, live)
         e["pinned"], e["base_hash"] = commit, folder_hash(now)
         patch = make_patch(now, live, tmp)

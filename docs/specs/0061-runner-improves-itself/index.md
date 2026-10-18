@@ -1,9 +1,9 @@
 # 0061. The runner learns from its runs, and a weekly review of your sessions
 
 **Date**: 2026-10-17
-**Status**: Proposed
+**Status**: Accepted
 **Paths:** `runner/insights.py`, `claude-home/skills/improve-my-system/extract.py`, `runner/run.py`, `runner/report.py`, `runner/wf.py`, `runner/tests/test_insights.py`, `claude-home/skills/improve-my-system/**`
-**Amends**: [0018](0018-morning-report/index.md) (the session start report line gains a proposals count), [0020](0020-one-command-wf/index.md) (adds `wf insights`)
+**Amends**: [0018](../0018-morning-report/index.md) (the session start report line gains a proposals count), [0020](../0020-one-command-wf/index.md) (adds `wf insights`)
 
 ## What you're agreeing to
 - At the end of every runner run, a small reader goes over past runs, keeps a long running summary, and finds problems that repeat (the same park, the same denied file, the same step timing out).
@@ -14,9 +14,6 @@
 
 ## Summary
 The runner already records everything about each run, but nothing learns from it, and run folders are pruned after 50 runs. This adds a reader that keeps a compact history, sets baselines and proposes fixes for repeating problems. The skill, from the guide you shared, does the same for your interactive sessions.
-
-## Context
-`run.json` is written by `Run.save()` (`runner/run.py:2759-2770`), with call records built at `:2827-2831` (command, duration, exit, cost, denials, decision) and park codes at `:273-282`. Runs live in `~/.local/state/wf/runs/<name>-<stamp>-<pid>/`; `prune_runs()` keeps 50 (`run.py:4708-4732`, `RUNS_KEPT` `:459`). The morning report ends at `report.end_of_run` (`run.py:3956`); the session start hook is `wf report --hook` (`report.py:432-442`), silent while a repo lock is held. Claude Code's `/insights` report is unconfirmed here (no `~/.claude/usage-data` yet). Research 62 (`docs/research/tool-review-2026-10/62-self-improving-runner.md`): aggregator first, template proposals, no self modification. Your answers: run at the end of each run plus by hand; add the guide's free history review as a skill run by hand; reject the paid plugin.
 
 ## Requirements
 - **AC-1** (read only): `runner/insights.py` reads `~/.local/state/wf/runs/*/run.json` and writes only under `~/.local/state/wf/insights/`.

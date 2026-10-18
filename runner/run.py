@@ -31,6 +31,7 @@ import zoneinfo
 from queue import Queue
 
 import context
+import insights
 import ntfy
 import plain
 import report
@@ -2826,7 +2827,7 @@ class Run:
         base = os.path.join(self.folder, f"call-{seq:02d}")
         rec = {"seq": seq, "kind": None, "command": command, "box_text": None, "started": now(), "duration_s": None,
                "exit_code": None, "session_id": session, "subtype": None, "is_error": None,
-               "cost_usd": None, "tokens": None, "num_turns": None, "next_after": None, "decision": None,
+               "cost_usd": None, "tokens": None, "models": None, "num_turns": None, "next_after": None, "decision": None,
                "resumes": [], "last_box": last_box, "denials": [], "marker": None, "checked_n": None, "limited": False,
                "outage": False, "unconfirmed": None, "retry_of": None, "touched": None, "app": None, "test_base": sha}
         t0 = time.monotonic()
@@ -2865,7 +2866,8 @@ class Run:
         if data:
             rec.update(session_id=data.get("session_id") or session, subtype=data.get("subtype"),
                        is_error=data.get("is_error"), cost_usd=data.get("total_cost_usd"),
-                       tokens=usage_tokens(data.get("usage")), num_turns=data.get("num_turns"), denials=denials(data))
+                       tokens=usage_tokens(data.get("usage")), num_turns=data.get("num_turns"), denials=denials(data),
+                       models=model_costs(data.get("modelUsage")))
         tail = " / ".join(flat(l) for l in read_bytes(base + ".stderr").decode(errors="replace").splitlines()[-5:])
         return rec, data, timed_out, tail, None
 
@@ -3954,6 +3956,8 @@ class Run:
         print(f"run folder: {self.folder}", flush=True)
         # Spec 0018 AC-1: the morning report, after the final save; a report failure never changes the exit code.
         self.record["report"] = report.end_of_run(self)
+        # Spec 0061 AC-5: before prune_runs, so a run about to be pruned is in the history first.
+        insights.end_of_run()
         self.save()
         for p in prune_runs(self.folder):
             print(f"pruned: {p}", flush=True)
@@ -5066,6 +5070,34 @@ def usage_tokens(usage):
         return None
     return {k: v if isinstance(v, int) and not isinstance(v, bool) else None
             for k, v in ((k, usage.get(f)) for k, f in TOKEN_FIELDS.items())}
+
+
+def model_costs(usage):
+    """Spec 0055 AC-3: {model id: {cost_usd, output_tokens}} from a call's modelUsage, keys as claude returns them;
+    None when absent or empty (a call that failed before the API reports {}), never {}."""
+    if not isinstance(usage, dict):
+        return None
+    out = {k: {"cost_usd": v.get("costUSD"), "output_tokens": v.get("outputTokens")}
+           for k, v in usage.items() if isinstance(v, dict)}
+    return out or None
+
+
+def split(calls):
+    """Spec 0055 AC-3 to AC-5: (cost per model id, cost off each call's main model, summed cost_usd, calls with a
+    split, calls without one) over call records. The main model is the key with the largest cost_usd."""
+    per, other, total, used, skipped = {}, 0.0, 0.0, 0, 0
+    for c in calls:
+        m = c.get("models")
+        if not m:
+            skipped += 1
+            continue
+        costs = {k: v.get("cost_usd") or 0 for k, v in m.items()}
+        for k, v in costs.items():
+            per[k] = per.get(k, 0) + v
+        other += sum(costs.values()) - max(costs.values())
+        total += c.get("cost_usd") or sum(costs.values())
+        used += 1
+    return per, other, total, used, skipped
 
 
 def spent(calls):

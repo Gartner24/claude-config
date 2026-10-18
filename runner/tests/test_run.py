@@ -102,10 +102,14 @@ else:
 sys.exit(step.get("rc", 0))
 """
 
-FAKE_INHIBIT = f"""#!{sys.executable}
-import json, os, sys, time
+# The pid and argv used to come from python, and wf could stop this fake before python had started when the whole
+# suite ran at once, so the file never appeared: the shell writes them first, and exec keeps the pid.
+FAKE_INHIBIT = f"""#!/bin/sh
+printf '%s\\n' "$@" > "$FAKE_DIR/inhibit.argv"
+echo $$ > "$FAKE_DIR/inhibit.pid"
+exec {sys.executable} -c '
+import os, sys, time
 d = os.environ["FAKE_DIR"]
-json.dump({{"argv": sys.argv[1:], "pid": os.getpid()}}, open(os.path.join(d, "inhibit.json"), "w"))
 pid = int(next(a for a in sys.argv if a.startswith("--pid=")).split("=", 1)[1])
 while True:
     try:
@@ -115,6 +119,7 @@ while True:
     time.sleep(0.1)
 # Reached only when wf did not kill this child itself.
 open(os.path.join(d, "inhibit-self-exit"), "w").close()
+' "$@"
 """
 
 SCOPE = """# Scope: demo
@@ -1111,13 +1116,14 @@ class TestParking(RunCase):
     # covers: spec 0005 AC-9, AC-12 (a wait longer than --max-hours does not stop the run; waited_s recorded)
     def test_wait_not_counted(self):
         self.fake_ntfy()
-        self.ntfy.hold_polls = 60
+        # A 1.8 s limit used to run out on the four calls alone when the whole suite ran at once; 7.2 s leaves room.
+        self.ntfy.hold_polls = 160
         self.ntfy.replies = ["{id} 1"]
         self.steps([ask(), {}, {}, {"tick": False}])
-        r = self.wf("demo", "-y", "--max-hours", "0.0005", "--max-wait", "12", mode="fast")
+        r = self.wf("demo", "-y", "--max-hours", "0.002", "--max-wait", "12", mode="fast")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         _, rec = self.run_record()
-        self.assertGreater(rec["waited_s"], 1.8)
+        self.assertGreater(rec["waited_s"], 7.2)
 
     # covers: spec 0005 AC-9 (SIGINT during a wait: interrupted, exit 130, decision open, no inhibitor)
     def test_sigint_during_wait(self):
@@ -1136,7 +1142,7 @@ class TestParking(RunCase):
         self.assertEqual(p.returncode, 130, out + err)
         _, rec = self.run_record()
         self.assertEqual((rec["stop_reason"], rec["decisions"][0]["source"]), ("interrupted", None))
-        pid = json.loads((self.fakes / "inhibit.json").read_text())["pid"]
+        pid = int((self.fakes / "inhibit.pid").read_text())
         time.sleep(0.4)
         self.assertFalse(alive(pid))
 
@@ -1185,7 +1191,7 @@ class TestCaps(RunCase):
 
 class TestRecordAndSignals(RunCase):
     def inhibitor_pid(self):
-        pid = json.loads((self.fakes / "inhibit.json").read_text())["pid"]
+        pid = int((self.fakes / "inhibit.pid").read_text())
         time.sleep(0.4)
         self.assertFalse((self.fakes / "inhibit-self-exit").exists(), "wf left its inhibitor to die on its own")
         return pid
@@ -1256,8 +1262,7 @@ class TestRecordAndSignals(RunCase):
         p = self.start("demo", "-y")
         out, _ = p.communicate(timeout=30)
         self.assertEqual(p.returncode, 0, out)
-        inh = json.loads((self.fakes / "inhibit.json").read_text())
-        self.assertEqual(inh["argv"], ["--what=idle:sleep:handle-lid-switch", "--who=wf", "--why=wf run demo",
+        self.assertEqual((self.fakes / "inhibit.argv").read_text().splitlines(), ["--what=idle:sleep:handle-lid-switch", "--who=wf", "--why=wf run demo",
                                        "kde-inhibit", "--power", "--screenSaver",
                                        "tail", f"--pid={p.pid}", "-f", "/dev/null"])
         self.assertFalse(alive(self.inhibitor_pid()))
@@ -1268,7 +1273,7 @@ class TestRecordAndSignals(RunCase):
         (self.bin / "kde-inhibit").unlink()
         r = self.wf("demo", "-y")
         self.assertIn("warning: kde-inhibit not found, the screen may still blank", r.stdout)
-        argv = json.loads((self.fakes / "inhibit.json").read_text())["argv"]
+        argv = (self.fakes / "inhibit.argv").read_text().splitlines()
         self.assertEqual((argv[3], argv[5:]), ("tail", ["-f", "/dev/null"]))
         (self.bin / "systemd-inhibit").unlink()
         self.make_repo("fresh", SCOPE)
@@ -1477,6 +1482,23 @@ class TestGuard(RunCase):
                 self.assertFalse((self.state / "wf" / "runs").exists())
         (user / "settings.json").write_text('{"sandbox": {"excludedCommands": []}, "hooks": {}}')
         self.assertEqual(self.wf("demo", "-y", "--max-calls", "1").returncode, 6)
+
+    # covers: spec 0061 AC-5 (a real run adds itself to insights/history.jsonl, and the folders it prunes are in the
+    # history first)
+    def test_insights_before_prune(self):
+        runs = self.state / "wf" / "runs"
+        old = [f"old-20261001-0000{n:02d}-{2 ** 22 + 7}" for n in range(run.RUNS_KEPT + 1)]
+        for n, name in enumerate(old):
+            (runs / name).mkdir(parents=True)
+            (runs / name / "run.json").write_text(json.dumps({"ended": "2026-10-01T00:00:00+00:00"}))
+            os.utime(runs / name, (n + 1, n + 1))
+        r = self.wf("demo", "-y")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn(f"pruned: {runs / old[0]}", r.stdout)
+        self.assertFalse((runs / old[0]).exists())
+        own = [p.name for p in runs.iterdir() if p.name.startswith("demo-")]
+        hist = [json.loads(l)["run"] for l in (self.state / "wf" / "insights" / "history.jsonl").read_text().splitlines()]
+        self.assertEqual(sorted(hist), sorted(old + own))
 
     # covers: spec 0007 AC-9, AC-11 (run.json guard, confirm line part, nothing written outside the run)
     def test_record(self):

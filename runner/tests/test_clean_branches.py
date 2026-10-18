@@ -551,6 +551,18 @@ class TestLandPlan(Case):
         self.assertEqual(self.git("rev-parse", "work"), self.git("rev-parse", "work", repo=self.origin))
         self.assertEqual(self.git("status", "--porcelain"), "")
 
+    # covers: AC-15 from the parallel parent, which has no run folder (the 2026-10-17 run crashed with "expected str,
+    # bytes or os.PathLike object, not NoneType" writing the scan files); the scan files do not stay behind
+    def test_lands_without_run_folder(self):
+        self.r.folder = None
+        self.plan_commit()
+        self.gh({"land": str(self.origin)})
+        with mock.patch("tempfile.tempdir", str(self.tmp / "scratch")):
+            (self.tmp / "scratch").mkdir()
+            self.assertTrue(pr.land_plan(self.r))
+            self.assertEqual(list((self.tmp / "scratch").iterdir()), [])
+        self.assertEqual(self.git("rev-parse", "work"), self.git("rev-parse", "work", repo=self.origin))
+
     # covers: AC-15 (a commit touching a path outside the scope folder: nothing pushed, no PR, a note)
     def test_outside(self):
         self.plan_commit()
@@ -587,6 +599,17 @@ class TestLandPlanIsolated(Case):
             self.assertIsNone(pr.land_plan(self.r))
         self.assertEqual(self.gh_calls(), [])
         self.assertTrue(self.r.notes[0].startswith("plan not landed: private_names:"), self.r.notes)
+
+    # covers: AC-15 from the parallel parent (no run folder): a private name in the PR text still stops the landing
+    def test_names_without_run_folder(self):
+        self.r.folder = None
+        self.plan_commit()
+        self.gh({"land": str(self.origin)})
+        with mock.patch("pr.datetime") as dt:
+            dt.datetime.now.return_value.strftime.return_value = "Zorblex"
+            self.assertIsNone(pr.land_plan(self.r))
+        self.assertEqual(self.gh_calls(), [])
+        self.assertTrue(self.r.notes[0].startswith("plan not landed: private_names: PR title:"), self.r.notes)
 
 
 class TestSettings(Case):
