@@ -90,7 +90,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 69 | Ideas borrowed from tools we skip | Release 9 | in-progress |
 | 70 | graphify test on one repo | Release 9 | done |
 | 71 | Self merge rules and review notes | Release 9 | in-progress |
-| 72 | wf-dash band and alerts | Release 9 | in-progress |
+| 72 | wf-dash band and alerts | Release 9 | done |
 | 73 | wf-dash panes and actions | Release 9 | in-progress |
 | 74 | Fix the runner's plan landing crash | Release 9 | done |
 | 75 | wf-dash stray keys | Release 9 | in-progress |
@@ -1030,7 +1030,7 @@ The PR #18 review's open items and two script bugs found while landing it.
 - [ ] Sync docs: `/sync self merge rules and review notes`
 Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items D1, E3, E4.
 
-### 72. wf-dash band and alerts · in-progress · auto
+### 72. wf-dash band and alerts · done · auto
 Our own mod draws a band above the prompt with the session, its effort and the runner, and alerts on finished runs, parks and questions as top right toasts that stay 15 s, each kept for the dashboard's Alerts view.
 **Done when:** the band shows every segment, the effort and the runner counts, unknown shows `?`, and alerts fire once per event as 15 s toasts and land in the alert list.
 - [x] Design it (spec): `/architect own status bar and dashboards with mods`
@@ -1043,7 +1043,7 @@ Our own mod draws a band above the prompt with the session, its effort and the r
 - [x] Verify it: `/check verify wf-dash band and alerts`
 - [x] Test it: `/test wf-dash band and alerts`
 - [x] Install the mod live after its scan · waits on you · later boxes go on
-- [ ] Sync docs: `/sync wf-dash band and alerts`
+- [x] Sync docs: `/sync wf-dash band and alerts`
 Spec [0059](../specs/0059-wf-dash-band.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B3, part 2 of 3; stacks on spec 0058.
 
 ### 73. wf-dash panes and actions · in-progress · auto
