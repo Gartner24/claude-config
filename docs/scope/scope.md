@@ -69,7 +69,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 48 | Readable layout for ~/.claude and claude-config | Release 8 | done |
 | 49 | Fast runner | Release 8 | done |
 | 50 | Fewer avoidable stops | Release 8 | done |
-| 51 | Autonomous mode per chat | Release 8 | in-progress |
+| 51 | Autonomous mode per chat | Release 8 | done |
 | 52 | Review leftovers 2026-10-15 | Release 8 | done |
 | 53 | Only a typed /auto turns on or releases | Release 8 | done |
 | 54 | Organize claude-config and ~/.claude, sync what you use daily | Release 8 | done |
@@ -768,7 +768,7 @@ The runner stops less for things that need nothing from you: a check that cannot
 - [x] Sync docs: `/sync fewer avoidable stops`
 Spec [0045](../specs/0045-fewer-avoidable-stops/index.md) · code in `runner/run.py`, `runner/tests/test_fewer_stops.py`, `AGENTS.md` · Source: [brief](../briefs/fewer-stops.md).
 
-### 51. Autonomous mode per chat · in-progress · auto
+### 51. Autonomous mode per chat · done · auto
 Several Claude chats each drive the runner for their own repos at once; a repo belongs to one chat at a time and moves with its context written down first.
 **Done when:** two chats in two folders each run autonomous mode for their own repos, their bars and questions show only their repos, and a take of a repo the other live chat holds is refused.
 - [x] Design it (spec): `/architect autonomous mode per chat`
@@ -777,7 +777,7 @@ Several Claude chats each drive the runner for their own repos at once; a repo b
 - [x] Test it: `/test autonomous mode per chat`
 - [x] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
 - [x] Two real chats in two folders: each turns on its own repos, the bars show only their own, a take of the other's repo is refused (AC-11) · waits on you · later boxes go on (passed 2026-10-17: the personal chat's take of claude-config was refused, its bar showed only its own)
-- [ ] Sync docs: `/sync autonomous mode per chat`
+- [x] Sync docs: `/sync autonomous mode per chat`
 Spec [0046](../specs/0046-autonomous-mode-per-chat/index.md) · Source: [brief](../briefs/autonomous-per-chat.md) · code in `runner/auto.py`.
 
 ### 52. Review leftovers 2026-10-15 · done · auto
@@ -1042,7 +1042,7 @@ Our own mod draws a band above the prompt with the session, its effort and the r
   - [x] Tests and scan (AC-7); the `skill-scan` runs in the install box below
 - [x] Verify it: `/check verify wf-dash band and alerts`
 - [x] Test it: `/test wf-dash band and alerts`
-- [ ] Install the mod live after its scan · waits on you · later boxes go on
+- [x] Install the mod live after its scan · waits on you · later boxes go on
 - [ ] Sync docs: `/sync wf-dash band and alerts`
 Spec [0059](../specs/0059-wf-dash-band.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B3, part 2 of 3; stacks on spec 0058.
 
