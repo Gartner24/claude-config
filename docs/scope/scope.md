@@ -1093,7 +1093,8 @@ At 200k tokens a chat hands itself off with nothing typed: the mod gates new too
 **Done when:** a scratch chat crosses the line and resumes in a fresh chat with nothing typed, and every AC of spec 0063 is built.
 - [x] Design it (spec): `/architect auto handoff` (your answers 2026-10-18: 200k, compact stays as backstop, every interactive chat, guards 40k and 2; all cross check fixes applied)
 - [x] Run probes P1 to P5 in a scratch session with `claude --plugin-dir` (spec 0063 AC-13), write results in its verify notes; a FAIL sends this back to `/architect` · waits on you (ran 2026-10-18: P2, P4, P5 pass; P1 and P3 FAIL, both with a working alternative, see [verify notes](../specs/0063-auto-handoff/verify.md))
-- [ ] Amend the spec after the probe FAILs: `/architect auto handoff` (rollover and seed through `$.command.run`, seed after the awaited clear, AC-1 size read after `next(e)`)
+- [x] Amend the spec after the probe FAILs: `/architect auto handoff` (rollover and seed through `$.command.run`, seed after the awaited clear, AC-1 size read after `next(e)`; done 2026-10-18, cross check fixes applied, three new probes added)
+- [ ] Run probes P6 to P8 in a scratch session with `claude --plugin-dir` (spec 0063 AC-13), write results in its verify notes; a FAIL sends this back to `/architect` · waits on you
 - [ ] Build it: `/develop auto handoff`
 - [ ] Verify it: `/check verify auto handoff`
 - [ ] Test it: `/test auto handoff`
