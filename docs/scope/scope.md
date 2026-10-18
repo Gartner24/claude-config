@@ -943,8 +943,8 @@ Treat the runner as a system with a feedback loop: each run's results improve th
   - [x] History, baselines, proposals, write fence (AC-1 to AC-4, AC-8)
   - [x] End of run call, `wf insights`, hook line, /insights read (AC-5 to AC-7)
   - [x] improve-my-system skill and its extract script (AC-9)
-- [ ] Verify it: `/check verify runner that improves itself`
-- [ ] Test it: `/test runner that improves itself`
+- [x] Verify it: `/check verify runner that improves itself`
+- [x] Test it: `/test runner that improves itself` (984 tests pass; 3 new tests mutation checked)
 - [ ] Write `~/.claude/private/history-allow.txt` with your own project folders (AC-9) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync runner that improves itself`
 Spec [0061](../specs/0061-runner-improves-itself/index.md) · code in `runner/insights.py`, `claude-home/skills/improve-my-system/` · Source: [brief](../briefs/tool-review-2026-10.md). Plan item B5.
