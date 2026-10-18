@@ -77,7 +77,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 56 | Clean branches, PRs and commits | Release 8 | done |
 | 66 | Update Claude Code through /claude-config | Release 9 | done |
 | 57 | Move my own skills out of jjstack | Release 9 | done |
-| 58 | Own status bar and dashboards with mods | Release 9 | in-progress |
+| 58 | Own status bar and dashboards with mods | Release 9 | done |
 | 59 | Memory tool: claude-mem, MemPalace, graphify or NotebookLM | Release 9 | planned |
 | 60 | Sessions pass work to each other | Release 9 | in-progress |
 | 61 | Cheap model gatekeeper with open models | Release 9 | done |
@@ -885,16 +885,16 @@ Find the skills in jjstack that are yours from its git history, and copy your ow
 Closed 2026-10-17: the research answer for this row says keep jjstack; only its status line goes, replaced by row 58 (spec 0058); spawn-review was copied in plan A5 (PR #26).
 Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
 
-### 58. Own status bar and dashboards with mods · in-progress · auto
+### 58. Own status bar and dashboards with mods · done · auto
 Our own status bar without jjstack: the segments ported into the runner.
 **Done when:** the bottom bar draws every segment it drew before with no jjstack folder, and unknown values show `?`.
 - [x] Design it (spec): `/architect own status bar and dashboards with mods`
 - [x] Build it: `/develop own status bar and dashboards with mods`
   - [x] Ported segments, usage modes, unknown rules (AC-1, AC-3, AC-5)
   - [x] `bar()` switch, liveness kept, tests (AC-2, AC-4, AC-6)
-- [ ] Verify it: `/check verify own status bar and dashboards with mods`
-- [ ] Test it: `/test own status bar and dashboards with mods`
-- [ ] Sync docs: `/sync own status bar and dashboards with mods`
+- [x] Verify it: `/check verify own status bar and dashboards with mods`
+- [x] Test it: `/test own status bar and dashboards with mods` (990 tests pass; 19 tests mutation checked, one fixed to see its own seen write)
+- [x] Sync docs: `/sync own status bar and dashboards with mods`
 Spec [0058](../specs/0058-own-status-bar.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B3, part 1 of 3; the band is row 72, the panes row 73.
 
 ### 59. Memory tool: claude-mem, MemPalace, graphify or NotebookLM
