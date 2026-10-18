@@ -985,7 +985,7 @@ fb-ask can send private text to the model on the laptop (`fb-local`) with `--loc
 - [x] Build it: `/develop local model on the laptop`
   - [x] `--local` flag, limits, truncation and build checks, gates (AC-1 to AC-6)
   - [x] Self checks, rule and docs (AC-7, AC-8)
-- [ ] Copy the rule live: `cp claude-home/rules/cheap-worker.md ~/.claude/rules/cheap-worker.md` · waits on you · live · later boxes go on
+- [x] Copy the rule live: `cp claude-home/rules/cheap-worker.md ~/.claude/rules/cheap-worker.md` · waits on you · live · later boxes go on
 - [x] Install `ollama-vulkan` and join the render and video groups · waits on you (done in plan A7)
 - [x] Trial: speed test, one opencode task against claude-fb's cloud model · waits on you (done in plan A7, agent task skipped by your choice)
 - [x] Verify it: `/check verify local model on the laptop` (AC-1 to AC-8 met, 13 can fail steps; AC-9 left to its box)
