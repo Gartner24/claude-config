@@ -947,7 +947,7 @@ Treat the runner as a system with a feedback loop: each run's results improve th
 - [x] Test it: `/test runner that improves itself` (984 tests pass; 3 new tests mutation checked)
 - [ ] Write `~/.claude/private/history-allow.txt` with your own project folders (AC-9) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync runner that improves itself`
-Spec [0061](../specs/0061-runner-improves-itself/index.md) · code in `runner/insights.py`, `claude-home/skills/improve-my-system/` · Source: [brief](../briefs/tool-review-2026-10.md). Plan item B5.
+Spec [0061](../specs/0061-runner-improves-itself.md) · code in `runner/insights.py`, `claude-home/skills/improve-my-system/` · Source: [brief](../briefs/tool-review-2026-10.md). Plan item B5.
 
 ### 63. Evaluate Harvey, Soup, MiroFish, claude-skills-founder, Headroom · done
 Research each tool and compare it with the setup: Harvey (repo, site and `~/Downloads/guia-harvey.pdf`), Soup, MiroFish, claude-skills-founder, Headroom.
@@ -968,7 +968,7 @@ Scan every installed skill and every new candidate with NVIDIA's `skillspector`;
 **Done when:** `skill-scan` runs both passes over every skill and plugin, shows only new serious findings, and `claude-config update --apply` prints a scan of what it installs.
 - [x] Design it (spec): `/architect scan skills with skillspector`
 - [x] Build it: `/develop scan skills with skillspector`
-  - [x] Format probe (AC-11) · notes in [0054 verify.md](../specs/0054-skill-scan-script/verify.md)
+  - [x] Format probe (AC-11) · notes in spec [0054](../specs/0054-skill-scan-script.md) (its verify.md lands with the build)
   - [x] `skill-scan` targets, passes, resume, verdict, baseline, delta (AC-1 to AC-6, AC-9)
   - [x] Update hook, install link, skill text (AC-7, AC-8, AC-10, AC-12) · code in `scripts/skill-scan.py`, `bin/claude-config.py` `scan()`
 - [x] Scan the installed skills: `skillspector` · waits on you (done in plan A4, 2026-10-16)
