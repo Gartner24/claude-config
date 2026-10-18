@@ -92,7 +92,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 71 | Self merge rules and review notes | Release 9 | in-progress |
 | 72 | wf-dash band and alerts | Release 9 | in-progress |
 | 73 | wf-dash panes and actions | Release 9 | in-progress |
-| 74 | Fix the runner's plan landing crash | Release 9 | in-progress |
+| 74 | Fix the runner's plan landing crash | Release 9 | done |
 | 75 | wf-dash stray keys | Release 9 | in-progress |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
@@ -1005,7 +1005,7 @@ Build the four ideas taken from Harvey, MiroFish and claude-skills-founder: a le
   - [x] Scorecard and rule file, manifest test (AC-5, AC-6, AC-8)
 - [x] Verify it: `/check verify ideas borrowed from tools we skip`
 - [x] Test it: `/test ideas borrowed from tools we skip` (983 tests pass; 11 tests mutation checked, 6 new)
-- [ ] Link the two skills and copy the rule live after the merge: `bin/install.sh` · waits on you · live · later boxes go on
+- [x] Link the two skills and copy the rule live after the merge: `bin/install.sh` · waits on you · live · later boxes go on
 - [ ] Use each of the four once on a real case, write it in verify notes (AC-7) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync ideas borrowed from tools we skip`
 Spec [0056](../specs/0056-borrowed-ideas.md) · code in `claude-home/skills/lead-finder/`, `claude-home/skills/reaction-tester/`, `claude-home/rules/new-number-replaces-old.md` · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items B10 to B13.
@@ -1059,14 +1059,14 @@ One `/wf-dash` dashboard with Plan, Builds, Agents and Alerts views for the whol
 - [ ] Sync docs: `/sync wf-dash panes and actions`
 Spec [0060](../specs/0060-wf-dash-panes.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B3, part 3 of 3, with your plan pane ask; stacks on spec 0059.
 
-### 74. Fix the runner's plan landing crash · in-progress · auto
+### 74. Fix the runner's plan landing crash · done · auto
 At the end of the 2026-10-17 run, landing the runner's own plan commits failed with "the build tool itself hit a bug: expected str, bytes or os.PathLike object, not NoneType", so the plan commits stayed local until landed by hand (PR #36).
 **Done when:** a run that ends with plan commits lands them through its docs PR with no crash, with a test that fails on the old code.
 - [x] Design it (spec): `/architect fix the runner's plan landing crash` (no new decision: a bug against spec 0051 AC-15)
 - [x] Fix it: `/debug fix the runner's plan landing crash`
-- [ ] Verify it: `/check verify fix the runner's plan landing crash`
-- [ ] Test it: `/test fix the runner's plan landing crash`
-- [ ] Sync docs: `/sync fix the runner's plan landing crash`
+- [x] Verify it: `/check verify fix the runner's plan landing crash`
+- [x] Test it: `/test fix the runner's plan landing crash` (1026 tests pass; 2 tests mutation checked against 3 mutants)
+- [x] Sync docs: `/sync fix the runner's plan landing crash`
 Spec [0051](../specs/0051-clean-branches-commits/index.md) AC-15 · Source: the run report of 2026-10-17 17:57 (`plan landing:` line, run folders under `~/.local/state/wf/runs/*-20261017-17*`).
 
 ### 75. wf-dash stray keys · in-progress · auto
