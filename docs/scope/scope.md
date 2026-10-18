@@ -1097,7 +1097,7 @@ At 200k tokens a chat hands itself off with nothing typed: the mod gates new too
 - [x] Run probes P6 to P8 in a scratch session with `claude --plugin-dir` (spec 0063 AC-13), write results in its verify notes; a FAIL sends this back to `/architect` · waits on you (ran 2026-10-18: all pass, see [verify notes](../specs/0063-auto-handoff/verify.md))
 - [x] Build it: `/develop auto handoff` (code in `claude-home/mods/wf-handoff/`; the `viewer:` line waits on spec 0064's link)
 - [x] Verify it: `/check verify auto handoff` (PASS 2026-10-18 after the fix in 1c47781; the live run is left to the install box)
-- [ ] Test it: `/test auto handoff`
+- [x] Test it: `/test auto handoff` (2026-10-18: 45 mod tests pass, every new test red on a mutant)
 - [ ] Install the mod live after its scan · waits on you · later boxes go on
 - [ ] Sync docs: `/sync auto handoff`
 Spec [0063](../specs/0063-auto-handoff.md) · Source: [brief](../briefs/auto-handoff.md) (the owner's messages of 2026-10-18).
