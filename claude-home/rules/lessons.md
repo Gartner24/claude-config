@@ -5,8 +5,8 @@ Only project-specific lessons live here; generic practice is left to the model.
 
 ## Subagent models
 
-When starting a subagent without a pinned model, pass `model`: sonnet for search, review and
-simple edits; opus only for architecture and hard debugging. Custom agents already pin theirs.
+When starting a subagent without a pinned model, pass `model`: haiku for read only search and
+lookup helpers, sonnet for review and simple edits, opus only for architecture and hard debugging. Custom agents already pin theirs.
 
 ## Review: an absent answer rendered as a definite one
 
