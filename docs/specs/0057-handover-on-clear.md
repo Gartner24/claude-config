@@ -3,6 +3,7 @@
 **Date**: 2026-10-17
 **Status**: In Progress
 **Paths:** `claude-home/hooks/handover-start.sh`, `claude-home/hooks/workflow-start.sh`, `claude-home/settings.json`, `bin/install.sh`, `bin/sync.sh`, `claude-home/CLAUDE.md`, `claude-home/mods/wf-handoff/**`
+**Amended by:** [0063](0063-auto-handoff.md) (AC-10: the mod also fires on its own at the handoff line)
 
 ## What you're agreeing to
 - After a rollover you type only `/clear`; a start up hook loads the waiting handover and tells the new session to resume it.
@@ -26,7 +27,7 @@ The handover slot is managed by jjstack's `jjstack-rollover-slot` (`status` and 
 - **AC-7** (self check): `bash handover-start.sh --test` with a fixture HOME, slots written by the real `jjstack-rollover-slot write` (so the cwd rule is the real one), covers a live slot, no slot, a slot 2 days old, a slot over 7,000 bytes, a slot with no transcript line, `TM_WORKER_NAME` set, and `WF_RUN` set; the JSON is parsed with `python3 -I -c "import json,sys; json.load(sys.stdin)"`.
 - **AC-8** (words): `claude-home/CLAUDE.md` and DAILY-USE.md say "type `/clear`" after a rollover, and that `/resume-from-clear` still works by hand.
 - **AC-9** (probes, build step 1, never while wf builds): P1, a throwaway SessionStart hook prints a marker as AC-1's JSON, then `/clear`, then the model is asked for the marker, also checking that the stdin `source` is `clear` and that the handover text arrives before `workflow-start.sh`'s output when both print; P2, a scratch mod (outside the repo) registers `/probe-clear` calling `$.command.run({command: "clear"})`, run with `claude --plugin-dir <scratch>` in a scratch folder with no live slot; pass is the context empties, the session goes on, and the P1 hook ran after the mod's clear. Commands and results go in verify notes. P1 failing stops the build; P2 failing means AC-10 is not built.
-- **AC-10** (mod, only if P2 passes): `claude-home/mods/wf-handoff/` registers `/handoff`, which checks that a live slot exists (else says "no handover, run /rollover first" and does nothing) and then runs the clear from `$.clock.after`, after its `command.run` hook has returned (probe P2: awaiting `$.command.run` inside the hook is refused); the AC-1 hook then loads the handover. It acts only when typed. Scanned with `skill-scan` (spec 0054) before install; its live install is a box that waits on you.
+- **AC-10** (mod, only if P2 passes): `claude-home/mods/wf-handoff/` registers `/handoff`, which checks that a live slot exists (else says "no handover, run /rollover first" and does nothing) and then runs the clear from `$.clock.after`, after its `command.run` hook has returned (probe P2: awaiting `$.command.run` inside the hook is refused); the AC-1 hook then loads the handover. It acts only when typed (amended by spec 0063: it also fires on its own at the handoff line). Scanned with `skill-scan` (spec 0054) before install; its live install is a box that waits on you.
 
 ## Decision
 A claude-config SessionStart hook now; the mod only after its probe.
