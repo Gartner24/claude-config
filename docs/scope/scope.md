@@ -86,7 +86,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 64 | Recommended mods: gatekeeper, Claude to Claude, own panel | Release 9 | done |
 | 65 | Scan skills with skillspector | Release 9 | done |
 | 67 | Local model on the laptop | Release 9 | in-progress |
-| 68 | Runner runs more than 4 features at once | Release 9 | in-progress |
+| 68 | Runner runs more than 4 features at once | Release 9 | done |
 | 69 | Ideas borrowed from tools we skip | Release 9 | in-progress |
 | 70 | graphify test on one repo | Release 9 | done |
 | 71 | Self merge rules and review notes | Release 9 | in-progress |
@@ -857,7 +857,7 @@ Code reaches main only through its own squash merged PR, branches and worktrees 
 - [x] Sync docs: `/sync clean branches, PRs and commits`
 Spec [0051](../specs/0051-clean-branches-commits/index.md) · Source: [brief](../briefs/clean-branches-and-commits.md).
 
-### 68. Runner runs more than 4 features at once · in-progress · auto
+### 68. Runner runs more than 4 features at once · done · auto
 Remove the fixed 4: any number up to a ceiling, a live memory and usage brake, and the same files rule back from each spec's Paths line.
 **Done when:** a `wf` run starts more than 4 features when memory and usage allow, never two whose Paths overlap, and holds back when free memory or the 5 hour use crosses its line.
 - [x] Research and compare: `/deep-research runner with n features at once` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
@@ -867,9 +867,10 @@ Remove the fixed 4: any number up to a ceiling, a live memory and usage brake, a
   - [x] Parallel 1 to 8, read loop timeout, memory and usage brake (AC-1, AC-2, AC-3, AC-4)
   - [x] Same repo Paths wait and `Paths: none` (AC-5)
   - [x] Cores split through `WF_CORES` (AC-6)
-- [ ] Verify it: `/check verify runner runs more than 4 features at once`
-- [ ] Test it: `/test runner runs more than 4 features at once`
-- [ ] Sync docs: `/sync runner runs more than 4 features at once`
+- [x] Verify it: `/check verify runner runs more than 4 features at once` (10 of 10 steps can fail checked; `- parallel: 6` waits for the merge)
+- [x] Test it: `/test runner runs more than 4 features at once` (15 mutants red, 980 tests pass)
+- [x] Sync docs: `/sync runner runs more than 4 features at once`
+After the merge and `bin/install.sh`: set `- parallel: 6` in AGENTS.md (your answer 2026-10-18, in the brief).
 Spec [0052](../specs/0052-more-features-at-once.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B2.
 
 ### 66. Update Claude Code through /claude-config · done
@@ -1037,7 +1038,7 @@ Our own mod draws a band above the prompt with the session, its effort and the r
   - [x] `wf status --json` (AC-1)
   - [x] Band with effort, alerts, short bar (AC-2 to AC-5, amended 2026-10-18)
   - [x] Tests and scan (AC-7); the `skill-scan` runs in the install box below
-- [ ] Verify it: `/check verify wf-dash band and alerts`
+- [x] Verify it: `/check verify wf-dash band and alerts`
 - [ ] Test it: `/test wf-dash band and alerts`
 - [ ] Install the mod live after its scan · waits on you · later boxes go on
 - [ ] Sync docs: `/sync wf-dash band and alerts`
