@@ -1,0 +1,1 @@
+{ "name": "wf-handoff", "version": "0.1.0", "description": "/handoff: after /rollover, clear the context so the handover hook loads the waiting handover (spec 0057)" }

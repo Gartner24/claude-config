@@ -1,7 +1,7 @@
 # 0058. Our own status bar, without jjstack
 
 **Date**: 2026-10-17
-**Status**: Proposed
+**Status**: Accepted
 **Paths:** `runner/statusbar.py`, `runner/auto.py`, `runner/tests/test_statusbar.py`, `runner/tests/test_auto.py`
 **Amends**: [0030](0030-autonomous-mode/index.md) AC-10 (the bar no longer runs jjstack's script)
 

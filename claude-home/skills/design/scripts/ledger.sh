@@ -191,6 +191,7 @@ def say_missing(step, groups):
 # design-gate, and shipped a shell impeccable critique had scored 25/40, scroll motion shrunk
 # to a fraction of the owner's named reference, and a paid hero video nothing used.
 CRITIQUE_MIN = 0.8   # 32/40 on impeccable's heuristic table
+IMAGE_TAGS = re.compile(r"^(?:\[Image #\d+\]\s*)+")
 HARNESS_PREFIXES = ("Stop hook feedback", "Another Claude session sent a message",
                     "This session is being continued", "(Re-invocation", "Base directory for this skill",
                     "[Image", "Caveat:", "[Request interrupted")
@@ -229,7 +230,9 @@ def owner_reply(doc, since):
                     c = m.get("content")
                     texts = [c] if isinstance(c, str) else [b.get("text", "") for b in c
                              if isinstance(b, dict) and b.get("type") == "text"] if isinstance(c, list) else []
-                    for x in (s.strip() for s in texts):
+                    # a reply that opens with a screenshot ("[Image #10] looks good") is still the owner's words;
+                    # an image with no words strips to "" and stays out
+                    for x in (IMAGE_TAGS.sub("", s).strip() for s in texts):
                         if x and not x.startswith("<") and not x.startswith(HARNESS_PREFIXES):
                             msgs.append((t, x))
     before = {x for t, x in msgs if t < since}
