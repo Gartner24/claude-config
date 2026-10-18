@@ -1096,7 +1096,7 @@ At 200k tokens a chat hands itself off with nothing typed: the mod gates new too
 - [x] Amend the spec after the probe FAILs: `/architect auto handoff` (rollover and seed through `$.command.run`, seed after the awaited clear, AC-1 size read after `next(e)`; done 2026-10-18, cross check fixes applied, three new probes added)
 - [x] Run probes P6 to P8 in a scratch session with `claude --plugin-dir` (spec 0063 AC-13), write results in its verify notes; a FAIL sends this back to `/architect` · waits on you (ran 2026-10-18: all pass, see [verify notes](../specs/0063-auto-handoff/verify.md))
 - [x] Build it: `/develop auto handoff` (code in `claude-home/mods/wf-handoff/`; the `viewer:` line waits on spec 0064's link)
-- [ ] Verify it: `/check verify auto handoff`
+- [x] Verify it: `/check verify auto handoff` (PASS 2026-10-18 after the fix in 1c47781; the live run is left to the install box)
 - [ ] Test it: `/test auto handoff`
 - [ ] Install the mod live after its scan · waits on you · later boxes go on
 - [ ] Sync docs: `/sync auto handoff`
@@ -1149,7 +1149,7 @@ The design gate's seven should-fixes for the wf-dash band; you pick which to bui
 - [x] Design it (spec): `/architect wf-dash design should-fixes`
 - [x] Build it: `/develop wf-dash design should-fixes`
 - [x] Verify it: `/check verify wf-dash design should-fixes`
-- [ ] Test it: `/test wf-dash design should-fixes`
+- [x] Test it: `/test wf-dash design should-fixes`
 - [ ] Sync docs: `/sync wf-dash design should-fixes`
 Spec [0065](../specs/0065-wf-dash-should-fixes.md) · Source: [brief](../briefs/leftovers-2026-10-18.md), section Row 72 design gate should-fixes.
 
