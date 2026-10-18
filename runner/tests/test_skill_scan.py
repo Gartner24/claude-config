@@ -120,6 +120,39 @@ class TestTargets(Case):
         self.assertEqual(scanned, sorted([str(a), str(p)]))
         self.assertIn("static: 2 targets", out)
 
+    # covers: AC-13 (trusted pack and skills linked into it skipped and named; look alike and explicit path scanned)
+    def test_trusted(self):
+        pack = self.skill("gstack")
+        self.skill("qa", where=pack)
+        upgrade = self.skill("gstack-upgrade")
+        other = self.skill("other")
+        code, out = self.run_main()
+        self.assertEqual(code, 0, out)
+        self.assertEqual(sorted(c["argv"][1] for c in self.log()), sorted([str(upgrade), str(other)]))
+        self.assertIn("skipped (trusted): gstack\n", out)
+        (self.data / "log").unlink()
+        code, out = self.run_main(str(self.skills / "gstack"))
+        self.assertEqual([c["argv"][1] for c in self.log()], [str(pack)])
+        self.assertNotIn("skipped", out)
+
+    # covers: AC-13 (both passes scan the same filtered targets, one skip line)
+    def test_trusted_both(self):
+        self.skill("qa", where=self.skill("ui-ux-pro-max"))
+        other = self.skill("other")
+        code, out = self.run_main("both")
+        self.assertEqual(code, 0, out)
+        self.assertEqual([c["argv"][1] for c in self.log()], [str(other)] * 2)
+        self.assertEqual(out.count("skipped (trusted): ui-ux-pro-max\n"), 1, out)
+
+    # covers: AC-13, AC-7 (--against, the update hook, still scans an installed trusted pack)
+    def test_trusted_against(self):
+        pack = self.skill("gstack")
+        cand = self.tmp / "cand" / "gstack"
+        cand.mkdir(parents=True)
+        code, out = self.run_main("--against", "gstack", str(cand))
+        self.assertEqual((code, out.strip()), (0, "no new findings"))
+        self.assertEqual(sorted(c["argv"][1] for c in self.log()), sorted([str(pack), str(cand)]))
+
 
 class TestCommands(Case):
     # covers: AC-2 (static has --no-llm and no provider; llm drops it and sets claude_cli)

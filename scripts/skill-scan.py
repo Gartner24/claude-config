@@ -24,6 +24,7 @@ from pathlib import Path
 PIN = "v2.12.0"
 WORKERS = {"static": 6, "llm": 3}
 TIMEOUT = {"static": 300, "llm": 1800}
+TRUSTED = ("gstack", "jjstack", "ui-ux-pro-max")
 # A4 triage: findings in tests, benchmarks, fixtures and changelogs were all false alarms.
 NOISE = re.compile(r"(^|/)(tests?|__tests__|benchmarks?|fixtures?|evals?|examples?|node_modules|\.venv)/"
                    r"|CHANGELOG|\.test\.|_test\.|test_")
@@ -65,6 +66,12 @@ def targets(paths):
         skills = home() / "skills"
         found = {os.path.realpath(p): None for p in (skills.iterdir() if skills.is_dir() else []) if p.is_dir()}
         found.update(dict.fromkeys(names))
+        # These packs time out and are widely reviewed (owner, 2026-10-17). Drop links into them too, or
+        # the nested rule below would promote each linked skill to a target of its own.
+        trusted = {n: os.path.realpath(skills / n) for n in TRUSTED if (skills / n).is_dir()}
+        found = {p: None for p in found if not any(p == t or p.startswith(t + "/") for t in trusted.values())}
+        if trusted:
+            print(f"skipped (trusted): {', '.join(trusted)}")
     keep = [p for p in found if not any(p != q and p.startswith(q + "/") for q in found)]
     return {p: names.get(p) or Path(p).name for p in sorted(keep)}
 
