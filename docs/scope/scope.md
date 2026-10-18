@@ -94,6 +94,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 73 | wf-dash panes and actions | Release 9 | in-progress |
 | 74 | Fix the runner's plan landing crash | Release 9 | done |
 | 75 | wf-dash stray keys | Release 9 | in-progress |
+| 76 | Auto handoff: our handover, fired on its own | Release 9 | needs a decision |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -1081,6 +1082,16 @@ In the wf-dash dashboard, a key it does not draw (a filter digit outside Plan, a
 - [ ] Real terminal check: type stray keys on every view in tmux, the prompt stays empty (spec 0062 AC-6) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync wf-dash stray keys`
 Spec [0062](../specs/0062-wf-dash-stray-keys.md) · Source: the owner's message of 2026-10-17 ("accept as is") after critique round 10 scored the look 29/40.
+
+### 76. Auto handoff: our handover, fired on its own
+At a token line the session hands itself off with no typing: a mod starts our full `/rollover`, clears, and seeds the fresh chat, with every part of alexknowshtml/claude-auto-handoff that beats ours copied in (tool gate, loop guards, facts and numbers by code, last request, progress panel, viewer pages, templates, settings, log).
+**Done when:** a long chat crosses the line and, with nothing typed, the fresh chat resumes from a full handover; every item of the brief's agreed list is built.
+- [ ] Design it (spec): `/architect auto handoff`
+- [ ] Build it: `/develop auto handoff`
+- [ ] Verify it: `/check verify auto handoff`
+- [ ] Test it: `/test auto handoff`
+- [ ] Sync docs: `/sync auto handoff`
+Source: [brief](../briefs/auto-handoff.md) (the owner's messages of 2026-10-18).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
