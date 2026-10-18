@@ -58,13 +58,13 @@ This is the whole list. Nothing is added, dropped or swapped without your yes, a
 - [x] A9. MemPalace trial, after skillspector passes it: Docker, read only mount, loaded by hand, no auto save, one wing per project, no client or work repos, two weeks (row 59): set up 2026-10-16: image `mempalace:trial`, all 13 wings mined with no errors, `mp` search works (a specific query found the exact A4 result; vague queries find context only; old handover files and error logs add noise). Trial review about 2026-10-30
 
 ### B. Build (each gets `/architect`, then the runner)
-- [ ] B1. Finish clean branches and PRs: `/check verify` and `/sync` (row 56)
-- [ ] B2. Runner with more than 4 features at once: any number, default top 6 (8 max until measured), starts a feature only with over 4.5 GB free memory and the 5 hour use under 80%, the same files rule back from each spec's Paths line, a spec with no Paths runs alone, worktrees kept (row 68)
+- [x] B1. Finish clean branches and PRs: `/check verify` and `/sync` (row 56)
+- [x] B2. Runner with more than 4 features at once: any number, default top 6 (8 max until measured), starts a feature only with over 4.5 GB free memory and the 5 hour use under 80%, the same files rule back from each spec's Paths line, a spec with no Paths runs alone, worktrees kept (row 68)
 - [ ] B3. wf-dash, our own mod: status band with jjstack's segments plus wf counts, an agents pane, a runner pane, alerts; the shell status line stays as fallback; replaces jjstack's status line (rows 58, 64, closes 57)
-- [ ] B4. Sessions pass work on: SessionStart hook loads a waiting handover (you type only `/clear`), then a probe of a mod doing the `/clear`, built if it works; the handover loads first and memory gets the space left (row 60)
-- [ ] B5. Runner that improves itself: reads every run.json while idle, sets baselines, writes proposals to a separate inbox file the session shows you, reads `/insights` too, never edits guards or deny lists (row 62)
-- [ ] B6. Cheap work on cheap models: read only helper agents pinned to Haiku, fb-ask used for big inputs; an `agent.spawn` routing mod only after measuring the savings (row 61)
-- [ ] B7. Skill scan script: skillspector over every skill and plugin, both passes, rerun before every install (row 65)
+- [x] B4. Sessions pass work on: SessionStart hook loads a waiting handover (you type only `/clear`), then a probe of a mod doing the `/clear`, built if it works; the handover loads first and memory gets the space left (row 60): built and merged (PR #46); its live install box waits on you in row 60
+- [x] B5. Runner that improves itself: reads every run.json while idle, sets baselines, writes proposals to a separate inbox file the session shows you, reads `/insights` too, never edits guards or deny lists (row 62)
+- [x] B6. Cheap work on cheap models: read only helper agents pinned to Haiku, fb-ask used for big inputs; an `agent.spawn` routing mod only after measuring the savings (row 61)
+- [x] B7. Skill scan script: skillspector over every skill and plugin, both passes, rerun before every install (row 65)
 - [ ] B8. Local model wired in, only if A7 passes: `fb-local` group in fb-ask for private text (row 67)
 - [x] B9. graphify in the workflow, only if A8 wins: its hook and one CLAUDE.md line in that repo only (row 70): dropped 2026-10-17, A8 lost; graphify stays installed
 - [ ] B10. Lead finder (idea from Harvey): a skill that audits local business sites for no website, no booking, an old blog or an incumbent agency, and lists 10 to 20 for you to contact by hand; nothing is ever sent by it (row 69)
