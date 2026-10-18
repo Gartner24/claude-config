@@ -1094,7 +1094,7 @@ At 200k tokens a chat hands itself off with nothing typed: the mod gates new too
 - [x] Design it (spec): `/architect auto handoff` (your answers 2026-10-18: 200k, compact stays as backstop, every interactive chat, guards 40k and 2; all cross check fixes applied)
 - [x] Run probes P1 to P5 in a scratch session with `claude --plugin-dir` (spec 0063 AC-13), write results in its verify notes; a FAIL sends this back to `/architect` · waits on you (ran 2026-10-18: P2, P4, P5 pass; P1 and P3 FAIL, both with a working alternative, see [verify notes](../specs/0063-auto-handoff/verify.md))
 - [x] Amend the spec after the probe FAILs: `/architect auto handoff` (rollover and seed through `$.command.run`, seed after the awaited clear, AC-1 size read after `next(e)`; done 2026-10-18, cross check fixes applied, three new probes added)
-- [ ] Run probes P6 to P8 in a scratch session with `claude --plugin-dir` (spec 0063 AC-13), write results in its verify notes; a FAIL sends this back to `/architect` · waits on you
+- [x] Run probes P6 to P8 in a scratch session with `claude --plugin-dir` (spec 0063 AC-13), write results in its verify notes; a FAIL sends this back to `/architect` · waits on you (ran 2026-10-18: all pass, see [verify notes](../specs/0063-auto-handoff/verify.md))
 - [ ] Build it: `/develop auto handoff`
 - [ ] Verify it: `/check verify auto handoff`
 - [ ] Test it: `/test auto handoff`
@@ -1114,7 +1114,7 @@ The handoff shows its steps and result in the wf-dash band (toasts where there i
 - [ ] Sync docs: `/sync auto handoff display`
 Spec [0064](../specs/0064-auto-handoff-display.md) · Source: [brief](../briefs/auto-handoff.md) (the owner's messages of 2026-10-18).
 
-### 78. Runner bugs found 2026-10-18
+### 78. Runner bugs found 2026-10-18 · auto
 Six runner bugs found while conducting the 2026-10-18 runs: an accepted design park that comes back, a PR that reverts main, a worktree planning from a stale scope, a scope copy that blocks the main merge, a doubled "learn this first", and row 71 never queued.
 **Done when:** each of the six is fixed with a test that fails on the old code, or dropped with a reason.
 - [ ] Fix them: `/debug runner bugs found 2026-10-18`
@@ -1123,7 +1123,7 @@ Six runner bugs found while conducting the 2026-10-18 runs: an accepted design p
 - [ ] Sync docs: `/sync runner bugs found 2026-10-18`
 Source: [brief](../briefs/leftovers-2026-10-18.md), section Runner bugs.
 
-### 79. Security review leftovers 2026-10-18
+### 79. Security review leftovers 2026-10-18 · auto
 The 2026-10-18 security review's open items in the status bar and the skill scan script.
 **Done when:** each item is fixed with a test that fails on the old code, or dropped with a reason.
 - [ ] Fix them: `/debug security review leftovers 2026-10-18`
@@ -1132,25 +1132,26 @@ The 2026-10-18 security review's open items in the status bar and the skill scan
 - [ ] Sync docs: `/sync security review leftovers 2026-10-18`
 Source: [brief](../briefs/leftovers-2026-10-18.md), section Security review leftovers.
 
-### 80. Skill scan trusted list
+### 80. Skill scan trusted list · auto
 The skill scan skips gstack, jjstack and ui-ux-pro-max and names them in its report, so scans finish inside the time limit.
 **Done when:** a scan skips the three, lists them as skipped, and still scans everything else.
-- [ ] Design it (spec): `/architect skill scan trusted list` (amends spec 0054)
+- [x] Design it (spec): `/architect skill scan trusted list` (amends spec 0054; already written as its AC-13 on 2026-10-18)
 - [ ] Build it: `/develop skill scan trusted list`
 - [ ] Verify it: `/check verify skill scan trusted list`
 - [ ] Test it: `/test skill scan trusted list`
 - [ ] Sync docs: `/sync skill scan trusted list`
-Source: [brief](../briefs/leftovers-2026-10-18.md), section Spec 0054 AC-13 trusted list.
+Spec [0054](../specs/0054-skill-scan-script.md) AC-13 · Source: [brief](../briefs/leftovers-2026-10-18.md), section Spec 0054 AC-13 trusted list.
 
-### 81. wf-dash design should-fixes
+### 81. wf-dash design should-fixes · auto
 The design gate's seven should-fixes for the wf-dash band; you pick which to build.
 **Done when:** each should-fix is built or dropped by your pick.
-- [ ] Pick which should-fixes to build · waits on you
+- [x] Pick which should-fixes to build · waits on you (your pick 2026-10-18: all seven)
+- [x] Design it (spec): `/architect wf-dash design should-fixes`
 - [ ] Build it: `/develop wf-dash design should-fixes`
 - [ ] Verify it: `/check verify wf-dash design should-fixes`
 - [ ] Test it: `/test wf-dash design should-fixes`
 - [ ] Sync docs: `/sync wf-dash design should-fixes`
-Source: [brief](../briefs/leftovers-2026-10-18.md), section Row 72 design gate should-fixes.
+Spec [0065](../specs/0065-wf-dash-should-fixes.md) · Source: [brief](../briefs/leftovers-2026-10-18.md), section Row 72 design gate should-fixes.
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.

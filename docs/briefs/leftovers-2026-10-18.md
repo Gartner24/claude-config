@@ -5,6 +5,7 @@ Bugs and open items found while conducting the runner on 2026-10-18 (rows 72, 51
 ## Agreed so far, do not ask again
 - The owner lets the conductor session run, merge and install everything in claude-config itself; only work repos are off limits (owner, 2026-10-18).
 - Row 72's look was accepted as is at critique 29/40 (owner, 2026-10-17); its 7 design gate should-fixes are the owner's to pick, never blockers.
+- Row 81: the owner picked all seven should-fixes; a run that did not finish toasts `stopped` with its reason (owner, 2026-10-18).
 
 ## Runner bugs (row 78)
 1. "accept as is" on a design_gate park does not persist to the next run: row 72 was asked three times (questions 5rl1, m2mh, 3hqr). The real cause that time was a report one folder too low (`hooks/.design/` covers only `hooks/`), but an accepted park still came back.
