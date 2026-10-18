@@ -80,7 +80,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 58 | Own status bar and dashboards with mods | Release 9 | in-progress |
 | 59 | Memory tool: claude-mem, MemPalace, graphify or NotebookLM | Release 9 | planned |
 | 60 | Sessions pass work to each other | Release 9 | in-progress |
-| 61 | Cheap model gatekeeper with open models | Release 9 | in-progress |
+| 61 | Cheap model gatekeeper with open models | Release 9 | done |
 | 62 | Runner that improves itself | Release 9 | in-progress |
 | 63 | Evaluate Harvey, Soup, MiroFish, claude-skills-founder, Headroom | Release 9 | done |
 | 64 | Recommended mods: gatekeeper, Claude to Claude, own panel | Release 9 | done |
@@ -919,7 +919,7 @@ After a rollover you type only `/clear`: a start up hook loads the waiting hando
 - [ ] Sync docs: `/sync sessions pass work to each other`
 Spec [0057](../specs/0057-handover-on-clear.md) · code in `claude-home/hooks/handover-start.sh`, `claude-home/mods/wf-handoff/` · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B4; the handover first half of B14.
 
-### 61. Cheap model gatekeeper with open models · in-progress · auto
+### 61. Cheap model gatekeeper with open models · done · auto
 Search helpers run on Haiku, the model rule says so, and each runner call records cost per model so a routing mod is decided by data.
 **Done when:** code-explorer and docs-lookup are on Haiku, call records carry `models`, and the morning report shows the run and week split with the 15% gate.
 - [x] Design it (spec): `/architect cheap model gatekeeper with open models`
@@ -927,11 +927,11 @@ Search helpers run on Haiku, the model rule says so, and each runner call record
   - [x] Probe the `modelUsage` shape (AC-6) · `claude -p` says Not logged in inside the sandbox; a real run record (feat-0048, 2026-10-15, call-01) lists its Sonnet helper as its own `modelUsage` key, so AC-4 and AC-5 were built
   - [x] Agent pins and rule (AC-1, AC-2)
   - [x] `models` field, run line, week split and gate (AC-3 to AC-5, AC-7)
-- [ ] Confirm Haiku gets its own cost key: in an empty folder run `claude -p "use the scout agent to list the files here" --output-format json` and check `modelUsage` lists a haiku model (AC-6) · waits on you · later boxes go on
+- [x] Confirm Haiku gets its own cost key: in an empty folder run `claude -p "use the scout agent to list the files here" --output-format json` and check `modelUsage` lists a haiku model (AC-6) · waits on you · later boxes go on
 - [x] Copy the new agent pins and rule live: `bin/install.sh` · waits on you · live · later boxes go on
 - [x] Verify it: `/check verify cheap model gatekeeper with open models`
 - [x] Test it: `/test cheap model gatekeeper with open models`
-- [ ] Sync docs: `/sync cheap model gatekeeper with open models`
+- [x] Sync docs: `/sync cheap model gatekeeper with open models`
 Spec [0055](../specs/0055-cheap-work-cheap-models.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B6; row 64's gatekeeper rides on it.
 
 ### 62. Runner that improves itself · in-progress · auto
