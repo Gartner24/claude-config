@@ -1,11 +1,13 @@
 """Spec 0027: several features of one repo at once, each in its own worktree on its own spec branch."""
 import datetime
+import io
 import shutil
 import json
 import os
 import subprocess
 import sys
 import tempfile
+import time
 import types
 import unittest
 from pathlib import Path
@@ -75,16 +77,19 @@ class RepoCase(RunCase):
 
 
 class TestAnswer(unittest.TestCase):
-    # covers: AC-1 (parallel 1 to 4, only with branches: per spec)
+    # covers: AC-1 (parallel 1 to 8, spec 0052 AC-1, only with branches: per spec)
     def test_values(self):
         d = Path(tempfile.mkdtemp())
         c = types.SimpleNamespace(path=str(d), scope_dir="docs/scope")
         for text, want in ((ANSWERS, ({"branches": "per spec", "parallel": "2"}, None)),
                            ("## Standing answers\n- parallel: 2\n", (None, "AGENTS.md: parallel needs branches: per spec")),
-                           ("## Standing answers\n- branches: per spec\n- parallel: 5\n",
-                            (None, "AGENTS.md:3: 5 is not allowed for parallel"))):
+                           ("## Standing answers\n- branches: per spec\n- parallel: 8\n",
+                            ({"branches": "per spec", "parallel": "8"}, None))):
             (d / "AGENTS.md").write_text(text)
             self.assertEqual(run.read_answers(c), want)
+        for bad in ("9", "0", "08", "x", "\uff15", "4.0"):
+            (d / "AGENTS.md").write_text(f"## Standing answers\n- branches: per spec\n- parallel: {bad}\n")
+            self.assertEqual(run.read_answers(c), (None, f"AGENTS.md:3: {bad} is not allowed for parallel"), bad)
 
 
 class TestPaths(unittest.TestCase):
@@ -96,6 +101,15 @@ class TestPaths(unittest.TestCase):
         self.assertEqual(pr.overlap(["runner/tests/"], ["runner/tests/test_x.py"]), "runner/tests/")
         self.assertIsNone(pr.overlap(["runner/run.py"], ["scripts/x.py"]))
         self.assertEqual(pr.overlap(None, ["a"]), "*")
+        # Spec 0052 AC-5: `Paths: none` touches no code, so it meets nothing, not even a spec with no Paths line.
+        self.assertIsNone(pr.overlap([], None))
+        self.assertIsNone(pr.overlap(["a"], []))
+        d = Path(tempfile.mkdtemp())
+        (d / "docs" / "specs").mkdir(parents=True)
+        lines = ["- [ ] Spec: [0001](../specs/0001-a.md)"]
+        for paths, want in (("none", []), ("`src/x.py`, `docs/scope/scope.md`", ["src/x.py"]), ("", None)):
+            (d / "docs" / "specs" / "0001-a.md").write_text(f"# 0001\n\n**Status**: Accepted\n**Paths:** {paths}\n")
+            self.assertEqual(pr.globs(str(d), "docs/scope", lines), want, paths)
         self.assertTrue(pr.shared("docs/scope/scope.md", "docs/scope"))
         self.assertTrue(pr.shared("docs/specs/0001-a/verify.md", "docs/scope"))
         self.assertFalse(pr.shared("docs/specs/0001-a/index.md", "docs/scope"))
@@ -112,13 +126,15 @@ class TestPaths(unittest.TestCase):
 
 class TestSameRepo(RepoCase):
     # covers: AC-2 (worktrees under wf-trees, the main checkout never switched), AC-3 (one child per feature, trusted
-    # through the main checkout, records name the repo and the tree), AC-4 (2 at once; spec 0043 AC-2: C shares a.txt
-    # with A and still starts before A ends, no waits plan line), AC-7 (sibling Edit denies), AC-9 (rows named repo: feature)
+    # through the main checkout, records name the repo and the tree), AC-4 (2 at once; spec 0052 AC-5: C shares a.txt
+    # with A, so it waits for A's child to exit and says so once), AC-7 (sibling Edit denies), AC-9 (rows named repo:
+    # feature)
     def test_three_features(self):
         self.steps({"feat-0001-a": step("a", sleep=4), "feat-0002-b": step("b"), "feat-0003-c": step("c", sleep=0)})
         r = self.wf("-y", "--jobs", "3")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertNotIn("waits:", r.stdout)
+        self.assertEqual([x for x in r.stdout.splitlines() if x.startswith("waits:")],
+                         ["waits: 3. C: shares a.txt with 1. A"], r.stdout)
         self.assertEqual((self.repo / ".git" / "HEAD").read_text(), "ref: refs/heads/work\n")
         s = summary(r.stdout)
         # Spec 0051 AC-2: no combine child after the features, and no wf/combined-* branch; each keeps its own.
@@ -130,7 +146,7 @@ class TestSameRepo(RepoCase):
         end = lambda c: at(c["started"]) + datetime.timedelta(seconds=c["duration_s"])
         # Times are kept to the second: B's call began well before A's 4 second call ended.
         self.assertLess(at(cb["started"]) + datetime.timedelta(seconds=1), end(ca), "A and B ran side by side")
-        self.assertLess(at(rc["started"]), end(ca), "C did not wait for A")
+        self.assertGreaterEqual(at(rc["started"]), end(ca) - datetime.timedelta(seconds=1), "C started before A ended")
         for e, rec, x in ((ea, ra, "a"), (eb, rb, "b"), (ec, rc, "c")):
             self.assertEqual(e["repo"], str(self.repo))
             self.assertEqual(e["tree"], str(self.trees / f"feat-000{'abc'.index(x) + 1}-{x}"))
@@ -367,6 +383,154 @@ class TestDenyNotNarrowed(RunCase):
         self.assertGreater(len(old_fs), 5, r1.stdout)
         self.assertEqual(sorted(old_rules - new_rules), [], r2.stdout)
         self.assertEqual(sorted(old_fs - new_fs), [], r2.stdout)
+
+
+def meminfo(path, gb):
+    # Every field the brake could read, MemFree far from MemAvailable, so reading the wrong one shows.
+    kb = int(gb * 1024 * 1024)
+    path.write_text(f"MemTotal:       67108864 kB\nMemFree:          {kb * 4} kB\nMemAvailable:   {kb} kB\n"
+                    "Buffers:          100000 kB\nCached:          2000000 kB\n")
+
+
+def row(feature, globs, key="/r"):
+    return {"tree": f"/t/{feature}", "key": key, "feature": feature, "globs": globs, "port": None,
+            "path": f"/t/{feature}", "common": f"{key}/.git", "limit": 8}
+
+
+class TestBrakes(unittest.TestCase):
+    # covers: spec 0052 AC-2 (MemAvailable, not MemFree, under 4.5 GB holds), AC-3 (five hour use at 80 holds, a failed
+    # read never brakes and says so once), AC-6 (the new child's share of the cores)
+    def test_free_memory(self):
+        d = Path(tempfile.mkdtemp())
+        meminfo(d / "m", 4.0)
+        self.assertAlmostEqual(run.free_gb(str(d / "m")), 4.0)
+        self.assertIsNone(run.free_gb(str(d / "missing")))
+
+    def test_brake(self):
+        d = Path(tempfile.mkdtemp())
+        r = types.SimpleNamespace()
+        u = lambda used: {"five_hour": {"used": used, "resets_at": None}, "seven_day": {"used": 99.0, "resets_at": None}}
+        with mock.patch.dict(os.environ, {"WF_MEMINFO": str(d / "m")}), mock.patch("usage.read", return_value=u(50.0)):
+            meminfo(d / "m", 4.0)
+            self.assertEqual(run.brake(r), ("memory", "4.0 GB free, needs 4.5"))
+            meminfo(d / "m", 5.0)
+            # A seven day use of 99 never brakes: there is no weekly brake.
+            self.assertIsNone(run.brake(r))
+        with mock.patch.dict(os.environ, {"WF_MEMINFO": str(d / "m")}), mock.patch("usage.read", return_value=u(85.0)):
+            self.assertEqual(run.brake(r), ("5 hour use", "85%, needs under 80"))
+        with mock.patch.dict(os.environ, {"WF_MEMINFO": str(d / "m")}), mock.patch("usage.read", return_value=u(80.0)):
+            self.assertEqual(run.brake(r)[0], "5 hour use")
+        out = io.StringIO()
+        with mock.patch.dict(os.environ, {"WF_MEMINFO": str(d / "m")}), \
+                mock.patch("usage.read", return_value=(None, "usage service: 500")), mock.patch("sys.stdout", out):
+            self.assertIsNone(run.brake(r))
+            self.assertIsNone(run.brake(r))
+        self.assertEqual(out.getvalue(), "usage unknown, not braking\n")
+
+    def test_cores(self):
+        with mock.patch("os.cpu_count", return_value=20):
+            self.assertEqual(run.cores([]), 20)
+            self.assertEqual(run.cores([{}] * 3), 5)
+            self.assertEqual(run.cores([{}] * 4), 4)
+            self.assertEqual(run.cores([{}] * 11), 2)
+        with mock.patch("os.cpu_count", return_value=None):
+            self.assertEqual(run.cores([{}]), 2)
+
+    def test_fast_suite_workers(self):
+        import fast
+        with mock.patch.dict(os.environ, {"WF_CORES": "3"}):
+            self.assertEqual(fast.workers(), 3)
+        with mock.patch.dict(os.environ, {"WF_CORES": ""}), mock.patch("os.cpu_count", return_value=20):
+            self.assertEqual(fast.workers(), 20)
+
+
+class TestPick(unittest.TestCase):
+    # covers: spec 0052 AC-5 (8 rows of one repo: an overlapping pair never runs together, no Paths runs alone,
+    # `Paths: none` runs with anything, other repos are never tested for overlap)
+    def test_eight(self):
+        jobs = [row("p1", ["src/a.py"]), row("p2", ["src/*.py"]), row("nopaths", None), row("none", []),
+                row("d1", ["d1/"]), row("d2", ["d2/"]), row("d3", ["d3/"]), row("d4", ["d4/"])]
+        waiting, running, together = list(jobs), [], []
+        # Start greedily, then end the oldest child, until every row ran.
+        while waiting or running:
+            j = run.pick(waiting, running)
+            if j:
+                waiting.remove(j)
+                running.append(j)
+                together.append({k["feature"] for k in running})
+                continue
+            running.pop(0)
+        self.assertFalse([t for t in together if {"p1", "p2"} <= t], together)
+        self.assertFalse([t for t in together if "nopaths" in t and t - {"nopaths", "none"}], together)
+        self.assertTrue([t for t in together if "none" in t and len(t) > 2], together)
+        self.assertEqual(run.shares(jobs[1], [jobs[0]]), "p2: shares src/*.py with p1")
+        self.assertEqual(run.shares(jobs[0], [jobs[2]]), "p1: shares * with nopaths")
+        self.assertIsNone(run.shares(jobs[3], [jobs[2]]))
+        # Another repo's worktree with the same Paths is not this repo's sibling.
+        self.assertIsNone(run.shares(row("q", ["src/a.py"], key="/other"), [jobs[0]]))
+
+
+class TestGitRetry(unittest.TestCase):
+    # covers: spec 0052 AC-7 (only a lock git refused to create is retried, 5 times, then it fails as before)
+    def fake(self, errors):
+        calls = []
+
+        def go(argv, **kw):
+            calls.append(argv)
+            err = errors[len(calls) - 1] if len(calls) <= len(errors) else ""
+            return subprocess.CompletedProcess(argv, 128 if err else 0, "", err)
+        return calls, go
+
+    def test_retry(self):
+        import wf
+        busy = "fatal: Unable to create '/r/.git/worktrees/a/index.lock': File exists."
+        for errors, want_calls, want_code in (([busy, busy], 3, 0), (["error: cannot lock ref 'refs/heads/x'"], 1, 128),
+                                              ([busy] * 9, 6, 128), (["fatal: not a git repository"], 1, 128)):
+            calls, go = self.fake(errors)
+            with mock.patch("subprocess.run", go), mock.patch("time.sleep") as nap:
+                r = wf.git("/r", "commit", "-m", "x")
+            self.assertEqual((len(calls), r.returncode), (want_calls, want_code), errors)
+            self.assertEqual(nap.call_count, want_calls - 1)
+
+
+class TestBrakeRun(RepoCase):
+    # covers: spec 0052 AC-2, AC-3, AC-4 (a held start with no child running is tried again every POLL, says why once
+    # per value, and starts once the line is cleared), AC-6 (each child and its calls get WF_CORES)
+    def held(self, hold, clear, want):
+        hold()
+        p = self.start("-y")
+        time.sleep(1.5)
+        self.assertIsNone(p.poll())
+        self.assertEqual(list(self.fakes.glob("*argv-*.json")), [])
+        clear()
+        out, err = p.communicate(timeout=60)
+        self.assertEqual(p.returncode, 0, out + err)
+        lines = out.splitlines()
+        waits = [x for x in lines if x.startswith("waits:") and "shares" not in x]
+        self.assertEqual(waits, [want], out)
+        first = next(i for i, x in enumerate(lines) if x.startswith("[par: "))
+        self.assertLess(lines.index(want), first, out)
+        return out
+
+    def test_memory(self):
+        m = Path(self.env["WF_MEMINFO"])
+        self.steps({"feat-0001-a": step("a", sleep=3), "feat-0002-b": step("b"), "feat-0003-c": step("c", sleep=0)})
+        self.held(lambda: meminfo(m, 4.0), lambda: meminfo(m, 5.0), "waits: memory 4.0 GB free, needs 4.5, 0 min so far")
+        n = os.cpu_count() or 4
+        env = lambda f: json.loads((self.fakes / f"{f}-argv-1.json").read_text())["env"]
+        self.assertEqual(env("feat-0001-a")["WF_CORES"], str(max(2, n)))
+        self.assertEqual(env("feat-0002-b")["WF_CORES"], str(max(2, n // 2)))
+
+    def test_usage(self):
+        cache = self.state / "wf" / "usage.json"
+        cache.parent.mkdir(parents=True, exist_ok=True)
+
+        def use(used):
+            cache.write_text(json.dumps({"at_epoch": time.time(), "five_hour": {"used": used, "resets_at": None},
+                                         "seven_day": {"used": 10, "resets_at": None}}))
+        self.steps({"feat-0001-a": step("a", sleep=0), "feat-0002-b": step("b", sleep=0), "feat-0003-c": step("c", sleep=0)})
+        out = self.held(lambda: use(85), lambda: use(50), "waits: 5 hour use 85%, needs under 80, 0 min so far")
+        self.assertNotIn("usage unknown", out)
 
 
 if __name__ == "__main__":

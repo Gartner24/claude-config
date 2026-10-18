@@ -79,7 +79,8 @@ class TestSideBySide(ParallelCase):
         first_b = next(i for i, x in enumerate(lines) if x.startswith("[rb] "))
         self.assertGreater(first_b, folder, r.stdout)
         body = lines[lines.index("jobs: 2 at once") + 1:lines.index("summary:")]
-        self.assertEqual([x for x in body if not x.startswith(("[ra] ", "[rb] "))], [])
+        # Spec 0052 AC-3: no subscription login here, so the usage brake says once that it is not braking.
+        self.assertEqual([x for x in body if not x.startswith(("[ra] ", "[rb] "))], ["usage unknown, not braking"])
         recs = self.run_records()
         for rec in recs.values():
             self.assertEqual(rec["caps"], {"budget_usd": 3, "call_timeout_min": 9, "max_calls": 7, "max_hours": 2,
