@@ -1033,10 +1033,10 @@ Our own mod draws a band above the prompt with the session, its effort and the r
 - [x] Design it (spec): `/architect own status bar and dashboards with mods`
 - [x] Run probes P1 to P5 in a scratch session (spec 0059 AC-6), write results in its verify notes · waits on you (passed 2026-10-17; P4b checked in the build)
 - [x] Lock the look first: run the `design` pipeline on wf-dash (band, toasts, panes, short bar) in a session and land its locked `design.md` · waits on you (owner accepted the look as is on 2026-10-17 at critique 29/40; stray keys are row 75)
-- [ ] Build it: `/develop wf-dash band and alerts`
-  - [ ] `wf status --json` (AC-1)
-  - [ ] Band with effort, alerts, short bar (AC-2 to AC-5, amended 2026-10-18)
-  - [ ] Tests and scan (AC-7)
+- [x] Build it: `/develop wf-dash band and alerts`
+  - [x] `wf status --json` (AC-1)
+  - [x] Band with effort, alerts, short bar (AC-2 to AC-5, amended 2026-10-18)
+  - [x] Tests and scan (AC-7); the `skill-scan` runs in the install box below
 - [ ] Verify it: `/check verify wf-dash band and alerts`
 - [ ] Test it: `/test wf-dash band and alerts`
 - [ ] Install the mod live after its scan · waits on you · later boxes go on
