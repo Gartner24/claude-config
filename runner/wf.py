@@ -712,6 +712,8 @@ def build_parser():
     timer = tsub.add_parser("timer", help="a user timer running wf telegram fetch every 5 minutes")
     timer.add_argument("state", choices=("on", "off"))
     sub.add_parser("questions", help="list the open questions with their links, changing nothing (spec 0039)")
+    st = sub.add_parser("status", help="print what runs, is parked and asks, across all repos, changing nothing (spec 0059)")
+    st.add_argument("--json", action="store_true", required=True, help="as one JSON object")
     return parser, nxt
 
 
@@ -763,6 +765,11 @@ def main(argv=None):
     if args.command == "questions":
         import questions
         return questions.cmd_questions()
+    if args.command == "status":
+        import auto
+        import json
+        print(json.dumps(auto.status()))
+        return 0
     if args.list and (args.target or args.yes):
         nxt.error("--list takes no argument and no -y")
     return cmd_next(args)

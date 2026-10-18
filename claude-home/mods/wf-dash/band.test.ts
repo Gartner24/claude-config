@@ -40,6 +40,17 @@ test('the 31-cell column beside the docked dashboard keeps the chip and drops wh
   expect(right.runs.map(r => r.text).join('')).toBe('2 ask')
 })
 
+test('the stale mark fits the 31-cell column too, so old counts never read as current', () => {
+  const room = 31 - space.hostReserve - space.hotkeyCells
+  const f = { ...facts, wf: { running: 1, parked: 2, questions: 2 }, staleSince: '10:42' }
+  const chip = segments(f, 0, false).left[0]
+  const { left, right } = segments(f, 0, false, true, room - 2 * space.padX - chip.cells - space.gap)
+  expect(width(fit(left, right, room), right)).toBeLessThanOrEqual(room)
+  expect(right.runs.map(r => r.text).join('')).toBe('stale')
+  const wide = segments(f, 0, false, true, 20).right
+  expect(wide.runs.map(r => r.text).join('')).toBe('2 ask 2 stuck stale')
+})
+
 test('a wide line keeps every segment', () => {
   const { left, right } = segments(facts, 0, false)
   expect(fit(left, right, 400).length).toBe(left.length)

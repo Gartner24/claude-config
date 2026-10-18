@@ -19,6 +19,7 @@ bash claude-home/hooks/block-destructive.sh --test     # guard hook self-checks
 python3 claude-home/hooks/plain-panel.py --test        # panel hook self checks (spec 0028): "Learn this first" last, at most 3 real options, no jargon
 bash claude-home/hooks/handover-start.sh --test        # handover on /clear hook self checks (spec 0057); needs the real jjstack slot script
 claude plugin test claude-home/mods/wf-handoff         # /handoff mod tests (spec 0057 AC-10); `claude plugin validate` beside it
+claude plugin test claude-home/mods/wf-dash            # wf-dash band, alerts and panes tests (specs 0058 to 0060); `claude plugin validate` beside it; the band reads `wf status --json`
 node claude-home/hooks/context-monitor.js --test       # context warning hook self checks (spec 0037): fixture transcripts, and header numbers match the code and autoCompactWindow
 bash claude-home/skills/design/scripts/test-ledger.sh  # design ledger + Stop hook assertions
 node claude-home/skills/design/scripts/build-ramp.mjs --check

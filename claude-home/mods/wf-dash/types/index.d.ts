@@ -19,6 +19,12 @@ export type WfDashFacts = {
 
 export type WfDashAlert = { id: string; at: number; kind: 'finished' | 'stuck' | 'question'; feature: string; detail: string }
 
+// `wf status --json` (spec 0059 AC-1); a field is null when the runner could not read it
+export type WfStatusEntry = { id: string | null; repo: string; feature: string; title?: string }
+export type WfStatus = { running: WfStatusEntry[] | null; parked: WfStatusEntry[] | null; questions: WfStatusEntry[] | null }
+// the last good entries per field (null before the first good read) and every id already toasted
+export type WfDashSeen = { prev: WfStatus; toasted: string[] }
+
 export type WfDashFeature = {
   heading: string
   state: string
@@ -62,6 +68,7 @@ declare module 'claude-code' {
       facts: WfDashFacts
       effort: string | null
       alerts: WfDashAlert[]
+      seen: WfDashSeen
       plan: WfDashLoaded<{ repos: WfDashRepo[] }>
       runner: WfDashLoaded<{ runs: WfDashRun[] | null; questions: WfDashQuestion[] | null }>
       view: { section: string; tab: string; page: number; sel: number; bpos: number }

@@ -102,10 +102,12 @@ export function segments(f: Facts, now = Date.now(), rich = true, compact = fals
     const live = counts.filter(r => !r.text.startsWith('0 '))
     // all zero: one dim word, so the runner segment never vanishes
     if (!live.length) right.push({ text: 'idle', color: color.dim })
-    let cells = 0
+    // the stale mark is added after the counts, so its cells come out of their budget, or the host cuts it off
+    let cells = f.staleSince ? ' stale'.length : 0
     for (const [i, r] of live.entries()) {
       const need = r.text.length + (i ? 1 : 0)
-      if (i && cells + need > maxCells) break
+      // stale: even the first count leaves whole when it and the mark do not fit; old counts never pass as current
+      if ((i || f.staleSince) && cells + need > maxCells) break
       right.push(...(i ? [{ text: ' ' }] : []), r)
       cells += need
     }
@@ -114,7 +116,7 @@ export function segments(f: Facts, now = Date.now(), rich = true, compact = fals
     right.push(countRun(w.parked, 'stuck', 'stuck', color.bad), { text: glyph.sep })
     right.push(countRun(w.questions, 'question', 'questions', color.warn))
   }
-  if (f.staleSince) right.push({ text: compact ? ' stale' : `${glyph.sep}stale since ${f.staleSince}`, color: color.dim })
+  if (f.staleSince) right.push({ text: compact ? (right.length ? ' stale' : 'stale') : `${glyph.sep}stale since ${f.staleSince}`, color: color.dim })
   return { left, right: seg('wf', right) }
 }
 

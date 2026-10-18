@@ -149,13 +149,22 @@ def refresh(creds):
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
 
 
-def usage(data):
-    """The trailing segments: `via <host>` through a provider, the 5 hour and weekly bars on a subscription login,
-    else the session cost."""
+def via():
+    """The provider's label or host when Claude Code talks to one that is not Anthropic, else None (the wf-dash band
+    shows it too, spec 0059 AC-2)."""
     base = os.environ.get("ANTHROPIC_BASE_URL", "")
     if base and "anthropic.com" not in base:
         host = base.split("://", 1)[-1].split("/", 1)[0].rsplit("@", 1)[-1].split(":", 1)[0]
-        return [f"\033[95mvia {os.environ.get('CLAUDE_PROVIDER_LABEL') or host}{RESET}"]
+        return os.environ.get("CLAUDE_PROVIDER_LABEL") or host
+    return None
+
+
+def usage(data):
+    """The trailing segments: `via <host>` through a provider, the 5 hour and weekly bars on a subscription login,
+    else the session cost."""
+    v = via()
+    if v:
+        return [f"\033[95mvia {v}{RESET}"]
     creds = creds_path()
     c = read_json(creds)
     if isinstance(c, dict) and (c.get("claudeAiOauth") or {}).get("accessToken"):

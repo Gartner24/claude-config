@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
-"""Design preview facts for the wf-dash band, as JSON on stdout.
-
-shortcut: stands in for `wf status --json` (spec 0059 AC-1) and statusbar.render (spec 0058) until row 72 builds them;
-the build replaces this file, the band's drawing stays.
-"""
+"""The wf-dash band's facts about this session's folder, as JSON on stdout: folder, git, the AUTO segment and the
+provider (spec 0059 AC-2). The runner counts come from `wf status --json`, read by the mod itself."""
 import json
 import os
 import subprocess
@@ -51,24 +48,13 @@ def git(cwd):
     return {"branch": branch, "changes": len(rows), "staged": staged, "modified": modified, "untracked": untracked}
 
 
-def wf():
+def via():
+    # spec 0058's rule, so the band and the bar agree: `via <host>` through a provider, else the usage meters
     try:
-        import auto
-        import run
+        import statusbar
+        return statusbar.via()
     except Exception:
-        return {"running": None, "parked": None, "questions": None}
-    try:
-        running = len([a for a in run.read_active() if auto.entry_running(a)])
-    except Exception:
-        running = None
-    try:
-        ds = run.queue_transact()["decisions"]
-        open_ = [d for d in ds if d["answer"] is None]
-        parked = len([d for d in open_ if d.get("parked")])
-        questions = len(open_)
-    except Exception:
-        parked = questions = None
-    return {"running": running, "parked": parked, "questions": questions}
+        return None
 
 
 def autonomous(cwd):
@@ -85,4 +71,4 @@ def autonomous(cwd):
 if __name__ == "__main__":
     cwd = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
     print(json.dumps({"folder": wf_clean(os.path.basename(cwd.rstrip("/")) or "/"), "git": git(cwd),
-                      "wf": wf(), "auto": autonomous(cwd)}))
+                      "via": via(), "auto": autonomous(cwd)}))

@@ -176,5 +176,4 @@ export const time = {
   planTick: 10000,
   barMarkerFresh: 15000,
   toast: 15000,
-  sampleGap: 1500,
 } as const;
