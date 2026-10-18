@@ -3987,10 +3987,12 @@ def account_reset(reset):
 def read_answers(c):
     """Spec 0006 AC-1 to AC-3: (answers in ANSWER_KEYS order, None), or (None, refusal detail)."""
     rel = ANSWERS_FILE[c.scope_dir]
+    # A feature worktree reads its main checkout's answers: a reused spec branch older than main used to carry
+    # stale ones, so every start asked guard_changed again and accepting never cleared it (2026-10-18).
     try:
         # Reread after every call (spec 0011 AC-6), so a call could swap the file for a FIFO or a link to /dev/zero:
         # a plain read used to hang wf or fill its memory there, as snapshot() once did (second review).
-        with os.fdopen(os.open(os.path.join(c.path, rel), os.O_RDONLY | os.O_NONBLOCK), "rb") as f:
+        with os.fdopen(os.open(os.path.join(key_of(c), rel), os.O_RDONLY | os.O_NONBLOCK), "rb") as f:
             if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
                 return None, f"{rel}: not a regular file"
             raw = f.read(SNAPSHOT_CAP + 1)
