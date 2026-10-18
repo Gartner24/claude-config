@@ -267,9 +267,12 @@ class RunCase(unittest.TestCase):
         self.repo = self.make_repo("demo", SCOPE)
         self.steps([{}])
         self.addCleanup(self.reap)
+        # Spec 0052 AC-2: plenty of free memory, so the brake never holds a test run on a busy machine.
+        (self.tmp / "meminfo").write_text("MemTotal:       67108864 kB\nMemFree:         1048576 kB\n"
+                                          "MemAvailable:   33554432 kB\n")
         self.env = {"HOME": str(self.tmp), "WF_ROOTS": str(self.tmp / "root"), "PATH": str(self.bin),
                     "XDG_STATE_HOME": str(self.state), "FAKE_DIR": str(self.fakes),
-                    "XDG_CONFIG_HOME": str(self.tmp / "config")}
+                    "XDG_CONFIG_HOME": str(self.tmp / "config"), "WF_MEMINFO": str(self.tmp / "meminfo")}
         # Spec 0018: every run sends its morning report; a dead server cost each test 20 seconds of retries.
         self.report_ntfy = FakeNtfy()
         self.addCleanup(self.report_ntfy.close)
@@ -1682,7 +1685,7 @@ class TestStandingAnswers(RunCase):
     # covers: spec 0006 AC-1, AC-2, AC-3 (each refusal, its line, exit 5, no call, no run folder, first problem wins)
     def test_refusals(self):
         hint = (" (expected: - run suite: yes|ask, - done: yes|ask, - app start: <command>, "
-                "- app url: http://localhost:<port>, - branches: per spec, - push: draft PR|off, - parallel: 1-4, "
+                "- app url: http://localhost:<port>, - branches: per spec, - push: draft PR|off, - parallel: 1-8, "
                 "- suite: <command>)")
         cases = [
             ("form", "## Standing answers\n- run suite yes\n", "AGENTS.md:2: not a - key: value entry"),

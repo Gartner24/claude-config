@@ -28,7 +28,7 @@ import urllib.parse
 import urllib.request
 import uuid
 import zoneinfo
-from queue import Queue
+from queue import Empty, Queue
 
 import context
 import insights
@@ -231,15 +231,17 @@ ANSWERS_FILE = {"docs/scope": "AGENTS.md", ".workflow/scope": ".workflow/AGENTS.
 # Spec 0021 AC-7: allow writes is still accepted so an old line does not refuse the file, but never read: a call
 # can edit AGENTS.md. The setting lives in allow.json (allow_writes_path()).
 # Spec 0026 AC-1: branches per spec, and push draft PR (off is the same as absent), the value casefolded.
+# Spec 0052 AC-1: the most features of one repo built at once.
+MAX_PARALLEL = 8
 ANSWER_KEYS = {"run suite": ("yes", "ask"), "done": ("yes", "ask"), "app start": None, "app url": None,
                "allow writes": None, "branches": ("per spec",), "push": ("draft pr", "off"),
                # Spec 0027 AC-1: features built at once, each in its own worktree.
-               "parallel": ("1", "2", "3", "4"),
+               "parallel": tuple(str(n) for n in range(1, MAX_PARALLEL + 1)),
                # Spec 0043 AC-8: the command that runs the whole suite fast, kept as written.
                "suite": None}
 ANSWER_ENTRY = re.compile(r"^\s*[-*]\s+([^:]+?)\s*:\s*(\S.*?)\s*$")
 ANSWERS_HINT = (" (expected: - run suite: yes|ask, - done: yes|ask, - app start: <command>, "
-                "- app url: http://localhost:<port>, - branches: per spec, - push: draft PR|off, - parallel: 1-4, "
+                "- app url: http://localhost:<port>, - branches: per spec, - push: draft PR|off, - parallel: 1-8, "
                 "- suite: <command>)")
 APP_URL = re.compile(r"https?://(localhost|127\.0\.0\.1|\[::1\]):(\d{1,5})(/\S*)?")
 ANSWERS_INTRO = " Standing answers for this repo, use them instead of asking:"
@@ -444,6 +446,10 @@ GRACE = 30
 # F16: the live dir folders a run copies into on your tap; hooks, scripts and settings stay for your `wf`.
 LIVE_DIRS = ("rules", "agents", "commands", "skills")
 POLL = 0.2
+# Spec 0052 AC-2, AC-3: no new child starts under this much MemAvailable or at this 5 hour use.
+MEMINFO = "/proc/meminfo"
+MIN_FREE_GB = 4.5
+MAX_FIVE_HOUR = 80
 # Spec 0008 AC-8. Built from the interactive message; verify.md check 3 confirms it at the next real limit.
 LIMIT = re.compile(r"rate_limit|hit your (session |weekly )?limit|usage limit", re.I)
 RESET = re.compile(r"resets (\d{1,2})(?::(\d{2}))?\s*(am|pm)\s*\(([^)]+)\)", re.I)
@@ -5864,6 +5870,63 @@ def read_baseline(path, repo):
     return base
 
 
+def free_gb(path=None):
+    """Spec 0052 AC-2: MemAvailable in GB (MemFree leaves out the page cache the kernel gives back), None unread.
+    WF_MEMINFO is the tests' fake, so a busy machine cannot hold their runs."""
+    try:
+        with open(path or os.environ.get("WF_MEMINFO") or MEMINFO, encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1]) / 1024 / 1024
+    except (OSError, ValueError, IndexError):
+        pass
+    return None
+
+
+def brake(r):
+    """Spec 0052 AC-2, AC-3: (reason, value) that holds the next child start, else None. A failed usage read is
+    unknown and never brakes; there is no weekly brake."""
+    import usage
+    gb = free_gb()
+    if gb is not None and gb < MIN_FREE_GB:
+        return "memory", f"{gb:.1f} GB free, needs {MIN_FREE_GB:g}"
+    u = usage.read()
+    if isinstance(u, tuple):
+        if not getattr(r, "usage_unknown_said", False):
+            r.usage_unknown_said = True
+            print("usage unknown, not braking", flush=True)
+        return None
+    used = u["five_hour"]["used"]
+    if used >= MAX_FIVE_HOUR:
+        return "5 hour use", f"{used:g}%, needs under {MAX_FIVE_HOUR}"
+    return None
+
+
+def shares(j, running):
+    """Spec 0052 AC-5: why worktree row j waits for a running sibling whose Paths overlap, else None. Only two
+    worktrees of one repo are tested; other repos are kept apart by clashes()."""
+    import pr
+    for k in running:
+        if j.get("tree") and k.get("tree") and j["key"] == k["key"]:
+            g = pr.overlap(j["globs"], k["globs"])
+            if g:
+                return f"{j['feature']}: shares {g} with {k['feature']}"
+    return None
+
+
+def pick(waiting, running):
+    """Spec 0027 AC-4: the first waiting row free to start: no clash, under its repo's <parallel> children and (spec
+    0052 AC-5) no Paths overlap with a running sibling; else None."""
+    return next((j for j in waiting if not any(clashes(j, k) for k in running)
+                 and (not j.get("tree") or sum(k.get("key") == j["key"] for k in running) < j["limit"])
+                 and not shares(j, running)), None)
+
+
+def cores(running):
+    """Spec 0052 AC-6: the new child's share of the cores, fixed at its start; running is every child, all repos."""
+    return max(2, (os.cpu_count() or 4) // (len(running) + 1))
+
+
 def parallel(r, on_signal=None, start=None):
     """Spec 0017: bare wf run after its confirm, one child `wf run <repo> -y` per repo with work, side by side.
     Returns the AC-6 exit code."""
@@ -5900,6 +5963,7 @@ def parallel(r, on_signal=None, start=None):
             "--max-hours", str(a.max_hours), "--max-wait", str(a.max_wait)]
     limit = a.jobs or len(jobs)
     lines, running, waiting, starting = Queue(), [], list(jobs), None
+    held = None
 
     def forward(signum, frame):
         # AC-5: every signal reaches each running child as its own Ctrl C, the second as its second.
@@ -5930,10 +5994,23 @@ def parallel(r, on_signal=None, start=None):
         while running or (waiting and not r.interrupted):
             # AC-1: one child at a time through its start checks (the shared MCP npm cache, the locks).
             if starting is None and not r.interrupted and len(running) < limit:
-                # Spec 0027 AC-4: at most <parallel> children of one repo; Paths overlap keeps two apart.
-                j = next((j for j in waiting if not any(clashes(j, k) for k in running)
-                          and (not j.get("tree") or sum(k.get("key") == j["key"] for k in running) < j["limit"])),
-                         None)
+                j = pick(waiting, running)
+                for w in waiting:
+                    said = shares(w, running)
+                    if said and w.get("said") != said:
+                        w["said"] = said
+                        print(f"waits: {said}", flush=True)
+                b = j and brake(r)
+                if b:
+                    # Spec 0052 AC-4: no time cap; the line again only when the reason or its value changes.
+                    if held is None or held[0] != b[0]:
+                        held = (b[0], time.monotonic(), None)
+                    if held[2] != b[1]:
+                        held = (b[0], held[1], b[1])
+                        print(f"waits: {b[0]} {b[1]}, {int((time.monotonic() - held[1]) // 60)} min so far", flush=True)
+                    j = None
+                elif j:
+                    held = None
                 if j:
                     waiting.remove(j)
                     # Spec 0018 AC-1: the parent sends the one report, so no child does.
@@ -5945,7 +6022,8 @@ def parallel(r, on_signal=None, start=None):
                     only += ["--plan-guard", baselines[-1]]
                     j["proc"] = subprocess.Popen([*argv, j["path"], *caps, *only], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                                  stderr=subprocess.STDOUT, encoding="utf-8", errors="replace",
-                                                 start_new_session=True, env={**os.environ, "WF_REPORT": "parent"})
+                                                 start_new_session=True,
+                                                 env={**os.environ, "WF_REPORT": "parent", "WF_CORES": str(cores(running))})
                     running.append(j)
                     # A signal between the spawn and the append above found no child to forward to.
                     if r.interrupted:
@@ -5953,7 +6031,11 @@ def parallel(r, on_signal=None, start=None):
                     threading.Thread(target=read, args=(j,), daemon=True).start()
                     starting = j
                     continue
-            j, line = lines.get()
+            try:
+                # Spec 0052 AC-4: a braked start is tried again every POLL even with no child to wake the loop.
+                j, line = lines.get(timeout=POLL)
+            except Empty:
+                continue
             if line is None:
                 j["code"] = j["proc"].wait()
                 running.remove(j)

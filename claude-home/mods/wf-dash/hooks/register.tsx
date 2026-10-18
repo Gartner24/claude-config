@@ -1,12 +1,11 @@
 import type { Register } from 'claude-code'
-import type { WfDashAlert } from '../types/index.d.ts'
+import { alertTick, counts, parseStatus } from '../alerts.ts'
 import { Band, type Facts } from '../band.tsx'
 import { DEFAULT_VIEW, Dashboard } from '../panes.tsx'
 import { pane, space, time } from '../tokens.ts'
 
-// Design preview of wf-dash (specs 0059, 0060). Rows 72 and 73 replace facts.py, plan.py and runner.py with
-// `wf status --json` and `wf plan --json`, turn the sample alerts into real ones from the id diff, and add the
-// confirmed actions; the drawing in band.tsx and panes.tsx is the locked look.
+// wf-dash: the band and alerts (spec 0059) read `wf status --json`; the dashboard (spec 0060, row 73) still reads the
+// preview scripts plan.py and runner.py. The drawing in band.tsx and panes.tsx is the locked look.
 
 const FACTS = { plugin: 'wf-dash', key: 'facts' } as const
 const EFFORT = { plugin: 'wf-dash', key: 'effort' } as const
@@ -15,12 +14,14 @@ const PLAN = { plugin: 'wf-dash', key: 'plan' } as const
 const RUNNER = { plugin: 'wf-dash', key: 'runner' } as const
 const VIEW = { plugin: 'wf-dash', key: 'view' } as const
 const PANE = 'wf-dash'
+// what `wf auto bar` takes as a session id and an effort level (runner/auto.py); anything else names no file
+const SESSION_ID = /^[A-Za-z0-9-]{1,100}$/
+const LEVEL = /^[a-z]{1,20}$/
 
-const SAMPLE_ALERTS: Omit<WfDashAlert, 'id' | 'at'>[] = [
-  { kind: 'finished', feature: '58. Own status bar', detail: 'PR ready to review' },
-  { kind: 'stuck', feature: '65. Scan skills with skillspector', detail: 'the baseline needs a write it cannot make' },
-  { kind: 'question', feature: '61. Cheap model gatekeeper', detail: 'answer on your phone' },
-]
+// the mod's own state folder, as runner/auto.py dash_dir() names it; never under the runner's (AC-5)
+async function dashDir($: any) {
+  return `${(await $.env.get('XDG_STATE_HOME')) || `${await $.env.get('HOME')}/.local/state`}/wf-dash`
+}
 
 // shortcut: module values, so a hot reload forgets the dashboard is open until it is opened again; fine for a preview
 let isOpen = false
@@ -42,26 +43,40 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     let lastGood: Facts | null = null
+    let factsRead = false
     let busy = false
+    const id = await $.session.id().catch(() => '')
+    const sid = SESSION_ID.test(id) ? id : null
+    const dir = await dashDir($)
 
     const refresh = async () => {
       if (busy) return
       busy = true
       try {
+        // AC-4: the marker tells this session's `wf auto bar` to go short; its mtime is all it says
+        if (sid) await $.fs.write(`${dir}/${sid}`, '').catch(() => {})
         const cwd = await $.session.cwd()
-        const [r, usage, model] = await Promise.all([
+        const [r, st, usage, model, handed] = await Promise.all([
           $.process.run(['python3', `${$.plugin.root}/facts.py`, cwd]).catch(() => null),
+          $.process.run(['wf', 'status', '--json']).catch(() => null),
           $.session.usage().catch(() => null),
           $.session.model().catch(() => null),
+          sid ? $.fs.read(`${dir}/${sid}.effort`).catch(() => null) : null,
         ])
-        const raw = r && r.exitCode === 0 ? JSON.parse(r.stdout || 'null') : null
+        const status = st && st.exitCode === 0 ? parseStatus(st.stdout) : null
+        await alertTick($, status, sid && `${dir}/${sid}.toasts`, { keep: pane.history, timeoutMs: time.toast })
+        const parsed = r && r.exitCode === 0 ? JSON.parse(r.stdout || 'null') : null
+        // facts.py failing from the start must not hide or freeze the runner counts all session: its fields show `?`
+        // until it first answers; only a failure after that keeps the last good facts, marked stale
+        if (parsed) factsRead = true
+        const raw = parsed ?? (factsRead ? null : {})
         const limit = (kind: string) => usage?.rateLimits?.find((x: any) => x.kind === kind) ?? null
         if (raw) {
           lastGood = {
             model,
-            // only turn.step knows this session's effort: env vars are the parent shell's and showed `high` in a `medium`
-            // session. Unknown is left out, never guessed.
-            effort: null,
+            // the level `wf auto bar` handed over from the status line's own `.effort.level`; else the render falls back
+            // to turn.step. Env vars are the parent shell's and showed `high` in a `medium` session: never read.
+            effort: typeof handed === 'string' && LEVEL.test(handed) ? handed : null,
             folder: raw.folder ?? null,
             git: raw.git ?? null,
             context: usage?.context?.percent ?? null,
@@ -71,8 +86,8 @@ export const register: Register = on => {
             fiveHourReset: limit('five_hour')?.resetsAt ?? null,
             week: limit('seven_day')?.percentUsed ?? null,
             weekReset: limit('seven_day')?.resetsAt ?? null,
-            via: null,
-            wf: raw.wf ?? null,
+            via: raw.via ?? null,
+            wf: counts(status),
             auto: raw.auto ?? null,
             staleSince: null,
           }
@@ -125,7 +140,6 @@ export const register: Register = on => {
     $.clock.every(time.planTick, () => void loadPanes())
 
     await $.command.register({ name: 'wf-dash', description: 'wf-dash: the plan, the builds, the agents and the alerts in one dashboard' })
-    await $.command.register({ name: 'wf-dash-alerts', description: 'wf-dash preview: send the three sample alerts' })
     return started
   })
 
@@ -158,7 +172,8 @@ export const register: Register = on => {
         </Box>
       )
     }
-    const value = level ? { ...facts, effort: level } : facts
+    // the handed over level first, then the latest main loop request's; unknown stays out
+    const value = !facts.effort && level ? { ...facts, effort: level } : facts
     return <Band Box={Box} Text={Text} Button={Button} facts={value} columns={e.props.bodyColumns ?? (e.viewport?.columns ?? 80) - space.hostReserve} onOpen={() => void openDashboard($)} />
   })
 
@@ -176,17 +191,5 @@ export const register: Register = on => {
       retry: () => void loadPanes(true),
     }
     return <Dashboard el={el} view={view} act={act} plan={plan} runner={runner} agents={agents as any[] | null} alerts={alerts} focused={e.props.isFocused !== false} rows={e.props.placement === 'dock' ? e.props.scroll?.bodyRows : undefined} facts={facts?.wf ?? null} columns={e.props.bodyColumns ?? (e.viewport?.columns ?? 80) - pane.frame} />
-  })
-
-  on('command.run', { command: 'wf-dash-alerts' }, async $ => {
-    const send = async (a: Omit<WfDashAlert, 'id' | 'at'>, i: number) => {
-      const at = await $.clock.now()
-      const { value = [] } = await $.state.get(ALERTS)
-      await $.state.set(ALERTS, [...value, { ...a, id: `sample-${at}-${i}`, at }].slice(-pane.history))
-      // the toast keeps the type word first; the full text and its color live in the dashboard's Alerts view
-      $.ui.toast(`${a.kind}: ${a.feature} - ${a.detail}`, { timeoutMs: time.toast })
-    }
-    SAMPLE_ALERTS.forEach((a, i) => $.clock.after(i * time.sampleGap, () => void send(a, i)))
-    return { text: `Three sample alerts follow at the top right, ${time.sampleGap / 1000} s apart; each stays ${time.toast / 1000} s. /wf-dash, then l, shows them in full.` }
   })
 }

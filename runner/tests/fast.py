@@ -40,10 +40,15 @@ def run(test):
     return test, p.returncode, p.stdout + p.stderr
 
 
+def workers():
+    # Spec 0052 AC-6: up to 8 suites run at once under wf, each on its share of the cores (WF_CORES).
+    return int(os.environ.get("WF_CORES") or 0) or os.cpu_count() or 4
+
+
 def main(argv):
     t0 = time.monotonic()
     ids = tests(argv[0] if argv else None)
-    with concurrent.futures.ThreadPoolExecutor(os.cpu_count() or 4) as pool:
+    with concurrent.futures.ThreadPoolExecutor(workers()) as pool:
         failed = [(t, out) for t, code, out in pool.map(run, ids) if code]
     for t, out in failed:
         print(f"=== {t} ===\n{out}")
