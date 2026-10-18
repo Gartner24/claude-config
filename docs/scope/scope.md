@@ -84,7 +84,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 62 | Runner that improves itself | Release 9 | in-progress |
 | 63 | Evaluate Harvey, Soup, MiroFish, claude-skills-founder, Headroom | Release 9 | done |
 | 64 | Recommended mods: gatekeeper, Claude to Claude, own panel | Release 9 | done |
-| 65 | Scan skills with skillspector | Release 9 | in-progress |
+| 65 | Scan skills with skillspector | Release 9 | done |
 | 67 | Local model on the laptop | Release 9 | in-progress |
 | 68 | Runner runs more than 4 features at once | Release 9 | in-progress |
 | 69 | Ideas borrowed from tools we skip | Release 9 | in-progress |
@@ -963,7 +963,7 @@ Check the three recommended mods against what we already have: a gatekeeper to a
 Closed 2026-10-17: the gatekeeper rides on row 61 (spec 0055), Claude to Claude is dropped (/architect then /develop and wf already do it, brief section C), the own panel is rows 58, 72 and 73.
 Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
 
-### 65. Scan skills with skillspector · in-progress · auto
+### 65. Scan skills with skillspector · done · auto
 Scan every installed skill and every new candidate with NVIDIA's `skillspector`; one `skill-scan` command and a scan before every skill update.
 **Done when:** `skill-scan` runs both passes over every skill and plugin, shows only new serious findings, and `claude-config update --apply` prints a scan of what it installs.
 - [x] Design it (spec): `/architect scan skills with skillspector`
@@ -972,10 +972,10 @@ Scan every installed skill and every new candidate with NVIDIA's `skillspector`;
   - [x] `skill-scan` targets, passes, resume, verdict, baseline, delta (AC-1 to AC-6, AC-9)
   - [x] Update hook, install link, skill text (AC-7, AC-8, AC-10, AC-12) · code in `scripts/skill-scan.py`, `bin/claude-config.py` `scan()`
 - [x] Scan the installed skills: `skillspector` · waits on you (done in plan A4, 2026-10-16)
-- [ ] Bulk baseline (AC-5, build step 5): after this merges, run bin/install.sh, then `! skill-scan static --accept` in a terminal (about 20 minutes; it ends with "static: baseline holds N findings"). The build sandbox cannot write ~/.claude/state · waits on you · later boxes go on
+- [x] Bulk baseline (AC-5, build step 5): after this merges, run bin/install.sh, then `! skill-scan static --accept` in a terminal (about 20 minutes; it ends with "static: baseline holds N findings"). The build sandbox cannot write ~/.claude/state · waits on you · later boxes go on
 - [x] Verify it: `/check verify scan skills with skillspector`
 - [x] Test it: `/test scan skills with skillspector`
-- [ ] Sync docs: `/sync scan skills with skillspector`
+- [x] Sync docs: `/sync scan skills with skillspector`
 Spec [0054](../specs/0054-skill-scan-script.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items A3, A4, B7.
 
 ### 67. Local model on the laptop · in-progress · auto
