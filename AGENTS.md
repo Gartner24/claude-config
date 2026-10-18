@@ -17,6 +17,8 @@ python3 scripts/gen-agent-index.py --check      # after touching claude-home/age
 python3 scripts/asciify.py --check              # ASCII-only lint on repo-owned markdown
 bash claude-home/hooks/block-destructive.sh --test     # guard hook self-checks
 python3 claude-home/hooks/plain-panel.py --test        # panel hook self checks (spec 0028): "Learn this first" last, at most 3 real options, no jargon
+bash claude-home/hooks/handover-start.sh --test        # handover on /clear hook self checks (spec 0057); needs the real jjstack slot script
+claude plugin test claude-home/mods/wf-handoff         # /handoff mod tests (spec 0057 AC-10); `claude plugin validate` beside it
 node claude-home/hooks/context-monitor.js --test       # context warning hook self checks (spec 0037): fixture transcripts, and header numbers match the code and autoCompactWindow
 bash claude-home/skills/design/scripts/test-ledger.sh  # design ledger + Stop hook assertions
 node claude-home/skills/design/scripts/build-ramp.mjs --check
@@ -36,6 +38,7 @@ fb-ask <task> [--file PATH] < input             # cheap worker tier (spec 0023):
 - Everything installed into `~/.claude` sits under `claude-home/`, at the same relative path (`claude-home/rules/x.md` is `~/.claude/rules/x.md`); guides are in `docs/guides/` (spec 0035). One source of truth per kind:
   - Copied (`claude-home/CLAUDE.md`, `claude-home/settings*.json`, `claude-home/agents/`, `claude-home/rules/`, the hand written hooks and scripts listed in `COPIED_FILES` in `bin/claude-config.py`): live wins. Edit the file in `~/.claude`, then `bin/sync.sh`; an edit made here is overwritten on the next sync.
   - Linked (`claude-home/skills/`, `claude-home/commands/`): repo wins. They are symlinked into `~/.claude`, so editing here is live.
+  - Mods (`claude-home/mods/<name>/`): repo wins, and the one exception to the same path rule: each is linked as `~/.claude/skills/<name>` by hand after a `skillspector scan` (spec 0057), never by `bin/install.sh`.
   - Runner (`runner/`): repo wins; `bin/install.sh` copies it to `~/.local/share/wf/<fp>/` (spec 0020).
   - Downloaded skills (spec 0048): named in `config/manifest.json` with source, pin, license and install command, never copied; an edited one is its pin plus `config/patches/<name>.patch` (a `publish: false` or private one keeps its patch in `~/.claude/private/patches/`). Never copy a downloaded skill's files into the repo.
   - Frameworks (gstack, jjstack, get-shit-done-cc, ECC commands, the JSM skills, plugins): their installer wins, never vendored; the manifest's `frameworks` names each.

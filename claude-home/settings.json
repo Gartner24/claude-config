@@ -342,6 +342,16 @@
         ]
       },
       {
+        "matcher": "clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /home/santiago/.claude/hooks/handover-start.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
         "hooks": [
           {
             "type": "command",
