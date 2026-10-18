@@ -5,6 +5,7 @@ folder (`band.tsx`, `panes.tsx`, `tokens.ts`) is the reference: the build keeps 
 scripts (`facts.py`, `plan.py`, `runner.py`) for `wf status --json` and `wf plan --json`.
 
 ## Owner's words (2026-10-17)
+- Look accepted as is at critique 29/40 ("accept as is"); keys that fall through to the prompt are plan row 75.
 - Band: "it look really really good, better than jjstack". Missing effort and other things: added below.
 - "dont import things from jjstack, we are creating something unattatched from it ... a new improved better new
   status bar with new cool features".
