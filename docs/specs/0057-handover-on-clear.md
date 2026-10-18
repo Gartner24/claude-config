@@ -1,7 +1,7 @@
 # 0057. A waiting handover loads by itself after /clear
 
 **Date**: 2026-10-17
-**Status**: Proposed
+**Status**: In Progress
 **Paths:** `claude-home/hooks/handover-start.sh`, `claude-home/hooks/workflow-start.sh`, `claude-home/settings.json`, `bin/install.sh`, `bin/sync.sh`, `claude-home/CLAUDE.md`, `claude-home/mods/wf-handoff/**`
 
 ## What you're agreeing to

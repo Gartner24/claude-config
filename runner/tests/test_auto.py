@@ -7,6 +7,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -44,7 +45,6 @@ if os.environ.get("FAKE_RUN_FAIL"):
     print("Failed to start transient service unit: Unit wf-auto.service already exists.", file=sys.stderr)
     sys.exit(1)
 """
-JJ = "#!/bin/bash\nin=$(cat)\necho \"top\"\necho \"model ${#in}\"\n"
 
 
 class AutoCase(unittest.TestCase):
@@ -524,45 +524,59 @@ class TestStart(AutoCase):
 
 
 class TestBar(AutoCase):
-    def jj(self, body=JJ):
-        p = self.tmp / ".claude" / "skills" / "jjstack" / "bin" / "statusline.sh"
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(body)
+    def bar(self, folder=None, top="top"):
+        data = json.dumps({"workspace": {"current_dir": str(folder or self.folder)}})
+        with mock.patch("statusbar.render", lambda d: top + " " + d["workspace"]["current_dir"] if top else ""):
+            return self.cli("bar", stdin=data)
 
-    def bar(self, folder=None):
-        return self.cli("bar", stdin=json.dumps({"workspace": {"current_dir": str(folder or self.folder)}}))
-
-    # covers: spec 0030 AC-10, spec 0046 AC-7 (jjstack's lines unchanged, the segment on the last; green AUTO in the
+    # covers: spec 0030 AC-10, spec 0046 AC-7, spec 0058 AC-4 (our bar, the segment after it; green AUTO in the
     # chat counting only its repos' features and questions, idle with its question count; the chat count elsewhere;
-    # nothing with no chat on; a missing or failing script prints the segment only; always exit 0)
+    # nothing with no chat on; an empty bar prints the segment only; always exit 0)
     def test_bar(self):
-        self.jj()
         code, out = self.bar()
         self.assertEqual(code, 0)
-        n = len(json.dumps({"workspace": {"current_dir": str(self.folder)}}))
-        self.assertEqual(out, f"top\nmodel {n}\n")
+        n = str(self.folder)
+        self.assertEqual(out, f"top {n}\n")
         self.on()
-        self.assertEqual(self.bar()[1], f"top\nmodel {n} \033[32mAUTO idle, 0 question(s)\033[0m\n")
+        self.assertEqual(self.bar()[1], f"top {n} \033[32mAUTO idle, 0 question(s)\033[0m\n")
         self.queue(decision(self.folder, "1. A"), decision(self.other, "1. B", did="cd34"))
-        self.assertEqual(self.bar()[1], f"top\nmodel {n} \033[32mAUTO idle, 1 question(s)\033[0m\n")
+        self.assertEqual(self.bar()[1], f"top {n} \033[32mAUTO idle, 1 question(s)\033[0m\n")
         held = SimpleNamespace(n=5)
         act = [{"repo": str(self.folder), "feature": f"{i}. F"} for i in range(4)] + \
             [{"repo": str(self.other), "feature": "1. B"}]
         # Spec 0047 AC-5: each entry counts by its own runner lock (here its repo's).
         lock = lambda p, create=True, what=None: (None, "pid 1" if held.n else None)
         with mock.patch("run.repo_lock", lock), mock.patch("run.read_active", lambda: act):
-            self.assertEqual(self.bar()[1], f"top\nmodel {n} \033[32mAUTO running 4 feature(s) in 1 repo(s), "
+            self.assertEqual(self.bar()[1], f"top {n} \033[32mAUTO running 4 feature(s) in 1 repo(s), "
                                             "1 question(s)\033[0m\n")
             # A crashed run's active.json with no lock held: nothing runs.
             held.n = 0
-            self.assertEqual(self.bar()[1], f"top\nmodel {n} \033[32mAUTO idle, 1 question(s)\033[0m\n")
+            self.assertEqual(self.bar()[1], f"top {n} \033[32mAUTO idle, 1 question(s)\033[0m\n")
         self.assertTrue(self.bar(self.other)[1].endswith(" auto: 1 chat(s) on\n"))
-        self.jj("#!/bin/bash\nexit 1\n")
-        self.assertEqual(self.bar()[1], "\033[32mAUTO idle, 1 question(s)\033[0m\n")
-        os.unlink(self.tmp / ".claude" / "skills" / "jjstack" / "bin" / "statusline.sh")
-        self.assertEqual(self.bar(self.other), (0, "auto: 1 chat(s) on\n"))
+        self.assertEqual(self.bar(top="")[1], "\033[32mAUTO idle, 1 question(s)\033[0m\n")
+        self.assertEqual(self.bar(self.other, top=""), (0, "auto: 1 chat(s) on\n"))
         self.cli("off")
-        self.assertEqual(self.bar(), (0, ""))
+        self.assertEqual(self.bar(top=""), (0, ""))
+
+    # covers: spec 0058 AC-2, AC-4 (no jjstack folder at all: the real bar still shows model, folder, branch and
+    # context, then the AUTO segment, and the chat is marked seen)
+    def test_bar_without_jjstack(self):
+        repo = self.tmp / "real"
+        subprocess.run(["git", "init", "-q", "-b", "trunk", str(repo)], check=True)
+        self.allow(self.folder, self.other, repo)
+        self.on_in(repo)
+        self.assertFalse((self.tmp / ".claude" / "skills" / "jjstack").exists())
+        # on_in already stamps seen; an old stamp proves the bar itself wrote the new one
+        key = auto.chat(auto.load(), str(repo))[0]
+        auto.change(lambda s: s["chats"][key].update(seen="2000-01-01T00:00:00+00:00"))
+        data = json.dumps({"workspace": {"current_dir": str(repo)}, "model": {"display_name": "Opus"},
+                           "context_window": {"used_percentage": 12}})
+        with mock.patch.dict(os.environ, {"ANTHROPIC_BASE_URL": "", "CLAUDE_CODE_EFFORT_LEVEL": ""}):
+            code, out = self.cli("bar", stdin=data)
+        self.assertEqual(code, 0)
+        self.assertEqual(re.sub(r"\033\[[0-9;]*m", "", out),
+                         "Opus ·auto | real | trunk clean |  context  12% | $? AUTO idle, 0 question(s)\n")
+        self.assertGreater(auto.secs(auto.chat(auto.load(), str(repo))[1].get("seen")), time.time() - 60)
 
 
 class TestFingerprint(ParallelCase):

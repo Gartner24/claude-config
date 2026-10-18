@@ -127,6 +127,9 @@ class TestDrive(unittest.TestCase):
         self.assertRegex(d, r"when a repo should move to another chat, first write [^;]*brief under \"Agreed so far\", "
                             r"then ask the user to type /auto release <name> here;")
         self.assertIn("never run wf auto on or wf auto release", d)
+        # the user's own repos are merged by the session; work and client repos never (owner, 2026-10-17)
+        self.assertIn("never push or merge in a work or client repo", d)
+        self.assertIn("own repos mark a PR ready and squash merge it", d)
 
 
 class TestTypedRelease(ChatCase):

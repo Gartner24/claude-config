@@ -11,6 +11,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import time
 
 SCOPE_BASES = ("docs/scope", ".workflow/scope")
 SCOPE_FILES = ("scope.md", "index.md")
@@ -49,6 +50,10 @@ GIT_SAFE = ("-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null")
 # `wf run` swaps in the absolute path it resolved at start (spec 0007 AC-6).
 GIT = "git"
 GIT_TIMEOUT = 120
+# Spec 0052 AC-7: git said this before changing anything, so a retry is safe; `cannot lock ref` is not.
+GIT_LOCK_BUSY = re.compile(r"Unable to create '.*\.lock'")
+GIT_LOCK_TRIES = 5
+GIT_LOCK_WAIT = 0.2
 
 
 def clean(text):
@@ -265,13 +270,18 @@ def read(path):
 
 def git(path, *args):
     argv = [GIT, *GIT_SAFE, "-C", path, *args]
-    try:
-        return subprocess.run(argv, capture_output=True, text=True, errors="replace", timeout=GIT_TIMEOUT)
-    except FileNotFoundError:
-        return None
-    except subprocess.TimeoutExpired:
-        # A hung git (a stale lock on a network mount) used to stall a run past --max-hours (review L7).
-        return subprocess.CompletedProcess(argv, 124, "", f"timed out after {GIT_TIMEOUT:g} s")
+    for tries in range(GIT_LOCK_TRIES + 1):
+        try:
+            r = subprocess.run(argv, capture_output=True, text=True, errors="replace", timeout=GIT_TIMEOUT)
+        except FileNotFoundError:
+            return None
+        except subprocess.TimeoutExpired:
+            # A hung git (a stale lock on a network mount) used to stall a run past --max-hours (review L7).
+            return subprocess.CompletedProcess(argv, 124, "", f"timed out after {GIT_TIMEOUT:g} s")
+        # Up to 8 features share one common dir now, so a sibling's index or ref lock is a short wait.
+        if r.returncode == 0 or tries == GIT_LOCK_TRIES or not GIT_LOCK_BUSY.search(r.stderr or ""):
+            return r
+        time.sleep(GIT_LOCK_WAIT)
 
 
 def dot_git(path):
@@ -642,7 +652,7 @@ def build_parser():
                                      "everything due after one confirm screen (spec 0020).")
     # Spec 0020 AC-1, AC-13: bare `wf` takes the wf run caps and picks.
     parser.add_argument("-y", "--yes", action="store_true", help="go without the confirm prompt")
-    parser.add_argument("--jobs", type=positive(int), help="repos built at once (default: every repo with work)")
+    parser.add_argument("--jobs", type=positive(int), help="children built at once, all repos and features together (default: every one with work)")
     parser.add_argument("--only", help="build only these numbered features of the screen, e.g. 1,2,4 or 1-3")
     # Spec 0046 AC-5: an autonomous chat's unit builds only its own repos; not for you to type.
     parser.add_argument("--repos", action="append", help=argparse.SUPPRESS)
@@ -655,7 +665,7 @@ def build_parser():
     run = sub.add_parser("run", help="build the queued features unattended, a fresh claude -p call per box")
     run.add_argument("target", nargs="?", help="a path, folder name or scope title; none: every repo on the wf allow list")
     run.add_argument("-y", "--yes", action="store_true", help="start without the confirm prompt")
-    run.add_argument("--jobs", type=positive(int), help="repos run at once by a bare wf run (default: every repo with work)")
+    run.add_argument("--jobs", type=positive(int), help="children run at once by a bare wf run, all repos and features together (default: every one with work)")
     # Spec 0020 AC-13: the features picked on the `wf` screen, passed to each child; not for you to type.
     run.add_argument("--only-feature", action="append", help=argparse.SUPPRESS)
     # Spec 0025 AC-1: the plan's guard baseline a bare run's parent hands each child; not for you to type.
@@ -672,6 +682,8 @@ def build_parser():
     how = rep.add_mutually_exclusive_group()
     how.add_argument("--seen", action="store_true", help="stop showing the report at session start")
     how.add_argument("--hook", action="store_true", help="the session start form: prints only an unseen report")
+    ins = sub.add_parser("insights", help="read past runs, print baselines and repeating problems (spec 0061)")
+    ins.add_argument("--seen", action="store_true", help="stop counting the proposals now in the inbox as new")
     unpark = sub.add_parser("unpark",help="clear a repo's parked features and open questions")
     unpark.add_argument("target", help="a path, folder name or scope title")
     unpark.add_argument("feature", nargs="?", help="only this feature: its heading, or a unique part of it")
@@ -724,6 +736,9 @@ def main(argv=None):
     if args.command == "report":
         import report
         return report.cmd_report(args)
+    if args.command == "insights":
+        import insights
+        return insights.cmd_insights(args)
     if args.command in ("allow", "queue", "unpark"):
         import run
         return getattr(run, "cmd_" + args.command)(args)

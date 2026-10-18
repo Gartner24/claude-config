@@ -26,6 +26,21 @@ The real runner functions and the two scripts ran on scratch git repos with a ba
 - [x] `land_plan` with one scope only commit -> push to `docs/plan-<stamp>`, `pr create` (no --draft), squash merge with --delete-branch, local equal to origin; a commit with `code.py` -> nothing, note `plan not landed: code.py is outside docs/scope`. can fail: a code commit lands as plan -> AC-15
 - [x] `python3 runner/tests/fast.py` -> 972 tests, 0 failed. can fail: any regression
 
+## /check verify 2026-10-17, fix the runner's plan landing crash: AC-15 met, suite red on older plan links
+The 2026-10-17 run's crash ("expected str, bytes or os.PathLike object, not NoneType") came from `scans()` writing into `r.folder`, which the parallel parent never sets. Each check ran on the fixed `runner/pr.py`, then again on the old one (`git cat-file blob HEAD~1:runner/pr.py`), which was then put back. The caller check is a scratch file, `$TMPDIR/verify_tree_cleanup.py`, built on `TestLandPlan`'s git and gh fixtures, with `pr.find` stubbed to return no PR.
+- [x] `test_lands_without_run_folder` (folder None) -> lands, origin equal to local, no file left in the temp dir; old code -> TypeError at `write_text`. can fail: the scan still writes into `r.folder` -> AC-15
+- [x] same test with `os.unlink(p)` replaced by `pass` -> red, two `wf-scan-*.txt` left behind. can fail: the temp scan files are never removed
+- [x] `test_names_without_run_folder` -> a private name in the PR title stops the landing, no gh call, note `plan not landed: private_names: PR title:`; old code -> TypeError. can fail: the folderless path skips the names scan -> AC-15
+- [x] `run.tree_cleanup` (the parallel parent's caller) with no run folder -> notes `['plan landed: PR #7, 1 commits']`; old code -> `['plan landing: internal_error: expected str, bytes or os.PathLike object, not NoneType']`, the exact note from the run. can fail: the parent path still crashes -> AC-15
+- [ ] `python3 runner/tests/fast.py` -> 974 tests, 1 failed: `test_layout.TestShape.test_links`, because `docs/scope/scope.md` links to `../specs/0061-runner-improves-itself/index.md` and `../specs/0054-skill-scan-script/verify.md`, which exist only on the unmerged 0061 and 0054 branches. The same links are on main, so this is not from this fix. Your answer (2026-10-17): wait for those two PRs to merge, then rerun the suite on this branch with main merged in; the links stay as they are.
+
+## /check verify 2026-10-18, rerun with main merged in: PASS
+Main (with 0054 and 0061 merged) was merged into the branch, then every check above ran again, old code from `git cat-file blob 1342f46~1:runner/pr.py`, put back after.
+- [x] `test_lands_without_run_folder` and `test_names_without_run_folder` -> pass; old code -> both TypeError `expected str, bytes or os.PathLike object, not NoneType` at `write_text`. can fail: the scan still writes into `r.folder` -> AC-15
+- [x] `os.unlink(p)` replaced by `pass` -> `test_lands_without_run_folder` red, two `wf-scan-*.txt` left. can fail: the temp scan files are never removed
+- [x] `run.tree_cleanup` with no run folder (scratch `$TMPDIR/verify_tree_cleanup.py`, `pr.find` stubbed to no PR) -> `['plan landed: PR #7, 1 commits']`, origin equal to local; old code -> `['plan landing: internal_error: expected str, bytes or os.PathLike object, not NoneType']`, origin behind. can fail: the parent path still crashes -> AC-15
+- [x] `python3 runner/tests/fast.py` -> 1026 tests, 0 failed. can fail: any regression, including the plan links on main
+
 ## Checked by reading only (not counted)
 - AC-14: `claude-home/rules/branch-pr.md` rules 4 to 10, architecture invariants 1, 5 and 6, and the Amended by lines in 0026, 0031 and 0043 say what AC-14 asks.
 

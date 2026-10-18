@@ -54,7 +54,8 @@ Branches and PRs follow `rules/branch-pr.md`: one branch per spec, stacked only 
   The user only answers questions and types `/clear`; every other handoff step is yours.
   When the feature closes, invoke `/save-and-clear` yourself and tell the user to type
   `/clear`, then the next command. Mid feature (after `/architect`, or past ~150k tokens):
-  invoke `/rollover` yourself and tell the user to type `/clear`, then `/resume-from-clear`.
+  invoke `/rollover` yourself and tell the user to type `/clear`; a start up hook loads the
+  handover (`/resume-from-clear` still works by hand).
 - UI changed: `/check verify` plus `design-gate`. New design or restyle: `design` pipeline.
 - Review: `## Review Rules` below decide the reviewer. Never `/check review`.
 - PR text: `/document pr`. Other prose: `/write`.
@@ -90,7 +91,8 @@ anyway. Surface every `Assumed` spec before starting new work.
   (`.workflow/briefs/` in bot-reviewed repos), and point the row's `Source:` at it.
   `/scope` and `/architect` read that brief and list anything they drop or weaken.
 - Which handoff: feature still open (boxes unticked, uncommitted work, a step half done)
-  -> `/rollover`, then `/clear`, then `/resume-from-clear`. Feature closed or switching
+  -> `/rollover`, then `/clear` (the handover loads itself; `/resume-from-clear` by hand
+  also works). Feature closed or switching
   task -> `/save-and-clear`, then `/clear`.
 - Long single feature: suggest `/compact` mid build. Autocompact (700k) is a last resort.
 
