@@ -11,6 +11,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from test_skill_scan import fake_bin, issue
+
 REAL = Path(__file__).resolve().parents[2]
 TOOL = REAL / "bin" / "claude-config.py"
 ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1", "GIT_AUTHOR_NAME": "t",
@@ -32,7 +34,10 @@ class Case(unittest.TestCase):
             d.mkdir(parents=True)
         shutil.copy(REAL / "scripts" / "private-names.py", self.repo / "scripts" / "private-names.py")
         (self.live / "private" / "names.txt").write_text("zorblex\n")
-        self.env = {**os.environ, **ENV, "CLAUDE_CONFIG_REPO": str(self.repo), "CLAUDE_LIVE_DIR": str(self.live)}
+        # update --apply runs skill-scan (spec 0054); a fake skillspector keeps the real one out
+        self.ss_bin, self.ss_data = fake_bin(self.tmp)
+        self.env = {**os.environ, **ENV, "CLAUDE_CONFIG_REPO": str(self.repo), "CLAUDE_LIVE_DIR": str(self.live),
+                    "FAKE_SS": str(self.ss_data), "PATH": f"{self.ss_bin}:{os.environ['PATH']}"}
         self.up.mkdir()
         self.git(self.up, "init", "-q", "-b", "main")
         self.git(self.up, "config", "uploadpack.allowAnySHA1InWant", "true")
@@ -146,6 +151,36 @@ class TestUpdate(Case):
         self.assertIn("+line 2 mine", (self.repo / "config" / "patches" / "s.patch").read_text())
         self.assertNotIn("+line 5 up", (self.repo / "config" / "patches" / "s.patch").read_text())
 
+    # covers: spec 0054 AC-7 (the merged folder is scanned against the live copy before it installs, and
+    # installs even with findings)
+    def test_scan_before_install(self):
+        s = self.install_edited()
+        self.commit({"skills/s/SKILL.md": SKILL.replace("line 5\n", "line 5 up\n")})
+        # the fake keys findings by folder name: the live s has none, any other folder (the merged one) has one
+        cfg = json.loads((self.ss_data / "config.json").read_text())
+        cfg["targets"] = {"s": {"issues": []}, "*": {"issues": [issue()]}}
+        (self.ss_data / "config.json").write_text(json.dumps(cfg))
+        r = self.tool("update", "--apply", "s")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("line 5 up", (s / "SKILL.md").read_text())
+        out = r.stdout
+        self.assertIn("s: skill scan, new serious findings (static):\n  s  HIGH Tainted flow (line N) @ scripts/a.py:7", out)
+        self.assertLess(out.index("s: skill scan"), out.index("s: installed upstream"), out)
+        scanned = [json.loads(x)["argv"][1] for x in (self.ss_data / "log").read_text().splitlines()]
+        self.assertEqual(len(scanned), 2)
+        self.assertIn(os.path.realpath(s), scanned)
+
+    # covers: spec 0054 AC-7 (no skillspector: one line, installs anyway)
+    def test_scan_missing_installs(self):
+        s = self.install_edited()
+        self.commit({"skills/s/SKILL.md": SKILL.replace("line 5\n", "line 5 up\n")})
+        (self.ss_bin / "skillspector").unlink()
+        self.env["PATH"] = f"{self.ss_bin}:{Path(sys.executable).parent}:/usr/bin"
+        r = self.tool("update", "--apply", "s")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("s: skill scan: skill-scan: skillspector not found on PATH\n", r.stdout)
+        self.assertIn("line 5 up", (s / "SKILL.md").read_text())
+
     # covers: AC-10 (conflict: exit 2, conflicts folder, live and manifest byte for byte unchanged)
     def test_conflict_then_resolved(self):
         self.install_edited()
@@ -154,6 +189,7 @@ class TestUpdate(Case):
         r = self.tool("update", "--apply", "s")
         self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
         self.assertEqual(self.state(), before)
+        self.assertFalse((self.ss_data / "log").exists(), "a conflict installs nothing, so spec 0054 scans nothing")
         conflict = self.live / "state" / "claude-config-conflicts" / "s" / "SKILL.md"
         self.assertIn("<<<<<<< mine", conflict.read_text())
         self.assertEqual(self.tool("update", "--apply", "s", "--resolved").returncode, 2)

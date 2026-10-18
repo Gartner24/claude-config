@@ -115,6 +115,13 @@ else
   note "fb-ask -> scripts/fb-ask.py"
   run ln -sfn "$REPO/scripts/fb-ask.py" "$BIN/fb-ask"
 fi
+# Spec 0054 AC-10: skillspector over every skill and plugin, only new serious findings.
+if [ -e "$BIN/skill-scan" ] && ! [ -L "$BIN/skill-scan" ]; then
+  note "SKIP skill-scan (a real file is already at $BIN/skill-scan)"
+else
+  note "skill-scan -> scripts/skill-scan.py"
+  run ln -sfn "$REPO/scripts/skill-scan.py" "$BIN/skill-scan"
+fi
 # Spec 0036 AC-6: the missed skill hook matches messages against this index, which jjstack setup
 # builds once; without a rebuild it misses every skill added since.
 triggers="$LIVE/skills/jjstack/bin/jjstack-extract-triggers"
