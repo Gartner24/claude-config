@@ -909,15 +909,15 @@ After a rollover you type only `/clear`: a start up hook loads the waiting hando
 **Done when:** a rolled over session continues after only `/clear`, and the mod is built or rejected with its probe result.
 - [x] Design it (spec): `/architect sessions pass work to each other`
 - [x] Run probes P1 and P2 in a scratch session (spec 0057 AC-9), write results in its verify notes · waits on you (both passed 2026-10-17, P2 with the clear run from a timer)
-- [ ] Build it: `/develop sessions pass work to each other`
-  - [ ] Hook, size cap, quiet rules, self check (AC-1, AC-2, AC-4, AC-5, AC-7)
-  - [ ] workflow-start yields, wiring, words (AC-3, AC-6, AC-8)
-  - [ ] Mod, only if P2 passed (AC-10)
+- [x] Build it: `/develop sessions pass work to each other`
+  - [x] Hook, size cap, quiet rules, self check (AC-1, AC-2, AC-4, AC-5, AC-7)
+  - [x] workflow-start yields, wiring, words (AC-3, AC-6, AC-8)
+  - [x] Mod, only if P2 passed (AC-10) · built in `claude-home/mods/wf-handoff/`, static skillspector scan clean
 - [ ] Verify it: `/check verify sessions pass work to each other`
 - [ ] Test it: `/test sessions pass work to each other`
-- [ ] Copy the hook and settings live, and install the mod if built · waits on you · later boxes go on
+- [ ] Copy the hook and settings live (`bin/install.sh` copies both and runs the hook self check), and install the mod: `ln -s ~/claude-config/claude-home/mods/wf-handoff ~/.claude/skills/wf-handoff` after a `skillspector scan` with the model pass · waits on you · later boxes go on
 - [ ] Sync docs: `/sync sessions pass work to each other`
-Spec [0057](../specs/0057-handover-on-clear.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B4; the handover first half of B14.
+Spec [0057](../specs/0057-handover-on-clear.md) · code in `claude-home/hooks/handover-start.sh`, `claude-home/mods/wf-handoff/` · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B4; the handover first half of B14.
 
 ### 61. Cheap model gatekeeper with open models · in-progress · auto
 Search helpers run on Haiku, the model rule says so, and each runner call records cost per model so a routing mod is decided by data.
@@ -998,15 +998,16 @@ Spec [0053](../specs/0053-fb-ask-local-model.md) · code in `scripts/fb-ask.py` 
 Build the four ideas taken from Harvey, MiroFish and claude-skills-founder: a lead finder that never sends, a reaction tester, an idea scorecard, and the new number replaces old rule.
 **Done when:** each of the four is in a skill and used once on a real case.
 - [x] Design it (spec): `/architect ideas borrowed from tools we skip`
-- [ ] Build it: `/develop ideas borrowed from tools we skip`
-  - [ ] lead-finder skill (AC-1 to AC-3, AC-9)
-  - [ ] reaction-tester skill (AC-4, AC-9)
-  - [ ] Scorecard and rule file, manifest test (AC-5, AC-6, AC-8)
+- [x] Build it: `/develop ideas borrowed from tools we skip`
+  - [x] lead-finder skill (AC-1 to AC-3, AC-9)
+  - [x] reaction-tester skill (AC-4, AC-9)
+  - [x] Scorecard and rule file, manifest test (AC-5, AC-6, AC-8)
 - [ ] Verify it: `/check verify ideas borrowed from tools we skip`
 - [ ] Test it: `/test ideas borrowed from tools we skip`
+- [ ] Link the two skills and copy the rule live after the merge: `bin/install.sh` · waits on you · live · later boxes go on
 - [ ] Use each of the four once on a real case, write it in verify notes (AC-7) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync ideas borrowed from tools we skip`
-Spec [0056](../specs/0056-borrowed-ideas.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items B10 to B13.
+Spec [0056](../specs/0056-borrowed-ideas.md) · code in `claude-home/skills/lead-finder/`, `claude-home/skills/reaction-tester/`, `claude-home/rules/new-number-replaces-old.md` · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items B10 to B13.
 
 ### 70. graphify test on one repo · done
 Map one large own repo with graphify, code only and AI keys hidden, and ask 8 to 10 questions with and without the map.
@@ -1061,7 +1062,7 @@ Spec [0060](../specs/0060-wf-dash-panes.md) · Source: [brief](../briefs/tool-re
 At the end of the 2026-10-17 run, landing the runner's own plan commits failed with "the build tool itself hit a bug: expected str, bytes or os.PathLike object, not NoneType", so the plan commits stayed local until landed by hand (PR #36).
 **Done when:** a run that ends with plan commits lands them through its docs PR with no crash, with a test that fails on the old code.
 - [x] Design it (spec): `/architect fix the runner's plan landing crash` (no new decision: a bug against spec 0051 AC-15)
-- [ ] Fix it: `/debug fix the runner's plan landing crash`
+- [x] Fix it: `/debug fix the runner's plan landing crash`
 - [ ] Verify it: `/check verify fix the runner's plan landing crash`
 - [ ] Test it: `/test fix the runner's plan landing crash`
 - [ ] Sync docs: `/sync fix the runner's plan landing crash`
