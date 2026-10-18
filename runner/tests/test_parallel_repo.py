@@ -239,6 +239,19 @@ class TestSameRepo(RepoCase):
         self.assertIn(f"{b}/.git changed after the plan, before this repo started", d["question"], r.stdout)
         self.assertFalse((self.fakes / "feat-0002-b-argv-1.json").exists(), "B made no call")
 
+    # covers: a reused spec branch older than main (its AGENTS.md still says parallel: 3) builds on main's standing
+    # answers; it used to ask guard_changed on every start, since the tree's answers never matched the plan's
+    def test_stale_branch_answers(self):
+        b = self.trees / "feat-0002-b"
+        self.git("worktree", "add", "-q", "-b", "feat/0002-b", str(b))
+        (b / "AGENTS.md").write_text(ANSWERS.replace("parallel: 2", "parallel: 3"))
+        self.git("commit", "-qam", "old answers", cwd=b)
+        self.steps({"feat-0001-a": step("a", sleep=0), "feat-0002-b": step("b", sleep=0), "feat-0003-c": step("c", sleep=0)})
+        r = self.wf("-y", "--jobs", "1")
+        q = json.loads((self.state / "wf" / "queue.json").read_text())
+        self.assertEqual([d for d in q["decisions"] if d.get("reason") == "guard_changed"], [], r.stdout)
+        self.assertTrue((self.fakes / "feat-0002-b-argv-1.json").exists(), "B made its call")
+
     # covers: security review (AC-7 siblings as written and resolved)
     def test_siblings_resolved(self):
         link = self.tmp / "link"
