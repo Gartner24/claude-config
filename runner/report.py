@@ -254,6 +254,42 @@ def cheap_line(recs):
     return [f"cheap tier: {len(fb)} jobs, {len(bad)} fell back" + (f" ({why})" if why else "")]
 
 
+def model_line(recs):
+    """Spec 0055 AC-4: cost by model id over the run's calls and the share off each call's main model."""
+    per, other, total, used, _ = run.split([c for r in recs for c in r.get("calls", []) + r.get("explains", [])])
+    if not used:
+        return ["model split: unknown"]
+    share = f"{100 * other / total:.0f}%" if total else "unknown"
+    return ["models: " + ", ".join(f"{wf.clean(k)} ${v:.2f}" for k, v in sorted(per.items(), key=lambda x: -x[1]))
+            + f"; non main {share}"]
+
+
+def week_split(now=None):
+    """Spec 0055 AC-5: (non main share in percent, summed cost, calls skipped) over the last 7 days of runner calls
+    that carry a split; the share is None with no usable call, never 0."""
+    now = now or datetime.datetime.now().astimezone()
+    calls, runs = [], paths()[2]
+    for f in sorted(os.listdir(runs)) if os.path.isdir(runs) else []:
+        rec = load_record(os.path.join(runs, f)) or {}
+        for c in rec.get("calls", []) + rec.get("explains", []):
+            try:
+                if now - datetime.datetime.fromisoformat(c["started"]) <= datetime.timedelta(days=7):
+                    calls.append(c)
+            except (KeyError, TypeError, ValueError):
+                continue
+    _, other, total, used, skipped = run.split(calls)
+    return (100 * other / total if used and total else None), total, skipped
+
+
+def week_line():
+    """Spec 0055 AC-5: the week's non main share, and the routing mod gate over 15%."""
+    p, total, skipped = week_split()
+    if p is None:
+        return ["week: unknown"]
+    return [f"week: non main models {p:.0f}% of ${total:.2f} (upper bound for helper cost; {skipped} calls without "
+            f"a split skipped)"] + (["consider a routing mod (spec 0055)"] if p > 15 else [])
+
+
 def label(cfg, i):
     return ntfy.scrub_field(cfg, ntfy.repo_label(cfg, i["repo"]), 40, "repo")
 
@@ -262,8 +298,8 @@ def render(sources, cfg):
     """(full report, phone body) for these sources (AC-2 to AC-4)."""
     items, recs = collect(sources)
     top, multi = head(items, recs), len(sources) > 1
-    full = [top] + [item_line(i, multi, False, cfg) for i in items] + cheap_line(recs) + \
-        [next_line(items, lambda i: i["name"])]
+    full = [top] + [item_line(i, multi, False, cfg) for i in items] + cheap_line(recs) + model_line(recs) + \
+        week_line() + [next_line(items, lambda i: i["name"])]
     full += [f"run folder: {s['folder']}" for s in sources if s["folder"]]
     tail, dropped = next_line(items, lambda i: label(cfg, i)), 0
     if "chat_id" in cfg:

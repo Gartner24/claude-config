@@ -69,7 +69,7 @@ class Unit(unittest.TestCase):
             f"wf done {at}: 1 built, 1 stuck, 0 questions, 0.50 USD, 15 tokens", "built: 2. B",
             "stuck: 1. A: the step needs something only you can do: test park", "setup steps: 3. C: 2 step(s)",
             "for you: 3. C: Check the phone",
-            "next: wf, then review and merge: demo", "run folder: /f"])
+            "model split: unknown", "week: unknown", "next: wf, then review and merge: demo", "run folder: /f"])
         label = ntfy.repo_label(CFG, p)
         self.assertEqual(body.splitlines(), full.splitlines()[:2] + ["stuck: 1. A: the step needs something only you can do"]
                          + full.splitlines()[3:5]
@@ -105,9 +105,9 @@ class Unit(unittest.TestCase):
         self.assertTrue(lines[0].startswith("wf stopped the build tool itself hit a bug, all queued work is done "),
                         lines[0])
         self.assertTrue(lines[0].endswith(": 0 built, 0 stuck, 1 questions, - USD, - tokens"), lines[0])
-        self.assertEqual(lines[1:7], ["stopped: 1. B: the code was switched to another branch (b)",
+        self.assertEqual(lines[1:9], ["stopped: 1. B: the code was switched to another branch (b)",
                                       "Question k3x9 (its name, so your reply finds it): 1. A (a)", "no record: c: exit 1 (c)", "did not finish: d (d)",
-                                      "not started: e (e)", "next: wf"])
+                                      "not started: e (e)", "model split: unknown", "week: unknown", "next: wf"])
 
     # covers: AC-1, AC-2 (the parent's sources come from its summary rows: work rows only, folder - with a code is
     # no record, without one not started, a folder's run.json read for its features)
@@ -124,7 +124,7 @@ class Unit(unittest.TestCase):
         self.assertEqual(send.call_count, 1)
         text = (self.tmp / "state" / "wf" / "report.txt").read_text().splitlines()
         self.assertEqual(text[1:], ["built: 1. B (rb)", "no record: ra: exit 5 (ra)", "not started: rc (rc)",
-                                    "next: wf", f"run folder: {folder}"])
+                                    "model split: unknown", "week: unknown", "next: wf", f"run folder: {folder}"])
 
     # covers: AC-2 (next: wf, wf queue, review and merge, wf queue, in that order of precedence)
     def test_next(self):
@@ -353,9 +353,9 @@ class TestEndOfRun(QueueCase):
         # Spec 0033 AC-9: what was built and its next step with the reason.
         self.assertRegex(text[1], r"^built: 2\. B: \d+ commits( [0-9a-f]{7}\.\.[0-9a-f]{7})?, \d+ files, branch \S+; next: "
                                   r"review and merge it, it was built on its branch with no PR$")
-        self.assertEqual(text[2:3] + text[4:7], [
+        self.assertEqual(text[2:3] + text[4:9], [
                                                  "stuck: 1. A: the step needs something only you can do: test park",
-                                                 "setup steps: 3. C: 2 step(s)", "for you: 3. C: Check the phone", "next: wf, then review and merge: two"])
+                                                 "setup steps: 3. C: 2 step(s)", "for you: 3. C: Check the phone", "model split: unknown", "week: unknown", "next: wf, then review and merge: two"])
         self.assertEqual(text[-1], f"run folder: {folder}")
         notes = [p for p in self.report_ntfy.posts if p["title"] == "wf report"]
         self.assertEqual(len(notes), 1)
