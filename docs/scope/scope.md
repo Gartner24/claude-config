@@ -1063,8 +1063,8 @@ One `/wf-dash` dashboard with Plan, Builds, Agents and Alerts views for the whol
   - [x] `wf plan --json` and `wf answer` (AC-1, AC-5)
   - [x] The `/wf-dash` dashboard: Plan, Builds, Agents and Alerts views (AC-2 to AC-4a)
   - [x] Actions with confirm, tests (AC-5, AC-7)
-- [ ] Verify it: `/check verify wf-dash panes and actions`
-- [ ] Test it: `/test wf-dash panes and actions`
+- [x] Verify it: `/check verify wf-dash panes and actions` (2026-10-19 fifth run PASS, CAN FAIL 7; design gate pass 5 PASS WITH FINDINGS)
+- [x] Test it: `/test wf-dash panes and actions` (2026-10-19: 45 mod tests and 9 plan tests pass, 26 mutants red, suite 1051 green)
 - [ ] Install the mod update live after its scan · waits on you · later boxes go on
 - [ ] Sync docs: `/sync wf-dash panes and actions`
 Spec [0060](../specs/0060-wf-dash-panes.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B3, part 3 of 3, with your plan pane ask; stacks on spec 0059.
