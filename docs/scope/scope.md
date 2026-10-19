@@ -1079,7 +1079,7 @@ At the end of the 2026-10-17 run, landing the runner's own plan commits failed w
 - [x] Sync docs: `/sync fix the runner's plan landing crash`
 Spec [0051](../specs/0051-clean-branches-commits/index.md) AC-15 · Source: the run report of 2026-10-17 17:57 (`plan landing:` line, run folders under `~/.local/state/wf/runs/*-20261017-17*`).
 
-### 75. wf-dash stray keys · in-progress · auto
+### 75. wf-dash stray keys · done · auto
 In the wf-dash dashboard, a key it does not draw (a filter digit outside Plan, any other letter) types into the chat prompt and takes the keyboard; the "ctrl+x tab returns here" hint did not give the keys back in a tmux test. Critique held at 29/40 mostly on this.
 **Done when:** no key typed while the dashboard has the keyboard reaches the prompt, or the way back is shown and proven in a real terminal.
 - [x] Design it (spec): `/architect wf-dash stray keys` (choice: catch every key with a surface module `Client` and its `onKey`; your answer 2026-10-18)
@@ -1090,7 +1090,7 @@ In the wf-dash dashboard, a key it does not draw (a filter digit outside Plan, a
 - [x] Build it: `/develop wf-dash stray keys` (`claude-home/mods/wf-dash/panes.tsx` warn line, `design.md` footer note, tests in `hint.test.ts`)
 - [x] Verify it: `/check verify wf-dash stray keys` (PR #101, CAN FAIL 4)
 - [x] Test it: `/test wf-dash stray keys` (PR #101, MUTATION 3, 31 of 31 mod tests)
-- [ ] Real terminal check: press a key the dashboard does not use in tmux, see the click hint, click, and a dashboard key works again (spec 0062 AC-6) · waits on you · later boxes go on
+- [x] Real terminal check: press a key the dashboard does not use in tmux, see the click hint, click, and a dashboard key works again (spec 0062 AC-6) · waits on you · later boxes go on (2026-10-19: pass, by you in tmux: z showed the click hint, a click and b opened Builds, no b in the prompt)
 - [x] Sync docs: `/sync wf-dash stray keys` (PR #101)
 Spec [0062](../specs/0062-wf-dash-stray-keys.md) · Source: the owner's message of 2026-10-17 ("accept as is") after critique round 10 scored the look 29/40.
 
