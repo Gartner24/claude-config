@@ -1,7 +1,7 @@
 # 0065. wf-dash design should-fixes
 
 **Date**: 2026-10-18
-**Status**: Proposed
+**Status**: Accepted
 **Paths:** `claude-home/mods/wf-dash/**`
 **Amends:** [0059](0059-wf-dash-band.md) AC-3 (a run that leaves `running` toasts `finished` only when its record says it finished)
 

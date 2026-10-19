@@ -1,7 +1,7 @@
 # 0064. Auto handoff display: band progress, viewer pages, handoff link
 
 **Date**: 2026-10-18
-**Status**: Proposed
+**Status**: In Progress
 **Paths:** `claude-home/mods/wf-handoff/**`, `claude-home/mods/wf-dash/**`
 **Stacks on:** 0063
 

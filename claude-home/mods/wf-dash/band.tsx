@@ -1,6 +1,7 @@
 // The band above the prompt: this session on the left, the runner on the right, always one line.
 // Pure drawing from facts; every color, width and word comes from tokens.ts.
 import type { WfDashFacts } from './types/index.d.ts'
+import type { HandoffLine } from './handoff.ts'
 import { color, effort, glyph, meter, space, width } from './tokens.ts'
 
 export type Facts = WfDashFacts
@@ -51,10 +52,12 @@ function meterSeg(id: string, label: string, value: number | null, reset = ''): 
   return seg(id, runs)
 }
 
-function countRun(n: number | null, one: string, many: string, tone: string): Run {
-  if (n === null) return { text: `${glyph.unknown} ${many}`, color: color.dim }
+// `cells`: the number (or its `?`) is left padded to it, so the full band's line does not shift as a count grows;
+// the compact band passes none, its zero test and budget read the bare text
+function countRun(n: number | null, one: string, many: string, tone: string, cells = 0): Run {
+  if (n === null) return { text: `${pad(glyph.unknown, cells)} ${many}`, color: color.dim }
   const word = n === 1 ? one : many
-  return n === 0 ? { text: `0 ${word}`, color: color.dim } : { text: `${n} ${word}`, color: tone, bold: true }
+  return n === 0 ? { text: `${pad('0', cells)} ${word}`, color: color.dim } : { text: `${pad(String(n), cells)} ${word}`, color: tone, bold: true }
 }
 
 // `rich` adds the reset times and the context tokens; the band drops them before it drops a segment.
@@ -112,9 +115,9 @@ export function segments(f: Facts, now = Date.now(), rich = true, compact = fals
       cells += need
     }
   } else {
-    right.push(countRun(w.running, 'building', 'building', color.text), { text: glyph.sep })
-    right.push(countRun(w.parked, 'stuck', 'stuck', color.bad), { text: glyph.sep })
-    right.push(countRun(w.questions, 'question', 'questions', color.warn))
+    right.push(countRun(w.running, 'building', 'building', color.text, width.count), { text: glyph.sep })
+    right.push(countRun(w.parked, 'stuck', 'stuck', color.bad, width.count), { text: glyph.sep })
+    right.push(countRun(w.questions, 'question', 'questions', color.warn, width.count))
   }
   if (f.staleSince) right.push({ text: compact ? (right.length ? ' stale' : 'stale') : `${glyph.sep}stale since ${f.staleSince}`, color: color.dim })
   return { left, right: seg('wf', right) }
@@ -173,6 +176,20 @@ export function Band({ Box, Text, Button, facts, columns, onOpen }: { Box: any; 
       <Box flexShrink={1} marginLeft={space.gap}>
         {draw(Box, Text, right, 1)}
       </Box>
+    </Box>
+  )
+}
+
+// Spec 0064 AC-2: the handoff's own line under the band; a sticky one carries its dismiss key.
+export function HandoffRow({ Box, Text, Button, line, onDismiss }: { Box: any; Text: any; Button?: any; line: HandoffLine; onDismiss?: () => void }) {
+  return (
+    <Box flexDirection="row" paddingX={space.padX} gap={space.gap} width="100%">
+      <Box flexShrink={1}>
+        <Text color={line.color} bold={line.kind === 'sticky'} wrap="truncate-end">{line.text}</Text>
+      </Box>
+      {line.kind === 'sticky' && Button && onDismiss
+        ? <Button key="wf-dash-handoff-dismiss" plain hotkey="x" onPress={onDismiss}><Text color={color.dim}>dismiss</Text></Button>
+        : null}
     </Box>
   )
 }

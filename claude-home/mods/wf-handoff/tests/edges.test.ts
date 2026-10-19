@@ -151,7 +151,6 @@ test('AC-4 all three lists long stay under 2000 bytes', { options: { threshold: 
 
 test('AC-4 multibyte paths with a viewer line stay under 2000 UTF-8 bytes', { options: { threshold: 50000 } }, async ($, on) => {
   const w = world(on)
-  w.files.set(`${STATE}/S1.json`, { text: JSON.stringify({ root: 'S1', session: 'S1', previous: null, startTokens: null, unattended: 0, triggeredAt: null, phase: 'idle', lastRequest: null, link: 'http://100.1.2.3:3846/S1-abc' }), mtimeMs: 0 })
   await start($)
   w.messages = [{ role: 'assistant', text: '', toolUses: Array.from({ length: 200 }, (_, i) =>
     ({ tool_use_id: String(i), tool: 'Edit', input: { file_path: `/w/src/éèêëéèêë/日本語-${i}.ts` } })) }]
@@ -160,7 +159,7 @@ test('AC-4 multibyte paths with a viewer line stay under 2000 UTF-8 bytes', { op
   const slot = w.files.get(SLOT)!.text
   expect(blockBytes(slot)).toBeLessThan(2000)
   expect(slot).toMatch(/- \+\d+ more/)
-  expect(slot).toContain('viewer: http://100.1.2.3:3846/S1-abc')
+  expect(slot).toMatch(/^viewer: http:\/\/127\.0\.0\.1:3846\/S1-[0-9a-f]{16}$/m)
 })
 
 test('AC-3 the last request is quoted as typed, even with $ patterns', { options: { threshold: 50000 } }, async ($, on) => {
@@ -359,14 +358,14 @@ test('AC-7 a failed handoff counts toward the guard', { options: { threshold: 50
   expect(chain(w)).toMatchObject({ phase: 'failed', unattended: 1 })
 })
 
-test('AC-4 a chain link adds one viewer line to the facts', { options: { threshold: 50000 } }, async ($, on) => {
+test('AC-4 spec 0064 AC-6 the handover link is one viewer line in the facts and kept in the chain', { options: { threshold: 50000 } }, async ($, on) => {
   const w = world(on)
-  w.files.set(`${STATE}/S1.json`, { text: JSON.stringify({ root: 'S1', session: 'S1', previous: null, startTokens: null, unattended: 0, triggeredAt: null, phase: 'idle', lastRequest: null, link: 'http://100.1.2.3:3846/S1-abc' }), mtimeMs: 0 })
   await start($)
   w.tokens = 60_000
   await handoff($, w, 'T1')
   const slot = w.files.get(SLOT)!.text
-  expect(slot.match(/^viewer: http:\/\/100\.1\.2\.3:3846\/S1-abc$/gm)?.length).toBe(1)
+  expect(slot.match(/^viewer: http:\/\/127\.0\.0\.1:3846\/S1-[0-9a-f]{16}$/gm)?.length).toBe(1)
+  expect(chain(w).link).toBe(slot.match(/^viewer: (.*)$/m)![1])
 })
 
 test('AC-12 a log line carries the session id for each event', { options: { threshold: 50000 } }, async ($, on) => {
