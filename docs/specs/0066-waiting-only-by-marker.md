@@ -1,7 +1,7 @@
 # 0066. Waiting only by the marker
 
 **Date**: 2026-10-19
-**Status**: Proposed
+**Status**: Accepted
 **Paths:** `runner/wf.py`, `runner/tests/**`
 **Amends**: [0012](0012-waiting-boxes-owed-to-you/index.md) AC-2 (which boxes count as waiting) and [0002](0002-next-repo-command/index.md) AC-6.
 
