@@ -2444,6 +2444,17 @@ class Run:
             problem = copy_tree(tree, sha.stdout.strip(), clean)
             if problem:
                 return 1, [problem]
+            if os.path.lexists(os.path.join(clean, ".git")):
+                return 1, ["a .git entry in the clean copy"]
+            # The suite reads its own file list (`git ls-files`) and docs-pr's scanners from origin/main, so the copy is
+            # a repo of exactly this tree. shortcut: origin/main only, upgrade if a repo's default branch differs.
+            for args in (("init", "-q"), ("add", "-A", "-f"),
+                         ("-c", "user.name=wf", "-c", "user.email=wf@localhost", "commit", "-q", "--no-verify",
+                          "--allow-empty", "-m", "suite"),
+                         ("update-ref", "refs/remotes/origin/main", "HEAD")):
+                g = wf.git(clean, *args)
+                if g is None or g.returncode:
+                    return 1, ["cannot make the clean copy a git repo"]
             env = call_env(self.run_id)
             for k in KEPT_ENV:
                 env.pop(k, None)
@@ -5718,7 +5729,12 @@ def copy_tree(repo, tree_sha, dest):
         if kind != "blob":
             # A submodule has no files here to check.
             continue
-        entries.append((mode, obj, os.fsdecode(path)))
+        path = os.fsdecode(path)
+        # Security review: clean_suite runs git init and add on the copy outside the jail, so a planted `.git` would
+        # hand git a config (filter drivers) from the tree under test.
+        if any(part.lower() == ".git" for part in path.split("/")):
+            return f"a .git path in the tree: {path}"
+        entries.append((mode, obj, path))
     blobs = subprocess.run([wf.GIT, "-C", repo, "cat-file", "--batch"], input="".join(f"{o}\n" for _, o, _ in entries).encode(),
                            capture_output=True, timeout=ARCHIVE_TIMEOUT)
     if blobs.returncode:
@@ -5737,9 +5753,13 @@ def copy_tree(repo, tree_sha, dest):
             link = os.fsdecode(body)
             if os.path.isabs(link) or not os.path.normpath(os.path.join(os.path.dirname(target), link)).startswith(root + os.sep):
                 return f"a symlink leaves the clean copy: {path}"
+            if any(part.lower() == ".git" for part in link.split("/")):
+                return f"a symlink into .git: {path}"
             os.symlink(link, target)
             continue
-        with open(target, "wb") as f:
+        # never through an entry already written (a duplicate path, a symlink)
+        fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644)
+        with os.fdopen(fd, "wb") as f:
             f.write(body)
         if mode == "100755":
             os.chmod(target, 0o755)
