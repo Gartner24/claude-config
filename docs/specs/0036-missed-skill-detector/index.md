@@ -1,7 +1,7 @@
 # 0036 · Missed-skill detector
 
 **Date**: 2026-10-14
-**Status**: In Progress
+**Status**: Accepted
 **Paths:** `claude-home/settings.json`, `bin/install.sh`, `scripts/private-names.py`, `AGENTS.md`
 
 ## What you're agreeing to
