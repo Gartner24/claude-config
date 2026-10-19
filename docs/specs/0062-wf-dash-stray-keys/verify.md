@@ -29,3 +29,24 @@ Verdict: FAIL as AC-1 words it (keys reach `onKey` right after the pane opens wi
 - Surface module path is relative to the hooks module (`hooks/client.tsx`), not the plugin root; a surface module has no `$`, it reports through `surface.post` and a `ui.message` hook.
 - One post per frame: keys sent faster than about 0.5 s apart can drop (not measured, per the types).
 - Consequence for 0062: AC-1 FAIL as worded, so the spec's own rule applies (a FAIL stops the build; row 75 back to `/architect`), unless the owner accepts a click-to-focus dashboard.
+
+# 0062 verify: probe P11 (hidden hotkey buttons, AC-1 of the first amendment)
+
+Run 2026-10-18 by a subagent, Claude Code 2.1.303, model haiku. Throwaway mod in the session scratchpad (`p11/mod`, never installed; `claude plugin validate` passed). Pane opened from `/p11` with `$.ui.open({ id: 'p11', focus: true, closeOnEscape: true, rows: 10 })`; visible buttons `p` (plain, `here`) and `q` (dim); hidden tries each in its own Box between markers: `z` plain with `label=""`, `x` no plain and no label, `y` no plain with `label=""`; a band button `w`. Each `onPress` appended `<key> pressed` to a log. Session: `tmux new-session -d -s p11 -x 200 -y 50 -c <scratch>/p11/cwd "claude --plugin-dir <scratch>/p11/mod --model haiku"`, keys 0.6 s apart with `tmux send-keys`. Session killed after the run.
+
+Verdict: FAIL. No hidden try draws nothing, and Tab lands on them.
+
+- [ ] (a) a hidden try draws nothing. FAIL.
+  Observed: `z` draws `a|z: |a` (hotkey, colon, space); `y` draws `c|[  ]|c` (bracket chrome); `x` is refused: `ui.render hook skipped: threw HooksError: JSX element <Button> needs a label`, and the pane draws empty.
+  can fail: any glyph or gap between the markers; there were.
+- [x] (b) hidden keys reach `onPress`, prompt empty. PASS for `z`, `y`, `p`, `q` (log `z pressed;y pressed;p pressed;q pressed;`, prompt `> ` empty). `w` (band button) with the pane focused went to the prompt and took the focus.
+  can fail: a key missing from the log or typed into the prompt.
+- [ ] (b2) Tab never lands on a hidden button. FAIL: the third Tab inverted `z: `.
+  can fail: an inverted hidden button; there was one.
+- (c) way back after focus left the pane: ctrl+x then Tab did NOT return the keys (`z` typed into the prompt, log unchanged). An SGR click inside the pane (`\e[<0;125;2M`, then `m`) did; `z` then logged. One Escape after the click closed the pane (`closeOnEscape`).
+
+## Build rules from this probe
+- A Button cannot be hidden: it needs a label, `plain` draws its hotkey and a colon, and the chromed form draws brackets. Tab walks every Button.
+- A key with no Button in the focused pane falls to the prompt, band hotkeys included.
+- The working way back is a click on the pane, not ctrl+x tab.
+- Consequence for 0062: the hidden button plan stops; amended again to click to return (your pick 2026-10-18).

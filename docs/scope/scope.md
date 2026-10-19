@@ -1029,9 +1029,10 @@ Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced un
 The PR #18 review's open items and two script bugs found while landing it.
 **Done when:** each item is fixed with a test or dropped with a reason.
 - [x] Design it (spec): `/architect self merge rules and review notes` (decided the three spec items: risk list, old branch date, wait for a check) · waits on you (answered 2026-10-17, written into spec 0051 AC-3, AC-4, AC-12, AC-16)
-- [ ] Build it: `/develop self merge rules and review notes` (spec 0051 build step 9; tag this feature `· auto` only after row 56 is done, both change `runner/pr.py`)
-- [ ] Verify it: `/check verify self merge rules and review notes`
-- [ ] Test it: `/test self merge rules and review notes`
+- [x] Build it: `/develop self merge rules and review notes` (spec 0051 build step 9; tag this feature `· auto` only after row 56 is done, both change `runner/pr.py`)
+- [ ] Copy the CLAUDE.md wording live: `cp claude-home/CLAUDE.md ~/.claude/CLAUDE.md` · waits on you · live · later boxes go on
+- [x] Verify it: `/check verify self merge rules and review notes`
+- [x] Test it: `/test self merge rules and review notes`
 - [ ] Sync docs: `/sync self merge rules and review notes`
 Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items D1, E3, E4.
 
@@ -1082,11 +1083,13 @@ In the wf-dash dashboard, a key it does not draw (a filter digit outside Plan, a
 **Done when:** no key typed while the dashboard has the keyboard reaches the prompt, or the way back is shown and proven in a real terminal.
 - [x] Design it (spec): `/architect wf-dash stray keys` (choice: catch every key with a surface module `Client` and its `onKey`; your answer 2026-10-18)
 - [x] Run probe P10 in a scratch tmux session with `claude --plugin-dir` (spec 0062 AC-1), write the result in its verify notes; a FAIL stops this feature and sends it back to `/architect` · waits on you (2026-10-18: FAIL, the dashboard gets keys only after a mouse click, see [verify notes](../specs/0062-wf-dash-stray-keys/verify.md))
-- [ ] Pick the fallback, then amend the spec: `/architect wf-dash stray keys` (bind more keys on every view, or accept click to focus) · waits on you
+- [x] Pick the fallback, then amend the spec: `/architect wf-dash stray keys` (your pick 2026-10-18: bind every letter and digit on every view; spec amended the same day)
+- [x] Run probe P11 in a scratch tmux session with `claude --plugin-dir` (spec 0062 AC-1), write the result in its verify notes; a FAIL stops this feature and sends it back to `/architect` · waits on you (2026-10-18: FAIL, a button cannot be hidden; a click returns the keys, ctrl+x tab does not)
+- [x] Pick again after P11, then amend the spec: `/architect wf-dash stray keys` (your pick 2026-10-18: click to return, the hint fixed)
 - [ ] Build it: `/develop wf-dash stray keys`
 - [ ] Verify it: `/check verify wf-dash stray keys`
 - [ ] Test it: `/test wf-dash stray keys`
-- [ ] Real terminal check: type stray keys on every view in tmux, the prompt stays empty (spec 0062 AC-6) · waits on you · later boxes go on
+- [ ] Real terminal check: press a key the dashboard does not use in tmux, see the click hint, click, and a dashboard key works again (spec 0062 AC-6) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync wf-dash stray keys`
 Spec [0062](../specs/0062-wf-dash-stray-keys.md) · Source: the owner's message of 2026-10-17 ("accept as is") after critique round 10 scored the look 29/40.
 
@@ -1120,9 +1123,9 @@ Spec [0064](../specs/0064-auto-handoff-display.md) · Source: [brief](../briefs/
 Runner bugs found while conducting the 2026-10-18 runs: an accepted design park that comes back, a PR that reverts main, a worktree planning from a stale scope, a scope copy that blocks the main merge, a doubled "learn this first", row 71 never queued, and two more found later the same night (the design gate reading file dates, the clean copy's link check; see the brief).
 **Done when:** each runner bug in the brief (its Runner bugs section and the retry line under the PR #77 leftovers) is fixed with a test that fails on the old code, or dropped with a reason.
 - [x] Design it (spec): `/architect runner bugs found 2026-10-18` (none needed, the brief names each item and its fix)
-- [ ] Fix them: `/debug runner bugs found 2026-10-18`
-- [ ] Verify it: `/check verify runner bugs found 2026-10-18`
-- [ ] Test it: `/test runner bugs found 2026-10-18`
+- [x] Fix them: `/debug runner bugs found 2026-10-18`
+- [x] Verify it: `/check verify runner bugs found 2026-10-18`
+- [x] Test it: `/test runner bugs found 2026-10-18`
 - [ ] Sync docs: `/sync runner bugs found 2026-10-18`
 Source: [brief](../briefs/leftovers-2026-10-18.md), section Runner bugs.
 
