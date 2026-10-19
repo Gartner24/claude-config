@@ -17,8 +17,8 @@ will not remember the flow; you do.
    - UI feature with no locked `design.md` (route to `design`).
 3. Batch first: if any other feature in this repo's plan, or in a hub row that names this repo
    (work, freelance, personal), still says `needs a decision`, do not hand off to the runner yet.
-   Name the next one and run its `/architect` in this session (or, past ~150k tokens, `/rollover`
-   with that `/architect` as the next command). Only when none is left, go to step 4.
+   Name the next one and run its `/architect` in this session (if the 200k auto handoff comes first, put
+   that `/architect` in the handover's next actions). Only when none is left, go to step 4.
 4. End the turn with: "Ready for the runner: type `wf` in a terminal." This replaces the `/clear`
    handoff for a queued feature.
 

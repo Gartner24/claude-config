@@ -193,13 +193,97 @@ class TestGit(Case):
         (bin_ / "git").write_text(f"#!/bin/sh\necho \"$@\" >> {log}\nsleep \"${{FAKE_SLEEP:-0}}\"\n"
                                   "printf '## dev...origin/dev [ahead 1]\\0 M x\\0'\n")
         (bin_ / "git").chmod(0o755)
+        w = self.tmp / "w"
+        (w / ".git").mkdir(parents=True)
         with mock.patch.dict(os.environ, {"PATH": f"{bin_}:{os.environ['PATH']}"}):
-            self.assertEqual(statusbar.git("/w"), "dev ~1")
-            self.assertEqual(log.read_text(), "-C /w status --porcelain=v1 -b -z --untracked-files=all\n")
+            self.assertEqual(statusbar.git(str(w)), "dev ~1")
+            self.assertEqual(log.read_text(), f"-c core.fsmonitor=false -c core.hooksPath=/dev/null --git-dir={w}/.git "
+                                              f"--work-tree={w} -C {w} status --porcelain=v1 -b -z "
+                                              "--untracked-files=all --ignore-submodules=all\n")
             with mock.patch.dict(os.environ, {"FAKE_SLEEP": "3"}):
                 t0 = time.monotonic()
-                self.assertEqual(statusbar.git("/w"), "")
+                self.assertEqual(statusbar.git(str(w)), "")
                 self.assertLess(time.monotonic() - t0, 2)
+
+
+    # covers: security review 2026-10-18 (a repo's own core.fsmonitor program never runs from the bar)
+    def test_fsmonitor_not_run(self):
+        d = self.repo()
+        mark = self.tmp / "ran"
+        hook = self.tmp / "mon.sh"
+        hook.write_text(f"#!/bin/sh\ntouch {mark}\n")
+        hook.chmod(0o755)
+        subprocess.run(["git", "-C", str(d), "config", "core.fsmonitor", str(hook)], check=True)
+        subprocess.run(["git", "-C", str(d), "status"], capture_output=True)
+        self.assertTrue(mark.exists())  # the setup really runs it for a plain git status
+        mark.unlink()
+        self.assertEqual(statusbar.git(str(d)), "main clean")
+        self.assertFalse(mark.exists())
+
+    # covers: security review 2026-10-18 (a repo's own filter driver never runs: branch only, counts unknown)
+    def test_filter_not_run(self):
+        d = self.repo()
+        mark = self.tmp / "ran"
+        g = ["git", "-C", str(d), "-c", "user.name=t", "-c", "user.email=t@t"]
+        (d / ".gitattributes").write_text("f filter=evil\n")
+        (d / "f").write_text("a")
+        subprocess.run(g + ["add", "-A"], check=True)
+        subprocess.run(g + ["commit", "-qm", "a"], check=True)
+        subprocess.run(g + ["config", "filter.evil.clean", f"touch {mark}; cat"], check=True)
+        (d / "f").write_text("b")
+        subprocess.run(["git", "-C", str(d), "status"], capture_output=True)
+        self.assertTrue(mark.exists())  # the setup really runs it for a plain git status
+        mark.unlink()
+        self.assertEqual(statusbar.git(str(d)), "main ?")
+        self.assertFalse(mark.exists())
+        subprocess.run(g + ["checkout", "-q", "--detach"], check=True)
+        sha = subprocess.run(g + ["rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+        self.assertEqual(statusbar.git(str(d)), f"{sha[:7]} ?")
+
+    # covers: security review 2026-10-18 (an include could hide a filter, so it counts as one; a worktree reads the
+    # main config)
+    def test_include_and_worktree(self):
+        d = self.repo()
+        g = ["git", "-C", str(d), "-c", "user.name=t", "-c", "user.email=t@t"]
+        subprocess.run(g + ["commit", "-q", "--allow-empty", "-m", "a"], check=True)
+        subprocess.run(g + ["worktree", "add", "-q", "-b", "w", str(self.tmp / "wt")], check=True)
+        self.assertEqual(statusbar.git(str(self.tmp / "wt")), "w clean")
+        subprocess.run(g + ["config", "include.path", "/nowhere"], check=True)
+        self.assertEqual(statusbar.git(str(d)), "main ?")
+        self.assertEqual(statusbar.git(str(self.tmp / "wt")), "w ?")
+        # a second section on the same line as the first is still read by git
+        cfg = d / ".git" / "config"
+        cfg.write_text(cfg.read_text().replace("[include]\n\tpath = /nowhere\n", "") + '[user] [filter "x"]\n')
+        self.assertEqual(statusbar.git(str(d)), "main ?")
+        # a hand written HEAD with escape codes prints them as ?
+        (d / ".git" / "HEAD").write_text("ref: refs/heads/a\033[2Jb\n")
+        self.assertEqual(statusbar.git(str(d)), "a?[2Jb ?")
+
+    # covers: security review 2026-10-18 (git uses only the repo repo_filters read, never a bare folder its own
+    # discovery would find, or a decoy .git folder it would skip for the real repo above)
+    def test_bare_not_discovered(self):
+        mark = self.tmp / "ran"
+        bare = self.tmp / "b"
+        subprocess.run(["git", "init", "-q", "--bare", str(bare)], check=True)
+        subprocess.run(["git", "-C", str(bare), "config", "core.fsmonitor", f"/bin/sh -c 'touch {mark}'"], check=True)
+        subprocess.run(["git", "-C", str(bare), "config", "core.bare", "false"], check=True)
+        subprocess.run(["git", "-C", str(bare), "config", "core.worktree", str(self.tmp)], check=True)
+        self.assertEqual(statusbar.git(str(bare)), "")
+        self.assertFalse(mark.exists())
+        d = self.repo()
+        subprocess.run(["git", "-C", str(d), "config", "include.path", "/nowhere"], check=True)
+        (d / "s" / ".git").mkdir(parents=True)  # not a repo: git would walk past it to d, whose config has an include
+        self.assertEqual(statusbar.git(str(d / "s")), "")
+
+
+class TestFolder(Case):
+    # covers: security review 2026-10-18 (escape codes in the folder name reach the terminal as ?)
+    def test_control_characters(self):
+        out = statusbar.render({"cwd": "/x/a\033]0;evil\007b"})
+        self.assertNotIn("\033]", out)
+        self.assertNotIn("\007", out)
+        self.assertIn("a?]0;evil?b", out)
+        self.assertEqual(statusbar.render({"cwd": "/x/a\033[2Jb"}, short=True), "a?[2Jb")
 
 
 class TestUsage(Case):
@@ -285,8 +369,18 @@ class TestRefresh(Case):
         self.assertEqual(self.cache.read_text(), "old")
         subprocess.run([sys.executable, "-c", statusbar.REFRESH, creds, str(self.cache), url + "/ok"], check=True)
         self.assertEqual(json.loads(self.cache.read_text()), {"five_hour": {"utilization": 33}})
-        self.assertEqual(Usage.seen, ["Bearer tok", "Bearer tok"])
+        self.assertEqual(Usage.seen[:2], ["Bearer tok", "Bearer tok"])
         self.assertFalse(Path(str(self.cache) + ".tmp").exists())
+        # security review 2026-10-18: the cache moved out of /tmp into a folder that may not exist yet
+        fresh = self.tmp / "new" / "cache.json"
+        subprocess.run([sys.executable, "-c", statusbar.REFRESH, creds, str(fresh), url + "/ok"], check=True)
+        self.assertEqual(json.loads(fresh.read_text()), {"five_hour": {"utilization": 33}})
+
+    # covers: security review 2026-10-18 (the cache lives in the home folder, never in shared /tmp)
+    def test_cache_in_home(self):
+        p = subprocess.run([sys.executable, "-c", "import statusbar; print(statusbar.CACHE)"], capture_output=True,
+                           text=True, check=True, cwd=Path(statusbar.__file__).parent, env={**os.environ, "HOME": "/home/u"})
+        self.assertEqual(p.stdout.strip(), "/home/u/.cache/claude-usage-cache.json")
 
     # covers: AC-1 (refresh() starts the detached call and never waits for it)
     def test_detached(self):

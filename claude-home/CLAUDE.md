@@ -53,7 +53,7 @@ Branches and PRs follow `rules/branch-pr.md`: one branch per spec, stacked only 
   an owed decision, or a step that pushes, merges, posts, or bills (`/review-stack`, `ultra`).
   The user only answers questions and types `/clear`; every other handoff step is yours.
   When the feature closes, invoke `/save-and-clear` yourself and tell the user to type
-  `/clear`, then the next command. Mid feature (after `/architect`, or past ~150k tokens):
+  `/clear`, then the next command. Mid feature (after `/architect`):
   invoke `/rollover` yourself and tell the user to type `/clear`; a start up hook loads the
   handover (`/resume-from-clear` still works by hand).
 - UI changed: `/check verify` plus `design-gate`. New design or restyle: `design` pipeline.
@@ -82,8 +82,8 @@ anyway. Surface every `Assumed` spec before starting new work.
 
 ### Context
 - Clear at boundaries (feature closed), not by token count.
-- Past ~150k tokens: finish the current step and suggest `/rollover` mid feature,
-  `/save-and-clear` at a boundary.
+- Size: the wf-handoff mod hands a chat off by itself at 200k tokens. Never run `/rollover` for
+  size before that, only when the mod says auto handoff is paused or off.
 - Brief before every handoff (any `/clear`, `/rollover`, `/save-and-clear`, or a command
   given for another session): decisions agreed in chat but not yet in a spec, scope row or
   `AGENTS.md` go first into a brief under a top section "Agreed so far, do not ask again".
