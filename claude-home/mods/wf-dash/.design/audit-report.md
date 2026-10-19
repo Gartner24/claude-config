@@ -1,53 +1,50 @@
-# Design audit - wf-dash band and alerts (hooks/register.tsx feeding band.tsx) - 2026-10-18
+# Design audit - wf-dash band, alerts view and hooks/register.tsx after spec 0065 - 2026-10-18
 
-verdict: PASS WITH FINDINGS (pass 3 stands; budget reached, no fourth pass opened; 7 should-fixes go to the owner as a list)
-pass: 3 of 3 (re-stamp: the audited code is unchanged since pass 3)
-ai-tell fails: 1/36        (unchanged since pass 1: item 10, counts not fixed width; no markup changed)
-token leaks: 3 (token-leak.sh NOT APPLICABLE, no tokens.css; substitute check = literals in hooks/ that bypass tokens.ts, unchanged)
+verdict: PASS
+pass: 4 of 3 - a fix verification, not a fresh pass. Pass 3 hit the budget and handed 7 should-fixes to the owner; the owner picked all 7 (spec 0065), and AC-7 of that spec asks for this re-run. Run under the re-audit rules only: each carried item checked, regressions from the fixes in scope at full severity, no new opinions below P1.
+ai-tell fails: 0/36        (item 10 fixed: full band counts are now right aligned in width.count cells)
+token leaks: 0 (token-leak.sh exit 2, NOT APPLICABLE, no tokens.css; substitute check = theme-key and width literals in hooks/ that bypass tokens.ts: 0, was 3)
 a11y: static only (terminal surface, no page to serve)
 wcag22: not run (terminal surface, no page to serve)
 contrast failures: not measured (colors are Claude Code theme keys from the user's theme)
-responsive: stale band clean at the documented ~31 cell column and up (bodyColumns 23-120, pass 2); band.tsx unchanged since pass 2
+responsive: clean at the documented ~31 cell column and 94/120/160 (band.test.ts); the padded full band only leaves left segments sooner, via fit()
 motion: none in scope
-reference: not re-run (pass 1: 2 sections against k9s, 0 worse; owner accepted the look at 29/40 on 2026-10-17; nothing since changed it)
+reference: not re-run (pass 1: 2 sections against k9s, 0 worse; the only visible changes are the count padding and the new `stopped` kind, both ones the owner picked in spec 0065)
 perf: NOT MEASURED (no browser surface)
 
-## Why this is not a pass 4
+Finding count: pass 3 had 0 must-fixes and 7 should-fixes. This run has 0 and 0. The count fell, so there is no STOP.
 
-The caller describes this round as logic only: the stale mark is no longer cut, and a failing helper shows `?`.
-Both changes are commit ee72849 (05:08). Pass 3's report was written at 05:17 and cites those exact lines
-(`hooks/register.tsx:46`, `:71`, `:72`, `:97`; band.tsx stale budget `:105-112`, `:119`). Since then:
+## Carried should-fixes, each checked
 
-- `git diff HEAD -- claude-home/mods/wf-dash` is empty, and the only commit after 05:17 is 1b35b21, which touches
-  `register.test.ts` and `docs/scope/scope.md`, not `band.tsx` or `hooks/register.tsx`.
-- The 05:24 mtimes on `band.tsx` and `hooks/register.tsx` come from a later write with the same content, most
-  likely the `/test` mutation check restoring from a backup. They are not a code change.
+- [x] Fresh runner counts on a stale tick - fixed. `hooks/register.tsx:104-107` merges this tick's `wf` into `lastGood.wf` field by field, so a field that failed keeps its last good count. It also stores `statusOk` (`:70`) and saves the mark into `lastGood`, so `stale since` keeps its first time. Pinned by `register.test.ts` "a stale tick shows the runner counts it just read".
+- [x] `finished` toasted for any end - fixed. `alerts.ts:40-46` gives `finished` only when `ended` is set and `stop_reason` is `queue_done` or `feature_done`, otherwise `stopped` with the reason. A record that is missing or has no `ended` is read again for 3 ticks (`:15`, `:48`). `alertTick` reads the records before the pure `diff` (`:96-101`), and an id that does not match `RUN_ID` (`:83`) is never turned into a path. `runner/run.py:3950` always writes `ended` and `stop_reason` together, so the `String(r.stop_reason)` at `alerts.ts:42` never prints `null` for a real record.
+- [x] Empty Alerts view the same whether wf was read or not - fixed. `panes.tsx:437` shows `reading wf` (no FACTS yet), the empty text (statusOk true) or `could not read wf` (false). It is fed by `hooks/register.tsx:203`.
+- [x] Literals that bypass tokens.ts - fixed. `hooks/register.tsx:181` uses `color.dim`, `:187` and `:203` use `width.viewport` (`tokens.ts:168`). A grep for `color="` and `?? <digit>` under hooks/ returns 0.
+- [x] Counts not fixed width - fixed in the full band. `band.tsx:117-119` pass `width.count` to `countRun` (`:56-60`), which left pads with the existing `pad()`. The compact band passes none, so its zero filter (`:104`) and budget (`:108-112`) still read bare text, as AC-6 says.
+- [x] design.md did not describe the compact stale band - fixed. `design.md:44-47` says the fresh counts show, the 3 cell alignment, ` stale` is the last part to go, and the band can read `stale` alone.
+- [x] Docs named removed commands - fixed. `design.md:13`, `design.md:113` and `tokens.ts:42` now name the dashboard's Alerts view (`l`). A grep for `wf-alerts` / `wf-dash-alerts` finds them only in this report's own history.
 
-The code pass 3 graded is byte for byte the code here, so pass 3's findings stand as written. The budget allows 3
-passes, and a fourth pass over unchanged code could only produce new opinions. The open items need an owner
-decision, not another audit.
+## Regressions the fixes could have created, checked
 
-Finding count: pass 3 had 0 must-fixes and 7 should-fixes. This re-stamp has the same 7, with every cited line
-checked against the current file.
+- Band width: the padded full band is up to 6 cells wider. `fit()` (`band.tsx:128-136`) drops left segments by the DROP order and the band falls back to compact when only the chip is left, so nothing overflows. The 94/120/160 and 31 cell band tests pass.
+- The `stopped` kind is 7 characters, inside `pane.col.kind` (10) (`tokens.ts:116`). `alert.stopped` = `color.warn` (`tokens.ts:46`), drawn at `panes.tsx:442`.
+- A seen record saved by the old code (no `pending`) loads through `isSeen` (`alerts.ts:82`). `seen.pending ?? []` covers it, and the first tick writes it back once.
+- `JSON.parse` of a bad run.json sits inside `.catch(() => null)` (`alerts.ts:98`), so a corrupt record counts as missing and never throws out of the tick.
 
 ## Must fix
 None.
 
-## Should fix (carried, for the owner to decide; this re-stamp raised none)
-- [ ] (pass 2) design.md does not describe the compact stale band - `claude-home/mods/wf-dash/design.md:42-44` - line 42 still says the question count is the last to go; with a stale band ` stale` is last and the band can read `stale` alone; line 44 names only `stale since HH:MM`.
-- [ ] (pass 1) A stale tick throws away the fresh runner counts it just read - `claude-home/mods/wf-dash/hooks/register.tsx:97` - `{ ...lastGood, staleSince }` keeps `lastGood.wf`, so the band can show `wf 2 building ... stale since 10:42` while `wf status` said 3.
-- [ ] (pass 1) `finished` toasted for a run that parked or lost its lock - `claude-home/mods/wf-dash/alerts.ts:29` - spec 0059 AC-3 wording, a decision for `/architect`.
-- [ ] (pass 1) Alerts view empty state is the same whether wf was watched or unreadable - `claude-home/mods/wf-dash/panes.tsx:436` with `hooks/register.tsx:66-67`.
-- [ ] (pass 1) Theme key and width literals bypass tokens.ts - `claude-home/mods/wf-dash/hooks/register.tsx:171` (`color="inactive"`, is `color.dim`), `:177` and `:193` (`?? 80`).
-- [ ] (pass 1) Runner counts not fixed width - `claude-home/mods/wf-dash/band.tsx:57` and `:115-117`; `width.count` in `tokens.ts` unused. AI-tell item 10.
-- [ ] (pass 1) Docs name removed commands - `claude-home/mods/wf-dash/design.md:108` (`/wf-dash-alerts`), `design.md:13` and `tokens.ts:42` (`/wf-alerts`).
+## Should fix
+None.
 
 ## Checked and clean
-- Unchanged code: working tree equals HEAD for the whole mod; the band.tsx and hooks/register.tsx diff since ab1a9d4 is exactly ee72849, which pass 3 audited.
-- Suite: `claude plugin test claude-home/mods/wf-dash` - 28 pass, 0 fail across 4 files (pass 3 had 27; the new one is `register.test.ts`).
-- Pass 3 coverage gap closed in part: `register.test.ts` (1b35b21) now drives `register.tsx` through `session.start` and the band tick. It asserts that live runner counts and `folder: null` hold while facts.py fails from the start, and that `staleSince` is set only after a later failure. This is the behavior pass 3 checked in its scratch harness.
+- Suite: `claude plugin test claude-home/mods/wf-dash` - 37 pass, 0 fail across 5 files. 33 of them are in the 4 tracked files (pass 3 had 28). The other 4 are the untracked `zz-verify.test.ts` scratch from `/check verify`, ignored as asked.
+- `claude plugin validate claude-home/mods/wf-dash` passes. It reports the new `$.env.get` reads (HOME, XDG_STATE_HOME) and no env writes.
+- Spec 0065 AC-1 to AC-6, each mapped to the code above. AC-7 is this report.
 
 ## Coverage notes
-- This audit did not mutation-check the new repo test. A revert of `hooks/register.tsx:72` to the pass 2 form (`lastGood ? null : {}`) was refused by the session's permission classifier, and the file was left as it was. Pass 3's scratch harness saw that same mutant go red. Whether `register.test.ts` goes red on it is for `/test` to confirm under its own mutation-check gate.
-- Below P1, carried from pass 3 and not re-raised: `hooks/register.tsx:68` `JSON.parse` throws when facts.py exits 0 with non-JSON output; compact `idle stale` and `? status stale` are not budgeted (`band.tsx:104`, `:98`).
+- Not raised (the mod already did this before the fix, so it is not a regression; below P1): if a run's `wf status` entry loses its id for one tick, then it counts as gone. Before, it toasted `finished` at once. Now, since its run.json has no `ended`, it toasts `stopped ... ended with no record` after 3 ticks. A fix would drop a pending id that comes back into `running` (`alerts.ts:48`).
+- Spec wording, not a defect: a `queue_done` run whose features all parked still toasts `finished`. Its parked features toast `stuck` on their own.
+- The compact band's counts are still unpadded on purpose (spec 0065 AC-6). That is why AI-tell item 10 counts only the full band.
+- This audit did not mutation-check the new tests. `/test` does that under its own gate.
 - 0 findings cut for lack of `file:line`.
