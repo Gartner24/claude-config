@@ -19,7 +19,8 @@ function world(on: On, env: Record<string, string> = {}) {
     status: undefined as string | undefined,
     messages: [] as unknown[],
     slotText: BASE_SLOT,
-    clearMode: 'ok' as 'ok' | 'reject',
+    clearMode: 'ok' as 'ok' | 'reject' | 'hold',
+    releaseClear: () => {},
     resumeRejects: false,
     noSlotWrite: false,
     sent: 0,
@@ -55,6 +56,7 @@ function world(on: On, env: Record<string, string> = {}) {
     }
     if (e.command === 'clear') {
       if (w.clearMode === 'reject') throw new Error('clear broke')
+      if (w.clearMode === 'hold') return new Promise(res => { w.releaseClear = () => res({ text: '' }) })
       w.id = w.id === 'S1' ? 'S2' : w.id === 'S2' ? 'S3' : 'S4'
     }
     if (e.command === 'resume-from-clear' && w.resumeRejects) throw new Error('seed broke')
@@ -440,4 +442,74 @@ test('review: the seed quotes the request the rollover judged, not one held duri
   expect(seedArgs).toContain('first ask')
   expect(seedArgs).not.toContain('second ask')
   expect(w.resent).toEqual(['second ask'])
+})
+
+test('review: a handoff clear done after its timeout keeps the chain and its failed count (AC-7)', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  w.clearMode = 'hold'
+  await start($)
+  w.tokens = 60_000
+  await handoff($, w, 'T1')
+  await w.clock.advance(15_000)
+  expect(chain(w)).toMatchObject({ phase: 'failed', unattended: 1 })
+  // the held clear goes through late: a new chat, but no owner /clear
+  w.id = 'S2'
+  await $.session.end({ sessionId: 'S1', reason: 'clear' } as any)
+  w.releaseClear()
+  await w.clock.settle()
+  expect(chain(w)).toMatchObject({ session: 'S2', previous: 'S1', phase: 'failed', unattended: 1 })
+  w.tokens = 60_000
+  expect(((await read($)) as any).deny).toBeUndefined()
+  // once that clear settled, a later /clear is the owner's again
+  w.id = 'S3'
+  await $.session.end({ sessionId: 'S2', reason: 'clear' } as any)
+  expect(((await read($)) as any).deny).toBeDefined()
+})
+
+test('review: a handoff writes a session pointer to its chain', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  await start($)
+  w.tokens = 60_000
+  await handoff($, w, 'T1')
+  expect(w.files.get(`${STATE}/S2.root`)!.text).toBe('S1')
+})
+
+test('review: a reload in a handed off chat finds its chain through the pointer', { options: { threshold: 50000, maxConsecutiveHandoffs: 1 } }, async ($, on) => {
+  const w = world(on)
+  w.id = 'S2'
+  w.files.set(`${STATE}/S1.json`, { text: JSON.stringify({ root: 'S1', session: 'S2', previous: 'S1', startTokens: null, unattended: 1, triggeredAt: null, phase: 'idle', lastRequest: null }), mtimeMs: 0 })
+  w.files.set(`${STATE}/S2.root`, { text: 'S1', mtimeMs: 0 })
+  w.files.set(`${STATE}/S9.json`, { text: '{not json', mtimeMs: 0 })
+  await start($)
+  w.tokens = 60_000
+  expect(((await read($)) as any).deny).toBeUndefined()
+  expect(chain(w)).toMatchObject({ session: 'S2', phase: 'paused' })
+})
+
+test('review: a timed out clear that settles with no new chat leaves the next /clear to the owner', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  w.clearMode = 'hold'
+  await start($)
+  w.tokens = 60_000
+  await handoff($, w, 'T1')
+  await w.clock.advance(15_000)
+  w.releaseClear()
+  await w.clock.settle()
+  w.id = 'S9'
+  await $.session.end({ sessionId: 'S1', reason: 'clear' } as any)
+  expect(((await read($)) as any).deny).toBeDefined()
+})
+
+test('review: the log is cut to its newer half once it passes 256000 characters', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  const line = 'x'.repeat(99) + '\n'
+  w.files.set(`${STATE}/auto-handoff.log`, { text: 'FIRST\n' + line.repeat(2600), mtimeMs: 0 })
+  await start($)
+  w.tokens = 60_000
+  await read($)
+  const log = w.files.get(`${STATE}/auto-handoff.log`)!.text
+  expect(log.length).toBeLessThan(140_000)
+  expect(log).not.toContain('FIRST')
+  expect(log.startsWith(line)).toBe(true)
+  expect(log).toMatch(/ S1 refused Read\n$/)
 })

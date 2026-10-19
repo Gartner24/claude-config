@@ -97,10 +97,11 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 76 | Auto handoff: our handover, fired on its own | Release 9 | done |
 | 77 | Auto handoff display: band, viewer pages, link | Release 9 | in-progress |
 | 78 | Runner bugs found 2026-10-18 | Release 9 | planned |
-| 79 | Security review leftovers 2026-10-18 | Release 9 | planned |
+| 79 | Security review leftovers 2026-10-18 | Release 9 | done |
 | 80 | Skill scan trusted list | Release 9 | done |
 | 81 | wf-dash design should-fixes | Release 9 | planned |
 | 82 | Finish when the owner is away | Release 9 | planned |
+| 83 | The word "after" stalls a feature | Release 9 | planned |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -1029,9 +1030,10 @@ Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced un
 The PR #18 review's open items and two script bugs found while landing it.
 **Done when:** each item is fixed with a test or dropped with a reason.
 - [x] Design it (spec): `/architect self merge rules and review notes` (decided the three spec items: risk list, old branch date, wait for a check) · waits on you (answered 2026-10-17, written into spec 0051 AC-3, AC-4, AC-12, AC-16)
-- [ ] Build it: `/develop self merge rules and review notes` (spec 0051 build step 9; tag this feature `· auto` only after row 56 is done, both change `runner/pr.py`)
-- [ ] Verify it: `/check verify self merge rules and review notes`
-- [ ] Test it: `/test self merge rules and review notes`
+- [x] Build it: `/develop self merge rules and review notes` (spec 0051 build step 9; tag this feature `· auto` only after row 56 is done, both change `runner/pr.py`)
+- [x] Copy the CLAUDE.md wording live: `cp claude-home/CLAUDE.md ~/.claude/CLAUDE.md` · waits on you · live · later boxes go on
+- [x] Verify it: `/check verify self merge rules and review notes`
+- [x] Test it: `/test self merge rules and review notes`
 - [ ] Sync docs: `/sync self merge rules and review notes`
 Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items D1, E3, E4.
 
@@ -1082,11 +1084,13 @@ In the wf-dash dashboard, a key it does not draw (a filter digit outside Plan, a
 **Done when:** no key typed while the dashboard has the keyboard reaches the prompt, or the way back is shown and proven in a real terminal.
 - [x] Design it (spec): `/architect wf-dash stray keys` (choice: catch every key with a surface module `Client` and its `onKey`; your answer 2026-10-18)
 - [x] Run probe P10 in a scratch tmux session with `claude --plugin-dir` (spec 0062 AC-1), write the result in its verify notes; a FAIL stops this feature and sends it back to `/architect` · waits on you (2026-10-18: FAIL, the dashboard gets keys only after a mouse click, see [verify notes](../specs/0062-wf-dash-stray-keys/verify.md))
-- [ ] Pick the fallback, then amend the spec: `/architect wf-dash stray keys` (bind more keys on every view, or accept click to focus) · waits on you
-- [ ] Build it: `/develop wf-dash stray keys`
+- [x] Pick the fallback, then amend the spec: `/architect wf-dash stray keys` (your pick 2026-10-18: bind every letter and digit on every view; spec amended the same day)
+- [x] Run probe P11 in a scratch tmux session with `claude --plugin-dir` (spec 0062 AC-1), write the result in its verify notes; a FAIL stops this feature and sends it back to `/architect` · waits on you (2026-10-18: FAIL, a button cannot be hidden; a click returns the keys, ctrl+x tab does not)
+- [x] Pick again after P11, then amend the spec: `/architect wf-dash stray keys` (your pick 2026-10-18: click to return, the hint fixed)
+- [x] Build it: `/develop wf-dash stray keys` (`claude-home/mods/wf-dash/panes.tsx` warn line, `design.md` footer note, tests in `hint.test.ts`)
 - [ ] Verify it: `/check verify wf-dash stray keys`
 - [ ] Test it: `/test wf-dash stray keys`
-- [ ] Real terminal check: type stray keys on every view in tmux, the prompt stays empty (spec 0062 AC-6) · waits on you · later boxes go on
+- [ ] Real terminal check: press a key the dashboard does not use in tmux, see the click hint, click, and a dashboard key works again (spec 0062 AC-6) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync wf-dash stray keys`
 Spec [0062](../specs/0062-wf-dash-stray-keys.md) · Source: the owner's message of 2026-10-17 ("accept as is") after critique round 10 scored the look 29/40.
 
@@ -1108,10 +1112,10 @@ Spec [0063](../specs/0063-auto-handoff.md) · Source: [brief](../briefs/auto-han
 The handoff shows its steps and result in the wf-dash band (toasts where there is no band), each handover gets a readable page served on your Tailscale address, and a chat that came from a handoff links back to it.
 **Done when:** a handoff shows in the band, its page opens from your phone over Tailscale, and every AC of spec 0064 is built.
 - [x] Design it (spec): `/architect auto handoff` (your answers 2026-10-18: progress in the wf-dash band, install Tailscale)
-- [ ] Install Tailscale on this laptop and your phone and log in to both (spec 0064 AC-7) · waits on you · later boxes go on
+- [x] Install Tailscale on this laptop and your phone and log in to both (spec 0064 AC-7) · waits on you · later boxes go on (done by you 2026-10-18: laptop and phone on the tailnet)
 - [x] Build it: `/develop auto handoff display` (code in `claude-home/mods/wf-handoff/` (`pages.ts`, `server.py`, panel and server in `hooks/register.ts`) and `claude-home/mods/wf-dash/handoff.ts`; 65 and 35 mod tests pass, `server.py --test` passes)
-- [ ] Verify it: `/check verify auto handoff display`
-- [ ] Test it: `/test auto handoff display`
+- [x] Verify it: `/check verify auto handoff display` (PASS 2026-10-19: AC-1 to AC-7 met, 8 can fail steps; reduced motion spinner fixed in 6751d0f; you accepted the result line link cut at narrow widths; live checks left to the install box)
+- [x] Test it: `/test auto handoff display` (2026-10-19: wf-dash 38 and wf-handoff 70 mod tests pass, `server.py --test` passes, suite 1042 green; 2 new tests red on their mutants)
 - [ ] Install both mods live after their scan · waits on you · later boxes go on
 - [ ] Sync docs: `/sync auto handoff display`
 Spec [0064](../specs/0064-auto-handoff-display.md) · Source: [brief](../briefs/auto-handoff.md) (the owner's messages of 2026-10-18).
@@ -1120,20 +1124,20 @@ Spec [0064](../specs/0064-auto-handoff-display.md) · Source: [brief](../briefs/
 Runner bugs found while conducting the 2026-10-18 runs: an accepted design park that comes back, a PR that reverts main, a worktree planning from a stale scope, a scope copy that blocks the main merge, a doubled "learn this first", row 71 never queued, and two more found later the same night (the design gate reading file dates, the clean copy's link check; see the brief).
 **Done when:** each runner bug in the brief (its Runner bugs section and the retry line under the PR #77 leftovers) is fixed with a test that fails on the old code, or dropped with a reason.
 - [x] Design it (spec): `/architect runner bugs found 2026-10-18` (none needed, the brief names each item and its fix)
-- [ ] Fix them: `/debug runner bugs found 2026-10-18`
-- [ ] Verify it: `/check verify runner bugs found 2026-10-18`
-- [ ] Test it: `/test runner bugs found 2026-10-18`
+- [x] Fix them: `/debug runner bugs found 2026-10-18`
+- [x] Verify it: `/check verify runner bugs found 2026-10-18`
+- [x] Test it: `/test runner bugs found 2026-10-18`
 - [ ] Sync docs: `/sync runner bugs found 2026-10-18`
 Source: [brief](../briefs/leftovers-2026-10-18.md), section Runner bugs.
 
-### 79. Security review leftovers 2026-10-18 · auto
+### 79. Security review leftovers 2026-10-18 · done · auto
 The 2026-10-18 security review's open items in the status bar and the skill scan script. Also the two LOW findings of the PR #77 review (auto handoff), listed in the brief.
 **Done when:** each item is fixed with a test that fails on the old code, or dropped with a reason.
 - [x] Design it (spec): `/architect security review leftovers 2026-10-18` (none needed, the brief names each item and its fix)
-- [ ] Fix them: `/debug security review leftovers 2026-10-18`
-- [ ] Verify it: `/check verify security review leftovers 2026-10-18`
-- [ ] Test it: `/test security review leftovers 2026-10-18`
-- [ ] Sync docs: `/sync security review leftovers 2026-10-18`
+- [x] Fix them: `/debug security review leftovers 2026-10-18`
+- [x] Verify it: `/check verify security review leftovers 2026-10-18`
+- [x] Test it: `/test security review leftovers 2026-10-18`
+- [x] Sync docs: `/sync security review leftovers 2026-10-18`
 Source: [brief](../briefs/leftovers-2026-10-18.md), section Security review leftovers.
 
 ### 80. Skill scan trusted list · done · auto
@@ -1161,11 +1165,21 @@ Spec [0065](../specs/0065-wf-dash-should-fixes.md) · Source: [brief](../briefs/
 When you say you are leaving, everything in the plan that does not need your password, a login, your phone or an open decision gets finished. Today it stalls: built branches sit unpushed behind a box marked "waits on you" that the conductor could do itself (rows 67 and 69 on 2026-10-18), row 46's last step was skipped every run since 2026-10-15 because its old build folder kept an uncommitted plan copy, and the conductor only woke on runner events and reported instead of doing those boxes.
 **Done when:** a box marked "waits on you" that needs no password, login, phone or decision never holds back a branch or its PR (the conductor or the runner does it); a kept build folder whose branch is already on main is cleaned up instead of skipped; the morning report names each waiting box under its own feature, not under row 46.
 - [x] Design it (spec): `/architect finish when the owner is away` (none needed, the brief names each item and its fix)
-- [ ] Fix it: `/debug finish when the owner is away`
+- [x] Fix it: `/debug finish when the owner is away`
 - [ ] Verify it: `/check verify finish when the owner is away`
 - [ ] Test it: `/test finish when the owner is away`
 - [ ] Sync docs: `/sync finish when the owner is away`
 Source: your message of 2026-10-18 ("each time I tell you Im going away ... find out what the problem is"); evidence in [brief](../briefs/leftovers-2026-10-18.md), section Finish when away.
+
+### 83. The word "after" stalls a feature · auto
+The runner's waiting check (`WAITING` in `runner/wf.py`, `\b(after|waits on)\b`) runs on the text of the next box's first open milestone, so any milestone that just mentions "after" makes `wf queue` say "skip: waiting" forever. Found 2026-10-19 on a work repo feature; rewording the milestone unstuck it. Two features in another work repo show the same "skip: waiting" and may be the same bug.
+**Done when:** a box or milestone counts as waiting only by its ` · waits on you` tag (or another explicit tag the spec names), never by the word "after" in its text, with a test that fails on the old code.
+- [x] Design it (spec): `/architect the word after stalls a feature` (your pick 2026-10-19: only the marker counts)
+- [ ] Fix it: `/debug the word after stalls a feature`
+- [ ] Verify it: `/check verify the word after stalls a feature`
+- [ ] Test it: `/test the word after stalls a feature`
+- [ ] Sync docs: `/sync the word after stalls a feature`
+Spec [0066](../specs/0066-waiting-only-by-marker.md) · Source: work chat 2026-10-19; memory reference_wf_after_word_skips_feature.md.
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
