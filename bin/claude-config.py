@@ -972,7 +972,7 @@ def docs_text():
             out.append(f"| `{name}` | {status} | {cell(e.get('description'))} |")
         out.append("")
     out += ["## Routing", "",
-            "Copied from `config/routing.md`, the table the `intent-router` skill reads. Typing a skill's name",
+            "Copied from `config/routing.md`, the reference of which skill fits which task. Typing a skill's name",
             "always wins; routing is for a task described in plain words. Check edits with",
             "`python3 scripts/check-routing.py`.", ""]
     routing = ROUTING.read_text().splitlines() if ROUTING.exists() else []

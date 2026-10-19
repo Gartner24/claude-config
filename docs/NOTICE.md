@@ -10,7 +10,7 @@ because the LICENSE covers only the parts authored here.
 | `claude-home/skills/review-stack/` | Multi-agent pre-ship and PR review orchestrator |
 | `claude-home/agents/regression-hunter.md` | Regression hunting: what worked before a diff and stops after |
 | `claude-home/agents/pr-intent-verifier.md` | Does a PR do what it claims, and nothing else |
-| `claude-home/skills/intent-router/`, `config/routing.md` | Prompt-to-skill routing table and its scorer |
+| `config/routing.md` | Prompt-to-skill routing reference table |
 | `scripts/check-routing.py`, `scripts/asciify.py`, `scripts/private-names.py`, `scripts/spec-paths.py`, `scripts/fb-ask.py` | Repo tooling |
 | `claude-home/hooks/block-destructive.sh` | Destructive-command guard |
 | `claude-home/hooks/handover-start.sh` | Loads a waiting rollover handover after `/clear` (spec 0057) |

@@ -102,6 +102,8 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 81 | wf-dash design should-fixes | Release 9 | done |
 | 82 | Finish when the owner is away | Release 9 | done |
 | 83 | The word "after" stalls a feature | Release 9 | done |
+| 84 | Assertion Guardian blocks only removed checks | Release 9 | needs a decision |
+| 85 | Mod install also reinstalls the runner copy | Release 9 | needs a decision |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -117,7 +119,7 @@ Run ledger, Stop hook, font and colour scripts behind `design`, `brand-system`, 
 Multi agent pre ship review with a blind lane and a pre push receipt hook. code in `skills/review-stack/`, `hooks/review-stack-pre-push`
 
 ### D. Skill routing · existing
-`config/routing.md` routing table, the intent router, and its regression check. code in `skills/intent-router/`, `scripts/check-routing.py`
+`config/routing.md` routing table and its regression check (the intent router was removed 2026-10-19). code in `scripts/check-routing.py`
 
 ## Foundations
 
@@ -1181,6 +1183,26 @@ The runner's waiting check (`WAITING` in `runner/wf.py`, `\b(after|waits on)\b`)
 - [x] Test it: `/test the word after stalls a feature` (PR #106, 10 mutants red, suite 1090 green)
 - [x] Sync docs: `/sync the word after stalls a feature` (PR #106)
 Spec [0066](../specs/0066-waiting-only-by-marker.md) · Source: work chat 2026-10-19; memory reference_wf_after_word_skips_feature.md.
+
+### 84. Assertion Guardian blocks only removed checks
+The test-weakening check blocks harmless test edits, each needs `/allow-test-change`, and it stalled the runner twice. You chose: block only removed or loosened checks, allow added ones.
+**Done when:** adding a test or an assertion is never blocked; deleting, skipping or loosening a check still is; the change survives a mod update.
+- [ ] Design it (spec): `/architect assertion guardian blocks only removed checks`
+- [ ] Build it: `/develop assertion guardian blocks only removed checks`
+- [ ] Verify it: `/check verify assertion guardian blocks only removed checks`
+- [ ] Test it: `/test assertion guardian blocks only removed checks`
+- [ ] Sync docs: `/sync assertion guardian blocks only removed checks`
+Source: [brief](../briefs/assertion-guardian.md) (your panel answer 2026-10-19).
+
+### 85. Mod install also reinstalls the runner copy
+When a mod calls a new `wf` subcommand, the install box copies the mod but not the runner, so the mod calls a command the installed `wf` does not have yet.
+**Done when:** a mod install box that needs a new `wf` subcommand also reinstalls the runner copy (`finish.install_runner`), with a test.
+- [ ] Design it (spec): `/architect mod install also reinstalls the runner copy`
+- [ ] Build it: `/develop mod install also reinstalls the runner copy`
+- [ ] Verify it: `/check verify mod install also reinstalls the runner copy`
+- [ ] Test it: `/test mod install also reinstalls the runner copy`
+- [ ] Sync docs: `/sync mod install also reinstalls the runner copy`
+Source: chat 2026-10-19 (carried in the handover of that day).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
