@@ -986,6 +986,11 @@ class TestCleanSuite(unittest.TestCase):
             self.assertFalse(Path(seen[0]).exists())
             code, out = r.clean_suite(str(repo), "grep -q one tests/t.txt && test ! -e cache.txt", rev=rev)
             self.assertEqual(code, 0, out)
+            # the suite's own `git ls-files` and docs-pr's origin/main read work in the copy, and list exactly the tree
+            code, out = r.clean_suite(str(repo), "test \"$(git ls-files | sort | tr '\\n' ' ')\" = "
+                                      "'.gitattributes .gitignore run.sh tests/t.txt ' && git rev-parse -q --verify "
+                                      "origin/main")
+            self.assertEqual(code, 0, out)
             (repo / "out").symlink_to("../../elsewhere")
             g("add", "out")
             code, out = r.clean_suite(str(repo), "true")
