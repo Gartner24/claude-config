@@ -1,56 +1,53 @@
-# 0062. wf-dash binds every letter and digit on every view
+# 0062. wf-dash names the way back that works: a click
 
-**Date**: 2026-10-18 (amended 2026-10-18 after probe P10 failed)
+**Date**: 2026-10-18 (amended twice on 2026-10-18, after probes P10 and P11 failed)
 **Status**: Proposed
 **Paths:** `claude-home/mods/wf-dash/**`
 
 ## What you're agreeing to
-- While the dashboard has the keyboard, every letter and digit is bound on every view. A key that does nothing on this view is caught and does nothing; it never types into the chat prompt.
-- Keys a dashboard cannot bind at all (Enter, Tab, arrows, symbols) can still fall through. For those the dashboard shows the way back, and that way is tested in a real terminal.
+- A key the dashboard does not use can still type into the chat prompt and take the keyboard. A mod cannot stop that (probes P10 and P11).
+- When that happens, the warning under the top line says `click the dashboard to return`, the one way back that worked in a real terminal. It no longer names ctrl+x tab, which did not work.
 - Escape still closes the dashboard, and every key it uses today keeps working the same way.
-- The hidden bindings rest on a mod behavior nobody has tried yet, so the build tests it first and stops if it does not work.
 
 ## Summary
-Today a key the dashboard has no button for (a filter digit outside Plan, any other letter) falls through to the chat prompt and takes the keyboard. Probe P10 showed the first plan, catching every key in a surface module `Client` with `onKey`, only works after a mouse click, so a keyboard user never reaches it. This amendment takes the other option: every view binds all 26 lowercase letters and the 10 digits as hotkey buttons, the ones the view does not use drawn as nothing, so they are caught. The keys a hotkey cannot name keep the warn line, now pointing at a way back proven in tmux.
+Today a key the dashboard has no button for falls through to the chat prompt and takes the keyboard, and the warn line points at ctrl+x tab, which did not give the keys back. Two probes found no way for a mod to catch those keys, and found that a mouse click on the dashboard always gives them back. So the fix is the hint: it names the click.
 
 ## Context
-Plan row 75. The look was accepted at critique 29/40 on 2026-10-17, held there mostly by this. The dashboard is a Pane opened with `$.ui.open({ focus: true, closeOnEscape: true })` in `claude-home/mods/wf-dash/hooks/register.tsx`; its keys are hotkey `Button`s drawn by `keyRow` in `panes.tsx`.
+Plan row 75. The look was accepted at critique 29/40 on 2026-10-17, held there mostly by this. The dashboard is a Pane opened with `$.ui.open({ focus: true, closeOnEscape: true })` in `claude-home/mods/wf-dash/hooks/register.tsx`; its keys are hotkey `Button`s drawn by `keyRow` in `panes.tsx`, and the warn line is drawn at `panes.tsx` when the pane is not focused (`!focused`).
 
-Facts this rests on:
-- Probe P10, 2026-10-18 ([verify notes](0062-wf-dash-stray-keys/verify.md)): with `focus: true` and no click, the first key moved focus off the pane and typed into the prompt; a `Client` gets keys only after a click on it. Escape never reaches `onKey`.
-- Mod API types (Claude Code 2.1.303, `index.d.ts` lines 1113 to 1121): a `Button` `hotkey` is one digit or one lowercase letter, anything else is refused; Shift plus a letter counts as that letter. No `disabled` prop. `dimColor` changes only the drawing; whether a dim button still takes its key is not stated. No documented way to bind a key without drawing a button (`PaneOpenArgs` has no keys option, lines 7550 to 7586).
-- Types line 10727: the person returns focus to a pane with ctrl+x tab or a click. The design session saw ctrl+x tab fail in tmux once; P10b saw a click work.
+Facts this rests on ([verify notes](0062-wf-dash-stray-keys/verify.md)), Claude Code 2.1.303:
+- P10: a surface module `Client` with `onKey` gets keys only after a click, so it does not catch a keyboard user's stray key.
+- P11: a hotkey button cannot be hidden. A `plain` button with an empty label draws `z: `, a button with an empty label draws `[  ]`, a button with no label is refused and blanks the pane, and Tab lands on these buttons. A hotkey can only be one lowercase letter or digit anyway (API types line 1113), so Enter, Tab and arrows could never be caught.
+- P11: after focus left the pane, ctrl+x then Tab did not return the keys (the key typed into the prompt); a mouse click on the pane did.
 
-Your choice (2026-10-18, in chat, after P10 failed): bind keys on every view, over accepting click to focus.
+Your choices on 2026-10-18, in chat: first, bind keys on every view (over click to focus); after P11 failed, click to return with the hint fixed (over also drawing the dashboard's keys dim on every view).
 
 ## Requirements
-- **AC-1** (probe P11, build step 1, a box that waits on you, since it needs a logged in interactive session; never while wf builds): in a scratch folder outside `~/.claude`, with a throwaway mod whose pane draws one visible button (`hotkey="p"`, label `here`, `plain`), one dim button (`hotkey="q"`, `dimColor`), and three hidden button tries, each in its own `Box` with no `columnGap`: `hotkey="z"` with `plain` and `label=""`; `hotkey="x"` with no `plain` and no label; `hotkey="y"` with no `plain` and `label=""`. Each `onPress` logs through `$.fs.write`. Show the band too, run `claude --plugin-dir <copy>` in tmux, open the pane with `focus: true`, and press `z`, `x`, `y`, `q`, `w`, `p`, Tab, then Escape. Record: (a) which hidden tries draw nothing (`tmux capture-pane` shows no glyph, gap or inverted cell where they sit, also while their key is pressed); (b) do the hidden keys, `q` and `w` reach the pane's `onPress` and leave the prompt empty; (b2) does Tab ever put the focus on a hidden button; (c) after Tab moves focus away, do keys reach the pane again after ctrl+x tab, and after a click on the pane. Write the command lines and results in `0062-wf-dash-stray-keys/verify.md`. PASS needs at least one hidden try passing (a), and (b) and (b2) passing; the build uses that try. A FAIL stops the build: nothing else in this spec is built, and row 75 goes back to `/architect` (no quiet switch to drawn dim keys).
-- **AC-2** (every letter and digit bound): on every view (Plan, Builds, Agents, Alerts, and the stop confirm of spec 0060 AC-5, which counts as a fifth view) each of `a` to `z` and `0` to `9` is the hotkey of exactly one button in the pane, `w` included (the band's `w` presses only while the band has the focus; P11 (b) checks it). A key the view uses runs its action as today; a used key drawn dim because it would do nothing (`j` with nothing below) still counts as used and does nothing. Every other key is a catch button drawn the way P11 proved, whose `onPress` does nothing. The used set comes from the keys the view actually draws (the items handed to `keyRow` and the action and confirm rows), never a hand list. The catch buttons sit in one block at the pane's root, outside every `keyRow`, so they add no gaps.
-- **AC-3** (bindings kept): the keys of the locked look keep their meaning, labels and dim rules (`claude-home/mods/wf-dash/design.md`, Dashboard): `p` `b` `a` `l` views, `1` to `8` Plan filters, `j` `k` `d` `u` `n` `g` on Plan, `j` `k` on Builds and Alerts, `r` refresh, Escape closes; the band chip's `w` hotkey (`band.tsx`) is unchanged. No row, column or layout of the look moves.
-- **AC-4** (the way back for the rest): Enter, Tab, arrows and symbols cannot be hotkeys and may still fall through. The warn line under the top line stays, shown only when the pane has lost focus (as today, `panes.tsx` `!focused`), and names the way back that P11 (c) proved: `Keys go to the prompt now: ctrl+x tab returns here` if only ctrl+x tab worked, `Keys go to the prompt now: click the dashboard to return` if only the click did, `Keys go to the prompt now: ctrl+x tab or a click returns here` if both did. If neither worked in P11, the build stops and row 75 goes back to `/architect`. `design.md` rewrites "a key with no button falls through to the prompt" (Dashboard, footer) to say letters and digits are always caught and only other keys can fall through.
-- **AC-5** (tests): a `*.test.ts` run by `claude plugin test` with `$` mocked: on each of the five views, the pane's buttons carry each of the 36 keys exactly once; pressing a catch key runs no action; pressing a used key runs that view's action as before. Every existing row keeps its width (the cells `rowCells` counts are unchanged). These tests prove the binding, not that a key arrives from a real terminal (that is AC-6). Mutation checked: drop one catch button on one view, the test goes red.
-- **AC-6** (real terminal, a box that waits on you after the build, since it needs a logged in interactive session): drive the built mod in tmux as P11 does, type every letter and digit on every view, and show with `tmux capture-pane` that the prompt stays empty and the layout matches the look; then press Tab, see the warn line, use the way back it names, and show the keys reach the pane again. Results in the verify notes. The unattended `/check verify` covers AC-2 to AC-5 through the tests and cites this box.
+- **AC-1** (probes, done): P10 and P11 are recorded in the verify notes. Nothing to build.
+- **AC-2** (the hint): the warn line shown while the pane is not focused reads exactly `Keys go to the prompt now: click the dashboard to return`. It no longer mentions ctrl+x tab. Shown and hidden by the same `!focused` rule as today.
+- **AC-3** (bindings kept): the keys of the locked look keep their meaning, labels and dim rules (`claude-home/mods/wf-dash/design.md`, Dashboard); the band chip's `w` hotkey (`band.tsx`) is unchanged. No row, column or layout moves.
+- **AC-4** (design note): `design.md` (Dashboard, footer) replaces `ctrl+x tab returns here` (the host's key to focus a pane) with `click the dashboard to return`, and says a mod cannot catch a key it has no button for (probes P10, P11).
+- **AC-5** (tests): a `*.test.ts` run by `claude plugin test` with `$` mocked: unfocused, the pane shows the AC-2 line exactly; focused, it does not; no text in the mod still says `ctrl+x tab`. Mutation checked (put the old text back, red).
+- **AC-6** (real terminal, a box that waits on you after the build, since it needs a logged in interactive session): in tmux, open the built dashboard, press a key it does not use, see the AC-2 line, click the dashboard, and show a dashboard key works again with `tmux capture-pane`. Results in the verify notes.
 
 ## Decision
-Bind all 36 letters and digits on every view as hotkey buttons, the unused ones drawn as nothing, behind a probe that runs first. Keep the warn line for the keys no hotkey can name, pointing at the way back the probe proved. The surface module `Client` plan is dropped (P10: it needs a click).
-
-## Build plan
-1. Probe P11 (a box that waits on you), satisfies **AC-1**; stop on FAIL
-2. One catch block at the pane's root in `panes.tsx` that takes the keys the current view draws and adds a hidden button for every other letter and digit, satisfies **AC-2**, **AC-3**
-3. Warn line wording and the `design.md` sentence, satisfies **AC-4**
-4. Tests, satisfies **AC-5**
-5. Real terminal check (a box that waits on you), satisfies **AC-6**
-
-## Consequences
-**Positive**: no letter or digit takes the keyboard away from the dashboard, with no click needed.
-**Negative / tradeoffs**: Enter, Tab, arrows and symbols can still fall through; the warn line and its way back cover them. The hidden buttons rely on an undocumented drawing of an empty label, retested after every Claude Code update. While the dashboard has focus, you cannot type into the prompt until Escape.
-**Neutral**: the files overlap specs 0059 and 0060, so the runner builds them one at a time. No stack: the dashboard it changes is already on main.
+Accept that a stray key can leave the dashboard, and make the hint name the click, the way back that works.
 
 ## Rationale
-Hotkey buttons are the one key path that works with `focus: true` and no click (the dashboard's keys work today). Binding every key a hotkey can name closes the gap as far as the mod API allows, and the warn line covers the rest without claiming more than is proven.
+A mod has no way to catch a key without a drawn button (P11), and no keyboard way back works (P11 (c)). The honest fix is a hint that is true. Drawing the dashboard's own keys on every view would catch a few common keys at the cost of a busier screen; you chose not to.
+
+## Build plan
+1. Change the warn line text, satisfies **AC-2**, **AC-3**
+2. Change the `design.md` sentence, satisfies **AC-4**
+3. Tests, satisfies **AC-5**
+4. Real terminal check (a box that waits on you), satisfies **AC-6**
+
+## Consequences
+**Positive**: the hint is true, so you always know how to get the keyboard back.
+**Negative / tradeoffs**: a stray key still types into the prompt; you need the mouse to come back. Retest after a Claude Code update in case the host adds a way to catch keys.
+**Neutral**: the files overlap specs 0059 and 0060, so the runner builds them one at a time.
 
 ## Options considered
-- Catch every key in a `Client` `onKey` (the first plan): dropped, P10 showed it needs a click.
-- Accept click to focus: you declined it on 2026-10-18.
-- Bind only the dashboard's own keys on every view, drawn dim: leaves every other letter falling through, and adds visible buttons to views that do not use them. Not built on a P11 FAIL without you choosing it in `/architect`.
-- Note from the API types (line 1131): a `plain` button draws "the hotkey in the accent color, a colon, the label", so the `plain` hidden try may well fail; that is why P11 tries three.
+- Catch every key in a `Client` `onKey`: dropped, P10 showed it needs a click.
+- Bind every letter and digit with hidden buttons: dropped, P11 showed a button cannot be hidden and Tab lands on it.
+- Draw the dashboard's own keys dim on every view: catches a few common keys, busier screen; you declined it on 2026-10-18.

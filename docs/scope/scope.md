@@ -1083,11 +1083,12 @@ In the wf-dash dashboard, a key it does not draw (a filter digit outside Plan, a
 - [x] Design it (spec): `/architect wf-dash stray keys` (choice: catch every key with a surface module `Client` and its `onKey`; your answer 2026-10-18)
 - [x] Run probe P10 in a scratch tmux session with `claude --plugin-dir` (spec 0062 AC-1), write the result in its verify notes; a FAIL stops this feature and sends it back to `/architect` · waits on you (2026-10-18: FAIL, the dashboard gets keys only after a mouse click, see [verify notes](../specs/0062-wf-dash-stray-keys/verify.md))
 - [x] Pick the fallback, then amend the spec: `/architect wf-dash stray keys` (your pick 2026-10-18: bind every letter and digit on every view; spec amended the same day)
-- [ ] Run probe P11 in a scratch tmux session with `claude --plugin-dir` (spec 0062 AC-1), write the result in its verify notes; a FAIL stops this feature and sends it back to `/architect` · waits on you
+- [x] Run probe P11 in a scratch tmux session with `claude --plugin-dir` (spec 0062 AC-1), write the result in its verify notes; a FAIL stops this feature and sends it back to `/architect` · waits on you (2026-10-18: FAIL, a button cannot be hidden; a click returns the keys, ctrl+x tab does not)
+- [x] Pick again after P11, then amend the spec: `/architect wf-dash stray keys` (your pick 2026-10-18: click to return, the hint fixed)
 - [ ] Build it: `/develop wf-dash stray keys`
 - [ ] Verify it: `/check verify wf-dash stray keys`
 - [ ] Test it: `/test wf-dash stray keys`
-- [ ] Real terminal check: type every letter and digit on every view in tmux, the prompt stays empty, then Tab and the way back the warn line names (spec 0062 AC-6) · waits on you · later boxes go on
+- [ ] Real terminal check: press a key the dashboard does not use in tmux, see the click hint, click, and a dashboard key works again (spec 0062 AC-6) · waits on you · later boxes go on
 - [ ] Sync docs: `/sync wf-dash stray keys`
 Spec [0062](../specs/0062-wf-dash-stray-keys.md) · Source: the owner's message of 2026-10-17 ("accept as is") after critique round 10 scored the look 29/40.
 
