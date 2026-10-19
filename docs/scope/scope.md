@@ -1162,7 +1162,7 @@ Spec [0065](../specs/0065-wf-dash-should-fixes.md) · Source: [brief](../briefs/
 When you say you are leaving, everything in the plan that does not need your password, a login, your phone or an open decision gets finished. Today it stalls: built branches sit unpushed behind a box marked "waits on you" that the conductor could do itself (rows 67 and 69 on 2026-10-18), row 46's last step was skipped every run since 2026-10-15 because its old build folder kept an uncommitted plan copy, and the conductor only woke on runner events and reported instead of doing those boxes.
 **Done when:** a box marked "waits on you" that needs no password, login, phone or decision never holds back a branch or its PR (the conductor or the runner does it); a kept build folder whose branch is already on main is cleaned up instead of skipped; the morning report names each waiting box under its own feature, not under row 46.
 - [x] Design it (spec): `/architect finish when the owner is away` (none needed, the brief names each item and its fix)
-- [ ] Fix it: `/debug finish when the owner is away`
+- [x] Fix it: `/debug finish when the owner is away`
 - [ ] Verify it: `/check verify finish when the owner is away`
 - [ ] Test it: `/test finish when the owner is away`
 - [ ] Sync docs: `/sync finish when the owner is away`
