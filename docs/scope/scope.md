@@ -100,6 +100,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 79 | Security review leftovers 2026-10-18 | Release 9 | planned |
 | 80 | Skill scan trusted list | Release 9 | done |
 | 81 | wf-dash design should-fixes | Release 9 | planned |
+| 82 | Finish when the owner is away | Release 9 | planned |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -923,7 +924,7 @@ After a rollover you type only `/clear`: a start up hook loads the waiting hando
   - [x] Mod, only if P2 passed (AC-10) · built in `claude-home/mods/wf-handoff/`, static skillspector scan clean
 - [x] Verify it: `/check verify sessions pass work to each other`
 - [x] Test it: `/test sessions pass work to each other` (19 hook checks and 2 mod tests pass; 2 checks mutation checked; suite red only on the two plan links from main, you said go on)
-- [ ] Copy the hook and settings live (`bin/install.sh` copies both and runs the hook self check), and install the mod: `ln -s ~/claude-config/claude-home/mods/wf-handoff ~/.claude/skills/wf-handoff` after a `skillspector scan` with the model pass · waits on you · later boxes go on
+- [x] Copy the hook and settings live (`bin/install.sh` copies both and runs the hook self check), and install the mod: `ln -s ~/claude-config/claude-home/mods/wf-handoff ~/.claude/skills/wf-handoff` after a `skillspector scan` with the model pass · waits on you · later boxes go on (done 2026-10-18: install.sh ran, the link is live, `skill-scan llm` 0 new serious findings)
 - [x] Sync docs: `/sync sessions pass work to each other`
 Spec [0057](../specs/0057-handover-on-clear.md) · code in `claude-home/hooks/handover-start.sh`, `claude-home/mods/wf-handoff/` · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B4; the handover first half of B14.
 
@@ -1013,7 +1014,7 @@ Build the four ideas taken from Harvey, MiroFish and claude-skills-founder: a le
 - [x] Verify it: `/check verify ideas borrowed from tools we skip`
 - [x] Test it: `/test ideas borrowed from tools we skip` (983 tests pass; 11 tests mutation checked, 6 new)
 - [x] Link the two skills and copy the rule live after the merge: `bin/install.sh` · waits on you · live · later boxes go on
-- [ ] Use each of the four once on a real case, write it in verify notes (AC-7) · waits on you · later boxes go on
+- [x] Use each of the four once on a real case, write it in verify notes (AC-7) · waits on you · later boxes go on (done 2026-10-18, notes on the feature branch)
 - [ ] Sync docs: `/sync ideas borrowed from tools we skip`
 Spec [0056](../specs/0056-borrowed-ideas.md) · code in `claude-home/skills/lead-finder/`, `claude-home/skills/reaction-tester/`, `claude-home/rules/new-number-replaces-old.md` · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items B10 to B13.
 
@@ -1054,7 +1055,7 @@ Spec [0059](../specs/0059-wf-dash-band.md) · Source: [brief](../briefs/tool-rev
 One `/wf-dash` dashboard with Plan, Builds, Agents and Alerts views for the whole plan, every agent, the runner and the alerts, with three confirmed safe actions (replaces the separate `/plan`, `/agents` and `/runner` panes, amended 2026-10-18).
 **Done when:** `/wf-dash` shows every scope, feature state, agent, run and alert in its four views, and the safe actions work with a confirm.
 - [x] Design it (spec): `/architect own status bar and dashboards with mods`
-- [ ] Run probes P6 to P9 in a scratch session (spec 0060 AC-6), write results in its verify notes · waits on you
+- [x] Run probes P6 to P9 in a scratch session (spec 0060 AC-6), write results in its verify notes · waits on you (2026-10-18: all pass, see [verify notes](../specs/0060-wf-dash-panes/verify.md))
 - [x] Lock the look first: run the `design` pipeline on wf-dash (band, toasts, panes, short bar) in a session and land its locked `design.md` · waits on you (owner accepted the look as is on 2026-10-17 at critique 29/40; stray keys are row 75)
 - [ ] Build it: `/develop wf-dash panes and actions`
   - [ ] `wf plan --json` and `wf answer` (AC-1, AC-5)
@@ -1080,7 +1081,8 @@ Spec [0051](../specs/0051-clean-branches-commits/index.md) AC-15 · Source: the 
 In the wf-dash dashboard, a key it does not draw (a filter digit outside Plan, any other letter) types into the chat prompt and takes the keyboard; the "ctrl+x tab returns here" hint did not give the keys back in a tmux test. Critique held at 29/40 mostly on this.
 **Done when:** no key typed while the dashboard has the keyboard reaches the prompt, or the way back is shown and proven in a real terminal.
 - [x] Design it (spec): `/architect wf-dash stray keys` (choice: catch every key with a surface module `Client` and its `onKey`; your answer 2026-10-18)
-- [ ] Run probe P10 in a scratch tmux session with `claude --plugin-dir` (spec 0062 AC-1), write the result in its verify notes; a FAIL stops this feature and sends it back to `/architect` · waits on you
+- [x] Run probe P10 in a scratch tmux session with `claude --plugin-dir` (spec 0062 AC-1), write the result in its verify notes; a FAIL stops this feature and sends it back to `/architect` · waits on you (2026-10-18: FAIL, the dashboard gets keys only after a mouse click, see [verify notes](../specs/0062-wf-dash-stray-keys/verify.md))
+- [ ] Pick the fallback, then amend the spec: `/architect wf-dash stray keys` (bind more keys on every view, or accept click to focus) · waits on you
 - [ ] Build it: `/develop wf-dash stray keys`
 - [ ] Verify it: `/check verify wf-dash stray keys`
 - [ ] Test it: `/test wf-dash stray keys`
@@ -1115,8 +1117,8 @@ The handoff shows its steps and result in the wf-dash band (toasts where there i
 Spec [0064](../specs/0064-auto-handoff-display.md) · Source: [brief](../briefs/auto-handoff.md) (the owner's messages of 2026-10-18).
 
 ### 78. Runner bugs found 2026-10-18 · auto
-Six runner bugs found while conducting the 2026-10-18 runs: an accepted design park that comes back, a PR that reverts main, a worktree planning from a stale scope, a scope copy that blocks the main merge, a doubled "learn this first", and row 71 never queued.
-**Done when:** each of the six is fixed with a test that fails on the old code, or dropped with a reason.
+Runner bugs found while conducting the 2026-10-18 runs: an accepted design park that comes back, a PR that reverts main, a worktree planning from a stale scope, a scope copy that blocks the main merge, a doubled "learn this first", row 71 never queued, and two more found later the same night (the design gate reading file dates, the clean copy's link check; see the brief).
+**Done when:** each of the eight is fixed with a test that fails on the old code, or dropped with a reason.
 - [ ] Fix them: `/debug runner bugs found 2026-10-18`
 - [ ] Verify it: `/check verify runner bugs found 2026-10-18`
 - [ ] Test it: `/test runner bugs found 2026-10-18`
@@ -1152,6 +1154,15 @@ The design gate's seven should-fixes for the wf-dash band; you pick which to bui
 - [x] Test it: `/test wf-dash design should-fixes`
 - [ ] Sync docs: `/sync wf-dash design should-fixes`
 Spec [0065](../specs/0065-wf-dash-should-fixes.md) · Source: [brief](../briefs/leftovers-2026-10-18.md), section Row 72 design gate should-fixes.
+
+### 82. Finish when the owner is away · auto
+When you say you are leaving, everything in the plan that does not need your password, a login, your phone or an open decision gets finished. Today it stalls: built branches sit unpushed behind a box marked "waits on you" that the conductor could do itself (rows 67 and 69 on 2026-10-18), row 46's last step was skipped every run since 2026-10-15 because its old build folder kept an uncommitted plan copy, and the conductor only woke on runner events and reported instead of doing those boxes.
+**Done when:** a box marked "waits on you" that needs no password, login, phone or decision never holds back a branch or its PR (the conductor or the runner does it); a kept build folder whose branch is already on main is cleaned up instead of skipped; the morning report names each waiting box under its own feature, not under row 46.
+- [ ] Fix it: `/debug finish when the owner is away`
+- [ ] Verify it: `/check verify finish when the owner is away`
+- [ ] Test it: `/test finish when the owner is away`
+- [ ] Sync docs: `/sync finish when the owner is away`
+Source: your message of 2026-10-18 ("each time I tell you Im going away ... find out what the problem is"); evidence in [brief](../briefs/leftovers-2026-10-18.md), section Finish when away.
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
