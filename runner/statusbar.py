@@ -2,11 +2,15 @@
 # segments, order, colors and thresholds; unlike the script, a value it cannot read shows `?`, never 0.
 import json
 import os
+import re
 import subprocess
 import sys
 import time
 
-CACHE = "/tmp/claude-usage-cache.json"
+from wf import GIT_SAFE
+
+# this used to be /tmp/claude-usage-cache.json: any local user could plant its numbers, or a link the refresh wrote through
+CACHE = os.path.expanduser("~/.cache/claude-usage-cache.json")
 CACHE_TTL = 300
 GIT_TIMEOUT = 1
 USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
@@ -22,6 +26,7 @@ req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}", "
                                            "Accept": "application/json"})
 with urllib.request.urlopen(req, timeout=5) as resp:
     body = json.loads(resp.read())
+os.makedirs(os.path.dirname(cache), exist_ok=True)
 with open(cache + ".tmp", "w") as f:
     json.dump(body, f)
 os.replace(cache + ".tmp", cache)
@@ -72,14 +77,55 @@ def repo_root(cwd):
         d = parent
 
 
+def printable(s):
+    """Escape codes in a folder or branch name could rewrite the terminal; show them as ?."""
+    return "".join(c if c.isprintable() else "?" for c in s)
+
+
+def repo_filters(gitdir):
+    """True when the repo's own config may set a filter driver: `git status` runs it, and GIT_SAFE cannot turn it
+    off. An include could hide one, so any include counts too. Read as a file, so status stays the only git call."""
+    try:
+        with open(os.path.join(gitdir, "commondir")) as f:
+            common = os.path.join(gitdir, f.read().strip())
+    except OSError:
+        common = gitdir
+    for path in (os.path.join(common, "config"), os.path.join(gitdir, "config.worktree")):
+        try:
+            with open(path) as f:
+                text = f.read().lower()
+        except OSError:
+            continue
+        # anywhere, not at line start: git reads `[core] [filter "x"]` on one line too; a stray match only hides counts
+        if re.search(r"\[\s*(filter|include)", text):
+            return True
+    return False
+
+
 def git(cwd):
     """`branch state` from one `git status`, or "" when it fails or times out (AC-3, AC-5)."""
     if not cwd:
         return ""
+    top, gitdir = repo_root(cwd)
+    if gitdir and repo_filters(gitdir):
+        # same as the wf-dash band: the branch from HEAD, counts unknown rather than a status that runs their code
+        try:
+            with open(os.path.join(gitdir, "HEAD")) as f:
+                head = f.read().strip()
+        except OSError:
+            return ""
+        if head.startswith("ref: refs/heads/"):
+            return f"{printable(head[len('ref: refs/heads/'):])} ?"
+        return f"{head[:7]} ?" if re.fullmatch(r"[0-9a-f]{40}", head) else ""
     try:
         # --untracked-files=all: the script counted every untracked file, plain status shows a new folder as one line
-        p = subprocess.run(["git", "-C", cwd, "status", "--porcelain=v1", "-b", "-z",
-                            "--untracked-files=all"],
+        # GIT_SAFE: a cloned repo's core.fsmonitor or core.hooksPath would run its own program on every redraw.
+        # --git-dir and --work-tree: git uses only the repo repo_filters checked, never one its own discovery finds
+        # (a bare folder, a decoy .git it skips); submodules have configs nobody read.
+        if not gitdir:
+            return ""
+        p = subprocess.run(["git", *GIT_SAFE, f"--git-dir={gitdir}", f"--work-tree={top}", "-C", cwd, "status",
+                            "--porcelain=v1", "-b", "-z", "--untracked-files=all", "--ignore-submodules=all"],
                            capture_output=True, text=True, timeout=GIT_TIMEOUT)
     except (OSError, subprocess.SubprocessError):
         return ""
@@ -94,7 +140,6 @@ def git(cwd):
         branch = "HEAD"
     else:
         branch = head.split("...")[0].split(" ")[0]
-    top, gitdir = repo_root(cwd)
     if branch == "HEAD" and gitdir:
         # the script fell back to `rev-parse --short HEAD`; status only says "no branch", HEAD holds the id
         # shortcut: always 7 characters, git grows it in huge repos; upgrade only if a detached bar ever looks off
@@ -196,7 +241,7 @@ def render(data, short=False):
     """The bar for the status line stdin JSON `data`; "" on any failure, so bar() never sees an exception."""
     try:
         cwd = str(data.get("cwd") or (data.get("workspace") or {}).get("current_dir") or "")
-        folder = os.path.basename(cwd)
+        folder = printable(os.path.basename(cwd))
         if short:
             return folder
         e = effort(data)

@@ -252,6 +252,34 @@ class TestVerdict(Case):
         self.assertEqual(code, 1, out)
         self.assertIn("a  HIGH", out)
 
+    # covers: security review 2026-10-18 (the noise file patterns match only the last path part)
+    def test_noise_anchored(self):
+        self.skill("a")
+        hidden = ["tests/x.py", "a/CHANGELOG.md", "src/x.test.ts", "pkg/y_test.go", "test_z.py", "node_modules/q.js"]
+        shown = ["hooks/latest_hook.sh", "contest_x/run.sh", "bin/CHANGELOG/run.sh", "my.test.d/run.sh"]
+        self.target("a", issues=[issue(file=f, text=f"curl {f}") for f in hidden + shown])
+        code, out = self.run_main()
+        self.assertEqual(code, 1, out)
+        self.assertEqual(sorted(x.split(" @ ")[1].split(":")[0] for x in out.splitlines() if " @ " in x), sorted(shown))
+
+    # covers: security review 2026-10-18 (the same finding in a second file is new; an old four part entry still hides it)
+    def test_same_text_other_file(self):
+        self.skill("a")
+        self.target("a", issues=[issue()])
+        self.assertEqual(self.run_main("--accept")[0], 0)
+        self.target("a", issues=[issue(), issue(file="hooks/b.py")])
+        shutil.rmtree(self.reports())  # same day: the first report would be reused
+        code, out = self.run_main()
+        self.assertEqual(code, 1, out)
+        self.assertEqual([x for x in out.splitlines() if " @ " in x],
+                         ["a  HIGH Tainted flow (line N) @ hooks/b.py:7: requests.post(url)"])
+        bf = self.home / ".claude" / "state" / "skillspector" / "baseline.json"
+        bf.write_text(json.dumps({"static": [k[:4] for k in json.loads(bf.read_text())["static"]]}))
+        self.assertEqual(self.run_main()[0], 0)
+        # an accept drops the old four part entries for file keys
+        self.assertEqual(self.run_main("--accept")[0], 0)
+        self.assertEqual({len(k) for k in json.loads(bf.read_text())["static"]}, {5})
+
 
 class TestAgainst(Case):
     # covers: AC-6 (the candidate's added finding prints; a skill not installed counts every finding)
