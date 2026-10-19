@@ -1,6 +1,6 @@
 {
   "name": "wf-handoff",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Hands a long chat off on its own at the token line: /rollover, clear, resume (spec 0063); /handoff by hand after /rollover (spec 0057)",
   "userConfig": {
     "threshold": { "type": "number", "title": "Handoff line (tokens)", "description": "Context size at which the chat hands itself off; AUTO_HANDOFF_TOKENS overrides it for one shell", "default": 200000 },
