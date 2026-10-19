@@ -1028,7 +1028,7 @@ Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced un
 ### 71. Self merge rules and review notes · auto
 The PR #18 review's open items and two script bugs found while landing it.
 **Done when:** each item is fixed with a test or dropped with a reason.
-- [x] Design it (spec): decide the three spec items (risk list, old branch date, wait for a check) · waits on you (answered 2026-10-17, written into spec 0051 AC-3, AC-4, AC-12, AC-16)
+- [x] Design it (spec): `/architect self merge rules and review notes` (decided the three spec items: risk list, old branch date, wait for a check) · waits on you (answered 2026-10-17, written into spec 0051 AC-3, AC-4, AC-12, AC-16)
 - [ ] Build it: `/develop self merge rules and review notes` (spec 0051 build step 9; tag this feature `· auto` only after row 56 is done, both change `runner/pr.py`)
 - [ ] Verify it: `/check verify self merge rules and review notes`
 - [ ] Test it: `/test self merge rules and review notes`
@@ -1118,8 +1118,8 @@ Spec [0064](../specs/0064-auto-handoff-display.md) · Source: [brief](../briefs/
 
 ### 78. Runner bugs found 2026-10-18 · auto
 Runner bugs found while conducting the 2026-10-18 runs: an accepted design park that comes back, a PR that reverts main, a worktree planning from a stale scope, a scope copy that blocks the main merge, a doubled "learn this first", row 71 never queued, and two more found later the same night (the design gate reading file dates, the clean copy's link check; see the brief).
-**Done when:** each of the eight is fixed with a test that fails on the old code, or dropped with a reason.
-- [x] Design it (spec): none needed, the brief names each item and its fix
+**Done when:** each runner bug in the brief (its Runner bugs section and the retry line under the PR #77 leftovers) is fixed with a test that fails on the old code, or dropped with a reason.
+- [x] Design it (spec): `/architect runner bugs found 2026-10-18` (none needed, the brief names each item and its fix)
 - [ ] Fix them: `/debug runner bugs found 2026-10-18`
 - [ ] Verify it: `/check verify runner bugs found 2026-10-18`
 - [ ] Test it: `/test runner bugs found 2026-10-18`
@@ -1127,9 +1127,9 @@ Runner bugs found while conducting the 2026-10-18 runs: an accepted design park 
 Source: [brief](../briefs/leftovers-2026-10-18.md), section Runner bugs.
 
 ### 79. Security review leftovers 2026-10-18 · auto
-The 2026-10-18 security review's open items in the status bar and the skill scan script.
+The 2026-10-18 security review's open items in the status bar and the skill scan script. Also the two LOW findings of the PR #77 review (auto handoff), listed in the brief.
 **Done when:** each item is fixed with a test that fails on the old code, or dropped with a reason.
-- [x] Design it (spec): none needed, the brief names each item and its fix
+- [x] Design it (spec): `/architect security review leftovers 2026-10-18` (none needed, the brief names each item and its fix)
 - [ ] Fix them: `/debug security review leftovers 2026-10-18`
 - [ ] Verify it: `/check verify security review leftovers 2026-10-18`
 - [ ] Test it: `/test security review leftovers 2026-10-18`
@@ -1160,7 +1160,7 @@ Spec [0065](../specs/0065-wf-dash-should-fixes.md) · Source: [brief](../briefs/
 ### 82. Finish when the owner is away · auto
 When you say you are leaving, everything in the plan that does not need your password, a login, your phone or an open decision gets finished. Today it stalls: built branches sit unpushed behind a box marked "waits on you" that the conductor could do itself (rows 67 and 69 on 2026-10-18), row 46's last step was skipped every run since 2026-10-15 because its old build folder kept an uncommitted plan copy, and the conductor only woke on runner events and reported instead of doing those boxes.
 **Done when:** a box marked "waits on you" that needs no password, login, phone or decision never holds back a branch or its PR (the conductor or the runner does it); a kept build folder whose branch is already on main is cleaned up instead of skipped; the morning report names each waiting box under its own feature, not under row 46.
-- [x] Design it (spec): none needed, the brief names each item and its fix
+- [x] Design it (spec): `/architect finish when the owner is away` (none needed, the brief names each item and its fix)
 - [ ] Fix it: `/debug finish when the owner is away`
 - [ ] Verify it: `/check verify finish when the owner is away`
 - [ ] Test it: `/test finish when the owner is away`

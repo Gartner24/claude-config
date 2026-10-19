@@ -33,3 +33,9 @@ Found 2026-10-18 while the owner was away:
 - Row 46's `/sync` showed "sync owed" from 2026-10-15 on: its build folder `feat-0036-missed-skill-detector` kept an uncommitted runner plan copy and an uncommitted verify file, every run skipped it ("no record ... exit 6"), and the morning report listed every waiting box of every row as "(claude-config: 46. Missed-skill detector)".
 - The runner's merge check failed every PR: main's suite ran in a copy that was not a git repo (10 tests read `git ls-files` or `origin/main`). Fixed and merged the same night (PRs #71 to #73).
 - The runner queues a feature only when it has a ticked `Design it (spec)` box (`runner/run.py` `Feature.queued`), so bug fix rows with only `/debug` boxes (78, 79, 82) and row 71 (its decision box was worded differently) never queued. Each got a ticked design box naming why none is needed, 2026-10-18.
+
+## PR #77 review leftovers (LOW, 2026-10-18)
+- `claude-home/mods/wf-handoff/hooks/register.ts` session.end (around :231-235): a clear that resolves after the 15 s timeout is read as the owner's own `/clear` and starts a fresh chain with the guard count at 0, undoing "a failed handoff counts" (AC-7). Fix: keep the chain when phase is failed and triggeredAt is recent.
+- `register.ts` session.start (around :219-223) and the log writer (around :46-54): every interactive chat leaves a `<root>.json`, and session.start parses all of them; each log line rereads and rewrites the whole log, never trimmed. Fix: look up `<id>.json` plus a session to root pointer; append or rotate the log.
+- Runner: "try again" on a verify_failed park only reruns /check verify, never the build step, so a verify that names missing code fails the same way every retry (row 73, 2026-10-18: two identical FAILs). Fix: a verify FAIL that names specced but missing code reruns /develop first.
+
