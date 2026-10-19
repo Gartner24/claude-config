@@ -64,7 +64,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 43 | Runs adapt to setup changes | Release 7 | done |
 | 44 | A run does its own copy steps | Release 7 | done |
 | 45 | Each step gets the feature's brief | Release 8 | done |
-| 46 | Missed-skill detector | Release 8 | in-progress |
+| 46 | Missed-skill detector | Release 8 | done |
 | 47 | Context monitor that fires | Release 8 | done |
 | 48 | Readable layout for ~/.claude and claude-config | Release 8 | done |
 | 49 | Fast runner | Release 8 | done |
@@ -94,7 +94,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 73 | wf-dash panes and actions | Release 9 | in-progress |
 | 74 | Fix the runner's plan landing crash | Release 9 | done |
 | 75 | wf-dash stray keys | Release 9 | in-progress |
-| 76 | Auto handoff: our handover, fired on its own | Release 9 | planned |
+| 76 | Auto handoff: our handover, fired on its own | Release 9 | done |
 | 77 | Auto handoff display: band, viewer pages, link | Release 9 | planned |
 | 78 | Runner bugs found 2026-10-18 | Release 9 | planned |
 | 79 | Security review leftovers 2026-10-18 | Release 9 | planned |
@@ -729,7 +729,7 @@ Every unattended step gets the feature's brief (the agreed decisions) so nothing
 - [x] Sync docs: `/sync step brief`
 Spec [0034](../specs/0034-step-brief/index.md) · Source: personal scope row 12 (session handoff fidelity, last part). Code in `runner/run.py` (`brief_parts`, `brief_fit`, `Run.brief_check`).
 
-### 46. Missed-skill detector · in-progress · auto
+### 46. Missed-skill detector · done · auto
 A hook notes when a session could have used a skill it did not, and a weekly report lists the top misses.
 **Done when:** the hook runs in real sessions and the report names the top missed skills.
 - [x] Design it (spec): `/architect missed skill detector`
@@ -738,7 +738,7 @@ A hook notes when a session could have used a skill it did not, and a weekly rep
 - [x] Test it: `/test missed skill detector`
 - [x] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
 - [x] After 3 days, run the report and write its verdict into verify.md · waits on you · later boxes go on (2026-10-17: WARM, read as trigger noise, no router)
-- [ ] Sync docs: `/sync missed skill detector`
+- [x] Sync docs: `/sync missed skill detector`
 Spec [0036](../specs/0036-missed-skill-detector/index.md) · Source: personal scope row 20.
 
 ### 47. Context monitor that fires · done · auto
@@ -1057,10 +1057,10 @@ One `/wf-dash` dashboard with Plan, Builds, Agents and Alerts views for the whol
 - [x] Design it (spec): `/architect own status bar and dashboards with mods`
 - [x] Run probes P6 to P9 in a scratch session (spec 0060 AC-6), write results in its verify notes · waits on you (2026-10-18: all pass, see [verify notes](../specs/0060-wf-dash-panes/verify.md))
 - [x] Lock the look first: run the `design` pipeline on wf-dash (band, toasts, panes, short bar) in a session and land its locked `design.md` · waits on you (owner accepted the look as is on 2026-10-17 at critique 29/40; stray keys are row 75)
-- [ ] Build it: `/develop wf-dash panes and actions`
-  - [ ] `wf plan --json` and `wf answer` (AC-1, AC-5)
-  - [ ] The `/wf-dash` dashboard: Plan, Builds, Agents and Alerts views (AC-2 to AC-4a)
-  - [ ] Actions with confirm, tests (AC-5, AC-7)
+- [x] Build it: `/develop wf-dash panes and actions`
+  - [x] `wf plan --json` and `wf answer` (AC-1, AC-5)
+  - [x] The `/wf-dash` dashboard: Plan, Builds, Agents and Alerts views (AC-2 to AC-4a)
+  - [x] Actions with confirm, tests (AC-5, AC-7)
 - [ ] Verify it: `/check verify wf-dash panes and actions`
 - [ ] Test it: `/test wf-dash panes and actions`
 - [ ] Install the mod update live after its scan · waits on you · later boxes go on
@@ -1090,7 +1090,7 @@ In the wf-dash dashboard, a key it does not draw (a filter digit outside Plan, a
 - [ ] Sync docs: `/sync wf-dash stray keys`
 Spec [0062](../specs/0062-wf-dash-stray-keys.md) · Source: the owner's message of 2026-10-17 ("accept as is") after critique round 10 scored the look 29/40.
 
-### 76. Auto handoff: our handover, fired on its own · in-progress · auto
+### 76. Auto handoff: our handover, fired on its own · done · auto
 At 200k tokens a chat hands itself off with nothing typed: the mod gates new tool calls, runs our full `/rollover`, adds facts, numbers and your last request by code, clears, and seeds `/resume-from-clear`; loop guards 40k and 2 in a row.
 **Done when:** a scratch chat crosses the line and resumes in a fresh chat with nothing typed, and every AC of spec 0063 is built.
 - [x] Design it (spec): `/architect auto handoff` (your answers 2026-10-18: 200k, compact stays as backstop, every interactive chat, guards 40k and 2; all cross check fixes applied)
@@ -1100,8 +1100,8 @@ At 200k tokens a chat hands itself off with nothing typed: the mod gates new too
 - [x] Build it: `/develop auto handoff` (code in `claude-home/mods/wf-handoff/`; the `viewer:` line waits on spec 0064's link)
 - [x] Verify it: `/check verify auto handoff` (PASS 2026-10-18 after the fix in 1c47781; the live run is left to the install box)
 - [x] Test it: `/test auto handoff` (2026-10-18: 45 mod tests pass, every new test red on a mutant)
-- [ ] Install the mod live after its scan · waits on you · later boxes go on
-- [ ] Sync docs: `/sync auto handoff`
+- [x] Install the mod live after its scan · waits on you · later boxes go on
+- [x] Sync docs: `/sync auto handoff`
 Spec [0063](../specs/0063-auto-handoff.md) · Source: [brief](../briefs/auto-handoff.md) (the owner's messages of 2026-10-18).
 
 ### 77. Auto handoff display: band, viewer pages, link · auto
