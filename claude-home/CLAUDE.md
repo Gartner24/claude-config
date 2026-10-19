@@ -210,9 +210,6 @@ The old 5-step copy of this rule and `~/claude-config/commands/design.md` are re
 (2026-09-09). Setup notes in `~/claude-config/docs/guides/DESIGN-PIPELINE.md` are stale on two points:
 `/ui` and `/21` were never protocol features, and the `magic` MCP is now optional rather
 than the primary component source.
-# graphify
-- **graphify** (`~/.claude/skills/graphify/SKILL.md`) - any input to knowledge graph. Trigger: `/graphify`
-When the user types `/graphify`, use the installed graphify skill or instructions before doing anything else.
 
 ## Superpowers
 - Ignore the "1% chance -> must invoke" rule. Invoke a skill only when it clearly matches the task.

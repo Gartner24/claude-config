@@ -316,17 +316,6 @@ git clone --depth=1 https://github.com/cloudflare/skills /tmp/cfs \
 
 That leaves the orphan files in place. Delete them by hand once you are sure you did not write them.
 
-### graphify
-
-`graphify` is a Python package, not a skill repo (`github:Graphify-Labs/graphify`). The package is `graphifyy` and the command is `graphify`.
-
-```bash
-pipx install graphifyy
-graphify install claude    # (re)writes ~/.claude/skills/graphify and registers it in CLAUDE.md
-```
-
-The skill carries its own `.graphify_version`. If that drifts from the package version, the CLI warns on every run. Update it under [Keep it current](#keep-it-current).
-
 ### Private and in-repo skills
 
 - A client CMS skill and a private doc re-sync skill stay local. They are not vendored, and the client skills are gitignored.
@@ -413,7 +402,6 @@ Versions below were last verified on 2026-09-02. The pinned commits in [`../../c
 | jjstack | 0.36.0 | the same steps, in `~/.claude/skills/jjstack`. Stash the local `hooks/auto-approve-safe.sh` tweak first. |
 | get-shit-done-cc | 1.34.2, pinned | Do not run `npx get-shit-done-cc` (see [Frameworks](#frameworks)). |
 | impeccable | 4.1.3 | `npx skills add pbakaus/impeccable --skill impeccable -a claude-code -g -y` |
-| graphify | 0.9.53 | `pipx upgrade graphifyy` then `graphify install claude` |
 | @21st-dev/cli | 1.17.0 | `npm install -g @21st-dev/cli@latest` |
 | Claude Code | 2.1.259 | `claude update` |
 | superpowers | v6.3.0 | plugin update, below |

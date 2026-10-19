@@ -1230,21 +1230,6 @@
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
-    "graphify": {
-      "base_hash": "3002b52282a4d1513a3d3442a4ab99f3b974e8c4ed41ac0d8da97f3bdee1fd2e",
-      "description": "Use for any question about a codebase, its architecture, file relationships, or project content \u2014 especially when graphify-out/ exists, where the question should be treated as a graphify query first.",
-      "fetch": "manual",
-      "framework": null,
-      "install": "pip install graphifyy && graphify install",
-      "kind": "skill",
-      "license": "Apache-2.0",
-      "patch": null,
-      "path": ".",
-      "pinned": "0.9.53",
-      "publish": true,
-      "source": "github:Graphify-Labs/graphify",
-      "status": "downloaded"
-    },
     "gsap-core": {
       "base_hash": "e21b6ea38a87db00a2dfcd07dbe4992f64b4e7d5253f20eff9be33325845fcc7",
       "description": "Official GSAP skill for the core API \u2014 gsap.to(), from(), fromTo(), easing, duration, stagger, defaults, gsap.matchMedia() (responsive, prefers-reduced-motion).",
