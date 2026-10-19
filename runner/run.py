@@ -2444,6 +2444,15 @@ class Run:
             problem = copy_tree(tree, sha.stdout.strip(), clean)
             if problem:
                 return 1, [problem]
+            # The suite reads its own file list (`git ls-files`) and docs-pr's scanners from origin/main, so the copy is
+            # a repo of exactly this tree. shortcut: origin/main only, upgrade if a repo's default branch differs.
+            for args in (("init", "-q"), ("add", "-A", "-f"),
+                         ("-c", "user.name=wf", "-c", "user.email=wf@localhost", "commit", "-q", "--no-verify",
+                          "--allow-empty", "-m", "suite"),
+                         ("update-ref", "refs/remotes/origin/main", "HEAD")):
+                g = wf.git(clean, *args)
+                if g is None or g.returncode:
+                    return 1, ["cannot make the clean copy a git repo"]
             env = call_env(self.run_id)
             for k in KEPT_ENV:
                 env.pop(k, None)
