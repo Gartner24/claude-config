@@ -1210,9 +1210,22 @@ def up_to_date(r, rec, default):
             r.note(f"PR #{rec['number']}: not brought up to date, {where} has uncommitted changes")
             return False
         g = gitbin(r)
+        # The runner's uncommitted plan copy (run.dirty skips it) would stop the merge; set it aside, put it back after.
+        copy = {}
+        if run.under(where, [run.trees_root()]):
+            st = wf.git(where, "status", "--porcelain", "--", "docs/scope", ".workflow/scope")
+            for line in (st.stdout if st and not st.returncode else "").split("\n"):
+                if line[:2].strip() == "M":
+                    copy[line[3:]] = wf.read(os.path.join(where, line[3:]))
+            if copy:
+                wf.git(where, "checkout", "--", *copy)
         res = git(g, where, "merge", "--no-edit", target)
         if res.returncode:
             git(g, where, "merge", "--abort")
+        for rel, text in copy.items():
+            with open(os.path.join(where, rel), "w", encoding="utf-8") as f:
+                f.write(text)
+        if res.returncode:
             r.pr_ask(rec, "merge_conflict", f"{rec['branch']} clashes with {target}: "
                                             f"{run.flat(res.stdout or res.stderr)[:150]}")
             return False
