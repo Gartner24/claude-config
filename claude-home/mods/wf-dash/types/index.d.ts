@@ -15,15 +15,20 @@ export type WfDashFacts = {
   wf: { running: number | null; parked: number | null; questions: number | null } | null
   auto: { here: boolean; chats: number } | null
   staleSince: string | null
+  // spec 0065 AC-1: this tick's `wf status` parsed with at least one field read
+  statusOk: boolean
 }
 
-export type WfDashAlert = { id: string; at: number; kind: 'finished' | 'stuck' | 'question'; feature: string; detail: string }
+export type WfDashAlert = { id: string; at: number; kind: 'finished' | 'stopped' | 'stuck' | 'question'; feature: string; detail: string }
 
 // `wf status --json` (spec 0059 AC-1); a field is null when the runner could not read it
 export type WfStatusEntry = { id: string | null; repo: string; feature: string; title?: string }
 export type WfStatus = { running: WfStatusEntry[] | null; parked: WfStatusEntry[] | null; questions: WfStatusEntry[] | null }
-// the last good entries per field (null before the first good read) and every id already toasted
-export type WfDashSeen = { prev: WfStatus; toasted: string[] }
+// the run record `<state>/wf/runs/<id>/run.json`, the two fields the alert reads (runner/run.py)
+export type WfRunRecord = { ended?: string | null; stop_reason?: string | null }
+// the last good entries per field (null before the first good read), every id already toasted, and the runs that left
+// `running` whose record is not settled yet, with how many ticks it was read again (spec 0065 AC-2)
+export type WfDashSeen = { prev: WfStatus; toasted: string[]; pending?: (WfStatusEntry & { id: string; tries: number })[] }
 
 export type WfDashFeature = {
   heading: string

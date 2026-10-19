@@ -10,7 +10,7 @@ scripts (`facts.py`, `plan.py`, `runner.py`) for `wf status --json` and `wf plan
 - "dont import things from jjstack, we are creating something unattatched from it ... a new improved better new
   status bar with new cool features".
 - Alerts: colored by type was asked; then "show at the top right as the others ... they can stay for longer, and how
-  can I open them to see them complete". Built: top right toasts, 15 s, plus the `/wf-alerts` pane in color.
+  can I open them to see them complete". Built: top right toasts, 15 s, plus the dashboard's Alerts view (`l`) in color.
 - Panes: "Build panes in this style".
 
 ## Direction
@@ -41,14 +41,19 @@ scripts (`facts.py`, `plan.py`, `runner.py`) for `wf status --json` and `wf plan
   `wf ` label (the chip beside it names wf): `2 ask 2 stuck 1 run`, or `idle`. A count that does not fit leaves
   whole, least urgent first, so the question count is the last to go. The chip is pinned.
 - Unknown values print `?`, never 0; context and effort are left out until known. A failed tick keeps the last
-  good band and adds `stale since HH:MM`. The chip is a button (`w`), and its hotkey label takes 3 cells the fit counts.
+  good band and adds `stale since HH:MM`; the runner counts that tick did read still show, only a count that failed
+  keeps its last good number. In the full band each count's number is right aligned in 3 cells, so the line does not
+  shift. The compact band adds a short ` stale` instead: it is the last part to go, its cells come out of the counts'
+  budget, and when even the first count and the mark do not fit the band reads `stale` alone. The chip is a button (`w`), and its hotkey label takes 3 cells the fit counts.
 
 ## Alerts
 - Toast at the top right (Claude Code draws it; a mod cannot color it): `<kind>: <feature> - <detail>`, 15 s.
-  Kinds: `finished`, `stuck`, `question`. The toast wraps, so the full text shows.
+  Kinds: `finished` (the run record says the queue or the feature is done), `stopped` (any other end, with its
+  reason, or `ended with no record` when the record never came), `stuck`, `question`. The toast wraps, so the full text shows.
 - The dashboard's Alerts view (`l`), an inbox like Linear's: every alert of the session, newest first; the title
-  line is the kind word bold in its color (finished ok, stuck bad, question warn), the feature in bold, the time at
-  the right; the detail in full, dim, under the feature. Empty, it says what will land there. When the alerts
+  line is the kind word bold in its color (finished ok, stopped warn, stuck bad, question warn), the feature in bold, the time at
+  the right; the detail in full, dim, under the feature. Empty, it says what will land there; `could not read wf` when the
+  last tick could not read the runner, and `reading wf` before the first tick. When the alerts
   outgrow the pane, `j` / `k` scroll them and a dim line says `N newer above, +M older`.
 
 ## Dashboard (`/wf-dash`, or click the band's chip, or `w` once the band has the keys)
@@ -105,4 +110,4 @@ of spec 0060 (which also clash with Claude Code's own `/plan` and `/agents`); ro
   exact text.
 
 ## Preview
-`claude --plugin-dir claude-home/mods/wf-dash`, then `/wf-dash` for the dashboard and `/wf-dash-alerts` for the sample alerts.
+`claude --plugin-dir claude-home/mods/wf-dash`, then `/wf-dash` for the dashboard; its Alerts view (`l`) lists the session's alerts.
