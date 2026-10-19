@@ -1108,7 +1108,7 @@ At 200k tokens a chat hands itself off with nothing typed: the mod gates new too
 - [x] Sync docs: `/sync auto handoff`
 Spec [0063](../specs/0063-auto-handoff.md) · Source: [brief](../briefs/auto-handoff.md) (the owner's messages of 2026-10-18).
 
-### 77. Auto handoff display: band, viewer pages, link · in-progress · auto
+### 77. Auto handoff display: band, viewer pages, link · done · auto
 The handoff shows its steps and result in the wf-dash band (toasts where there is no band), each handover gets a readable page served on your Tailscale address, and a chat that came from a handoff links back to it.
 **Done when:** a handoff shows in the band, its page opens from your phone over Tailscale, and every AC of spec 0064 is built.
 - [x] Design it (spec): `/architect auto handoff` (your answers 2026-10-18: progress in the wf-dash band, install Tailscale)
@@ -1116,7 +1116,7 @@ The handoff shows its steps and result in the wf-dash band (toasts where there i
 - [x] Build it: `/develop auto handoff display` (code in `claude-home/mods/wf-handoff/` (`pages.ts`, `server.py`, panel and server in `hooks/register.ts`) and `claude-home/mods/wf-dash/handoff.ts`; 65 and 35 mod tests pass, `server.py --test` passes)
 - [x] Verify it: `/check verify auto handoff display` (PASS 2026-10-19: AC-1 to AC-7 met, 8 can fail steps; reduced motion spinner fixed in 6751d0f; you accepted the result line link cut at narrow widths; live checks left to the install box)
 - [x] Test it: `/test auto handoff display` (2026-10-19: wf-dash 38 and wf-handoff 70 mod tests pass, `server.py --test` passes, suite 1042 green; 2 new tests red on their mutants)
-- [ ] Install both mods live after their scan · waits on you · later boxes go on
+- [x] Install both mods live after their scan · waits on you · later boxes go on (2026-10-19: skill-scan llm, wf-dash 0 findings, wf-handoff 3 false positives in its server.py self-test; wf-dash now links to main like wf-handoff)
 - [x] Sync docs: `/sync auto handoff display` (PR #103)
 Spec [0064](../specs/0064-auto-handoff-display.md) · Source: [brief](../briefs/auto-handoff.md) (the owner's messages of 2026-10-18).
 
