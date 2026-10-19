@@ -908,7 +908,7 @@ Our own status bar without jjstack: the segments ported into the runner.
 Spec [0058](../specs/0058-own-status-bar.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B3, part 1 of 3; the band is row 72, the panes row 73.
 
 ### 59. Memory tool: claude-mem, MemPalace, graphify or NotebookLM
-Pick the memory tool (keep claude-mem, MemPalace, or NotebookLM as a second brain; graphify was removed 2026-10-19), weighing usage, token cost, memory quality and code memory.
+Pick the memory tool (MemPalace or NotebookLM as a second brain; graphify was removed and claude-mem's data deleted 2026-10-19), weighing usage, token cost, memory quality and code memory.
 **Done when:** one memory setup is chosen with its reasons and installed, or each option is rejected with a reason.
 - [x] Research and compare: `/deep-research memory for Claude Code: claude-mem, MemPalace, graphify, NotebookLM` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
 - [ ] Design it (spec): `/architect memory tool` (after the MemPalace trial review, about 2026-10-30; your answer 2026-10-17) · waits on you

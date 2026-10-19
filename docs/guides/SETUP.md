@@ -37,18 +37,17 @@ Each of your own repos gets the same GitHub settings: squash merge only, branche
 
 ## Restore on a new machine
 
-Do the steps in order. Hook paths in `settings.json` are hardcoded to the old home folder, so step 8 matters.
+Do the steps in order. Hook paths in `settings.json` are hardcoded to the old home folder, so step 7 matters.
 
 1. Clone the repo (see above) and run `bin/install.sh --dry-run`, then `bin/install.sh`. It also rebuilds edited downloaded skills from upstream plus their patch, through `bin/claude-config.py restore`.
 2. Install jjstack. It installs gstack and creates the hook symlinks. See [Frameworks](#frameworks).
-3. Install get-shit-done-cc, pinned at 1.34.2. It ships 8 `gsd-*` hooks, and `settings.json` references 6 of them. Without this step the session starts with dead hook entries.
-4. Install the plugins in the [Plugins](#plugins) table, except claude-mem: it stays off for good (decided 2026-10-15, see `docs/briefs/tool-review-2026-10.md`).
-5. Reinstall the downloaded skills. Run each manifest entry's `install` command from `config/manifest.json`, or use the `/claude-config` skill.
-6. Merge `config/mcp-config.json` into `~/.claude.json` (see [MCP servers](#mcp-servers)). Put your own key in `API_KEY`.
-7. In Claude Code settings, go to MCP and enable the context7 connector.
-8. Copy `settings.json` and change the old home folder paths to match the new username and home folder.
-9. Copy `settings.local.json` as it is.
-10. If you ever need the agents, rules and hook by hand, they come from this repo, not from upstream ECC:
+3. Install the plugins in the [Plugins](#plugins) table.
+4. Reinstall the downloaded skills. Run each manifest entry's `install` command from `config/manifest.json`, or use the `/claude-config` skill.
+5. Merge `config/mcp-config.json` into `~/.claude.json` (see [MCP servers](#mcp-servers)). Put your own key in `API_KEY`.
+6. In Claude Code settings, go to MCP and enable the context7 connector.
+7. Copy `settings.json` and change the old home folder paths to match the new username and home folder.
+8. Copy `settings.local.json` as it is.
+9. If you ever need the agents, rules and hook by hand, they come from this repo, not from upstream ECC:
 
 ```bash
 cp -a claude-home/agents/. ~/.claude/agents/
@@ -106,7 +105,6 @@ Frameworks are full systems with many sub-skills. Their own installer wins, and 
 |-----------|--------|---------|
 | jjstack | private, listed in `~/.claude/private/work.md` | `git clone <jjstack source from ~/.claude/private/work.md> ~/.claude/skills/jjstack` then `cd ~/.claude/skills/jjstack && ./setup` |
 | gstack | `github:garrytan/gstack` | installed by jjstack's `./setup` |
-| get-shit-done-cc | `npm:get-shit-done-cc` | `npx get-shit-done-cc` (pinned at 1.34.2, read the notes below first) |
 | ECC (everything-claude-code) | `github:affaan-m/everything-claude-code` | manual cherry-pick, see below |
 | JSM skills | `github:JavaScript-Mastery-Pro/skills` | `git clone https://github.com/JavaScript-Mastery-Pro/skills ~/.claude/vendor-jsm-skills`, then link each `skills/<name>` into `~/.claude/skills` |
 | Sentry skills (`getsentry-skills`) | `github:getsentry/skills` | `git clone https://github.com/getsentry/skills ~/.claude/skills/getsentry-skills` |
@@ -117,8 +115,8 @@ Frameworks are full systems with many sub-skills. Their own installer wins, and 
 You only need to install jjstack. Its setup script checks for gstack, and it clones and sets up `garrytan/gstack` if gstack is missing. You do not install gstack separately.
 
 - jjstack adds a product and UX layer on top of gstack: opinionated skills for code quality, product thinking and developer experience. All jjstack skills are symlinked into `~/.claude/skills/`.
-- gstack adds the task layer: `/autoplan`, `/investigate`, `/qa`, `/ship`, `/review`, `/office-hours`, `/retro` and the browser automation. It does not add the `gsd-*` skills.
-- Many skills that look like they belong to GSD come from jjstack. They are symlinks into `~/.claude/skills/jjstack/skills/`: `/dev-philosophy`, `/heal`, `/kano-model`, `/lean`, `/mcp-server`, `/new-submodule`, `/product-manager-review`, `/python-coder`, `/qa-review`, `/receiving-code-review`, `/security-review`, `/smart-context7`, `/smart-review`, `/smart-simplify`, `/state-doc`, `/two-stage-review`, `/unit-test-builder`, `/verify-before-done`, `/work-order`, `/worktrees`, `/writing-skills`, `/jj-qa`, `/github-setup`. The same goes for `/council`.
+- gstack adds the task layer: `/autoplan`, `/investigate`, `/qa`, `/ship`, `/review`, `/office-hours`, `/retro` and the browser automation.
+- Many skills come from jjstack. They are symlinks into `~/.claude/skills/jjstack/skills/`: `/dev-philosophy`, `/heal`, `/kano-model`, `/lean`, `/mcp-server`, `/new-submodule`, `/product-manager-review`, `/python-coder`, `/qa-review`, `/receiving-code-review`, `/security-review`, `/smart-context7`, `/smart-review`, `/smart-simplify`, `/state-doc`, `/two-stage-review`, `/unit-test-builder`, `/verify-before-done`, `/work-order`, `/worktrees`, `/writing-skills`, `/jj-qa`, `/github-setup`. The same goes for `/council`.
 - The permission gate is jjstack's `permission-floor.py` plus the deny rules from `hooks/permissions.policy.json` (see [HOOKS.md](HOOKS.md)). No local jjstack diff is kept any more.
 
 Known jjstack 0.36.0 bug, left unpatched on purpose:
@@ -129,22 +127,12 @@ Known jjstack 0.36.0 bug, left unpatched on purpose:
 - Impact today: none. Only `jjstack-memory-bridge` and `jjstack-memory-to-learnings` call it, both are gbrain paths, and gbrain is not installed.
 - It stays unpatched because a second local diff inside the jjstack checkout costs more than it saves for a dead code path. Re-check after any jjstack upgrade, and before you ever run `/setup-gbrain`.
 
-### get-shit-done-cc (GSD)
-
-- Source: https://github.com/gsd-build/get-shit-done. The npm package is `get-shit-done-cc`.
-- It is pinned at 1.34.2 on purpose. Upstream is further ahead, but the `gsd-*` skills were purged from this machine on purpose (commit `33f5b27`, "purge dead GSD routes"). Running `npx get-shit-done-cc` again reinstalls all 50+ of them and undoes the purge.
-- Only what the hooks still need is kept, and it is load-bearing:
-  - `~/.claude/get-shit-done/`, the workflow engine, references and templates, read by the `gsd-*` hooks.
-  - `~/.claude/gsd-file-manifest.json`.
-  - The `gsd-*` hooks in `~/.claude/hooks/`, wired into `settings.json`.
-- No `~/.claude/skills/gsd-*` skill is installed, on purpose.
-
 ### ECC (everything-claude-code)
 
 - The ECC cherry-pick is deliberately frozen. Upstream has 41 more agents and 15 more language rule folders than we have.
 - The local rules carry hand-earned additions. Re-copying upstream would overwrite them. Adopt ECC changes selectively by hand, or not at all.
 - Install method: manual cherry-pick, not `bin/install.sh`. The manifest `ecc` entry owns the copied commands and records no single pin, because the installed copies match several upstream commits.
-- Not installed: `hooks/`, `scripts/`, `settings.json`, MCP configs, `configure-ecc`, the `security-scan` agent, the instinct system and continuous-learning. They conflict with jjstack, GSD and claude-mem.
+- Not installed: `hooks/`, `scripts/`, `settings.json`, MCP configs, `configure-ecc`, the `security-scan` agent, the instinct system and continuous-learning. They conflict with jjstack.
 - Agents and rules come from this repo (`claude-home/agents/`, `claude-home/rules/ecc/`), and the ECC skills and commands come from upstream (see [Restore on a new machine](#restore-on-a-new-machine)).
 
 Available in ECC but not installed. They were skipped to keep the install focused, and they conflict with nothing. To add one, clone ECC and copy it:
@@ -325,11 +313,10 @@ That leaves the orphan files in place. Delete them by hand once you are sure you
 
 Plugins install with `claude plugin install` and update on Claude Code launch.
 
-superpowers gives the skill workflows (debugging, TDD, review, planning). claude-mem, once paired with it for memory across sessions, was removed for good on 2026-10-15; `~/.claude/projects/*/memory/` holds memory now.
+Memory across sessions lives in `~/.claude/projects/*/memory/`. claude-mem was turned off on 2026-10-15 and its data deleted on 2026-10-19; superpowers was disabled on 2026-10-19 (see `docs/tool-catalog.md`).
 
 | Plugin | Source | Install | What it adds |
 |--------|--------|---------|--------------|
-| superpowers | `claude-plugins-official/superpowers` | `claude plugin install superpowers` | 13 skills: `/brainstorming`, `/test-driven-development`, `/systematic-debugging`, `/writing-plans`, `/executing-plans`, `/subagent-driven-development`, `/dispatching-parallel-agents`, `/requesting-code-review`, `/receiving-code-review`, `/finishing-a-development-branch`, `/using-git-worktrees`, `/verification-before-completion`, `/writing-skills`. The foundation: always loaded, and other skills integrate with it. |
 | frontend-design | `claude-plugins-official/frontend-design` | `claude plugin install frontend-design` | `/frontend-design`. Anthropic's baseline UI skill. impeccable and the taste skills build on it. |
 | code-review | `claude-plugins-official/code-review` | `claude plugin install code-review` | `/code-review:code-review` reviews a GitHub pull request with parallel agents and posts one comment. Effort levels, `ultra`, `--comment` and `--fix` belong to the built-in `/code-review`, which has no file on disk. `CLAUDE.md` says which to use. Use it as a focused diff review before merging, next to gstack `/review`. |
 | feature-dev | `claude-plugins-official/feature-dev` | `claude plugin install feature-dev` | Agents `code-architect`, `code-explorer`, `code-reviewer`. Skills that need codebase analysis use them as subagents. |
@@ -400,11 +387,9 @@ Versions below were last verified on 2026-09-02. The pinned commits in [`../../c
 |-------|---------|-------------|
 | gstack | 1.79.0.0 | `git -C ~/.claude/skills/gstack merge --ff-only origin/main && ./setup` |
 | jjstack | 0.36.0 | the same steps, in `~/.claude/skills/jjstack`. Stash the local `hooks/auto-approve-safe.sh` tweak first. |
-| get-shit-done-cc | 1.34.2, pinned | Do not run `npx get-shit-done-cc` (see [Frameworks](#frameworks)). |
 | impeccable | 4.1.3 | `npx skills add pbakaus/impeccable --skill impeccable -a claude-code -g -y` |
 | @21st-dev/cli | 1.17.0 | `npm install -g @21st-dev/cli@latest` |
 | Claude Code | 2.1.259 | `claude update` |
-| superpowers | v6.3.0 | plugin update, below |
 | code-simplifier | v1.0.0 | plugin update, below |
 | ralph-loop | v1.0.0 | plugin update, below |
 | clangd-lsp | v1.0.0 | plugin update, below |

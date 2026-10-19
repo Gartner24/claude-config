@@ -2370,21 +2370,6 @@
       "source": "github:garrytan/gstack",
       "status": "downloaded"
     },
-    "superpowers@claude-plugins-official": {
-      "base_hash": "9c694fcbe46336131c4c4842a6621cf23ee994efa935f5fd8fefa91ea9ff4acd",
-      "description": "Core skills library for Claude Code: TDD, debugging, collaboration patterns, and proven techniques.",
-      "fetch": "manual",
-      "framework": null,
-      "install": "claude plugin install superpowers@claude-plugins-official",
-      "kind": "plugin",
-      "license": "MIT",
-      "patch": null,
-      "path": "superpowers",
-      "pinned": "5bf4e78011075bcfc0dc295f0724994cd123ee71",
-      "publish": false,
-      "source": "github:anthropics/claude-plugins-official",
-      "status": "downloaded"
-    },
     "sync-gbrain": {
       "base_hash": "0018d831aac7f7f24716a8692d11b9b8698741c1e4f0f19120d9ac6b4718d5c1",
       "description": "Keep gbrain current with this repo's code and refresh agent search guidance in CLAUDE.md.",
@@ -2790,17 +2775,6 @@
       ],
       "pinned": null,
       "source": "github:affaan-m/everything-claude-code"
-    },
-    "get-shit-done": {
-      "dir": "~/.claude/get-shit-done",
-      "fetch": "manual",
-      "install": "npx get-shit-done-cc (pinned at 1.34.2: read docs/guides/SETUP.md first, a rerun reinstalls the purged routes)",
-      "license": "unknown",
-      "owns": [
-        "hooks/gsd-*"
-      ],
-      "pinned": "1.34.2",
-      "source": "npm:get-shit-done-cc"
     },
     "getsentry-skills": {
       "dir": "~/.claude/skills/getsentry-skills",

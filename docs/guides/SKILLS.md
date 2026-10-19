@@ -54,7 +54,6 @@ not listed below.
 |---|---|---|---|---|
 | anthropic-security-review | github:anthropics/claude-code-security-review | 0c6a49f1fa56a1d472575da86a94dbc1edb78eda | MIT | `git clone https://github.com/anthropics/claude-code-security-review ~/.claude/skills/anthropic-security-review` |
 | ecc | github:affaan-m/everything-claude-code | not pinned | MIT | `copy commands/<name>.md for each owned command from https://github.com/affaan-m/ECC into ~/.claude/commands/ (installed copies match several upstream commits, so no single pin)` |
-| get-shit-done | npm:get-shit-done-cc | 1.34.2 | unknown | `npx get-shit-done-cc (pinned at 1.34.2: read docs/guides/SETUP.md first, a rerun reinstalls the purged routes)` |
 | getsentry-skills | github:getsentry/skills | c2f99a5b04b4cd992ec3022d7c2c3e23e938d241 | Apache-2.0 | `git clone https://github.com/getsentry/skills ~/.claude/skills/getsentry-skills` |
 | gstack | github:garrytan/gstack | b9706f3635b6a545f46fae607ae9d6bcbfb69b91 | MIT | `installed by jjstack's ./setup (it clones garrytan/gstack); update with git -C ~/.claude/skills/gstack merge --ff-only origin/main && ./setup, before jjstack's` |
 | jjstack | private: ~/.claude/private/work.md | 0b659d3c395fc56cf8b1d576a01b825efb0f165f | MIT | `git clone <jjstack source from ~/.claude/private/work.md> ~/.claude/skills/jjstack && cd ~/.claude/skills/jjstack && ./setup` |
@@ -75,7 +74,6 @@ Installed by Claude Code's plugin system, never copied here.
 | `ponytail@ponytail` | DietrichGebert/ponytail | e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156 | MIT | Lazy senior dev mode. |
 | `ralph-loop@claude-plugins-official` | anthropics/claude-plugins-official | 1.0.0 | Apache-2.0 | Continuous self-referential AI loops for interactive iterative development, implementing the Ralph Wiggum technique. |
 | `security-guidance@claude-plugins-official` | anthropics/claude-plugins-official | f359d43b406057f1a8cdbc4ea93b827642c162e6 | Apache-2.0 | Security review for Claude-generated code. |
-| `superpowers@claude-plugins-official` | anthropics/claude-plugins-official | 5bf4e78011075bcfc0dc295f0724994cd123ee71 | MIT | Core skills library for Claude Code: TDD, debugging, collaboration patterns, and proven techniques. |
 | `watch@claude-video` | bradautomates/claude-video | 03ceb42f7fa2c4439aca01752118044baabffb8f | MIT | Give an agent video evidence: timestamped frames and native captions, with optional local WhisperX or Groq/OpenAI transcription. |
 
 ## Downloaded skills

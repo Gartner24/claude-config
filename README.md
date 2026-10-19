@@ -17,7 +17,7 @@ overwritten.
 | Downloaded (skills from GitHub and packages) | `config/manifest.json`, your edits in `config/patches/` | `~/.claude/skills/<name>` | upstream plus your patch | their installer, then you | `/claude-config update`, after your yes per skill |
 | Runner (`wf`, `next`) | `runner/` | `~/.local/share/wf/<fp>/`, linked from `~/.local/bin/wf` | repo wins | you, in the repo | `bin/install.sh` copies it out |
 | Repo tools | `bin/`, `scripts/` | none (a few are linked into `~/.local/bin`) | repo wins | you, in the repo | nothing |
-| Frameworks (gstack, jjstack, get-shit-done-cc, ECC commands, the JSM skills, plugins) | named in `config/manifest.json` | their own folders in `~/.claude` | their installer wins | their installer | their own installer; never copied here |
+| Frameworks (gstack, jjstack, ECC commands, the JSM skills, plugins) | named in `config/manifest.json` | their own folders in `~/.claude` | their installer wins | their installer | their own installer; never copied here |
 | Private (names, work rules, settings fragments, private skills and patches) | none | `~/.claude/private/` | live only | you | nothing; never in any repo |
 | Claude Code state (`projects/`, `sessions/`, `history.jsonl`, caches) | none | `~/.claude/...` | Claude Code only | Claude Code | nothing; never synced |
 
@@ -93,9 +93,9 @@ says how to load one per project.
 Languages          Markdown (skills, agents, rules), Bash, Python 3 stdlib, one Node ESM script
 Key dependencies   jq (bin/sync.sh), fontTools (design font scripts), culori (build-ramp.mjs,
                    node_modules committed on purpose); no package manager at the root
-Plugins            superpowers, frontend-design, code-review, feature-dev,
+Plugins            frontend-design, code-review, feature-dev,
                    code-simplifier, ralph-loop, clangd-lsp, ponytail, security-guidance
-Skill frameworks   gstack, then jjstack on top; get-shit-done-cc pinned at 1.34.2, hooks only;
+Skill frameworks   gstack, then jjstack on top;
                    ECC commands; the JSM skills; sentry skills; anthropic security review
 Downloaded skills  about 175, each with its source and license in config/manifest.json
 MCP servers        context7 (library docs), plus the design MCPs in DESIGN-PIPELINE.md
