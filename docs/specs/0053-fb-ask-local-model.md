@@ -1,7 +1,7 @@
 # 0053. fb-ask can use the laptop model for private text
 
 **Date**: 2026-10-17
-**Status**: Proposed
+**Status**: Accepted
 **Paths:** `scripts/fb-ask.py`, `claude-home/rules/cheap-worker.md`, `AGENTS.md`
 **Amends**: [0023](0023-cheap-worker-tier/index.md) AC-4, AC-5, AC-6, AC-8, AC-9, AC-12, AC-13 (a `--local` mode)
 

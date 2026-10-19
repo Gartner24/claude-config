@@ -419,7 +419,7 @@ function AgentsSection({ el, agents, columns }: { el: El; agents: any[] | null; 
 
 // -- Alerts --------------------------------------------------------------------------------------------------------
 
-function AlertsSection({ el, alerts, view, act, columns, extra = 0 }: { el: El; alerts: WfDashAlert[]; view: View; act: Act; columns: number; extra?: number }) {
+function AlertsSection({ el, alerts, view, act, columns, extra = 0, statusOk }: { el: El; alerts: WfDashAlert[]; view: View; act: Act; columns: number; extra?: number; statusOk?: boolean | null }) {
   const { Box, Text } = el
   const list = [...alerts].reverse()
   // details print in full, so an alert takes its title row plus the rows its detail wraps to
@@ -433,7 +433,8 @@ function AlertsSection({ el, alerts, view, act, columns, extra = 0 }: { el: El; 
   return (
     <Box flexDirection="column">
       {columns >= pane.specMin && <Text color={color.dim}>Every alert this session, newest first. Each also shows at the top right for 15 s.</Text>}
-      {list.length === 0 && <Text color={color.dim}>No alerts yet. When wf finishes a feature, gets stuck or asks you something, it lands here.</Text>}
+      {/* spec 0065 AC-3: an empty list from a runner that could not be read is not "no alerts yet" */}
+      {list.length === 0 && <Text color={color.dim}>{statusOk == null ? 'reading wf' : statusOk ? 'No alerts yet. When wf finishes a feature, gets stuck or asks you something, it lands here.' : 'could not read wf'}</Text>}
       {/* inbox rows, Linear style: kind and feature on the title line with the time at the right, the detail in full below */}
       {list.slice(start, end).map(a => (
         <Box flexDirection="column">
@@ -458,8 +459,10 @@ function AlertsSection({ el, alerts, view, act, columns, extra = 0 }: { el: El; 
 
 // -- The dashboard -------------------------------------------------------------------------------------------------
 
-export function Dashboard({ el, view, act, plan, runner, agents, alerts, facts, columns, focused = true, rows }: {
+export function Dashboard({ el, view, act, plan, runner, agents, alerts, facts, statusOk, columns, focused = true, rows }: {
   el: El; view: View; act: Act; plan: Plan; runner: Runner; agents: any[] | null; alerts: WfDashAlert[]; columns: number; focused?: boolean; rows?: number
+  // null before the band's first tick (spec 0065 AC-3)
+  statusOk?: boolean | null
   facts: { running: number | null; parked: number | null; questions: number | null } | null
 }) {
   const { Box, Text } = el
@@ -472,13 +475,14 @@ export function Dashboard({ el, view, act, plan, runner, agents, alerts, facts, 
         <Text backgroundColor={color.accent} color="inverseText" bold>{' wf-dash '}</Text>
         {keyRow(el, SECTIONS.map(s => ({ key: s.key, label: s.label, on: s.id === section.id, mark: true, press: () => act.go({ section: s.id }) })), columns >= pane.specMin ? space.gap : space.tight)}
       </Box>
-      {/* a stray key hands the keyboard to the prompt; say so, and how to come back, instead of failing silently */}
-      {!focused && <Text color={color.warn} wrap="truncate-end">Keys go to the prompt now: ctrl+x tab returns here</Text>}
+      {/* a stray key hands the keyboard to the prompt; say so, and how to come back, instead of failing silently.
+          This used to name the host's focus key, which did not give the keys back in a real terminal; a click did (spec 0062 P11) */}
+      {!focused && <Text color={color.warn} wrap="truncate-end">Keys go to the prompt now: click the dashboard to return</Text>}
       <Box flexDirection="column">
         {section.id === 'plan' && <PlanSection el={el} plan={plan} view={view} act={act} columns={columns} extra={extra} />}
         {section.id === 'builds' && <BuildsSection el={el} runner={runner} view={view} act={act} columns={columns} extra={extra} />}
         {section.id === 'agents' && <AgentsSection el={el} agents={agents} columns={columns} />}
-        {section.id === 'alerts' && <AlertsSection el={el} alerts={alerts} view={view} act={act} columns={columns} extra={extra} />}
+        {section.id === 'alerts' && <AlertsSection el={el} alerts={alerts} view={view} act={act} columns={columns} extra={extra} statusOk={statusOk} />}
       </Box>
       <Box flexDirection="row" columnGap={space.gap} flexWrap="wrap">
         {keyRow(el, [{ key: 'r', label: 'refresh', on: true, press: act.retry }])}
