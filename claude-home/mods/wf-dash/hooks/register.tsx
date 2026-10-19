@@ -1,6 +1,7 @@
 import type { Register } from 'claude-code'
 import { alertTick, counts, parseStatus } from '../alerts.ts'
-import { Band, type Facts } from '../band.tsx'
+import { Band, HandoffRow, type Facts } from '../band.tsx'
+import { handoffLine } from '../handoff.ts'
 import { DEFAULT_VIEW, Dashboard } from '../panes.tsx'
 import { color, pane, space, time, width } from '../tokens.ts'
 
@@ -13,6 +14,7 @@ const ALERTS = { plugin: 'wf-dash', key: 'alerts' } as const
 const PLAN = { plugin: 'wf-dash', key: 'plan' } as const
 const RUNNER = { plugin: 'wf-dash', key: 'runner' } as const
 const VIEW = { plugin: 'wf-dash', key: 'view' } as const
+const HANDOFF = { plugin: 'wf-dash', key: 'handoff' } as const
 const PANE = 'wf-dash'
 // what `wf auto bar` takes as a session id and an effort level (runner/auto.py); anything else names no file
 const SESSION_ID = /^[A-Za-z0-9-]{1,100}$/
@@ -50,6 +52,22 @@ export const register: Register = on => {
     const sid = SESSION_ID.test(id) ? id : null
     const state = await stateDir($)
     const dir = `${state}/wf-dash`
+    const panelPath = `${await $.env.get('HOME')}/.claude/state/auto-handoff/panel.json`
+    let me = id
+    let prev: string | null = null
+
+    // Spec 0064 AC-2, AC-6: the wf-handoff mod's panel. A /clear keeps this module but changes the id, so the
+    // id before it is the chat this one came from. A panel another chat wrote keeps the last one that was ours.
+    const readPanel = async () => {
+      const now = await $.session.id().catch(() => me)
+      if (now && now !== me) { prev = me; me = now }
+      const raw = await $.fs.read(panelPath).catch(() => null)
+      let p: any = null
+      try { p = raw ? JSON.parse(raw) : null } catch {}
+      const { value: old } = await $.state.get(HANDOFF)
+      const mine = p && typeof p.session === 'string' && Array.isArray(p.steps) && (p.session === me || p.session === prev)
+      await $.state.set(HANDOFF, { panel: mine ? p : old?.panel ?? null, me, prev, dismissed: old?.dismissed ?? 0, frame: old?.frame ?? 0 })
+    }
 
     const refresh = async () => {
       if (busy) return
@@ -57,6 +75,7 @@ export const register: Register = on => {
       try {
         // AC-4: the marker tells this session's `wf auto bar` to go short; its mtime is all it says
         if (sid) await $.fs.write(`${dir}/${sid}`, '').catch(() => {})
+        await readPanel()
         const cwd = await $.session.cwd()
         const [r, st, usage, model, handed] = await Promise.all([
           $.process.run(['python3', `${$.plugin.root}/facts.py`, cwd]).catch(() => null),
@@ -148,6 +167,13 @@ export const register: Register = on => {
     void refresh()
     $.clock.every(time.bandTick, () => void refresh())
     $.clock.every(time.planTick, () => void loadPanes())
+    // the spinner turns only while a handoff step runs, and stays on its first frame under reduced motion, as the host's does
+    $.clock.every(time.spin, async () => {
+      const { value: h } = await $.state.get(HANDOFF)
+      if (!(h?.panel && !h.panel.sticky && h.panel.steps.some(s => s.state === 'running'))) return
+      if ((await $.settings.read().catch(() => null) as any)?.prefersReducedMotion) return
+      await $.state.set(HANDOFF, { ...h, frame: h.frame + 1 })
+    })
 
     await $.command.register({ name: 'wf-dash', description: 'wf-dash: the plan, the builds, the agents and the alerts in one dashboard' })
     return started
@@ -157,6 +183,16 @@ export const register: Register = on => {
 
   on('ui.close', async ($, e, next) => {
     if (e.id === PANE) isOpen = false
+    return next(e)
+  })
+
+  // Spec 0064 AC-2: a sticky handoff line goes once the owner types.
+  on('prompt.submit', async ($, e, next) => {
+    if (e.origin.kind === 'composer' || e.origin.kind === 'bridge') {
+      // never in the way of the prompt: a failed read or write only keeps the line
+      const h = (await $.state.get(HANDOFF).catch(() => null))?.value
+      if (h?.panel?.sticky) await $.state.set(HANDOFF, { ...h, dismissed: await $.clock.now() }).catch(() => {})
+    }
     return next(e)
   })
 
@@ -175,16 +211,28 @@ export const register: Register = on => {
     const { Box, Text, Button } = $.ui.resolve(e)
     const { value: facts } = await $.state.get(FACTS)
     const { value: level } = await $.state.get(EFFORT)
-    if (!facts) {
-      return (
+    const { value: h } = await $.state.get(HANDOFF)
+    const line = h ? handoffLine(h, Date.now()) : null
+    // the handed over level first, then the latest main loop request's; unknown stays out
+    const value = facts && !facts.effort && level ? { ...facts, effort: level } : facts
+    const band = value
+      ? <Band Box={Box} Text={Text} Button={Button} facts={value} columns={e.props.bodyColumns ?? (e.viewport?.columns ?? width.viewport) - space.hostReserve} onOpen={() => void openDashboard($)} />
+      : (
         <Box paddingX={space.padX}>
           <Text color={color.dim}>wf-dash: reading status</Text>
         </Box>
       )
+    if (!line) return band
+    const dismiss = async () => {
+      const { value: cur } = await $.state.get(HANDOFF)
+      if (cur) await $.state.set(HANDOFF, { ...cur, dismissed: await $.clock.now() })
     }
-    // the handed over level first, then the latest main loop request's; unknown stays out
-    const value = !facts.effort && level ? { ...facts, effort: level } : facts
-    return <Band Box={Box} Text={Text} Button={Button} facts={value} columns={e.props.bodyColumns ?? (e.viewport?.columns ?? width.viewport) - space.hostReserve} onOpen={() => void openDashboard($)} />
+    return (
+      <Box flexDirection="column" width="100%">
+        {band}
+        <HandoffRow Box={Box} Text={Text} Button={Button} line={line} onDismiss={() => void dismiss()} />
+      </Box>
+    )
   })
 
   on('ui.render', { component: 'Pane' }, async ($, e, next) => {

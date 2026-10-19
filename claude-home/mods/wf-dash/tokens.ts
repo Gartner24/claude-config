@@ -139,6 +139,8 @@ export const glyph = {
   dirty: "*",
   // ends a line wrapWords had to cut
   cut: "...",
+  // the handoff's running step (spec 0064 AC-2 names a braille spinner, the one non-ASCII glyph here)
+  spinner: ["\u280b", "\u2819", "\u2839", "\u2838", "\u283c", "\u2834", "\u2826", "\u2827", "\u2807", "\u280f"],
 } as const;
 
 // Spacing in terminal cells.
@@ -179,4 +181,7 @@ export const time = {
   planTick: 10000,
   barMarkerFresh: 15000,
   toast: 15000,
+  // spec 0064 AC-2: the handoff result shows this long; the spinner turns at `spin` while a step runs
+  handoffResult: 10000,
+  spin: 120,
 } as const;

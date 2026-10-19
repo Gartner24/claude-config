@@ -1,6 +1,7 @@
 // The band above the prompt: this session on the left, the runner on the right, always one line.
 // Pure drawing from facts; every color, width and word comes from tokens.ts.
 import type { WfDashFacts } from './types/index.d.ts'
+import type { HandoffLine } from './handoff.ts'
 import { color, effort, glyph, meter, space, width } from './tokens.ts'
 
 export type Facts = WfDashFacts
@@ -175,6 +176,20 @@ export function Band({ Box, Text, Button, facts, columns, onOpen }: { Box: any; 
       <Box flexShrink={1} marginLeft={space.gap}>
         {draw(Box, Text, right, 1)}
       </Box>
+    </Box>
+  )
+}
+
+// Spec 0064 AC-2: the handoff's own line under the band; a sticky one carries its dismiss key.
+export function HandoffRow({ Box, Text, Button, line, onDismiss }: { Box: any; Text: any; Button?: any; line: HandoffLine; onDismiss?: () => void }) {
+  return (
+    <Box flexDirection="row" paddingX={space.padX} gap={space.gap} width="100%">
+      <Box flexShrink={1}>
+        <Text color={line.color} bold={line.kind === 'sticky'} wrap="truncate-end">{line.text}</Text>
+      </Box>
+      {line.kind === 'sticky' && Button && onDismiss
+        ? <Button key="wf-dash-handoff-dismiss" plain hotkey="x" onPress={onDismiss}><Text color={color.dim}>dismiss</Text></Button>
+        : null}
     </Box>
   )
 }

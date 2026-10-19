@@ -1,0 +1,151 @@
+import { expect, mock, test } from 'claude-code/testing'
+import type { On } from 'claude-code'
+
+// /check verify spec 0064 scratch: world copied from display.test.ts, dumps what the real mod writes.
+const SLOT = '/h/.claude/projects/-w/rollover/session.md'
+const STATE = '/h/.claude/state/auto-handoff'
+const SLOT_TEXT = '# Rollover handover\nNext: <b>finish</b> & ship.\n## Last request from the owner\n> fix it\nStatus: answered\n'
+
+function world(on: On, o: { tailscale?: string; answers?: Record<string, string>; cmdline?: string; band?: boolean; surfaces?: string[]; noSlot?: boolean; token?: string; spawnSays?: string } = {}) {
+  const clock = mock.clock(on, { now: 1_000_000 })
+  mock.env(on, { HOME: '/h' })
+  const w = {
+    clock,
+    files: new Map<string, { text: string; mtimeMs: number }>(),
+    tokens: 10_000 as number | undefined,
+    id: 'S1aaaaaa-1111',
+    commands: [] as string[],
+    toasts: [] as { text: string; timeoutMs?: number }[],
+    spawned: [] as string[][],
+    killed: [] as string[],
+    fetched: [] as string[],
+    panels: [] as any[],
+  }
+  if (o.token) w.files.set(`${STATE}/server.token`, { text: `${o.token}\n`, mtimeMs: 0 })
+  on('session.cwd', () => ({ value: '/w' }))
+  on('session.id', () => ({ value: w.id }))
+  on('session.surfaces', () => ({ value: (o.surfaces ?? ['terminal']) as any }))
+  on('session.usage', () => ({ value: { startedAt: 0, context: { tokens: w.tokens, window: 1_000_000 }, rateLimits: [] } as any }))
+  on('session.messages', () => ({ value: [] as any }))
+  on('state.get', (_$, e: any) => e.plugin === 'wf-dash'
+    ? { value: { value: o.band ? {} : undefined, version: o.band ? 3 : 0 } as any }
+    : undefined as any)
+  on('command.register', (_$, e: any) => ({ value: { command: e.name } }))
+  on('ui.toast', (_$, e: any) => { w.toasts.push({ text: e.text, timeoutMs: e.timeoutMs }); return { value: undefined } })
+  on('ui.status', () => ({ value: undefined }))
+  on('fs.read', (_$, e: any) => {
+    if (e.path.startsWith('/proc/')) return { value: o.cmdline ?? '' }
+    const f = w.files.get(e.path) ?? (e.path.includes('/templates/') ? { text: 'TEMPLATE {{lastRequest}}', mtimeMs: 0 } : undefined)
+    if (!f) throw new Error(`ENOENT ${e.path}`)
+    return { value: f.text }
+  })
+  on('fs.write', (_$, e: any) => {
+    w.files.set(e.path, { text: e.text, mtimeMs: clock.now() })
+    if (e.path.endsWith('/panel.json')) w.panels.push(JSON.parse(e.text))
+    return { value: undefined }
+  })
+  on('fs.stat', (_$, e: any) => {
+    const f = w.files.get(e.path)
+    if (!f) throw new Error(`ENOENT ${e.path}`)
+    return { value: { kind: 'file', size: f.text.length, mtimeMs: f.mtimeMs, isLink: false } }
+  })
+  on('fs.list', () => ({ value: [] }))
+  const ran = (exitCode: number, stdout = '') => ({ value: { exitCode, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } })
+  on('process.run', (_$, e: any) => {
+    if (e.argv[0] === 'tailscale') return o.tailscale ? ran(0, `${o.tailscale}\n`) : ran(1)
+    if (e.argv[0] === 'kill') { w.killed.push(e.argv[1]); return ran(0) }
+    if (e.argv[2] === '--probe') return ran(0, '{"state":"none"}')
+    return w.files.has(SLOT) ? ran(0, `${SLOT}\n`) : ran(1)
+  })
+  on('process.spawn', async function* (_$, e: any) {
+    w.spawned.push([...e.argv])
+    return { value: { code: 0, signal: null } } as any
+  })
+  on('command.run', (_$, e: any) => {
+    w.commands.push(e.command)
+    if (e.command === 'rollover' && !o.noSlot) {
+      clock.advance(5)
+      w.files.set(SLOT, { text: SLOT_TEXT, mtimeMs: clock.now() + 10 })
+    }
+    if (e.command === 'clear') w.id = w.id === 'S1aaaaaa-1111' ? 'S2bbbbbb-2222' : 'S3cccccc-3333'
+    return { text: '' }
+  })
+  on('prompt.submit', (_$, e: any) => ({ text: e.text }))
+  on('tool.call', () => ({ result: 'ok', text: '' } as any))
+  on('turn.step', async function* (_$, e: any) {
+    return { turnId: e.turnId, index: e.index, answer: 'a', toolUses: [], stopReason: 'end_turn', usage: null } as any
+  })
+  on('turn.complete', () => ({ text: '' }))
+  on('session.start', (_$, e: any) => ({ cwd: e.cwd }))
+  on('session.end', (_$, e: any) => ({ sessionId: e.sessionId }))
+  return w
+}
+
+const start = async ($: any, w: ReturnType<typeof world>) => {
+  await $.session.start({ cwd: '/w', surface: 'terminal', isInteractive: true })
+  await w.clock.settle()
+}
+async function step($: any, turnId: string) {
+  const s = $.turn.step({ turnId, index: 0, model: 'm', messageCount: 1 })
+  let x = await s.next()
+  while (!x.done) x = await s.next()
+}
+const complete = ($: any, turnId: string) => $.turn.complete({ turnId, answer: '', durationMs: 1, reason: 'answer' })
+async function handoff($: any, w: ReturnType<typeof world>, n: number, fresh = 95_000) {
+  w.tokens = 210_000
+  await complete($, `T${n}`)
+  await w.clock.settle()
+  await complete($, `T${n}r`)
+  await w.clock.advance(1500)
+  w.tokens = fresh
+  await step($, `T${n}f`)
+}
+
+const dump = (name: string, w: ReturnType<typeof world>) => console.log(`DUMP ${name} ` + JSON.stringify({
+  panels: w.panels, toasts: w.toasts, spawned: w.spawned, commands: w.commands,
+  files: Object.fromEntries([...w.files].filter(([k]) => k.includes('/pages/') || k === SLOT || k.endsWith('S1aaaaaa-1111.json')).map(([k, v]) => [k, v.text])),
+}))
+
+test('V1 two handoffs in a row, band present', { options: { threshold: 200000, maxConsecutiveHandoffs: 5 } }, async ($, on) => {
+  const w = world(on, { band: true })
+  await start($, w)
+  await handoff($, w, 1)
+  await handoff($, w, 2, 96_000)
+  dump('v1', w)
+  expect(w.commands.filter(c => c === 'clear').length).toBe(2)
+})
+
+test('V2 missing slot', { options: { threshold: 200000 } }, async ($, on) => {
+  const w = world(on, { noSlot: true })
+  await start($, w)
+  w.tokens = 210_000
+  await complete($, 'T1')
+  await w.clock.settle()
+  await complete($, 'T1r')
+  await w.clock.settle()
+  dump('v2', w)
+})
+
+test('V3 pause at the guard, band loaded but mobile surface', { options: { threshold: 200000, maxConsecutiveHandoffs: 1 } }, async ($, on) => {
+  const w = world(on, { band: true, surfaces: ['terminal', 'mobile'] })
+  await start($, w)
+  await handoff($, w, 1)
+  w.tokens = 300_000
+  await complete($, 'T2')
+  await w.clock.settle()
+  dump('v3', w)
+})
+
+test('V4 Tailscale up, viewer default', { options: { threshold: 200000 } }, async ($, on) => {
+  const w = world(on, { tailscale: '100.88.1.2' })
+  await start($, w)
+  await handoff($, w, 1)
+  dump('v4', w)
+})
+
+test('V5 blank viewer', { options: { threshold: 200000, viewer: '' } }, async ($, on) => {
+  const w = world(on, { band: true })
+  await start($, w)
+  await handoff($, w, 1)
+  dump('v5', w)
+})

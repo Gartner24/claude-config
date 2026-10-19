@@ -1,50 +1,50 @@
-# Design audit - wf-dash band, alerts view and hooks/register.tsx after spec 0065 - 2026-10-18
+# Design audit - wf-dash handoff line under the band (spec 0064: band.tsx HandoffRow, handoff.ts, hooks/register.tsx) - 2026-10-19
 
-verdict: PASS
-pass: 4 of 3 - a fix verification, not a fresh pass. Pass 3 hit the budget and handed 7 should-fixes to the owner; the owner picked all 7 (spec 0065), and AC-7 of that spec asks for this re-run. Run under the re-audit rules only: each carried item checked, regressions from the fixes in scope at full severity, no new opinions below P1.
-ai-tell fails: 0/36        (item 10 fixed: full band counts are now right aligned in width.count cells)
-token leaks: 0 (token-leak.sh exit 2, NOT APPLICABLE, no tokens.css; substitute check = theme-key and width literals in hooks/ that bypass tokens.ts: 0, was 3)
+verdict: PASS WITH FINDINGS (handoff line: 0 must-fix open; the one pass 2 must-fix was accepted by the owner on 2026-10-19. Budget of 3 passes reached: no further audit pass on this surface, the 4 should-fixes go to the owner as a list)
+pass: 3 of 3 for the handoff line (pass 2 had 5 findings: 1 must-fix, 4 should-fix; now 4 open: 0 must-fix, 4 should-fix, plus 1 accepted by the owner. The count fell, so not STOP)
+ai-tell fails: 1/36        (item 10 carried from the band; unchanged since pass 2)
+token leaks: 4 (token-leak.sh exit 2, NOT APPLICABLE: no tokens.css. Substitute check = literals in the mod that bypass tokens.ts: 3 in hooks/register.tsx, 1 at handoff.ts:26, unchanged since pass 1)
 a11y: static only (terminal surface, no page to serve)
 wcag22: not run (terminal surface, no page to serve)
 contrast failures: not measured (colors are Claude Code theme keys from the user's theme)
-responsive: clean at the documented ~31 cell column and 94/120/160 (band.test.ts); the padded full band only leaves left segments sooner, via fit()
-motion: none in scope
-reference: not re-run (pass 1: 2 sections against k9s, 0 worse; the only visible changes are the count padding and the new `stopped` kind, both ones the owner picked in spec 0065)
+responsive: result line with a loopback link cut below ~83 columns, with a Tailscale link below ~85-89 (ACCEPTED by the owner); handover line fits from ~62 columns; every link line and the sticky text cut at the 31-cell docked column
+motion: 0 findings against review-animations standards (handoff.ts, hooks/register.tsx)
+reference: 1 section (handoff line) compared against k9s by reading only, 0 worse; not screenshotted (terminal)
 perf: NOT MEASURED (no browser surface)
 
-Finding count: pass 3 had 0 must-fixes and 7 should-fixes. This run has 0 and 0. The count fell, so there is no STOP.
+## Refresh after pass 3 (2026-10-19, no new pass)
 
-## Carried should-fixes, each checked
+The 3-pass budget is spent, so this is not a fourth audit; it confirms the graded code did not change. `git diff --stat 5548b2b HEAD -- claude-home/mods/wf-dash claude-home/mods/wf-handoff` (5548b2b = the pass 3 report commit) shows one file: `handoff.test.ts`, +28 lines, from 6049190 (two AC-2 dismiss tests). `band.tsx`, `handoff.ts` and `hooks/register.tsx` have no diff since pass 3 and no uncommitted change; `band.tsx` and `handoff.ts` only carry a newer mtime (02:08) with identical content. `hooks/register.tsx` last changed in 6751d0f, the reduced motion spinner fix that passes 2 and 3 already graded. Suite rerun: `claude plugin test claude-home/mods/wf-dash` - 38 pass, 0 fail across 5 files (10 in handoff.test.ts, the 2 new AC-2 tests among them). Verdict, findings and accepted items below stand unchanged.
 
-- [x] Fresh runner counts on a stale tick - fixed. `hooks/register.tsx:104-107` merges this tick's `wf` into `lastGood.wf` field by field, so a field that failed keeps its last good count. It also stores `statusOk` (`:70`) and saves the mark into `lastGood`, so `stale since` keeps its first time. Pinned by `register.test.ts` "a stale tick shows the runner counts it just read".
-- [x] `finished` toasted for any end - fixed. `alerts.ts:40-46` gives `finished` only when `ended` is set and `stop_reason` is `queue_done` or `feature_done`, otherwise `stopped` with the reason. A record that is missing or has no `ended` is read again for 3 ticks (`:15`, `:48`). `alertTick` reads the records before the pure `diff` (`:96-101`), and an id that does not match `RUN_ID` (`:83`) is never turned into a path. `runner/run.py:3950` always writes `ended` and `stop_reason` together, so the `String(r.stop_reason)` at `alerts.ts:42` never prints `null` for a real record.
-- [x] Empty Alerts view the same whether wf was read or not - fixed. `panes.tsx:437` shows `reading wf` (no FACTS yet), the empty text (statusOk true) or `could not read wf` (false). It is fed by `hooks/register.tsx:203`.
-- [x] Literals that bypass tokens.ts - fixed. `hooks/register.tsx:181` uses `color.dim`, `:187` and `:203` use `width.viewport` (`tokens.ts:168`). A grep for `color="` and `?? <digit>` under hooks/ returns 0.
-- [x] Counts not fixed width - fixed in the full band. `band.tsx:117-119` pass `width.count` to `countRun` (`:56-60`), which left pads with the existing `pad()`. The compact band passes none, so its zero filter (`:104`) and budget (`:108-112`) still read bare text, as AC-6 says.
-- [x] design.md did not describe the compact stale band - fixed. `design.md:44-47` says the fresh counts show, the 3 cell alignment, ` stale` is the last part to go, and the band can read `stale` alone.
-- [x] Docs named removed commands - fixed. `design.md:13`, `design.md:113` and `tokens.ts:42` now name the dashboard's Alerts view (`l`). A grep for `wf-alerts` / `wf-dash-alerts` finds them only in this report's own history.
+## Pass 2 must-fixes, rechecked
 
-## Regressions the fixes could have created, checked
+No code changed since pass 2: `git status` is clean for `claude-home/mods/wf-dash` and `claude-home/mods/wf-handoff/hooks`, no file under the mod is newer than the pass 2 report, and the last commit touching the mod is 6751d0f, the pass 2 reduced motion fix. Suite rerun this pass: `claude plugin test claude-home/mods/wf-dash` - 36 pass, 0 fail across 5 files.
 
-- Band width: the padded full band is up to 6 cells wider. `fit()` (`band.tsx:128-136`) drops left segments by the DROP order and the band falls back to compact when only the chip is left, so nothing overflows. The 94/120/160 and 31 cell band tests pass.
-- The `stopped` kind is 7 characters, inside `pane.col.kind` (10) (`tokens.ts:116`). `alert.stopped` = `color.warn` (`tokens.ts:46`), drawn at `panes.tsx:442`.
-- A seen record saved by the old code (no `pending`) loads through `isSeen` (`alerts.ts:82`). `seen.pending ?? []` covers it, and the first tick writes it back once.
-- `JSON.parse` of a bad run.json sits inside `.catch(() => null)` (`alerts.ts:98`), so a corrupt record counts as missing and never throws out of the tick.
+- ACCEPTED BY THE OWNER (2026-10-19), not open - the result line link is cut at narrow widths (`claude-home/mods/wf-dash/band.tsx:186` `wrap="truncate-end"`, link last; `claude-home/mods/wf-dash/handoff.ts:26`, `:29`). Owner's words: "Keep it, full link shows next". Accepted as is: the result line `handed off · 210k -> 95k · <link>` (`claude-home/mods/wf-handoff/hooks/register.ts:405`) loses its last key characters below about 83 columns with a loopback link and below about 85-89 with a Tailscale link. Why it is acceptable: the result line lasts 10 s, and the `handover: <link>` line that follows carries the same full link from about 62 columns. No spec change. The docked 31-cell column still cuts every link line; that case is part of the same accepted finding, and a person reaching the link there widens the window or reads it from the handover page.
 
 ## Must fix
-None.
+None open.
 
-## Should fix
-None.
+## Should fix (carried from pass 1, not re-graded; for the owner)
+- [ ] Sticky failure or pause loses its reason at the docked width - `claude-home/mods/wf-dash/band.tsx:185-189`.
+- [ ] design.md does not describe the handoff line - `claude-home/mods/wf-dash/design.md:27`.
+- [ ] Non-ASCII separator outside tokens - `claude-home/mods/wf-dash/handoff.ts:26`.
+- [ ] (PLAUSIBLE) Lost update between the handoff state writers - `claude-home/mods/wf-dash/hooks/register.tsx:65-67`, `:165`, plus the dismiss paths; the settings read at `:164` widens the window between the get at `:162` and the set at `:165`.
+
+## Accepted by the owner
+- [x] Result line link cut below ~83-89 columns, and every link line in the docked column - `claude-home/mods/wf-dash/band.tsx:186`, `claude-home/mods/wf-dash/handoff.ts:26`, `:29` - owner 2026-10-19: "Keep it, full link shows next"; no spec change.
 
 ## Checked and clean
-- Suite: `claude plugin test claude-home/mods/wf-dash` - 37 pass, 0 fail across 5 files. 33 of them are in the 4 tracked files (pass 3 had 28). The other 4 are the untracked `zz-verify.test.ts` scratch from `/check verify`, ignored as asked.
-- `claude plugin validate claude-home/mods/wf-dash` passes. It reports the new `$.env.get` reads (HOME, XDG_STATE_HOME) and no env writes.
-- Spec 0065 AC-1 to AC-6, each mapped to the code above. AC-7 is this report.
+- Reduced motion: first frame plus label, host-matching default on a failed settings read (`hooks/register.tsx:164`, `handoff.ts:21-22`); pinned by `under reduced motion the spinner keeps its first frame` (`handoff.test.ts:85-98`), which passed this pass.
+- Spinner turns only while a step runs and the line is not sticky (`hooks/register.tsx:163`).
+- Suite: 36 pass, 0 fail across 5 files (8 in handoff.test.ts).
+- Pass 1's clean rows (color never the only signal, theme-key colors, dismiss key binding, absent answers draw no line) were not re-graded; no line has changed since.
 
 ## Coverage notes
-- Not raised (the mod already did this before the fix, so it is not a regression; below P1): if a run's `wf status` entry loses its id for one tick, then it counts as gone. Before, it toasted `finished` at once. Now, since its run.json has no `ended`, it toasts `stopped ... ended with no record` after 3 ticks. A fix would drop a pending id that comes back into `running` (`alerts.ts:48`).
-- Spec wording, not a defect: a `queue_done` run whose features all parked still toasts `finished`. Its parked features toast `stuck` on their own.
-- The compact band's counts are still unpadded on purpose (spec 0065 AC-6). That is why AI-tell item 10 counts only the full band.
-- This audit did not mutation-check the new tests. `/test` does that under its own gate.
-- 0 findings cut for lack of `file:line`.
+- Pass 3 verified only pass 2's must-fix, per the re-audit rules. No regressions: nothing changed since pass 2.
+- Widths are still arithmetic on the real link shapes (`wf-handoff/hooks/register.ts:115`, `:239`), not a render at a width.
+- The shape of `$.settings.read()` is still taken from the mod test harness, not checked against the live 2.1.303 host.
+- 0 findings cut for lack of `file:line`. No new findings below P1 raised in this pass.
+
+## Band and alerts (spec 0065 fix verification, from main)
+Merged from main on 2026-10-19: the band and alerts got their own fix verification after spec 0065 (pass 4 of 3, verdict PASS, 0 must-fix, 0 should-fix, ai-tell 0/36, token leaks 0). The 7 band should-fixes listed in earlier passes are fixed there and no longer open. The handoff line above was graded on the code before that merge; the merge touched only `hooks/register.tsx` (state folder and theme tokens), not the handoff line code.
