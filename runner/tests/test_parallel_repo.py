@@ -322,6 +322,35 @@ class TestCleanup(RepoCase):
             self.assertIsNone(pr.remove_tree(r, rec2))
             self.assertFalse(os.path.exists(tree2))
 
+    # covers: row 82 (a worktree row carries its repo's own name, which the report gives the plan's waiting boxes)
+    def test_row_repo_name(self):
+        h = {"c": types.SimpleNamespace(path=str(self.repo), scope_dir="docs/scope"), "only": None, "queued": ["1. A"],
+             "answers": {"parallel": "2"}}
+        r = types.SimpleNamespace(use=lambda h: None)
+        f = types.SimpleNamespace(name="1. A", lines=[])
+        with mock.patch.object(run, "repo_features", return_value=(None, [f])), \
+                mock.patch.object(run, "queue_transact", return_value={"decisions": [], "prs": []}), \
+                mock.patch.object(pr, "make_tree", return_value=("/t/a", {})), mock.patch.object(pr, "globs"), \
+                mock.patch.object(run, "tree_guard", return_value={}):
+            [row] = run.tree_jobs(r, h, "par", None)
+        self.assertEqual((row["name"], row["repo_name"]), ("par: 1. A", "par"))
+
+    # covers: row 82 (the parent also cleans the tree of a PR merged outside this run's jobs, by a sibling child's poll
+    # or by you; a building feature, a tree already gone and this run's own job are left to their own paths)
+    def test_sweep(self):
+        r = FakeRun(self.repo, "work")
+        r.record, r.use = {"notes": []}, lambda h: None
+        merged = {"repo": str(self.repo), "feature": "2. B", "state": "merged", "tree": str(self.tmp)}
+        r.q["prs"] = [merged, {**merged, "feature": "3. C", "state": "building"},
+                      {**merged, "feature": "4. D", "tree": str(self.tmp / "gone")}, {**merged, "feature": "1. A"}]
+        job = {"tree": "/t", "key": str(self.repo), "feature": "1. A", "held": {"c": r.c}}
+        with mock.patch.object(pr, "remove_tree", return_value=None), \
+                mock.patch.object(pr, "cleanup", side_effect=lambda r, rec: [f"cleaned {rec['feature']}"]) as clean, \
+                mock.patch.object(pr, "land_plan"):
+            notes = run.tree_cleanup(r, [job])
+        self.assertEqual(notes, ["cleaned 1. A", "cleaned 2. B"])
+        self.assertEqual(clean.call_count, 2)
+
 
 # The worktree child is a fresh wf.py, so the test wrapper's short poll gap never reaches it; this does.
 SITE = f"""import sys
