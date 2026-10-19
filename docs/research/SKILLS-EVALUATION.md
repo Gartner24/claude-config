@@ -1,5 +1,8 @@
 # Skills Evaluation Log
 
+> Superseded as the place to look: [`docs/tool-catalog.md`](../tool-catalog.md) lists every tool
+> with its current verdict. This file keeps the 2026-07 and 2026-08 notes.
+
 Every third-party skill/tool considered for this stack, its verdict, and where it's wired. The
 antidote to loose, forgotten skills (like the client CMS skill once was). Evaluated 2026-07 during the
 services-pivot revision. Full research + rationale: `~/Downloads/marketing-playbook/REVISION-PLAN.md` sec. 3/sec. 9.

@@ -3,7 +3,7 @@
 # ran the other direction (live -> repo), so "restore on a new machine" was a claim
 # the repo could not actually deliver.
 #
-# What this does NOT install: the frameworks (gstack, jjstack, get-shit-done-cc)
+# What this does NOT install: the frameworks (gstack, jjstack)
 # and the Claude Code plugins. They manage themselves and are not vendored here -
 # docs/guides/SETUP.md documents how to install each. Run this first, then those.
 #
@@ -300,7 +300,7 @@ fi
 cat <<EOF
 
 done. Still to install, none of it vendored here (see docs/guides/SETUP.md):
-  gstack / jjstack / get-shit-done-cc, and the Claude Code plugins.
+  gstack / jjstack, and the Claude Code plugins.
 
 Activate the rules per project by adding one line to that project's CLAUDE.md:
   @~/.claude/rules/ecc/<language>/index.md

@@ -44,7 +44,7 @@ fb-ask <task> [--local] [--file PATH] < input   # cheap worker tier (spec 0023; 
   - Mods (`claude-home/mods/<name>/`): repo wins, and the one exception to the same path rule: each is linked as `~/.claude/skills/<name>` by hand after a `skillspector scan` (spec 0057), never by `bin/install.sh`.
   - Runner (`runner/`): repo wins; `bin/install.sh` copies it to `~/.local/share/wf/<fp>/` (spec 0020).
   - Downloaded skills (spec 0048): named in `config/manifest.json` with source, pin, license and install command, never copied; an edited one is its pin plus `config/patches/<name>.patch` (a `publish: false` or private one keeps its patch in `~/.claude/private/patches/`). Never copy a downloaded skill's files into the repo.
-  - Frameworks (gstack, jjstack, get-shit-done-cc, ECC commands, the JSM skills, plugins): their installer wins, never vendored; the manifest's `frameworks` names each.
+  - Frameworks (gstack, jjstack, ECC commands, the JSM skills, plugins): their installer wins, never vendored; the manifest's `frameworks` names each.
   - Private (`~/.claude/private/`): live only, never in any repo.
   - Claude Code state (`projects/`, `sessions/`, `history.jsonl`, caches): Claude Code only, never synced.
 - Rules for this repo only go in this file. Rules for sessions started in `~/.claude` go in `~/.claude/.claude/CLAUDE.md`.

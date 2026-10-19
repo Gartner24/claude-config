@@ -10,15 +10,6 @@ block the call. Most hooks come from a framework and come back when you reinstal
 
 | Hook file | Source | What it does |
 |-----------|--------|--------------|
-| `gsd-check-update.js` | get-shit-done-cc | Checks for gstack updates at session start |
-| `gsd-session-state.sh` | get-shit-done-cc | Adds a project state reminder at session start |
-| `gsd-context-monitor.js` | get-shit-done-cc | **Not wired** since spec 0037: it read a bridge file only gsd's status line writes, so it never fired. `context-monitor.js` replaces it |
-| `gsd-phase-boundary.sh` | get-shit-done-cc | Notices writes under `.planning/` to track phase progress |
-| `gsd-prompt-guard.js` | get-shit-done-cc | Guards against prompt issues on Write and Edit |
-| `gsd-read-guard.js` | get-shit-done-cc | **Not wired**: on disk, but no `settings.json` entry runs it. The read before edit check you see comes from Claude Code itself |
-| `gsd-workflow-guard.js` | get-shit-done-cc | Enforces GSD workflow rules on Write and Edit |
-| `gsd-validate-commit.sh` | get-shit-done-cc | Enforces the Conventional Commits format on Bash |
-| `gsd-statusline.js` | get-shit-done-cc | gsd's own status line; not the one in use (see the status line below) |
 | `auto-approve-safe.sh` | jjstack | Since jjstack 0.4x (upstream #36, 2026-09-09) an audit log and private tool relay only; it approves nothing |
 | `permission-floor.py` | jjstack | PreToolUse deny for ten unbounded shapes: root or home targets, curl to shell, file upload, secret paths, block devices, fork bomb, power, sudo destructive, force push to trunk, push --mirror |
 | `error-detector.sh` | jjstack | Records failed Bash commands to a JSONL log |
@@ -43,4 +34,4 @@ block the call. Most hooks come from a framework and come back when you reinstal
 | Autocompact | not overridden | `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: 100` used to sit in `settings.json` as "autocompact off", which was wrong: the threshold is `min(window * pct/100, window - 13000)`, so `100` resolves to the default `window - 13000`. The `min()` means the override can only make compaction fire earlier. Removed; the default leaves a 13k summary buffer |
 | Model | not pinned | The `model: opus[1m]` pin was removed in commit 82fcf80; the model is chosen at runtime (`/model`, or the session default) |
 | `permissions.defaultMode: auto` with `skipAutoPermissionPrompt: true` | on | The policy is `permissions.deny` in `settings.json` (jjstack's `permissions.policy.json` merged in) plus `permission-floor.py`. The old local Haiku prompt patch to `auto-approve-safe.sh` and its upstream PR #31 are retired: the mechanism they tuned is gone. The auto mode classifier still blocks some commands (`git reset --hard`, some `git merge` shapes); run those yourself with the `!` prefix, or use a narrower command |
-| Status line | `jjstack/bin/statusline.sh` | Shows project state in the terminal; `wf auto bar` wraps it (spec 0030) |
+| Status line | `wf auto bar` (`runner/statusbar.py`, yours) | Our own bottom bar, ported from jjstack's `statusline.sh` so it no longer needs jjstack (spec 0058) |

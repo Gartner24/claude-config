@@ -210,7 +210,3 @@ The old 5-step copy of this rule and `~/claude-config/commands/design.md` are re
 (2026-09-09). Setup notes in `~/claude-config/docs/guides/DESIGN-PIPELINE.md` are stale on two points:
 `/ui` and `/21` were never protocol features, and the `magic` MCP is now optional rather
 than the primary component source.
-
-## Superpowers
-- Ignore the "1% chance -> must invoke" rule. Invoke a skill only when it clearly matches the task.
-- Use superpowers only for subagent-driven-development and dispatching-parallel-agents. Planning, building, verifying and debugging follow `## Workflow` above.
