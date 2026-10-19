@@ -833,5 +833,69 @@ class TestStacks(PrCase):
         self.assertEqual([a["what"] for a in r.record["prs"]].count("rebase"), 2)
 
 
+WAITS = "- [ ] Check the phone · waits on you · later boxes go on\n- [ ] `/sync a`\n"
+
+
+class TestWaitingPush(PrCase):
+    """Row 82: a waiting box later boxes may pass never holds back the built branch or its draft PR."""
+
+    def plan(self, text, branch=False):
+        (self.repo / "docs" / "scope" / "scope.md").write_text(text)
+        self.git("commit", "-qam", "plan")
+        self.git("push", "-q", "origin", "work")
+        if branch:
+            self.git("switch", "-qc", "feat/0001-a")
+            (self.repo / "a.txt").write_text("a\n")
+            self.git("add", "a.txt")
+            self.git("commit", "-qm", "feat: A (spec 0001)")
+            self.git("switch", "-q", "work")
+        return {"repo": str(self.repo), "feature": "1. A", "spec": "0001", "branch": "feat/0001-a", "base": "work",
+                "base_sha": self.git("rev-parse", "work"), "stacked_on": None, "pr": None, "number": None,
+                "state": "building", "seen": [], "rounds": 0, "pushed_sha": None}
+
+    def queued(self, rec):
+        (self.state / "wf").mkdir(parents=True, exist_ok=True)
+        (self.state / "wf" / "queue.json").write_text(json.dumps({"version": 1, "parks": [], "decisions": [],
+                                                                  "prs": [rec]}))
+
+    # covers: row 82 (the build reaches the waiting box: pushed with its draft PR in the same run, /sync not run)
+    def test_pushed_at_the_box(self):
+        self.plan(SCOPE + WAITS)
+        self.steps([build()])
+        r = self.wf("prr", "-y")
+        self.assertIn("draft PR: 1. A: https://github.com/acme/widgets/pull/7\n", r.stdout, r.stdout + r.stderr)
+        self.assertEqual(self.git("rev-parse", "feat/0001-a"), self.git("rev-parse", "feat/0001-a", repo=self.origin))
+        self.assertEqual(self.rec()["state"], "draft")
+        self.assertFalse((self.fakes / "argv-2.json").exists(), "no /sync call while the box waits")
+
+    # covers: row 82 (rows 67 and 69: built before, never pushed, only the waiting box left: the next run pushes it
+    # with no claude call)
+    def test_push_owed(self):
+        self.queued(self.plan(SCOPE.replace("- [ ] `/develop a`", "- [x] `/develop a`") + WAITS, branch=True))
+        r = self.wf("prr", "-y")
+        self.assertIn("  push owed: 1. A\n", r.stdout, r.stdout + r.stderr)
+        self.assertIn("draft PR: 1. A: https://github.com/acme/widgets/pull/7\n", r.stdout)
+        self.assertEqual(self.git("rev-parse", "feat/0001-a"), self.git("rev-parse", "feat/0001-a", repo=self.origin))
+        self.assertFalse((self.fakes / "argv-1.json").exists(), "no claude call")
+
+    # covers: row 82 (the box ticked after the push: the draft's /sync runs and its commit reaches the open PR)
+    def test_sync_after(self):
+        done = SCOPE.replace("- [ ] `/develop a`", "- [x] `/develop a`") + WAITS.replace("- [ ] Check", "- [x] Check")
+        rec = self.plan(done, branch=True)
+        self.git("push", "-q", "origin", "feat/0001-a")
+        url = "https://github.com/acme/widgets/pull/7"
+        self.queued({**rec, "state": "draft", "number": 7, "pr": url, "pushed_sha": self.git("rev-parse", "feat/0001-a")})
+        self.gh({"list": [{"number": 7, "url": url}]})
+        self.steps([{"tick": False, "write_file": [["notes.txt", "synced\n"]],
+                     "run": [["git", "add", "notes.txt"], ["git", "commit", "-qm", "docs: sync"]],
+                     "edit": [["- [ ] `/sync a`", "- [x] `/sync a`"]]}])
+        r = self.wf("prr", "-y")
+        self.assertIn("  sync owed: 1. A\n", r.stdout, r.stdout + r.stderr)
+        self.assertIn("done: 1. A\n", r.stdout)
+        self.assertEqual(self.git("rev-parse", "feat/0001-a"), self.git("rev-parse", "feat/0001-a", repo=self.origin))
+        self.assertEqual(self.git("log", "-1", "--format=%s", "feat/0001-a", repo=self.origin), "docs: sync")
+        self.assertFalse(any(c[:2] == ["pr", "create"] for c in self.gh_calls()))
+
+
 if __name__ == "__main__":
     unittest.main()
