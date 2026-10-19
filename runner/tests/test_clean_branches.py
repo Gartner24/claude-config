@@ -48,6 +48,10 @@ GOOD = {"squashMergeAllowed": True, "mergeCommitAllowed": False, "rebaseMergeAll
 RULES = [{"name": "main only through a PR", "enforcement": "active", "target": "branch"}]
 
 
+# One passing check: an empty rollup waits for its first check (AC-4).
+CI = ({"name": "ci", "conclusion": "SUCCESS"},)
+
+
 class R(test_pr.FakeRun):
     """FakeRun with what the merge code reads: answers, gh, a run folder, the suite stand in and question extras."""
     def __init__(self, repo, start, gh, folder):
@@ -113,7 +117,7 @@ class Case(test_pr.PrCase):
         self.r.q["prs"] = [rec]
         return rec, head
 
-    def views(self, head, draft=True, checks=(), mergeable="MERGEABLE", **cfg):
+    def views(self, head, draft=True, checks=CI, mergeable="MERGEABLE", **cfg):
         v = {"state": "OPEN", "isDraft": draft, "headRefOid": head, "mergeable": mergeable,
              "statusCheckRollup": list(checks), "reviewDecision": "REVIEW_REQUIRED", "url": "u"}
         self.gh({"views": [v, v, {**v, "state": "MERGED"}], "methods": GOOD, "rulesets": RULES, **cfg})
@@ -218,12 +222,26 @@ class TestSmallSafe(Case):
     # covers: AC-3 (RISK_PATHS, whole path, case folded; the runner's own files and the scope folder)
     def test_risk_paths(self):
         for path in ("runner/pr.py", "src/Auth/login.py", "AGENTS.md", "pkg/AGENTS.md", ".github/workflows/ci.yml",
-                     "docs/scope/scope.md", "config/.env.local", "db/Migrations/1.sql"):
+                     "docs/scope/scope.md", "config/.env.local", "db/Migrations/1.sql",
+                     # AC-3 as amended 2026-10-17 (plan D1)
+                     "config/routing.md", "claude-home/skills/x/SKILL.md", "claude-home/agents/a.md", "package.json",
+                     "web/package.json", ".githooks/pre-push", ".husky/pre-commit", "hooks/x.sh",
+                     ".claude/hooks/x.sh", ".claude/settings.json", ".claude/settings.local.json",
+                     ".claude/skills/x/SKILL.md", "app/.claude/agents/a.md", ".claude/commands/c.md",
+                     "web/.husky/pre-commit"):
             with self.subTest(path):
                 self.setUp()
                 ok, reasons = self.check({path: "x\n"})
                 self.assertFalse(ok)
                 self.assertEqual(reasons, [f"touches {path}"])
+
+    # covers: AC-16 (the hooks and config patterns are whole path: a hooks or config folder deeper in the tree is not
+    # caught by them)
+    def test_hooks_deeper(self):
+        for path in ("src/hooks/useAuth.ts", "src/config/x.py"):
+            self.assertFalse([x for x in pr.RISK_PATHS if ("hooks" in x or "config" in x)
+                              and pr.fnmatch(path.casefold(), x.casefold())], path)
+        self.assertEqual(self.check({"src/hooks/useThing.ts": "x\n", "src/config/x.py": "x = 1\n"}), (True, []))
 
     # covers: AC-3 (over 200 lines or over 10 files is not small)
     def test_size(self):
@@ -304,6 +322,56 @@ class TestGreen(Case):
                 self.assertFalse(pr.green(self.r, self.rec, self.head, why))
                 self.assertEqual(why, [want])
 
+    # covers: AC-4 (the checks are read before the suite: a failing check reports itself and never runs main's suite)
+    def test_checks_before_suite(self):
+        self.views(self.head, checks=[{"name": "ci", "conclusion": "FAILURE"}])
+        self.r.suite_code = 1
+        why = []
+        self.assertFalse(pr.green(self.r, self.rec, self.head, why))
+        self.assertEqual(why, ["check ci: failure"])
+        self.assertEqual(self.r.suites, [])
+
+
+class TestNoChecks(Case):
+    def setUp(self):
+        super().setUp()
+        self.rec, self.head = self.branch()
+        self.views(self.head, checks=())
+
+    # covers: AC-4, AC-16 (no check reported: not green and no suite run before 600 s from nocheck_since, which is
+    # set once for the head; after the wait that rule passes and the others decide)
+    def test_waits_then_passes(self):
+        why = []
+        with mock.patch.object(pr.time, "time", return_value=1000.0):
+            self.assertFalse(pr.green(self.r, self.rec, self.head, why))
+        self.assertEqual(why, ["no checks reported yet"])
+        self.assertEqual(self.r.suites, [])
+        self.assertEqual(self.rec["nocheck_since"], [self.head, 1000.0])
+        self.assertEqual(pr.find(self.r, self.rec["repo"], self.rec["feature"])["nocheck_since"], [self.head, 1000.0])
+        with mock.patch.object(pr.time, "time", return_value=1599.0):
+            self.assertFalse(pr.green(self.r, self.rec, self.head))
+        self.assertEqual(self.r.suites, [])
+        with mock.patch.object(pr.time, "time", return_value=1600.0):
+            self.assertTrue(pr.green(self.r, self.rec, self.head))
+        self.assertEqual(len(self.r.suites), 1)
+        self.assertEqual(self.rec["nocheck_since"], [self.head, 1000.0])
+
+    # covers: AC-16 (a new head resets nocheck_since: an old wait for another head does not count)
+    def test_new_head_resets(self):
+        self.rec["nocheck_since"] = ["b" * 40, 0.0]
+        with mock.patch.object(pr.time, "time", return_value=5000.0):
+            self.assertFalse(pr.green(self.r, self.rec, self.head))
+        self.assertEqual(self.rec["nocheck_since"], [self.head, 5000.0])
+        self.assertEqual(self.r.suites, [])
+
+    # covers: AC-4 (during the wait the self merge leaves one report note naming when the wait ends; nothing merges)
+    def test_merge_note(self):
+        with mock.patch.object(pr.time, "time", return_value=1000.0):
+            self.assertIsNone(pr.merge_green(self.r, self.rec))
+        until = pr.time.strftime("%H:%M", pr.time.localtime(1600))
+        self.assertEqual(self.r.notes, [f"PR #7 waits for checks until {until}, next run merges it"])
+        self.assertEqual(self.merges(), [])
+
 
 class TestMergeGreen(Case):
     # covers: AC-5 (small, low risk and green: gh pr ready for the draft, then the one squash merge with
@@ -332,7 +400,7 @@ class TestMergeGreen(Case):
                 (self.fakes / "gh-argv.jsonl").unlink(missing_ok=True)
                 self.r.notes.clear()
                 v = {"state": "OPEN", "isDraft": True, "headRefOid": head, "mergeable": "MERGEABLE",
-                     "statusCheckRollup": []}
+                     "statusCheckRollup": list(CI)}
                 self.gh({"views": [v, {**v, **view}], "methods": GOOD})
                 with mock.patch.object(pr, "MERGEABLE_WAIT", 0):
                     self.assertIsNone(pr.merge_green(self.r, rec))
@@ -366,7 +434,7 @@ class TestMergeGreen(Case):
         self.git("commit", "-qm", "main moves")
         self.git("push", "-q", "origin", "work")
         main = self.git("rev-parse", "work")
-        v = {"state": "OPEN", "isDraft": False, "mergeable": "MERGEABLE", "statusCheckRollup": []}
+        v = {"state": "OPEN", "isDraft": False, "mergeable": "MERGEABLE", "statusCheckRollup": list(CI)}
         # GitHub shows the head after the update.
         self.gh({"views": [{**v, "headRefOid": "pending"}], "methods": GOOD})
         real = pr.gh_json
@@ -672,6 +740,34 @@ class TestWarnings(Case):
         self.assertEqual(pr.warnings(self.r, rec), [])
 
 
+    # covers: AC-12, AC-16 (the age is the branch's own first commit, by author date so an amend does not move it:
+    # 3 days old after merging a fresh main warns; a fresh branch that merged old main commits does not)
+    def test_age_own_commits(self):
+        old = "@" + str(int(run.time.time()) - 3 * 86400 - 60)
+        with mock.patch.dict(os.environ, {"GIT_AUTHOR_DATE": old}):
+            rec, _ = self.branch(push=False)
+        self.on_work({"main.txt": "fresh\n"})
+        self.merge_work(rec)
+        self.assertEqual(pr.warnings(self.r, rec), ["old: branch 3 days (over 2)"])
+        self.setUp()
+        rec, _ = self.branch(push=False)
+        with mock.patch.dict(os.environ, {"GIT_COMMITTER_DATE": old, "GIT_AUTHOR_DATE": old}):
+            self.on_work({"main.txt": "old\n"})
+        self.merge_work(rec)
+        self.assertEqual(pr.warnings(self.r, rec), [])
+
+    def on_work(self, files):
+        for path, text in files.items():
+            (self.repo / path).write_text(text)
+        self.git("add", "-A")
+        self.git("commit", "-qm", "main moves")
+
+    def merge_work(self, rec):
+        self.git("switch", "-q", rec["branch"])
+        self.git("merge", "-q", "--no-edit", "work")
+        self.git("switch", "-q", "work")
+
+
 BIN = Path(__file__).resolve().parent.parent.parent / "bin"
 # gh for bin/repo-settings.sh: reads answer from settings.json by API path (the --jq result), writes are logged.
 SETTINGS_GH = f"""#!{sys.executable}
@@ -931,7 +1027,7 @@ class TestReviewFixes(Case):
         self.assertIsNone(pr.merge_green(self.r, rec))
         self.assertTrue(rec["self_ready"])
         (self.fakes / "gh-views").unlink()
-        v = {"state": "OPEN", "isDraft": False, "headRefOid": head, "mergeable": "MERGEABLE", "statusCheckRollup": [],
+        v = {"state": "OPEN", "isDraft": False, "headRefOid": head, "mergeable": "MERGEABLE", "statusCheckRollup": list(CI),
              "reviewDecision": "REVIEW_REQUIRED", "url": "u"}
         self.gh({"views": [v, v, v, {**v, "state": "MERGED"}], "methods": GOOD, "rulesets": RULES})
         pr.poll_one(self.r, rec)
@@ -941,7 +1037,7 @@ class TestReviewFixes(Case):
     def test_ready_still_reviewed(self):
         rec, head = self.branch()
         rec["self_ready"] = True
-        v = {"state": "OPEN", "isDraft": False, "headRefOid": head, "mergeable": "MERGEABLE", "statusCheckRollup": [],
+        v = {"state": "OPEN", "isDraft": False, "headRefOid": head, "mergeable": "MERGEABLE", "statusCheckRollup": list(CI),
              "reviewDecision": "REVIEW_REQUIRED", "url": "u"}
         self.gh({"views": [v], "methods": GOOD, "rulesets": RULES, "merge_rc": True})
         pr.poll_one(self.r, rec)

@@ -41,7 +41,18 @@ Main (with 0054 and 0061 merged) was merged into the branch, then every check ab
 - [x] `run.tree_cleanup` with no run folder (scratch `$TMPDIR/verify_tree_cleanup.py`, `pr.find` stubbed to no PR) -> `['plan landed: PR #7, 1 commits']`, origin equal to local; old code -> `['plan landing: internal_error: expected str, bytes or os.PathLike object, not NoneType']`, origin behind. can fail: the parent path still crashes -> AC-15
 - [x] `python3 runner/tests/fast.py` -> 1026 tests, 0 failed. can fail: any regression, including the plan links on main
 
+## /check verify 2026-10-18, row 71 (D1 and E4: AC-3, AC-4, AC-12, AC-16): PASS
+Driver: `python3 -B docs/specs/0051-clean-branches-commits/probes/verify71.py <runner dir>`, real `small_safe`, `green`, `merge_green` and `warnings` on scratch git repos with a fake `gh`. Each check ran on this branch's `runner/`, then on a copy whose `pr.py` is `main`'s (the old copy also cannot find the private names checker, so its scans fail; the differences below come before that).
+- [x] `small_safe` on `config/routing.md`, `claude-home/skills/x/SKILL.md`, `claude-home/agents/a.md`, `package.json`, `web/package.json`, `.githooks/pre-push`, `.husky/pre-commit`, `hooks/x.sh`, `.claude/hooks/x.sh` -> each `(False, ["touches <path>"])`; `src/hooks/useThing.ts`, `src/config/x.py` -> `(True, [])`. Old code: all `(True, [])`. can fail: a new pattern missing, or one matched anywhere in the path -> AC-3, AC-16
+- [x] `green` with an empty rollup at t 1000, 1599, 1600 -> false `no checks reported yet` with no suite run twice, then true with one suite run; `nocheck_since` `[head, 1000.0]` saved in the record store. Old code: suite run every time, no `nocheck_since`. can fail: no wait, a wait under 600 s, or the suite run during the wait -> AC-4, AC-16
+- [x] `green` with a FAILURE check -> false `check ci: failure`, 0 suite runs. Old code: 1 suite run first. can fail: the suite runs before the checks are read -> AC-4
+- [x] `green` with `nocheck_since` for another head at t 5000 -> false, reset to `[head, 5000.0]`, no suite. Old code: left as the other head's. can fail: a new head keeps the old wait -> AC-4, AC-16
+- [x] `merge_green` with an empty rollup -> None, note `PR #7 waits for checks until 19:26, next run merges it` (local time of 1600), no merge, state draft. Old code: a `not merged, not green` note. can fail: it merges during the wait or leaves no note -> AC-4
+- [x] `warnings` on a branch whose own commit is 3 days old by author date and that merged a fresh main -> `old: branch 3 days (over 2)`; a fresh branch that merged a 3 day old main commit -> none. Old code: the reverse of both. can fail: merged main commits or committer dates set the age -> AC-12, AC-16
+- [x] `python3 runner/tests/fast.py` -> 1052 tests, 0 failed. can fail: any regression
+
 ## Checked by reading only (not counted)
+- AC-16 wording: `claude-home/CLAUDE.md` line 41 reads "PRs open as drafts (only spec 0051's self merge marks one ready)". The live copy waits on you (row 71's `cp` box).
 - AC-14: `claude-home/rules/branch-pr.md` rules 4 to 10, architecture invariants 1, 5 and 6, and the Amended by lines in 0026, 0031 and 0043 say what AC-14 asks.
 
 ## Not reachable from the sandbox
