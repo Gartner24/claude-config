@@ -2444,6 +2444,8 @@ class Run:
             problem = copy_tree(tree, sha.stdout.strip(), clean)
             if problem:
                 return 1, [problem]
+            if os.path.lexists(os.path.join(clean, ".git")):
+                return 1, ["a .git entry in the clean copy"]
             # The suite reads its own file list (`git ls-files`) and docs-pr's scanners from origin/main, so the copy is
             # a repo of exactly this tree. shortcut: origin/main only, upgrade if a repo's default branch differs.
             for args in (("init", "-q"), ("add", "-A", "-f"),
@@ -5751,9 +5753,13 @@ def copy_tree(repo, tree_sha, dest):
             link = os.fsdecode(body)
             if os.path.isabs(link) or not os.path.normpath(os.path.join(os.path.dirname(target), link)).startswith(root + os.sep):
                 return f"a symlink leaves the clean copy: {path}"
+            if any(part.lower() == ".git" for part in link.split("/")):
+                return f"a symlink into .git: {path}"
             os.symlink(link, target)
             continue
-        with open(target, "wb") as f:
+        # never through an entry already written (a duplicate path, a symlink)
+        fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644)
+        with os.fdopen(fd, "wb") as f:
             f.write(body)
         if mode == "100755":
             os.chmod(target, 0o755)
