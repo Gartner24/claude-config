@@ -1004,7 +1004,10 @@ def merge(r, rec):
 RISK_PATHS = ("*auth*", "*login*", "*payment*", "*billing*", "*invoice*", "*migration*", "*permission*", "*crypto*",
               "*secret*", "*credential*", ".github/*", "*.env*", "AGENTS.md", "*/AGENTS.md", "CLAUDE.md",
               "*/CLAUDE.md", "claude-home/settings*.json", "claude-home/hooks/*", "claude-home/rules/*", "runner/*",
-              "bin/*", "scripts/*", "docs/scope/*", ".workflow/*")
+              "bin/*", "scripts/*", "docs/scope/*", ".workflow/*", "config/*", "claude-home/skills/*",
+              "claude-home/agents/*", "package.json", "*/package.json", ".githooks/*", ".husky/*", "hooks/*",
+              ".claude/hooks/*", ".claude/settings*.json", ".claude/skills/*", ".claude/agents/*",
+              ".claude/commands/*", "*/.claude/*", "*/.husky/*")
 TEST_NAMES = ("test_*.py", "*_test.py", "*.test.*", "*.spec.*")
 TEST_SKIP = re.compile(r"@unittest\.skip|pytest\.mark\.skip|\.skip\(|\bxit\(")
 TOP_DEF = re.compile(r"^(?:async\s+)?(?:def|class)\s+(\w+)")
@@ -1014,6 +1017,8 @@ SMALL_LINES, SMALL_FILES = 200, 10
 # AC-12: a warning in the PR body and the built: line, never a block.
 LARGE_LINES, OLD_DAYS = 400, 2
 CHECKS_OK = ("SUCCESS", "NEUTRAL", "SKIPPED")
+# AC-4: how long a PR with no check at all waits for its first one; a repo with no checks merges after it.
+NOCHECK_WAIT = 600
 MERGEABLE_READS, MERGEABLE_WAIT = 3, 10
 RULESET = "main only through a PR"
 # AC-10: what bin/repo-settings.sh sets, as gh repo view names it.
@@ -1109,7 +1114,8 @@ def main_suite(r, default):
 
 def green(r, rec, head, why=None):
     """AC-4: True when the plan's verify and test boxes are ticked, main's own suite passes on head's tree, both scans
-    pass on pushed_sha..head, and every check GitHub reports is fine. why, a list, gets the first reason it is not."""
+    pass on pushed_sha..head, and every check GitHub reports is fine. The checks are read before the suite runs; no
+    check at all is not green until NOCHECK_WAIT after nocheck_since. why, a list, gets the first reason it is not."""
     why = why if why is not None else []
     default = default_branch(r)
     if not boxes_ticked(r, rec["feature"]):
@@ -1118,14 +1124,6 @@ def green(r, rec, head, why=None):
     suite = main_suite(r, default)
     if not suite:
         why.append(f"no suite answer on origin/{default}")
-        return False
-    code, lines = r.clean_suite(run.key_of(r.c), suite, rev=head)
-    if code:
-        why.append(f"main's suite failed: {run.flat(' '.join(lines[-2:]))[:120]}")
-        return False
-    hit = scans(r, rec, rec["pushed_sha"] or rec["base_sha"], [])
-    if hit:
-        why.append(f"{hit[0]}: {hit[1]}"[:150])
         return False
     view, err = gh_json(r.gh, "pr", "view", str(rec["number"]), "--repo", origin_repo(r) or "", "--json",
                         "statusCheckRollup,headRefOid")
@@ -1136,12 +1134,30 @@ def green(r, rec, head, why=None):
         # Review: right after a push the rollup can still be the previous head's.
         why.append(f"checks are for head {str(view.get('headRefOid'))[:7]}, not {str(head)[:7]}")
         return False
-    for c in view.get("statusCheckRollup") or []:
+    checks = view.get("statusCheckRollup") or []
+    for c in checks:
         state = (c.get("conclusion") or c.get("state") or "") if isinstance(c, dict) else ""
         if state not in CHECKS_OK:
             why.append(f"check {c.get('name') or c.get('context') if isinstance(c, dict) else '?'}: "
                        f"{state.casefold() or 'pending'}")
             return False
+    if not checks:
+        since = rec.get("nocheck_since")
+        if not since or since[0] != head:
+            # A new head waits again from its first sight; an adopted PR starts here too.
+            rec["nocheck_since"] = since = [head, time.time()]
+            save(r, rec)
+        if time.time() < since[1] + NOCHECK_WAIT:
+            why.append("no checks reported yet")
+            return False
+    code, lines = r.clean_suite(run.key_of(r.c), suite, rev=head)
+    if code:
+        why.append(f"main's suite failed: {run.flat(' '.join(lines[-2:]))[:120]}")
+        return False
+    hit = scans(r, rec, rec["pushed_sha"] or rec["base_sha"], [])
+    if hit:
+        why.append(f"{hit[0]}: {hit[1]}"[:150])
+        return False
     return True
 
 
@@ -1154,7 +1170,9 @@ def warnings(r, rec):
     n = sum(int(x) for item in num.split("\0") for x in item.split("\t")[:2] if x.isdigit())
     if n > LARGE_LINES:
         out_.append(f"large: {n} lines changed (over {LARGE_LINES})")
-    first = (out(git(g, repo, "log", "--reverse", "--format=%ct", f"{rec['base_sha']}..{b}")) or "").split("\n")[0]
+    # The branch's own first commit: merged in main commits and amends used to make a fresh branch look old.
+    first = (out(git(g, repo, "log", "--reverse", "--no-merges", "--first-parent", "--format=%at",
+                     f"{rec['base_sha']}..{b}")) or "").split("\n")[0]
     if first.isdigit():
         days = int((datetime.datetime.now().timestamp() - int(first)) // 86400)
         if days > OLD_DAYS:
@@ -1305,6 +1323,9 @@ def merge_green(r, rec, approved=None):
             ok, reasons = small_safe(r, rec, base, tested) if approved is None else (True, [])
             why = []
             if not green(r, rec, tested, why):
+                if why == ["no checks reported yet"]:
+                    until = time.strftime("%H:%M", time.localtime(rec["nocheck_since"][1] + NOCHECK_WAIT))
+                    return r.note(f"PR #{rec['number']} waits for checks until {until}, next run merges it")
                 return r.note(f"PR #{rec['number']}: not merged, not green: {why[0] if why else 'unknown'}")
             if not ok:
                 return ask_ready(r, rec, tested, reasons)
