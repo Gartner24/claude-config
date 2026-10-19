@@ -1,7 +1,5 @@
 # 0062 verify: probe P10 (AC-1)
 
-# 0062 verify: probe P10 (AC-1)
-
 Run 2026-10-18 by a subagent, Claude Code 2.1.303, model haiku. Probe: throwaway `probe-0062` mod in the session scratchpad (`p0062/mod`, never installed; `claude plugin validate` passed, one warning: no author). Hooks module opens the pane with `$.ui.open({ id: 'probe-dash', focus: true, closeOnEscape: true, rows: 10 })` from `/probe-dash`; its `ui.render` hook draws a `Client` (`module: "./client.tsx"`, key `k`, props `{ bodyColumns }`) whose `onKey` calls `surface.post`; a `ui.message` hook logs each post with `$.fs.write` to `p0062/out/log.txt`. Session: `tmux new-session -d -s probe0062 -x 200 -y 50 -c <scratch>/p0062/cwd "claude --plugin-dir <scratch>/p0062/mod --model haiku"`, driven with `tmux send-keys` (keys 0.6 s apart, since a surface post is one per frame and a later post replaces an undelivered one). Session killed after the run.
 
 Verdict: FAIL as AC-1 words it (keys reach `onKey` right after the pane opens with `focus: true`). PASS once a mouse click on the `Client` region has given it the focus. Other criteria PASS.
@@ -50,3 +48,25 @@ Verdict: FAIL. No hidden try draws nothing, and Tab lands on them.
 - A key with no Button in the focused pane falls to the prompt, band hotkeys included.
 - The working way back is a click on the pane, not ctrl+x tab.
 - Consequence for 0062: the hidden button plan stops; amended again to click to return (your pick 2026-10-18).
+
+# Verify: wf-dash stray keys · spec 0062 (the build)
+
+Run 2026-10-19 by a subagent on the build commit, Claude Code 2.1.303. Verdict: PASS for AC-2 to AC-5; AC-6 waits on you.
+
+## Commands
+- [x] Every view drawn through the host test runner (`claude plugin test` on a scratch copy of the mod, one scratch test that prints each drawn string and button label), once with the old `panes.tsx` from `origin/main` and once with the build, for Plan, Builds, Agents and Alerts, focused and not, at 60 and 100 columns (16 drawings each). Focused: all 8 drawings identical. Unfocused: all 8 differ in one string only, `Keys go to the prompt now: ctrl+x tab returns here` became `Keys go to the prompt now: click the dashboard to return`; every button (`p b a l r`), label, `[ ]` mark and `esc closes` is the same → AC-2, AC-3. can fail: a different hint text, a warn line while focused, or any key, label or row changed.
+- [x] `band.tsx` is not in `git diff origin/main...HEAD`, so the band chip's `w` hotkey is unchanged; the `panes.tsx` diff touches only the warn line and its comment → AC-3. can fail: any other line of the dashboard or band changed.
+- [x] `grep -rn -i -e "ctrl+x" claude-home/mods/wf-dash`: hits only in `hint.test.ts` (the strings it checks for); `design.md` lines 66 to 67 say `click the dashboard to return` and that a mod cannot catch a key it has no button for (probes P10, P11) → AC-4, AC-5. can fail: the old sentence left in `design.md` or any mod file.
+- [x] `claude plugin validate claude-home/mods/wf-dash` passes; `claude plugin test claude-home/mods/wf-dash` 31 of 31 → AC-5. can fail: a test or the mod failing to load.
+
+## Tests (mutation checked, AC-5)
+- `unfocused, the dashboard says a click brings the keys back`: old hint text put back, red.
+- `focused, the dashboard shows no warn line`: `!focused &&` replaced by `true &&`, red.
+- `no view of the dashboard still names ctrl+x tab`: old hint text put back, red.
+All restored from a `cp` backup and green again.
+
+## UI / manual
+- [ ] Real terminal check (AC-6) · waits on you. After the mod is installed: (1) in tmux, start `claude`, run `/wf-dash`, press a key the dashboard does not use (for example `z`) and see the line `Keys go to the prompt now: click the dashboard to return`; (2) click anywhere inside the dashboard; (3) press `b` and check with `tmux capture-pane -p` that the Builds view shows and the prompt line holds no `b`.
+
+## Acceptance criteria coverage
+- AC-1 probes, done (above) · AC-2 met · AC-3 met · AC-4 met · AC-5 met · AC-6 waits on you
