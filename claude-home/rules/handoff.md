@@ -9,7 +9,7 @@ and types `/clear`; you run every other step yourself. Instead of that line:
   prompt: when it lands, run the rest of the tier chain yourself. A "stop before merge or push" in the
   prompt stops only at merge or push, never after the suite. Never end a turn by printing the next chain
   command.
-- Feature still open and a handoff is due (after `/architect`, or past ~150k tokens): commit,
+- Feature still open and a handoff is due (after `/architect`; a size handoff is the wf-handoff mod's, at 200k): commit,
   invoke `/rollover` yourself, then say "Type `/clear`, then `/resume-from-clear`."
 - Feature closed (heading `· done`) or switching task: commit, invoke `/save-and-clear` yourself,
   then say "Type `/clear`, then `<next command>`."

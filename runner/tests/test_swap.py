@@ -258,9 +258,10 @@ class TestInstallStage(unittest.TestCase):
             (repo / d).mkdir(parents=True)
         shutil.copy(RUNNER.parent / "bin/install.sh", repo / "bin/install.sh")
         shutil.copy(RUNNER / "finish.py", repo / "runner" / "finish.py")
-        for f in ("run.py", "wf.py", "ntfy.py", "report.py", "telegram.py", "plain.py", "context.py"):
+        for f in ("run.py", "wf.py", "ntfy.py", "report.py", "telegram.py", "plain.py", "context.py", "insights.py"):
             shutil.copy(RUNNER / f, repo / "runner" / f)
-        for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py", "hooks/context-monitor.js"):
+        for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py", "hooks/context-monitor.js",
+                  "hooks/handover-start.sh"):
             (repo / "claude-home" / f).write_text("#!/bin/sh\n")
         (repo / "scripts" / "private-names.py").write_text("#!/usr/bin/env python3\n# c\n")
         (repo / "claude-home" / "settings.json").write_text("{}")

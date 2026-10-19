@@ -17,7 +17,7 @@ The full rules are in [claude-home/CLAUDE.md](../../claude-home/CLAUDE.md) under
    - GA: `/check verify`, `/test`, a review, then `/document`.
 5. Then `/sync`, which updates `AGENTS.md`, the scope and any stale specs. Claude runs the rest of the chain itself. It stops only on a failure, a decision it owes you, or a step that pushes, merges, posts or bills.
 6. A bug, a failing test or wrong behavior: run `/debug`.
-7. Handoffs. A feature still open and the context is full: `/rollover`, then you type `/clear`, then `/resume-from-clear`. A feature closed or a new task: `/save-and-clear`, then you type `/clear`.
+7. Handoffs. A feature still open and the context is full: `/rollover`, then you type `/clear`; a start up hook loads the handover and the new session resumes it (spec 0057). `/resume-from-clear` still works by hand, for example when the handover is over a day old. A feature closed or a new task: `/save-and-clear`, then you type `/clear`.
 8. UI changed: `/check verify` plus `design-gate`. A new design or a restyle: the `design` skill.
 
 Which reviewer to use is in `## Review Rules` of the same CLAUDE.md file. Never run `/review` and `/review-stack` on the same diff.

@@ -379,7 +379,10 @@ say q-1 "Stop hook feedback: design gate blocked"
 mkdir -p "$PROJ/q-1/subagents"; say q-1/subagents/agent-z "Looks great, build the rest"
 bash $LED set preview RAN "approved" >/dev/null 2>&1
 chk "a repeated loop prompt, hook text or subagent is not the owner" "$?" "1"
-say q-1 "me gusta, sigue con el resto"
+say q-1 "[Image #3]"
+bash $LED set preview RAN "approved" >/dev/null 2>&1
+chk "a screenshot with no words is not a reply" "$?" "1"
+say q-1 "[Image #4] me gusta, sigue con el resto"                # a real reply that opens with a screenshot
 bash $LED check "$TQ" >/dev/null 2>&1;                                chk "once the owner replied the gate re-engages" "$?" "1"
 bash $LED set preview RAN "owner approved the hero" >/dev/null 2>&1;  chk "preview closes after a real reply" "$?" "0"
 python3 -c "

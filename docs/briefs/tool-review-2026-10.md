@@ -19,6 +19,7 @@ Source: your message of 2026-10-15 evening, at the end of the clean branches ses
 - **Later answers** (2026-10-17, second session): land seo-ops-refs as a PR (PR #31), not delete it; drop B9 (graphify stays installed and usable by hand, no hook, no CLAUDE.md line); D4 yes, local model only: fb-ask may take client and work repo text only through `fb-local`, the cloud groups stay refused there. D4 is built with B8.
 - **B1** (2026-10-17): no new spec; row 56 is tagged `· auto` so the runner runs its verify and `/sync`.
 - **B2 answers** (2026-10-17, spec 0052): no weekly brake; split the cores between running features; retry git lock errors 5 times; the 8 worktree stress test is the build's first step and stops it on failure.
+- **B2 parallel 6 timing** (your answer, 2026-10-18): claude-config's AGENTS.md keeps `- parallel: 4` until spec 0052 merges and `bin/install.sh` installs the new runner, then it switches to `- parallel: 6` (the installed old runner refuses anything above 4). Verify passes without the 6.
 - **Build everything in parallel** (your words, 2026-10-17 evening): "lets build in parallel what can be done in parallel, and if something is missing an architect lets do it ... just start".
 - **Design answers, batch 2026-10-17 evening**:
   - D1: a repo with no checks waits up to 10 minutes for one, then self merges anyway. The D1 build waits until row 56's verify and sync finish (same spec).
@@ -33,6 +34,10 @@ Source: your message of 2026-10-15 evening, at the end of the clean branches ses
   - B3 plan pane (your words, 2026-10-17): the mod shows the current state of every agent and of our tasks: every scope and todo file, the plan we are doing and the plans we are not, each feature's and spec's state (designed by /architect and ready to build, building, in review, done), so you have full control of each agent and session and stop having to ask questions. Control answer: show plus safe actions (stop an agent or background task, answer a runner question, start the next step of a feature); never push, merge or delete.
   - B5 history skill reads only your own projects (allow list in `~/.claude/private/history-allow.txt`), with keys, emails and private names removed before the model reads it. Dashboard "start the next step" runs only /architect, /develop, /check verify, /test, /sync, /debug, /scope. B6 gate is automatic on an upper bound (all non main model cost over 15% of the week). B3 is three specs: 0058 bar, 0059 band, 0060 panes; mod probes need you in a scratch session.
   - B4: if the probe proves a mod can do the clear, the mod (`/handoff`) sits on top of the start up hook, which stays as the fallback.
+  - B3 wf-dash look (your words, 2026-10-17, design run in `claude-home/mods/wf-dash/design.md`): the band "look really really good, better than jjstack"; build "a new improved better new status bar with new cool features", nothing imported from jjstack; effort always shows (our own bar, spec 0058, hands Claude Code's effort to the band); alerts at the top right as toasts that stay longer (15 s), each readable in full in the dashboard; the plan view gets more filters, including what is built and what waits to publish; everything in one dashboard you move inside, so you do not type a command per view.
+  - B2 skill scan (your words, 2026-10-17): skip gstack, jjstack and ui-ux-pro-max ("already reviewed by other creators and highly known, let's trust it") so the scans finish; they time out at the 300 s limit. Needs an amendment to spec 0054 (a trusted list the scan skips and names in its report).
+  - B5 history allow list written 2026-10-17 with your yes: `~/.claude`, both claude-config paths, claude-config-old, dotfiles, `~/projects`, `~/projects/personal`, forge and your own studio repos (the exact list is in that file); no work, client or home folder.
+- **wf-dash must look beautiful** (your words, 2026-10-17: "I want them to look good, not bad ... run /design on them"): the `design` pipeline runs on wf-dash before rows 72 and 73 build; its locked `design.md` is the look both builds follow. Mod probes all passed (band, toast, pane, usage, process, submit and clear from a timer); only P8, stopping a task from a mod, is open.
 - **Design sessions** (your words, 2026-10-17): "Yes launch the architect for the ones missing": run `/architect` back to back for B1 to B8, B10 to B14, the D1 amendment to spec 0051, and the two E4 leftovers; recommend an answer on every question and batch them.
 
 ## The plan, enforced until done (agreed 2026-10-15)
@@ -53,13 +58,13 @@ This is the whole list. Nothing is added, dropped or swapped without your yes, a
 - [x] A9. MemPalace trial, after skillspector passes it: Docker, read only mount, loaded by hand, no auto save, one wing per project, no client or work repos, two weeks (row 59): set up 2026-10-16: image `mempalace:trial`, all 13 wings mined with no errors, `mp` search works (a specific query found the exact A4 result; vague queries find context only; old handover files and error logs add noise). Trial review about 2026-10-30
 
 ### B. Build (each gets `/architect`, then the runner)
-- [ ] B1. Finish clean branches and PRs: `/check verify` and `/sync` (row 56)
-- [ ] B2. Runner with more than 4 features at once: any number, default top 6 (8 max until measured), starts a feature only with over 4.5 GB free memory and the 5 hour use under 80%, the same files rule back from each spec's Paths line, a spec with no Paths runs alone, worktrees kept (row 68)
+- [x] B1. Finish clean branches and PRs: `/check verify` and `/sync` (row 56)
+- [x] B2. Runner with more than 4 features at once: any number, default top 6 (8 max until measured), starts a feature only with over 4.5 GB free memory and the 5 hour use under 80%, the same files rule back from each spec's Paths line, a spec with no Paths runs alone, worktrees kept (row 68)
 - [ ] B3. wf-dash, our own mod: status band with jjstack's segments plus wf counts, an agents pane, a runner pane, alerts; the shell status line stays as fallback; replaces jjstack's status line (rows 58, 64, closes 57)
-- [ ] B4. Sessions pass work on: SessionStart hook loads a waiting handover (you type only `/clear`), then a probe of a mod doing the `/clear`, built if it works; the handover loads first and memory gets the space left (row 60)
-- [ ] B5. Runner that improves itself: reads every run.json while idle, sets baselines, writes proposals to a separate inbox file the session shows you, reads `/insights` too, never edits guards or deny lists (row 62)
-- [ ] B6. Cheap work on cheap models: read only helper agents pinned to Haiku, fb-ask used for big inputs; an `agent.spawn` routing mod only after measuring the savings (row 61)
-- [ ] B7. Skill scan script: skillspector over every skill and plugin, both passes, rerun before every install (row 65)
+- [x] B4. Sessions pass work on: SessionStart hook loads a waiting handover (you type only `/clear`), then a probe of a mod doing the `/clear`, built if it works; the handover loads first and memory gets the space left (row 60): built and merged (PR #46); its live install box waits on you in row 60
+- [x] B5. Runner that improves itself: reads every run.json while idle, sets baselines, writes proposals to a separate inbox file the session shows you, reads `/insights` too, never edits guards or deny lists (row 62)
+- [x] B6. Cheap work on cheap models: read only helper agents pinned to Haiku, fb-ask used for big inputs; an `agent.spawn` routing mod only after measuring the savings (row 61)
+- [x] B7. Skill scan script: skillspector over every skill and plugin, both passes, rerun before every install (row 65)
 - [ ] B8. Local model wired in, only if A7 passes: `fb-local` group in fb-ask for private text (row 67)
 - [x] B9. graphify in the workflow, only if A8 wins: its hook and one CLAUDE.md line in that repo only (row 70): dropped 2026-10-17, A8 lost; graphify stays installed
 - [ ] B10. Lead finder (idea from Harvey): a skill that audits local business sites for no website, no booking, an old blog or an incumbent agency, and lists 10 to 20 for you to contact by hand; nothing is ever sent by it (row 69)
@@ -92,10 +97,10 @@ This is the whole list. Nothing is added, dropped or swapped without your yes, a
 - [x] D5. Kept branches `feat/seo-ops-refs` and `sync-settings`: keep or delete: answered 2026-10-17: delete both. sync-settings deleted (already in main). feat/seo-ops-refs held 703 unlanded lines of seo-ops ref docs; you chose to land it instead, PR #31
 
 ### E. Housekeeping still open
-- [ ] E1. Row 46 missed skill detector: the 3 day report verdict, then `/sync`
+- [x] E1. Row 46 missed skill detector: the 3 day report verdict, then `/sync`: done 2026-10-17, verdict in spec 0036 verify.md: WARM read as trigger noise, no router
 - [ ] E2. Row 51 autonomous mode per chat: the two real chats check, then `/sync`
 - [x] E3. Two bugs found today: `bin/repo-settings.sh` failed its first run then passed; `bin/docs-pr.sh` leaves local main diverged after the squash merge (row 71): fixed in PR #30 and PR #29
-- [ ] E4. Small notes from the PR #18 review: stale "combined at the end" line in scope.md, contradicting lines in architecture.md invariant 1 and claude-home/CLAUDE.md:41, `--fill` titles in docs-pr.sh, runner/context.py missing from spec 0051's Paths (row 71): scope.md line fixed in PR #30, `--fill` titles in PR #29; the architecture.md contradiction and the Paths line go through `/architect` with D1
+- [x] E4. Small notes from the PR #18 review: stale "combined at the end" line in scope.md, contradicting lines in architecture.md invariant 1 and claude-home/CLAUDE.md:41, `--fill` titles in docs-pr.sh, runner/context.py missing from spec 0051's Paths (row 71): scope.md line fixed in PR #30, `--fill` titles in PR #29; the architecture.md contradiction and the Paths line go through `/architect` with D1: done 2026-10-17: two leftovers written into spec 0051 AC-16 and its Paths
 - [ ] E5. Rebuild the master list after each phase
 
 ## Items

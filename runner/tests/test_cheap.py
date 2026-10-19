@@ -100,7 +100,8 @@ class TestReportLine(unittest.TestCase):
         with mock.patch.dict(os.environ, {"XDG_STATE_HOME": os.path.join(tmp, "state")}):
             full, _ = report.render([{"path": os.path.join(tmp, "r"), "name": "r", "folder": "/f", "code": None,
                                       "rec": rec}], {"aliases": {}, "block": []})
-        self.assertEqual(full.splitlines()[1:3], ["cheap tier: 1 jobs, 1 fell back (timeout x1)", "next: wf"])
+        self.assertEqual(full.splitlines()[1:5], ["cheap tier: 1 jobs, 1 fell back (timeout x1)",
+                                                  "model split: unknown", "week: unknown", "next: wf"])
 
 
 class TestSelfCheck(unittest.TestCase):

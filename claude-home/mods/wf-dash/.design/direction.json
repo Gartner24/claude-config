@@ -1,0 +1,32 @@
+{
+  "surface": "Claude Code terminal mod: AbovePrompt band, toasts, Panes /plan /agents /runner, short bottom bar",
+  "register": "product-ui",
+  "lens": "minimalist-ui (composition and restraint only)",
+  "style": "Minimalism & Swiss, dense (ui-ux-pro-max design system, density 9, motion 2, variance 2)",
+  "primary_reference": "k9s (see reference-lock.md)",
+  "type": "the user's terminal font; no face is chosen. Hierarchy from weight (bold), dim and case only",
+  "color": {
+    "source": "Claude Code ThemeKeys only, never hex, so the mod follows the user's light or dark terminal theme",
+    "hue_decision": "OCCUPY the host's own accent: the `claude` key marks wf-dash's identity chip and hotkey letters, so the mod reads as part of Claude Code, not a guest",
+    "semantic": {
+      "building / running": "claude",
+      "waits on you / question": "warning",
+      "parked / failed / error": "error",
+      "in review": "suggestion",
+      "ready to build": "success",
+      "needs a design": "permission",
+      "done / dropped / labels / borders": "inactive (dim)",
+      "values": "text"
+    },
+    "rule": "colour is never the only signal: every state also prints its word, every meter its number"
+  },
+  "craft_moves": [
+    "one accent, spent on identity and hotkeys only",
+    "labels dim, values plain: k9s label/value",
+    "numbers right aligned in fixed width so a tick never shifts the line",
+    "unknown prints ?, never 0",
+    "pane title and [count] set into the top border",
+    "key hints as <key> Action at the pane foot"
+  ],
+  "rejected": "powerline chevrons on coloured backgrounds; hex palettes; emoji status icons"
+}

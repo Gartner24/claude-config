@@ -248,11 +248,16 @@ class TestTokens(Case):
         u1 = {"input_tokens": 1000, "output_tokens": 200, "cache_read_input_tokens": 3000,
               "cache_creation_input_tokens": 300}
         u2 = {"input_tokens": 10, "output_tokens": 27, "cache_read_input_tokens": 30}
-        self.steps([{"json": {"usage": u1, "total_cost_usd": 0.73}}, {"json": {"usage": u2}, "drop": ["total_cost_usd"]},
-                    {"tick": False}])
+        # Spec 0055 AC-3: a split call carries models, keyed as modelUsage returns them.
+        mu = {"claude-opus-5-5[1m]": {"outputTokens": 200, "costUSD": 0.7}, "claude-haiku-5-5": {"outputTokens": 9, "costUSD": 0.03}}
+        self.steps([{"json": {"usage": u1, "total_cost_usd": 0.73, "modelUsage": mu}},
+                    {"json": {"usage": u2}, "drop": ["total_cost_usd"]}, {"tick": False}])
         r = self.wf("demo", "-y")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         _, rec = self.run_record()
+        self.assertEqual(rec["calls"][0]["models"], {"claude-opus-5-5[1m]": {"cost_usd": 0.7, "output_tokens": 200},
+                                                     "claude-haiku-5-5": {"cost_usd": 0.03, "output_tokens": 9}})
+        self.assertIsNone(rec["calls"][1]["models"])
         self.assertEqual([c["tokens"] for c in rec["calls"]], [
             {"input": 1000, "output": 200, "cache_read": 3000, "cache_write": 300},
             {"input": 10, "output": 27, "cache_read": 30, "cache_write": None}, None])

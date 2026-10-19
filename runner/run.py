@@ -28,9 +28,10 @@ import urllib.parse
 import urllib.request
 import uuid
 import zoneinfo
-from queue import Queue
+from queue import Empty, Queue
 
 import context
+import insights
 import ntfy
 import plain
 import report
@@ -230,15 +231,17 @@ ANSWERS_FILE = {"docs/scope": "AGENTS.md", ".workflow/scope": ".workflow/AGENTS.
 # Spec 0021 AC-7: allow writes is still accepted so an old line does not refuse the file, but never read: a call
 # can edit AGENTS.md. The setting lives in allow.json (allow_writes_path()).
 # Spec 0026 AC-1: branches per spec, and push draft PR (off is the same as absent), the value casefolded.
+# Spec 0052 AC-1: the most features of one repo built at once.
+MAX_PARALLEL = 8
 ANSWER_KEYS = {"run suite": ("yes", "ask"), "done": ("yes", "ask"), "app start": None, "app url": None,
                "allow writes": None, "branches": ("per spec",), "push": ("draft pr", "off"),
                # Spec 0027 AC-1: features built at once, each in its own worktree.
-               "parallel": ("1", "2", "3", "4"),
+               "parallel": tuple(str(n) for n in range(1, MAX_PARALLEL + 1)),
                # Spec 0043 AC-8: the command that runs the whole suite fast, kept as written.
                "suite": None}
 ANSWER_ENTRY = re.compile(r"^\s*[-*]\s+([^:]+?)\s*:\s*(\S.*?)\s*$")
 ANSWERS_HINT = (" (expected: - run suite: yes|ask, - done: yes|ask, - app start: <command>, "
-                "- app url: http://localhost:<port>, - branches: per spec, - push: draft PR|off, - parallel: 1-4, "
+                "- app url: http://localhost:<port>, - branches: per spec, - push: draft PR|off, - parallel: 1-8, "
                 "- suite: <command>)")
 APP_URL = re.compile(r"https?://(localhost|127\.0\.0\.1|\[::1\]):(\d{1,5})(/\S*)?")
 ANSWERS_INTRO = " Standing answers for this repo, use them instead of asking:"
@@ -443,6 +446,10 @@ GRACE = 30
 # F16: the live dir folders a run copies into on your tap; hooks, scripts and settings stay for your `wf`.
 LIVE_DIRS = ("rules", "agents", "commands", "skills")
 POLL = 0.2
+# Spec 0052 AC-2, AC-3: no new child starts under this much MemAvailable or at this 5 hour use.
+MEMINFO = "/proc/meminfo"
+MIN_FREE_GB = 4.5
+MAX_FIVE_HOUR = 80
 # Spec 0008 AC-8. Built from the interactive message; verify.md check 3 confirms it at the next real limit.
 LIMIT = re.compile(r"rate_limit|hit your (session |weekly )?limit|usage limit", re.I)
 RESET = re.compile(r"resets (\d{1,2})(?::(\d{2}))?\s*(am|pm)\s*\(([^)]+)\)", re.I)
@@ -2437,6 +2444,17 @@ class Run:
             problem = copy_tree(tree, sha.stdout.strip(), clean)
             if problem:
                 return 1, [problem]
+            if os.path.lexists(os.path.join(clean, ".git")):
+                return 1, ["a .git entry in the clean copy"]
+            # The suite reads its own file list (`git ls-files`) and docs-pr's scanners from origin/main, so the copy is
+            # a repo of exactly this tree. shortcut: origin/main only, upgrade if a repo's default branch differs.
+            for args in (("init", "-q"), ("add", "-A", "-f"),
+                         ("-c", "user.name=wf", "-c", "user.email=wf@localhost", "commit", "-q", "--no-verify",
+                          "--allow-empty", "-m", "suite"),
+                         ("update-ref", "refs/remotes/origin/main", "HEAD")):
+                g = wf.git(clean, *args)
+                if g is None or g.returncode:
+                    return 1, ["cannot make the clean copy a git repo"]
             env = call_env(self.run_id)
             for k in KEPT_ENV:
                 env.pop(k, None)
@@ -2826,7 +2844,7 @@ class Run:
         base = os.path.join(self.folder, f"call-{seq:02d}")
         rec = {"seq": seq, "kind": None, "command": command, "box_text": None, "started": now(), "duration_s": None,
                "exit_code": None, "session_id": session, "subtype": None, "is_error": None,
-               "cost_usd": None, "tokens": None, "num_turns": None, "next_after": None, "decision": None,
+               "cost_usd": None, "tokens": None, "models": None, "num_turns": None, "next_after": None, "decision": None,
                "resumes": [], "last_box": last_box, "denials": [], "marker": None, "checked_n": None, "limited": False,
                "outage": False, "unconfirmed": None, "retry_of": None, "touched": None, "app": None, "test_base": sha}
         t0 = time.monotonic()
@@ -2865,7 +2883,8 @@ class Run:
         if data:
             rec.update(session_id=data.get("session_id") or session, subtype=data.get("subtype"),
                        is_error=data.get("is_error"), cost_usd=data.get("total_cost_usd"),
-                       tokens=usage_tokens(data.get("usage")), num_turns=data.get("num_turns"), denials=denials(data))
+                       tokens=usage_tokens(data.get("usage")), num_turns=data.get("num_turns"), denials=denials(data),
+                       models=model_costs(data.get("modelUsage")))
         tail = " / ".join(flat(l) for l in read_bytes(base + ".stderr").decode(errors="replace").splitlines()[-5:])
         return rec, data, timed_out, tail, None
 
@@ -3954,6 +3973,8 @@ class Run:
         print(f"run folder: {self.folder}", flush=True)
         # Spec 0018 AC-1: the morning report, after the final save; a report failure never changes the exit code.
         self.record["report"] = report.end_of_run(self)
+        # Spec 0061 AC-5: before prune_runs, so a run about to be pruned is in the history first.
+        insights.end_of_run()
         self.save()
         for p in prune_runs(self.folder):
             print(f"pruned: {p}", flush=True)
@@ -3977,10 +3998,12 @@ def account_reset(reset):
 def read_answers(c):
     """Spec 0006 AC-1 to AC-3: (answers in ANSWER_KEYS order, None), or (None, refusal detail)."""
     rel = ANSWERS_FILE[c.scope_dir]
+    # A feature worktree reads its main checkout's answers: a reused spec branch older than main used to carry
+    # stale ones, so every start asked guard_changed again and accepting never cleared it (2026-10-18).
     try:
         # Reread after every call (spec 0011 AC-6), so a call could swap the file for a FIFO or a link to /dev/zero:
         # a plain read used to hang wf or fill its memory there, as snapshot() once did (second review).
-        with os.fdopen(os.open(os.path.join(c.path, rel), os.O_RDONLY | os.O_NONBLOCK), "rb") as f:
+        with os.fdopen(os.open(os.path.join(key_of(c), rel), os.O_RDONLY | os.O_NONBLOCK), "rb") as f:
             if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
                 return None, f"{rel}: not a regular file"
             raw = f.read(SNAPSHOT_CAP + 1)
@@ -5068,6 +5091,34 @@ def usage_tokens(usage):
             for k, v in ((k, usage.get(f)) for k, f in TOKEN_FIELDS.items())}
 
 
+def model_costs(usage):
+    """Spec 0055 AC-3: {model id: {cost_usd, output_tokens}} from a call's modelUsage, keys as claude returns them;
+    None when absent or empty (a call that failed before the API reports {}), never {}."""
+    if not isinstance(usage, dict):
+        return None
+    out = {k: {"cost_usd": v.get("costUSD"), "output_tokens": v.get("outputTokens")}
+           for k, v in usage.items() if isinstance(v, dict)}
+    return out or None
+
+
+def split(calls):
+    """Spec 0055 AC-3 to AC-5: (cost per model id, cost off each call's main model, summed cost_usd, calls with a
+    split, calls without one) over call records. The main model is the key with the largest cost_usd."""
+    per, other, total, used, skipped = {}, 0.0, 0.0, 0, 0
+    for c in calls:
+        m = c.get("models")
+        if not m:
+            skipped += 1
+            continue
+        costs = {k: v.get("cost_usd") or 0 for k, v in m.items()}
+        for k, v in costs.items():
+            per[k] = per.get(k, 0) + v
+        other += sum(costs.values()) - max(costs.values())
+        total += c.get("cost_usd") or sum(costs.values())
+        used += 1
+    return per, other, total, used, skipped
+
+
 def spent(calls):
     """Spec 0014 AC-3: {cost_usd, tokens, usage_partial} over call records; a null never counts as 0."""
     costs = [c["cost_usd"] for c in calls if isinstance(c.get("cost_usd"), (int, float)) and not isinstance(c["cost_usd"], bool)]
@@ -5678,7 +5729,12 @@ def copy_tree(repo, tree_sha, dest):
         if kind != "blob":
             # A submodule has no files here to check.
             continue
-        entries.append((mode, obj, os.fsdecode(path)))
+        path = os.fsdecode(path)
+        # Security review: clean_suite runs git init and add on the copy outside the jail, so a planted `.git` would
+        # hand git a config (filter drivers) from the tree under test.
+        if any(part.lower() == ".git" for part in path.split("/")):
+            return f"a .git path in the tree: {path}"
+        entries.append((mode, obj, path))
     blobs = subprocess.run([wf.GIT, "-C", repo, "cat-file", "--batch"], input="".join(f"{o}\n" for _, o, _ in entries).encode(),
                            capture_output=True, timeout=ARCHIVE_TIMEOUT)
     if blobs.returncode:
@@ -5697,9 +5753,13 @@ def copy_tree(repo, tree_sha, dest):
             link = os.fsdecode(body)
             if os.path.isabs(link) or not os.path.normpath(os.path.join(os.path.dirname(target), link)).startswith(root + os.sep):
                 return f"a symlink leaves the clean copy: {path}"
+            if any(part.lower() == ".git" for part in link.split("/")):
+                return f"a symlink into .git: {path}"
             os.symlink(link, target)
             continue
-        with open(target, "wb") as f:
+        # never through an entry already written (a duplicate path, a symlink)
+        fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644)
+        with os.fdopen(fd, "wb") as f:
             f.write(body)
         if mode == "100755":
             os.chmod(target, 0o755)
@@ -5832,6 +5892,63 @@ def read_baseline(path, repo):
     return base
 
 
+def free_gb(path=None):
+    """Spec 0052 AC-2: MemAvailable in GB (MemFree leaves out the page cache the kernel gives back), None unread.
+    WF_MEMINFO is the tests' fake, so a busy machine cannot hold their runs."""
+    try:
+        with open(path or os.environ.get("WF_MEMINFO") or MEMINFO, encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1]) / 1024 / 1024
+    except (OSError, ValueError, IndexError):
+        pass
+    return None
+
+
+def brake(r):
+    """Spec 0052 AC-2, AC-3: (reason, value) that holds the next child start, else None. A failed usage read is
+    unknown and never brakes; there is no weekly brake."""
+    import usage
+    gb = free_gb()
+    if gb is not None and gb < MIN_FREE_GB:
+        return "memory", f"{gb:.1f} GB free, needs {MIN_FREE_GB:g}"
+    u = usage.read()
+    if isinstance(u, tuple):
+        if not getattr(r, "usage_unknown_said", False):
+            r.usage_unknown_said = True
+            print("usage unknown, not braking", flush=True)
+        return None
+    used = u["five_hour"]["used"]
+    if used >= MAX_FIVE_HOUR:
+        return "5 hour use", f"{used:g}%, needs under {MAX_FIVE_HOUR}"
+    return None
+
+
+def shares(j, running):
+    """Spec 0052 AC-5: why worktree row j waits for a running sibling whose Paths overlap, else None. Only two
+    worktrees of one repo are tested; other repos are kept apart by clashes()."""
+    import pr
+    for k in running:
+        if j.get("tree") and k.get("tree") and j["key"] == k["key"]:
+            g = pr.overlap(j["globs"], k["globs"])
+            if g:
+                return f"{j['feature']}: shares {g} with {k['feature']}"
+    return None
+
+
+def pick(waiting, running):
+    """Spec 0027 AC-4: the first waiting row free to start: no clash, under its repo's <parallel> children and (spec
+    0052 AC-5) no Paths overlap with a running sibling; else None."""
+    return next((j for j in waiting if not any(clashes(j, k) for k in running)
+                 and (not j.get("tree") or sum(k.get("key") == j["key"] for k in running) < j["limit"])
+                 and not shares(j, running)), None)
+
+
+def cores(running):
+    """Spec 0052 AC-6: the new child's share of the cores, fixed at its start; running is every child, all repos."""
+    return max(2, (os.cpu_count() or 4) // (len(running) + 1))
+
+
 def parallel(r, on_signal=None, start=None):
     """Spec 0017: bare wf run after its confirm, one child `wf run <repo> -y` per repo with work, side by side.
     Returns the AC-6 exit code."""
@@ -5868,6 +5985,7 @@ def parallel(r, on_signal=None, start=None):
             "--max-hours", str(a.max_hours), "--max-wait", str(a.max_wait)]
     limit = a.jobs or len(jobs)
     lines, running, waiting, starting = Queue(), [], list(jobs), None
+    held = None
 
     def forward(signum, frame):
         # AC-5: every signal reaches each running child as its own Ctrl C, the second as its second.
@@ -5898,10 +6016,23 @@ def parallel(r, on_signal=None, start=None):
         while running or (waiting and not r.interrupted):
             # AC-1: one child at a time through its start checks (the shared MCP npm cache, the locks).
             if starting is None and not r.interrupted and len(running) < limit:
-                # Spec 0027 AC-4: at most <parallel> children of one repo; Paths overlap keeps two apart.
-                j = next((j for j in waiting if not any(clashes(j, k) for k in running)
-                          and (not j.get("tree") or sum(k.get("key") == j["key"] for k in running) < j["limit"])),
-                         None)
+                j = pick(waiting, running)
+                for w in waiting:
+                    said = shares(w, running)
+                    if said and w.get("said") != said:
+                        w["said"] = said
+                        print(f"waits: {said}", flush=True)
+                b = j and brake(r)
+                if b:
+                    # Spec 0052 AC-4: no time cap; the line again only when the reason or its value changes.
+                    if held is None or held[0] != b[0]:
+                        held = (b[0], time.monotonic(), None)
+                    if held[2] != b[1]:
+                        held = (b[0], held[1], b[1])
+                        print(f"waits: {b[0]} {b[1]}, {int((time.monotonic() - held[1]) // 60)} min so far", flush=True)
+                    j = None
+                elif j:
+                    held = None
                 if j:
                     waiting.remove(j)
                     # Spec 0018 AC-1: the parent sends the one report, so no child does.
@@ -5913,7 +6044,8 @@ def parallel(r, on_signal=None, start=None):
                     only += ["--plan-guard", baselines[-1]]
                     j["proc"] = subprocess.Popen([*argv, j["path"], *caps, *only], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                                  stderr=subprocess.STDOUT, encoding="utf-8", errors="replace",
-                                                 start_new_session=True, env={**os.environ, "WF_REPORT": "parent"})
+                                                 start_new_session=True,
+                                                 env={**os.environ, "WF_REPORT": "parent", "WF_CORES": str(cores(running))})
                     running.append(j)
                     # A signal between the spawn and the append above found no child to forward to.
                     if r.interrupted:
@@ -5921,7 +6053,11 @@ def parallel(r, on_signal=None, start=None):
                     threading.Thread(target=read, args=(j,), daemon=True).start()
                     starting = j
                     continue
-            j, line = lines.get()
+            try:
+                # Spec 0052 AC-4: a braked start is tried again every POLL even with no child to wake the loop.
+                j, line = lines.get(timeout=POLL)
+            except Empty:
+                continue
             if line is None:
                 j["code"] = j["proc"].wait()
                 running.remove(j)
