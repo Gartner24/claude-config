@@ -241,8 +241,8 @@ export const register: Register = on => {
     const { Box, Text, Button } = $.ui.resolve(e)
     const { value: facts } = await $.state.get(FACTS)
     const { value: level } = await $.state.get(EFFORT)
-    const { value: h } = await $.state.get(HANDOFF)
-    const line = h ? handoffLine(h, Date.now()) : null
+    const { value: handoff } = await $.state.get(HANDOFF)
+    const line = handoff ? handoffLine(handoff, Date.now()) : null
     // the handed over level first, then the latest main loop request's; unknown stays out
     const value = facts && !facts.effort && level ? { ...facts, effort: level } : facts
     const band = value

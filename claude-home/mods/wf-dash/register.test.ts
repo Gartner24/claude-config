@@ -84,3 +84,16 @@ test('a stale tick shows the runner counts it just read, and statusOk says wheth
   await clock.advance(5000)
   expect(state[FACTS.key]?.statusOk).toBe(false)
 })
+
+// a local named h hid the JSX factory, so every band draw threw and the host drew nothing in its place
+test('the band above the prompt draws, with and without a handoff line', async ($, on) => {
+  const { state } = host(on, () => ({ exitCode: 1, stdout: '' }))
+  const props = { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 100 }
+  let ui = await $.ui.mount({ plugin: 'wf-dash', surface: 'terminal', component: 'AbovePrompt', props } as never)
+  expect(await ui.find({ type: 'Text', text: /wf-dash: reading status/ })).toBeDefined()
+  await ui.unmount()
+  state['handoff'] = { panel: { sticky: true, steps: [] }, frame: 0 }
+  ui = await $.ui.mount({ plugin: 'wf-dash', surface: 'terminal', component: 'AbovePrompt', props } as never)
+  expect(await ui.find({ type: 'Text', text: /wf-dash: reading status/ })).toBeDefined()
+  await ui.unmount()
+})
