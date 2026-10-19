@@ -1,6 +1,9 @@
 {
   "cleanupPeriodDays": 365,
   "includeCoAuthoredBy": false,
+  "env": {
+    "ENABLE_STOP_REVIEW": "0"
+  },
   "permissions": {
     "allow": [
       "Bash(wf auto start)",
@@ -159,7 +162,6 @@
     "health": "name-only",
     "hexagonal-architecture": "name-only",
     "improve-animations": "name-only",
-    "intent-router": "name-only",
     "investigate": "name-only",
     "ios-clean": "name-only",
     "ios-design-review": "name-only",

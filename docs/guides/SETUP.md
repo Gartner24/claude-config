@@ -10,23 +10,6 @@ This page is for you, setting up or restoring this Claude Code setup on a machin
 3. Run it for real: `bin/install.sh`. It copies and links the repo into `~/.claude`, rebuilds edited downloaded skills, then runs the self-checks.
 4. Before every commit, go the other way: `bin/sync.sh` copies `~/.claude` into the repo, then read `git diff`.
 
-The `intent-router` skill is part of this repo. `bin/install.sh` links it, so there is nothing separate to install. It reads `config/routing.md` at runtime, and it falls back to a built-in table if the file is missing. To add routing for a new skill, add a block to `config/routing.md` and commit.
-
-If you ever install it by hand, copy the one file:
-
-```bash
-mkdir -p ~/.claude/skills/intent-router
-cp claude-home/skills/intent-router/SKILL.md ~/.claude/skills/intent-router/SKILL.md
-```
-
-Or from a fresh clone:
-
-```bash
-git clone https://github.com/Gartner24/claude-config ~/claude-config
-mkdir -p ~/.claude/skills/intent-router
-cp ~/claude-config/claude-home/skills/intent-router/SKILL.md ~/.claude/skills/intent-router/SKILL.md
-```
-
 ## Land changes only through PRs (spec 0051)
 
 Each of your own repos gets the same GitHub settings: squash merge only, branches deleted on merge, and a ruleset named "main only through a PR".
@@ -203,14 +186,6 @@ Some skills were first installed as a set. The notes below say what each set is 
 | Skill | Source | Install | What it does |
 |-------|--------|---------|--------------|
 | skill-router | `github:chrishan17/skill-router` | `npx skills add chrishan17/skill-router/skills/skill-router -a claude-code -g -y` | Puts all installed skills behind one router entry point. Fixes skills that do not fire when they should, and cuts the context spent on skill descriptions at startup. Always active. |
-| intent-router | this repo, `claude-home/skills/intent-router/SKILL.md` | linked by `bin/install.sh` | Scores an ambiguous prompt against every skill's `TRIGGERS`, `BLOCKS` and `PRIORITY` fields in `config/routing.md` and invokes the best match. Silent on clear prompts. |
-
-intent-router sits on top of skill-router and has these personal rules baked in:
-
-- `mem-search` fires before anything else on memory-check signals.
-- `council` fires before implement skills on decision signals.
-- Motion dispatches by kind: `animate` (build), `transitions-dev` (CSS), `gsap-*` (scroll), `apple-design` (gesture), `review-animations` (audit).
-- `investigate` wins on runtime and logic bugs, but build, compile and type errors go to `build-fix` and the toolchain resolvers.
 
 `council` comes from jjstack (`~/.claude/skills/jjstack/skills/council`). It replaced the standalone `tsenart/council-skill` install, so it updates with jjstack and there is nothing separate to install.
 
@@ -329,7 +304,7 @@ Memory across sessions lives in `~/.claude/projects/*/memory/`. claude-mem was t
 Notes:
 
 - ponytail is a lazy senior dev mode with a YAGNI ladder that prefers the shortest working diff. It is active every session through a SessionStart hook, and its state is in `~/.claude/.ponytail-active`. Levels are `lite`, `full` (default) and `ultra`: switch with `/ponytail <level>`, stop with "stop ponytail".
-- security-guidance: set `ENABLE_STOP_REVIEW=0` to skip the per-turn Stop review (and keep the commit-time review) if the per-message cost bites.
+- security-guidance: `ENABLE_STOP_REVIEW=0` is set in `claude-home/settings.json` (2026-10-19), so the per-turn Stop review is off and the commit and push reviews stay on.
 
 Marketplace added, plugin not installed:
 

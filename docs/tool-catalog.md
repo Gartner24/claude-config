@@ -38,7 +38,7 @@ this repo. Older verdicts with longer notes: `docs/research/SKILLS-EVALUATION.md
 | frontend-design | plugin | 2026-05-15 | Baseline UI skill | Part of the design pipeline | chat 2026-07-07 |
 | code-review | plugin | 2026-05-15 | `/code-review:code-review` on a PR | Kept; the built-in `/code-review` overlaps it (noted 2026-09-03) | chat 2026-09-03 |
 | ralph-loop | plugin | 2026-05-15 | Loop a prompt until done | Used to build ten site templates | chat 2026-07-09 |
-| security-guidance | plugin | 2026-07-07 | AI security review on turn end, commit and push | Worth it, but heavy: 247 Opus reviews in 2.5 days (about 38 USD list price, uses the subscription limit). Turn-end reviews found 2 issues in about 105 runs. Caught a real hole (claude on untrusted worktrees) | chat 2026-10-19; chat 2026-10-16 |
+| security-guidance | plugin | 2026-07-07 | AI security review on turn end, commit and push | Worth it, but heavy: 247 Opus reviews in 2.5 days (about 38 USD list price, uses the subscription limit). Turn-end reviews found 2 issues in about 105 runs. Caught a real hole (claude on untrusted worktrees). Turn-end review off since 2026-10-19 (`ENABLE_STOP_REVIEW=0`); commit and push reviews kept | chat 2026-10-19; chat 2026-10-16 |
 | watch (claude-video) | plugin | 2026-10-01 | Watch videos as frames and captions | Used for course videos | chat 2026-10-01 |
 | claude-seo | plugin | 2026-07-07; off globally 2026-09-24 | SEO audits for seo-ops and /monthly-ops | Kept, enabled per project to save context; its curl-to-shell installers accepted 2026-10-15 | chat 2026-10-16 |
 | loop-guard | mod (claude-mods) | 2026-10-18 | Stops the same failing call being retried | Fired 5 times in a week, right each time | chat 2026-10-19 |
@@ -78,10 +78,7 @@ this repo. Older verdicts with longer notes: `docs/research/SKILLS-EVALUATION.md
 
 | Name | Kind | Dates | What it is for | Open question | Source |
 |---|---|---|---|---|---|
-| Assertion Guardian | mod (claude-mods) | 2026-10-18 | Stops tests being weakened | Blocks harmless edits, each needs `/allow-test-change`; stalled the runner twice. Owner will not allow it in autonomous mode. Recommended: block only removed checks | chat 2026-10-19 |
-| intent-router | own skill | 2026-05-25 | Route prompts to skills | Never invoked in any chat; CLAUDE.md does its job. Recommended remove | chat 2026-10-19 |
-| missed-skill detector (skill-miss-detect, skill-fired-clear) | hooks (jjstack) | 2026-10 | Logs skills that should have fired | Report is noise (top misses: brand-guidelines, threejs-interaction). Recommended remove | chat 2026-10-19 |
-| security-guidance turn-end review | plugin setting | 2026-10-19 | Review on every turn end | Recommended `ENABLE_STOP_REVIEW=0`, keep commit and push reviews | chat 2026-10-19 |
+| Assertion Guardian | mod (claude-mods) | 2026-10-18 | Stops tests being weakened | Blocks harmless edits, each needs `/allow-test-change`; stalled the runner twice. Owner will not allow it in autonomous mode. Owner chose 2026-10-19: block only removed or loosened checks, allow added ones. Not built yet | chat 2026-10-19 |
 | feature-dev, code-simplifier, clangd-lsp | plugins | 2026-05-15 | Agents; C/C++ language server | Removal proposed 2026-07-07 (never used, wrong stack), no answer recorded | chat 2026-07-07 |
 | Language packs (rust, go, java, jpa, nestjs, django) | skills | 2026-05-25 | Other stacks | Never invoked in 1,384 sessions; set name-only 2026-09-24 | chat 2026-07-07; token diet |
 
@@ -99,6 +96,8 @@ this repo. Older verdicts with longer notes: `docs/research/SKILLS-EVALUATION.md
 | Name | Kind | Dates | What it was for | Why removed | Source |
 |---|---|---|---|---|---|
 | get-shit-done-cc (GSD) | framework + hooks | 2026-05-25 to 2026-07-07; hooks 2026-10-19 | Planning framework | Two skills used once, no `.planning/` anywhere. Its hooks ran node 3 times per edit for nothing until 2026-10-19 | chat 2026-07-07; chat 2026-10-19 |
+| intent-router | own skill | 2026-05-25 to 2026-10-19 | Route prompts to skills | Never invoked in any chat; CLAUDE.md routing does its job. `config/routing.md` kept as a reference table | chat 2026-10-19 |
+| missed-skill detector (skill-miss-detect, skill-fired-clear) | hooks (jjstack) | 2026-10 to 2026-10-19 | Logs skills that should have fired | Report was noise (top misses: brand-guidelines, threejs-interaction). Off live; the repo settings blocks wait on the owner (auto mode refused the edit) | chat 2026-10-19 |
 | hookgate | Stop hook | 2026-09-24 to 2026-10-19 | Check that a turn is really finished | Watch-only and its provider returns no confidence, so it could never act (3,719 runs, 476 flags, no effect) | chat 2026-09-30; chat 2026-10-19 |
 | claude-mem | plugin | 2026-04-08 to 2026-10-15; data deleted 2026-10-19 | Memory across sessions | Kept breaking (dead worker, 19 GB orphan processes, blocked prompts), burned quota, then a paid Gemini key; paid tier. Memory files and briefs replace it | tool-review brief A1c |
 | claude-mem chroma-reaper and install hooks | hooks | 2026-07-14 to 2026-10-16 | Served claude-mem | Its tool was gone. The reaper's own pgrep matched itself, so it never ran for two months | chat 2026-09-10 |

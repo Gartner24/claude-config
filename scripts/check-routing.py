@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Regression check for config/routing.md skill routing.
 
-Simulates the intent-router's documented algorithm (claude-home/skills/intent-router/SKILL.md step 3):
+Simulates the scoring of the removed intent-router skill (2026-10-19):
     score = (count of TRIGGERS substrings present in prompt, case-insensitive) x PRIORITY
     discard score < 3
 
