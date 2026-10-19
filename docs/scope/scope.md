@@ -79,7 +79,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 57 | Move my own skills out of jjstack | Release 9 | done |
 | 58 | Own status bar and dashboards with mods | Release 9 | done |
 | 59 | Memory tool: claude-mem, MemPalace, graphify or NotebookLM | Release 9 | planned |
-| 60 | Sessions pass work to each other | Release 9 | in-progress |
+| 60 | Sessions pass work to each other | Release 9 | done |
 | 61 | Cheap model gatekeeper with open models | Release 9 | done |
 | 62 | Runner that improves itself | Release 9 | done |
 | 63 | Evaluate Harvey, Soup, MiroFish, claude-skills-founder, Headroom | Release 9 | done |
@@ -91,11 +91,11 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 70 | graphify test on one repo | Release 9 | done |
 | 71 | Self merge rules and review notes | Release 9 | done |
 | 72 | wf-dash band and alerts | Release 9 | done |
-| 73 | wf-dash panes and actions | Release 9 | in-progress |
+| 73 | wf-dash panes and actions | Release 9 | done |
 | 74 | Fix the runner's plan landing crash | Release 9 | done |
-| 75 | wf-dash stray keys | Release 9 | in-progress |
+| 75 | wf-dash stray keys | Release 9 | done |
 | 76 | Auto handoff: our handover, fired on its own | Release 9 | done |
-| 77 | Auto handoff display: band, viewer pages, link | Release 9 | in-progress |
+| 77 | Auto handoff display: band, viewer pages, link | Release 9 | done |
 | 78 | Runner bugs found 2026-10-18 | Release 9 | done |
 | 79 | Security review leftovers 2026-10-18 | Release 9 | done |
 | 80 | Skill scan trusted list | Release 9 | done |
@@ -911,10 +911,10 @@ Spec [0058](../specs/0058-own-status-bar.md) · Source: [brief](../briefs/tool-r
 Pick the memory tool (keep claude-mem, MemPalace, graphify, both, or NotebookLM as a second brain), weighing usage, token cost, memory quality and code memory.
 **Done when:** one memory setup is chosen with its reasons and installed, or each option is rejected with a reason.
 - [x] Research and compare: `/deep-research memory for Claude Code: claude-mem, MemPalace, graphify, NotebookLM` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
-- [ ] Design it (spec): `/architect memory tool` · waits on you (after the MemPalace trial review, about 2026-10-30; your answer 2026-10-17)
+- [ ] Design it (spec): `/architect memory tool` (after the MemPalace trial review, about 2026-10-30; your answer 2026-10-17) · waits on you
 Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
 
-### 60. Sessions pass work to each other · in-progress · auto
+### 60. Sessions pass work to each other · done · auto
 After a rollover you type only `/clear`: a start up hook loads the waiting handover; a `/handoff` mod on top if its probe passes.
 **Done when:** a rolled over session continues after only `/clear`, and the mod is built or rejected with its probe result.
 - [x] Design it (spec): `/architect sessions pass work to each other`
@@ -1053,7 +1053,7 @@ Our own mod draws a band above the prompt with the session, its effort and the r
 - [x] Sync docs: `/sync wf-dash band and alerts`
 Spec [0059](../specs/0059-wf-dash-band.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B3, part 2 of 3; stacks on spec 0058.
 
-### 73. wf-dash panes and actions · in-progress · auto
+### 73. wf-dash panes and actions · done · auto
 One `/wf-dash` dashboard with Plan, Builds, Agents and Alerts views for the whole plan, every agent, the runner and the alerts, with three confirmed safe actions (replaces the separate `/plan`, `/agents` and `/runner` panes, amended 2026-10-18).
 **Done when:** `/wf-dash` shows every scope, feature state, agent, run and alert in its four views, and the safe actions work with a confirm.
 - [x] Design it (spec): `/architect own status bar and dashboards with mods`
@@ -1065,8 +1065,8 @@ One `/wf-dash` dashboard with Plan, Builds, Agents and Alerts views for the whol
   - [x] Actions with confirm, tests (AC-5, AC-7)
 - [x] Verify it: `/check verify wf-dash panes and actions` (2026-10-19 fifth run PASS, CAN FAIL 7; design gate pass 5 PASS WITH FINDINGS)
 - [x] Test it: `/test wf-dash panes and actions` (2026-10-19: 45 mod tests and 9 plan tests pass, 26 mutants red, suite 1051 green)
-- [ ] Install the mod update live after its scan · waits on you · later boxes go on
-- [ ] Sync docs: `/sync wf-dash panes and actions`
+- [x] Install the mod update live after its scan · waits on you · later boxes go on (2026-10-19: `skill-scan llm` 0 code findings, 2 false positives in `.design/audit-report.md`; the live wf-dash links to main)
+- [x] Sync docs: `/sync wf-dash panes and actions` (built in PR #110)
 Spec [0060](../specs/0060-wf-dash-panes.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B3, part 3 of 3, with your plan pane ask; stacks on spec 0059.
 
 ### 74. Fix the runner's plan landing crash · done · auto
