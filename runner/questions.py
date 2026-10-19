@@ -77,6 +77,36 @@ def screen(yes, repos=None):
     return None
 
 
+def cmd_answer(did, n):
+    """Spec 0060 AC-5: the dashboard's answer action. n must pick one of the options, never free text."""
+    # an unattended wf run call answering its own merge or post question would read as you at the keyboard
+    if os.environ.get("WF_RUN"):
+        print("refused: user_only")
+        return 5
+    try:
+        d = next((d for d in run.queue_transact()["decisions"] if d["id"] == did), None)
+        if d is None:
+            print(f"no question {wf.clean(did)}")
+            return 1
+        if d["answer"] is not None:
+            print(f"already answered: {wf.clean(did)}")
+            return 1
+        # answer_text gives the text back unchanged when it picks no label
+        text = telegram.answer_text(d, n)
+        if text == n and n not in d["options"]:
+            print(f"wrong option: {wf.clean(n)}, pick 1 to {len(d['options'])}" if d["options"] else "this question takes no option number")
+            return 2
+        got = answer(did, n)
+    except run.QueueError as e:
+        print(f"refused: queue_unreadable: {wf.clean(str(e))}")
+        return 5
+    if not got:
+        print(f"already answered: {wf.clean(did)}")
+        return 1
+    print(f"answered: {wf.clean(did)} {wf.clean(got['answer'])} (keyboard)")
+    return 0
+
+
 def cmd_questions():
     """AC-5: read only."""
     try:

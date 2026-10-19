@@ -99,8 +99,9 @@ of spec 0060 (which also clash with Claude Code's own `/plan` and `/agents`); ro
   `reply on your phone to question <id>: 1 option  2 option` (narrow: `on phone, <id>:`) wrapped to a second line rather than cut, dim (the numbers are the phone's buttons, not keys here). When the items
   outgrow the pane, `j` / `k` scroll them and a dim line says `N above, +M more`; a run scrolled out of view still gets one line, `building <feature cut to 24>  now <step>  +N`, and "more" then counts only the questions below.
 - Agents: status word (running bold text, waiting warn, failed bad, others dim), description, type. An empty list
-  says the mod API lists none and the host's own count may still show some (empty is not proof of none); says plainly that
-  background shells are not listed (no API yet).
+  says the mod API lists none and the host's own count may still show some (empty is not proof of none). Background
+  shells follow the agents as `started  <description>  shell`, read from this chat's Bash results less the stopped or
+  finished ones; one dim line says a started shell may have ended unseen.
 - Actions (row 73, spec 0060 AC-5) go in the footer row as hotkey buttons, each behind a confirm that shows the
   exact text.
 

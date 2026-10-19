@@ -1057,10 +1057,10 @@ One `/wf-dash` dashboard with Plan, Builds, Agents and Alerts views for the whol
 - [x] Design it (spec): `/architect own status bar and dashboards with mods`
 - [x] Run probes P6 to P9 in a scratch session (spec 0060 AC-6), write results in its verify notes · waits on you (2026-10-18: all pass, see [verify notes](../specs/0060-wf-dash-panes/verify.md))
 - [x] Lock the look first: run the `design` pipeline on wf-dash (band, toasts, panes, short bar) in a session and land its locked `design.md` · waits on you (owner accepted the look as is on 2026-10-17 at critique 29/40; stray keys are row 75)
-- [ ] Build it: `/develop wf-dash panes and actions`
-  - [ ] `wf plan --json` and `wf answer` (AC-1, AC-5)
-  - [ ] The `/wf-dash` dashboard: Plan, Builds, Agents and Alerts views (AC-2 to AC-4a)
-  - [ ] Actions with confirm, tests (AC-5, AC-7)
+- [x] Build it: `/develop wf-dash panes and actions`
+  - [x] `wf plan --json` and `wf answer` (AC-1, AC-5)
+  - [x] The `/wf-dash` dashboard: Plan, Builds, Agents and Alerts views (AC-2 to AC-4a)
+  - [x] Actions with confirm, tests (AC-5, AC-7)
 - [ ] Verify it: `/check verify wf-dash panes and actions`
 - [ ] Test it: `/test wf-dash panes and actions`
 - [ ] Install the mod update live after its scan · waits on you · later boxes go on

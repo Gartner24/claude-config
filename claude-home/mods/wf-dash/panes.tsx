@@ -1,14 +1,14 @@
 // The dashboard: one pane, four sections you move between with a key (p Plan, b Builds, a Agents, l Alerts).
 // Same look as the band: k9s rows, state words that carry their meaning without color, dim chrome, color spent on
 // state. Pure drawing from data; tokens.ts holds every value.
-import type { WfDashAlert, WfDashFeature, WfDashLoaded, WfDashQuestion, WfDashRepo, WfDashRun } from './types/index.d.ts'
+import type { WfDashAlert, WfDashAsk, WfDashFeature, WfDashLoaded, WfDashPlan } from './types/index.d.ts'
 import { agentStatus, alert, color, glyph, pane, shortTab, space, specStatus, state, stateHelp, stateOrder, tinyTab } from './tokens.ts'
 
 type El = { Box: any; Text: any; Button: any }
-export type View = { section: string; tab: string; page: number; sel: number; bpos: number; apos?: number }
-export type Act = { go: (v: Partial<View>) => void; retry: () => void }
-type Plan = WfDashLoaded<{ repos: WfDashRepo[] }> | undefined
-type Runner = WfDashLoaded<{ runs: WfDashRun[] | null; questions: WfDashQuestion[] | null }> | undefined
+export type View = { section: string; tab: string; page: number; sel: number; bpos: number; apos?: number; gsel?: number; ask?: WfDashAsk | null; notice?: { text: string; ok: boolean } | null }
+// run: the confirmed action (spec 0060 AC-5); only the confirm row's `y` reaches it
+export type Act = { go: (v: Partial<View>) => void; retry: () => void; run: (ask: WfDashAsk) => void }
+type Plan = WfDashLoaded<WfDashPlan> | undefined
 
 export const SECTIONS = [
   { id: 'plan', key: 'p', label: 'Plan' },
@@ -30,6 +30,72 @@ export const PLAN_TABS: { id: string; label: string; states: string[] | null; do
 ]
 
 export const DEFAULT_VIEW: View = { section: 'plan', tab: 'needs-you', page: 0, sel: 0, bpos: 0 }
+
+// -- Actions (spec 0060 AC-5): the only next steps the dashboard may start; anything else is typed by you ------------
+export const SAFE_STEPS = ['/architect', '/develop', '/check verify', '/test', '/sync', '/debug', '/scope']
+// no line breaks or invisible format characters (bidi, zero width): the confirm must show exactly what runs
+export const safeStep = (cmd: string | null) => !!cmd && !/[\r\n\p{Cc}\p{Cf}]/u.test(cmd) && SAFE_STEPS.some(s => cmd === s || cmd.startsWith(`${s} `))
+// a step started in a chat of another repo would build there
+const inRepo = (path: string, cwd: string | null) => !!cwd && (cwd === path || cwd.startsWith(`${path}/`))
+
+// The start offer for a feature: the exact text to submit, or why it is yours to type; null when it has no next step.
+export function startOffer(f: WfDashFeature, path: string, cwd: string | null): { ok: boolean; text: string } | null {
+  if (isDone(f.state) || !f.command || f.state === 'waits on you') return null
+  if (f.state === 'building') return { ok: false, text: 'wf is building it now' }
+  if (!safeStep(f.command)) return { ok: false, text: `type it yourself: ${f.command}` }
+  if (!inRepo(path, cwd)) return { ok: false, text: `type it yourself in ${path}: ${f.command}` }
+  return { ok: true, text: f.command }
+}
+
+export function confirmText(a: WfDashAsk): string {
+  if (a.kind === 'start') return `Start "${a.text}" in this chat?`
+  if (a.kind === 'stop') return `Stop ${a.label}?`
+  return a.n ? `Answer question ${a.id} with ${a.n} ${a.options[a.n - 1]}?` : `Answer question ${a.id}: pick an option`
+}
+
+type Offer = { key: string; label: string; ask: WfDashAsk } | { note: string } | null
+type ActLine = { t: string; tone: string; bold?: boolean }
+type Key = { key: string; label: string; on: boolean; press: () => void }
+
+// The rows a hotkey row wraps to at `cells` wide, so a view can budget for it.
+const keyRows = (keys: Key[], cells: number) =>
+  keys.length ? Math.max(1, Math.ceil((keys.reduce((n, k) => n + k.label.length + space.hotkeyCells, 0) + (keys.length - 1) * space.gap) / Math.max(1, cells))) : 0
+
+// An action's lines and keys: a pending confirm (y runs it, c cancels), else the last result and the view's offer.
+// Each view draws them inside its own row budget: the dashboard never grows past its rows, so the confirm's keys
+// can never fall off the bottom of the pane (design-gate 2026-10-18).
+function actionParts(view: View, act: Act, offer: Offer, cells: number): { lines: ActLine[]; keys: Key[]; rows: number } {
+  const a = view.ask
+  let lines: ActLine[]
+  let keys: Key[]
+  if (a) {
+    keys = [
+      ...(a.kind === 'answer' && !a.n
+        ? a.options.map((o, i) => ({ key: String(i + 1), label: o, on: true, press: () => act.go({ ask: { ...a, n: i + 1 } }) }))
+        : [{ key: 'y', label: 'yes', on: true, press: () => { act.go({ ask: null }); act.run(a) } }]),
+      { key: 'c', label: 'cancel', on: true, press: () => act.go({ ask: null }) },
+    ]
+    // wrapped, never cut: the whole text that runs is on screen before yes
+    lines = wrapWords(confirmText(a), cells, Infinity).map(t => ({ t, tone: color.warn, bold: true }))
+  } else {
+    lines = [
+      ...(view.notice ? [{ t: view.notice.text, tone: view.notice.ok ? color.ok : color.bad }] : []),
+      ...(offer && 'note' in offer ? [{ t: offer.note, tone: color.dim }] : []),
+    ]
+    keys = offer && 'ask' in offer ? [{ key: offer.key, label: offer.label, on: true, press: () => act.go({ ask: offer.ask, notice: null }) }] : []
+  }
+  return { lines, keys, rows: lines.length + keyRows(keys, cells) }
+}
+
+function actionRow(el: El, parts: { lines: ActLine[]; keys: Key[] }) {
+  const { Box, Text } = el
+  return (
+    <Box flexDirection="column">
+      {parts.lines.map(l => <Text color={l.tone} bold={l.bold} wrap="truncate-end">{l.t}</Text>)}
+      {parts.keys.length > 0 && keyRow(el, parts.keys)}
+    </Box>
+  )
+}
 
 const hhmm = (ms: number) => {
   const d = new Date(ms)
@@ -86,7 +152,7 @@ function loading({ Box, Text }: El, what: string, l: WfDashLoaded<unknown> | und
 
 // -- Plan ----------------------------------------------------------------------------------------------------------
 
-type Line = { kind: 'group'; name: string; note: string; tone?: string } | { kind: 'feature'; f: WfDashFeature; repo: string } | { kind: 'note'; text: string; tone: string }
+type Line = { kind: 'group'; name: string; note: string; tone?: string } | { kind: 'feature'; f: WfDashFeature; repo: string; path?: string } | { kind: 'note'; text: string; tone: string }
 
 // Pages of `rows` lines that never orphan a group heading at the foot, and repeat the heading (`cont.`) on top of a
 // page that starts inside a group, so every row on screen sits under its group's name.
@@ -108,16 +174,16 @@ export function paginate(lines: Line[], rows: number): Line[][] {
 
 // Grouped by state, Linear style: the group heading carries the state word and its count, so rows never repeat it.
 // Each row names its repo instead. Broken scopes, hub rows and scope warnings follow the state groups.
-export function planLines(repos: WfDashRepo[], tab: (typeof PLAN_TABS)[number]): Line[] {
+export function planLines(repos: WfDashPlan['repos'], tab: (typeof PLAN_TABS)[number]): Line[] {
   const picked = repos.flatMap(r =>
-    r.error || r.hub ? [] : (r.features ?? []).filter(f => !f.deferred && (tab.states ? tab.states.includes(f.state) : !isDone(f.state))).map(f => ({ f, repo: r.name })))
+    r.error || r.hub ? [] : (r.features ?? []).filter(f => !f.deferred && (tab.states ? tab.states.includes(f.state) : !isDone(f.state))).map(f => ({ f, repo: r.name, path: r.path })))
   const lines: Line[] = []
   const groups = [...new Set(picked.map(p => p.f.state.replace(' (untagged)', '')))].sort((a, b) => rank(a) - rank(b))
   for (const g of groups) {
     const members = picked.filter(p => p.f.state.replace(' (untagged)', '') === g)
     // one group on a single-state filter: the filter tab already says the state and the count, so the row goes to a feature
     if (groups.length > 1 || tab.id === 'open') lines.push({ kind: 'group', name: stateOf(g).word, note: `${members.length}`, tone: stateOf(g).color })
-    members.forEach(p => lines.push({ kind: 'feature', f: p.f, repo: p.repo }))
+    members.forEach(p => lines.push({ kind: 'feature', f: p.f, repo: p.repo, path: p.path }))
   }
   for (const r of repos) {
     if (r.error) lines.push({ kind: 'group', name: r.name, note: '' }, { kind: 'note', text: `could not read this scope: ${r.error}`, tone: color.bad })
@@ -149,14 +215,20 @@ export function wrapWords(text: string, cells: number, max: number): string[] {
   return out
 }
 
-function PlanSection({ el, plan, view, act, columns, extra = 0 }: { el: El; plan: Plan; view: View; act: Act; columns: number; extra?: number }) {
+function PlanSection({ el, plan, view, act, columns, cwd, extra = 0 }: { el: El; plan: Plan; view: View; act: Act; columns: number; cwd: string | null; extra?: number }) {
   const { Box, Text } = el
   if (!plan?.data) return loading(el, 'the plan', plan, act)
   const repos = plan.data.repos
   const all = repos.flatMap(r => r.features ?? []).filter(f => !f.deferred)
   const count = (t: (typeof PLAN_TABS)[number]) => all.filter(f => (t.states ? t.states.includes(f.state) : !isDone(f.state))).length
   const tab = PLAN_TABS.find(t => t.id === view.tab) ?? PLAN_TABS[0]
-  const pageList = paginate(planLines(repos, tab), pane.page + extra)
+  // plan warnings under All open take their rows out of the list's page, so the pane never grows past its rows; the
+  // list keeps two (a heading and a feature), and warnings past that are counted on the last line, never cut silently
+  const warnAll = tab.id === 'open' ? plan.data.warnings ?? [] : []
+  const warnMax = pane.page + extra - 2
+  const warns = warnAll.length > warnMax ? [...warnAll.slice(0, warnMax - 1), `+${warnAll.length - warnMax + 1} more plan warnings`] : warnAll
+  const room = pane.page + extra - warns.length
+  const pageList = paginate(planLines(repos, tab), room)
   // the cursor moves over features only; the page is the one that holds the selected feature
   const feats = pageList.flatMap((p, pi) => p.flatMap(l => (l.kind === 'feature' ? [{ line: l, page: pi }] : [])))
   const sel = feats.length ? Math.min(view.sel ?? 0, feats.length - 1) : -1
@@ -195,16 +267,22 @@ function PlanSection({ el, plan, view, act, columns, extra = 0 }: { el: El; plan
       ? [PLAN_TABS.map(t => ({ t, text: label(t, full, true) }))]
       : [actNow, rest].map(r => r.map(t => ({ t, text: label(t, full, true) })))
     : [actNow.map(t => ({ t, text: label(t, actNames, true) })), rest.map(t => ({ t, text: label(t, shortTab, t.id === tab.id) }))]
+  const cells = Math.max(pane.minWrap, inner - space.indent)
+  // the start action lives in the detail block's rows; a confirm too long to show whole beside its keys is not offered
+  const o = chosen ? startOffer(chosen, feats[sel].line.path ?? '', cwd) : null
+  const fits = (text: string) => wrapWords(confirmText({ kind: 'start', text }), cells, Infinity).length < pane.detail
+  const parts = actionParts(view, act, !o ? null : !o.ok ? { note: o.text } : fits(o.text)
+    ? { key: 's', label: 'start it', ask: { kind: 'start', text: o.text } }
+    : { note: `type it yourself: ${o.text}` }, cells)
   // the detail block: next step first, wrapped to two lines when it runs long, then what the state means, then the ids;
   // never the state word again (the group heading says it)
   const detail = (() => {
     if (!chosen) return []
-    const cells = Math.max(pane.minWrap, inner - space.indent)
     const help = stateHelp[chosen.state.replace(' (untagged)', '')]
     // position first, so a narrow pane never cuts it; the repo only when the rows on screen do not already show it
     const meta = [
       `${sel + 1} of ${feats.length}`,
-      chosen.pr ? `PR #${chosen.pr} ${chosen.prState}` : '',
+      chosen.pr ? `PR #${chosen.pr} ${chosen.prState}` : chosen.review === 'unknown' ? 'in review: unknown' : '',
       chosen.spec ? (isDone(chosen.state) ? `spec ${chosen.spec}` : `spec ${chosen.spec}: ${specStatus[chosen.specStatus ?? 'unknown'] ?? chosen.specStatus}`) : 'no spec',
       !repoCol && new Set(feats.map(x => x.line.repo)).size > 1 ? feats[sel].line.repo : '',
     ].filter(Boolean).join('  ')
@@ -214,12 +292,15 @@ function PlanSection({ el, plan, view, act, columns, extra = 0 }: { el: El; plan
     const heading = chosen.heading.replace(/`/g, '')
     const repo = feats[sel].line.repo
     const cut = heading.length > nameCells || (repoCol && repo.length > pane.col.repo - space.tight)
-    const out = cut ? [{ t: repoCol ? `${heading}  ${repo}` : heading, tone: color.text }] : []
-    const room = pane.detail - 1 - out.length
-    const next = isDone(chosen.state) ? [] : wrapWords(`next: ${untag(chosen.next ?? chosen.command ?? glyph.unknown)}`, cells, room)
+    // the action's rows come out of the block, never added below it
+    const rows = pane.detail - parts.rows
+    const out = cut && rows > 1 ? [{ t: repoCol ? `${heading}  ${repo}` : heading, tone: color.text }] : []
+    const room = rows - 1 - out.length
+    const next = isDone(chosen.state) || room < 1 ? [] : wrapWords(`next: ${untag(chosen.next ?? chosen.command ?? glyph.unknown)}`, cells, room)
     out.push(...next.map(t => ({ t, tone: color.text })))
-    if (out.length < pane.detail - 1 && help) out.push({ t: help, tone: color.dim })
-    out.push({ t: meta, tone: color.dim })
+    if (out.length < rows - 1 && help) out.push({ t: help, tone: color.dim })
+    // a two-line confirm and its keys fill the block: no row is left for the ids
+    if (out.length < rows) out.push({ t: meta, tone: color.dim })
     return out
   })()
   return (
@@ -232,7 +313,7 @@ function PlanSection({ el, plan, view, act, columns, extra = 0 }: { el: El; plan
       {tabRows.map(row =>
         keyRow(el, row.map(({ t, text }) => ({ key: String(PLAN_TABS.indexOf(t) + 1), label: text, on: t.id === tab.id, mark: true, press: () => act.go({ tab: t.id, sel: 0 }) })), wide ? space.gap : space.tight))}
       {/* a fixed height, padded with blank rows, so switching filters never moves the layout under the fingers */}
-      <Box flexDirection="column" height={extra ? Math.max(pane.page, Math.min(pane.page + extra, pageList[page].length)) : pane.page}>
+      <Box flexDirection="column" height={extra ? Math.max(pane.page - warns.length, Math.min(room, pageList[page].length)) : room}>
         {feats.length === 0 && pageList[0].length === 0 && <Text color={color.dim}>{tab.empty}</Text>}
         {pageList[page].map(l => {
           if (l.kind === 'group') {
@@ -260,6 +341,7 @@ function PlanSection({ el, plan, view, act, columns, extra = 0 }: { el: El; plan
           indented, not led by ">", so the cursor stays the only selection mark */}
       <Box flexDirection="column" height={pane.detail}>
         {detail.map(d => <Box paddingLeft={space.indent}><Text color={d.tone} wrap="truncate-end">{d.t}</Text></Box>)}
+        {chosen && <Box paddingLeft={space.indent}>{actionRow(el, parts)}</Box>}
       </Box>
       {/* every key always bound, dim when it would do nothing: an unbound key falls through to the prompt and takes focus */}
       {keyRow(el, [
@@ -270,6 +352,7 @@ function PlanSection({ el, plan, view, act, columns, extra = 0 }: { el: El; plan
         { key: 'n', label: wide ? 'next group' : 'group', on: new Set(feats.map(x => norm(x.line.f.state))).size > 1, press: () => act.go({ sel: nextGroup() }) },
         { key: 'g', label: 'top', on: sel > 0, press: () => act.go({ sel: 0 }) },
       ], wide ? space.gap : space.tight)}
+      {warns.map(w => <Text color={color.warn} wrap="truncate-end">{w}</Text>)}
       {plan.error && <Text color={color.warn}>{`stale since ${hhmm(plan.at ?? Date.now())}: the last refresh failed (${plan.error}); r tries again`}</Text>}
     </Box>
   )
@@ -277,12 +360,12 @@ function PlanSection({ el, plan, view, act, columns, extra = 0 }: { el: El; plan
 
 // -- Builds (the runner) -------------------------------------------------------------------------------------------
 
-type Item = { rows: number; draw: () => any; heading?: boolean; run?: string }
+type Item = { rows: number; draw: () => any; heading?: boolean; run?: string; question?: { id: string; options: string[] } }
 
-function BuildsSection({ el, runner, view, act, columns, extra = 0 }: { el: El; runner: Runner; view: View; act: Act; columns: number; extra?: number }) {
+function BuildsSection({ el, plan, view, act, columns, extra = 0 }: { el: El; plan: Plan; view: View; act: Act; columns: number; extra?: number }) {
   const { Box, Text } = el
-  if (!runner?.data) return loading(el, 'the builds', runner, act)
-  const { runs, questions } = runner.data
+  if (!plan?.data) return loading(el, 'the builds', plan, act)
+  const { runs, questions } = plan.data
   const full = (runs ?? []).length <= pane.fullRuns
   const heading = (word: string, n: number, tone: string): Item => ({
     rows: 1,
@@ -300,6 +383,7 @@ function BuildsSection({ el, runner, view, act, columns, extra = 0 }: { el: El; 
       const reply = wrapWords(`${prefix}  ${q.options.map((o, i) => `${i + 1} ${o}`).join('  ')}`, w, 2)
       const ask = wrapWords(askText(q.question, q.feature), w, 2)
       return {
+      question: q,
       rows: 1 + ask.length + reply.length,
       draw: () => (
         <Box flexDirection="column">
@@ -353,13 +437,19 @@ function BuildsSection({ el, runner, view, act, columns, extra = 0 }: { el: El; 
   ]
   // show what fits from the scroll position; the rest is counted, never silently cut
   const start = Math.min(view.bpos ?? 0, Math.max(0, items.length - 1))
+  // the answer acts on the first question from the scroll position; a question with no options is typed on the phone.
+  // Its rows (and a confirm's) come out of the list's budget, so the pane never grows past its rows.
+  const q = items.slice(start).find(it => it.question)?.question
+  const parts = actionParts(view, act, !q ? null : q.options.length
+    ? { key: 'o', label: `answer ${q.id}`, ask: { kind: 'answer', id: q.id, options: q.options } }
+    : { note: `question ${q.id} takes a typed answer: reply on your phone` }, columns - 2 * space.padX)
   const shown: Item[] = []
   let used = 0
   const rest = items.slice(start)
   for (const [i, it] of rest.entries()) {
     // a heading only comes with its first item, never alone at the foot
     const need = it.heading && rest[i + 1] ? it.rows + rest[i + 1].rows : it.rows
-    if (shown.length && used + need > pane.buildRows + extra) break
+    if (shown.length && used + need > pane.buildRows + extra - parts.rows) break
     shown.push(it)
     used += it.rows
   }
@@ -389,30 +479,53 @@ function BuildsSection({ el, runner, view, act, columns, extra = 0 }: { el: El; 
         { key: 'j', label: 'down', on: below > 0, press: () => act.go({ bpos: below > 0 ? start + 1 : start }) },
         { key: 'k', label: 'up', on: start > 0, press: () => act.go({ bpos: Math.max(0, start - 1) }) },
       ])}
+      {actionRow(el, parts)}
     </Box>
   )
 }
 
 // -- Agents --------------------------------------------------------------------------------------------------------
 
-function AgentsSection({ el, agents, columns }: { el: El; agents: any[] | null; columns: number }) {
+const SHELL_NOTE = "Shells come from this chat's Bash results: a started one may have ended unseen."
+
+function AgentsSection({ el, agents, view, act, columns, extra = 0 }: { el: El; agents: any[] | null; view: View; act: Act; columns: number; extra?: number }) {
   const { Box, Text } = el
   if (agents === null) return <Box marginTop={space.line}><Text color={color.bad}>Could not list this session's agents.</Text></Box>
+  const sel = agents.length ? Math.min(view.gsel ?? 0, agents.length - 1) : -1
+  const chosen = sel >= 0 ? agents[sel] : null
+  const cells = columns - 2 * space.padX
+  const parts = actionParts(view, act, chosen && (chosen.status === 'running' || chosen.type === 'shell')
+    ? { key: 'x', label: 'stop it', ask: { kind: 'stop', id: chosen.id, label: `${chosen.type === 'shell' ? 'shell' : 'agent'} ${chosen.description || chosen.id}` } }
+    : null, cells)
+  // shells pile up over a long chat: show the rows that fit beside the note, the j/k row and the action, and follow
+  // the cursor, so the confirm's keys never fall off the bottom (design-gate 2026-10-18 pass 4)
+  const fit = Math.max(1, pane.buildRows + extra - parts.rows - Math.ceil(SHELL_NOTE.length / Math.max(1, cells)) - 1)
+  const start = Math.max(0, sel - fit + 1)
+  const below = Math.max(0, agents.length - start - fit)
   return (
     <Box flexDirection="column">
       {columns >= pane.specMin && <Text color={color.dim}>The agents this chat started, and what each is doing.</Text>}
       <Box flexDirection="column">
         {/* an empty list from the mod API is not proof of no agents: the host's own count may still show some */}
         {agents.length === 0 && <Text color={color.dim}>No agents listed. The host's own agent count below the prompt may still show some.</Text>}
-        {agents.map(a => (
+        {agents.slice(start, start + fit).map(a => (
           <Box flexDirection="row">
+            {cell(Box, Text, a === chosen ? '>' : ' ', pane.col.cursor, { color: color.accent, bold: true })}
             {cell(Box, Text, a.status, pane.col.state, { color: (agentStatus as Record<string, string>)[a.status] ?? color.text, bold: a.status === 'running' })}
             {cell(Box, Text, a.description || a.name || a.id, null, { color: color.text })}
             {cell(Box, Text, a.type, pane.col.next, { color: color.dim })}
           </Box>
         ))}
       </Box>
-      <Text color={color.dim}>Background shells are not listed: the mod API has no call for them yet.</Text>
+      {(start > 0 || below > 0) && (
+        <Text color={color.dim}>{[start > 0 ? `${start} above` : '', below > 0 ? `+${below} more` : ''].filter(Boolean).join(', ')}</Text>
+      )}
+      <Text color={color.dim}>{SHELL_NOTE}</Text>
+      {keyRow(el, [
+        { key: 'j', label: 'down', on: sel < agents.length - 1, press: () => act.go({ gsel: Math.min(agents.length - 1, sel + 1) }) },
+        { key: 'k', label: 'up', on: sel > 0, press: () => act.go({ gsel: Math.max(0, sel - 1) }) },
+      ])}
+      {actionRow(el, parts)}
     </Box>
   )
 }
@@ -458,8 +571,8 @@ function AlertsSection({ el, alerts, view, act, columns, extra = 0 }: { el: El; 
 
 // -- The dashboard -------------------------------------------------------------------------------------------------
 
-export function Dashboard({ el, view, act, plan, runner, agents, alerts, facts, columns, focused = true, rows }: {
-  el: El; view: View; act: Act; plan: Plan; runner: Runner; agents: any[] | null; alerts: WfDashAlert[]; columns: number; focused?: boolean; rows?: number
+export function Dashboard({ el, view, act, plan, agents, alerts, facts, columns, cwd = null, focused = true, rows }: {
+  el: El; view: View; act: Act; plan: Plan; agents: any[] | null; alerts: WfDashAlert[]; columns: number; cwd?: string | null; focused?: boolean; rows?: number
   facts: { running: number | null; parked: number | null; questions: number | null } | null
 }) {
   const { Box, Text } = el
@@ -470,14 +583,14 @@ export function Dashboard({ el, view, act, plan, runner, agents, alerts, facts, 
     <Box flexDirection="column" paddingX={space.padX}>
       <Box flexDirection="row" columnGap={space.gap}>
         <Text backgroundColor={color.accent} color="inverseText" bold>{' wf-dash '}</Text>
-        {keyRow(el, SECTIONS.map(s => ({ key: s.key, label: s.label, on: s.id === section.id, mark: true, press: () => act.go({ section: s.id }) })), columns >= pane.specMin ? space.gap : space.tight)}
+        {keyRow(el, SECTIONS.map(s => ({ key: s.key, label: s.label, on: s.id === section.id, mark: true, press: () => act.go({ section: s.id, ask: null, notice: null }) })), columns >= pane.specMin ? space.gap : space.tight)}
       </Box>
       {/* a stray key hands the keyboard to the prompt; say so, and how to come back, instead of failing silently */}
       {!focused && <Text color={color.warn} wrap="truncate-end">Keys go to the prompt now: ctrl+x tab returns here</Text>}
       <Box flexDirection="column">
-        {section.id === 'plan' && <PlanSection el={el} plan={plan} view={view} act={act} columns={columns} extra={extra} />}
-        {section.id === 'builds' && <BuildsSection el={el} runner={runner} view={view} act={act} columns={columns} extra={extra} />}
-        {section.id === 'agents' && <AgentsSection el={el} agents={agents} columns={columns} />}
+        {section.id === 'plan' && <PlanSection el={el} plan={plan} view={view} act={act} columns={columns} cwd={cwd} extra={extra} />}
+        {section.id === 'builds' && <BuildsSection el={el} plan={plan} view={view} act={act} columns={columns} extra={extra} />}
+        {section.id === 'agents' && <AgentsSection el={el} agents={agents} view={view} act={act} columns={columns} extra={extra} />}
         {section.id === 'alerts' && <AlertsSection el={el} alerts={alerts} view={view} act={act} columns={columns} extra={extra} />}
       </Box>
       <Box flexDirection="row" columnGap={space.gap} flexWrap="wrap">
