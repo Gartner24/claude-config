@@ -880,6 +880,25 @@ class TestReviewFixes(Case):
         self.assertEqual((tree / "docs" / "scope" / "scope.md").read_text(), "the runner's copy\n")
         self.assertEqual(self.git("rev-parse", "feat/0001-a", repo=self.origin), rec["pushed_sha"])
 
+    # covers: AC-6 (a plan file the merge turned into a link is never written through)
+    def test_plan_copy_link(self):
+        outside = self.tmp / "outside.txt"
+        outside.write_text("untouched\n")
+        rec, old = self.branch()
+        (self.repo / "docs" / "scope" / "scope.md").unlink()
+        (self.repo / "docs" / "scope" / "scope.md").symlink_to(outside)
+        self.git("add", "-A")
+        self.git("commit", "-qm", "the plan becomes a link")
+        self.git("push", "-q", "origin", "work")
+        trees = self.tmp / "trees"
+        tree = trees / "feat-0001-a"
+        self.git("worktree", "add", "-q", str(tree), "feat/0001-a")
+        (tree / "docs" / "scope" / "scope.md").write_text("the runner's copy\n")
+        rec["tree"] = str(tree)
+        with mock.patch.object(run, "trees_root", lambda: str(trees)):
+            pr.up_to_date(self.r, rec, "work")
+        self.assertEqual(outside.read_text(), "untouched\n")
+
     # covers: AC-6 (a local merge whose push failed is pushed at the next try)
     def test_push_failed(self):
         rec, old = self.branch()

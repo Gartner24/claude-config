@@ -1222,8 +1222,14 @@ def up_to_date(r, rec, default):
         res = git(g, where, "merge", "--no-edit", target)
         if res.returncode:
             git(g, where, "merge", "--abort")
+        root = os.path.realpath(where)
         for rel, text in copy.items():
-            with open(os.path.join(where, rel), "w", encoding="utf-8") as f:
+            path = os.path.join(where, rel)
+            # never through a link the merged branch put there
+            if os.path.islink(path) or not os.path.realpath(path).startswith(root + os.sep):
+                r.note(f"PR #{rec['number']}: the plan copy {rel} was not put back, it is a link now")
+                continue
+            with open(path, "w", encoding="utf-8") as f:
                 f.write(text)
         if res.returncode:
             r.pr_ask(rec, "merge_conflict", f"{rec['branch']} clashes with {target}: "
