@@ -2,20 +2,24 @@ import type { Register } from 'claude-code'
 import { alertTick, counts, parseStatus } from '../alerts.ts'
 import { Band, HandoffRow, type Facts } from '../band.tsx'
 import { handoffLine } from '../handoff.ts'
-import { DEFAULT_VIEW, Dashboard } from '../panes.tsx'
+import { DEFAULT_VIEW, Dashboard, safeStep } from '../panes.tsx'
+import type { WfDashAsk } from '../types/index.d.ts'
 import { color, pane, space, time, width } from '../tokens.ts'
 
-// wf-dash: the band and alerts (spec 0059) read `wf status --json`; the dashboard (spec 0060, row 73) still reads the
-// preview scripts plan.py and runner.py. The drawing in band.tsx and panes.tsx is the locked look.
+// wf-dash: the band and alerts (spec 0059) read `wf status --json`; the dashboard (spec 0060) reads `wf plan --json`
+// and offers three actions, each behind a confirm. The drawing in band.tsx and panes.tsx is the locked look.
 
 const FACTS = { plugin: 'wf-dash', key: 'facts' } as const
 const EFFORT = { plugin: 'wf-dash', key: 'effort' } as const
 const ALERTS = { plugin: 'wf-dash', key: 'alerts' } as const
 const PLAN = { plugin: 'wf-dash', key: 'plan' } as const
-const RUNNER = { plugin: 'wf-dash', key: 'runner' } as const
 const VIEW = { plugin: 'wf-dash', key: 'view' } as const
 const HANDOFF = { plugin: 'wf-dash', key: 'handoff' } as const
 const PANE = 'wf-dash'
+// P9: a prompt submitted from inside the confirming hook does not start a turn; from the clock after it returns, it does.
+// The host refuses $.prompt.submit of a text starting with "/" (it would run a command as the user), so the step goes
+// through $.command.run, which runs it as if typed, once the session is idle.
+const SUBMIT_AFTER = 1500
 // what `wf auto bar` takes as a session id and an effort level (runner/auto.py); anything else names no file
 const SESSION_ID = /^[A-Za-z0-9-]{1,100}$/
 const LEVEL = /^[a-z]{1,20}$/
@@ -33,6 +37,45 @@ let loadPanes = async (_force = false) => {}
 function clock(ms: number) {
   const d = new Date(ms)
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+// AC-5: no API lists background shells; their ids are only in the Bash result text (probe P8). One stopped by a
+// TaskStop (the model's, or this mod's, which the transcript does not hold) or named by a later task notice is left
+// out; the rest are only "started": one may have ended without the transcript saying so.
+// Security review: only a background Bash call's own result, at its start, so quoted output never adds a row.
+const SHELL_ID = /^Command running in background with ID:\s*([A-Za-z0-9_-]+)\./
+const stoppedShells = new Set<string>()
+async function shells($: any) {
+  const msgs = await $.session.messages().catch(() => null)
+  const found = new Map<string, any>()
+  for (const m of Array.isArray(msgs) ? msgs : []) {
+    for (const u of m.toolUses ?? []) {
+      const id = u.tool === 'Bash' && u.input?.run_in_background === true ? SHELL_ID.exec(u.text ?? '')?.[1] : null
+      if (id) found.set(id, { id, description: String(u.input?.description || u.input?.command || id), type: 'shell', status: 'started' })
+      if (u.tool === 'TaskStop' && !u.isError) found.delete(String(u.input?.task_id))
+    }
+    if (m.role === 'user') for (const id of [...found.keys()]) if ((m.text ?? '').includes(`<task-id>${id}</task-id>`)) found.delete(id)
+  }
+  return [...found.values()].filter(s => !stoppedShells.has(s.id))
+}
+
+// AC-5: the three confirmed actions. Nothing else is reachable: no push, merge, delete, settings or spec edit.
+async function perform($: any, a: WfDashAsk): Promise<{ text: string; ok: boolean }> {
+  if (a.kind === 'start') {
+    if (!safeStep(a.text)) return { text: `not started, not on the safe list: ${a.text}`, ok: false }
+    const [, command, args = ''] = /^\/(\S+)\s*(.*)$/.exec(a.text)!
+    $.clock.after(SUBMIT_AFTER, () => void $.command.run({ command, args }).catch(() => {}))
+    return { text: `starting ${a.text}`, ok: true }
+  }
+  if (a.kind === 'stop') {
+    const r = await $.tool.call({ tool: 'TaskStop', task_id: a.id }).catch((err: any) => ({ deny: String(err?.message ?? err) }))
+    const ok = r && !('deny' in r) && !r.isError
+    if (ok) stoppedShells.add(a.id)
+    return ok ? { text: `stopped ${a.label}`, ok: true } : { text: `could not stop ${a.label}: ${r?.deny ?? r?.text ?? 'no answer'}`, ok: false }
+  }
+  const r = await $.process.run(['wf', 'answer', a.id, String(a.n)]).catch(() => null)
+  void loadPanes(true)
+  return r ? { text: (r.stdout || r.stderr).trim() || `exit ${r.exitCode}`, ok: r.exitCode === 0 } : { text: 'wf answer did not run', ok: false }
 }
 
 async function openDashboard($: any) {
@@ -130,38 +173,25 @@ export const register: Register = on => {
       }
     }
 
-    // Dashboard data: one script call at a time; a failed call keeps the last good data, marked with the error.
-    const fetch = async (script: string) => {
-      const r = await $.process.run(['python3', `${$.plugin.root}/${script}`]).catch(() => null)
-      const data = r && r.exitCode === 0 ? JSON.parse(r.stdout || 'null') : null
-      return { data, error: data ? null : r ? `exit ${r.exitCode}` : 'did not run', at: await $.clock.now() }
-    }
+    // AC-2: never two `wf plan` calls at once (a tick is skipped while one runs); a failed or timed out call keeps the
+    // last good plan, marked with the error, never an empty one
     let planBusy = false
-    const loadPlan = async () => {
-      if (planBusy) return
+    loadPanes = async (force = false) => {
+      if (planBusy || !(force || isOpen)) return
       planBusy = true
       try {
-        const got = await fetch('plan.py')
+        const r = await $.process.run(['wf', 'plan', '--json']).catch(() => null)
+        let data = null
+        try {
+          data = r && r.exitCode === 0 ? JSON.parse(r.stdout) : null
+        } catch {}
+        const ok = !!data && Array.isArray(data.repos)
         const { value: old } = await $.state.get(PLAN)
-        await $.state.set(PLAN, got.data ? got : { data: old?.data ?? null, at: old?.at ?? null, error: got.error })
+        const error = ok ? null : r ? (r.exitCode === 0 ? 'not the expected JSON' : `exit ${r.exitCode}`) : 'did not run or timed out'
+        await $.state.set(PLAN, ok ? { data, at: await $.clock.now(), error } : { data: old?.data ?? null, at: old?.at ?? null, error })
       } finally {
         planBusy = false
       }
-    }
-    let runnerBusy = false
-    const loadRunner = async () => {
-      if (runnerBusy) return
-      runnerBusy = true
-      try {
-        const got = await fetch('runner.py')
-        const { value: old } = await $.state.get(RUNNER)
-        await $.state.set(RUNNER, got.data ? got : { data: old?.data ?? null, at: old?.at ?? null, error: got.error })
-      } finally {
-        runnerBusy = false
-      }
-    }
-    loadPanes = async (force = false) => {
-      if (force || isOpen) await Promise.all([loadPlan(), loadRunner()])
     }
 
     void refresh()
@@ -240,14 +270,22 @@ export const register: Register = on => {
     const el = $.ui.resolve(e)
     const { value: view = DEFAULT_VIEW } = await $.state.get(VIEW)
     const { value: plan } = await $.state.get(PLAN)
-    const { value: runner } = await $.state.get(RUNNER)
     const { value: alerts = [] } = await $.state.get(ALERTS)
     const { value: facts } = await $.state.get(FACTS)
-    const agents = view.section === 'agents' ? await $.agent.list().catch(() => null) : []
-    const act = {
-      go: (v: Partial<typeof view>) => void $.state.set(VIEW, { ...view, ...v }),
-      retry: () => void loadPanes(true),
+    const listed = view.section === 'agents' ? await $.agent.list().catch(() => null) : []
+    // a shell row never shares an id with an agent, so its stop can never reach one
+    const agents = listed && view.section === 'agents'
+      ? [...listed, ...(await shells($)).filter(s => !listed.some((a: any) => a.id === s.id))] : listed
+    const cwd = await $.session.cwd().catch(() => null)
+    const go = async (v: Partial<typeof view>) => {
+      const { value: now = DEFAULT_VIEW } = await $.state.get(VIEW)
+      await $.state.set(VIEW, { ...now, ...v })
     }
-    return <Dashboard el={el} view={view} act={act} plan={plan} runner={runner} agents={agents as any[] | null} alerts={alerts} focused={e.props.isFocused !== false} rows={e.props.placement === 'dock' ? e.props.scroll?.bodyRows : undefined} facts={facts?.wf ?? null} statusOk={facts ? facts.statusOk : null} columns={e.props.bodyColumns ?? (e.viewport?.columns ?? width.viewport) - pane.frame} />
+    const act = {
+      go: (v: Partial<typeof view>) => void go(v),
+      retry: () => void loadPanes(true),
+      run: (a: WfDashAsk) => void perform($, a).then(notice => go({ notice })),
+    }
+    return <Dashboard el={el} view={view} act={act} plan={plan} cwd={cwd} agents={agents as any[] | null} alerts={alerts} focused={e.props.isFocused !== false} rows={e.props.placement === 'dock' ? e.props.scroll?.bodyRows : undefined} facts={facts?.wf ?? null} statusOk={facts ? facts.statusOk : null} columns={e.props.bodyColumns ?? (e.viewport?.columns ?? width.viewport) - pane.frame} />
   })
 }

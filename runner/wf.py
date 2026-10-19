@@ -4,6 +4,7 @@
 # `ntfy` (0005, in ntfy.py), `finish` (0019, in finish.py), `report` (0018, in report.py),
 # `telegram` (0029, in telegram.py), `questions` (0039, in questions.py).
 import argparse
+import json
 import math
 import os
 import re
@@ -629,6 +630,184 @@ def cmd_next(args):
     return rc if c is None else launch(c, args.yes)
 
 
+# -- wf plan --json (spec 0060 AC-1, AC-4): the wf-dash dashboard's facts, changing nothing --------------------------
+
+SPEC_LINK = re.compile(r"specs/(?:[^/)]*/)?(\d{4})-")
+SPEC_STATUS = re.compile(r"^\*\*Status\*\*:\s*(.+)$", re.M)
+STEP_STATE = {"/architect": "needs a design", "/develop": "ready to build"}
+REVIEW_STATES = ("draft", "ready", "approved")
+# a ticked box running one of these means the feature is past its build
+BUILD_STEPS = ("/develop", "/debug")
+RUN_CALL = re.compile(r" call (\d+) \S+ .*?: (/\S.*?), transcript ")
+RUN_END = re.compile(r" end (\d+) ")
+
+
+def bare(heading):
+    """A heading or feature name without its tags, the way NextBox.feature strips them."""
+    return DISPLAY_TAG.sub("", heading or "").strip()
+
+
+def spec_status(repo, scope_dir, num):
+    """The `**Status**:` of spec num, or "unknown" when no spec file says it."""
+    specs = os.path.join(repo, os.path.dirname(scope_dir), "specs")
+    try:
+        names = sorted(os.listdir(specs))
+    except OSError:
+        return "unknown"
+    for n in names:
+        if not n.startswith(num + "-"):
+            continue
+        f = os.path.join(specs, n, "index.md") if os.path.isdir(os.path.join(specs, n)) else os.path.join(specs, n)
+        if not f.endswith(".md"):
+            continue
+        try:
+            m = SPEC_STATUS.search(read(f))
+        except OSError:
+            continue
+        if m:
+            return clean(m.group(1).strip())
+    return "unknown"
+
+
+def feature_state(heading, boxes, nb, building, rec, review_known):
+    """AC-1: (state, review), first match wins; review is "unknown" when no PR record can say."""
+    gone = GONE_TAG.search(heading)
+    if bare(heading) in building:
+        return "building", None
+    if nb is not None and nb.owed is not None:
+        return "waits on you", None
+    if rec and rec["state"] == "local":
+        return "to publish", None
+    if rec and rec["state"] in REVIEW_STATES:
+        return "in review", None
+    if gone:
+        return next(g for g in gone.groups() if g).lower(), None
+    if nb is None:
+        return "done (untagged)", None
+    built = any(not b.open and (b.command() or "").split()[0] in BUILD_STEPS for b in boxes if b.command())
+    # no record cannot mean "not in review" where records are never written, or could not be read
+    review = "unknown" if built and not review_known else None
+    return STEP_STATE.get((nb.command or "").split(" ")[0], "in progress"), review
+
+
+def plan_entry(c, building, prs):
+    """One scope's entry: a hub's open At a glance rows, or a repo's features."""
+    out = {"name": c.name, "path": c.path, "hub": c.is_hub, "warnings": [clean(w) for w in c.warnings]}
+    if c.is_hub:
+        out["rows"] = open_rows(c.text)
+        return out
+    import run
+    answers, _ = run.read_answers(c)
+    review_known = prs is not None and (answers or {}).get("branches") == "per spec"
+    mine = {bare(r["feature"]): r for r in prs or [] if os.path.realpath(r.get("repo") or "") == c.path}
+    folder = os.path.join(c.path, c.scope_dir)
+    texts = [c.text]
+    if os.path.isfile(os.path.join(folder, "index.md")):
+        # an epic split: the features live in the epic files; load_scope already warned about missing ones
+        texts = [read(f) for f in epics(folder, c.text, [])]
+    feats = []
+    for text in texts:
+        for heading, raw, _plain, deferred in sections(text):
+            boxes = parse_text("\n".join(raw))
+            if not boxes:
+                continue
+            nb = pick_next(boxes)
+            rec = mine.get(bare(heading))
+            st, review = feature_state(heading, boxes, nb, building.get(c.path, set()), rec, review_known)
+            m = SPEC_LINK.search("\n".join(raw))
+            feats.append({
+                "heading": bare(heading), "state": st, "next": nb.box_text if nb else None,
+                "command": nb.command if nb else None, "spec": m.group(1) if m else None,
+                "specStatus": spec_status(c.path, c.scope_dir, m.group(1)) if m else None, "deferred": deferred,
+                "pr": rec.get("number") if rec else None, "prState": clean(rec["state"]) if rec else None, "review": review,
+            })
+    out["features"] = feats
+    return out
+
+
+def plan_scopes(building, prs):
+    """AC-1: every scope under scan_roots(), each read in its own try so one broken scope never hides the rest; a
+    worktree is left out, its repo's entry is the plan checkout's. discover() stays as wf run uses it."""
+    seen, out = set(), []
+    for root, lo, hi in scan_roots():
+        for d in walk(root, lo, hi):
+            real = os.path.realpath(d)
+            if real in seen:
+                continue
+            seen.add(real)
+            try:
+                if worktree_label(real):
+                    continue
+                c = make_candidate(real)
+                if c:
+                    out.append(plan_entry(c, building, prs))
+            except Exception as e:  # a broken scope is listed with its error, never dropped
+                out.append({"name": clean(os.path.basename(real)), "path": real, "error": clean(str(e) or type(e).__name__)})
+    return out
+
+
+def run_detail(folder):
+    """AC-4: a run's current step (from log.txt: run.json gets a step only once it ends), steps so far, cost and start."""
+    out = {"step": None, "cost": None, "calls": None, "startedAt": None, "steps": []}
+    if folder is None:
+        return out
+    try:
+        with open(os.path.join(folder, "run.json"), encoding="utf-8") as f:
+            r = json.load(f)
+        calls = [c for c in r.get("calls") or [] if isinstance(c, dict)]
+        out["cost"], out["calls"], out["startedAt"] = r.get("cost_usd"), len(calls), r.get("started")
+        out["steps"] = [{"command": clean(str(c.get("command") or "")), "started": c.get("started"),
+                         "minutes": round((c.get("duration_s") or 0) / 60, 1), "cost": c.get("cost_usd"),
+                         "ok": not c.get("is_error") and c.get("exit_code") == 0} for c in calls]
+    except (OSError, ValueError, AttributeError):
+        pass
+    try:
+        lines = read(os.path.join(folder, "log.txt")).splitlines()
+    except OSError:
+        lines = []
+    started, ended = {}, set()
+    for line in lines:
+        m = RUN_CALL.search(line)
+        if m:
+            started[m.group(1)] = m.group(2)
+        m = RUN_END.search(line)
+        if m:
+            ended.add(m.group(1))
+    live = [cmd for n, cmd in started.items() if n not in ended]
+    out["step"] = clean(live[-1]) if live else None
+    return out
+
+
+def cmd_plan():
+    import auto
+    import run
+    warnings = []
+    try:
+        building = {}
+        for a in run.read_active():
+            if auto.entry_running(a):
+                building.setdefault(os.path.realpath(a.get("repo") or ""), set()).add(bare(a.get("feature")))
+    except Exception as e:
+        building = {}
+        warnings.append(f"could not read what is building: {clean(str(e))}")
+    try:
+        q = run.queue_transact()
+        prs, decisions = q.get("prs", []), q["decisions"]
+    except run.QueueError as e:
+        prs = decisions = None
+        warnings.append(f"could not read the runner's queue: {clean(str(e))}")
+    st = auto.status()
+    runs = None if st["running"] is None else [
+        {**r, **run_detail(os.path.join(run.state_dir(), "runs", r["id"]) if r["id"] else None)}
+        for r in st["running"]]
+    questions = None if decisions is None else [
+        {"id": clean(d["id"]), "repo": clean(os.path.basename(d["repo"])), "feature": clean(d["feature"]),
+         "question": clean(d["question"]), "options": [clean(str(o)) for o in d["options"]], "parked": bool(d.get("parked"))}
+        for d in sorted((d for d in decisions if d["answer"] is None), key=run.asked_at)]
+    print(json.dumps({"repos": plan_scopes(building, prs), "warnings": warnings, "runs": runs, "questions": questions}))
+    return 0
+
+
 def positive(kind):
     def parse(s):
         try:
@@ -716,6 +895,11 @@ def build_parser():
     sub.add_parser("questions", help="list the open questions with their links, changing nothing (spec 0039)")
     st = sub.add_parser("status", help="print what runs, is parked and asks, across all repos, changing nothing (spec 0059)")
     st.add_argument("--json", action="store_true", required=True, help="as one JSON object")
+    pl = sub.add_parser("plan", help="print every scope's features and states, the runs and the open questions, changing nothing (spec 0060)")
+    pl.add_argument("--json", action="store_true", required=True, help="as one JSON object")
+    ans = sub.add_parser("answer", help="answer an open question with the number of one of its options (spec 0060)")
+    ans.add_argument("id", help="the question id")
+    ans.add_argument("n", help="the option number")
     return parser, nxt
 
 
@@ -769,9 +953,13 @@ def main(argv=None):
         return questions.cmd_questions()
     if args.command == "status":
         import auto
-        import json
         print(json.dumps(auto.status()))
         return 0
+    if args.command == "plan":
+        return cmd_plan()
+    if args.command == "answer":
+        import questions
+        return questions.cmd_answer(args.id, args.n)
     if args.list and (args.target or args.yes):
         nxt.error("--list takes no argument and no -y")
     return cmd_next(args)

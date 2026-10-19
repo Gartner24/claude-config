@@ -40,6 +40,8 @@ export type WfDashFeature = {
   deferred: boolean
   pr: number | null
   prState: string | null
+  // "unknown" past the build where no PR record can say whether it is in review
+  review: string | null
 }
 
 export type WfDashRepo = {
@@ -53,17 +55,26 @@ export type WfDashRepo = {
 }
 
 export type WfDashRun = {
+  id: string | null
   repo: string
   feature: string
   step: string | null
   cost: number | null
   calls: number | null
-  log: string[]
   startedAt: string | null
   steps: { command: string; started: string | null; minutes: number; cost: number | null; ok: boolean }[]
 }
 
 export type WfDashQuestion = { id: string; repo: string; feature: string; question: string; options: string[]; parked: boolean }
+
+// `wf plan --json` (spec 0060 AC-1, AC-4); runs and questions are null when the runner could not read them
+export type WfDashPlan = { repos: WfDashRepo[]; warnings: string[]; runs: WfDashRun[] | null; questions: WfDashQuestion[] | null }
+
+// an action waiting for its confirm (AC-5)
+export type WfDashAsk =
+  | { kind: 'start'; text: string }
+  | { kind: 'stop'; id: string; label: string }
+  | { kind: 'answer'; id: string; options: string[]; n?: number }
 
 // spec 0064 AC-1: ~/.claude/state/auto-handoff/panel.json as the wf-handoff mod writes it
 export type WfDashPanel = {
@@ -88,9 +99,11 @@ declare module 'claude-code' {
       effort: string | null
       alerts: WfDashAlert[]
       seen: WfDashSeen
-      plan: WfDashLoaded<{ repos: WfDashRepo[] }>
-      runner: WfDashLoaded<{ runs: WfDashRun[] | null; questions: WfDashQuestion[] | null }>
-      view: { section: string; tab: string; page: number; sel: number; bpos: number }
+      plan: WfDashLoaded<WfDashPlan>
+      view: {
+        section: string; tab: string; page: number; sel: number; bpos: number; apos?: number; gsel?: number
+        ask?: WfDashAsk | null; notice?: { text: string; ok: boolean } | null
+      }
       handoff: WfDashHandoff
     }
   }
