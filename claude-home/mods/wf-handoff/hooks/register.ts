@@ -26,6 +26,8 @@ let dir = ''
 let chain: Chain | null = null
 let pending = 0 // tool output characters the last usage figure does not hold yet
 let exemptTurn = false
+let exemptNext = false // an exempt command typed mid turn: it runs as the next turn
+let requestAtTrigger: string | null = null
 let armedTurn: string | null = null
 let currentTurn: string | null = null
 let rollResolved = false
@@ -100,6 +102,18 @@ async function fail($: EngineInterface, text: string) {
   $.ui.toast(`auto handoff failed: ${text}`, { timeoutMs: 10000 })
   $.ui.status(`auto handoff failed: ${text}`)
   await log($, `failed: ${text}`)
+  await resendHeld($)
+}
+
+async function resendHeld($: EngineInterface) {
+  const resend = held
+  held = []
+  for (const text of resend) {
+    const m = text.match(/^\/(\S+)\s*([\s\S]*)$/)
+    if (m) void $.command.run({ command: m[1]!, args: m[2] ?? '' }).catch(() => {})
+    else void $.prompt.submit({ text }).catch(() => {})
+    await log($, 'held prompt sent again')
+  }
 }
 
 async function template($: EngineInterface, name: 'sections' | 'instructions') {
@@ -113,9 +127,10 @@ async function startHandoff($: EngineInterface) {
   c.triggeredAt = new Date(await $.clock.now()).toISOString()
   rollResolved = false
   counted = false
+  requestAtTrigger = c.lastRequest
   await setPhase($, 'rolling')
   const args = fillTemplate(await template($, 'sections'), {
-    priority: false, lastRequest: c.lastRequest ?? '(none typed in this chat)',
+    priority: false, lastRequest: requestAtTrigger ?? '(none typed in this chat)',
   })
   await log($, 'rollover started')
   // Probe P1: slash commands go through $.command.run (prompt.submit refuses them); P6: it
@@ -173,19 +188,13 @@ async function seed($: EngineInterface, slot: string) {
   pending = 0
   await setPhase($, 'seeding')
   const priority = lastRequestStatus(slot) === 'not answered'
-  const args = fillTemplate(await template($, 'instructions'), { priority, lastRequest: c.lastRequest ?? '' })
+  // The request the rollover judged, not one held since (those are sent again below).
+  const args = fillTemplate(await template($, 'instructions'), { priority, lastRequest: requestAtTrigger ?? '' })
   await log($, `cleared; seed run (priority ${priority ? 'on' : 'off'})`)
   $.command.run({ command: 'resume-from-clear', args }).catch(err =>
     fail($, `the fresh chat did not start (${err}); the handover waits, type /resume-from-clear`))
   await setPhase($, 'idle')
-  const resend = held
-  held = []
-  for (const text of resend) {
-    const m = text.match(/^\/(\S+)\s*([\s\S]*)$/)
-    if (m) void $.command.run({ command: m[1]!, args: m[2] ?? '' }).catch(() => {})
-    else void $.prompt.submit({ text }).catch(() => {})
-    await log($, 'held prompt sent again')
-  }
+  await resendHeld($)
 }
 
 // Spec 0057 AC-10: /handoff replaces typing /clear after a /rollover. The clear empties the
@@ -222,6 +231,13 @@ export const register: Register = (on, options) => {
       if (c?.session === id) chain = c
     }
     chain ??= { root: id, session: id, previous: null, startTokens: null, unattended: 0, triggeredAt: null, phase: 'idle', lastRequest: null }
+    // A reload mid handoff loses the in-memory flags and timers that would finish it, so the
+    // phase would hold every typed prompt forever.
+    if (['gated', 'rolling', 'clearing', 'seeding'].includes(chain.phase)) {
+      await log($, `failed: the mod reloaded during ${chain.phase}`)
+      await setPhase($, 'failed')
+      $.ui.status('auto handoff failed: the mod reloaded mid handoff')
+    }
     return started
   })
 
@@ -232,7 +248,7 @@ export const register: Register = (on, options) => {
       chain = null
       const id = await $.session.id().catch(() => '')
       if (id) chain = { root: id, session: id, previous: null, startTokens: null, unattended: 0, triggeredAt: null, phase: 'idle', lastRequest: null }
-      pending = 0; awaitStart = false; exemptTurn = false
+      pending = 0; awaitStart = false; exemptTurn = false; exemptNext = false
     }
     return r
   })
@@ -255,7 +271,10 @@ export const register: Register = (on, options) => {
       if (chain.phase === 'paused' || chain.phase === 'failed') { chain.phase = 'idle'; $.ui.status(undefined) }
       await save($)
     }
-    if (EXEMPT.some(c => e.text === `/${c}` || e.text.startsWith(`/${c} `)) || EXEMPT.includes(e.command?.name ?? '')) exemptTurn = true
+    if (EXEMPT.some(c => e.text === `/${c}` || e.text.startsWith(`/${c} `)) || EXEMPT.includes(e.command?.name ?? '')) {
+      if (e.turnId) exemptNext = true
+      else exemptTurn = true
+    }
     return next(e)
   })
 
@@ -273,6 +292,7 @@ export const register: Register = (on, options) => {
 
   on('turn.step', async function* ($, e, next) {
     if (!active || e.agentId || !chain) return yield* next(e)
+    if (exemptNext && e.turnId !== currentTurn) { exemptNext = false; exemptTurn = true }
     currentTurn = e.turnId
     // AC-2 fallback: a gated turn ended without turn.complete (Esc); the next step hands off.
     if (chain.phase === 'gated' && armedTurn !== e.turnId) {

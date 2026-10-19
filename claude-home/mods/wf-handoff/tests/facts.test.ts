@@ -18,6 +18,15 @@ test('AC-4 files from Edit, Write and NotebookEdit, once each, minus ignoreFiles
   expect(f.files).toEqual(['/w/a.ts', '/w/n.ipynb'])
 })
 
+test('AC-4 an Edit or Write that errored or was denied is not an edited file', async () => {
+  const f = extractFacts(uses(
+    { tool: 'Edit', input: { file_path: '/w/ok.ts' }, isError: false },
+    { tool: 'Edit', input: { file_path: '/w/denied.ts' }, isError: true },
+    { tool: 'Write', input: { file_path: '/w/failed.ts' }, isError: true },
+  ), '')
+  expect(f.files).toEqual(['/w/ok.ts'])
+})
+
 test('AC-4 commits only from git commit output, subjects stripped of markdown', async () => {
   const f = extractFacts(uses(
     { tool: 'Bash', input: { command: 'git log' }, text: '[main 1111111] not a commit we made' },

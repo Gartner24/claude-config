@@ -377,3 +377,67 @@ test('AC-12 a log line carries the session id for each event', { options: { thre
   const log = w.files.get(`${STATE}/auto-handoff.log`)!.text
   for (const s of ['trigger:', 'refused Read', 'rollover started', 'slot found', 'failed: the clear failed']) expect(log).toMatch(new RegExp(`^\\S+ S1 ${s}`, 'm'))
 })
+
+test('review: a reload mid handoff turns the phase into failed, typed prompts pass', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  w.files.set(`${STATE}/S1.json`, { text: JSON.stringify({ root: 'S1', session: 'S1', previous: null, startTokens: null, unattended: 0, triggeredAt: '1970-01-01T00:16:40.000Z', phase: 'rolling', lastRequest: 'x' }), mtimeMs: 0 })
+  await start($)
+  expect(chain(w).phase).toBe('failed')
+  expect(w.files.get(`${STATE}/auto-handoff.log`)!.text).toContain('failed: the mod reloaded during rolling')
+  const r = await typed($, 'still here?')
+  expect((r as any).drop).toBeUndefined()
+  expect(chain(w).phase).toBe('idle')
+})
+
+test('review: a failed handoff sends the held prompts again', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  w.noSlotWrite = true
+  await start($)
+  w.tokens = 60_000
+  expect(((await read($)) as any).deny).toBeDefined()
+  await typed($, 'plain words', 'T1')
+  await typed($, '/scope add a thing', 'T1')
+  await handoff($, w, 'T1')
+  expect(chain(w).phase).toBe('failed')
+  expect(w.resent).toEqual(['plain words'])
+  expect(w.commands.slice(1)).toEqual([{ command: 'scope', args: 'add a thing' }])
+})
+
+test('review: /rollover typed during a turn exempts the next turn, not the current one', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  await start($)
+  await step($, 'T1', 0)
+  await typed($, '/rollover', 'T1')
+  w.tokens = 60_000
+  await complete($, 'T1')
+  expect(names(w)).toEqual(['rollover'])
+})
+
+test('review: the exempt flag from a mid turn /rollover lands on the next turn', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  await start($)
+  await typed($, 'go') // writes the chain file, so a gate on T2 would show in it
+  await step($, 'T1', 0)
+  await typed($, '/rollover', 'T1')
+  await complete($, 'T1')
+  w.tokens = 60_000
+  await step($, 'T2', 0)
+  expect(w.sent).toBe(2)
+  expect(chain(w).phase).toBe('idle')
+})
+
+test('review: the seed quotes the request the rollover judged, not one held during it', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  await start($)
+  await typed($, 'first ask')
+  w.tokens = 60_000
+  await complete($, 'T1')
+  await w.clock.settle()
+  await typed($, 'second ask', 'T1r')
+  await complete($, 'T1r')
+  await w.clock.advance(1500)
+  const seedArgs = w.commands.find(c => c.command === 'resume-from-clear')!.args
+  expect(seedArgs).toContain('first ask')
+  expect(seedArgs).not.toContain('second ask')
+  expect(w.resent).toEqual(['second ask'])
+})

@@ -2,7 +2,7 @@
 // facts pulled from the transcript and figures marked unverified comes from
 // alexknowshtml/claude-auto-handoff 0.8.6 (MIT, credited in docs/NOTICE.md).
 
-export type Msg = { toolUses?: readonly { tool: string; input: Record<string, unknown>; text?: string }[] }
+export type Msg = { toolUses?: readonly { tool: string; input: Record<string, unknown>; text?: string; isError?: boolean }[] }
 
 export type Numbers = {
   tokens: number
@@ -26,7 +26,7 @@ export function extractFacts(messages: readonly Msg[], ignoreFiles: string) {
   const files: string[] = [], commits: string[] = [], links: string[] = []
   const add = (list: string[], v: string) => { if (!list.includes(v)) list.push(v) }
   for (const m of messages) for (const u of m.toolUses ?? []) {
-    if (u.tool === 'Edit' || u.tool === 'Write' || u.tool === 'NotebookEdit') {
+    if (!u.isError && (u.tool === 'Edit' || u.tool === 'Write' || u.tool === 'NotebookEdit')) {
       const p = String(u.input.file_path ?? u.input.notebook_path ?? '')
       if (p && !ignore.some(r => r.test(p) || r.test(p.split('/').pop()!))) add(files, p)
     }
