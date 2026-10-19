@@ -7,7 +7,7 @@ const facts = {
   git: { branch: 'docs/wf-dash-design', changes: 3, staged: 1, modified: 1, untracked: 1 },
   context: 16, contextTokens: 160000, contextWindow: 1000000,
   fiveHour: 21, fiveHourReset: null, week: 45, weekReset: null, via: null,
-  wf: { running: 4, parked: 1, questions: 2 }, auto: { here: false, chats: 2 }, staleSince: null,
+  wf: { running: 4, parked: 1, questions: 2 }, auto: { here: false, chats: 2 }, staleSince: null, statusOk: true,
 }
 
 // the cells the band takes for the segments it keeps, the way fit() counts them

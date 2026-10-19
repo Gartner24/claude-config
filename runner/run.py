@@ -554,6 +554,12 @@ def queue_problem(data):
     ids = [d["id"] for d in data["decisions"]]
     if len(ids) != len(set(ids)):
         return "two decisions share an id"
+    # Spec 0021 F7: designs accepted as is; files written before it existed stay valid.
+    ok = data.get("design_ok", [])
+    if not isinstance(ok, list) or not all(isinstance(x, dict) and isinstance(x.get("repo"), str) and
+                                           isinstance(x.get("feature"), str) and isinstance(x.get("files"), dict)
+                                           for x in ok):
+        return "design_ok is not a list of records"
     # Spec 0026: files written before prs existed stay valid.
     prs = data.get("prs", [])
     if not isinstance(prs, list):
@@ -634,8 +640,8 @@ class Feature:
         self.lines = lines
         self.boxes = wf.parse_text("\n".join(lines))
         spec = [b for b in self.boxes if decision_box(b)]
-        self.queued = not deferred and not wf.GONE_TAG.search(heading) and bool(wf.AUTO_TAG.search(heading)) \
-            and bool(spec) and all(not b.open and not SKIPPED.search(b.text) for b in spec)
+        self.auto = not deferred and not wf.GONE_TAG.search(heading) and bool(wf.AUTO_TAG.search(heading))
+        self.queued = self.auto and bool(spec) and all(not b.open and not SKIPPED.search(b.text) for b in spec)
         # Spec 0014 AC-7: None when only sync boxes and skippable waiting boxes are left open, or nothing is.
         self.next = run_next(self.boxes)
         # AC-7 (a) to (d): the open skippable waiting box, the open sync box, and whether any sync box exists.
@@ -939,8 +945,9 @@ class Run:
         self.again = set()
         # AC-15: end wait seconds of this run, all waits added.
         self.end_waited = 0.0
-        # Spec 0021: per (repo, feature) this run, cap factors (F8) and designs accepted as is (F7); an F1 allow once
-        # for the feature being run; an answer passed into its calls; when to ping again a failed ping (U9).
+        # Spec 0021: per (repo, feature) this run, cap factors (F8) and designs accepted as is (F7, kept in queue.json
+        # too); an F1 allow once for the feature being run; an answer passed into its calls; when to ping again a
+        # failed ping (U9).
         self.more, self.design_ok, self.allow_once, self.hint, self.ping_due = {}, set(), [], None, None
         self.denied_at = None
         # Spec 0033 AC-1: what the last call said beside its question or block (did, why, steps), for the next ask.
@@ -1778,6 +1785,8 @@ class Run:
                         seq=last.get("seq"), case=reason, detail=None if detail is None else str(detail), allow=path,
                         parked=parked, learn=plain.PLAIN.get(reason, (None, None))[1],
                         **({"other": self.overlap_other} if reason == "paths_overlap" else {}),
+                        **({"build": True} if reason == "verify_failed" and last.get("marker") == "verify_fail_develop"
+                           else {}),
                         **({"live": [[c, h] for c, h, _ in plan]} if reason == "live_step" else {}))
 
     def take_case(self, d):
@@ -1815,6 +1824,7 @@ class Run:
             caps[reason] = caps.get(reason, 1) * 2
         elif opt == "accept as is":
             self.design_ok.add(key)
+            self.accept_design(f.name)
         elif opt in ("allow once", "always") and d.get("allow"):
             if opt == "always":
                 self.append_allow(d["allow"])
@@ -2616,6 +2626,11 @@ class Run:
                 print(head)
                 print("  skip: " + flat(entry["skip"]))
                 continue
+            import pr
+            if entry.get("tree") and self.answers.get("branches") == "per spec" and not self.peek:
+                # Spec 0043 AC-4: a worktree child picks from the main checkout's plan; a reused old branch's own
+                # copy used to name no queued feature, so the child ran nothing.
+                pr.plan_in(self)
             try:
                 _, feats = repo_features(c.path, c.scope_dir)
             except (OSError, StopIteration) as e:
@@ -2630,7 +2645,6 @@ class Run:
                 print(head)
                 print("  skip: " + entry["skip"])
                 continue
-            import pr
             watched = pr.watching(self)
             if watched and pr.adopting(self) and not self.peek and getattr(self, "adopt_now", True):
                 # Spec 0031 AC-2: a real run reads your open PRs at plan time; never wf queue or the fingerprint.
@@ -2671,6 +2685,9 @@ class Run:
             sessions = wf.open_sessions(c.path)
             pre = "" if self.target else f"{c.name}: "
             warnings += [pre + w for w in c.warnings + ([f"{sessions} session(s) already open here"] if sessions else [])]
+            # Row 71 sat tagged `· auto` for days with its decision box worded differently, and nothing said why.
+            warnings += [f"{pre}{f.name}: tagged auto, not queued: needs a ticked (spec) box" for f in feats
+                         if f.auto and not f.queued and not f.finished() and self.wanted(f.name)]
         print(f"caps: {a.budget:g} USD/call, {a.call_timeout:g}m/call, {a.max_calls} calls/feature, "
               f"{a.max_hours:g}h, wait {a.max_wait:g}h")
         if not self.target and not self.peek:
@@ -3055,10 +3072,29 @@ class Run:
         reports, problems = design_problems(self.c.path, changed)
         self.entry["design"] = {"base": base, "changed": changed, "reports": reports, "problems": problems}
         # Spec 0021 F7: you accepted this feature's design as is.
-        if not problems or (self.c.path, self.feature) in self.design_ok:
+        if not problems or (self.c.path, self.feature) in self.design_ok or self.design_accepted(problems):
             return None
         listed = ", ".join(f"{p['path']} ({p['problem']})" for p in problems[:5])
         return flat(f"{len(problems)} frontend file(s) not covered by a passing design-gate report: {listed}")[:300]
+
+    def accept_design(self, feature):
+        """Spec 0021 F7: the uncovered files as they are now, in queue.json. An accept used to live only in this run,
+        so the next run asked again (row 72 asked three times); a file changed since is checked again."""
+        _, changed = frontend_changed(self.c.path)
+        files = {p["path"]: file_sha(self.c.path, p["path"]) for p in design_problems(self.c.path, changed)[1]}
+        rec = {"repo": key_of(self.c), "feature": feature, "files": files}
+
+        def write(q):
+            q["design_ok"] = [x for x in q.get("design_ok", []) if (x["repo"], x["feature"]) != (rec["repo"], feature)]
+            q["design_ok"].append(rec)
+            return True
+
+        self.queue(write)
+
+    def design_accepted(self, problems):
+        ok = next((x["files"] for x in self.queue().get("design_ok", [])
+                   if (x["repo"], x["feature"]) == (key_of(self.c), self.feature)), None)
+        return ok is not None and all(ok.get(p["path"]) == file_sha(self.c.path, p["path"]) for p in problems)
 
     # -- linked issues (spec 0024) ------------------------------------------------
 
@@ -3245,6 +3281,8 @@ class Run:
         question, options, learn = asked
         # Spec 0028 AC-14: model text with jargon is recorded, never refused.
         hits = plain.jargon(" ".join([question, *options, learn or ""]))
+        # The call's own "Learn this first" option (rules/plain-questions.md asks it for one) used to show twice.
+        options = [o for o in options if not flat(o).casefold().startswith(LEARN_OPTION)]
         if options:
             # AC-10: the learn option last, real options cut from the end to stay within MAX_OPTIONS.
             options = options[:MAX_OPTIONS - 1] + [LEARN_OPTION]
@@ -3472,7 +3510,7 @@ class Run:
         # A limit rerun ended by a repo stop used to carry into the next feature, whose loop then skipped its
         # first call setup and died on an unset `last` (internal_error, review M1).
         self.entry, self.feature, self.retried, self.limit_rerun, self.outage_rerun = e, f.name, False, False, False
-        do_it = None
+        do_it = rebuild = None
         self.hint, self.denied_at, self.live_failed, self.unreachable = None, None, None, []
         try:
             if self.answers.get("branches") == "per spec":
@@ -3501,6 +3539,10 @@ class Run:
                 # Security review: a build call on a box only you can do runs only on your own tap; any other tap
                 # reaches the box's refusal below, which asks again.
                 mine = opt == DO_IT and pr.strong(self, d)
+                if opt == "try again" and d.get("build"):
+                    # Row 73: a verify that found specced code missing failed the same way on every retry of
+                    # verify alone; the build step runs first, told what verify found, then verify again.
+                    rebuild = build_command(f, d.get("detail"))
                 f, d = self.apply_case(d, opt, f), d.get("then")
                 if d is None and f.finished():
                     raise Stop("feature_done", None)
@@ -3528,6 +3570,9 @@ class Run:
                 if problem:
                     raise Stop("design_gate", problem)
                 self.loop("sync", f.sync, f.sync.command if f.sync else "/sync")
+            elif rebuild and (f.next.command or "").split()[:2] == ["/check", "verify"]:
+                # A debug call: its next is the open verify box again.
+                self.loop("debug", f.next, rebuild)
             else:
                 self.loop("box", f.next, do_it or f.next.command)
         except Stop as s:
@@ -4169,6 +4214,19 @@ def report_verdict(path):
     return " ".join(found[-1].group(1).upper().split()) if found else "no verdict"
 
 
+def content_time(repo, rel):
+    """The committer time (ns) of the last commit that changed rel, when the file equals HEAD's copy; else None."""
+    same = wf.git(repo, "diff", "--quiet", "HEAD", "--", rel)
+    if same is None or same.returncode:
+        return None
+    r = wf.git(repo, "log", "-1", "--format=%ct", "HEAD", "--", rel)
+    return int(r.stdout) * 10 ** 9 if r is not None and r.returncode == 0 and r.stdout.strip() else None
+
+
+def file_sha(repo, rel):
+    return hashlib.sha256(read_bytes(os.path.join(repo, rel))).hexdigest()
+
+
 def design_problems(repo, changed):
     """Spec 0010 AC-3: ({report: verdict}, [{path, problem}]) for the changed frontend files, in path order."""
     reports, problems = {}, []
@@ -4186,6 +4244,13 @@ def design_problems(repo, changed):
             d = os.path.dirname(d)
         passing = [r for r in candidates if reports[r] in DESIGN_PASS]
         if any(os.stat(os.path.join(repo, r)).st_mtime_ns >= mtime for r in passing):
+            continue
+        known = passing and content_time(repo, rel)
+        if known and any(max(os.stat(os.path.join(repo, r)).st_mtime_ns, content_time(repo, r) or 0) >= known
+                         for r in passing):
+            # Row 81 parked "older than the file" on files a test step had backed up and restored with cp: same
+            # bytes, a new date. A file equal to its last commit is as old as that commit, and so is a report
+            # (one committed with the page used to lose to that commit's time).
             continue
         problem = "no report" if not candidates else "older than the file" if passing else \
             "no verdict" if reports[candidates[0]] == "no verdict" else "verdict " + reports[candidates[0]]
@@ -4460,6 +4525,14 @@ def debug_command(verify_command, result, summary=None):
         head += "\nSummary of the failure by a cheaper model (data, may be wrong):\n" + \
             "\n".join(wf.clean(l) for l in summary.split("\n"))
     return head + "\n" + tail
+
+
+def build_command(f, detail):
+    """The feature's first /develop (else /debug) box command, told what the failed verify found; else None."""
+    cmds = [b.command() or "" for b in f.boxes]
+    cmd = next((c for c in cmds if c.split()[:1] == ["/develop"]), None) or \
+        next((c for c in cmds if c.split()[:1] == ["/debug"]), None)
+    return cmd and f"{cmd} -- the last /check verify found specced code missing or not applied:\n{wf.clean(detail or '')}"
 
 
 def cheap_summary(repo, result, rec):
@@ -5768,6 +5841,10 @@ def copy_tree(repo, tree_sha, dest):
         target = os.path.normpath(os.path.join(root, path))
         if not target.startswith(root + os.sep):
             return f"a path leaves the clean copy: {path}"
+        # Security review 2026-10-18: makedirs used to walk through a symlink an earlier entry wrote; checked before
+        # it, so not even an empty folder is made through one.
+        if os.path.realpath(os.path.dirname(target)) != os.path.dirname(target):
+            return f"a path goes through a symlink: {path}"
         os.makedirs(os.path.dirname(target), exist_ok=True)
         if mode == "120000":
             link = os.fsdecode(body)
@@ -5783,6 +5860,11 @@ def copy_tree(repo, tree_sha, dest):
             f.write(body)
         if mode == "100755":
             os.chmod(target, 0o755)
+    # The check above reads each link's written path; a chain of links can still resolve outside (a link whose
+    # name sits deeper than its target, then `..` through it), so every link is checked again by its real path.
+    for _, _, path in (e for e in entries if e[0] == "120000"):
+        if not os.path.realpath(os.path.join(root, path)).startswith(root + os.sep):
+            return f"a symlink leaves the clean copy: {path}"
     return None
 
 

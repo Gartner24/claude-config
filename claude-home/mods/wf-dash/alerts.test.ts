@@ -6,6 +6,7 @@ import { pane, time } from './tokens.ts'
 const run = (id: string | null, feature = '1. A') => ({ id, repo: 'work', feature })
 const ask = (id: string, title = 'Which storage engine?', feature = '2. B') => ({ id, repo: 'work', feature, title })
 const status = (running: any[] | null, parked: any[] | null, questions: any[] | null) => ({ running, parked, questions })
+const done = { ended: '2026-10-18T10:00:00', stop_reason: 'queue_done' }
 
 // a $ with only what alertTick calls: state and files in memory, toasts recorded
 function fake$(files: Record<string, string> = {}) {
@@ -26,6 +27,7 @@ function fake$(files: Record<string, string> = {}) {
   return { $, state, toasts, files }
 }
 const opts = { keep: pane.history, timeoutMs: time.toast }
+const withRuns = { ...opts, runs: '/s/wf/runs' }
 
 test('no alert on the first tick, whatever is already there', () => {
   const { alerts } = diff(NEVER_SEEN, status([run('r1')], [ask('q1')], [ask('q1')]))
@@ -34,7 +36,7 @@ test('no alert on the first tick, whatever is already there', () => {
 
 test('a run leaving running is finished, a new parked id is stuck, a new question id is a question', () => {
   let { seen } = diff(NEVER_SEEN, status([run('r1'), run('r2', '3. C')], [], []))
-  const got = diff(seen, status([run('r2', '3. C')], [ask('q1')], [ask('q1'), ask('q2', 'Pick one', '4. D')]))
+  const got = diff(seen, status([run('r2', '3. C')], [ask('q1')], [ask('q1'), ask('q2', 'Pick one', '4. D')]), { r1: done })
   expect(got.alerts).toEqual([
     { id: 'finished:r1', kind: 'finished', feature: '1. A', detail: 'in work' },
     { id: 'stuck:q1', kind: 'stuck', feature: '2. B', detail: 'Which storage engine?' },
@@ -60,7 +62,7 @@ test('a failed tick, or a null field, is skipped and never read as empty', () =>
   const nullRunning = diff(seen, status(null, [], [ask('q1')]))
   expect(nullRunning.alerts).toEqual([])
   // the next good tick still compares with r1, so its end is caught
-  expect(diff(nullRunning.seen, status([], [], [ask('q1')])).alerts.map(a => a.id)).toEqual(['finished:r1'])
+  expect(diff(nullRunning.seen, status([], [], [ask('q1')]), { r1: done }).alerts.map(a => a.id)).toEqual(['finished:r1'])
 })
 
 test('a run with no id never alerts', () => {
@@ -80,15 +82,15 @@ test('an alert toasts for 15 s, lands in the alert list, and the list keeps the 
 })
 
 test('what was seen survives a reload through its file, so nothing toasts twice', async () => {
-  const first = fake$()
-  await alertTick(first.$, status([run('r1')], [], []), '/d/s.toasts', opts)
-  await alertTick(first.$, status([], [], []), '/d/s.toasts', opts)
+  const first = fake$({ '/s/wf/runs/r1/run.json': JSON.stringify(done) })
+  await alertTick(first.$, status([run('r1')], [], []), '/d/s.toasts', withRuns)
+  await alertTick(first.$, status([], [], []), '/d/s.toasts', withRuns)
   expect(first.toasts.length).toBe(1)
   // a reload: $.state is empty, the file is not
   const again = fake$(first.files)
-  await alertTick(again.$, status([], [], []), '/d/s.toasts', opts)
-  await alertTick(again.$, status([run('r1')], [], []), '/d/s.toasts', opts)
-  await alertTick(again.$, status([], [], []), '/d/s.toasts', opts)
+  await alertTick(again.$, status([], [], []), '/d/s.toasts', withRuns)
+  await alertTick(again.$, status([run('r1')], [], []), '/d/s.toasts', withRuns)
+  await alertTick(again.$, status([], [], []), '/d/s.toasts', withRuns)
   expect(again.toasts).toEqual([])
 })
 
@@ -98,9 +100,11 @@ test('the band shows ? for a count the runner could not read, never 0', () => {
   expect(parseStatus('not json')).toBe(null)
   expect(parseStatus('{"running": 3}')).toBe(null)
   const f = { model: 'claude-opus-5-5', effort: null, folder: 'w', git: null, context: null, contextTokens: null, contextWindow: null,
-    fiveHour: null, fiveHourReset: null, week: null, weekReset: null, via: null, auto: null, staleSince: null }
+    fiveHour: null, fiveHourReset: null, week: null, weekReset: null, via: null, auto: null, staleSince: null, statusOk: true }
   const text = (wf: any) => segments({ ...f, wf }, 0, false).right.runs.map(r => r.text).join('')
-  expect(text(counts(status(null, [], [ask('q1')])))).toBe('wf ? building  0 stuck  1 question')
+  // spec 0065 AC-6: each number right aligned in width.count cells, so the line does not shift as a count grows
+  expect(text(counts(status(null, [], [ask('q1')])))).toBe('wf   ? building    0 stuck    1 question')
+  expect(text({ running: 12, parked: 0, questions: 1 }).length).toBe(text({ running: 1, parked: 0, questions: 1 }).length)
   expect(text(counts(null))).toBe('wf ? status')
   // no subscription rate limits: the meters print ?
   const left = segments({ ...f, wf: null }, 0, false).left
@@ -109,8 +113,62 @@ test('the band shows ? for a count the runner could not read, never 0', () => {
 
 test('unknown effort is left out of the band, never guessed', () => {
   const f = { model: 'claude-opus-5', effort: null, folder: 'w', git: null, context: null, contextTokens: null, contextWindow: null,
-    fiveHour: 1, fiveHourReset: null, week: 1, weekReset: null, via: null, wf: null, auto: null, staleSince: null }
+    fiveHour: 1, fiveHourReset: null, week: 1, weekReset: null, via: null, wf: null, auto: null, staleSince: null, statusOk: true }
   const model = (effort: string | null) => segments({ ...f, effort }, 0, false).left.find(s => s.id === 'model')!.runs.map(r => r.text).join('')
   expect(model(null)).toBe('Opus 5')
   expect(model('medium')).toBe('Opus 5 medium')
+})
+
+// covers: spec 0065 AC-2 (finished only when the run record says so; any other end is stopped with its reason)
+test('a run that left running toasts finished only when its record says the queue or feature is done', () => {
+  const { seen } = diff(NEVER_SEEN, status([run('r1'), run('r2'), run('r3')], [], []))
+  const got = diff(seen, status([], [], []), {
+    r1: done,
+    r2: { ended: '2026-10-18T10:00:00', stop_reason: 'feature_done' },
+    r3: { ended: '2026-10-18T10:00:00', stop_reason: 'decision_open' },
+  })
+  expect(got.alerts).toEqual([
+    { id: 'finished:r1', kind: 'finished', feature: '1. A', detail: 'in work' },
+    { id: 'finished:r2', kind: 'finished', feature: '1. A', detail: 'in work' },
+    { id: 'stopped:r3', kind: 'stopped', feature: '1. A', detail: 'in work, decision open' },
+  ])
+  expect(got.seen.pending).toEqual([])
+})
+
+test('a run with no record yet is read again on the next 3 ticks, then settles as stopped with no record', () => {
+  let { seen } = diff(NEVER_SEEN, status([run('r1'), run('r2', '3. C')], [], []))
+  // r1's record never comes; r2's has no `ended` at first and lands on the second retry
+  const ticks = [{ r1: null, r2: { ended: null } }, { r1: null, r2: null }, { r1: null, r2: done }, { r1: null }]
+  const alerts: any[][] = []
+  for (const records of ticks) {
+    const got = diff(seen, status([], [], []), records as any)
+    alerts.push(got.alerts.map(a => [a.id, a.detail]))
+    seen = got.seen
+  }
+  expect(alerts).toEqual([[], [], [['finished:r2', 'in work']], [['stopped:r1', 'in work, ended with no record (lost its lock or crashed)']]])
+  expect(seen.pending).toEqual([])
+  expect(diff(seen, status([], [], []), {}).alerts).toEqual([])
+})
+
+test('alertTick reads each departed run record from the runs folder, and a missing one keeps the toast back', async () => {
+  const { $, toasts, files } = fake$()
+  await alertTick($, status([run('r1')], [], []), null, withRuns)
+  await alertTick($, status([], [], []), null, withRuns)
+  expect(toasts).toEqual([])
+  files['/s/wf/runs/r1/run.json'] = JSON.stringify({ ended: '2026-10-18T10:00:00', stop_reason: 'usage_limit' })
+  await alertTick($, status([], [], []), null, withRuns)
+  expect(toasts.map(t => t.text)).toEqual(['stopped: 1. A - in work, usage limit'])
+})
+
+// covers: spec 0065 AC-2, the run id from `wf status` is only ever a folder name inside the runs folder
+test('a departed id that is not a plain folder name is never read, and settles as stopped with no record', async () => {
+  const { $, toasts, files } = fake$({ '/s/wf/x/run.json': JSON.stringify(done) })
+  const reads: string[] = []
+  const read = $.fs.read
+  $.fs.read = async (p: string) => { reads.push(p); return read(p) }
+  await alertTick($, status([run('../x')], [], []), null, withRuns)
+  for (let i = 0; i < 4; i++) await alertTick($, status([], [], []), null, withRuns)
+  expect(reads).toEqual([])
+  expect(toasts.map(t => t.text)).toEqual(['stopped: 1. A - in work, ended with no record (lost its lock or crashed)'])
+  expect(files['/s/wf/x/run.json']).toBe(JSON.stringify(done))
 })

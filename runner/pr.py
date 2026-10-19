@@ -326,9 +326,7 @@ def start_feature(r, f, d=None):
                         break
                     bottom = nxt
                 raise run.Stop("stack_deep", f"{name} would be {deep} branches deep on {bottom['branch']}")
-        base_sha = out(wf.git(repo, "rev-parse", base))
-        if base_sha is None:
-            raise run.Stop("branch_changed", f"cannot read the base {base}")
+        base_sha = fork_point(repo, base, name)
         rec = {"repo": key, "feature": f.name, "spec": spec, "branch": name, "base": base, "base_sha": base_sha,
                "stacked_on": stacked, "pr": None, "number": None, "state": "building", "seen": [], "rounds": 0,
                "pushed_sha": None}
@@ -336,6 +334,22 @@ def start_feature(r, f, d=None):
     save(r, rec)
     print(f"branch: {rec['branch']} from {rec['base']}", flush=True)
     r.log(f"branch {rec['branch']} from {rec['base']}")
+
+
+def fork_point(repo, base, name):
+    """The commit a new record of branch name starts from: base's tip, or where an existing name left base. A reused
+    old branch used to get base's tip, so its squash put the old tree on top of main and the PR reverted main
+    (PR #60). Raises Stop branch_changed when either cannot be read."""
+    sha = out(wf.git(repo, "rev-parse", base))
+    if sha is None:
+        raise run.Stop("branch_changed", f"cannot read the base {base}")
+    old = out(wf.git(repo, "rev-parse", "--verify", "--quiet", f"refs/heads/{name}"))
+    if old is None:
+        return sha
+    sha = out(wf.git(repo, "merge-base", sha, old))
+    if sha is None:
+        raise run.Stop("branch_changed", f"{name} shares no history with {base}")
+    return sha
 
 
 def switch(r, name, base_sha=None):
@@ -570,6 +584,11 @@ def squash(r, f, rec):
         return False
     if count == 1 and not staged and not planned:
         return True
+    if git(g, repo, "merge-base", "--is-ancestor", rec["base_sha"], "HEAD").returncode:
+        # A soft reset onto a base the branch does not start from commits the branch's old tree over it (PR #60).
+        r.pr_ask(rec, "squash_failed", f"{rec['feature']}: {rec['branch']} does not start at its base "
+                                       f"{rec['base_sha'][:12]}; a squash would undo the newer commits of {rec['base']}")
+        return None
     subject, body = message(r, f, rec)
     git(g, repo, "reset", "--soft", rec["base_sha"])
     if r.repo.get("tree"):
@@ -757,6 +776,12 @@ def push(r, rec, branch=None, lease=None, sha=None):
     return "failed", run.flat(res.stderr or res.stdout)[:200]
 
 
+def reverts(r, head):
+    """Files origin/<default> has that head deletes since they parted, sorted; [] when origin/<default> is unknown."""
+    res = wf.git(r.c.path, "diff", "--name-only", "--diff-filter=D", "-z", f"origin/{default_branch(r)}...{head}")
+    return sorted(p for p in res.stdout.split("\0") if p) if res is not None and res.returncode == 0 else []
+
+
 def local(r, rec, e, why):
     """AC-8: skip the PR: the branch stays, state local, one report line."""
     rec["state"] = "local"
@@ -791,7 +816,13 @@ def publish(r, rec, e=None, skip=(), base_too=False, default_base=False):
             private = isinstance(vis, dict) and vis.get("visibility") in ("PRIVATE", "INTERNAL")
             options = ("push anyway, the repo is private", "skip the PR") if private else ("scan again", "skip the PR")
         return r.pr_ask(rec, reason, f"{rec['feature']}: {detail}", options)
-    on_origin = out(wf.git(r.c.path, "ls-remote", "--heads", "origin", rec["base"]))
+    gone = reverts(r, head)
+    if gone:
+        # PR #60 checked only against its base and would have deleted two specs and a brief that main had.
+        return r.pr_ask(rec, "pr_failed", f"{rec['feature']}: the PR would delete {len(gone)} file(s) that origin/"
+                                          f"{default_branch(r)} has: {', '.join(gone[:5])}; skip the PR and push it "
+                                          "yourself if that is meant")
+    on_origin =out(wf.git(r.c.path, "ls-remote", "--heads", "origin", rec["base"]))
     if not on_origin:
         if not base_too:
             return r.pr_ask(rec, "base_unpushed", f"{rec['feature']}: {rec['base']} is not on origin")
@@ -2163,9 +2194,7 @@ def make_tree(r, f):
             base, stacked = below["branch"], n
             if depth(recs, {"feature": f.name, "stacked_on": n}) > MAX_DEPTH:
                 raise run.Stop("stack_deep", f"{name} would be more than {MAX_DEPTH} branches deep")
-        base_sha = out(wf.git(repo, "rev-parse", base))
-        if base_sha is None:
-            raise run.Stop("branch_changed", f"cannot read the base {base}")
+        base_sha = fork_point(repo, base, name)
         rec = {"repo": key, "feature": f.name, "spec": spec, "branch": name, "base": base, "base_sha": base_sha,
                "stacked_on": stacked, "pr": None, "number": None, "state": "building", "seen": [], "rounds": 0,
                "pushed_sha": None}
