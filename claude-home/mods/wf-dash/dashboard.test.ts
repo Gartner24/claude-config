@@ -17,7 +17,7 @@ const PLAN = {
 const PANE_PROPS = { title: 'wf-dash', isFocused: true, bodyColumns: 100, placement: 'inline', scroll: { offset: 0, bodyRows: 14 }, view: {} } as any
 
 function host(on: any) {
-  const calls = { planFails: false, planHold: null as null | Promise<void>, status: { running: [], parked: [], questions: [] } as any, argv: [] as string[][], submitted: [] as string[], stopped: [] as any[], commands: [] as string[], messages: [] as any[] }
+  const calls = { planFails: false, planHold: null as null | Promise<void>, status: { running: [], parked: [], questions: [] } as any, argv: [] as string[][], submitted: [] as string[], stopped: [] as any[], commands: [] as string[], messages: [] as any[], files: {} as Record<string, string> }
   const clock = mock.clock(on)
   // $.state is the kit's own, so a write redraws the pane as in a session
   mock.env(on, { HOME: '/h', XDG_STATE_HOME: '' })
@@ -27,7 +27,7 @@ function host(on: any) {
   on('session.usage', () => ({ value: { context: { percent: 6 }, rateLimits: [] } }))
   on('session.model', () => ({ value: 'claude-opus-5-5' }))
   on('fs.write', () => ({ value: undefined }))
-  on('fs.read', () => ({ deny: 'ENOENT' }))
+  on('fs.read', (_$: any, e: any) => (e.path in calls.files ? { value: calls.files[e.path] } : { deny: 'ENOENT' }))
   on('command.register', (_$: any, e: any) => { calls.commands.push(e.name); return { value: { command: e.name } } })
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('agent.list', () => ({ value: [{ id: 'ag1', description: 'Look things up', type: 'general-purpose', status: 'running' }] }))
@@ -282,6 +282,8 @@ test('a refresh while wf plan still runs starts no second call', async ($, on) =
 test('the Alerts view lists every alert newest first, the kind word in its color', async ($, on) => {
   const { calls, clock, ui } = await open($, on)
   calls.status = { running: [{ id: 'r1', repo: 'here', feature: '1. Old' }], parked: [], questions: [] }
+  // a run is finished only when its own record says so (wf-dash design should-fixes)
+  calls.files['/h/.local/state/wf/runs/r1/run.json'] = JSON.stringify({ ended: true, stop_reason: 'queue_done' })
   await clock.advance(5000)
   calls.status = { running: [], parked: [], questions: [] }
   await clock.advance(5000)
