@@ -908,7 +908,7 @@ Our own status bar without jjstack: the segments ported into the runner.
 Spec [0058](../specs/0058-own-status-bar.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B3, part 1 of 3; the band is row 72, the panes row 73.
 
 ### 59. Memory tool: claude-mem, MemPalace, graphify or NotebookLM
-Pick the memory tool (keep claude-mem, MemPalace, graphify, both, or NotebookLM as a second brain), weighing usage, token cost, memory quality and code memory.
+Pick the memory tool (keep claude-mem, MemPalace, or NotebookLM as a second brain; graphify was removed 2026-10-19), weighing usage, token cost, memory quality and code memory.
 **Done when:** one memory setup is chosen with its reasons and installed, or each option is rejected with a reason.
 - [x] Research and compare: `/deep-research memory for Claude Code: claude-mem, MemPalace, graphify, NotebookLM` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
 - [ ] Design it (spec): `/architect memory tool` (after the MemPalace trial review, about 2026-10-30; your answer 2026-10-17) · waits on you
@@ -1022,6 +1022,7 @@ Spec [0056](../specs/0056-borrowed-ideas.md) · code in `claude-home/skills/lead
 ### 70. graphify test on one repo · done
 Map one large own repo with graphify, code only and AI keys hidden, and ask 8 to 10 questions with and without the map.
 **Done when:** the test's numbers are written down and graphify is kept in that repo or uninstalled with its skill removed.
+Removed 2026-10-19 on your ask: package, skill, CLAUDE.md line and its output folders.
 - [x] Research and compare: `/deep-research graphify against our setup` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
 - [x] Run the test on the repo you pick · waits on you (done in plan A8: it failed the rule; kept installed by your choice; B9 dropped)
 Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items A8, B9, D2.

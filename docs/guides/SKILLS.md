@@ -327,14 +327,6 @@ License: MIT.
 | `sync-gbrain` | downloaded | Keep gbrain current with this repo's code and refresh agent search guidance in CLAUDE.md. |
 | `unfreeze` | downloaded | Clear the freeze boundary set by /freeze, allowing edits to all directories again. |
 
-### Graphify-Labs/graphify
-
-License: Apache-2.0.
-
-| Skill | Status | What it does |
-|---|---|---|
-| `graphify` | downloaded | Use for any question about a codebase, its architecture, file relationships, or project content - especially when graphify-out/ exists, where the question should be treated as a graphify query first. |
-
 ### greensock/gsap-skills
 
 License: MIT.

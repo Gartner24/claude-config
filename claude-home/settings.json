@@ -144,7 +144,6 @@
     "go-review": "name-only",
     "go-test": "name-only",
     "gradle-build": "name-only",
-    "graphify": "name-only",
     "groom": "name-only",
     "gsap-core": "name-only",
     "gsap-frameworks": "name-only",
