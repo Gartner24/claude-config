@@ -1171,14 +1171,15 @@ When you say you are leaving, everything in the plan that does not need your pas
 - [ ] Sync docs: `/sync finish when the owner is away`
 Source: your message of 2026-10-18 ("each time I tell you Im going away ... find out what the problem is"); evidence in [brief](../briefs/leftovers-2026-10-18.md), section Finish when away.
 
-### 83. The word "after" stalls a feature
+### 83. The word "after" stalls a feature · auto
 The runner's waiting check (`WAITING` in `runner/wf.py`, `\b(after|waits on)\b`) runs on the text of the next box's first open milestone, so any milestone that just mentions "after" makes `wf queue` say "skip: waiting" forever. Found 2026-10-19 on a work repo feature; rewording the milestone unstuck it. Two features in another work repo show the same "skip: waiting" and may be the same bug.
 **Done when:** a box or milestone counts as waiting only by its ` · waits on you` tag (or another explicit tag the spec names), never by the word "after" in its text, with a test that fails on the old code.
+- [x] Design it (spec): `/architect the word after stalls a feature` (your pick 2026-10-19: only the marker counts)
 - [ ] Fix it: `/debug the word after stalls a feature`
 - [ ] Verify it: `/check verify the word after stalls a feature`
 - [ ] Test it: `/test the word after stalls a feature`
 - [ ] Sync docs: `/sync the word after stalls a feature`
-Source: work chat 2026-10-19; memory reference_wf_after_word_skips_feature.md.
+Spec [0066](../specs/0066-waiting-only-by-marker.md) · Source: work chat 2026-10-19; memory reference_wf_after_word_skips_feature.md.
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
