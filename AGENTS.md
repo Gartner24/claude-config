@@ -18,7 +18,7 @@ python3 scripts/asciify.py --check              # ASCII-only lint on repo-owned 
 bash claude-home/hooks/block-destructive.sh --test     # guard hook self-checks
 python3 claude-home/hooks/plain-panel.py --test        # panel hook self checks (spec 0028): "Learn this first" last, at most 3 real options, no jargon
 bash claude-home/hooks/handover-start.sh --test        # handover on /clear hook self checks (spec 0057); needs the real jjstack slot script
-claude plugin test claude-home/mods/wf-handoff         # /handoff mod tests (spec 0057 AC-10); `claude plugin validate` beside it
+claude plugin test claude-home/mods/wf-handoff         # /handoff and auto handoff mod tests (spec 0057 AC-10, spec 0063); `claude plugin validate` beside it
 claude plugin test claude-home/mods/wf-dash            # wf-dash band, alerts and panes tests (specs 0058 to 0060, 0065); `claude plugin validate` beside it; the band reads `wf status --json`
 node claude-home/hooks/context-monitor.js --test       # context warning hook self checks (spec 0037): fixture transcripts, and header numbers match the code and autoCompactWindow
 bash claude-home/skills/design/scripts/test-ledger.sh  # design ledger + Stop hook assertions
@@ -28,9 +28,9 @@ python3 runner/e2e/run.py                       # real claude end to end on a te
 python3 scripts/private-names.py --test         # private names checker self checks (spec 0013); `check` scans the repo, exits 0 when clean
 python3 scripts/skill-keep.py --dry-run         # only skills in scripts/skill-keep.txt keep their description; others go name-only in ~/.claude/settings.json, plus a plugin report (spec 0050); without --dry-run it writes, then run bin/sync.sh right away or bin/install.sh undoes it; tests in runner/tests/test_skill_keep.py
 python3 scripts/spec-paths.py --test            # stale spec warner self checks (spec 0015); bin/install.sh links it as ~/.local/bin/spec-paths, which /sync runs as `spec-paths --spec NNNN`
-~/.claude/skills/jjstack/bin/jjstack-skill-miss-report  # skills your messages matched but that did not run, top misses for 24 h, 72 h and lifetime (spec 0036); the two hooks behind it are in HOOKS.md and stay off under WF_RUN
+~/.claude/skills/jjstack/bin/jjstack-skill-miss-report  # skills your messages matched but that did not run, top misses for 24 h, 72 h and lifetime (spec 0036); the two hooks behind it are in docs/guides/HOOKS.md and stay off under WF_RUN
 wf insights                                     # spec 0061: baselines and repeating problems from past runs; also runs at the end of each wf run, proposals go to an inbox, never applied; tests in runner/tests/test_insights.py
-skill-scan [static|llm|both] [path ...] [--accept]  # skillspector over every skill and plugin, only new HIGH/CRITICAL vs the baseline (spec 0054); reports and baseline in ~/.claude/state/skillspector/ (sandbox cannot write it, run with `!`); `update --apply` runs `--against`; tests in runner/tests/test_skill_scan.py
+skill-scan [static|llm|both] [path ...] [--accept]  # skillspector over every skill and plugin, only new HIGH/CRITICAL vs the baseline (spec 0054); a run with no path skips the trusted packs gstack, jjstack, ui-ux-pro-max and prints `skipped (trusted):`, an explicit path or `--against` still scans them (AC-13); reports and baseline in ~/.claude/state/skillspector/ (sandbox cannot write it, run with `!`); `update --apply` runs `--against`; tests in runner/tests/test_skill_scan.py
 bin/repo-settings.sh [--check] <owner/repo>       # spec 0051 AC-10: squash only, delete branch on merge, main only through a PR; --check only reads, exits 1 on a difference; you run it, never wf
 bin/docs-pr.sh [slug]                           # spec 0051 AC-11: docs only commits on main reach origin by a small squash merged PR (a direct push is refused); refuses a commit outside docs/
 fb-ask <task> [--file PATH] < input             # cheap worker tier (spec 0023): summarize|triage|extract|classify|commit-msg on the free claude-fb models, exit 3/4 = do it yourself (`claude-home/rules/cheap-worker.md`); `fb-ask --test` self checks, bin/install.sh links it to ~/.local/bin

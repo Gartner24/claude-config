@@ -8,7 +8,7 @@
 // numbers. This one reads the transcript, and `--test` fails when the numbers drift.
 //
 // Thresholds (tokens used):
-//   WARN_TOKENS          150000   ~/.claude/CLAUDE.md Context: past ~150k, finish the step, /rollover
+//   WARN_TOKENS          150000   info only: the wf-handoff mod hands off at 200k, so no /rollover here
 //   AUTOCOMPACT_TOKENS   700000   settings.json autoCompactWindow
 //   CRITICAL_TOKENS      650000   50k before autocompact
 
@@ -59,8 +59,9 @@ function messageFor(used) {
     return `Context: ${k}k tokens used; autocompact (lossy) runs at ${AUTOCOMPACT_TOKENS / 1000}k. ` +
       'Do not start new work: finish this step and `/rollover` now.';
   }
-  return `Context: ${k}k tokens used. Rule (\`~/.claude/CLAUDE.md\` Context): finish the current step, ` +
-    'then `/rollover` mid feature or `/save-and-clear` at a boundary.';
+  // The wf-handoff mod hands off at 200k; telling the model to roll over here made chats hand off at 150k.
+  return `Context: ${k}k tokens used. Rule (\`~/.claude/CLAUDE.md\` Context): the wf-handoff mod hands off by itself ` +
+    'at 200k; do not run `/rollover` for size unless it says auto handoff is paused or off.';
 }
 
 function main(input) {
@@ -126,7 +127,7 @@ function selfTest() {
     assert.strictEqual(r.status, 0, r.stderr);
     return r.stdout ? JSON.parse(r.stdout).hookSpecificOutput.additionalContext : '';
   };
-  const warn = (k) => `Context: ${k}k tokens used. Rule (\`~/.claude/CLAUDE.md\` Context): finish the current step, then \`/rollover\` mid feature or \`/save-and-clear\` at a boundary.`;
+  const warn = (k) => `Context: ${k}k tokens used. Rule (\`~/.claude/CLAUDE.md\` Context): the wf-handoff mod hands off by itself at 200k; do not run \`/rollover\` for size unless it says auto handoff is paused or off.`;
   const crit = (k) => `Context: ${k}k tokens used; autocompact (lossy) runs at 700k. Do not start new work: finish this step and \`/rollover\` now.`;
 
   assert.strictEqual(run([userLine, asst(149999)]), '');

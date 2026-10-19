@@ -24,9 +24,11 @@ from pathlib import Path
 PIN = "v2.12.0"
 WORKERS = {"static": 6, "llm": 3}
 TIMEOUT = {"static": 300, "llm": 1800}
+TRUSTED = ("gstack", "jjstack", "ui-ux-pro-max")
 # A4 triage: findings in tests, benchmarks, fixtures and changelogs were all false alarms.
+# The file name parts match the last path part only: unanchored, `test_` hid latest_hook.sh and anything in contest_x/.
 NOISE = re.compile(r"(^|/)(tests?|__tests__|benchmarks?|fixtures?|evals?|examples?|node_modules|\.venv)/"
-                   r"|CHANGELOG|\.test\.|_test\.|test_")
+                   r"|(^|/)(CHANGELOG[^/]*|[^/]*\.test\.[^/]*|[^/]*_test\.[^/]*|test_[^/]*)$")
 
 
 def home():
@@ -65,6 +67,12 @@ def targets(paths):
         skills = home() / "skills"
         found = {os.path.realpath(p): None for p in (skills.iterdir() if skills.is_dir() else []) if p.is_dir()}
         found.update(dict.fromkeys(names))
+        # These packs time out and are widely reviewed (owner, 2026-10-17). Drop links into them too, or
+        # the nested rule below would promote each linked skill to a target of its own.
+        trusted = {n: os.path.realpath(skills / n) for n in TRUSTED if (skills / n).is_dir()}
+        found = {p: None for p in found if not any(p == t or p.startswith(t + "/") for t in trusted.values())}
+        if trusted:
+            print(f"skipped (trusted): {', '.join(trusted)}")
     keep = [p for p in found if not any(p != q and p.startswith(q + "/") for q in found)]
     return {p: names.get(p) or Path(p).name for p in sorted(keep)}
 
@@ -110,7 +118,8 @@ def kept(report, name):
         if i.get("severity") not in ("HIGH", "CRITICAL") or NOISE.search(loc.get("file") or ""):
             continue
         text = (i.get("finding") or i.get("code_snippet") or "").strip()
-        key = (name, i["severity"], norm(i.get("pattern") or "?"), norm(text))
+        # the file is part of the key: without it a known finding in one file hid the same text added in another
+        key = (name, i["severity"], norm(i.get("pattern") or "?"), norm(text), loc.get("file") or "?")
         rows.append((key, f"{loc.get('file')}:{loc.get('start_line')}", text))
     return rows
 
@@ -141,12 +150,15 @@ def scan_pass(mode, tgts, accept):
     base = load(bf) or {}
     known = {tuple(k) for k in base.get(mode, [])}
     if accept:
-        known |= {k for k, _, _ in rows}
+        # an accept moves the baseline to file keys: old four part entries go, so they cannot hide a new file forever
+        known = {k for k in known if len(k) != 4} | {k for k, _, _ in rows}
         base[mode] = sorted(known)
         bf.write_text(json.dumps(base, indent=1) + "\n")
         print(f"{mode}: baseline holds {len(known)} findings")
         return failed
-    new = [r for r in rows if r[0] not in known]
+    # a baseline entry from before the file was in the key still matches its finding in any file
+    old = {k for k in known if len(k) == 4}
+    new = [r for r in rows if r[0] not in known and r[0][:4] not in old]
     for r in new:
         print(show(*r))
     print(f"{mode}: {len(tgts)} targets, {len(new)} new serious findings, {failed} failed")

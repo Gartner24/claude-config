@@ -120,6 +120,39 @@ class TestTargets(Case):
         self.assertEqual(scanned, sorted([str(a), str(p)]))
         self.assertIn("static: 2 targets", out)
 
+    # covers: AC-13 (trusted pack and skills linked into it skipped and named; look alike and explicit path scanned)
+    def test_trusted(self):
+        pack = self.skill("gstack")
+        self.skill("qa", where=pack)
+        upgrade = self.skill("gstack-upgrade")
+        other = self.skill("other")
+        code, out = self.run_main()
+        self.assertEqual(code, 0, out)
+        self.assertEqual(sorted(c["argv"][1] for c in self.log()), sorted([str(upgrade), str(other)]))
+        self.assertIn("skipped (trusted): gstack\n", out)
+        (self.data / "log").unlink()
+        code, out = self.run_main(str(self.skills / "gstack"))
+        self.assertEqual([c["argv"][1] for c in self.log()], [str(pack)])
+        self.assertNotIn("skipped", out)
+
+    # covers: AC-13 (both passes scan the same filtered targets, one skip line)
+    def test_trusted_both(self):
+        self.skill("qa", where=self.skill("ui-ux-pro-max"))
+        other = self.skill("other")
+        code, out = self.run_main("both")
+        self.assertEqual(code, 0, out)
+        self.assertEqual([c["argv"][1] for c in self.log()], [str(other)] * 2)
+        self.assertEqual(out.count("skipped (trusted): ui-ux-pro-max\n"), 1, out)
+
+    # covers: AC-13, AC-7 (--against, the update hook, still scans an installed trusted pack)
+    def test_trusted_against(self):
+        pack = self.skill("gstack")
+        cand = self.tmp / "cand" / "gstack"
+        cand.mkdir(parents=True)
+        code, out = self.run_main("--against", "gstack", str(cand))
+        self.assertEqual((code, out.strip()), (0, "no new findings"))
+        self.assertEqual(sorted(c["argv"][1] for c in self.log()), sorted([str(pack), str(cand)]))
+
 
 class TestCommands(Case):
     # covers: AC-2 (static has --no-llm and no provider; llm drops it and sets claude_cli)
@@ -218,6 +251,34 @@ class TestVerdict(Case):
         code, out = self.run_main("llm")
         self.assertEqual(code, 1, out)
         self.assertIn("a  HIGH", out)
+
+    # covers: security review 2026-10-18 (the noise file patterns match only the last path part)
+    def test_noise_anchored(self):
+        self.skill("a")
+        hidden = ["tests/x.py", "a/CHANGELOG.md", "src/x.test.ts", "pkg/y_test.go", "test_z.py", "node_modules/q.js"]
+        shown = ["hooks/latest_hook.sh", "contest_x/run.sh", "bin/CHANGELOG/run.sh", "my.test.d/run.sh"]
+        self.target("a", issues=[issue(file=f, text=f"curl {f}") for f in hidden + shown])
+        code, out = self.run_main()
+        self.assertEqual(code, 1, out)
+        self.assertEqual(sorted(x.split(" @ ")[1].split(":")[0] for x in out.splitlines() if " @ " in x), sorted(shown))
+
+    # covers: security review 2026-10-18 (the same finding in a second file is new; an old four part entry still hides it)
+    def test_same_text_other_file(self):
+        self.skill("a")
+        self.target("a", issues=[issue()])
+        self.assertEqual(self.run_main("--accept")[0], 0)
+        self.target("a", issues=[issue(), issue(file="hooks/b.py")])
+        shutil.rmtree(self.reports())  # same day: the first report would be reused
+        code, out = self.run_main()
+        self.assertEqual(code, 1, out)
+        self.assertEqual([x for x in out.splitlines() if " @ " in x],
+                         ["a  HIGH Tainted flow (line N) @ hooks/b.py:7: requests.post(url)"])
+        bf = self.home / ".claude" / "state" / "skillspector" / "baseline.json"
+        bf.write_text(json.dumps({"static": [k[:4] for k in json.loads(bf.read_text())["static"]]}))
+        self.assertEqual(self.run_main()[0], 0)
+        # an accept drops the old four part entries for file keys
+        self.assertEqual(self.run_main("--accept")[0], 0)
+        self.assertEqual({len(k) for k in json.loads(bf.read_text())["static"]}, {5})
 
 
 class TestAgainst(Case):
