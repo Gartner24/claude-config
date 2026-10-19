@@ -60,6 +60,20 @@ export type WfDashRun = {
 
 export type WfDashQuestion = { id: string; repo: string; feature: string; question: string; options: string[]; parked: boolean }
 
+// spec 0064 AC-1: ~/.claude/state/auto-handoff/panel.json as the wf-handoff mod writes it
+export type WfDashPanel = {
+  session: string
+  previous: string | null
+  phase: string
+  steps: { label: string; state: 'pending' | 'running' | 'done' | 'failed' }[]
+  result: string | null
+  sticky: boolean
+  link: string | null
+  at: number
+}
+// the last panel that was this chat's, this chat's id and the one it replaced, when the owner last dismissed
+export type WfDashHandoff = { panel: WfDashPanel | null; me: string; prev: string | null; dismissed: number; frame: number }
+
 export type WfDashLoaded<T> = { data: T | null; at: number | null; error: string | null }
 
 declare module 'claude-code' {
@@ -72,6 +86,7 @@ declare module 'claude-code' {
       plan: WfDashLoaded<{ repos: WfDashRepo[] }>
       runner: WfDashLoaded<{ runs: WfDashRun[] | null; questions: WfDashQuestion[] | null }>
       view: { section: string; tab: string; page: number; sel: number; bpos: number }
+      handoff: WfDashHandoff
     }
   }
 }
