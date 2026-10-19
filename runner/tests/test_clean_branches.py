@@ -863,6 +863,23 @@ class TestReviewFixes(Case):
         self.assertEqual(self.git("branch", "--show-current"), "work")
         self.assertNotIn("feat/0001-a", self.git("branch", "--list"))
 
+    # covers: AC-6 (the runner's uncommitted plan copy in a feature worktree never stops the update, and stays as it was)
+    def test_plan_copy_kept(self):
+        rec, old = self.branch()
+        (self.repo / "docs" / "scope" / "scope.md").write_text(SCOPE + "\nmain moved the plan\n")
+        self.git("commit", "-qam", "main moves the plan")
+        self.git("push", "-q", "origin", "work")
+        trees = self.tmp / "trees"
+        tree = trees / "feat-0001-a"
+        self.git("worktree", "add", "-q", str(tree), "feat/0001-a")
+        (tree / "docs" / "scope" / "scope.md").write_text("the runner's copy\n")
+        rec["tree"] = str(tree)
+        with mock.patch.object(run, "trees_root", lambda: str(trees)):
+            self.assertTrue(pr.up_to_date(self.r, rec, "work"))
+        self.assertIn("main moved the plan", self.git("show", "feat/0001-a:docs/scope/scope.md"))
+        self.assertEqual((tree / "docs" / "scope" / "scope.md").read_text(), "the runner's copy\n")
+        self.assertEqual(self.git("rev-parse", "feat/0001-a", repo=self.origin), rec["pushed_sha"])
+
     # covers: AC-6 (a local merge whose push failed is pushed at the next try)
     def test_push_failed(self):
         rec, old = self.branch()
