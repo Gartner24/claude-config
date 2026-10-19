@@ -95,7 +95,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 74 | Fix the runner's plan landing crash | Release 9 | done |
 | 75 | wf-dash stray keys | Release 9 | in-progress |
 | 76 | Auto handoff: our handover, fired on its own | Release 9 | done |
-| 77 | Auto handoff display: band, viewer pages, link | Release 9 | planned |
+| 77 | Auto handoff display: band, viewer pages, link | Release 9 | in-progress |
 | 78 | Runner bugs found 2026-10-18 | Release 9 | planned |
 | 79 | Security review leftovers 2026-10-18 | Release 9 | planned |
 | 80 | Skill scan trusted list | Release 9 | done |
@@ -1104,12 +1104,12 @@ At 200k tokens a chat hands itself off with nothing typed: the mod gates new too
 - [x] Sync docs: `/sync auto handoff`
 Spec [0063](../specs/0063-auto-handoff.md) · Source: [brief](../briefs/auto-handoff.md) (the owner's messages of 2026-10-18).
 
-### 77. Auto handoff display: band, viewer pages, link · auto
+### 77. Auto handoff display: band, viewer pages, link · in-progress · auto
 The handoff shows its steps and result in the wf-dash band (toasts where there is no band), each handover gets a readable page served on your Tailscale address, and a chat that came from a handoff links back to it.
 **Done when:** a handoff shows in the band, its page opens from your phone over Tailscale, and every AC of spec 0064 is built.
 - [x] Design it (spec): `/architect auto handoff` (your answers 2026-10-18: progress in the wf-dash band, install Tailscale)
 - [ ] Install Tailscale on this laptop and your phone and log in to both (spec 0064 AC-7) · waits on you · later boxes go on
-- [ ] Build it: `/develop auto handoff display`
+- [x] Build it: `/develop auto handoff display` (code in `claude-home/mods/wf-handoff/` (`pages.ts`, `server.py`, panel and server in `hooks/register.ts`) and `claude-home/mods/wf-dash/handoff.ts`; 65 and 35 mod tests pass, `server.py --test` passes)
 - [ ] Verify it: `/check verify auto handoff display`
 - [ ] Test it: `/test auto handoff display`
 - [ ] Install both mods live after their scan · waits on you · later boxes go on
