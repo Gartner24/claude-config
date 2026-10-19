@@ -999,7 +999,7 @@ fb-ask can send private text to the model on the laptop (`fb-local`) with `--loc
 - [x] Trial: speed test, one opencode task against claude-fb's cloud model · waits on you (done in plan A7, agent task skipped by your choice)
 - [x] Verify it: `/check verify local model on the laptop` (AC-1 to AC-8 met, 13 can fail steps; AC-9 left to its box)
 - [x] Test it: `/test local model on the laptop` (21 self check mutants and 4 docs mutants all red, suite 973 green)
-- [ ] Live probes P1 and P2, never while wf builds (AC-9) · waits on you · later boxes go on
+- [x] Live probes P1 and P2, never while wf builds (AC-9) · waits on you · later boxes go on (2026-10-18: P1 passes on a real log, P2 no cooldown block; notes on the feature branch)
 - [ ] Sync docs: `/sync local model on the laptop`
 Spec [0053](../specs/0053-fb-ask-local-model.md) · code in `scripts/fb-ask.py` · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items A7, B8, D4.
 
