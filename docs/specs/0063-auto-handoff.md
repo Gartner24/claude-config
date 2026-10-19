@@ -1,7 +1,7 @@
 # 0063. Auto handoff: our handover, fired on its own
 
 **Date**: 2026-10-18
-**Status**: Proposed
+**Status**: Accepted
 **Paths:** `claude-home/mods/wf-handoff/**`
 **Amends:** [0057](0057-handover-on-clear.md) AC-10 (the mod no longer acts only when typed)
 

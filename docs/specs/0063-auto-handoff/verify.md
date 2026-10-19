@@ -64,3 +64,43 @@ Run 2026-10-18 (23:00-23:02 UTC) by a subagent, Claude Code 2.1.303, model haiku
   Screen: "Prompt dropped by a hook: probe-0063b: held, will be sent again in 2 s", then a block "Prompt from the probe-0063b plugin ... This is how Claude Code surfaces a prompt a plugin submits between turns", then the answer `42`.
   Origin of the resent prompt: `{ kind: 'plugin', name: 'probe-0063b' }`, not composer. It did not pass through the mod's own `prompt.submit` hook (no log line), as seen in 0057 and P3. Side effect: after the drop the host puts the typed text back in the composer box and it stays there after the resend (a second Enter would send it again), so the mod should not rely on the box being empty.
   can fail: the typed prompt reaching the model before the resend, or the resend never arriving
+
+## /check verify of the build (2026-10-18, under wf run): FAIL
+
+How it ran: a real Claude chat cannot start here (the sandbox has no login: `claude auth status` says `"loggedIn": false`), so the mod ran inside Claude Code's own mod engine with the host faked in memory: `claude plugin test` on a scratch copy of `claude-home/mods/wf-handoff/`, with the shipped tests plus the checks in [verify-checks.test.ts.txt](verify-checks.test.ts.txt) (rename to `.ts` and drop into the mod's `tests/` to rerun). `claude plugin validate claude-home/mods/wf-handoff` passed (one warning: no author). Each passing check was run once more against a broken copy of the code and went red (mutant named per line); the scratch copy was then diffed back to the repo, identical.
+
+Commands
+- [x] `claude plugin test claude-home/mods/wf-handoff`: 14 pass, 0 fail (the shipped tests) -> AC-1 to AC-12
+- [x] V1 subagent events (`agentId`) never gate, end a turn or hand off -> AC-1, AC-11. can fail: the `agentId` skip dropped from `tool.call` (went red)
+- [x] V3, V3b facts block under 2,000 bytes -> AC-4. Fixed in 1c47781, PASS on the rerun below. Was **FAIL**: 2,065 bytes with 200 edited files, 2,075 with long files, commits and links lists. `factsBlock` in `facts.ts` budgets only the heading, viewer and numbers plus 120 bytes of slack (`fixed`, facts.ts line 53), but the block also holds the provenance line (about 110 bytes), three list titles, `- none` and `- +N more` lines and blank lines. Fix: count every fixed line of the block in `fixed` (or measure the joined block and drop list lines until it fits), in bytes, not UTF-16 length.
+- [x] V2 `ignoreFiles` globs leave matching paths out; `NotebookEdit` paths kept -> AC-4. can fail: the ignore filter removed (went red)
+- [x] V15 a chain `link` adds exactly one `viewer:` line -> AC-4 (the link itself is spec 0064 AC-6). can fail: the viewer line dropped (went red)
+- [x] V4 unverified marks only on context or token lines: `12%` and `1,234,567 tokens` marked and logged; a code span, a file name `run-200k.txt`, a line with no context word, and a known figure (60k = tokens at handoff) left alone -> AC-5. can fail: the file name guard removed (went red)
+- [x] V17 the last request is quoted as typed -> AC-3, AC-6. Fixed in 1c47781, PASS on the rerun below. Was **FAIL**: typed `use $& and $' in the regex` reached `/rollover` as `use {{lastRequest}} and  GO-ON in the regex GO-ON`. `fillTemplate` (facts.ts line 123) passes the owner's text as a `String.replace` replacement string, so `$&`, `$'`, `` $` `` and `$$` are expanded. Same for the held prompt in the seed. Fix: `.replace(/\{\{lastRequest\}\}/g, () => vars.lastRequest)`.
+- [x] V5 an owner's own `/clear` starts a new chain: no seed, guard count back to 0 -> AC-6, AC-7. can fail: the chain reset in `session.end` removed (went red)
+- [x] V6 a clear that rejects: phase failed, no seed, text says the chat may still have cleared -> AC-6, AC-8. can fail: only a timeout treated as failure (went red)
+- [x] V7 a seed that rejects: phase failed, text says type /resume-from-clear, counted once, gate open -> AC-7, AC-8. can fail: the seed failure swallowed (went red)
+- [x] V8 held slash text resent through `$.command.run` (`scope`, `add a thing`), plain text through `$.prompt.submit` -> AC-6. can fail: slash text not routed to command.run (went red)
+- [x] V9 `Status: answered` under the last request section seeds the not priority branch, even with a later `Status: not answered` in another section -> AC-6, AC-9. can fail: priority always on (went red)
+- [x] V10 the `sectionsTemplate` setting (`~/my/sections.md`) is the text handed to `/rollover` -> AC-9, AC-10. can fail: the setting ignored (went red)
+- [x] V11a a gated turn with no `turn.complete` (Esc) hands off at the next `turn.step`, which ends at once -> AC-2. can fail: the fallback removed (went red)
+- [x] V11b the same, the next owner prompt starts the handoff, is held, and becomes the last request -> AC-2, AC-3. can fail: the prompt fallback removed (went red)
+- [x] V12 with no settings the line is 200,000 (199k runs, 201k refused) -> AC-1, AC-10. can fail: the `plugin.json` default changed to 300000 (went red; the code fallback in register.ts is never used, the engine fills defaults from `userConfig`)
+- [x] V13 with no settings the third unattended crossing pauses, logged with the session id -> AC-7, AC-12. can fail: the `plugin.json` default changed to 3 (went red)
+- [x] V14 a refused call hands off even when the size later reads under the line -> AC-2. can fail: both gated checks removed (went red; either one alone keeps it working)
+- [x] V16 trigger, refusal, rollover start, slot found and failure each log one line with the session id -> AC-12. can fail: the session id left out of the log line (went red)
+
+Not exercisable here
+- The live run (a real chat crosses the line, rolls over, clears and resumes with nothing typed; the `/config` rows show) needs a real logged in interactive Claude: left to the box: Install the mod live after its scan.
+- AC-13: probes P1 to P8, recorded above. AC-14: `docs/NOTICE.md` names claude-auto-handoff 0.8.6 with its MIT license; the scan is the same later box. Note for review: NOTICE says the code was written fresh from their design (the upstream source was not fetched), while AC-4 says "code reused from their `brief.ts`"; behavior is what AC-4 asks, provenance differs.
+
+## /check verify rerun after the fix (2026-10-18, under wf run): PASS
+
+Same method as above, on commit 1c47781 (the fix changed only `facts.ts`; `hooks/register.ts` is the code the earlier mutants ran on). Scratch copy of the mod plus the checks file, which now also holds V3c. `claude plugin test`: 34 pass, 0 fail. `claude plugin validate`: passed, one warning (no author). Scratch copy diffed back to the repo after the mutants: identical. Full suite `python3 runner/tests/fast.py`: 1042 tests, 0 failed.
+
+- [x] V3 facts block 1,991 bytes, V3b 1,964 bytes, both under 2,000, `+N more` present, next actions kept -> AC-4. can fail: the old guessed 120 bytes of slack in place of the measured frame (went red: 2,065 and 2,075, the numbers of the first run)
+- [x] V3c 200 paths with accented and Japanese letters, plus a viewer line: 1,996 UTF-8 bytes -> AC-4. can fail: measuring with string length instead of UTF-8 bytes (went red: 2,794 bytes)
+- [x] V17 `use $& and $' in the regex` reaches `/rollover` exactly as typed -> AC-3, AC-6. can fail: the string replacement brought back in `fillTemplate` (went red: `use {{lastRequest}} and  GO-ON in the regex GO-ON`)
+- [x] V1, V2, V4 to V16 and the 14 shipped tests still pass on the fixed code.
+
+Left to the box: Install the mod live after its scan (the live run in a real logged in chat, the `/config` rows, and the scan of AC-14).
