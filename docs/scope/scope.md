@@ -1115,7 +1115,7 @@ The handoff shows its steps and result in the wf-dash band (toasts where there i
 - [x] Install Tailscale on this laptop and your phone and log in to both (spec 0064 AC-7) · waits on you · later boxes go on (done by you 2026-10-18: laptop and phone on the tailnet)
 - [x] Build it: `/develop auto handoff display` (code in `claude-home/mods/wf-handoff/` (`pages.ts`, `server.py`, panel and server in `hooks/register.ts`) and `claude-home/mods/wf-dash/handoff.ts`; 65 and 35 mod tests pass, `server.py --test` passes)
 - [x] Verify it: `/check verify auto handoff display` (PASS 2026-10-19: AC-1 to AC-7 met, 8 can fail steps; reduced motion spinner fixed in 6751d0f; you accepted the result line link cut at narrow widths; live checks left to the install box)
-- [ ] Test it: `/test auto handoff display`
+- [x] Test it: `/test auto handoff display` (2026-10-19: wf-dash 38 and wf-handoff 70 mod tests pass, `server.py --test` passes, suite 1042 green; 2 new tests red on their mutants)
 - [ ] Install both mods live after their scan · waits on you · later boxes go on
 - [ ] Sync docs: `/sync auto handoff display`
 Spec [0064](../specs/0064-auto-handoff-display.md) · Source: [brief](../briefs/auto-handoff.md) (the owner's messages of 2026-10-18).
