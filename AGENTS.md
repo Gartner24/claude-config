@@ -33,7 +33,7 @@ wf insights                                     # spec 0061: baselines and repea
 skill-scan [static|llm|both] [path ...] [--accept]  # skillspector over every skill and plugin, only new HIGH/CRITICAL vs the baseline (spec 0054); a run with no path skips the trusted packs gstack, jjstack, ui-ux-pro-max and prints `skipped (trusted):`, an explicit path or `--against` still scans them (AC-13); reports and baseline in ~/.claude/state/skillspector/ (sandbox cannot write it, run with `!`); `update --apply` runs `--against`; tests in runner/tests/test_skill_scan.py
 bin/repo-settings.sh [--check] <owner/repo>       # spec 0051 AC-10: squash only, delete branch on merge, main only through a PR; --check only reads, exits 1 on a difference; you run it, never wf
 bin/docs-pr.sh [slug]                           # spec 0051 AC-11: docs only commits on main reach origin by a small squash merged PR (a direct push is refused); refuses a commit outside docs/
-fb-ask <task> [--file PATH] < input             # cheap worker tier (spec 0023): summarize|triage|extract|classify|commit-msg on the free claude-fb models, exit 3/4 = do it yourself (`claude-home/rules/cheap-worker.md`); `fb-ask --test` self checks, bin/install.sh links it to ~/.local/bin
+fb-ask <task> [--local] [--file PATH] < input   # cheap worker tier (spec 0023; --local = laptop model fb-local, client text allowed, spec 0053): summarize|triage|extract|classify|commit-msg on the free claude-fb models, exit 3/4 = do it yourself (`claude-home/rules/cheap-worker.md`); `fb-ask --test` self checks, bin/install.sh links it to ~/.local/bin
 ```
 
 ## Rules
