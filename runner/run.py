@@ -2090,7 +2090,10 @@ class Run:
         held_back = {p["feature"]: p for p in recs if p["state"] in ("local", "draft", "ready", "approved", "merged")}
         out = []
         for f in feats:
-            if f.name in held_back and f.queued and self.wanted(f.name):
+            # Row 82: a draft pushed while your waiting box held its /sync back gets that /sync once you tick the box.
+            sync_after = f.name in held_back and held_back[f.name]["state"] == "draft" and f.next is None \
+                and not f.waiting and not f.finished()
+            if f.name in held_back and f.queued and self.wanted(f.name) and not sync_after:
                 import pr
                 out.append((None, pr.plan_line(held_back[f.name])))
                 continue
@@ -2112,6 +2115,10 @@ class Run:
                 line = f"parked: {f.name}: {p['reason']}: {p['detail'] or ''} (retaken on {retaken_on(p)})"
             elif refusal:
                 line = f"skip: {f.name}: {refusal[0]}"
+            elif f.next is None and f.waiting and any(p["feature"] == f.name and p["state"] == "building" for p in recs):
+                # Row 82: built on its branch but never pushed; run_feature ends it waiting, which pushes it.
+                out.append((f, f"push owed: {f.name}"))
+                continue
             elif f.next is None and f.waiting:
                 # Spec 0014 AC-7 (a): only your skippable waiting box is left before the sync call.
                 line = f"skip: {f.name}: waiting"
@@ -3423,6 +3430,15 @@ class Run:
             return None
         return next((f for f in feats if f.name == self.feature), None), wf.header_values(text)["autopilot"]
 
+    def only_waiting(self, e):
+        """Row 82: the feature ended waiting with only your skippable waiting boxes left before its /sync, so its
+        branch is built and pushed now. Rows 67 and 69 sat unpushed behind such a box on 2026-10-18."""
+        if e["outcome"] != "waiting":
+            return False
+        scope = self.reread()
+        f = scope[0] if scope else None
+        return bool(f and f.next is None and f.waiting)
+
     def last_box(self):
         """Spec 0006 AC-6: the next call's box is open and its feature has no other open box
         outside it and the boxes under it. Computed by wf from the files, never by the model."""
@@ -3503,6 +3519,9 @@ class Run:
                     box = live if live and live.box_text == d["box_text"] else types.SimpleNamespace(
                         feature=f.name, box_text=d["box_text"], command=d["command"], note=None)
                 self.loop(d["call_kind"], box, d["command"], d)
+            elif f.next is None and f.waiting:
+                # Row 82: queued only so its built branch gets pushed (survey's "push owed").
+                raise Stop("waiting", wf.owed_text(f.waiting))
             elif f.next is None:
                 # A /sync owed from an earlier run passes the same design check as one reached here (spec 0010).
                 problem = self.design_check()
@@ -3543,7 +3562,7 @@ class Run:
             # Spec 0026 AC-5 to AC-8: one commit, then the push and draft PR; then back on the start branch.
             import pr
             try:
-                if e["outcome"] == "feature_done":
+                if e["outcome"] == "feature_done" or self.only_waiting(e):
                     pr.built(self, f, e)
                 pr.back(self)
             except Stop as s:
@@ -5694,7 +5713,8 @@ def tree_jobs(r, h, name, port):
         want += [p["feature"] for p in q.get("prs", []) if p["repo"] == key and p["state"] in pr.POLLED]
     out = []
     for fname in dict.fromkeys(want):
-        row = {"name": f"{name}: {fname}", "skip": None, "work": True, "code": None, "last": "-", "folder": "-"}
+        row = {"name": f"{name}: {fname}", "repo_name": name, "skip": None, "work": True, "code": None, "last": "-",
+               "folder": "-"}
         f = by.get(fname)
         if f is None:
             row["skip"] = "not in the scope any more"
@@ -5836,8 +5856,15 @@ def tree_cleanup(r, jobs):
         if line:
             notes.append(line)
     for h in mains.values():
-        # Spec 0051 AC-15: the parallel repo's plan commits, once all its children ended.
         r.use(h)
+        ours = {j["feature"] for j in jobs if j.get("tree") and j["key"] == key_of(h["c"])}
+        for rec in pr.records(r, key_of(h["c"])):
+            # Row 82: a PR merged by a sibling child's poll or by you is never one of a later run's jobs, so its tree
+            # used to stay forever (row 79's after PR #88, 2026-10-18).
+            if rec["feature"] not in ours and rec["state"] in ("merged", "closed") and rec.get("tree") \
+                    and os.path.isdir(rec["tree"]):
+                notes += pr.cleanup(r, rec)
+        # Spec 0051 AC-15: the parallel repo's plan commits, once all its children ended.
         before = len(r.record["notes"])
         try:
             pr.land_plan(r)

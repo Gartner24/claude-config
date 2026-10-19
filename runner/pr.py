@@ -1389,9 +1389,14 @@ def cleanup(r, rec):
         # A feature's own worktree child runs inside its tree: the parent's tree_cleanup removes it and the branch.
         path = None
     elif path and os.path.isdir(path):
-        if run.dirty(path):
-            note(f"left: {path}: uncommitted changes")
+        # Row 82: a merged feature's tree with an uncommitted verify file used to be left, and so skipped, every run
+        # from 2026-10-15; its changes are saved as a patch first, so nothing is lost and the tree goes.
+        patch, why = set_aside(path, rec) if run.dirty(path) else (None, None)
+        if why:
+            note(f"left: {path}: {why}")
         else:
+            if patch:
+                note(f"set aside: {rec['branch']}: its uncommitted changes are in {patch}")
             line = remove_tree(r, rec)
             if line:
                 note(line)
@@ -1428,6 +1433,22 @@ def cleanup(r, rec):
                 note(f"kept: origin {b}: {run.flat(res.stderr)[:120]}")
     wf.git(main, "worktree", "prune")
     return said
+
+
+def set_aside(path, rec):
+    """Row 82: a merged or closed feature's uncommitted changes (untracked files too) saved to
+    <state>/set-aside/<branch>-<stamp>.patch, then the tree reset so the worktree can go. (patch, None) when done,
+    else (patch or None, why the tree stays)."""
+    folder = os.path.join(run.state_dir(), "set-aside")
+    os.makedirs(folder, mode=0o700, exist_ok=True)
+    patch = os.path.join(folder, f"{re.sub(r'[^a-z0-9]+', '-', rec['branch'])}-{datetime.datetime.now():%Y%m%d-%H%M%S}.patch")
+    # git writes the patch itself, so no byte of a non UTF-8 file is changed on its way through text output.
+    if out(wf.git(path, "add", "-A")) is None or \
+            out(wf.git(path, "diff", "--cached", "--binary", f"--output={patch}", "HEAD")) is None:
+        return None, "uncommitted changes, they could not be saved"
+    if out(wf.git(path, "reset", "-q", "--hard", "HEAD")) is None:
+        return patch, f"uncommitted changes, saved to {patch}, the tree could not be reset"
+    return patch, None
 
 
 # -- plan commits by a docs PR (spec 0051 AC-15) ----------------------------------------

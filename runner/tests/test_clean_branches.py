@@ -488,7 +488,8 @@ class TestCleanup(Case):
         self.assertFalse(os.path.exists(tree))
         self.assertNotIn("feat/0001-a", self.git("branch", "--list"))
 
-    # covers: AC-7 (a local tip with commits after the PR's head keeps the branch with a note; a dirty worktree stays)
+    # covers: AC-7 (a local tip with commits after the PR's head keeps the branch with a note); row 82 (a dirty
+    # worktree's changes, untracked and tracked, go to a patch and the worktree goes, never left to skip every run)
     def test_kept(self):
         rec, head = self.branch()
         with mock.patch.dict(os.environ, {"HOME": str(self.tmp)}):
@@ -500,13 +501,18 @@ class TestCleanup(Case):
         rec.update(tree=tree, state="merged")
         self.gh({"view": {"state": "MERGED", "headRefOid": head}})
         Path(tree, "dirty.txt").write_text("x\n")
-        self.assertEqual(pr.cleanup(self.r, rec), [f"left: {tree}: uncommitted changes",
-                                                   "kept: feat/0001-a: commits after the PR"])
-        self.assertTrue(os.path.isdir(tree))
-        os.remove(os.path.join(tree, "dirty.txt"))
+        Path(tree, "b.txt").write_text("changed\n")
+        said = pr.cleanup(self.r, rec)
+        self.assertEqual(len(said), 2, said)
+        self.assertTrue(said[0].startswith("set aside: feat/0001-a: its uncommitted changes are in "), said)
+        self.assertEqual(said[1], "kept: feat/0001-a: commits after the PR")
+        self.assertFalse(os.path.exists(tree))
+        patch = Path(said[0].rsplit(" ", 1)[1]).read_text()
+        self.assertIn("+++ b/dirty.txt", patch)
+        self.assertIn("+changed", patch)
+        self.assertIn("feat/0001-a", self.git("branch", "--list"))
         self.r.notes.clear()
         self.assertEqual(pr.cleanup(self.r, rec), ["kept: feat/0001-a: commits after the PR"])
-        self.assertIn("feat/0001-a", self.git("branch", "--list"))
 
     # covers: AC-7 (a closed PR's remote branch is deleted; the local one too when its tip is the PR head)
     def test_closed(self):
