@@ -28,6 +28,22 @@ Don't polish a logo for a business with no buyer. Evaluate in this order and sto
 - **Why now:** what changed (tech, behavior, regulation, cost) that makes this newly possible? If nothing changed, why doesn't it already exist / why did past attempts fail?
 - **Defensibility:** even if it works, what stops a competitor or an incumbent from copying it once you've proven the market? Early traction is not a moat.
 
+## Idea scorecard (7 dimensions, out of 35)
+
+After the fatal flaw check, score the idea on each dimension from 1 (weak) to 5 (strong). Every score cites its evidence (a source, a number, a conversation the user reported) or says "no evidence". Never invent a figure to justify a score.
+
+| Dimension | What a 5 looks like |
+|---|---|
+| problem | a painkiller: people already search for and pay for a worse fix |
+| buyer pays | someone pre-ordered, signed a letter of intent, or paid |
+| market size | a bottom-up count of buyers x price that meets the user's goal |
+| founder fit | a real unfair edge: skills, domain, audience or distribution |
+| why now | a named change (tech, behavior, rule, cost) that opens the door |
+| reach | a channel the founder already owns or can buy profitably |
+| cost to test | the riskiest assumption can be tested in 2 weeks for little money |
+
+Total out of 35. The verdict follows the score and the fatal flaws together: **build** (no fatal flaw, strong total), **change course** (a fixable weak dimension, name the change), or **drop** (a fatal flaw with no fix in sight).
+
 ## Lightweight Business Model Canvas
 
 For a new idea, sketch the nine blocks quickly to expose gaps - the empty boxes are the risks:
@@ -60,11 +76,23 @@ The gap between "Revenue streams" and "Cost structure" at scale is the business.
 4. Founder-market fit? [the unfair advantage, honestly]
 5. Why now & defensibility? [verdict]
 
+## Scorecard
+| Dimension | Score (1-5) | Evidence |
+|---|---|---|
+| problem | | [source, or "no evidence"] |
+| buyer pays | | |
+| market size | | |
+| founder fit | | |
+| why now | | |
+| reach | | |
+| cost to test | | |
+| **Total** | **n/35** | |
+
 ## Riskiest assumption
 [the single thing most likely to be false that the whole idea depends on]
 
-## Verdict & cheapest possible test
-[go / no-go / not-yet + the ONE experiment that would most cheaply
+## Verdict & cheapest tests
+[build / change course / drop + up to 3 cheap tests that would most cheaply
 prove or kill the riskiest assumption in the next 2 weeks - almost always
 "talk to / try to pre-sell to 5-10 real potential buyers," not "build the product"]
 ```
