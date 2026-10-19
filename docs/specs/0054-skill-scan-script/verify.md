@@ -39,6 +39,18 @@ used only for the model pass (the real one calls Claude for minutes) and the pin
 - [x] `bin/install.sh --dry-run` -> `skill-scan -> scripts/skill-scan.py` link line; the script runs through a link -> AC-10 · can fail: the link missing or the script failing when run through it
 - [x] `git status` after every run -> no new file in the repo -> AC-9 · can fail: reports written to the current folder
 
+## AC-13 trusted list (2026-10-18)
+
+Run the real script as a command under a fake HOME with a logging stand in for skillspector: trusted
+packs `gstack` (holding `qa`, also linked as `skills/qa`) and `ui-ux-pro-max`, no `jjstack` folder,
+and separate folders `gstack-upgrade`, `other`, `packs/jjqa`. Driver: `/tmp/claude/verify0054/drive.py`.
+
+- [x] `skill-scan` -> first line `skipped (trusted): gstack, ui-ux-pro-max` (no `jjstack`), scanned only `gstack-upgrade`, `other`, `packs`, the `qa` link not promoted, exit 0 -> AC-13 · can fail: filter dropped (mutant scanned `gstack` and `ui-ux-pro-max`, 5 targets)
+- [x] `skill-scan both` in a fresh HOME -> the skip line once, both passes scan the same 3 targets (static with no provider, llm with `claude_cli`) -> AC-13 · can fail: only the exact pack folder matched (mutant scanned `gstack/qa` in both passes, 4 targets)
+- [x] `skill-scan <HOME>/.claude/skills/gstack` -> scans `gstack`, no skip line -> AC-13 · can fail: the explicit path filtered too
+- [x] `skill-scan --against gstack <candidate>` -> scans both the installed `gstack` and the candidate -> AC-13, AC-7 · can fail: the update hook skipping a trusted pack
+- [x] Real `~/.claude`, read only `targets([])` with no scan -> `skipped (trusted): gstack, jjstack, ui-ux-pro-max`, 227 targets, none under the three packs; `gstack-upgrade` and `open-gstack-browser` (own folders) kept -> AC-13 · can fail: a trusted pack name not matching the real install
+
 ## Read only (not counted as can fail)
 - AC-8: `/claude-config` skill names `skill-scan static <plugin source path>` before install and `skill-scan <installPath>` after a background update.
 - AC-12: spec 0048 AC-10 carries the sentence; the scope row names the static only hook.

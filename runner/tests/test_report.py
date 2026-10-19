@@ -91,6 +91,24 @@ class Unit(unittest.TestCase):
                           "setup steps: 3. C: 2 step(s) (demo: 2. B)", "for you: 3. C: Check the phone (demo: 2. B)",
                           "for you: 3. C: Check the phone (demo: 2. B)", "approved: PR #7 (demo: 2. B)"])
 
+    # covers: row 82 (a parent's worktree rows: the plan's waiting boxes name the repo, never the first child; the
+    # child's own record lines keep the child's name)
+    def test_children_name_repo(self):
+        p = self.repo("demo", "# Scope: x\n" + WAITING)
+        rows = []
+        for n, (feat, outcome) in enumerate((("46. Old", "skipped"), ("2. B", "feature_done"))):
+            folder = self.tmp / "state" / "wf" / "runs" / f"demo-20261013-03100{n}-1"
+            folder.mkdir()
+            (folder / "run.json").write_text(json.dumps(rec([(feat, outcome, None)])))
+            rows.append({"work": True, "path": p + "-tree", "key": p, "name": f"demo: {feat}", "repo_name": "demo",
+                         "folder": str(folder), "code": 0})
+        with mock.patch.object(report, "send", return_value="sent"):
+            report.end_of_parent(mock.Mock(ntfy=CFG), rows)
+        lines = (self.tmp / "state" / "wf" / "report.txt").read_text().splitlines()
+        self.assertIn("built: 2. B (demo: 2. B)", lines)
+        self.assertEqual([x for x in lines if x.startswith(("setup steps:", "for you:"))],
+                         ["setup steps: 3. C: 2 step(s) (demo)", "for you: 3. C: Check the phone (demo)"])
+
     # covers: AC-2 (internal_error reads crash; distinct reasons in run order; question ids; stopped lines;
     # each repo suffix; no record, no end and not started rows)
     def test_status_and_rows(self):

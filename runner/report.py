@@ -102,10 +102,13 @@ def collect(sources):
                     continue
                 mine.append(item)
             mine += [{"kind": "note", "text": t} for t in (rec or {}).get("notes") or []]
+        own = len(mine)
         mine = open_questions(s["path"], mine) + scope_items(s["path"]) + approved(s["path"])
         keys = set()
-        for item in mine:
-            item.update(repo=s["path"], name=s["name"])
+        for n, item in enumerate(mine):
+            # Row 82: the repo's plan and queue items name the repo, not the first worktree child that listed them
+            # (every waiting box read "(claude-config: 46. Missed-skill detector)" on 2026-10-18).
+            item.update(repo=s["path"], name=s["name"] if n < own else s.get("repo_name", s["name"]))
             # Worktree children of one repo share its plan and queue: its yours, live, approved and question
             # items are listed once, not once per child (17 copies of each in the 2026-10-15 run). Only an earlier
             # source's copy is dropped: two boxes with the same text in one plan stay two lines.
@@ -385,7 +388,8 @@ def end_of_parent(r, rows, notes=()):
             continue
         folder =None if row["folder"] == "-" else row["folder"]
         # Spec 0027 AC-9: a feature worktree row reports under its main checkout, named `<repo>: <feature>`.
-        sources.append({"path": row.get("key") or row["path"], "name": row["name"], "folder": folder,
+        sources.append({"path": row.get("key") or row["path"], "name": row["name"],
+                        "repo_name": row.get("repo_name") or row["name"], "folder": folder,
                         "code": row["code"], "rec": folder and load_record(folder)})
     if sources and notes:
         # Spec 0027 AC-8: worktrees kept with uncommitted changes.

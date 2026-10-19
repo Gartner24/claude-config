@@ -51,7 +51,10 @@ if [ "${1:-}" = --test ]; then
   python3 -I -c "print('a' * 6999 + 'é' * 2000)" | slot "$fx/.claude/skills/jjstack/bin/jjstack-rollover-slot" --cwd "$fx/work" write >/dev/null
   out="$(hook env -u TM_WORKER_NAME)"
   data="$(printf '%s' "$out" | python3 -I -c "import json,sys; t=json.load(sys.stdin)['hookSpecificOutput']['additionalContext']; print(len(t.split('<<<HANDOVER DATA>>>\n')[1].split('\n<<<END HANDOVER DATA>>>')[0].encode()))")"
-  [ "$data" -le 7000 ] && [ "$data" -ge 6990 ]; ok $? "big slot cut to 7000 bytes on a character boundary ($data)"
+  [ "$data" -le 7100 ] && [ "$data" -ge 6990 ]; ok $? "big slot cut to 7000 bytes on a character boundary ($data)"
+  case "$(printf '%s' "$out" | ctx)" in *"[cut: "*" bytes shown; Read the slot file"*) r=0 ;; *) r=1 ;; esac; ok $r "big slot says it was cut"
+  printf 'small\n' | slot "$fx/.claude/skills/jjstack/bin/jjstack-rollover-slot" --cwd "$fx/work" write >/dev/null
+  case "$(hook env -u TM_WORKER_NAME | ctx)" in *"[cut: "*) r=1 ;; *) r=0 ;; esac; ok $r "small slot has no cut note"
   case "$(printf '%s' "$out" | ctx)" in *"$path"*) r=0 ;; *) r=1 ;; esac; ok $r "big slot keeps the slot path"
 
   touch -d '2 days ago' "$path"
@@ -86,6 +89,9 @@ path = sys.argv[1]
 raw = open(path, "rb").read()
 # Research 60: additionalContext is capped near 10,000 characters; the slot path stays so the rest is readable.
 body = raw[:7000].decode("utf-8", "ignore")
+if len(raw) > 7000:
+    # A silent cut lost the Re-arm section of a 7.8k handover; say so, so the successor reads the file.
+    body += "\n[cut: %d of %d bytes shown; Read the slot file for the rest before anything else]" % (len(body.encode()), len(raw))
 prev = next((l.split("**Previous transcript:**", 1)[1].strip()
              for l in raw.decode("utf-8", "replace").splitlines() if "**Previous transcript:**" in l), "")
 head = ("Handover waiting: run the /resume-from-clear steps now (this replaces typing it; "

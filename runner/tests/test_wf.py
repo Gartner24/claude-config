@@ -51,12 +51,23 @@ def parse(text):
 
 
 class TestParser(unittest.TestCase):
-    def test_open_parent_takes_first_open_milestone_as_waiting_note(self):
+    def test_open_parent_takes_first_open_milestone_as_note(self):
         nb = parse((FIX / "dotfiles.md").read_text())
         self.assertEqual(nb.command, "/develop repo layout and linking method")
         self.assertEqual(nb.feature, "1. Repo layout and linking method")
         self.assertIn("claude-config as a submodule", nb.note)
-        self.assertTrue(nb.waiting)
+        # Spec 0066: the milestone says "after", which no longer holds the feature.
+        self.assertFalse(nb.waiting)
+
+    # covers: spec 0066 AC-1, AC-2, AC-4 (only the marker waits)
+    def test_words_never_wait(self):
+        nb = parse("### 1. A\n- [ ] `/develop a`\n   - [ ] build it after the schema lands\n")
+        self.assertEqual((nb.command, nb.owed, nb.waiting, nb.near_misses), ("/develop a", None, False, []))
+        nb = parse("### 1. A\n- [ ] `/develop a`\n   - [ ] waits on the merge\n")
+        self.assertEqual((nb.command, nb.owed, nb.waiting), ("/develop a", None, False))
+        self.assertEqual(nb.near_misses, ["waits on the merge"])
+        nb = parse("### 1. A\n- [ ] `/develop a`\n   - [ ] merge it · waits on you\n")
+        self.assertEqual((nb.owed, nb.waiting, nb.near_misses), ("merge it", True, []))
 
     def test_milestone_under_ticked_parent_runs_parent_command(self):
         nb = parse((FIX / "claude-config.md").read_text())
@@ -109,7 +120,7 @@ class TestParser(unittest.TestCase):
         self.assertIsNone(parse("### 1. A\n- [x] `/develop a`\n### 2. B\n  - [ ] indented\n").command)
 
     def test_tab_indented_milestone(self):
-        nb = parse("- [x] `/develop p`\n\t- [ ] waits on the merge\n")
+        nb = parse("- [x] `/develop p`\n\t- [ ] the merge · waits on you\n")
         self.assertEqual(nb.command, "/develop p")
         self.assertTrue(nb.waiting)
 
@@ -283,7 +294,7 @@ class TestNext(CliCase):
         repo = self.repo("dotfiles", "dotfiles.md")
         r = self.wf("next", "dotfiles", "-y", tty=True)
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("waiting: claude-config as a submodule", r.stdout)
+        self.assertIn("| note: claude-config as a submodule", r.stdout)
         self.assertIn("no git", r.stdout)
         self.assertEqual(self.launched(), [str(repo), "/develop repo layout and linking method"])
 
@@ -324,7 +335,7 @@ class TestNext(CliCase):
         r = self.wf("next", "near", "-y", tty=True)
         self.assertEqual(r.returncode, 3)
         self.assertIn("no command in this box", r.stdout)
-        self.assertIn('warning: "waits on you" is not the marker here, end the box with " · waits on you": '
+        self.assertIn('warning: "waits on" is not the marker here, end the box with " · waits on you": '
                       "phone check · waits on you.", r.stdout)
 
     def test_index_epics_in_link_order_with_missing_warning(self):

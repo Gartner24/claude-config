@@ -39,9 +39,10 @@ export const effort = {
   auto: color.dim,
 } as const;
 
-// Alerts: a toast at the top right (the host draws it, no color) and, in /wf-alerts, a colored history row.
+// Alerts: a toast at the top right (the host draws it, no color) and, in the dashboard's Alerts view, a colored row.
 export const alert = {
   "finished": color.ok,
+  "stopped": color.warn,
   "stuck": color.bad,
   "question": color.warn,
 } as const;
@@ -138,6 +139,8 @@ export const glyph = {
   dirty: "*",
   // ends a line wrapWords had to cut
   cut: "...",
+  // the handoff's running step (spec 0064 AC-2 names a braille spinner, the one non-ASCII glyph here)
+  spinner: ["\u280b", "\u2819", "\u2839", "\u2838", "\u283c", "\u2834", "\u2826", "\u2827", "\u2807", "\u280f"],
 } as const;
 
 // Spacing in terminal cells.
@@ -163,6 +166,8 @@ export const width = {
   state: 12,
   spec: 8,
   elapsed: 6,
+  // the terminal width assumed when the host sends neither bodyColumns nor a viewport
+  viewport: 80,
 } as const;
 
 export const border = {
@@ -176,4 +181,7 @@ export const time = {
   planTick: 10000,
   barMarkerFresh: 15000,
   toast: 15000,
+  // spec 0064 AC-2: the handoff result shows this long; the spinner turns at `spin` while a step runs
+  handoffResult: 10000,
+  spin: 120,
 } as const;

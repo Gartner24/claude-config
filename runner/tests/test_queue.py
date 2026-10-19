@@ -102,7 +102,7 @@ class TestQueueRules(QueueCase):
                 "- [x] Data (spec)\n- [ ] `/develop h`\n"
                 "### 7. Twin · in-progress · auto\n- [x] (spec)\n- [ ] `/develop i`\n"
                 "### 9. Arch · auto\n- [x] (spec)\n- [ ] `/architect j`\n"
-                "### 10. Later · auto\n- [x] (spec)\n- [ ] `/develop k`\n   - [ ] waits on the merge\n"
+                "### 10. Later · auto\n- [x] (spec)\n- [ ] `/develop k`\n   - [ ] waits on the merge · waits on you\n"
                 "### 11. Owed · auto\n- [x] (spec)\n- [ ] phone check · waits on you\n"
                 "### 12. Two specs · auto\n- [x] (spec)\n- [ ] Data (spec)\n- [ ] `/develop m`\n"
                 "## Deferred\n### 13. Later still · auto\n- [x] (spec)\n- [ ] `/develop n`\n")
@@ -114,6 +114,15 @@ class TestQueueRules(QueueCase):
             "  skip: 9. Arch: manual_box", "  skip: 10. Later: waiting", "  skip: 11. Owed: waiting"])
         self.assertTrue(plan(r.stdout)[7].startswith("caps: "))
         self.assertIsNone(self.queue())
+
+    # covers: spec 0066 AC-2 (an unmarked "waits on" in a later queued feature warns in the plan, never holds)
+    def test_unmarked_waits_on_warns(self):
+        self.make_repo("words", TWO.replace("- [ ] `/develop b`\n", "- [ ] `/develop b`\n   - [ ] waits on the merge\n"))
+        r = self.wf("words")
+        self.assertEqual(r.returncode, 130, r.stdout + r.stderr)
+        self.assertEqual(plan(r.stdout)[1:3], ["  queued: 1. A", "  queued: 2. B"])
+        self.assertIn('warning: "waits on" is not the marker here, end the box with " · waits on you": '
+                      "waits on the merge", r.stdout)
 
 
 class TestSections(unittest.TestCase):

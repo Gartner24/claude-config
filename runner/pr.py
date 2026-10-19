@@ -326,9 +326,7 @@ def start_feature(r, f, d=None):
                         break
                     bottom = nxt
                 raise run.Stop("stack_deep", f"{name} would be {deep} branches deep on {bottom['branch']}")
-        base_sha = out(wf.git(repo, "rev-parse", base))
-        if base_sha is None:
-            raise run.Stop("branch_changed", f"cannot read the base {base}")
+        base_sha = fork_point(repo, base, name)
         rec = {"repo": key, "feature": f.name, "spec": spec, "branch": name, "base": base, "base_sha": base_sha,
                "stacked_on": stacked, "pr": None, "number": None, "state": "building", "seen": [], "rounds": 0,
                "pushed_sha": None}
@@ -336,6 +334,22 @@ def start_feature(r, f, d=None):
     save(r, rec)
     print(f"branch: {rec['branch']} from {rec['base']}", flush=True)
     r.log(f"branch {rec['branch']} from {rec['base']}")
+
+
+def fork_point(repo, base, name):
+    """The commit a new record of branch name starts from: base's tip, or where an existing name left base. A reused
+    old branch used to get base's tip, so its squash put the old tree on top of main and the PR reverted main
+    (PR #60). Raises Stop branch_changed when either cannot be read."""
+    sha = out(wf.git(repo, "rev-parse", base))
+    if sha is None:
+        raise run.Stop("branch_changed", f"cannot read the base {base}")
+    old = out(wf.git(repo, "rev-parse", "--verify", "--quiet", f"refs/heads/{name}"))
+    if old is None:
+        return sha
+    sha = out(wf.git(repo, "merge-base", sha, old))
+    if sha is None:
+        raise run.Stop("branch_changed", f"{name} shares no history with {base}")
+    return sha
 
 
 def switch(r, name, base_sha=None):
@@ -570,6 +584,11 @@ def squash(r, f, rec):
         return False
     if count == 1 and not staged and not planned:
         return True
+    if git(g, repo, "merge-base", "--is-ancestor", rec["base_sha"], "HEAD").returncode:
+        # A soft reset onto a base the branch does not start from commits the branch's old tree over it (PR #60).
+        r.pr_ask(rec, "squash_failed", f"{rec['feature']}: {rec['branch']} does not start at its base "
+                                       f"{rec['base_sha'][:12]}; a squash would undo the newer commits of {rec['base']}")
+        return None
     subject, body = message(r, f, rec)
     git(g, repo, "reset", "--soft", rec["base_sha"])
     if r.repo.get("tree"):
@@ -757,6 +776,12 @@ def push(r, rec, branch=None, lease=None, sha=None):
     return "failed", run.flat(res.stderr or res.stdout)[:200]
 
 
+def reverts(r, head):
+    """Files origin/<default> has that head deletes since they parted, sorted; [] when origin/<default> is unknown."""
+    res = wf.git(r.c.path, "diff", "--name-only", "--diff-filter=D", "-z", f"origin/{default_branch(r)}...{head}")
+    return sorted(p for p in res.stdout.split("\0") if p) if res is not None and res.returncode == 0 else []
+
+
 def local(r, rec, e, why):
     """AC-8: skip the PR: the branch stays, state local, one report line."""
     rec["state"] = "local"
@@ -791,7 +816,13 @@ def publish(r, rec, e=None, skip=(), base_too=False, default_base=False):
             private = isinstance(vis, dict) and vis.get("visibility") in ("PRIVATE", "INTERNAL")
             options = ("push anyway, the repo is private", "skip the PR") if private else ("scan again", "skip the PR")
         return r.pr_ask(rec, reason, f"{rec['feature']}: {detail}", options)
-    on_origin = out(wf.git(r.c.path, "ls-remote", "--heads", "origin", rec["base"]))
+    gone = reverts(r, head)
+    if gone:
+        # PR #60 checked only against its base and would have deleted two specs and a brief that main had.
+        return r.pr_ask(rec, "pr_failed", f"{rec['feature']}: the PR would delete {len(gone)} file(s) that origin/"
+                                          f"{default_branch(r)} has: {', '.join(gone[:5])}; skip the PR and push it "
+                                          "yourself if that is meant")
+    on_origin =out(wf.git(r.c.path, "ls-remote", "--heads", "origin", rec["base"]))
     if not on_origin:
         if not base_too:
             return r.pr_ask(rec, "base_unpushed", f"{rec['feature']}: {rec['base']} is not on origin")
@@ -1004,7 +1035,10 @@ def merge(r, rec):
 RISK_PATHS = ("*auth*", "*login*", "*payment*", "*billing*", "*invoice*", "*migration*", "*permission*", "*crypto*",
               "*secret*", "*credential*", ".github/*", "*.env*", "AGENTS.md", "*/AGENTS.md", "CLAUDE.md",
               "*/CLAUDE.md", "claude-home/settings*.json", "claude-home/hooks/*", "claude-home/rules/*", "runner/*",
-              "bin/*", "scripts/*", "docs/scope/*", ".workflow/*")
+              "bin/*", "scripts/*", "docs/scope/*", ".workflow/*", "config/*", "claude-home/skills/*",
+              "claude-home/agents/*", "package.json", "*/package.json", ".githooks/*", ".husky/*", "hooks/*",
+              ".claude/hooks/*", ".claude/settings*.json", ".claude/skills/*", ".claude/agents/*",
+              ".claude/commands/*", "*/.claude/*", "*/.husky/*")
 TEST_NAMES = ("test_*.py", "*_test.py", "*.test.*", "*.spec.*")
 TEST_SKIP = re.compile(r"@unittest\.skip|pytest\.mark\.skip|\.skip\(|\bxit\(")
 TOP_DEF = re.compile(r"^(?:async\s+)?(?:def|class)\s+(\w+)")
@@ -1014,6 +1048,8 @@ SMALL_LINES, SMALL_FILES = 200, 10
 # AC-12: a warning in the PR body and the built: line, never a block.
 LARGE_LINES, OLD_DAYS = 400, 2
 CHECKS_OK = ("SUCCESS", "NEUTRAL", "SKIPPED")
+# AC-4: how long a PR with no check at all waits for its first one; a repo with no checks merges after it.
+NOCHECK_WAIT = 600
 MERGEABLE_READS, MERGEABLE_WAIT = 3, 10
 RULESET = "main only through a PR"
 # AC-10: what bin/repo-settings.sh sets, as gh repo view names it.
@@ -1109,7 +1145,8 @@ def main_suite(r, default):
 
 def green(r, rec, head, why=None):
     """AC-4: True when the plan's verify and test boxes are ticked, main's own suite passes on head's tree, both scans
-    pass on pushed_sha..head, and every check GitHub reports is fine. why, a list, gets the first reason it is not."""
+    pass on pushed_sha..head, and every check GitHub reports is fine. The checks are read before the suite runs; no
+    check at all is not green until NOCHECK_WAIT after nocheck_since. why, a list, gets the first reason it is not."""
     why = why if why is not None else []
     default = default_branch(r)
     if not boxes_ticked(r, rec["feature"]):
@@ -1118,14 +1155,6 @@ def green(r, rec, head, why=None):
     suite = main_suite(r, default)
     if not suite:
         why.append(f"no suite answer on origin/{default}")
-        return False
-    code, lines = r.clean_suite(run.key_of(r.c), suite, rev=head)
-    if code:
-        why.append(f"main's suite failed: {run.flat(' '.join(lines[-2:]))[:120]}")
-        return False
-    hit = scans(r, rec, rec["pushed_sha"] or rec["base_sha"], [])
-    if hit:
-        why.append(f"{hit[0]}: {hit[1]}"[:150])
         return False
     view, err = gh_json(r.gh, "pr", "view", str(rec["number"]), "--repo", origin_repo(r) or "", "--json",
                         "statusCheckRollup,headRefOid")
@@ -1136,12 +1165,30 @@ def green(r, rec, head, why=None):
         # Review: right after a push the rollup can still be the previous head's.
         why.append(f"checks are for head {str(view.get('headRefOid'))[:7]}, not {str(head)[:7]}")
         return False
-    for c in view.get("statusCheckRollup") or []:
+    checks = view.get("statusCheckRollup") or []
+    for c in checks:
         state = (c.get("conclusion") or c.get("state") or "") if isinstance(c, dict) else ""
         if state not in CHECKS_OK:
             why.append(f"check {c.get('name') or c.get('context') if isinstance(c, dict) else '?'}: "
                        f"{state.casefold() or 'pending'}")
             return False
+    if not checks:
+        since = rec.get("nocheck_since")
+        if not since or since[0] != head:
+            # A new head waits again from its first sight; an adopted PR starts here too.
+            rec["nocheck_since"] = since = [head, time.time()]
+            save(r, rec)
+        if time.time() < since[1] + NOCHECK_WAIT:
+            why.append("no checks reported yet")
+            return False
+    code, lines = r.clean_suite(run.key_of(r.c), suite, rev=head)
+    if code:
+        why.append(f"main's suite failed: {run.flat(' '.join(lines[-2:]))[:120]}")
+        return False
+    hit = scans(r, rec, rec["pushed_sha"] or rec["base_sha"], [])
+    if hit:
+        why.append(f"{hit[0]}: {hit[1]}"[:150])
+        return False
     return True
 
 
@@ -1154,7 +1201,9 @@ def warnings(r, rec):
     n = sum(int(x) for item in num.split("\0") for x in item.split("\t")[:2] if x.isdigit())
     if n > LARGE_LINES:
         out_.append(f"large: {n} lines changed (over {LARGE_LINES})")
-    first = (out(git(g, repo, "log", "--reverse", "--format=%ct", f"{rec['base_sha']}..{b}")) or "").split("\n")[0]
+    # The branch's own first commit: merged in main commits and amends used to make a fresh branch look old.
+    first = (out(git(g, repo, "log", "--reverse", "--no-merges", "--first-parent", "--format=%at",
+                     f"{rec['base_sha']}..{b}")) or "").split("\n")[0]
     if first.isdigit():
         days = int((datetime.datetime.now().timestamp() - int(first)) // 86400)
         if days > OLD_DAYS:
@@ -1210,9 +1259,28 @@ def up_to_date(r, rec, default):
             r.note(f"PR #{rec['number']}: not brought up to date, {where} has uncommitted changes")
             return False
         g = gitbin(r)
+        # The runner's uncommitted plan copy (run.dirty skips it) would stop the merge; set it aside, put it back after.
+        copy = {}
+        if run.under(where, [run.trees_root()]):
+            st = wf.git(where, "status", "--porcelain", "--", "docs/scope", ".workflow/scope")
+            for line in (st.stdout if st and not st.returncode else "").split("\n"):
+                if line[:2].strip() == "M":
+                    copy[line[3:]] = wf.read(os.path.join(where, line[3:]))
+            if copy:
+                wf.git(where, "checkout", "--", *copy)
         res = git(g, where, "merge", "--no-edit", target)
         if res.returncode:
             git(g, where, "merge", "--abort")
+        root = os.path.realpath(where)
+        for rel, text in copy.items():
+            path = os.path.join(where, rel)
+            # never through a link the merged branch put there
+            if os.path.islink(path) or not os.path.realpath(path).startswith(root + os.sep):
+                r.note(f"PR #{rec['number']}: the plan copy {rel} was not put back, it is a link now")
+                continue
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(text)
+        if res.returncode:
             r.pr_ask(rec, "merge_conflict", f"{rec['branch']} clashes with {target}: "
                                             f"{run.flat(res.stdout or res.stderr)[:150]}")
             return False
@@ -1286,6 +1354,9 @@ def merge_green(r, rec, approved=None):
             ok, reasons = small_safe(r, rec, base, tested) if approved is None else (True, [])
             why = []
             if not green(r, rec, tested, why):
+                if why == ["no checks reported yet"]:
+                    until = time.strftime("%H:%M", time.localtime(rec["nocheck_since"][1] + NOCHECK_WAIT))
+                    return r.note(f"PR #{rec['number']} waits for checks until {until}, next run merges it")
                 return r.note(f"PR #{rec['number']}: not merged, not green: {why[0] if why else 'unknown'}")
             if not ok:
                 return ask_ready(r, rec, tested, reasons)
@@ -1370,9 +1441,14 @@ def cleanup(r, rec):
         # A feature's own worktree child runs inside its tree: the parent's tree_cleanup removes it and the branch.
         path = None
     elif path and os.path.isdir(path):
-        if run.dirty(path):
-            note(f"left: {path}: uncommitted changes")
+        # Row 82: a merged feature's tree with an uncommitted verify file used to be left, and so skipped, every run
+        # from 2026-10-15; its changes are saved as a patch first, so nothing is lost and the tree goes.
+        patch, why = set_aside(path, rec) if run.dirty(path) else (None, None)
+        if why:
+            note(f"left: {path}: {why}")
         else:
+            if patch:
+                note(f"set aside: {rec['branch']}: its uncommitted changes are in {patch}")
             line = remove_tree(r, rec)
             if line:
                 note(line)
@@ -1409,6 +1485,22 @@ def cleanup(r, rec):
                 note(f"kept: origin {b}: {run.flat(res.stderr)[:120]}")
     wf.git(main, "worktree", "prune")
     return said
+
+
+def set_aside(path, rec):
+    """Row 82: a merged or closed feature's uncommitted changes (untracked files too) saved to
+    <state>/set-aside/<branch>-<stamp>.patch, then the tree reset so the worktree can go. (patch, None) when done,
+    else (patch or None, why the tree stays)."""
+    folder = os.path.join(run.state_dir(), "set-aside")
+    os.makedirs(folder, mode=0o700, exist_ok=True)
+    patch = os.path.join(folder, f"{re.sub(r'[^a-z0-9]+', '-', rec['branch'])}-{datetime.datetime.now():%Y%m%d-%H%M%S}.patch")
+    # git writes the patch itself, so no byte of a non UTF-8 file is changed on its way through text output.
+    if out(wf.git(path, "add", "-A")) is None or \
+            out(wf.git(path, "diff", "--cached", "--binary", f"--output={patch}", "HEAD")) is None:
+        return None, "uncommitted changes, they could not be saved"
+    if out(wf.git(path, "reset", "-q", "--hard", "HEAD")) is None:
+        return patch, f"uncommitted changes, saved to {patch}, the tree could not be reset"
+    return patch, None
 
 
 # -- plan commits by a docs PR (spec 0051 AC-15) ----------------------------------------
@@ -2123,9 +2215,7 @@ def make_tree(r, f):
             base, stacked = below["branch"], n
             if depth(recs, {"feature": f.name, "stacked_on": n}) > MAX_DEPTH:
                 raise run.Stop("stack_deep", f"{name} would be more than {MAX_DEPTH} branches deep")
-        base_sha = out(wf.git(repo, "rev-parse", base))
-        if base_sha is None:
-            raise run.Stop("branch_changed", f"cannot read the base {base}")
+        base_sha = fork_point(repo, base, name)
         rec = {"repo": key, "feature": f.name, "spec": spec, "branch": name, "base": base, "base_sha": base_sha,
                "stacked_on": stacked, "pr": None, "number": None, "state": "building", "seen": [], "rounds": 0,
                "pushed_sha": None}
