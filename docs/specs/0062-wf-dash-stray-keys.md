@@ -1,7 +1,7 @@
 # 0062. wf-dash names the way back that works: a click
 
 **Date**: 2026-10-18 (amended twice on 2026-10-18, after probes P10 and P11 failed)
-**Status**: In Progress
+**Status**: Accepted
 **Paths:** `claude-home/mods/wf-dash/**`
 
 ## What you're agreeing to
