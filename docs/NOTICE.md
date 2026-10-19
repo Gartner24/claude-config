@@ -14,7 +14,7 @@ because the LICENSE covers only the parts authored here.
 | `scripts/check-routing.py`, `scripts/asciify.py`, `scripts/private-names.py`, `scripts/spec-paths.py`, `scripts/fb-ask.py` | Repo tooling |
 | `claude-home/hooks/block-destructive.sh` | Destructive-command guard |
 | `claude-home/hooks/handover-start.sh` | Loads a waiting rollover handover after `/clear` (spec 0057) |
-| `claude-home/mods/wf-handoff/` | `/handoff` mod: clears so the handover hook loads the handover (spec 0057) |
+| `claude-home/mods/wf-handoff/` | `/handoff` mod: clears so the handover hook loads the handover (spec 0057); hands a chat off on its own at the token line (spec 0063) |
 | `claude-home/hooks/plain-panel.py` | Panel check: every question offers "Learn this first", at most 3 real options, no jargon (spec 0028) |
 | `runner/` | `wf`, the workflow runner (spec 0001) |
 | `claude-home/skills/auto/` | `/auto on`, `/auto off`: autonomous mode, the session drives `wf` (spec 0030) |
@@ -40,6 +40,7 @@ because the LICENSE covers only the parts authored here.
 | `claude-home/agents/scout.md`, `claude-home/agents/researcher.md` | [JavaScript-Mastery-Pro/skills](https://github.com/JavaScript-Mastery-Pro/skills) | MIT; copied unchanged as the helper agents its workflow skills call. |
 | `claude-home/skills/deep-research/` | [affaan-m/ECC](https://github.com/affaan-m/ECC) | Forked 2026-10-11 so an ECC reinstall cannot overwrite it; local additions: academic tools, web, code and forum search tools, fallback rule. |
 | `claude-home/hooks/context-monitor.js` | [gsd-build/get-shit-done](https://github.com/gsd-build/get-shit-done) (`get-shit-done-cc` on npm) | MIT. Derived from its `gsd-context-monitor.js`: reads the transcript instead of the status line bridge file, token thresholds from `~/.claude/CLAUDE.md` (spec 0037). |
+| `claude-home/mods/wf-handoff/facts.ts`, the trigger, gate and loop guards in `claude-home/mods/wf-handoff/hooks/register.ts` | [alexknowshtml/claude-auto-handoff](https://github.com/alexknowshtml/claude-auto-handoff) 0.8.6 | MIT. Design reused (spec 0063): token line with unmeasured tool output, tool gate, facts pulled from the transcript (their `extractFacts`), figures marked unverified (their `markUnverifiedFigures`), loop guards, templates. Written fresh here from that design: the upstream source was not fetched into this build, so no upstream file is copied. |
 | `claude-home/skills/anti-ai-writing/` | third party, MIT | Recorded in `docs/research/SKILLS-EVALUATION.md`. |
 | `claude-home/skills/voice-dna/`, `claude-home/skills/business-analyzer/` | third party | **License not recorded.** Verify before relying on redistribution. |
 

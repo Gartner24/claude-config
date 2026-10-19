@@ -1,1 +1,14 @@
-{ "name": "wf-handoff", "version": "0.1.0", "description": "/handoff: after /rollover, clear the context so the handover hook loads the waiting handover (spec 0057)" }
+{
+  "name": "wf-handoff",
+  "version": "0.2.0",
+  "description": "Hands a long chat off on its own at the token line: /rollover, clear, resume (spec 0063); /handoff by hand after /rollover (spec 0057)",
+  "userConfig": {
+    "threshold": { "type": "number", "title": "Handoff line (tokens)", "description": "Context size at which the chat hands itself off; AUTO_HANDOFF_TOKENS overrides it for one shell", "default": 200000 },
+    "minHeadroom": { "type": "number", "title": "Headroom after a handoff (tokens)", "description": "A chat that came from a handoff grows at least this much past its starting size before it hands off again", "default": 40000 },
+    "maxConsecutiveHandoffs": { "type": "number", "title": "Handoffs in a row", "description": "Handoffs with no message from you before it pauses until you type", "default": 2 },
+    "sectionsTemplate": { "type": "string", "title": "Sections template", "description": "File whose text is handed to /rollover; blank means ~/.claude/auto-handoff/sections.md", "default": "" },
+    "instructionsTemplate": { "type": "string", "title": "Instructions template", "description": "File whose text is handed to /resume-from-clear; blank means ~/.claude/auto-handoff/instructions.md", "default": "" },
+    "ignoreFiles": { "type": "string", "title": "Ignored files", "description": "Comma separated globs left out of the files list in the handover", "default": "" },
+    "viewer": { "type": "string", "title": "Viewer address", "description": "[host:]port of the handover pages (host tailscale or an IP); blank for no server (spec 0064)", "default": "tailscale:3846" }
+  }
+}
