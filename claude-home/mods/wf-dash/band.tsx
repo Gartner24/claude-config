@@ -52,10 +52,12 @@ function meterSeg(id: string, label: string, value: number | null, reset = ''): 
   return seg(id, runs)
 }
 
-function countRun(n: number | null, one: string, many: string, tone: string): Run {
-  if (n === null) return { text: `${glyph.unknown} ${many}`, color: color.dim }
+// `cells`: the number (or its `?`) is left padded to it, so the full band's line does not shift as a count grows;
+// the compact band passes none, its zero test and budget read the bare text
+function countRun(n: number | null, one: string, many: string, tone: string, cells = 0): Run {
+  if (n === null) return { text: `${pad(glyph.unknown, cells)} ${many}`, color: color.dim }
   const word = n === 1 ? one : many
-  return n === 0 ? { text: `0 ${word}`, color: color.dim } : { text: `${n} ${word}`, color: tone, bold: true }
+  return n === 0 ? { text: `${pad('0', cells)} ${word}`, color: color.dim } : { text: `${pad(String(n), cells)} ${word}`, color: tone, bold: true }
 }
 
 // `rich` adds the reset times and the context tokens; the band drops them before it drops a segment.
@@ -113,9 +115,9 @@ export function segments(f: Facts, now = Date.now(), rich = true, compact = fals
       cells += need
     }
   } else {
-    right.push(countRun(w.running, 'building', 'building', color.text), { text: glyph.sep })
-    right.push(countRun(w.parked, 'stuck', 'stuck', color.bad), { text: glyph.sep })
-    right.push(countRun(w.questions, 'question', 'questions', color.warn))
+    right.push(countRun(w.running, 'building', 'building', color.text, width.count), { text: glyph.sep })
+    right.push(countRun(w.parked, 'stuck', 'stuck', color.bad, width.count), { text: glyph.sep })
+    right.push(countRun(w.questions, 'question', 'questions', color.warn, width.count))
   }
   if (f.staleSince) right.push({ text: compact ? (right.length ? ' stale' : 'stale') : `${glyph.sep}stale since ${f.staleSince}`, color: color.dim })
   return { left, right: seg('wf', right) }

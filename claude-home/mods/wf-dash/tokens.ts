@@ -39,9 +39,10 @@ export const effort = {
   auto: color.dim,
 } as const;
 
-// Alerts: a toast at the top right (the host draws it, no color) and, in /wf-alerts, a colored history row.
+// Alerts: a toast at the top right (the host draws it, no color) and, in the dashboard's Alerts view, a colored row.
 export const alert = {
   "finished": color.ok,
+  "stopped": color.warn,
   "stuck": color.bad,
   "question": color.warn,
 } as const;
@@ -165,6 +166,8 @@ export const width = {
   state: 12,
   spec: 8,
   elapsed: 6,
+  // the terminal width assumed when the host sends neither bodyColumns nor a viewport
+  viewport: 80,
 } as const;
 
 export const border = {

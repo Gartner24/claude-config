@@ -46,5 +46,5 @@ None open.
 - The shape of `$.settings.read()` is still taken from the mod test harness, not checked against the live 2.1.303 host.
 - 0 findings cut for lack of `file:line`. No new findings below P1 raised in this pass.
 
-## Band and alerts (pass 3 of 3, carried unchanged)
-`band.tsx` lines 1-179 and the band and alert paths of `hooks/register.tsx` are as their pass 3 graded them. Its 7 should-fixes stand, for the owner: design.md stale-band wording (`design.md:42-44`), stale tick keeps old runner counts (`hooks/register.tsx:116`), `finished` toast for a parked run (`alerts.ts:29`), Alerts empty state (`panes.tsx:436`), theme key and width literals (`hooks/register.tsx:210`, `:207`, `:239`), counts not fixed width (`band.tsx:58`, `:116-118`), docs naming removed commands (`design.md:108`, `design.md:13`, `tokens.ts:42`).
+## Band and alerts (spec 0065 fix verification, from main)
+Merged from main on 2026-10-19: the band and alerts got their own fix verification after spec 0065 (pass 4 of 3, verdict PASS, 0 must-fix, 0 should-fix, ai-tell 0/36, token leaks 0). The 7 band should-fixes listed in earlier passes are fixed there and no longer open. The handoff line above was graded on the code before that merge; the merge touched only `hooks/register.tsx` (state folder and theme tokens), not the handoff line code.

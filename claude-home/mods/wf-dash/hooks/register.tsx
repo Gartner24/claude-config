@@ -3,7 +3,7 @@ import { alertTick, counts, parseStatus } from '../alerts.ts'
 import { Band, HandoffRow, type Facts } from '../band.tsx'
 import { handoffLine } from '../handoff.ts'
 import { DEFAULT_VIEW, Dashboard } from '../panes.tsx'
-import { pane, space, time } from '../tokens.ts'
+import { color, pane, space, time, width } from '../tokens.ts'
 
 // wf-dash: the band and alerts (spec 0059) read `wf status --json`; the dashboard (spec 0060, row 73) still reads the
 // preview scripts plan.py and runner.py. The drawing in band.tsx and panes.tsx is the locked look.
@@ -20,9 +20,10 @@ const PANE = 'wf-dash'
 const SESSION_ID = /^[A-Za-z0-9-]{1,100}$/
 const LEVEL = /^[a-z]{1,20}$/
 
-// the mod's own state folder, as runner/auto.py dash_dir() names it; never under the runner's (AC-5)
-async function dashDir($: any) {
-  return `${(await $.env.get('XDG_STATE_HOME')) || `${await $.env.get('HOME')}/.local/state`}/wf-dash`
+// `<state>/wf-dash` is the mod's own folder, as runner/auto.py dash_dir() names it, never under the runner's (AC-5);
+// `<state>/wf/runs` holds the runner's run records, read only (runner/run.py state_dir)
+async function stateDir($: any) {
+  return (await $.env.get('XDG_STATE_HOME')) || `${await $.env.get('HOME')}/.local/state`
 }
 
 // shortcut: module values, so a hot reload forgets the dashboard is open until it is opened again; fine for a preview
@@ -49,7 +50,8 @@ export const register: Register = on => {
     let busy = false
     const id = await $.session.id().catch(() => '')
     const sid = SESSION_ID.test(id) ? id : null
-    const dir = await dashDir($)
+    const state = await stateDir($)
+    const dir = `${state}/wf-dash`
     const panelPath = `${await $.env.get('HOME')}/.claude/state/auto-handoff/panel.json`
     let me = id
     let prev: string | null = null
@@ -83,7 +85,9 @@ export const register: Register = on => {
           sid ? $.fs.read(`${dir}/${sid}.effort`).catch(() => null) : null,
         ])
         const status = st && st.exitCode === 0 ? parseStatus(st.stdout) : null
-        await alertTick($, status, sid && `${dir}/${sid}.toasts`, { keep: pane.history, timeoutMs: time.toast })
+        const wf = counts(status)
+        const statusOk = !!wf && Object.values(wf).some(v => v !== null)
+        await alertTick($, status, sid && `${dir}/${sid}.toasts`, { keep: pane.history, timeoutMs: time.toast, runs: `${state}/wf/runs` })
         const parsed = r && r.exitCode === 0 ? JSON.parse(r.stdout || 'null') : null
         // facts.py failing from the start must not hide or freeze the runner counts all session: its fields show `?`
         // until it first answers; only a failure after that keeps the last good facts, marked stale
@@ -106,14 +110,20 @@ export const register: Register = on => {
             week: limit('seven_day')?.percentUsed ?? null,
             weekReset: limit('seven_day')?.resetsAt ?? null,
             via: raw.via ?? null,
-            wf: counts(status),
+            wf,
             auto: raw.auto ?? null,
             staleSince: null,
+            statusOk,
           }
           await $.state.set(FACTS, lastGood)
         } else if (lastGood) {
-          // a failed tick keeps the last good facts, marked stale, never an empty band
-          await $.state.set(FACTS, { ...lastGood, staleSince: lastGood.staleSince ?? clock(await $.clock.now()) })
+          // a failed tick keeps the last good facts, marked stale, never an empty band; the runner counts read on this
+          // tick still show (spec 0065 AC-1), only a field that failed keeps its last good count. lastGood takes the
+          // mark too, or each failed tick moved `stale since` to its own time.
+          const old = lastGood.wf
+          const fresh = wf && old ? { running: wf.running ?? old.running, parked: wf.parked ?? old.parked, questions: wf.questions ?? old.questions } : wf ?? old
+          lastGood = { ...lastGood, wf: fresh, statusOk, staleSince: lastGood.staleSince ?? clock(await $.clock.now()) }
+          await $.state.set(FACTS, lastGood)
         }
       } finally {
         busy = false
@@ -206,10 +216,10 @@ export const register: Register = on => {
     // the handed over level first, then the latest main loop request's; unknown stays out
     const value = facts && !facts.effort && level ? { ...facts, effort: level } : facts
     const band = value
-      ? <Band Box={Box} Text={Text} Button={Button} facts={value} columns={e.props.bodyColumns ?? (e.viewport?.columns ?? 80) - space.hostReserve} onOpen={() => void openDashboard($)} />
+      ? <Band Box={Box} Text={Text} Button={Button} facts={value} columns={e.props.bodyColumns ?? (e.viewport?.columns ?? width.viewport) - space.hostReserve} onOpen={() => void openDashboard($)} />
       : (
         <Box paddingX={space.padX}>
-          <Text color="inactive">wf-dash: reading status</Text>
+          <Text color={color.dim}>wf-dash: reading status</Text>
         </Box>
       )
     if (!line) return band
@@ -238,6 +248,6 @@ export const register: Register = on => {
       go: (v: Partial<typeof view>) => void $.state.set(VIEW, { ...view, ...v }),
       retry: () => void loadPanes(true),
     }
-    return <Dashboard el={el} view={view} act={act} plan={plan} runner={runner} agents={agents as any[] | null} alerts={alerts} focused={e.props.isFocused !== false} rows={e.props.placement === 'dock' ? e.props.scroll?.bodyRows : undefined} facts={facts?.wf ?? null} columns={e.props.bodyColumns ?? (e.viewport?.columns ?? 80) - pane.frame} />
+    return <Dashboard el={el} view={view} act={act} plan={plan} runner={runner} agents={agents as any[] | null} alerts={alerts} focused={e.props.isFocused !== false} rows={e.props.placement === 'dock' ? e.props.scroll?.bodyRows : undefined} facts={facts?.wf ?? null} statusOk={facts ? facts.statusOk : null} columns={e.props.bodyColumns ?? (e.viewport?.columns ?? width.viewport) - pane.frame} />
   })
 }

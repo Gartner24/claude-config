@@ -19,7 +19,7 @@ bash claude-home/hooks/block-destructive.sh --test     # guard hook self-checks
 python3 claude-home/hooks/plain-panel.py --test        # panel hook self checks (spec 0028): "Learn this first" last, at most 3 real options, no jargon
 bash claude-home/hooks/handover-start.sh --test        # handover on /clear hook self checks (spec 0057); needs the real jjstack slot script
 claude plugin test claude-home/mods/wf-handoff         # /handoff and auto handoff mod tests (spec 0057 AC-10, spec 0063, spec 0064 display and viewer); `claude plugin validate` beside it
-claude plugin test claude-home/mods/wf-dash            # wf-dash band, alerts and panes tests (specs 0058 to 0060); `claude plugin validate` beside it; the band reads `wf status --json`
+claude plugin test claude-home/mods/wf-dash            # wf-dash band, alerts and panes tests (specs 0058 to 0060, 0064, 0065); `claude plugin validate` beside it; the band reads `wf status --json`
 node claude-home/hooks/context-monitor.js --test       # context warning hook self checks (spec 0037): fixture transcripts, and header numbers match the code and autoCompactWindow
 bash claude-home/skills/design/scripts/test-ledger.sh  # design ledger + Stop hook assertions
 node claude-home/skills/design/scripts/build-ramp.mjs --check
@@ -33,7 +33,7 @@ wf insights                                     # spec 0061: baselines and repea
 skill-scan [static|llm|both] [path ...] [--accept]  # skillspector over every skill and plugin, only new HIGH/CRITICAL vs the baseline (spec 0054); a run with no path skips the trusted packs gstack, jjstack, ui-ux-pro-max and prints `skipped (trusted):`, an explicit path or `--against` still scans them (AC-13); reports and baseline in ~/.claude/state/skillspector/ (sandbox cannot write it, run with `!`); `update --apply` runs `--against`; tests in runner/tests/test_skill_scan.py
 bin/repo-settings.sh [--check] <owner/repo>       # spec 0051 AC-10: squash only, delete branch on merge, main only through a PR; --check only reads, exits 1 on a difference; you run it, never wf
 bin/docs-pr.sh [slug]                           # spec 0051 AC-11: docs only commits on main reach origin by a small squash merged PR (a direct push is refused); refuses a commit outside docs/
-fb-ask <task> [--file PATH] < input             # cheap worker tier (spec 0023): summarize|triage|extract|classify|commit-msg on the free claude-fb models, exit 3/4 = do it yourself (`claude-home/rules/cheap-worker.md`); `fb-ask --test` self checks, bin/install.sh links it to ~/.local/bin
+fb-ask <task> [--local] [--file PATH] < input   # cheap worker tier (spec 0023; --local = laptop model fb-local, client text allowed, spec 0053): summarize|triage|extract|classify|commit-msg on the free claude-fb models, exit 3/4 = do it yourself (`claude-home/rules/cheap-worker.md`); `fb-ask --test` self checks, bin/install.sh links it to ~/.local/bin
 ```
 
 ## Rules
@@ -53,6 +53,7 @@ fb-ask <task> [--file PATH] < input             # cheap worker tier (spec 0023):
 - Do not edit vendored trees: `claude-home/agents/` (27 of 31 from ECC), `claude-home/rules/ecc/` (except the 7 `index.md` and the local additions in `common/code-review.md`, `common/testing.md`), `claude-home/skills/anti-ai-writing/`. Provenance lives in `docs/NOTICE.md`; update it when adding an authored or redistributed path. Its `manifest:start` block is written by `bin/claude-config.py build`.
 - `docs/guides/SKILLS.md` is generated: edit `config/manifest.json`, `config/routing.md` or the front matter, then `python3 bin/claude-config.py docs`.
 - Every spec top file carries a `**Paths:**` line right after `**Status**:` (`claude-home/rules/check-gates.md` gate 3).
+- A figure the user gives replaces the old one in the skill's files; a figure with no source is a bracket placeholder (spec 0056, `claude-home/rules/new-number-replaces-old.md`; pinned by `runner/tests/test_borrowed_ideas.py`).
 - ASCII only in repo-owned markdown: no em dashes, smart quotes, Unicode bullets.
 - Conventional Commits (`feat(scope):`, `fix(scope):`, `chore:`, `docs:`); a gsd hook enforces the format.
 - Comments explain why, usually naming the past failure ("this used to..."). Keep that style when fixing a script.
