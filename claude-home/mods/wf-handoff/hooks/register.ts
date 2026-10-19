@@ -12,6 +12,8 @@ const HOLD_TEXT = 'held for the handoff; it is sent for you, clear the box'
 const PAUSE_TEXT = 'auto handoff paused: type anything to resume'
 const EXEMPT = ['rollover', 'save-and-clear', 'handoff']
 const CLEAR_TIMEOUT_MS = 15000
+// shortcut: the log is cut to its newer half past this size; one log is shared by every chat
+const LOG_MAX = 256000
 
 let opts: PluginOptions = {}
 let threshold = 200000
@@ -35,6 +37,8 @@ let awaitStart = false
 let counted = false
 let held: string[] = []
 let clearGen = 0
+let lateClear = false // a timed out handoff clear may still end the chat
+let pointed = ''
 let logQueue = Promise.resolve()
 
 async function slotCmd($: EngineInterface) {
@@ -48,7 +52,9 @@ async function slotCmd($: EngineInterface) {
 function log($: EngineInterface, text: string) {
   logQueue = logQueue.then(async () => {
     const path = `${dir}/auto-handoff.log`
-    const old = await $.fs.read(path).catch(() => '')
+    // this used to grow forever, and every line rereads and rewrites the whole file
+    let old = await $.fs.read(path).catch(() => '')
+    if (old.length > LOG_MAX) old = old.slice(old.indexOf('\n', old.length - LOG_MAX / 2) + 1)
     const now = new Date(await $.clock.now()).toISOString()
     await $.fs.write(path, `${old}${now} ${chain?.session ?? '-'} ${text}\n`)
   }).catch(() => {})
@@ -56,7 +62,13 @@ function log($: EngineInterface, text: string) {
 }
 
 async function save($: EngineInterface) {
-  if (chain) await $.fs.write(`${dir}/${chain.root}.json`, JSON.stringify(chain, null, 2) + '\n').catch(() => {})
+  if (!chain) return
+  await $.fs.write(`${dir}/${chain.root}.json`, JSON.stringify(chain, null, 2) + '\n').catch(() => {})
+  // session.start finds a handed off chat's chain through this pointer instead of parsing every chain file
+  if (chain.session !== chain.root && pointed !== chain.session) {
+    pointed = chain.session
+    await $.fs.write(`${dir}/${chain.session}.root`, chain.root).catch(() => {})
+  }
 }
 
 async function setPhase($: EngineInterface, phase: Phase) {
@@ -171,6 +183,7 @@ async function finishRollover($: EngineInterface) {
     if (gen !== clearGen || c.phase !== 'clearing') return
     if (how !== 'ok') {
       clearGen++ // a late resolve is ignored: no seed
+      if (how === 'timeout') { lateClear = true; void cleared.then(() => { lateClear = false }) }
       return fail($, `the clear ${how === 'timeout' ? 'did not finish in 15 s' : 'failed'}; the chat may still have cleared`)
     }
     await seed($, slot)
@@ -225,11 +238,9 @@ export const register: Register = (on, options) => {
     }
     const id = await $.session.id()
     // A reload of the module (settings change) keeps the chain from its state file.
-    for (const f of await $.fs.list(dir).catch(() => [])) {
-      if (!f.name.endsWith('.json')) continue
-      const c = await $.fs.read(`${dir}/${f.name}`).then(t => JSON.parse(t) as Chain).catch(() => null)
-      if (c?.session === id) chain = c
-    }
+    const root = await $.fs.read(`${dir}/${id}.root`).then(t => t.trim()).catch(() => id)
+    const c = await $.fs.read(`${dir}/${root}.json`).then(t => JSON.parse(t) as Chain).catch(() => null)
+    if (c?.session === id) chain = c
     chain ??= { root: id, session: id, previous: null, startTokens: null, unattended: 0, triggeredAt: null, phase: 'idle', lastRequest: null }
     // A reload mid handoff loses the in-memory flags and timers that would finish it, so the
     // phase would hold every typed prompt forever.
@@ -244,7 +255,14 @@ export const register: Register = (on, options) => {
   on('session.end', async ($, e, next) => {
     const r = await next(e)
     // An owner's own /clear starts a new chain and gets no seed.
-    if (active && e.reason === 'clear' && chain && chain.phase !== 'clearing') {
+    if (active && e.reason === 'clear' && chain && chain.phase === 'failed' && lateClear) {
+      // AC-7: the handoff's own clear, done after its 15 s timeout, is not the owner's /clear; the
+      // chain and its failed count go on into the new chat.
+      lateClear = false
+      const id = await $.session.id().catch(() => '')
+      if (id) { chain.previous = chain.session; chain.session = id; await save($) }
+      pending = 0; awaitStart = false; exemptTurn = false; exemptNext = false
+    } else if (active && e.reason === 'clear' && chain && chain.phase !== 'clearing') {
       chain = null
       const id = await $.session.id().catch(() => '')
       if (id) chain = { root: id, session: id, previous: null, startTokens: null, unattended: 0, triggeredAt: null, phase: 'idle', lastRequest: null }
