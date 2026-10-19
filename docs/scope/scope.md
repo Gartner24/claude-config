@@ -97,7 +97,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 76 | Auto handoff: our handover, fired on its own | Release 9 | done |
 | 77 | Auto handoff display: band, viewer pages, link | Release 9 | in-progress |
 | 78 | Runner bugs found 2026-10-18 | Release 9 | planned |
-| 79 | Security review leftovers 2026-10-18 | Release 9 | planned |
+| 79 | Security review leftovers 2026-10-18 | Release 9 | done |
 | 80 | Skill scan trusted list | Release 9 | done |
 | 81 | wf-dash design should-fixes | Release 9 | planned |
 | 82 | Finish when the owner is away | Release 9 | planned |
@@ -1127,14 +1127,14 @@ Runner bugs found while conducting the 2026-10-18 runs: an accepted design park 
 - [ ] Sync docs: `/sync runner bugs found 2026-10-18`
 Source: [brief](../briefs/leftovers-2026-10-18.md), section Runner bugs.
 
-### 79. Security review leftovers 2026-10-18 · auto
+### 79. Security review leftovers 2026-10-18 · done · auto
 The 2026-10-18 security review's open items in the status bar and the skill scan script. Also the two LOW findings of the PR #77 review (auto handoff), listed in the brief.
 **Done when:** each item is fixed with a test that fails on the old code, or dropped with a reason.
 - [x] Design it (spec): `/architect security review leftovers 2026-10-18` (none needed, the brief names each item and its fix)
-- [ ] Fix them: `/debug security review leftovers 2026-10-18`
-- [ ] Verify it: `/check verify security review leftovers 2026-10-18`
-- [ ] Test it: `/test security review leftovers 2026-10-18`
-- [ ] Sync docs: `/sync security review leftovers 2026-10-18`
+- [x] Fix them: `/debug security review leftovers 2026-10-18`
+- [x] Verify it: `/check verify security review leftovers 2026-10-18`
+- [x] Test it: `/test security review leftovers 2026-10-18`
+- [x] Sync docs: `/sync security review leftovers 2026-10-18`
 Source: [brief](../briefs/leftovers-2026-10-18.md), section Security review leftovers.
 
 ### 80. Skill scan trusted list · done · auto
