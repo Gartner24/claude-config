@@ -68,7 +68,9 @@ of spec 0060 (which also clash with Claude Code's own `/plan` and `/agents`); ro
   n: group`), Builds and Alerts `j: down  k: up` (lit only with more below or above), then on every view `r: refresh  esc closes`. Every key shown is
   always bound and dims when it would do nothing (one item, one page, one group), because a key with no button falls
   through to the prompt and takes the keyboard. When that happens anyway (any other letter), a warn line under the
-  top line says `Keys go to the prompt now: ctrl+x tab returns here` (the host's key to focus a pane).
+  top line says `Keys go to the prompt now: click the dashboard to return`, the one way back that worked in a real
+  terminal. A mod cannot catch a key it has no button for, and a hotkey button cannot be hidden (spec 0062, probes
+  P10 and P11).
 - Widths come from the host's `bodyColumns` (the pane's body inside its frame, docked or inline; the band's column
   less the host's `[-]`), never the terminal width: docked beside a 118-column session the panel is about 84 inside
   and gets the wide layout, while the band sizes to the 31 cells left of it. At 80 body columns or wider each view

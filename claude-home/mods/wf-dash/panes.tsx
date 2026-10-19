@@ -475,8 +475,9 @@ export function Dashboard({ el, view, act, plan, runner, agents, alerts, facts, 
         <Text backgroundColor={color.accent} color="inverseText" bold>{' wf-dash '}</Text>
         {keyRow(el, SECTIONS.map(s => ({ key: s.key, label: s.label, on: s.id === section.id, mark: true, press: () => act.go({ section: s.id }) })), columns >= pane.specMin ? space.gap : space.tight)}
       </Box>
-      {/* a stray key hands the keyboard to the prompt; say so, and how to come back, instead of failing silently */}
-      {!focused && <Text color={color.warn} wrap="truncate-end">Keys go to the prompt now: ctrl+x tab returns here</Text>}
+      {/* a stray key hands the keyboard to the prompt; say so, and how to come back, instead of failing silently.
+          This used to name the host's focus key, which did not give the keys back in a real terminal; a click did (spec 0062 P11) */}
+      {!focused && <Text color={color.warn} wrap="truncate-end">Keys go to the prompt now: click the dashboard to return</Text>}
       <Box flexDirection="column">
         {section.id === 'plan' && <PlanSection el={el} plan={plan} view={view} act={act} columns={columns} extra={extra} />}
         {section.id === 'builds' && <BuildsSection el={el} runner={runner} view={view} act={act} columns={columns} extra={extra} />}
