@@ -991,6 +991,15 @@ class TestCleanSuite(unittest.TestCase):
                                       "'.gitattributes .gitignore run.sh tests/t.txt ' && git rev-parse -q --verify "
                                       "origin/main")
             self.assertEqual(code, 0, out)
+            # a planted .git in the tree never reaches the copy, where git init and add would read its config
+            feed = lambda text, *a: subprocess.run(["git", "-C", str(repo), *a], input=text, check=True,
+                                                   capture_output=True, text=True).stdout.strip()
+            blob = feed("[filter \"x\"]\n\tclean = touch pwned\n", "hash-object", "-w", "--stdin")
+            sub = feed(f"100644 blob {blob}\tconfig\n", "mktree")
+            top = feed(f"040000 tree {sub}\t.git\n", "mktree")
+            planted = g("commit-tree", top, "-m", "planted")
+            code, out = r.clean_suite(str(repo), "true", rev=planted)
+            self.assertEqual((code, out), (1, ["a .git path in the tree: .git/config"]))
             (repo / "out").symlink_to("../../elsewhere")
             g("add", "out")
             code, out = r.clean_suite(str(repo), "true")

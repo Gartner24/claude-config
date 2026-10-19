@@ -5727,7 +5727,12 @@ def copy_tree(repo, tree_sha, dest):
         if kind != "blob":
             # A submodule has no files here to check.
             continue
-        entries.append((mode, obj, os.fsdecode(path)))
+        path = os.fsdecode(path)
+        # Security review: clean_suite runs git init and add on the copy outside the jail, so a planted `.git` would
+        # hand git a config (filter drivers) from the tree under test.
+        if any(part.lower() == ".git" for part in path.split("/")):
+            return f"a .git path in the tree: {path}"
+        entries.append((mode, obj, path))
     blobs = subprocess.run([wf.GIT, "-C", repo, "cat-file", "--batch"], input="".join(f"{o}\n" for _, o, _ in entries).encode(),
                            capture_output=True, timeout=ARCHIVE_TIMEOUT)
     if blobs.returncode:
