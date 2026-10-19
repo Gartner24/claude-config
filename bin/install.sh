@@ -44,7 +44,8 @@ for d in agents rules; do
   note "$d/ ($(find "$REPO/claude-home/$d" -type f | wc -l) files)"
   run cp -a "$REPO/claude-home/$d/." "$LIVE/$d/"
 done
-for f in hooks/block-destructive.sh hooks/review-stack-pre-push hooks/plain-panel.py hooks/context-monitor.js; do
+for f in hooks/block-destructive.sh hooks/review-stack-pre-push hooks/plain-panel.py hooks/context-monitor.js \
+         hooks/handover-start.sh; do
   note "$f"
   run cp -a "$REPO/claude-home/$f" "$LIVE/$f"
   run chmod +x "$LIVE/$f"
@@ -114,6 +115,13 @@ if [ -e "$BIN/fb-ask" ] && ! [ -L "$BIN/fb-ask" ]; then
 else
   note "fb-ask -> scripts/fb-ask.py"
   run ln -sfn "$REPO/scripts/fb-ask.py" "$BIN/fb-ask"
+fi
+# Spec 0054 AC-10: skillspector over every skill and plugin, only new serious findings.
+if [ -e "$BIN/skill-scan" ] && ! [ -L "$BIN/skill-scan" ]; then
+  note "SKIP skill-scan (a real file is already at $BIN/skill-scan)"
+else
+  note "skill-scan -> scripts/skill-scan.py"
+  run ln -sfn "$REPO/scripts/skill-scan.py" "$BIN/skill-scan"
 fi
 # Spec 0036 AC-6: the missed skill hook matches messages against this index, which jjstack setup
 # builds once; without a rebuild it misses every skill added since.
@@ -259,6 +267,9 @@ else
   bash "$LIVE/hooks/block-destructive.sh" --test >/dev/null \
     && note "guard hook: all self-checks passed" \
     || { echo "  guard hook SELF-CHECK FAILED - do not rely on it" >&2; exit 1; }
+  bash "$LIVE/hooks/handover-start.sh" --test >/dev/null 2>&1 \
+    && note "handover hook: all self-checks passed" \
+    || { echo "  HANDOVER HOOK SELF-CHECK FAILED - run: bash ~/.claude/hooks/handover-start.sh --test" >&2; exit 1; }
   python3 "$REPO/scripts/gen-agent-index.py" --check >/dev/null \
     && note "agent index: matches claude-home/agents/" || note "agent index: DRIFTED (regenerate)"
   bash "$REPO/claude-home/skills/design/scripts/test-ledger.sh" >/dev/null 2>&1 \

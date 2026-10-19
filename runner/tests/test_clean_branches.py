@@ -551,6 +551,18 @@ class TestLandPlan(Case):
         self.assertEqual(self.git("rev-parse", "work"), self.git("rev-parse", "work", repo=self.origin))
         self.assertEqual(self.git("status", "--porcelain"), "")
 
+    # covers: AC-15 from the parallel parent, which has no run folder (the 2026-10-17 run crashed with "expected str,
+    # bytes or os.PathLike object, not NoneType" writing the scan files); the scan files do not stay behind
+    def test_lands_without_run_folder(self):
+        self.r.folder = None
+        self.plan_commit()
+        self.gh({"land": str(self.origin)})
+        with mock.patch("tempfile.tempdir", str(self.tmp / "scratch")):
+            (self.tmp / "scratch").mkdir()
+            self.assertTrue(pr.land_plan(self.r))
+            self.assertEqual(list((self.tmp / "scratch").iterdir()), [])
+        self.assertEqual(self.git("rev-parse", "work"), self.git("rev-parse", "work", repo=self.origin))
+
     # covers: AC-15 (a commit touching a path outside the scope folder: nothing pushed, no PR, a note)
     def test_outside(self):
         self.plan_commit()
@@ -587,6 +599,17 @@ class TestLandPlanIsolated(Case):
             self.assertIsNone(pr.land_plan(self.r))
         self.assertEqual(self.gh_calls(), [])
         self.assertTrue(self.r.notes[0].startswith("plan not landed: private_names:"), self.r.notes)
+
+    # covers: AC-15 from the parallel parent (no run folder): a private name in the PR text still stops the landing
+    def test_names_without_run_folder(self):
+        self.r.folder = None
+        self.plan_commit()
+        self.gh({"land": str(self.origin)})
+        with mock.patch("pr.datetime") as dt:
+            dt.datetime.now.return_value.strftime.return_value = "Zorblex"
+            self.assertIsNone(pr.land_plan(self.r))
+        self.assertEqual(self.gh_calls(), [])
+        self.assertTrue(self.r.notes[0].startswith("plan not landed: private_names: PR title:"), self.r.notes)
 
 
 class TestSettings(Case):
@@ -840,6 +863,42 @@ class TestReviewFixes(Case):
         self.assertEqual(self.git("branch", "--show-current"), "work")
         self.assertNotIn("feat/0001-a", self.git("branch", "--list"))
 
+    # covers: AC-6 (the runner's uncommitted plan copy in a feature worktree never stops the update, and stays as it was)
+    def test_plan_copy_kept(self):
+        rec, old = self.branch()
+        (self.repo / "docs" / "scope" / "scope.md").write_text(SCOPE + "\nmain moved the plan\n")
+        self.git("commit", "-qam", "main moves the plan")
+        self.git("push", "-q", "origin", "work")
+        trees = self.tmp / "trees"
+        tree = trees / "feat-0001-a"
+        self.git("worktree", "add", "-q", str(tree), "feat/0001-a")
+        (tree / "docs" / "scope" / "scope.md").write_text("the runner's copy\n")
+        rec["tree"] = str(tree)
+        with mock.patch.object(run, "trees_root", lambda: str(trees)):
+            self.assertTrue(pr.up_to_date(self.r, rec, "work"))
+        self.assertIn("main moved the plan", self.git("show", "feat/0001-a:docs/scope/scope.md"))
+        self.assertEqual((tree / "docs" / "scope" / "scope.md").read_text(), "the runner's copy\n")
+        self.assertEqual(self.git("rev-parse", "feat/0001-a", repo=self.origin), rec["pushed_sha"])
+
+    # covers: AC-6 (a plan file the merge turned into a link is never written through)
+    def test_plan_copy_link(self):
+        outside = self.tmp / "outside.txt"
+        outside.write_text("untouched\n")
+        rec, old = self.branch()
+        (self.repo / "docs" / "scope" / "scope.md").unlink()
+        (self.repo / "docs" / "scope" / "scope.md").symlink_to(outside)
+        self.git("add", "-A")
+        self.git("commit", "-qm", "the plan becomes a link")
+        self.git("push", "-q", "origin", "work")
+        trees = self.tmp / "trees"
+        tree = trees / "feat-0001-a"
+        self.git("worktree", "add", "-q", str(tree), "feat/0001-a")
+        (tree / "docs" / "scope" / "scope.md").write_text("the runner's copy\n")
+        rec["tree"] = str(tree)
+        with mock.patch.object(run, "trees_root", lambda: str(trees)):
+            pr.up_to_date(self.r, rec, "work")
+        self.assertEqual(outside.read_text(), "untouched\n")
+
     # covers: AC-6 (a local merge whose push failed is pushed at the next try)
     def test_push_failed(self):
         rec, old = self.branch()
@@ -963,6 +1022,24 @@ class TestCleanSuite(unittest.TestCase):
             self.assertFalse(Path(seen[0]).exists())
             code, out = r.clean_suite(str(repo), "grep -q one tests/t.txt && test ! -e cache.txt", rev=rev)
             self.assertEqual(code, 0, out)
+            # the suite's own `git ls-files` and docs-pr's origin/main read work in the copy, and list exactly the tree
+            code, out = r.clean_suite(str(repo), "test \"$(git ls-files | sort | tr '\\n' ' ')\" = "
+                                      "'.gitattributes .gitignore run.sh tests/t.txt ' && git rev-parse -q --verify "
+                                      "origin/main")
+            self.assertEqual(code, 0, out)
+            # a planted .git in the tree never reaches the copy, where git init and add would read its config
+            feed = lambda text, *a: subprocess.run(["git", "-C", str(repo), *a], input=text, check=True,
+                                                   capture_output=True, text=True).stdout.strip()
+            blob = feed("[filter \"x\"]\n\tclean = touch pwned\n", "hash-object", "-w", "--stdin")
+            sub = feed(f"100644 blob {blob}\tconfig\n", "mktree")
+            top = feed(f"040000 tree {sub}\t.git\n", "mktree")
+            planted = g("commit-tree", top, "-m", "planted")
+            code, out = r.clean_suite(str(repo), "true", rev=planted)
+            self.assertEqual((code, out), (1, ["a .git path in the tree: .git/config"]))
+            link = feed(".git/config", "hash-object", "-w", "--stdin")
+            planted = g("commit-tree", feed(f"120000 blob {link}\tcfg\n", "mktree"), "-m", "planted link")
+            code, out = r.clean_suite(str(repo), "true", rev=planted)
+            self.assertEqual((code, out), (1, ["a symlink into .git: cfg"]))
             (repo / "out").symlink_to("../../elsewhere")
             g("add", "out")
             code, out = r.clean_suite(str(repo), "true")

@@ -24,7 +24,7 @@ fail=0
 "${NAMES[@]}" check "$LIVE/CLAUDE.md" "$LIVE/agents" "$LIVE/rules" \
   "$LIVE/hooks/block-destructive.sh" "$LIVE/hooks/review-stack-pre-push" "$LIVE/hooks/plain-panel.py" "$LIVE/hooks/context-monitor.js" || fail=1
 # Spec 0048: these may be missing from a live tree (first install, the self checks' temp trees).
-OPTIONAL=(hooks/claude-config-reminder.py hooks/workflow-start.sh scripts/claude-ram-watch.sh)
+OPTIONAL=(hooks/claude-config-reminder.py hooks/workflow-start.sh hooks/handover-start.sh scripts/claude-ram-watch.sh)
 for f in "${OPTIONAL[@]}"; do
   if [ -e "$LIVE/$f" ]; then "${NAMES[@]}" check "$LIVE/$f" || fail=1; fi
 done

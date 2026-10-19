@@ -22,6 +22,7 @@ Linked from `claude-home/skills/`; editing the repo copy is live.
 | `deep-research` | Multi-source deep research. |
 | `design` | Runs the design pipeline end to end - detect the stack, ground the direction in real shipped UI, lock it as portable tokens, source real components, assemble, add imagery and motion, then audit before presenting. |
 | `design-gate` | Audits a built UI surface blind - the AI-tell checklist, token portability, accessibility, contrast, responsive behaviour, motion discipline and performance - and writes .design/audit-report.md. |
+| `improve-my-system` | Weekly review of your own session history. |
 | `intent-router` | Use when a request could involve multiple skills, mentions a workflow (debug, review, ship, build, design) without naming one, or the right tool isn't immediately obvious. |
 | `lead-finder` | Given a city and a trade, list 10 to 20 local businesses with weak web presence (no website, no booking, stale blog, another agency's credit) with the evidence for each. |
 | `nano-banana` | Generate hyper-realistic, tightly-controlled images (product shots, hero frames, brand imagery, blog images) using Google's Nano Banana (Gemini image model) via structured JSON prompting that neutralizes the plastic "AI look." Use in /brand-system (mascot/logo/imagery - replaces the manual step) and for /new-site + content-ops assets. |

@@ -679,8 +679,19 @@ def scans(r, rec, frm, texts, skip=()):
     if "private_names" not in skip:
         hits = names_hits(r, "check-range", frm, rec["branch"]) if frm else []
         for i, (where, text) in enumerate(texts):
-            p = write_text(r, f"scan-{os.getpid()}-{i}.txt", text)
-            hits += [f"{where}: {h}" for h in names_hits(r, "check-msg", p)]
+            if r.folder:
+                p = write_text(r, f"scan-{os.getpid()}-{i}.txt", text)
+                hits += [f"{where}: {h}" for h in names_hits(r, "check-msg", p)]
+                continue
+            # The parallel parent never runs Run.run, so it has no run folder: land_plan there used to crash with
+            # "expected str, bytes or os.PathLike object, not NoneType" (2026-10-17). A private temp file instead.
+            fd, p = tempfile.mkstemp(prefix="wf-scan-", suffix=".txt")
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                    fh.write(text)
+                hits += [f"{where}: {h}" for h in names_hits(r, "check-msg", p)]
+            finally:
+                os.unlink(p)
         if hits:
             return "private_names", "; ".join(hits)[:250]
     if "attribution" not in skip:
@@ -1199,9 +1210,28 @@ def up_to_date(r, rec, default):
             r.note(f"PR #{rec['number']}: not brought up to date, {where} has uncommitted changes")
             return False
         g = gitbin(r)
+        # The runner's uncommitted plan copy (run.dirty skips it) would stop the merge; set it aside, put it back after.
+        copy = {}
+        if run.under(where, [run.trees_root()]):
+            st = wf.git(where, "status", "--porcelain", "--", "docs/scope", ".workflow/scope")
+            for line in (st.stdout if st and not st.returncode else "").split("\n"):
+                if line[:2].strip() == "M":
+                    copy[line[3:]] = wf.read(os.path.join(where, line[3:]))
+            if copy:
+                wf.git(where, "checkout", "--", *copy)
         res = git(g, where, "merge", "--no-edit", target)
         if res.returncode:
             git(g, where, "merge", "--abort")
+        root = os.path.realpath(where)
+        for rel, text in copy.items():
+            path = os.path.join(where, rel)
+            # never through a link the merged branch put there
+            if os.path.islink(path) or not os.path.realpath(path).startswith(root + os.sep):
+                r.note(f"PR #{rec['number']}: the plan copy {rel} was not put back, it is a link now")
+                continue
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(text)
+        if res.returncode:
             r.pr_ask(rec, "merge_conflict", f"{rec['branch']} clashes with {target}: "
                                             f"{run.flat(res.stdout or res.stderr)[:150]}")
             return False
@@ -2050,12 +2080,15 @@ PATHS_LINE = re.compile(r"^\*\*Paths:\*\*(.*)$", re.M)
 
 def globs(repo, scope_dir, lines):
     """AC-5: the backticked spans of the feature's spec top file's **Paths:** line, shared files left out; None (it
-    overlaps every feature) with no spec link, no Paths line or no globs."""
+    overlaps every feature) with no spec link, no Paths line or no globs. Spec 0052 AC-5: [] (overlaps nothing) for
+    `**Paths:** none`, a spec that governs no file."""
     top = spec_file(repo, scope_dir, lines)
     try:
         m = PATHS_LINE.search(wf.read(top)) if top else None
     except OSError:
         m = None
+    if m and m.group(1).strip() == "none":
+        return []
     found = re.findall(r"`([^`]+)`", m.group(1)) if m else []
     kept = [g for g in found if not shared(g, scope_dir)]
     return kept or None
@@ -2067,7 +2100,9 @@ def shared(path, scope_dir):
 
 def overlap(a, b):
     """AC-5: the first glob of a that meets one of b (fnmatch either way, or a folder prefix), "*" when either is
-    None, else None."""
+    None, else None. Spec 0052 AC-5: [] (`Paths: none`) meets nothing, not even None."""
+    if a == [] or b == []:
+        return None
     if a is None or b is None:
         return "*"
     for x in a:
