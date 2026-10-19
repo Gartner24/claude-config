@@ -1087,7 +1087,7 @@ In the wf-dash dashboard, a key it does not draw (a filter digit outside Plan, a
 - [x] Pick the fallback, then amend the spec: `/architect wf-dash stray keys` (your pick 2026-10-18: bind every letter and digit on every view; spec amended the same day)
 - [x] Run probe P11 in a scratch tmux session with `claude --plugin-dir` (spec 0062 AC-1), write the result in its verify notes; a FAIL stops this feature and sends it back to `/architect` · waits on you (2026-10-18: FAIL, a button cannot be hidden; a click returns the keys, ctrl+x tab does not)
 - [x] Pick again after P11, then amend the spec: `/architect wf-dash stray keys` (your pick 2026-10-18: click to return, the hint fixed)
-- [ ] Build it: `/develop wf-dash stray keys`
+- [x] Build it: `/develop wf-dash stray keys` (`claude-home/mods/wf-dash/panes.tsx` warn line, `design.md` footer note, tests in `hint.test.ts`)
 - [ ] Verify it: `/check verify wf-dash stray keys`
 - [ ] Test it: `/test wf-dash stray keys`
 - [ ] Real terminal check: press a key the dashboard does not use in tmux, see the click hint, click, and a dashboard key works again (spec 0062 AC-6) · waits on you · later boxes go on
@@ -1115,7 +1115,7 @@ The handoff shows its steps and result in the wf-dash band (toasts where there i
 - [x] Install Tailscale on this laptop and your phone and log in to both (spec 0064 AC-7) · waits on you · later boxes go on (done by you 2026-10-18: laptop and phone on the tailnet)
 - [x] Build it: `/develop auto handoff display` (code in `claude-home/mods/wf-handoff/` (`pages.ts`, `server.py`, panel and server in `hooks/register.ts`) and `claude-home/mods/wf-dash/handoff.ts`; 65 and 35 mod tests pass, `server.py --test` passes)
 - [x] Verify it: `/check verify auto handoff display` (PASS 2026-10-19: AC-1 to AC-7 met, 8 can fail steps; reduced motion spinner fixed in 6751d0f; you accepted the result line link cut at narrow widths; live checks left to the install box)
-- [ ] Test it: `/test auto handoff display`
+- [x] Test it: `/test auto handoff display` (2026-10-19: wf-dash 38 and wf-handoff 70 mod tests pass, `server.py --test` passes, suite 1042 green; 2 new tests red on their mutants)
 - [ ] Install both mods live after their scan · waits on you · later boxes go on
 - [ ] Sync docs: `/sync auto handoff display`
 Spec [0064](../specs/0064-auto-handoff-display.md) · Source: [brief](../briefs/auto-handoff.md) (the owner's messages of 2026-10-18).
@@ -1171,14 +1171,15 @@ When you say you are leaving, everything in the plan that does not need your pas
 - [ ] Sync docs: `/sync finish when the owner is away`
 Source: your message of 2026-10-18 ("each time I tell you Im going away ... find out what the problem is"); evidence in [brief](../briefs/leftovers-2026-10-18.md), section Finish when away.
 
-### 83. The word "after" stalls a feature
+### 83. The word "after" stalls a feature · auto
 The runner's waiting check (`WAITING` in `runner/wf.py`, `\b(after|waits on)\b`) runs on the text of the next box's first open milestone, so any milestone that just mentions "after" makes `wf queue` say "skip: waiting" forever. Found 2026-10-19 on a work repo feature; rewording the milestone unstuck it. Two features in another work repo show the same "skip: waiting" and may be the same bug.
 **Done when:** a box or milestone counts as waiting only by its ` · waits on you` tag (or another explicit tag the spec names), never by the word "after" in its text, with a test that fails on the old code.
+- [x] Design it (spec): `/architect the word after stalls a feature` (your pick 2026-10-19: only the marker counts)
 - [ ] Fix it: `/debug the word after stalls a feature`
 - [ ] Verify it: `/check verify the word after stalls a feature`
 - [ ] Test it: `/test the word after stalls a feature`
 - [ ] Sync docs: `/sync the word after stalls a feature`
-Source: work chat 2026-10-19; memory reference_wf_after_word_skips_feature.md.
+Spec [0066](../specs/0066-waiting-only-by-marker.md) · Source: work chat 2026-10-19; memory reference_wf_after_word_skips_feature.md.
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
