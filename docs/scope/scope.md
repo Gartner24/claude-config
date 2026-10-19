@@ -64,34 +64,44 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 43 | Runs adapt to setup changes | Release 7 | done |
 | 44 | A run does its own copy steps | Release 7 | done |
 | 45 | Each step gets the feature's brief | Release 8 | done |
-| 46 | Missed-skill detector | Release 8 | in-progress |
+| 46 | Missed-skill detector | Release 8 | done |
 | 47 | Context monitor that fires | Release 8 | done |
 | 48 | Readable layout for ~/.claude and claude-config | Release 8 | done |
 | 49 | Fast runner | Release 8 | done |
 | 50 | Fewer avoidable stops | Release 8 | done |
-| 51 | Autonomous mode per chat | Release 8 | in-progress |
+| 51 | Autonomous mode per chat | Release 8 | done |
 | 52 | Review leftovers 2026-10-15 | Release 8 | done |
 | 53 | Only a typed /auto turns on or releases | Release 8 | done |
 | 54 | Organize claude-config and ~/.claude, sync what you use daily | Release 8 | done |
 | 55 | Fewer skills described in every session | Release 8 | done |
-| 56 | Clean branches, PRs and commits | Release 8 | in-progress |
-| 66 | Update Claude Code through /claude-config | Release 9 | needs a decision |
-| 57 | Move my own skills out of jjstack | Release 9 | needs a decision |
-| 58 | Own status bar and dashboards with mods | Release 9 | in-progress |
+| 56 | Clean branches, PRs and commits | Release 8 | done |
+| 66 | Update Claude Code through /claude-config | Release 9 | done |
+| 57 | Move my own skills out of jjstack | Release 9 | done |
+| 58 | Own status bar and dashboards with mods | Release 9 | done |
 | 59 | Memory tool: claude-mem, MemPalace, graphify or NotebookLM | Release 9 | planned |
 | 60 | Sessions pass work to each other | Release 9 | in-progress |
-| 61 | Cheap model gatekeeper with open models | Release 9 | in-progress |
-| 62 | Runner that improves itself | Release 9 | in-progress |
-| 63 | Evaluate Harvey, Soup, MiroFish, claude-skills-founder, Headroom | Release 9 | needs a decision |
+| 61 | Cheap model gatekeeper with open models | Release 9 | done |
+| 62 | Runner that improves itself | Release 9 | done |
+| 63 | Evaluate Harvey, Soup, MiroFish, claude-skills-founder, Headroom | Release 9 | done |
 | 64 | Recommended mods: gatekeeper, Claude to Claude, own panel | Release 9 | done |
-| 65 | Scan skills with skillspector | Release 9 | in-progress |
+| 65 | Scan skills with skillspector | Release 9 | done |
 | 67 | Local model on the laptop | Release 9 | in-progress |
-| 68 | Runner runs more than 4 features at once | Release 9 | in-progress |
+| 68 | Runner runs more than 4 features at once | Release 9 | done |
 | 69 | Ideas borrowed from tools we skip | Release 9 | in-progress |
-| 70 | graphify test on one repo | Release 9 | planned |
+| 70 | graphify test on one repo | Release 9 | done |
 | 71 | Self merge rules and review notes | Release 9 | in-progress |
-| 72 | wf-dash band and alerts | Release 9 | in-progress |
+| 72 | wf-dash band and alerts | Release 9 | done |
 | 73 | wf-dash panes and actions | Release 9 | in-progress |
+| 74 | Fix the runner's plan landing crash | Release 9 | done |
+| 75 | wf-dash stray keys | Release 9 | in-progress |
+| 76 | Auto handoff: our handover, fired on its own | Release 9 | done |
+| 77 | Auto handoff display: band, viewer pages, link | Release 9 | in-progress |
+| 78 | Runner bugs found 2026-10-18 | Release 9 | planned |
+| 79 | Security review leftovers 2026-10-18 | Release 9 | done |
+| 80 | Skill scan trusted list | Release 9 | done |
+| 81 | wf-dash design should-fixes | Release 9 | planned |
+| 82 | Finish when the owner is away | Release 9 | planned |
+| 83 | The word "after" stalls a feature | Release 9 | planned |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -720,7 +730,7 @@ Every unattended step gets the feature's brief (the agreed decisions) so nothing
 - [x] Sync docs: `/sync step brief`
 Spec [0034](../specs/0034-step-brief/index.md) · Source: personal scope row 12 (session handoff fidelity, last part). Code in `runner/run.py` (`brief_parts`, `brief_fit`, `Run.brief_check`).
 
-### 46. Missed-skill detector · in-progress · auto
+### 46. Missed-skill detector · done · auto
 A hook notes when a session could have used a skill it did not, and a weekly report lists the top misses.
 **Done when:** the hook runs in real sessions and the report names the top missed skills.
 - [x] Design it (spec): `/architect missed skill detector`
@@ -729,7 +739,7 @@ A hook notes when a session could have used a skill it did not, and a weekly rep
 - [x] Test it: `/test missed skill detector`
 - [x] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
 - [x] After 3 days, run the report and write its verdict into verify.md · waits on you · later boxes go on (2026-10-17: WARM, read as trigger noise, no router)
-- [ ] Sync docs: `/sync missed skill detector`
+- [x] Sync docs: `/sync missed skill detector`
 Spec [0036](../specs/0036-missed-skill-detector/index.md) · Source: personal scope row 20.
 
 ### 47. Context monitor that fires · done · auto
@@ -764,7 +774,7 @@ The runner stops less for things that need nothing from you: a check that cannot
 - [x] Sync docs: `/sync fewer avoidable stops`
 Spec [0045](../specs/0045-fewer-avoidable-stops/index.md) · code in `runner/run.py`, `runner/tests/test_fewer_stops.py`, `AGENTS.md` · Source: [brief](../briefs/fewer-stops.md).
 
-### 51. Autonomous mode per chat · in-progress · auto
+### 51. Autonomous mode per chat · done · auto
 Several Claude chats each drive the runner for their own repos at once; a repo belongs to one chat at a time and moves with its context written down first.
 **Done when:** two chats in two folders each run autonomous mode for their own repos, their bars and questions show only their repos, and a take of a repo the other live chat holds is refused.
 - [x] Design it (spec): `/architect autonomous mode per chat`
@@ -772,8 +782,8 @@ Several Claude chats each drive the runner for their own repos at once; a repo b
 - [x] Verify it: `/check verify autonomous mode per chat`
 - [x] Test it: `/test autonomous mode per chat`
 - [x] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
-- [ ] Two real chats in two folders: each turns on its own repos, the bars show only their own, a take of the other's repo is refused (AC-11) · waits on you · later boxes go on
-- [ ] Sync docs: `/sync autonomous mode per chat`
+- [x] Two real chats in two folders: each turns on its own repos, the bars show only their own, a take of the other's repo is refused (AC-11) · waits on you · later boxes go on (passed 2026-10-17: the personal chat's take of claude-config was refused, its bar showed only its own)
+- [x] Sync docs: `/sync autonomous mode per chat`
 Spec [0046](../specs/0046-autonomous-mode-per-chat/index.md) · Source: [brief](../briefs/autonomous-per-chat.md) · code in `runner/auto.py`.
 
 ### 52. Review leftovers 2026-10-15 · done · auto
@@ -837,7 +847,7 @@ Spec [0050](../specs/0050-fixed-skill-keep-list/index.md) · code in `scripts/sk
 ## Release 7: clean branches and the tool review
 The clean branches feature and the October 2026 tool review plan ([brief](../briefs/tool-review-2026-10.md)).
 
-### 56. Clean branches, PRs and commits · in-progress · auto
+### 56. Clean branches, PRs and commits · done · auto
 Code reaches main only through its own squash merged PR, branches and worktrees are deleted after a merge, no combined branches, small low risk PRs merge themselves in an opted in repo, plan commits land by a docs PR, and big or old features get a warning.
 **Done when:** a runner built feature ends as one squash commit on main through its PR with its branch and worktree gone, a direct push to main is refused by GitHub, and the runner's plan commits reach main by a docs PR.
 - [x] Design it (spec): `/architect clean branches, PRs and commits`
@@ -848,51 +858,53 @@ Code reaches main only through its own squash merged PR, branches and worktrees 
   - [x] Cleanup after merge, plan commits by docs PR (AC-7, AC-15)
   - [x] Settings check, `bin/repo-settings.sh`, `bin/docs-pr.sh` (AC-10, AC-11)
   - [x] Rules, architecture, Amended by lines (AC-14)
-- [ ] Verify it: `/check verify clean branches, PRs and commits`
+- [x] Verify it: `/check verify clean branches, PRs and commits`
 - [x] Test it: `/test clean branches, PRs and commits` (967 tests pass; 41 build and 15 review mutation checks)
 - [x] Set the GitHub settings: `bin/repo-settings.sh Gartner24/claude-config`, then `--check` exits 0 · waits on you
 - [x] Turn self merge on: `"auto_merge": true` in the claude-config entry of `~/.claude/private/pr.json` · waits on you
-- [ ] Sync docs: `/sync clean branches, PRs and commits`
+- [x] Sync docs: `/sync clean branches, PRs and commits`
 Spec [0051](../specs/0051-clean-branches-commits/index.md) · Source: [brief](../briefs/clean-branches-and-commits.md).
 
-### 68. Runner runs more than 4 features at once · in-progress · auto
+### 68. Runner runs more than 4 features at once · done · auto
 Remove the fixed 4: any number up to a ceiling, a live memory and usage brake, and the same files rule back from each spec's Paths line.
 **Done when:** a `wf` run starts more than 4 features when memory and usage allow, never two whose Paths overlap, and holds back when free memory or the 5 hour use crosses its line.
 - [x] Research and compare: `/deep-research runner with n features at once` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
 - [x] Design it (spec): `/architect runner runs more than 4 features at once`
-- [ ] Build it: `/develop runner runs more than 4 features at once`
-  - [ ] Stress test at 8 and git lock retry, stress test again (AC-7, AC-8)
-  - [ ] Parallel 1 to 8, read loop timeout, memory and usage brake (AC-1, AC-2, AC-3, AC-4)
-  - [ ] Same repo Paths wait and `Paths: none` (AC-5)
-  - [ ] Cores split through `WF_CORES` (AC-6)
-- [ ] Verify it: `/check verify runner runs more than 4 features at once`
-- [ ] Test it: `/test runner runs more than 4 features at once`
-- [ ] Sync docs: `/sync runner runs more than 4 features at once`
+- [x] Build it: `/develop runner runs more than 4 features at once`
+  - [x] Stress test at 8 and git lock retry, stress test again (AC-7, AC-8)
+  - [x] Parallel 1 to 8, read loop timeout, memory and usage brake (AC-1, AC-2, AC-3, AC-4)
+  - [x] Same repo Paths wait and `Paths: none` (AC-5)
+  - [x] Cores split through `WF_CORES` (AC-6)
+- [x] Verify it: `/check verify runner runs more than 4 features at once` (10 of 10 steps can fail checked; `- parallel: 6` waits for the merge)
+- [x] Test it: `/test runner runs more than 4 features at once` (15 mutants red, 980 tests pass)
+- [x] Sync docs: `/sync runner runs more than 4 features at once`
+After the merge and `bin/install.sh`: set `- parallel: 6` in AGENTS.md (your answer 2026-10-18, in the brief).
 Spec [0052](../specs/0052-more-features-at-once.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B2.
 
-### 66. Update Claude Code through /claude-config
+### 66. Update Claude Code through /claude-config · done
 Update Claude Code and check drift between the repo and `~/.claude` before the tool review.
 **Done when:** Claude Code is current and `bin/claude-config.py drift` prints `drift: none`.
-- [ ] Update and drift check: `/claude-config` · waits on you
+- [x] Update and drift check: `/claude-config` · waits on you (done in plan A1, PR #21, drift none)
 Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
 
-### 57. Move my own skills out of jjstack
+### 57. Move my own skills out of jjstack · done
 Find the skills in jjstack that are yours from its git history, and copy your own skills and the jjstack parts you use into claude-config; never commit to jjstack.
 **Done when:** every skill you wrote that lived in jjstack runs from claude-config, the status line no longer needs jjstack, and jjstack has no new commit from this.
 - [x] Research and compare: `/deep-research which jjstack skills are mine and what I use from jjstack` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
-- [ ] Design it (spec): `/architect move my own skills out of jjstack`
+- [x] Design it (spec): `/architect move my own skills out of jjstack` · skipped: decided in the research answers 2026-10-15, no spec needed
+Closed 2026-10-17: the research answer for this row says keep jjstack; only its status line goes, replaced by row 58 (spec 0058); spawn-review was copied in plan A5 (PR #26).
 Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
 
-### 58. Own status bar and dashboards with mods · in-progress · auto
+### 58. Own status bar and dashboards with mods · done · auto
 Our own status bar without jjstack: the segments ported into the runner.
 **Done when:** the bottom bar draws every segment it drew before with no jjstack folder, and unknown values show `?`.
 - [x] Design it (spec): `/architect own status bar and dashboards with mods`
-- [ ] Build it: `/develop own status bar and dashboards with mods`
-  - [ ] Ported segments, usage modes, unknown rules (AC-1, AC-3, AC-5)
-  - [ ] `bar()` switch, liveness kept, tests (AC-2, AC-4, AC-6)
-- [ ] Verify it: `/check verify own status bar and dashboards with mods`
-- [ ] Test it: `/test own status bar and dashboards with mods`
-- [ ] Sync docs: `/sync own status bar and dashboards with mods`
+- [x] Build it: `/develop own status bar and dashboards with mods`
+  - [x] Ported segments, usage modes, unknown rules (AC-1, AC-3, AC-5)
+  - [x] `bar()` switch, liveness kept, tests (AC-2, AC-4, AC-6)
+- [x] Verify it: `/check verify own status bar and dashboards with mods`
+- [x] Test it: `/test own status bar and dashboards with mods` (990 tests pass; 19 tests mutation checked, one fixed to see its own seen write)
+- [x] Sync docs: `/sync own status bar and dashboards with mods`
 Spec [0058](../specs/0058-own-status-bar.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B3, part 1 of 3; the band is row 72, the panes row 73.
 
 ### 59. Memory tool: claude-mem, MemPalace, graphify or NotebookLM
@@ -906,49 +918,52 @@ Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep
 After a rollover you type only `/clear`: a start up hook loads the waiting handover; a `/handoff` mod on top if its probe passes.
 **Done when:** a rolled over session continues after only `/clear`, and the mod is built or rejected with its probe result.
 - [x] Design it (spec): `/architect sessions pass work to each other`
-- [ ] Run probes P1 and P2 in a scratch session (spec 0057 AC-9), write results in its verify notes · waits on you
-- [ ] Build it: `/develop sessions pass work to each other`
-  - [ ] Hook, size cap, quiet rules, self check (AC-1, AC-2, AC-4, AC-5, AC-7)
-  - [ ] workflow-start yields, wiring, words (AC-3, AC-6, AC-8)
-  - [ ] Mod, only if P2 passed (AC-10)
-- [ ] Verify it: `/check verify sessions pass work to each other`
-- [ ] Test it: `/test sessions pass work to each other`
-- [ ] Copy the hook and settings live, and install the mod if built · waits on you · later boxes go on
-- [ ] Sync docs: `/sync sessions pass work to each other`
-Spec [0057](../specs/0057-handover-on-clear.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B4; the handover first half of B14.
+- [x] Run probes P1 and P2 in a scratch session (spec 0057 AC-9), write results in its verify notes · waits on you (both passed 2026-10-17, P2 with the clear run from a timer)
+- [x] Build it: `/develop sessions pass work to each other`
+  - [x] Hook, size cap, quiet rules, self check (AC-1, AC-2, AC-4, AC-5, AC-7)
+  - [x] workflow-start yields, wiring, words (AC-3, AC-6, AC-8)
+  - [x] Mod, only if P2 passed (AC-10) · built in `claude-home/mods/wf-handoff/`, static skillspector scan clean
+- [x] Verify it: `/check verify sessions pass work to each other`
+- [x] Test it: `/test sessions pass work to each other` (19 hook checks and 2 mod tests pass; 2 checks mutation checked; suite red only on the two plan links from main, you said go on)
+- [x] Copy the hook and settings live (`bin/install.sh` copies both and runs the hook self check), and install the mod: `ln -s ~/claude-config/claude-home/mods/wf-handoff ~/.claude/skills/wf-handoff` after a `skillspector scan` with the model pass · waits on you · later boxes go on (done 2026-10-18: install.sh ran, the link is live, `skill-scan llm` 0 new serious findings)
+- [x] Sync docs: `/sync sessions pass work to each other`
+Spec [0057](../specs/0057-handover-on-clear.md) · code in `claude-home/hooks/handover-start.sh`, `claude-home/mods/wf-handoff/` · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B4; the handover first half of B14.
 
-### 61. Cheap model gatekeeper with open models · in-progress · auto
+### 61. Cheap model gatekeeper with open models · done · auto
 Search helpers run on Haiku, the model rule says so, and each runner call records cost per model so a routing mod is decided by data.
 **Done when:** code-explorer and docs-lookup are on Haiku, call records carry `models`, and the morning report shows the run and week split with the 15% gate.
 - [x] Design it (spec): `/architect cheap model gatekeeper with open models`
-- [ ] Build it: `/develop cheap model gatekeeper with open models`
-  - [ ] Probe the `modelUsage` shape (AC-6)
-  - [ ] Agent pins and rule (AC-1, AC-2)
-  - [ ] `models` field, run line, week split and gate (AC-3 to AC-5, AC-7)
-- [ ] Verify it: `/check verify cheap model gatekeeper with open models`
-- [ ] Test it: `/test cheap model gatekeeper with open models`
-- [ ] Sync docs: `/sync cheap model gatekeeper with open models`
+- [x] Build it: `/develop cheap model gatekeeper with open models`
+  - [x] Probe the `modelUsage` shape (AC-6) · `claude -p` says Not logged in inside the sandbox; a real run record (feat-0048, 2026-10-15, call-01) lists its Sonnet helper as its own `modelUsage` key, so AC-4 and AC-5 were built
+  - [x] Agent pins and rule (AC-1, AC-2)
+  - [x] `models` field, run line, week split and gate (AC-3 to AC-5, AC-7)
+- [x] Confirm Haiku gets its own cost key: in an empty folder run `claude -p "use the scout agent to list the files here" --output-format json` and check `modelUsage` lists a haiku model (AC-6) · waits on you · later boxes go on
+- [x] Copy the new agent pins and rule live: `bin/install.sh` · waits on you · live · later boxes go on
+- [x] Verify it: `/check verify cheap model gatekeeper with open models`
+- [x] Test it: `/test cheap model gatekeeper with open models`
+- [x] Sync docs: `/sync cheap model gatekeeper with open models`
 Spec [0055](../specs/0055-cheap-work-cheap-models.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B6; row 64's gatekeeper rides on it.
 
-### 62. Runner that improves itself · in-progress · auto
+### 62. Runner that improves itself · done · auto
 Treat the runner as a system with a feedback loop: each run's results improve the next run, and it improves itself while idle.
 **Done when:** the runner records what slowed or broke each run and turns it into a change or a proposal without you asking.
 - [x] Research and compare: `/deep-research self improving agent runners and feedback loops` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
 - [x] Design it (spec): `/architect runner that improves itself`
-- [ ] Build it: `/develop runner that improves itself`
-  - [ ] History, baselines, proposals, write fence (AC-1 to AC-4, AC-8)
-  - [ ] End of run call, `wf insights`, hook line, /insights read (AC-5 to AC-7)
-  - [ ] improve-my-system skill and its extract script (AC-9)
-- [ ] Verify it: `/check verify runner that improves itself`
-- [ ] Test it: `/test runner that improves itself`
-- [ ] Write `~/.claude/private/history-allow.txt` with your own project folders (AC-9) · waits on you · later boxes go on
-- [ ] Sync docs: `/sync runner that improves itself`
-Spec [0061](../specs/0061-runner-improves-itself.md) · Source: [brief](../briefs/tool-review-2026-10.md). Plan item B5.
+- [x] Build it: `/develop runner that improves itself`
+  - [x] History, baselines, proposals, write fence (AC-1 to AC-4, AC-8)
+  - [x] End of run call, `wf insights`, hook line, /insights read (AC-5 to AC-7)
+  - [x] improve-my-system skill and its extract script (AC-9)
+- [x] Verify it: `/check verify runner that improves itself`
+- [x] Test it: `/test runner that improves itself` (984 tests pass; 3 new tests mutation checked)
+- [x] Write `~/.claude/private/history-allow.txt` with your own project folders (AC-9) · waits on you · later boxes go on
+- [x] Sync docs: `/sync runner that improves itself`
+Spec [0061](../specs/0061-runner-improves-itself/index.md) · code in `runner/insights.py`, `claude-home/skills/improve-my-system/` · Source: [brief](../briefs/tool-review-2026-10.md). Plan item B5.
 
-### 63. Evaluate Harvey, Soup, MiroFish, claude-skills-founder, Headroom
+### 63. Evaluate Harvey, Soup, MiroFish, claude-skills-founder, Headroom · done
 Research each tool and compare it with the setup: Harvey (repo, site and `~/Downloads/guia-harvey.pdf`), Soup, MiroFish, claude-skills-founder, Headroom.
 **Done when:** each tool is adopted, adapted or rejected with a reason, and each adopted one passed `skillspector`.
 - [x] Research and compare: `/deep-research Harvey, Soup, MiroFish, claude-skills-founder, Headroom against our setup` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
+Closed 2026-10-17: research done, verdicts in brief section C; the ideas kept are row 69.
 Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
 
 ### 64. Recommended mods: gatekeeper, Claude to Claude, own panel · done
@@ -958,95 +973,213 @@ Check the three recommended mods against what we already have: a gatekeeper to a
 Closed 2026-10-17: the gatekeeper rides on row 61 (spec 0055), Claude to Claude is dropped (/architect then /develop and wf already do it, brief section C), the own panel is rows 58, 72 and 73.
 Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
 
-### 65. Scan skills with skillspector · in-progress · auto
+### 65. Scan skills with skillspector · done · auto
 Scan every installed skill and every new candidate with NVIDIA's `skillspector`; one `skill-scan` command and a scan before every skill update.
 **Done when:** `skill-scan` runs both passes over every skill and plugin, shows only new serious findings, and `claude-config update --apply` prints a scan of what it installs.
 - [x] Design it (spec): `/architect scan skills with skillspector`
-- [ ] Build it: `/develop scan skills with skillspector`
-  - [ ] Format probe (AC-11)
-  - [ ] `skill-scan` targets, passes, resume, verdict, baseline, delta (AC-1 to AC-6, AC-9)
-  - [ ] Update hook, install link, skill text, bulk baseline (AC-7, AC-8, AC-10, AC-12)
+- [x] Build it: `/develop scan skills with skillspector`
+  - [x] Format probe (AC-11) · notes in spec [0054](../specs/0054-skill-scan-script.md) (its verify.md lands with the build)
+  - [x] `skill-scan` targets, passes, resume, verdict, baseline, delta (AC-1 to AC-6, AC-9)
+  - [x] Update hook, install link, skill text (AC-7, AC-8, AC-10, AC-12) · code in `scripts/skill-scan.py`, `bin/claude-config.py` `scan()`
 - [x] Scan the installed skills: `skillspector` · waits on you (done in plan A4, 2026-10-16)
-- [ ] Verify it: `/check verify scan skills with skillspector`
-- [ ] Test it: `/test scan skills with skillspector`
-- [ ] Sync docs: `/sync scan skills with skillspector`
+- [x] Bulk baseline (AC-5, build step 5): after this merges, run bin/install.sh, then `! skill-scan static --accept` in a terminal (about 20 minutes; it ends with "static: baseline holds N findings"). The build sandbox cannot write ~/.claude/state · waits on you · later boxes go on
+- [x] Verify it: `/check verify scan skills with skillspector`
+- [x] Test it: `/test scan skills with skillspector`
+- [x] Sync docs: `/sync scan skills with skillspector`
 Spec [0054](../specs/0054-skill-scan-script.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items A3, A4, B7.
 
 ### 67. Local model on the laptop · in-progress · auto
 fb-ask can send private text to the model on the laptop (`fb-local`) with `--local`; client and work text only that way.
 **Done when:** `fb-ask --local` answers through `fb-local` only, client text passes only with it, and a long or cut input falls back.
 - [x] Design it (spec): `/architect local model on the laptop`
-- [ ] Build it: `/develop local model on the laptop`
-  - [ ] `--local` flag, limits, truncation and build checks, gates (AC-1 to AC-6)
-  - [ ] Self checks, rule and docs (AC-7, AC-8)
+- [x] Build it: `/develop local model on the laptop`
+  - [x] `--local` flag, limits, truncation and build checks, gates (AC-1 to AC-6)
+  - [x] Self checks, rule and docs (AC-7, AC-8)
+- [x] Copy the rule live: `cp claude-home/rules/cheap-worker.md ~/.claude/rules/cheap-worker.md` · waits on you · live · later boxes go on
 - [x] Install `ollama-vulkan` and join the render and video groups · waits on you (done in plan A7)
 - [x] Trial: speed test, one opencode task against claude-fb's cloud model · waits on you (done in plan A7, agent task skipped by your choice)
-- [ ] Verify it: `/check verify local model on the laptop`
-- [ ] Test it: `/test local model on the laptop`
-- [ ] Live probes P1 and P2, never while wf builds (AC-9) · waits on you · later boxes go on
+- [x] Verify it: `/check verify local model on the laptop` (AC-1 to AC-8 met, 13 can fail steps; AC-9 left to its box)
+- [x] Test it: `/test local model on the laptop` (21 self check mutants and 4 docs mutants all red, suite 973 green)
+- [x] Live probes P1 and P2, never while wf builds (AC-9) · waits on you · later boxes go on (2026-10-18: P1 passes on a real log, P2 no cooldown block; notes on the feature branch)
 - [ ] Sync docs: `/sync local model on the laptop`
-Spec [0053](../specs/0053-fb-ask-local-model.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items A7, B8, D4.
+Spec [0053](../specs/0053-fb-ask-local-model.md) · code in `scripts/fb-ask.py` · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items A7, B8, D4.
 
 ### 69. Ideas borrowed from tools we skip · in-progress · auto
 Build the four ideas taken from Harvey, MiroFish and claude-skills-founder: a lead finder that never sends, a reaction tester, an idea scorecard, and the new number replaces old rule.
 **Done when:** each of the four is in a skill and used once on a real case.
 - [x] Design it (spec): `/architect ideas borrowed from tools we skip`
-- [ ] Build it: `/develop ideas borrowed from tools we skip`
-  - [ ] lead-finder skill (AC-1 to AC-3, AC-9)
-  - [ ] reaction-tester skill (AC-4, AC-9)
-  - [ ] Scorecard and rule file, manifest test (AC-5, AC-6, AC-8)
-- [ ] Verify it: `/check verify ideas borrowed from tools we skip`
-- [ ] Test it: `/test ideas borrowed from tools we skip`
-- [ ] Use each of the four once on a real case, write it in verify notes (AC-7) · waits on you · later boxes go on
+- [x] Build it: `/develop ideas borrowed from tools we skip`
+  - [x] lead-finder skill (AC-1 to AC-3, AC-9)
+  - [x] reaction-tester skill (AC-4, AC-9)
+  - [x] Scorecard and rule file, manifest test (AC-5, AC-6, AC-8)
+- [x] Verify it: `/check verify ideas borrowed from tools we skip`
+- [x] Test it: `/test ideas borrowed from tools we skip` (983 tests pass; 11 tests mutation checked, 6 new)
+- [x] Link the two skills and copy the rule live after the merge: `bin/install.sh` · waits on you · live · later boxes go on
+- [x] Use each of the four once on a real case, write it in verify notes (AC-7) · waits on you · later boxes go on (done 2026-10-18, notes on the feature branch)
 - [ ] Sync docs: `/sync ideas borrowed from tools we skip`
-Spec [0056](../specs/0056-borrowed-ideas.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items B10 to B13.
+Spec [0056](../specs/0056-borrowed-ideas.md) · code in `claude-home/skills/lead-finder/`, `claude-home/skills/reaction-tester/`, `claude-home/rules/new-number-replaces-old.md` · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items B10 to B13.
 
-### 70. graphify test on one repo
+### 70. graphify test on one repo · done
 Map one large own repo with graphify, code only and AI keys hidden, and ask 8 to 10 questions with and without the map.
 **Done when:** the test's numbers are written down and graphify is kept in that repo or uninstalled with its skill removed.
 - [x] Research and compare: `/deep-research graphify against our setup` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
-- [ ] Run the test on the repo you pick · waits on you
+- [x] Run the test on the repo you pick · waits on you (done in plan A8: it failed the rule; kept installed by your choice; B9 dropped)
 Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items A8, B9, D2.
 
-### 71. Self merge rules and review notes
+### 71. Self merge rules and review notes · auto
 The PR #18 review's open items and two script bugs found while landing it.
 **Done when:** each item is fixed with a test or dropped with a reason.
-- [x] Decide the three spec items (risk list, old branch date, wait for a check) · waits on you (answered 2026-10-17, written into spec 0051 AC-3, AC-4, AC-12, AC-16)
-- [ ] Build it: `/develop self merge rules and review notes` (spec 0051 build step 9; tag this feature `· auto` only after row 56 is done, both change `runner/pr.py`)
-- [ ] Verify it: `/check verify self merge rules and review notes`
-- [ ] Test it: `/test self merge rules and review notes`
+- [x] Design it (spec): `/architect self merge rules and review notes` (decided the three spec items: risk list, old branch date, wait for a check) · waits on you (answered 2026-10-17, written into spec 0051 AC-3, AC-4, AC-12, AC-16)
+- [x] Build it: `/develop self merge rules and review notes` (spec 0051 build step 9; tag this feature `· auto` only after row 56 is done, both change `runner/pr.py`)
+- [x] Copy the CLAUDE.md wording live: `cp claude-home/CLAUDE.md ~/.claude/CLAUDE.md` · waits on you · live · later boxes go on
+- [x] Verify it: `/check verify self merge rules and review notes`
+- [x] Test it: `/test self merge rules and review notes`
 - [ ] Sync docs: `/sync self merge rules and review notes`
 Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan items D1, E3, E4.
 
-### 72. wf-dash band and alerts · in-progress · auto
-Our own mod draws a band above the prompt with the session and the runner, and alerts on finished runs, parks and questions.
-**Done when:** the band shows every segment and the runner counts, unknown shows `?`, and alerts fire once per event.
+### 72. wf-dash band and alerts · done · auto
+Our own mod draws a band above the prompt with the session, its effort and the runner, and alerts on finished runs, parks and questions as top right toasts that stay 15 s, each kept for the dashboard's Alerts view.
+**Done when:** the band shows every segment, the effort and the runner counts, unknown shows `?`, and alerts fire once per event as 15 s toasts and land in the alert list.
 - [x] Design it (spec): `/architect own status bar and dashboards with mods`
-- [ ] Run probes P1 to P5 in a scratch session (spec 0059 AC-6), write results in its verify notes · waits on you
-- [ ] Build it: `/develop wf-dash band and alerts`
-  - [ ] `wf status --json` (AC-1)
-  - [ ] Band, alerts, short bar (AC-2 to AC-5)
-  - [ ] Tests and scan (AC-7)
-- [ ] Verify it: `/check verify wf-dash band and alerts`
-- [ ] Test it: `/test wf-dash band and alerts`
-- [ ] Install the mod live after its scan · waits on you · later boxes go on
-- [ ] Sync docs: `/sync wf-dash band and alerts`
+- [x] Run probes P1 to P5 in a scratch session (spec 0059 AC-6), write results in its verify notes · waits on you (passed 2026-10-17; P4b checked in the build)
+- [x] Lock the look first: run the `design` pipeline on wf-dash (band, toasts, panes, short bar) in a session and land its locked `design.md` · waits on you (owner accepted the look as is on 2026-10-17 at critique 29/40; stray keys are row 75)
+- [x] Build it: `/develop wf-dash band and alerts`
+  - [x] `wf status --json` (AC-1)
+  - [x] Band with effort, alerts, short bar (AC-2 to AC-5, amended 2026-10-18)
+  - [x] Tests and scan (AC-7); the `skill-scan` runs in the install box below
+- [x] Verify it: `/check verify wf-dash band and alerts`
+- [x] Test it: `/test wf-dash band and alerts`
+- [x] Install the mod live after its scan · waits on you · later boxes go on
+- [x] Sync docs: `/sync wf-dash band and alerts`
 Spec [0059](../specs/0059-wf-dash-band.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B3, part 2 of 3; stacks on spec 0058.
 
 ### 73. wf-dash panes and actions · in-progress · auto
-Panes for the whole plan, every agent and the runner, with three confirmed safe actions.
-**Done when:** `/plan`, `/agents` and `/runner` show every scope, feature state, agent and run, and the safe actions work with a confirm.
+One `/wf-dash` dashboard with Plan, Builds, Agents and Alerts views for the whole plan, every agent, the runner and the alerts, with three confirmed safe actions (replaces the separate `/plan`, `/agents` and `/runner` panes, amended 2026-10-18).
+**Done when:** `/wf-dash` shows every scope, feature state, agent, run and alert in its four views, and the safe actions work with a confirm.
 - [x] Design it (spec): `/architect own status bar and dashboards with mods`
-- [ ] Run probes P6 to P9 in a scratch session (spec 0060 AC-6), write results in its verify notes · waits on you
-- [ ] Build it: `/develop wf-dash panes and actions`
-  - [ ] `wf plan --json` and `wf answer` (AC-1, AC-5)
-  - [ ] Plan, agents and runner panes (AC-2 to AC-4)
-  - [ ] Actions with confirm, tests (AC-5, AC-7)
+- [x] Run probes P6 to P9 in a scratch session (spec 0060 AC-6), write results in its verify notes · waits on you (2026-10-18: all pass, see [verify notes](../specs/0060-wf-dash-panes/verify.md))
+- [x] Lock the look first: run the `design` pipeline on wf-dash (band, toasts, panes, short bar) in a session and land its locked `design.md` · waits on you (owner accepted the look as is on 2026-10-17 at critique 29/40; stray keys are row 75)
+- [x] Build it: `/develop wf-dash panes and actions`
+  - [x] `wf plan --json` and `wf answer` (AC-1, AC-5)
+  - [x] The `/wf-dash` dashboard: Plan, Builds, Agents and Alerts views (AC-2 to AC-4a)
+  - [x] Actions with confirm, tests (AC-5, AC-7)
 - [ ] Verify it: `/check verify wf-dash panes and actions`
 - [ ] Test it: `/test wf-dash panes and actions`
 - [ ] Install the mod update live after its scan · waits on you · later boxes go on
 - [ ] Sync docs: `/sync wf-dash panes and actions`
 Spec [0060](../specs/0060-wf-dash-panes.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B3, part 3 of 3, with your plan pane ask; stacks on spec 0059.
+
+### 74. Fix the runner's plan landing crash · done · auto
+At the end of the 2026-10-17 run, landing the runner's own plan commits failed with "the build tool itself hit a bug: expected str, bytes or os.PathLike object, not NoneType", so the plan commits stayed local until landed by hand (PR #36).
+**Done when:** a run that ends with plan commits lands them through its docs PR with no crash, with a test that fails on the old code.
+- [x] Design it (spec): `/architect fix the runner's plan landing crash` (no new decision: a bug against spec 0051 AC-15)
+- [x] Fix it: `/debug fix the runner's plan landing crash`
+- [x] Verify it: `/check verify fix the runner's plan landing crash`
+- [x] Test it: `/test fix the runner's plan landing crash` (1026 tests pass; 2 tests mutation checked against 3 mutants)
+- [x] Sync docs: `/sync fix the runner's plan landing crash`
+Spec [0051](../specs/0051-clean-branches-commits/index.md) AC-15 · Source: the run report of 2026-10-17 17:57 (`plan landing:` line, run folders under `~/.local/state/wf/runs/*-20261017-17*`).
+
+### 75. wf-dash stray keys · in-progress · auto
+In the wf-dash dashboard, a key it does not draw (a filter digit outside Plan, any other letter) types into the chat prompt and takes the keyboard; the "ctrl+x tab returns here" hint did not give the keys back in a tmux test. Critique held at 29/40 mostly on this.
+**Done when:** no key typed while the dashboard has the keyboard reaches the prompt, or the way back is shown and proven in a real terminal.
+- [x] Design it (spec): `/architect wf-dash stray keys` (choice: catch every key with a surface module `Client` and its `onKey`; your answer 2026-10-18)
+- [x] Run probe P10 in a scratch tmux session with `claude --plugin-dir` (spec 0062 AC-1), write the result in its verify notes; a FAIL stops this feature and sends it back to `/architect` · waits on you (2026-10-18: FAIL, the dashboard gets keys only after a mouse click, see [verify notes](../specs/0062-wf-dash-stray-keys/verify.md))
+- [x] Pick the fallback, then amend the spec: `/architect wf-dash stray keys` (your pick 2026-10-18: bind every letter and digit on every view; spec amended the same day)
+- [x] Run probe P11 in a scratch tmux session with `claude --plugin-dir` (spec 0062 AC-1), write the result in its verify notes; a FAIL stops this feature and sends it back to `/architect` · waits on you (2026-10-18: FAIL, a button cannot be hidden; a click returns the keys, ctrl+x tab does not)
+- [x] Pick again after P11, then amend the spec: `/architect wf-dash stray keys` (your pick 2026-10-18: click to return, the hint fixed)
+- [x] Build it: `/develop wf-dash stray keys` (`claude-home/mods/wf-dash/panes.tsx` warn line, `design.md` footer note, tests in `hint.test.ts`)
+- [ ] Verify it: `/check verify wf-dash stray keys`
+- [ ] Test it: `/test wf-dash stray keys`
+- [ ] Real terminal check: press a key the dashboard does not use in tmux, see the click hint, click, and a dashboard key works again (spec 0062 AC-6) · waits on you · later boxes go on
+- [ ] Sync docs: `/sync wf-dash stray keys`
+Spec [0062](../specs/0062-wf-dash-stray-keys.md) · Source: the owner's message of 2026-10-17 ("accept as is") after critique round 10 scored the look 29/40.
+
+### 76. Auto handoff: our handover, fired on its own · done · auto
+At 200k tokens a chat hands itself off with nothing typed: the mod gates new tool calls, runs our full `/rollover`, adds facts, numbers and your last request by code, clears, and seeds `/resume-from-clear`; loop guards 40k and 2 in a row.
+**Done when:** a scratch chat crosses the line and resumes in a fresh chat with nothing typed, and every AC of spec 0063 is built.
+- [x] Design it (spec): `/architect auto handoff` (your answers 2026-10-18: 200k, compact stays as backstop, every interactive chat, guards 40k and 2; all cross check fixes applied)
+- [x] Run probes P1 to P5 in a scratch session with `claude --plugin-dir` (spec 0063 AC-13), write results in its verify notes; a FAIL sends this back to `/architect` · waits on you (ran 2026-10-18: P2, P4, P5 pass; P1 and P3 FAIL, both with a working alternative, see [verify notes](../specs/0063-auto-handoff/verify.md))
+- [x] Amend the spec after the probe FAILs: `/architect auto handoff` (rollover and seed through `$.command.run`, seed after the awaited clear, AC-1 size read after `next(e)`; done 2026-10-18, cross check fixes applied, three new probes added)
+- [x] Run probes P6 to P8 in a scratch session with `claude --plugin-dir` (spec 0063 AC-13), write results in its verify notes; a FAIL sends this back to `/architect` · waits on you (ran 2026-10-18: all pass, see [verify notes](../specs/0063-auto-handoff/verify.md))
+- [x] Build it: `/develop auto handoff` (code in `claude-home/mods/wf-handoff/`; the `viewer:` line waits on spec 0064's link)
+- [x] Verify it: `/check verify auto handoff` (PASS 2026-10-18 after the fix in 1c47781; the live run is left to the install box)
+- [x] Test it: `/test auto handoff` (2026-10-18: 45 mod tests pass, every new test red on a mutant)
+- [x] Install the mod live after its scan · waits on you · later boxes go on
+- [x] Sync docs: `/sync auto handoff`
+Spec [0063](../specs/0063-auto-handoff.md) · Source: [brief](../briefs/auto-handoff.md) (the owner's messages of 2026-10-18).
+
+### 77. Auto handoff display: band, viewer pages, link · in-progress · auto
+The handoff shows its steps and result in the wf-dash band (toasts where there is no band), each handover gets a readable page served on your Tailscale address, and a chat that came from a handoff links back to it.
+**Done when:** a handoff shows in the band, its page opens from your phone over Tailscale, and every AC of spec 0064 is built.
+- [x] Design it (spec): `/architect auto handoff` (your answers 2026-10-18: progress in the wf-dash band, install Tailscale)
+- [x] Install Tailscale on this laptop and your phone and log in to both (spec 0064 AC-7) · waits on you · later boxes go on (done by you 2026-10-18: laptop and phone on the tailnet)
+- [x] Build it: `/develop auto handoff display` (code in `claude-home/mods/wf-handoff/` (`pages.ts`, `server.py`, panel and server in `hooks/register.ts`) and `claude-home/mods/wf-dash/handoff.ts`; 65 and 35 mod tests pass, `server.py --test` passes)
+- [x] Verify it: `/check verify auto handoff display` (PASS 2026-10-19: AC-1 to AC-7 met, 8 can fail steps; reduced motion spinner fixed in 6751d0f; you accepted the result line link cut at narrow widths; live checks left to the install box)
+- [x] Test it: `/test auto handoff display` (2026-10-19: wf-dash 38 and wf-handoff 70 mod tests pass, `server.py --test` passes, suite 1042 green; 2 new tests red on their mutants)
+- [ ] Install both mods live after their scan · waits on you · later boxes go on
+- [ ] Sync docs: `/sync auto handoff display`
+Spec [0064](../specs/0064-auto-handoff-display.md) · Source: [brief](../briefs/auto-handoff.md) (the owner's messages of 2026-10-18).
+
+### 78. Runner bugs found 2026-10-18 · auto
+Runner bugs found while conducting the 2026-10-18 runs: an accepted design park that comes back, a PR that reverts main, a worktree planning from a stale scope, a scope copy that blocks the main merge, a doubled "learn this first", row 71 never queued, and two more found later the same night (the design gate reading file dates, the clean copy's link check; see the brief).
+**Done when:** each runner bug in the brief (its Runner bugs section and the retry line under the PR #77 leftovers) is fixed with a test that fails on the old code, or dropped with a reason.
+- [x] Design it (spec): `/architect runner bugs found 2026-10-18` (none needed, the brief names each item and its fix)
+- [x] Fix them: `/debug runner bugs found 2026-10-18`
+- [x] Verify it: `/check verify runner bugs found 2026-10-18`
+- [x] Test it: `/test runner bugs found 2026-10-18`
+- [ ] Sync docs: `/sync runner bugs found 2026-10-18`
+Source: [brief](../briefs/leftovers-2026-10-18.md), section Runner bugs.
+
+### 79. Security review leftovers 2026-10-18 · done · auto
+The 2026-10-18 security review's open items in the status bar and the skill scan script. Also the two LOW findings of the PR #77 review (auto handoff), listed in the brief.
+**Done when:** each item is fixed with a test that fails on the old code, or dropped with a reason.
+- [x] Design it (spec): `/architect security review leftovers 2026-10-18` (none needed, the brief names each item and its fix)
+- [x] Fix them: `/debug security review leftovers 2026-10-18`
+- [x] Verify it: `/check verify security review leftovers 2026-10-18`
+- [x] Test it: `/test security review leftovers 2026-10-18`
+- [x] Sync docs: `/sync security review leftovers 2026-10-18`
+Source: [brief](../briefs/leftovers-2026-10-18.md), section Security review leftovers.
+
+### 80. Skill scan trusted list · done · auto
+The skill scan skips gstack, jjstack and ui-ux-pro-max and names them in its report, so scans finish inside the time limit.
+**Done when:** a scan skips the three, lists them as skipped, and still scans everything else.
+- [x] Design it (spec): `/architect skill scan trusted list` (amends spec 0054; already written as its AC-13 on 2026-10-18)
+- [x] Build it: `/develop skill scan trusted list`
+- [x] Verify it: `/check verify skill scan trusted list`
+- [x] Test it: `/test skill scan trusted list`
+- [x] Sync docs: `/sync skill scan trusted list`
+Spec [0054](../specs/0054-skill-scan-script.md) AC-13 · Source: [brief](../briefs/leftovers-2026-10-18.md), section Spec 0054 AC-13 trusted list.
+
+### 81. wf-dash design should-fixes · in-progress · auto
+The design gate's seven should-fixes for the wf-dash band; you pick which to build.
+**Done when:** each should-fix is built or dropped by your pick.
+- [x] Pick which should-fixes to build · waits on you (your pick 2026-10-18: all seven)
+- [x] Design it (spec): `/architect wf-dash design should-fixes`
+- [x] Build it: `/develop wf-dash design should-fixes`
+- [x] Verify it: `/check verify wf-dash design should-fixes`
+- [x] Test it: `/test wf-dash design should-fixes`
+- [ ] Sync docs: `/sync wf-dash design should-fixes`
+Spec [0065](../specs/0065-wf-dash-should-fixes.md) · Source: [brief](../briefs/leftovers-2026-10-18.md), section Row 72 design gate should-fixes.
+
+### 82. Finish when the owner is away · auto
+When you say you are leaving, everything in the plan that does not need your password, a login, your phone or an open decision gets finished. Today it stalls: built branches sit unpushed behind a box marked "waits on you" that the conductor could do itself (rows 67 and 69 on 2026-10-18), row 46's last step was skipped every run since 2026-10-15 because its old build folder kept an uncommitted plan copy, and the conductor only woke on runner events and reported instead of doing those boxes.
+**Done when:** a box marked "waits on you" that needs no password, login, phone or decision never holds back a branch or its PR (the conductor or the runner does it); a kept build folder whose branch is already on main is cleaned up instead of skipped; the morning report names each waiting box under its own feature, not under row 46.
+- [x] Design it (spec): `/architect finish when the owner is away` (none needed, the brief names each item and its fix)
+- [x] Fix it: `/debug finish when the owner is away`
+- [ ] Verify it: `/check verify finish when the owner is away`
+- [ ] Test it: `/test finish when the owner is away`
+- [ ] Sync docs: `/sync finish when the owner is away`
+Source: your message of 2026-10-18 ("each time I tell you Im going away ... find out what the problem is"); evidence in [brief](../briefs/leftovers-2026-10-18.md), section Finish when away.
+
+### 83. The word "after" stalls a feature · auto
+The runner's waiting check (`WAITING` in `runner/wf.py`, `\b(after|waits on)\b`) runs on the text of the next box's first open milestone, so any milestone that just mentions "after" makes `wf queue` say "skip: waiting" forever. Found 2026-10-19 on a work repo feature; rewording the milestone unstuck it. Two features in another work repo show the same "skip: waiting" and may be the same bug.
+**Done when:** a box or milestone counts as waiting only by its ` · waits on you` tag (or another explicit tag the spec names), never by the word "after" in its text, with a test that fails on the old code.
+- [x] Design it (spec): `/architect the word after stalls a feature` (your pick 2026-10-19: only the marker counts)
+- [ ] Fix it: `/debug the word after stalls a feature`
+- [ ] Verify it: `/check verify the word after stalls a feature`
+- [ ] Test it: `/test the word after stalls a feature`
+- [ ] Sync docs: `/sync the word after stalls a feature`
+Spec [0066](../specs/0066-waiting-only-by-marker.md) · Source: work chat 2026-10-19; memory reference_wf_after_word_skips_feature.md.
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.

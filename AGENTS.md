@@ -45,6 +45,7 @@ fb-ask <task> [--file PATH] < input             # cheap worker tier (spec 0023):
 - Do not edit vendored trees: `claude-home/agents/` (27 of 31 from ECC), `claude-home/rules/ecc/` (except the 7 `index.md` and the local additions in `common/code-review.md`, `common/testing.md`), `claude-home/skills/anti-ai-writing/`. Provenance lives in `docs/NOTICE.md`; update it when adding an authored or redistributed path. Its `manifest:start` block is written by `bin/claude-config.py build`.
 - `docs/guides/SKILLS.md` is generated: edit `config/manifest.json`, `config/routing.md` or the front matter, then `python3 bin/claude-config.py docs`.
 - Every spec top file carries a `**Paths:**` line right after `**Status**:` (`claude-home/rules/check-gates.md` gate 3).
+- A figure the user gives replaces the old one in the skill's files; a figure with no source is a bracket placeholder (spec 0056, `claude-home/rules/new-number-replaces-old.md`; pinned by `runner/tests/test_borrowed_ideas.py`).
 - ASCII only in repo-owned markdown: no em dashes, smart quotes, Unicode bullets.
 - Conventional Commits (`feat(scope):`, `fix(scope):`, `chore:`, `docs:`); a gsd hook enforces the format.
 - Comments explain why, usually naming the past failure ("this used to..."). Keep that style when fixing a script.

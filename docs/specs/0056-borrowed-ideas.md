@@ -1,7 +1,7 @@
 # 0056. Four ideas borrowed from tools we skip
 
 **Date**: 2026-10-17
-**Status**: Proposed
+**Status**: Accepted
 **Paths:** `runner/tests/test_borrowed_ideas.py`, `claude-home/skills/lead-finder/**`, `claude-home/skills/reaction-tester/**`, `claude-home/skills/business-analyzer/references/new-business.md`, `claude-home/rules/new-number-replaces-old.md`
 
 ## What you're agreeing to
