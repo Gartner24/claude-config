@@ -21,7 +21,6 @@ HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*$")
 GONE_TAG = re.compile(r"\(\s*(done|existing|dropped)\s*\)|\u00b7\s*(done|existing|dropped)\s*(?=\u00b7|$)", re.I)
 DISPLAY_TAG = re.compile(r"\s*\u00b7[^\u00b7]*|\s*\(\s*(done|existing|dropped|planned|in-progress|needs a decision)\s*\)", re.I)
 COMMAND = re.compile(r"^/[a-z][\w:-]*(\s|$)")
-WAITING = re.compile(r"\b(after|waits on)\b", re.I)
 LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)")
 # Scope header contract (spec 0003): field -> (display name, valid values, default).
 HEADER_LINE = re.compile(r"^\*\*(Source of truth|Autopilot):\*\*\s*(.*)$", re.I)
@@ -30,9 +29,10 @@ HEADER_FIELDS = {"source of truth": ("Source of truth", ("scope", "issues", "mix
 # Spec 0011 AC-2: only a feature carrying it runs under wf run.
 AUTO_TAG = re.compile(r"·\s*auto\s*(?=·|$)", re.I)
 # A box only you can close (spec 0012). The `after` / `waits on` words missed a
-# manual check once and a wf run looped /develop on it.
+# manual check once and a wf run looped /develop on it; a milestone that only said
+# "after" then held a feature forever, so only the marker counts (spec 0066).
 OWED = re.compile(r"·\s*waits on you\s*(?=·|$)", re.I)
-NEAR_OWED = re.compile(r"waits on you", re.I)
+NEAR_OWED = re.compile(r"waits on", re.I)
 # Spec 0014 AC-8: with OWED, a waiting box later boxes of the feature may pass.
 SKIP_AHEAD = re.compile(r"·\s*later boxes go on\s*(?=·|$)", re.I)
 NEAR_SKIP = re.compile(r"later boxes go on", re.I)
@@ -83,10 +83,15 @@ class NextBox:
         note = note_box.text if note_box else None
         self.box_text, self.command, self.note = box.text, command, note
         self.owed = owed_text(box) or owed_text(note_box)
-        self.waiting = self.owed is not None or bool(note and WAITING.search(note))
+        self.waiting = self.owed is not None
         texts = dict.fromkeys(b.text for b in (box, note_box) if b)
         self.near_misses = [t for t in texts if NEAR_OWED.search(t) and not OWED.search(t)]
         self.near_skips = [t for t in texts if NEAR_SKIP.search(t) and not SKIP_AHEAD.search(t)]
+
+
+def marker_warnings(nb):
+    return [f'"waits on" is not the marker here, end the box with " · waits on you": {t}' for t in nb.near_misses] + \
+        [f'"later boxes go on" is not the tag here, end the box with " · later boxes go on": {t}' for t in nb.near_skips]
 
 
 def uncomment(text):
@@ -420,10 +425,7 @@ class Candidate:
         if not self.is_hub:
             self.warnings += header_warnings(self.text)
         self.next = pick_next(boxes)
-        for t in self.next.near_misses if self.next else []:
-            self.warnings.append(f'"waits on you" is not the marker here, end the box with " · waits on you": {t}')
-        for t in self.next.near_skips if self.next else []:
-            self.warnings.append(f'"later boxes go on" is not the tag here, end the box with " · later boxes go on": {t}')
+        self.warnings += marker_warnings(self.next) if self.next else []
 
     def display_name(self):
         return f"{self.name} ({self.label})" if self.label else self.name
@@ -567,7 +569,7 @@ def launch(c, yes):
         return 1
     parts = [c.display_name(), branch(c.path), changes(c.path), nb.feature or "-", nb.command]
     if nb.note:
-        parts.append(("waiting: " if nb.waiting else "note: ") + nb.note)
+        parts.append("note: " + nb.note)
     sessions = open_sessions(c.path)
     warnings = c.warnings + ([f"{sessions} session(s) already open here"] if sessions else [])
     parts += [f"warning: {w}" for w in warnings]

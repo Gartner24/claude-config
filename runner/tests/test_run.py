@@ -552,7 +552,7 @@ class TestStart(RunCase):
                 ("nocmd", allowed + q + "- [ ] call the vendor\n", "  skip: 1. A: no_command"),
                 ("arch", allowed + q + "- [ ] `/architect a`\n", "  skip: 1. A: manual_box"),
                 ("scope", allowed + q + "- [ ] `/scope a`\n", "  skip: 1. A: manual_box"),
-                ("wait", allowed + q + "- [ ] `/develop a`\n   - [ ] waits on the merge\n", "  skip: 1. A: waiting")]:
+                ("wait", allowed + q + "- [ ] `/develop a`\n   - [ ] the merge · waits on you\n", "  skip: 1. A: waiting")]:
             with self.subTest(name):
                 self.make_repo(name, text)
                 r = self.wf(name, "-y")
@@ -896,7 +896,7 @@ class TestClassify(RunCase):
 
     # covers: AC-6 rule 11 (the next box inside the feature is waiting, manual or has no command)
     def test_next_box_inside_feature(self):
-        for extra, reason in [("- [ ] `/test b`\n   - [ ] waits on the merge\n", "waiting"),
+        for extra, reason in [("- [ ] `/test b`\n   - [ ] the merge · waits on you\n", "waiting"),
                               ("- [ ] `/test b` · waits on you\n", "waiting"),
                               ("- [ ] `/architect more`\n", "manual_box"), ("- [ ] call the vendor\n", "no_command")]:
             with self.subTest(reason):
@@ -904,7 +904,7 @@ class TestClassify(RunCase):
                 shutil.rmtree(self.state, ignore_errors=True)
                 self.make_repo("demo", "# Scope: x\n**Autopilot:** allowed\n### 1. A · auto\n- [x] (spec)\n- [ ] `/develop a`\n" + extra)
                 rec = self.assert_stopped(self.wf("demo", "-y"), reason, calls=1)
-                if "waits on you" in extra:
+                if "`/test b` · waits on you" in extra:
                     self.assertEqual(rec["detail"], "waits on you: `/test b`")
 
     # covers: AC-7 (/sync failure and /sync decision)

@@ -2685,6 +2685,9 @@ class Run:
             sessions = wf.open_sessions(c.path)
             pre = "" if self.target else f"{c.name}: "
             warnings += [pre + w for w in c.warnings + ([f"{sessions} session(s) already open here"] if sessions else [])]
+            # Spec 0066 AC-2: an unmarked "waits on" in any queued feature warns, since it no longer holds it.
+            warnings += [pre + w for f in feats if f.queued and f.next
+                         for w in wf.marker_warnings(f.next) if w not in c.warnings]
             # Row 71 sat tagged `· auto` for days with its decision box worded differently, and nothing said why.
             warnings += [f"{pre}{f.name}: tagged auto, not queued: needs a ticked (spec) box" for f in feats
                          if f.auto and not f.queued and not f.finished() and self.wanted(f.name)]
