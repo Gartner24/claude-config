@@ -371,14 +371,6 @@
             "command": "/home/santiago/.local/bin/wf auto hook"
           }
         ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ -n \"$WF_RUN\" ] || exec ~/.claude/skills/jjstack/hooks/skill-miss-detect.sh"
-          }
-        ]
       }
     ],
     "PostToolUse": [
@@ -438,15 +430,6 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/permission-floor.py"
-          }
-        ]
-      },
-      {
-        "matcher": "Skill",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ -n \"$WF_RUN\" ] || exec ~/.claude/skills/jjstack/hooks/skill-fired-clear.sh"
           }
         ]
       }
