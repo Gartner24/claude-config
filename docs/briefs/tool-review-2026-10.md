@@ -61,18 +61,19 @@ This is the whole list. Nothing is added, dropped or swapped without your yes, a
 ### B. Build (each gets `/architect`, then the runner)
 - [x] B1. Finish clean branches and PRs: `/check verify` and `/sync` (row 56)
 - [x] B2. Runner with more than 4 features at once: any number, default top 6 (8 max until measured), starts a feature only with over 4.5 GB free memory and the 5 hour use under 80%, the same files rule back from each spec's Paths line, a spec with no Paths runs alone, worktrees kept (row 68)
-- [ ] B3. wf-dash, our own mod: status band with jjstack's segments plus wf counts, an agents pane, a runner pane, alerts; the shell status line stays as fallback; replaces jjstack's status line (rows 58, 64, closes 57)
+- [x] B3. wf-dash, our own mod: status band with jjstack's segments plus wf counts, an agents pane, a runner pane, alerts; the shell status line stays as fallback; replaces jjstack's status line (rows 58, 64, closes 57): rows 58, 72, 73 done (PR #110); checked 2026-10-20: live `skills/wf-dash` links to main's `claude-home/mods/wf-dash`, the status line is `wf auto bar`, `wf status --json` answers
 - [x] B4. Sessions pass work on: SessionStart hook loads a waiting handover (you type only `/clear`), then a probe of a mod doing the `/clear`, built if it works; the handover loads first and memory gets the space left (row 60): built and merged (PR #46); its live install box waits on you in row 60
 - [x] B5. Runner that improves itself: reads every run.json while idle, sets baselines, writes proposals to a separate inbox file the session shows you, reads `/insights` too, never edits guards or deny lists (row 62)
 - [x] B6. Cheap work on cheap models: read only helper agents pinned to Haiku, fb-ask used for big inputs; an `agent.spawn` routing mod only after measuring the savings (row 61)
 - [x] B7. Skill scan script: skillspector over every skill and plugin, both passes, rerun before every install (row 65)
-- [ ] B8. Local model wired in, only if A7 passes: `fb-local` group in fb-ask for private text (row 67)
+- [ ] B8. Local model wired in, only if A7 passes: `fb-local` group in fb-ask for private text (row 67): row 67 done (PR #98), `fb-ask --help` lists `--local`; its rule `cheap-worker.md` was not live until 2026-10-20 (drift found it, copied then)
 - [x] B9. graphify in the workflow, only if A8 wins: its hook and one CLAUDE.md line in that repo only (row 70): dropped 2026-10-17, A8 lost; graphify stays installed
-- [ ] B10. Lead finder (idea from Harvey): a skill that audits local business sites for no website, no booking, an old blog or an incumbent agency, and lists 10 to 20 for you to contact by hand; nothing is ever sent by it (row 69)
-- [ ] B11. Reaction tester (idea from MiroFish): Claude agents play your target customers and react to an idea, offer or page, then a summary (row 69)
-- [ ] B12. Idea scorecard (idea from claude-skills-founder): a 7 point score ending in build, change course or drop, in your idea review skill (row 69)
-- [ ] B13. New number replaces old (idea from claude-skills-founder): a new figure replaces a saved one and says what it replaced, never an invented number; in customer-research and offers (row 69)
-- [ ] B14. Session save and check memory first (idea from the NotebookLM post): done locally through the MemPalace trial, nothing to Google (row 59)
+- [x] B10. Lead finder (idea from Harvey): a skill that audits local business sites for no website, no booking, an old blog or an incumbent agency, and lists 10 to 20 for you to contact by hand; nothing is ever sent by it (row 69)
+- [x] B11. Reaction tester (idea from MiroFish): Claude agents play your target customers and react to an idea, offer or page, then a summary (row 69)
+- [x] B12. Idea scorecard (idea from claude-skills-founder): a 7 point score ending in build, change course or drop, in your idea review skill (row 69)
+- [x] B13. New number replaces old (idea from claude-skills-founder): a new figure replaces a saved one and says what it replaced, never an invented number; in customer-research and offers (row 69)
+  - B10 to B13: row 69 done (PR #99), each used once on a real case 2026-10-18; the scorecard is live in business-analyzer's `new-business.md` (`/35`, "build / change course / drop"). The two skills and the rule file were not live until 2026-10-20 (drift found them, linked and copied then; drift clean after)
+- [ ] B14. Session save and check memory first (idea from the NotebookLM post): done locally through the MemPalace trial, nothing to Google (row 59): open, waits on the MemPalace trial review about 2026-10-30
 
 ### C. Not installing or building, with the reason
 - Harvey: unattended Claude on the subscription breaks the terms, no legal footer, poor fit for Colombia.
@@ -99,10 +100,12 @@ This is the whole list. Nothing is added, dropped or swapped without your yes, a
 
 ### E. Housekeeping still open
 - [x] E1. Row 46 missed skill detector: the 3 day report verdict, then `/sync`: done 2026-10-17, verdict in spec 0036 verify.md: WARM read as trigger noise, no router
-- [ ] E2. Row 51 autonomous mode per chat: the two real chats check, then `/sync`
+- [x] E2. Row 51 autonomous mode per chat: the two real chats check, then `/sync`: passed 2026-10-17 (row 51, the other chat's take was refused), owner confirmed it works 2026-10-20
 - [x] E3. Two bugs found today: `bin/repo-settings.sh` failed its first run then passed; `bin/docs-pr.sh` leaves local main diverged after the squash merge (row 71): fixed in PR #30 and PR #29
 - [x] E4. Small notes from the PR #18 review: stale "combined at the end" line in scope.md, contradicting lines in architecture.md invariant 1 and claude-home/CLAUDE.md:41, `--fill` titles in docs-pr.sh, runner/context.py missing from spec 0051's Paths (row 71): scope.md line fixed in PR #30, `--fill` titles in PR #29; the architecture.md contradiction and the Paths line go through `/architect` with D1: done 2026-10-17: two leftovers written into spec 0051 AC-16 and its Paths
-- [ ] E5. Rebuild the master list after each phase
+- [x] E5. Rebuild the master list after each phase: `~/projects/docs/master-list.md`, rebuilt from the five scopes 2026-10-20
+- [ ] E6. Run the home-base chat from claude-config instead of `~/.claude` (your ask, first raised 2026-10-02, again 2026-10-11 and 2026-10-20): it lived only in your personal plan item 9 and never reached this list. Needs `/architect` first (row 86)
+- [ ] E7. Three "copy live" boxes were ticked but never applied (rows 67, 69, 71): applied 2026-10-20. One orphan left: `~/.claude/hooks/gsd-phase-boundary.sh` (its settings block is gone; the classifier refuses my delete, you trash it). The check that stops it happening again is row 87
 
 ## Items
 1. **Update Claude Code first** (row 66): run `/claude-config` to update and check drift.
