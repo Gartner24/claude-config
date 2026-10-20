@@ -104,6 +104,8 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 83 | The word "after" stalls a feature | Release 9 | done |
 | 84 | Assertion Guardian blocks only removed checks | Release 9 | needs a decision |
 | 85 | Mod install also reinstalls the runner copy | Release 9 | needs a decision |
+| 86 | Home-base chat runs from claude-config | Release 9 | needs a decision |
+| 87 | A live install box is ticked only when it is live | Release 9 | needs a decision |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -1203,6 +1205,26 @@ When a mod calls a new `wf` subcommand, the install box copies the mod but not t
 - [ ] Test it: `/test mod install also reinstalls the runner copy`
 - [ ] Sync docs: `/sync mod install also reinstalls the runner copy`
 Source: chat 2026-10-19 (carried in the handover of that day).
+
+### 86. Home-base chat runs from claude-config
+You want the chat that runs your Claude setup and the runner (today opened in `~/.claude`) to open in `~/claude-config` instead, and keep working from there. Open questions: what happens to this year's chat history and memory (they are stored per folder), where the conductor rules in `~/.claude/.claude/CLAUDE.md` go, and which hooks or scripts assume the chat runs in `~/.claude`.
+**Done when:** a new chat opened in `~/claude-config` has the same memory and rules as today's `~/.claude` chat, `/resume` still finds the old chats or you chose to leave them, and the docs say where to open which chat.
+- [ ] Design it (spec): `/architect home-base chat runs from claude-config`
+- [ ] Build it: `/develop home-base chat runs from claude-config`
+- [ ] Verify it: `/check verify home-base chat runs from claude-config`
+- [ ] Test it: `/test home-base chat runs from claude-config`
+- [ ] Sync docs: `/sync home-base chat runs from claude-config`
+Source: your messages 2026-10-02 ("should I keep working on here or in claude-config"), 2026-10-11, and 2026-10-20 ("I wanted to move all the sessions from ~/.claude to claude-config"); personal plan item 9 ("decide whether conductor sessions keep running from `~/.claude`"). Plan item E6 in the [brief](../briefs/tool-review-2026-10.md).
+
+### 87. A live install box is ticked only when it is live
+Rows 67, 69 and 71 each had a "copy live" box ticked while `claude-config drift` showed the file missing or different live (found and fixed 2026-10-20).
+**Done when:** ticking a ` · live` box first runs the drift check for the files it names and refuses the tick if they differ, with a test.
+- [ ] Design it (spec): `/architect a live install box is ticked only when it is live`
+- [ ] Build it: `/develop a live install box is ticked only when it is live`
+- [ ] Verify it: `/check verify a live install box is ticked only when it is live`
+- [ ] Test it: `/test a live install box is ticked only when it is live`
+- [ ] Sync docs: `/sync a live install box is ticked only when it is live`
+Source: drift check 2026-10-20 in the conductor chat. Plan item E7 in the [brief](../briefs/tool-review-2026-10.md).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
