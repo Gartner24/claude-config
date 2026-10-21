@@ -21,6 +21,7 @@ function world(on: On, env: Record<string, string> = {}) {
     clearHangs: false,
     sent: 0,
     resent: [] as string[],
+    slotStatus: 'not answered',
   }
   on('session.cwd', () => ({ value: '/w' }))
   on('session.id', () => ({ value: w.id }))
@@ -48,7 +49,7 @@ function world(on: On, env: Record<string, string> = {}) {
     w.commands.push({ command: e.command, args: e.args })
     if (e.command === 'rollover' && w.rolloverWrites) {
       clock.advance(5) // the slot is written after the trigger
-      w.files.set(SLOT, { text: '# Rollover handover\nNext: finish the gate. Context was 210k tokens.\n## Last request from the owner\n> fix it\nStatus: not answered\n', mtimeMs: clock.now() + 10 })
+      w.files.set(SLOT, { text: `# Rollover handover\nNext: finish the gate. Context was 210k tokens.\n## Last request from the owner\n> fix it\nStatus: ${w.slotStatus}\n`, mtimeMs: clock.now() + 10 })
     }
     if (e.command === 'clear') {
       if (w.clearHangs) return new Promise(() => {})
@@ -154,6 +155,42 @@ test('a model request past the line ends the turn and hands off', { options: { t
   expect(w.sent).toBe(0)
   await complete($, 'T1')
   expect(w.commands.map(c => c.command)).toEqual(['rollover'])
+})
+
+test('a question cut off by the gate gets priority even when the handover says answered', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  w.slotStatus = 'answered'
+  await start($)
+  await typed($, 'why does it refuse?')
+  await step($, 'T1', 0)
+  w.tokens = 60_000
+  expect(((await $.tool.call({ tool: 'Bash', command: 'gh' } as any)) as any).deny).toBeDefined()
+  await complete($, 'T1')
+  await w.clock.settle()
+  await step($, 'T2', 1)
+  await complete($, 'T2')
+  await w.clock.advance(1500)
+  const seed = w.commands.find(c => c.command === 'resume-from-clear')!
+  expect(seed.args).toContain('FIRST')
+  expect(seed.args).toContain('why does it refuse?')
+})
+
+test('a question answered in a full turn does not get priority later', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  w.slotStatus = 'answered'
+  await start($)
+  await typed($, 'why does it refuse?')
+  await step($, 'T1', 0)
+  await complete($, 'T1')
+  await step($, 'T2', 0)
+  w.tokens = 60_000
+  expect(((await $.tool.call({ tool: 'Bash', command: 'ls' } as any)) as any).deny).toBeDefined()
+  await complete($, 'T2')
+  await w.clock.settle()
+  await step($, 'T3', 1)
+  await complete($, 'T3')
+  await w.clock.advance(1500)
+  expect(w.commands.find(c => c.command === 'resume-from-clear')!.args).toContain('GO-ON')
 })
 
 test('no new slot: nothing is cleared, the failure stays and the gate opens', { options: { threshold: 50000 } }, async ($, on) => {
