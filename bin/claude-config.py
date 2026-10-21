@@ -93,8 +93,11 @@ def linked_kind(kind, manifest, fw, out):
     seen = set()
     for p in live_items(kind):
         name = p.name
-        if kind == "skills" and name not in own and p.is_dir() and not (p / "SKILL.md").exists():
-            continue  # not a skill (shared files, Claude Code's synced folder); build skips it too
+        if kind == "skills" and name not in own and p.is_dir() and not (p / "SKILL.md").exists() \
+                and name not in entries:
+            # not a skill (shared files, Claude Code's synced folder); build skips it too. A manifest entry
+            # (a mod has no SKILL.md) makes it ours: without that drift said "missing live" for it.
+            continue
         seen.add(name)
         real = p.resolve()
         if name in own:
@@ -895,6 +898,16 @@ def build():
                 to_private(name, p)  # cite only: no public files, so the private store keeps your copy
             m["entries"][name] = e
             report.append(f"{name}: {e['status']}")
+    # A hand written entry for a folder with no SKILL.md (a mod) is skipped by the loop above, so its source got
+    # no license text and the notice said "not reached at build".
+    for name, e in sorted(m["entries"].items()):
+        if e.get("fetch") == "git" and (e.get("patch") or "").startswith("config/") and e.get("pinned") \
+                and e["source"] not in texts:
+            try:
+                texts[e["source"]] = legal_texts(clone(e["source"]), e["pinned"], e["source"], e["license"])
+            except Gone as err:
+                report.append(f"{name}: license text not reached: {err}")
+                bad = 1
     for key, e in plugin_entries().items():
         m["entries"][key] = e
         report.append(f"{key}: plugin {e['pinned']}")

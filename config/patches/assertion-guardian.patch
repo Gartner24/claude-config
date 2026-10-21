@@ -1,0 +1,660 @@
+diff --git a/PRIVACY.md b/PRIVACY.md
+index f33083c..c98a4da 100644
+--- a/PRIVACY.md
++++ b/PRIVACY.md
+@@ -1,6 +1,6 @@
+ # Privacy
+ 
+-It runs entirely on your machine. It sends nothing over the network. It runs `git` locally to read the previous version of a test file.
++It runs entirely on your machine. It sends nothing over the network. It runs `git` locally to read the previous version of a test file, and `stat`, `chmod` and `rm` to put back a test file a shell command weakened.
+ 
+ The mod collects no analytics or telemetry, and its author receives no data from it.
+ 
+diff --git a/README.md b/README.md
+index 83a1863..02e2903 100644
+--- a/README.md
++++ b/README.md
+@@ -27,6 +27,10 @@ Before any Edit, Write or NotebookEdit to a test file runs, the mod works out th
+ | Snapshots updated in bulk | `jest -u`, `npm test -- -u`, `--update-snapshots`, `cargo insta accept`, `INSTA_UPDATE=1`, `loki update`, `backstop approve`, `chromatic --auto-accept-changes`. Wrappers such as `env`, `npx`, `pnpm exec`, `pnpm --filter` and `python -m` are looked through |
+ | Test files changed through the shell | `rm`, `mv`, `sed -i`, `perl -pi`, `>` redirects, `tee`, `git rm`, `rm -rf tests`, `find ... -delete`, `git checkout <rev> -- file`, `bash -c "..."`, one-off `python -c` / `node -e` scripts that name a test file |
+ 
++A shell command that writes a test file it names (`sed -i`, `>>`, `rm`, a heredoc, `python -c`) runs. The mod reads each named test file before and after, and compares the two like an Edit. If the tests got weaker, every named test file is put back as it was before the command (a file the command created is removed), and the call is refused with the signals. Adding cases through the shell passes. The command's other effects (a build, a commit, other files) are not undone.
++
++Some shell shapes are still refused before they run, because putting one file back cannot undo them or the target cannot be pinned to one file: a bulk snapshot update, `git` or `mv` on a test file, `find`, a glob, `~`, `$` or a backtick in the path, a folder, a `cd`/`pushd`/`popd` before the target, a background job (`&` or run in background), and a test file that cannot be read or is not UTF-8 text.
++
+ Suppose a test file has been deleted and is then written again from scratch. The new version is compared with what git last committed, so deleting the file doesn't get around the check.
+ 
+ The refusal lists which signals fired. It tells the model to fix the code under test, or to ask you if it thinks the test itself is wrong.
+@@ -37,6 +41,8 @@ Normal refactors pass: renaming the value under test, reformatting, reordering,
+ 
+ This is a guardrail, not a sandbox. It checks what tool calls say they'll do. A determined process could still change files some other way, such as a script that never names the test file.
+ 
++Known gap: a shell command that writes a test file it does not name (a script, a glob the parser misses) is not caught.
++
+ Test files are recognised by `*.test.*`, `*.spec.*`, `test_*.py`, `tests.py`, `*_test.{py,go,rb,ex,dart}`, `*_spec.rb`, `*Tests.swift`, `*Test.{kt,java,cs}`, and snapshot paths. Code files under `__tests__/`, `test/`, `tests/` or `spec/` count too, except those inside `fixtures/`, `support/`, `helpers/`, `factories/`, `__mocks__/` or `testdata/`.
+ 
+ ## Install
+@@ -63,13 +69,13 @@ Events this mod hooks, as `claude plugin validate` reads the module:
+ - `tool.call`
+ - `ui.render{component=AbovePrompt}`
+ 
+-Engine calls it makes: `$.command.register`, `$.fs.exists (via previous)`, `$.fs.read (via previous)`, `$.process.run (via previous)`, `$.state.get`, `$.state.set`, `$.ui.resolve`.
++Engine calls it makes: `$.command.register`, `$.fs.exists (via previous, readText)`, `$.fs.read (via previous, readText)`, `$.fs.write (via compare)`, `$.process.run (via compare, previous, runAndCompare)`, `$.session.cwd`, `$.state.get`, `$.state.set`, `$.ui.resolve`.
+ 
+ A `tool.call` hook sits in the middle of every tool call: it can see the call, refuse it, or add context to its result. This mod uses that only for the behaviour described above.
+ 
+ ## Privacy
+ 
+-It runs entirely on your machine. It sends nothing over the network. It runs `git` locally to read the previous version of a test file.
++It runs entirely on your machine. It sends nothing over the network. It runs `git` locally to read the previous version of a test file, and `stat`, `chmod` and `rm` to put back a test file a shell command weakened.
+ 
+ The mod collects no analytics or telemetry, and its author receives no data from it.
+ 
+diff --git a/hooks/analyze.ts b/hooks/analyze.ts
+index ca09408..8c8a50d 100644
+--- a/hooks/analyze.ts
++++ b/hooks/analyze.ts
+@@ -501,9 +501,19 @@ export function weakening(before: string, after: string, path: string): string[]
+ // ---------------------------------------------------------------------------
+ // Bash
+ 
++// A heredoc: its first line (kept), then the body up to the line holding only its tag.
++const HEREDOC = /((?<!<)<<-?[ \t]*(['"]?)(\w+)\2[^\n]*)\n((?:[\s\S]*?\n)?)[ \t]*\3[ \t]*(?=\n|$)/g
++
+ // Splits a command line into simple commands and their words, quotes removed.
+ // The string of `bash -c` / `sh -c` and backtick substitutions are split too.
+ export function commands(line: string, depth = 0): string[][] {
++  // A heredoc body is split on its own: read as part of the line, an apostrophe in it ("don't") opened a
++  // quote that hid every later command on the line from the compare.
++  const bodies: string[] = []
++  line = line.replace(HEREDOC, (_m, head: string, _q, _tag, body: string) => {
++    bodies.push(body)
++    return head
++  })
+   const out: string[][] = []
+   let words: string[] = []
+   let word = ''
+@@ -517,19 +527,38 @@ export function commands(line: string, depth = 0): string[][] {
+     if (words.length > 0) out.push(words)
+     words = []
+   }
++  // A substitution stays in its word as `$`, so a target built from one (a path that starts with a backtick) is refused
++  // before running; ending the word there dropped the target, and the command ran uncompared.
++  const substitution = (i: number): number => {
++    let j = i + 1
++    if (line[i] === '`') {
++      while (j < line.length && line[j] !== '`') j += line[j] === '\\' ? 2 : 1
++    } else {
++      j += 1
++      for (let open = 1, q: string | null = null; j < line.length; j += 1) {
++        const d = line[j]!
++        if (q !== null) q = d === q ? null : q
++        else if (d === "'" || d === '"') q = d
++        else if (d === '(') open += 1
++        else if (d === ')' && --open === 0) break
++      }
++    }
++    bodies.push(line.slice(i + (line[i] === '`' ? 1 : 2), j))
++    word += '$'
++    return j
++  }
+   for (let i = 0; i < line.length; i += 1) {
+     const c = line[i]!
+-    if (quote !== null) {
++    if (quote === '"' && (c === '`' || (c === '$' && line[i + 1] === '('))) i = substitution(i)
++    else if (quote !== null) {
+       if (c === quote) quote = null
+       else if (c === '\\' && quote === '"') word += line[(i += 1)] ?? ''
+       else word += c
+     } else if (c === '"' || c === "'") quote = c
+     else if (c === '\\') word += line[(i += 1)] ?? ''
+-    else if (c === ';' || c === '\n' || c === '&' || c === '|' || c === '(' || c === ')' || c === '`') end()
+-    else if (c === '$' && line[i + 1] === '(') {
+-      end()
+-      i += 1
+-    } else if (c === '>' || c === '<') {
++    else if (c === '`' || (c === '$' && line[i + 1] === '(')) i = substitution(i)
++    else if (c === ';' || c === '\n' || c === '&' || c === '|' || c === '(' || c === ')') end()
++    else if (c === '>' || c === '<') {
+       push()
+       let op = c
+       while (line[i + 1] === '>' || line[i + 1] === '&') op += line[(i += 1)]
+@@ -538,6 +567,7 @@ export function commands(line: string, depth = 0): string[][] {
+     else word += c
+   }
+   end()
++  for (const body of bodies) out.push(...commands(body, depth + 1))
+   if (depth < 3) {
+     for (const words of [...out]) {
+       const head = base(words[0])
+@@ -693,6 +723,36 @@ export function bashSignals(command: string): string[] {
+   return signals
+ }
+ 
++// shortcut: `..` is folded by spelling, not through links; a link in the path is rare in a test path.
++const fold = (path: string) => `/${path.split('/').reduce<string[]>((out, part) => (part === '..' ? out.slice(0, -1) : part === '' || part === '.' ? out : [...out, part]), []).join('/')}`
++
++// The test files a command line writes, as absolute paths, and whether the
++// change can only be refused before it runs: a target that cannot be pinned
++// to one file (unexpanded `~`, `$`, a glob, a folder, a path after a `cd`, a
++// find pattern), or one git or mv touches, which an undo of the file alone
++// would not put back (the index, the moved file left behind).
++export function shellPlan(command: string, cwd?: string): { snapshotUpdate: boolean; targets: string[]; refuseBefore: boolean } {
++  const all = commands(command)
++  const targets = new Set<string>()
++  let moved = false
++  let refuseBefore = false
++  for (const words of all) {
++    const head = base(unwrap(words)[0])
++    if (/^(cd|pushd|popd)$/.test(head)) moved = true
++    const written = shellWrites(words)
++    if (written.length > 0 && (moved || /^(git|mv|find)$/.test(head))) refuseBefore = true
++    for (const t of written) {
++      const path = t.startsWith('/') || cwd === undefined || !cwd.startsWith('/') ? t : `${cwd}/${t}`
++      if (!path.startsWith('/') || /[~$`*?[]/.test(path) || !isTestFile(path)) refuseBefore = true
++      targets.add(path.startsWith('/') ? fold(path) : path)
++    }
++  }
++  // A `&` job can write after the compare has run (`2>&1`, `&&`, `&>`, `|&` are not jobs).
++  const bare = command.replace(HEREDOC, '$1').replace(/'[^']*'|"(?:\\.|[^"\\])*"/g, "''")
++  if (targets.size > 0 && /(^|[^&>|<])&(?![&>])/.test(bare)) refuseBefore = true
++  return { snapshotUpdate: all.some(snapshotUpdate), targets: [...targets], refuseBefore }
++}
++
+ // ---------------------------------------------------------------------------
+ // Tools
+ 
+diff --git a/hooks/register.tsx b/hooks/register.tsx
+index 9227632..a5b4039 100644
+--- a/hooks/register.tsx
++++ b/hooks/register.tsx
+@@ -1,8 +1,8 @@
+ import { atom, read, update } from 'claude-code'
+-import type { EngineInterface, Register } from 'claude-code'
++import type { EngineInterface, Register, ToolCallResult } from 'claude-code'
+ 
+ import type { Blocked } from '../types'
+-import { applyEdit, bashSignals, isTestFile, notebookChange, weakening } from './analyze'
++import { applyEdit, bashSignals, isTestFile, notebookChange, shellPlan, weakening } from './analyze'
+ 
+ const blocked = atom({ plugin: 'assertion-guardian', key: 'blocked' } as const, null)
+ const allowed = atom({ plugin: 'assertion-guardian', key: 'allowed' } as const, [])
+@@ -92,17 +92,146 @@ async function check($: EngineInterface, e: { tool: string; [k: string]: unknown
+   return null
+ }
+ 
++const ADVICE =
++  `Fix the code under test so the existing tests pass; do not make the tests easier to pass. ` +
++  `If you believe the test itself is wrong (the spec changed, the assertion was buggy), stop and ` +
++  `ask the user, explaining exactly why. The user can allow this exact change once with ` +
++  `/allow-test-change; then retry the identical call.`
++
+ function refusal(target: string, signals: string[]): string {
++  return `Assertion Guardian: refused a change that weakens tests (${target}):\n` + signals.map(s => `  - ${s}`).join('\n') + `\n${ADVICE}`
++}
++
++function undone(files: string[], signals: string[], kept: string[]): string {
+   return (
+-    `Assertion Guardian: refused a change that weakens tests (${target}):\n` +
++    `Assertion Guardian: the command ran and weakened tests, so every test file it names was put back as it was ` +
++    `before it ran (harmless additions in the same command were undone too): ${files.join(', ')}\n` +
+     signals.map(s => `  - ${s}`).join('\n') +
+-    `\nFix the code under test so the existing tests pass; do not make the tests easier to pass. ` +
+-    `If you believe the test itself is wrong (the spec changed, the assertion was buggy), stop and ` +
+-    `ask the user, explaining exactly why. The user can allow this exact change once with ` +
+-    `/allow-test-change; then retry the identical call.`
++    (kept.length > 0 ? `\nNot put back: ${kept.join('; ')}.` : '') +
++    `\nOther effects of the command (a build, a commit, other files) were not undone.\n${ADVICE}`
+   )
+ }
+ 
++// A file's text, `null` when it is absent. Throws when it cannot be read (a
++// folder) or its bytes are not exactly UTF-8 text, since only text that writes
++// back byte for byte can be put back. Read as bytes: a text read turns a bad
++// byte into U+FFFD.
++async function readText($: EngineInterface, path: string): Promise<string | null> {
++  if (!(await $.fs.exists(path))) return null
++  const { base64 } = await $.fs.read(path, { as: 'bytes' })
++  const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
++  const text = new TextDecoder('utf-8').decode(bytes)
++  const again = new TextEncoder().encode(text)
++  if (again.length !== bytes.length || again.some((b, i) => b !== bytes[i])) throw new Error(`${path} is not UTF-8 text`)
++  return text
++}
++
++async function spend($: EngineInterface, fp: string): Promise<boolean> {
++  let spent = false
++  await update($, allowed, list => {
++    if (!list.includes(fp)) return list
++    spent = true
++    return list.filter(one => one !== fp)
++  })
++  return spent
++}
++
++type Before = { text: string | null; mode?: string }
++
++// Shell writes to test files: run the command, compare each target before and
++// after with weakening(), and put the targets back when a check got weaker.
++async function runAndCompare(
++  $: EngineInterface,
++  call: { tool: string; [k: string]: unknown },
++  targets: string[],
++  signals: string[],
++  run: () => Promise<ToolCallResult>,
++): Promise<ToolCallResult> {
++  const fp = await fingerprint(call)
++  if (await spend($, fp)) return run()
++  const before = new Map<string, Before>()
++  for (const target of targets) {
++    try {
++      const text = await readText($, target)
++      const mode = text === null ? undefined : await $.process.run(['stat', '-c', '%a', '--', target], { timeoutMs: 5000 })
++      before.set(target, { text, mode: mode?.exitCode === 0 ? mode.stdout.trim() : undefined })
++    } catch {
++      await update($, blocked, (): Blocked => ({ target: 'shell command', signals, fp }))
++      return { deny: refusal('shell command', signals) }
++    }
++  }
++  let r: ToolCallResult | undefined
++  try {
++    r = await run()
++    return r
++  } finally {
++    // A deny from below is passed on untouched. Returning here also replaces
++    // a throw (a timeout, an abort): the files were checked and put back.
++    if (r?.deny === undefined) {
++      const refused = await compare($, before, fp)
++      if (refused !== null) return refused
++    }
++  }
++}
++
++async function compare($: EngineInterface, before: Map<string, Before>, fp: string): Promise<ToolCallResult | null> {
++  // `undefined`: the target could not be read after the command.
++  const after = new Map<string, string | null | undefined>()
++  const signals: string[] = []
++  for (const [target, was] of before) {
++    const now = await readText($, target).catch(() => undefined)
++    after.set(target, now)
++    if (now === undefined) {
++      signals.push(`${target} could not be read after the command, so the change cannot be checked`)
++      continue
++    }
++    if (now === was.text) continue
++    let baseline = was.text
++    if (now === null) {
++      try {
++        baseline = await previous($, target)
++      } catch {
++        signals.push(`the earlier version of ${target} could not be read, so the change cannot be checked`)
++        continue
++      }
++      if (baseline === null) continue
++    }
++    signals.push(...weakening(baseline ?? '', now ?? '', target).map(s => `${target}: ${s}`))
++  }
++  if (signals.length === 0) return null
++
++  const kept: string[] = []
++  for (const [target, was] of before) {
++    const seen = after.get(target)
++    const now = await readText($, target).catch(() => undefined)
++    if (seen === undefined) {
++      kept.push(`${target} (could not be read, not restored)`)
++      continue
++    }
++    if (now !== seen) {
++      kept.push(`${target} (changed again, not restored)`)
++      continue
++    }
++    if (now === was.text) continue
++    try {
++      if (was.text === null) {
++        const rm = await $.process.run(['rm', '-f', '--', target], { timeoutMs: 5000 })
++        if (rm.exitCode !== 0) throw new Error(rm.stderr)
++      } else {
++        await $.fs.write(target, was.text)
++        if (now === null && was.mode !== undefined) {
++          const chmod = await $.process.run(['chmod', was.mode, '--', target], { timeoutMs: 5000 })
++          if (chmod.exitCode !== 0) throw new Error(chmod.stderr)
++        }
++      }
++    } catch {
++      kept.push(`${target} (could not be put back)`)
++    }
++  }
++  await update($, blocked, (): Blocked => ({ target: 'shell command', signals, fp }))
++  return { deny: undone([...before.keys()], signals, kept) }
++}
++
+ export const register: Register = on => {
+   on('session.start', async ($, e, next) => {
+     await $.command.register({
+@@ -127,17 +256,22 @@ export const register: Register = on => {
+ 
+   on('tool.call', async ($, e, next) => {
+     const call = e as { tool: string; [k: string]: unknown }
++    if (call.tool === 'Bash') {
++      const command = String(call.command ?? '')
++      const signals = bashSignals(command)
++      if (signals.length > 0) {
++        const cwd = await $.session.cwd().catch(() => undefined)
++        const plan = shellPlan(command, cwd)
++        if (!plan.snapshotUpdate && !plan.refuseBefore && call.run_in_background !== true) {
++          return runAndCompare($, call, plan.targets, signals, () => next(e))
++        }
++      }
++    }
+     const found = await check($, call)
+     if (found === null || found.signals.length === 0) return next(e)
+ 
+     const fp = await fingerprint(call)
+-    let spent = false
+-    await update($, allowed, list => {
+-      if (!list.includes(fp)) return list
+-      spent = true
+-      return list.filter(one => one !== fp)
+-    })
+-    if (spent) return next(e)
++    if (await spend($, fp)) return next(e)
+ 
+     await update($, blocked, (): Blocked => ({ target: found.target, signals: found.signals, fp }))
+     return { deny: refusal(found.target, found.signals) }
+diff --git a/tests/assertion-guardian.test.tsx b/tests/assertion-guardian.test.tsx
+index a9012d5..3587b15 100644
+--- a/tests/assertion-guardian.test.tsx
++++ b/tests/assertion-guardian.test.tsx
+@@ -1,6 +1,7 @@
+ import { describe, expect, test } from 'claude-code/testing'
++import type { TestBody } from 'claude-code/testing'
+ 
+-import { bashSignals, isTestFile, weakening } from '../hooks/analyze'
++import { bashSignals, isTestFile, shellPlan, weakening } from '../hooks/analyze'
+ 
+ const SPEC = `describe('sum', () => {
+   it('adds', () => {
+@@ -324,3 +325,283 @@ describe('hooks', () => {
+     await ui.unmount()
+   })
+ })
++
++describe('shell plan', () => {
++  test('every target of the line, resolved against the session folder', async () => {
++    const plan = shellPlan("npm run build && sed -i 's/a/b/' src/sum.test.ts | tee ./tests/../out.test.ts; bash -c \"rm zz-x.test.ts\" && cat >> /abs/a.test.ts <<EOF\nEOF", '/repo')
++    expect(plan.targets.sort()).toEqual(['/abs/a.test.ts', '/repo/out.test.ts', '/repo/src/sum.test.ts', '/repo/zz-x.test.ts'])
++    expect(plan.refuseBefore).toBe(false)
++    expect(plan.snapshotUpdate).toBe(false)
++    expect(shellPlan('npx jest -u', '/repo').snapshotUpdate).toBe(true)
++    expect(shellPlan('rm a.test.ts && cd sub', '/repo').refuseBefore).toBe(false)
++    expect(shellPlan('rm /abs/a.test.ts', undefined)).toEqual({ snapshotUpdate: false, targets: ['/abs/a.test.ts'], refuseBefore: false })
++  })
++
++  test('targets an undo of the file alone cannot put back are refused before running', async () => {
++    for (const c of ['rm ~/a.test.ts', 'rm $HOME/a.test.ts', 'rm src/*.test.ts', 'rm src/a?.test.ts', 'rm src/[ab].test.ts', 'rm -rf tests', 'rm -rf src/__tests__/components', 'git rm src/a.test.ts', 'git checkout HEAD~1 -- src/a.test.ts', 'mv src/a.test.ts src/b.test.ts', 'cd sub && rm a.test.ts', 'pushd sub; rm a.test.ts', 'popd && rm a.test.ts', '(cd sub; sed -i s/a/b/ a.test.ts)', "find src -name 'a.test.ts' -delete", 'rm `pwd`/a.test.ts', 'rm $(pwd)/a.test.ts']) {
++      expect([c, shellPlan(c, '/repo').refuseBefore]).toEqual([c, true])
++    }
++    expect(shellPlan('rm a.test.ts', undefined).refuseBefore).toBe(true)
++    expect(shellPlan('rm a.test.ts', 'relative/dir').refuseBefore).toBe(true)
++  })
++
++  test('a heredoc body is not shell text, and a & job is refused before running', async () => {
++    const plan = shellPlan("cat >> a.test.ts <<'EOF'\n// don't fail\nEOF\nsed -i '/expect/d' b.test.ts", '/repo')
++    expect(plan.targets.sort()).toEqual(['/repo/a.test.ts', '/repo/b.test.ts'])
++    expect(plan.refuseBefore).toBe(false)
++    expect(shellPlan("bash <<'EOF'\nsed -i '/expect/d' b.test.ts\nEOF", '/repo').targets).toEqual(['/repo/b.test.ts'])
++    for (const c of ["sed -i 's/expect//' a.test.ts &", "(sleep 2; sed -i 's/expect//' a.test.ts) >/dev/null 2>&1 &"]) {
++      expect([c, shellPlan(c, '/repo').refuseBefore]).toEqual([c, true])
++    }
++    expect(shellPlan("sed -i 's/a/&b/' a.test.ts 2>&1 && npm test &> out.log", '/repo').refuseBefore).toBe(false)
++    // A command inside a substitution is a command of the line too.
++    expect(shellPlan('echo "$(sed -i /expect/d a.test.ts)" `rm b.test.ts`', '/repo')).toEqual({ snapshotUpdate: false, targets: ['/repo/a.test.ts', '/repo/b.test.ts'], refuseBefore: false })
++  })
++})
++
++type Disk = Map<string, string | Uint8Array>
++const b64 = (v: string | Uint8Array) => btoa(Array.from(typeof v === 'string' ? new TextEncoder().encode(v) : v, b => String.fromCharCode(b)).join(''))
++const T = '/repo/src/sum.test.ts'
++const WEAK = SPEC.replace('    expect(sum(-1, 1)).toEqual(0)\n', '')
++const MORE = SPEC.replace('})\n', "  it('negatives', () => {\n    expect(sum(-1, -1)).toBe(-2)\n  })\n})\n")
++
++// A disk, git and shell beneath the plugin, answering every call it makes in
++// the shapes the engine does. `head` is what git committed (repo relative);
++// `w.sh` does to the disk what the Bash command would; `w.log` lists the
++// writes and processes the plugin made besides git.
++function world(on: Parameters<TestBody>[1], files: Record<string, string | Uint8Array>, head: Record<string, string> = { 'src/sum.test.ts': SPEC }) {
++  const w = {
++    disk: new Map(Object.entries(files)) as Disk,
++    log: [] as string[],
++    runs: 0,
++    sh: (_disk: Disk): void => {},
++    answer: (): { result: unknown } | { deny: string } => ({ result: { stdout: 'built', stderr: '', interrupted: false } }),
++    // Called on every fs.read: lets another writer step in between reads.
++    onRead: (_path: string) => {},
++    // Called on every fs.write before it lands: throw to make the write fail.
++    onWrite: (_path: string) => {},
++  }
++  const isDir = (p: string) => p === '/' || p === '/repo' || [...w.disk.keys()].some(k => k.startsWith(`${p}/`))
++  on('session.cwd', () => ({ value: '/repo' }))
++  on('fs.exists', (_$, e) => ({ value: w.disk.has(e.path) || isDir(e.path) }))
++  on('fs.read', (_$, e) => {
++    const v = w.disk.get(e.path)
++    // Only folders exist without an entry here; reading one fails as the OS does.
++    if (v === undefined) throw new Error(`EISDIR: illegal operation on a directory, read '${e.path}'`)
++    w.onRead(e.path)
++    return { value: e.as === 'bytes' ? { base64: b64(v) } : String(v) }
++  })
++  on('fs.write', (_$, e) => {
++    w.onWrite(e.path)
++    w.log.push(`write ${e.path}`)
++    w.disk.set(e.path, e.text)
++    return { value: undefined }
++  })
++  on('process.run', (_$, e) => {
++    const argv = e.argv
++    if (argv[0] === 'git') {
++      if (argv.includes('rev-parse')) return run('/repo\n')
++      const rel = argv[argv.length - 1]!.slice('HEAD:'.length)
++      return head[rel] !== undefined ? run(head[rel]!) : run('', 128, `fatal: path '${rel}' does not exist in 'HEAD'`)
++    }
++    w.log.push(argv.join(' '))
++    if (argv[0] === 'stat') return run('755\n')
++    if (argv[0] === 'rm') w.disk.delete(argv[argv.length - 1]!)
++    return run('')
++  })
++  on('tool.call', () => {
++    w.runs += 1
++    w.sh(w.disk)
++    return w.answer()
++  })
++  return w
++}
++
++describe('run, compare, undo', () => {
++  test('still refused before running: snapshot update, git, mv, glob, folder, background, not UTF-8', async ($, on) => {
++    const w = world(on, { [T]: SPEC, '/repo/src/bin.test.ts': new Uint8Array([0x69, 0x74, 0xff, 0x0a]), '/repo/src/odd.test.ts/x': '' })
++    const refused = async (call: Parameters<typeof $.tool.call>[0]) => expect((await $.tool.call(call)).deny).toMatch(/refused a change.*\n.*where the change cannot be checked|bulk snapshot update/)
++    await refused({ tool: 'Bash', command: 'npx jest -u' })
++    await refused({ tool: 'Bash', command: 'git rm src/sum.test.ts' })
++    await refused({ tool: 'Bash', command: 'mv src/sum.test.ts /tmp/' })
++    await refused({ tool: 'Bash', command: 'rm src/*.test.ts' })
++    await refused({ tool: 'Bash', command: 'rm -rf src/odd.test.ts' })
++    await refused({ tool: 'Bash', command: "sed -i '/toEqual(0)/d' src/sum.test.ts", run_in_background: true })
++    await refused({ tool: 'Bash', command: "sed -i 's/it/xit/' src/bin.test.ts" })
++    expect(w.runs).toBe(0)
++  })
++
++  test('additions, restores and scratch deletes through the shell run and pass untouched', async ($, on) => {
++    const w = world(on, { [T]: SPEC, '/repo/src/zz-x.test.ts': SPEC })
++    w.sh = d => d.set(T, MORE)
++    const ran = await $.tool.call({ tool: 'Bash', command: "cat >> src/sum.test.ts <<'EOF'\n  it('negatives', () => {\nEOF" })
++    expect(ran.deny).toBeUndefined()
++    expect(ran.result).toEqual({ stdout: 'built', stderr: '', interrupted: false })
++    expect(w.disk.get(T)).toBe(MORE)
++    w.disk.set(T, SPEC)
++    w.sh = d => d.set(T, SPEC.replace('    expect(sum(0, 0)).toBe(0)\n', '    expect(sum(0, 0)).toBe(0)\n    expect(sum(0, 1)).toBe(1)\n'))
++    expect((await $.tool.call({ tool: 'Bash', command: "sed -i '/toBe(0)/a expect(sum(0, 1)).toBe(1)' src/sum.test.ts" })).deny).toBeUndefined()
++    // A weakened working copy restored to its committed text.
++    w.disk.set(T, WEAK)
++    w.sh = d => d.set(T, SPEC)
++    expect((await $.tool.call({ tool: 'Bash', command: 'cp /tmp/sum.test.ts.orig src/sum.test.ts' })).deny).toBeUndefined()
++    expect(w.disk.get(T)).toBe(SPEC)
++    // Git never had it: deleting it passes.
++    w.sh = d => d.delete('/repo/src/zz-x.test.ts')
++    expect((await $.tool.call({ tool: 'Bash', command: 'rm src/zz-x.test.ts' })).deny).toBeUndefined()
++    expect(w.disk.has('/repo/src/zz-x.test.ts')).toBe(false)
++    expect(w.runs).toBe(4)
++    expect(w.log.filter(l => !l.startsWith('stat '))).toEqual([])
++  })
++
++  test('the edit tools: adding a case or a new file passes, a changed expected value is still refused', async ($, on) => {
++    const w = world(on, { [T]: SPEC })
++    expect((await $.tool.call({ tool: 'Edit', file_path: T, old_string: '})\n', new_string: "  it('more', () => {\n    expect(sum(2, 2)).toBe(4)\n  })\n})\n" })).deny).toBeUndefined()
++    expect((await $.tool.call({ tool: 'Write', file_path: '/repo/src/new.test.ts', content: "it('x', () => {\n  expect(sum(1, 1)).toBe(2)\n})\n" })).deny).toBeUndefined()
++    expect(w.runs).toBe(2)
++    expect((await $.tool.call({ tool: 'Edit', file_path: T, old_string: '.toBe(3)', new_string: '.toBe(4)' })).deny).toMatch(/expected values changed/)
++    expect(w.runs).toBe(2)
++  })
++
++  test('weakening shell edits run, are refused, and the file is put back', async ($, on) => {
++    const w = world(on, { [T]: SPEC })
++    const cases: [string, string, RegExp][] = [
++      ["sed -i '/toEqual(0)/d' src/sum.test.ts", WEAK, /assertions removed/],
++      ["sed -i 's/toBe(3)/toBe(4)/' src/sum.test.ts", SPEC.replace('toBe(3)', 'toBe(4)'), /expected values changed/],
++      ["sed -i \"s/it('handles zero'/it.skip('handles zero'/\" src/sum.test.ts", SPEC.replace("it('handles zero'", "it.skip('handles zero'"), /skipped/],
++      ["sed -i 's/).toBe(3)/).not.toBe(3)/' src/sum.test.ts", SPEC.replace(').toBe(3)', ').not.toBe(3)'), /polarity/],
++      ["python3 -c \"open('src/sum.test.ts','w').write('it(1)')\"", "describe('sum', () => {\n  it('adds', () => {})\n  it('handles zero', () => {})\n})\n", /assertions removed/],
++    ]
++    for (const [command, after, signal] of cases) {
++      w.sh = d => d.set(T, after)
++      const ran = await $.tool.call({ tool: 'Bash', command })
++      expect(`${command} => ${ran.deny}`).toMatch(signal)
++      expect([command, w.disk.get(T)]).toEqual([command, SPEC])
++    }
++    expect(w.runs).toBe(cases.length)
++  })
++
++  test('rm of a committed test file is refused and the file comes back with its mode', async ($, on) => {
++    const w = world(on, { [T]: SPEC })
++    w.sh = d => d.delete(T)
++    expect((await $.tool.call({ tool: 'Bash', command: 'rm src/sum.test.ts' })).deny).toMatch(/test cases deleted/)
++    expect(w.disk.get(T)).toBe(SPEC)
++    expect(w.log).toEqual([`stat -c %a -- ${T}`, `write ${T}`, `chmod 755 -- ${T}`])
++  })
++
++  test('every named file is put back, one the command created is removed, and the refusal says what happened', async ($, on) => {
++    const NEW = '/repo/src/new.test.ts'
++    const w = world(on, { [T]: SPEC, '/repo/src/b.test.ts': SPEC }, { 'src/sum.test.ts': SPEC, 'src/b.test.ts': SPEC })
++    w.sh = d => {
++      d.set(T, WEAK)
++      d.set('/repo/src/b.test.ts', MORE)
++      d.set(NEW, MORE)
++    }
++    const ran = await $.tool.call({ tool: 'Bash', command: "sed -i '/toEqual(0)/d' src/sum.test.ts && cat >> src/b.test.ts < x && cp x src/new.test.ts && npm run build" })
++    expect(w.disk.get(T)).toBe(SPEC)
++    expect(w.disk.get('/repo/src/b.test.ts')).toBe(SPEC)
++    expect(w.disk.has(NEW)).toBe(false)
++    expect(w.log).toContain(`rm -f -- ${NEW}`)
++    const text = ran.deny ?? ''
++    expect(text).toMatch(/the command ran/)
++    expect(text).toMatch(/every test file it names was put back.*harmless additions in the same command were undone too/)
++    expect(text).toMatch(new RegExp(`${T}: assertions removed`))
++    expect(text).toMatch(/Other effects of the command \(a build, a commit/)
++    expect(text).toMatch(/\/allow-test-change/)
++    expect(text).not.toMatch(/Not put back/)
++    expect(text.split('\n').filter(l => l.startsWith('  - ') && /assertions removed/.test(l))).toHaveLength(1)
++    // Only the weakened file has signals; the harmless addition and the new file have none.
++    expect(text.split('\n').filter(l => l.startsWith('  - ') && !l.startsWith(`  - ${T}: `))).toEqual([])
++  })
++
++  test('a file changed again by another writer before the undo is named, not overwritten', async ($, on) => {
++    const w = world(on, { [T]: SPEC })
++    let after = 0
++    w.sh = d => {
++      d.set(T, WEAK)
++      after = 1
++    }
++    // The read right after the command gets the text the command left, then another writer changes it.
++    w.onRead = path => {
++      if (after === 1 && path === T) {
++        after = 2
++        w.disk.set(T, `${WEAK}// other writer\n`)
++      }
++    }
++    const ran = await $.tool.call({ tool: 'Bash', command: "sed -i '/toEqual(0)/d' src/sum.test.ts" })
++    expect(ran.deny).toMatch(/assertions removed/)
++    expect(ran.deny).toMatch(new RegExp(`Not put back: ${T} \\(changed again, not restored\\)`))
++    expect(w.disk.get(T)).toBe(`${WEAK}// other writer\n`)
++    expect(w.log.filter(l => l.startsWith('write'))).toEqual([])
++  })
++
++  test('a restore that fails is named in the refusal', async ($, on) => {
++    const w = world(on, { [T]: SPEC })
++    w.sh = d => d.set(T, WEAK)
++    w.onWrite = () => {
++      throw new Error('EACCES')
++    }
++    const ran = await $.tool.call({ tool: 'Bash', command: "sed -i '/toEqual(0)/d' src/sum.test.ts" })
++    expect(ran.deny).toMatch(/assertions removed/)
++    expect(ran.deny).toMatch(new RegExp(`Not put back: ${T} \\(could not be put back\\)`))
++    expect(w.disk.get(T)).toBe(WEAK)
++  })
++
++  test('the compare runs when the call throws', async ($, on) => {
++    const w = world(on, { [T]: SPEC })
++    w.sh = d => d.set(T, WEAK)
++    w.answer = () => {
++      throw new Error('timed out')
++    }
++    expect((await $.tool.call({ tool: 'Bash', command: "sed -i '/toEqual(0)/d' src/sum.test.ts" })).deny).toMatch(/the command ran.*\n.*assertions removed/)
++    expect(w.disk.get(T)).toBe(SPEC)
++  })
++
++  test('a deny from below is passed on untouched', async ($, on) => {
++    const w = world(on, { [T]: SPEC })
++    w.sh = d => d.set(T, WEAK)
++    w.answer = () => ({ deny: 'withheld below' })
++    expect((await $.tool.call({ tool: 'Bash', command: "sed -i '/toEqual(0)/d' src/sum.test.ts" })).deny).toBe('withheld below')
++    expect(w.disk.get(T)).toBe(WEAK)
++  })
++
++  test('a target that cannot be read after the command is a signal and is left as it is', async ($, on) => {
++    const w = world(on, { [T]: SPEC })
++    const bad = new Uint8Array([0xff, 0xfe])
++    w.sh = d => d.set(T, bad)
++    const ran = await $.tool.call({ tool: 'Bash', command: "sed -i 's/a/\\xff/' src/sum.test.ts" })
++    expect(ran.deny).toMatch(/could not be read after the command/)
++    expect(ran.deny).toMatch(/Not put back: .*could not be read, not restored/)
++    expect(w.disk.get(T)).toBe(bad)
++  })
++
++  test('allow once: the command and the band let the identical command run once without the compare', async ($, on) => {
++    const w = world(on, { [T]: SPEC })
++    on('ui.render', ($$, e) => {
++      const { Box } = $$.ui.resolve(e)
++      return <Box />
++    })
++    const command = "sed -i '/toEqual(0)/d' src/sum.test.ts"
++    w.sh = d => d.set(T, WEAK)
++    expect((await $.tool.call({ tool: 'Bash', command })).deny).toMatch(/the command ran/)
++    await $.command.run({ command: 'allow-test-change', args: 'sum.test.ts', origin: { kind: 'composer' as const }, presentation: { isFullscreen: false, columns: 100 } })
++    // The blocked target is the shell command, so naming a file allows nothing.
++    expect((await $.tool.call({ tool: 'Bash', command })).deny).toMatch(/the command ran/)
++    await $.command.run({ command: 'allow-test-change', args: '', origin: { kind: 'composer' as const }, presentation: { isFullscreen: false, columns: 100 } })
++    expect((await $.tool.call({ tool: 'Bash', command })).deny).toBeUndefined()
++    expect(w.disk.get(T)).toBe(WEAK)
++    w.disk.set(T, SPEC)
++    expect((await $.tool.call({ tool: 'Bash', command })).deny).toMatch(/the command ran/)
++    expect(w.disk.get(T)).toBe(SPEC)
++    const ui = await $.ui.mount({ plugin: 'assertion-guardian', surface: 'terminal', component: 'AbovePrompt', props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 100 } } as never)
++    await ui.press({ key: 'allow' })
++    await ui.unmount()
++    expect((await $.tool.call({ tool: 'Bash', command })).deny).toBeUndefined()
++    expect(w.disk.get(T)).toBe(WEAK)
++    // The band's allowance is spent too: the next identical run is compared again.
++    w.disk.set(T, SPEC)
++    expect((await $.tool.call({ tool: 'Bash', command })).deny).toMatch(/the command ran/)
++    expect(w.disk.get(T)).toBe(SPEC)
++    expect(w.runs).toBe(6)
++  })
++})

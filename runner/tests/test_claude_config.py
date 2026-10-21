@@ -79,6 +79,22 @@ class Case(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         return s
 
+    def install_mod(self):
+        """A mod: upstream folder with no SKILL.md, live copy edited, entry and patch written by sync."""
+        self.pinned = self.commit({"mods/m/a.txt": "one\ntwo\nthree\n", "LICENSE": "MIT License\nCopyright (c) Someone\n"})
+        m = self.live / "skills" / "m"
+        m.mkdir()
+        (m / "a.txt").write_text("one\ntwo mine\nthree\n")
+        base = self.tmp / "base_m"
+        base.mkdir()
+        (base / "a.txt").write_text("one\ntwo\nthree\n")
+        self.manifest({"m": {"kind": "skill", "status": "downloaded", "source": str(self.up), "path": "mods/m",
+                             "pinned": self.pinned, "base_hash": cc.folder_hash(base), "license": "MIT",
+                             "publish": True, "patch": None, "fetch": "git", "install": "x", "framework": None}})
+        r = self.tool("patches")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        return m
+
     def manifest(self, entries=None):
         p = self.repo / "config" / "manifest.json"
         if entries is None:
@@ -120,6 +136,27 @@ class TestRestore(Case):
         r = self.tool("restore")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(cc.folder_hash(s), before)
+
+    # covers: spec 0068 AC-6 (a mod at path "." with no SKILL.md is rebuilt from git archive of the whole repo)
+    def test_rebuild_whole_repo_mod(self):
+        self.pinned = self.commit({"hooks/a.ts": "one\ntwo\n", "README.md": "r\n"})
+        base = self.tmp / "base_root"
+        shutil.copytree(self.up, base, ignore=shutil.ignore_patterns(".git"))
+        m = self.live / "skills" / "m"
+        shutil.copytree(base, m)
+        (m / "hooks" / "a.ts").write_text("one\ntwo mine\n")
+        self.manifest({"m": {"kind": "skill", "status": "downloaded", "source": str(self.up), "path": ".",
+                             "pinned": self.pinned, "base_hash": cc.folder_hash(base), "license": "MIT",
+                             "publish": True, "patch": None, "fetch": "git", "install": "x", "framework": None}})
+        self.assertEqual(self.tool("patches").returncode, 0)
+        patch = (self.repo / "config" / "patches" / "m.patch").read_text()
+        self.assertEqual([ln for ln in patch.splitlines() if ln.startswith("diff --git")],
+                         ["diff --git a/hooks/a.ts b/hooks/a.ts"])
+        before = cc.folder_hash(m)
+        shutil.rmtree(m)
+        r = self.tool("restore")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(cc.folder_hash(m), before)
 
     def test_installed_never_overwritten(self):
         s = self.install_edited()
@@ -326,6 +363,18 @@ class TestDrift(Case):
         r = self.tool("drift")
         self.assertEqual((r.returncode, r.stdout.strip()), (0, "drift: none"), r.stdout + r.stderr)
 
+    # covers: spec 0068 AC-6 (a folder with no SKILL.md but a manifest entry is checked, not "missing live";
+    # one with no entry is still not a skill)
+    def test_mod_folder_with_entry(self):
+        m = self.install_mod()
+        support = self.live / "skills" / "shared"
+        support.mkdir()
+        (support / "ref.md").write_text("ref\n")
+        r = self.tool("drift")
+        self.assertEqual((r.returncode, r.stdout.strip()), (0, "drift: none"), r.stdout + r.stderr)
+        (m / "a.txt").write_text("one\ntwo\nthree\n")
+        self.assertIn("m: your edit is no longer in it", self.tool("drift").stdout)
+
     # covers: AC-9 (settings compare after the sync transform: the home path swap and the ignored keys are not
     # drift, a real difference is, under kind setting)
     def test_settings(self):
@@ -408,6 +457,22 @@ class TestBuild(Case):
         self.assertIn("- fig:", not_redistributed)
         self.assertIn("- unknown: source unknown (unknown)", not_redistributed)
         self.assertNotIn("- a:", not_redistributed)
+
+    # covers: spec 0068 AC-6 (a hand written edited entry whose live folder has no SKILL.md gets its license text
+    # in the notice, and the entry is kept as it was)
+    def test_mod_license_text(self):
+        self.git(self.up, "config", "uploadpack.allowFilter", "true")
+        self.install_mod()
+        before = self.manifest()["entries"]["m"]
+        (self.repo / "docs").mkdir()
+        self.env.update(CLAUDE_CONFIG_LOCK=str(self.tmp / "nolock.json"), XDG_CACHE_HOME=str(self.tmp / "cache"))
+        r = self.tool("build")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.manifest()["entries"]["m"], before)
+        notice = (self.repo / "docs" / "NOTICE.md").read_text()
+        self.assertIn("Patched here: m.", notice)
+        self.assertIn("Copyright (c) Someone", notice)
+        self.assertNotIn("license text not reached", notice)
 
     # covers: AC-8 (a skill holding a private name gets no manifest entry, goes to the private store, stays
     # installed untouched, and drift still accounts for it)
