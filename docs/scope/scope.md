@@ -102,9 +102,9 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 81 | wf-dash design should-fixes | Release 9 | done |
 | 82 | Finish when the owner is away | Release 9 | done |
 | 83 | The word "after" stalls a feature | Release 9 | done |
-| 84 | Assertion Guardian blocks only removed checks | Release 9 | needs a decision |
+| 84 | Assertion Guardian blocks only removed checks | Release 9 | in-progress |
 | 85 | Mod install also reinstalls the runner copy | Release 9 | needs a decision |
-| 86 | Home-base chat runs from claude-config | Release 9 | needs a decision |
+| 86 | Home-base chat runs from claude-config | Release 9 | in-progress |
 | 87 | A live install box is ticked only when it is live | Release 9 | needs a decision |
 | 88 | Fix: auto handoff answers the question it cut off | Release 9 | done |
 
@@ -1187,15 +1187,20 @@ The runner's waiting check (`WAITING` in `runner/wf.py`, `\b(after|waits on)\b`)
 - [x] Sync docs: `/sync the word after stalls a feature` (PR #106)
 Spec [0066](../specs/0066-waiting-only-by-marker.md) · Source: work chat 2026-10-19; memory reference_wf_after_word_skips_feature.md.
 
-### 84. Assertion Guardian blocks only removed checks
+### 84. Assertion Guardian blocks only removed checks · in-progress · auto
 The test-weakening check blocks harmless test edits, each needs `/allow-test-change`, and it stalled the runner twice. You chose: block only removed or loosened checks, allow added ones.
 **Done when:** adding a test or an assertion is never blocked; deleting, skipping or loosening a check still is; the change survives a mod update.
-- [ ] Design it (spec): `/architect assertion guardian blocks only removed checks`
+- [x] Design it (spec): `/architect assertion guardian blocks only removed checks`
 - [ ] Build it: `/develop assertion guardian blocks only removed checks`
+  - [ ] Probes P2 and P3, whole tree hash check, scratch export (AC-6 part)
+  - [ ] Shell plan and run, compare, undo (AC-1 to AC-4)
+  - [ ] Mod tests, README gap line, scan (AC-5, AC-7)
+  - [ ] claude-config.py drift and notice fixes, manifest entry, patch, rebuild test (AC-6)
 - [ ] Verify it: `/check verify assertion guardian blocks only removed checks`
 - [ ] Test it: `/test assertion guardian blocks only removed checks`
+- [ ] Install it live: move `~/.claude/skills/assertion-guardian` to the trash, run `bin/install.sh`, then `python3 bin/claude-config.py drift` shows nothing for it; no sync before this · waits on you
 - [ ] Sync docs: `/sync assertion guardian blocks only removed checks`
-Source: [brief](../briefs/assertion-guardian.md) (your panel answer 2026-10-19).
+Spec [0068](../specs/0068-assertion-guardian-removed-checks.md) · Source: [brief](../briefs/assertion-guardian.md) (your panel answers 2026-10-19 and 2026-10-20).
 
 ### 85. Mod install also reinstalls the runner copy
 When a mod calls a new `wf` subcommand, the install box copies the mod but not the runner, so the mod calls a command the installed `wf` does not have yet.
@@ -1207,14 +1212,20 @@ When a mod calls a new `wf` subcommand, the install box copies the mod but not t
 - [ ] Sync docs: `/sync mod install also reinstalls the runner copy`
 Source: chat 2026-10-19 (carried in the handover of that day).
 
-### 86. Home-base chat runs from claude-config
+### 86. Home-base chat runs from claude-config · in-progress · auto
 You want the chat that runs your Claude setup and the runner (today opened in `~/.claude`) to open in `~/claude-config` instead, and keep working from there. Open questions: what happens to this year's chat history and memory (they are stored per folder), where the conductor rules in `~/.claude/.claude/CLAUDE.md` go, and which hooks or scripts assume the chat runs in `~/.claude`.
 **Done when:** a new chat opened in `~/claude-config` has the same memory and rules as today's `~/.claude` chat, `/resume` still finds the old chats or you chose to leave them, and the docs say where to open which chat.
-- [ ] Design it (spec): `/architect home-base chat runs from claude-config`
+- [x] Design it (spec): `/architect home-base chat runs from claude-config`
 - [ ] Build it: `/develop home-base chat runs from claude-config`
+   - [ ] The move script: checks, backup, chat and memory merge, rules, approvals, links, report (AC-1 to AC-9)
+   - [ ] Its test with a fake home (AC-11), plus `.gitignore`, `AGENTS.md`, `README.md` and the older layout spec's amended line (AC-10)
 - [ ] Verify it: `/check verify home-base chat runs from claude-config`
 - [ ] Test it: `/test home-base chat runs from claude-config`
+- [ ] Run the move yourself: close every Claude chat and wf, then in a plain terminal run `bash ~/claude-config/bin/move-home-chat.sh` · waits on you
+- [ ] Check it yourself: run claude in ~/claude-config, ask about the conductor session note, and open /resume to see this year's chats · waits on you
+- [ ] Update the memory notes that say the conductor runs from ~/.claude, and personal plan item 9's note · waits on you
 - [ ] Sync docs: `/sync home-base chat runs from claude-config`
+Spec [0067](../specs/0067-home-chat-in-claude-config/index.md) · code in `bin/move-home-chat.sh`, `runner/tests/test_move_home_chat.py`
 Source: your messages 2026-10-02 ("should I keep working on here or in claude-config"), 2026-10-11, and 2026-10-20 ("I wanted to move all the sessions from ~/.claude to claude-config"); personal plan item 9 ("decide whether conductor sessions keep running from `~/.claude`"). Plan item E6 in the [brief](../briefs/tool-review-2026-10.md).
 
 ### 87. A live install box is ticked only when it is live
