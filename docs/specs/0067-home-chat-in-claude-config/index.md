@@ -1,7 +1,7 @@
 # 0067. Home chat runs from claude-config
 
 **Date**: 2026-10-20
-**Status**: Proposed
+**Status**: Accepted (built 2430cc7)
 **Paths:** `bin/move-home-chat.sh`, `runner/tests/test_move_home_chat.py`, `.gitignore`, `AGENTS.md`, `README.md`
 **Amends**: [0035](../0035-readable-layout/index.md) AC-5 (where the runner rules live).
 
