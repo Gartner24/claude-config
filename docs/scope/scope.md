@@ -1212,15 +1212,15 @@ When a mod calls a new `wf` subcommand, the install box copies the mod but not t
 - [ ] Sync docs: `/sync mod install also reinstalls the runner copy`
 Source: chat 2026-10-19 (carried in the handover of that day).
 
-### 86. Home-base chat runs from claude-config · in-progress · auto
+### 86. Home-base chat runs from claude-config · in-progress
 You want the chat that runs your Claude setup and the runner (today opened in `~/.claude`) to open in `~/claude-config` instead, and keep working from there. Open questions: what happens to this year's chat history and memory (they are stored per folder), where the conductor rules in `~/.claude/.claude/CLAUDE.md` go, and which hooks or scripts assume the chat runs in `~/.claude`.
 **Done when:** a new chat opened in `~/claude-config` has the same memory and rules as today's `~/.claude` chat, `/resume` still finds the old chats or you chose to leave them, and the docs say where to open which chat.
 - [x] Design it (spec): `/architect home-base chat runs from claude-config`
-- [ ] Build it: `/develop home-base chat runs from claude-config`
-   - [ ] The move script: checks, backup, chat and memory merge, rules, approvals, links, report (AC-1 to AC-9)
-   - [ ] Its test with a fake home (AC-11), plus `.gitignore`, `AGENTS.md`, `README.md` and the older layout spec's amended line (AC-10)
-- [ ] Verify it: `/check verify home-base chat runs from claude-config`
-- [ ] Test it: `/test home-base chat runs from claude-config`
+- [x] Build it: `/develop home-base chat runs from claude-config`
+   - [x] The move script: checks, backup, chat and memory merge, rules, approvals, links, report (AC-1 to AC-9)
+   - [x] Its test with a fake home (AC-11), plus `.gitignore`, `AGENTS.md`, `README.md` and the older layout spec's amended line (AC-10)
+- [x] Verify it: `/check verify home-base chat runs from claude-config`
+- [x] Test it: `/test home-base chat runs from claude-config`
 - [ ] Run the move yourself: close every Claude chat and wf, then in a plain terminal run `bash ~/claude-config/bin/move-home-chat.sh` · waits on you
 - [ ] Check it yourself: run claude in ~/claude-config, ask about the conductor session note, and open /resume to see this year's chats · waits on you
 - [ ] Update the memory notes that say the conductor runs from ~/.claude, and personal plan item 9's note · waits on you

@@ -4,6 +4,7 @@
 **Status**: In Progress
 **Paths:** `README.md`, `AGENTS.md`, `CLAUDE.md`, `.claude/CLAUDE.md`, `claude-home/` (new: today's `agents/`, `rules/`, `hooks/`, `commands/`, `skills/`, `settings.json`, `settings.local.json`, the global `CLAUDE.md` and `scripts/chroma-reaper.sh` move under it), the docs guides folder (new: `HOOKS.md`, `MCP.md`, `PLUGINS.md`, `SKILLS.md`, `SKILLS-EVALUATION.md`, `USAGE.md`, `DESIGN-PIPELINE.md` move there), `bin/sync.sh`, `bin/install.sh`, `scripts/check-routing.py`, `scripts/gen-agent-index.py`, `scripts/asciify.py`, `scripts/private-names.py`, `runner/tests/` (tests that read repo `rules/` paths, for example `runner/tests/test_one_command.py:12`)
 **Amends**: none. Carries out the claude-config placement already decided in the dotfiles repo (its spec 0001 AC-16: claude-config becomes a git submodule of dotfiles at `claude-config/`).
+**Amended by**: [0067](../0067-home-chat-in-claude-config/index.md) - AC-5: the home chat opens in `~/claude-config` and the runner rules live in the git ignored `CLAUDE.local.md`.
 
 ## What you're agreeing to
 - One README in claude-config explains, in a few minutes of reading, what lives in `~/.claude`, what lives in claude-config, which copy wins for each kind of file, and how sessions, skills, hooks, rules, the runner and the private folder fit together.
