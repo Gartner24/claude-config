@@ -8,3 +8,6 @@ claude-home/skills/admin-design/
 
 # /review working files - the report is posted to the PR, never committed
 jjstack/
+
+# private runner rules for the home chat (spec 0067)
+CLAUDE.local.md

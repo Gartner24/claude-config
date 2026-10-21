@@ -26,10 +26,10 @@ overwritten.
 `docs/guides/`, specs (one per decision) in `docs/specs/`, the plan in `docs/scope/`, third party
 notices in [docs/NOTICE.md](docs/NOTICE.md).
 
-**Rules for one place only.** Rules for sessions started in `~/.claude` (the conductor sessions)
-go in `~/.claude/.claude/CLAUDE.md`, project memory for that folder. Rules for this repo only go
+**Rules for one place only.** Rules for this repo only go
 in [AGENTS.md](AGENTS.md); the root `CLAUDE.md` here only imports it, so a session in this repo
-loads the global instructions once and `AGENTS.md` once.
+loads the global instructions once and `AGENTS.md` once. The home chat opens in `~/claude-config`;
+its private runner rules are in `CLAUDE.local.md` (git ignored, spec 0067).
 
 ## One session, start to finish
 

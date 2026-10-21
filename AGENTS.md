@@ -46,7 +46,7 @@ fb-ask <task> [--local] [--file PATH] < input   # cheap worker tier (spec 0023; 
   - Frameworks (gstack, jjstack, ECC commands, the JSM skills, plugins): their installer wins, never vendored; the manifest's `frameworks` names each.
   - Private (`~/.claude/private/`): live only, never in any repo.
   - Claude Code state (`projects/`, `sessions/`, `history.jsonl`, caches): Claude Code only, never synced.
-- Rules for this repo only go in this file. Rules for sessions started in `~/.claude` go in `~/.claude/.claude/CLAUDE.md`.
+- Rules for this repo only go in this file. The home chat opens in `~/claude-config` and its private runner rules are in `CLAUDE.local.md` (git ignored, spec 0067).
 - `runner/` is `wf`, the workflow runner (spec 0001). `bin/install.sh` symlinks `runner/wf.py` to `~/.local/bin/wf` and `~/.local/bin/next` (called as `next`, it acts as `wf next`), so edit it here. Python 3 stdlib only, tests are `unittest`, external commands go through `subprocess` with argument lists, never a shell string. `bin/claude-config.py` follows the same rules.
 - This repo is public. No client or employer names, repo names, domains, or env-file names. `bin/sync.sh` strips `autoMode` from settings.json; client skills are gitignored.
 - Do not edit vendored trees: `claude-home/agents/` (27 of 31 from ECC), `claude-home/rules/ecc/` (except the 7 `index.md` and the local additions in `common/code-review.md`, `common/testing.md`), `claude-home/skills/anti-ai-writing/`. Provenance lives in `docs/NOTICE.md`; update it when adding an authored or redistributed path. Its `manifest:start` block is written by `bin/claude-config.py build`.

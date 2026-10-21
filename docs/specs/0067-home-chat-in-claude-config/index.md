@@ -26,11 +26,15 @@ Folder names (all under `$HOME/.claude/projects/`): `LIVE` = `-home-santiago-dot
 
 **Acceptance criteria**:
 - **AC-1** (checks first, nothing changed on failure): the script exits 1 with a message, before writing anything, when any of these hold:
-  - `pgrep -x claude` or `pgrep -f 'python.*runner/wf\.py'` finds a pid other than the script's own and its parent (each pid named);
+  - `pgrep -x claude` or `pgrep -f 'python[0-9.]* .*(/\.local/bin/wf|/wf\.py)( |$)'` finds a pid other than the script's own and its parent (each pid named, a claude pid with its command line). wf runs as `~/.local/bin/wf` or an installed `wf.py`, never as `runner/wf.py` (found in review 2026-10-20);
   - another copy holds the lock `$HOME/.claude/move-home-chat.lock` (`flock -n`);
   - `pgrep`, `flock`, `jq`, `tar` or `cmp` is missing;
   - free space in `~/Documents` is below the size of `OLD`, `LIVE` and `COPY` together (`du -s`);
   - any entry under `OLD`, `COPY` or `LIVE` is not a regular file or a folder;
+  - git in `$HOME/claude-config` does not ignore `CLAUDE.local.md` (same check as AC-7's);
+  - `OLD` or `COPY` exists but is neither a real folder nor a symlink to `LIVE`;
+  - an AC-7 approvals file does not parse, or the source has `permissions` keys other than `allow` (they would be lost);
+  - a same day backup kept under AC-2 does not read back with `tar tzf`;
   - the clash pass (AC-3, AC-4, AC-6) finds a clash.
 - **AC-2** (backup): it writes `$HOME/Documents/claude-chats-backup-<date +%F>.tar.gz` (mode 600) with `tar -C / czf` of the paths that exist among `OLD`, `LIVE`, `COPY`, `$HOME/.claude/.claude/`, `$HOME/claude-config/.claude/settings.local.json`, `$HOME/claude-config/CLAUDE.local.md`. Missing ones are left out, not an error. Then `tar tzf` with output discarded must exit 0, and the entry count is printed. On any failure the partial archive is deleted and the script exits 1 with nothing moved.
 - **AC-3** (merge chats): for `OLD` then `COPY`, every entry except `memory/` merges into `LIVE`, file by file (a folder already in `LIVE`, such as `rollover/` or a per chat folder, merges one file at a time; a folder only in the source moves whole with `mv`). A file already in `LIVE` with identical content (`cmp`) is deleted from the source, since the backup holds it. Clash = same relative path, different content, in `LIVE` or between `OLD` and `COPY`; the clash pass finds every clash before anything moves, and names them all (on 2026-10-20: none, `COPY` is 424 identical chats, `OLD` shares only `memory/` and `rollover/` with `LIVE`).
@@ -52,7 +56,7 @@ Merge into the live claude-config chat folder and link the old names to it (your
 **Value sourcing**:
 | Action | Value | Source |
 |---|---|---|
-| busy check | running pids | `pgrep -x claude`, `pgrep -f 'python.*runner/wf\.py'`, minus `$$` and `$PPID` |
+| busy check | running pids | `pgrep -x claude`, `pgrep -f 'python[0-9.]* .*(/\.local/bin/wf\|/wf\.py)( \|$)'`, minus `$$` and `$PPID` |
 | backup name | date | `date +%F` at run time |
 | merge | folder paths | `$HOME/.claude/projects/` plus the three names above |
 | links | target | absolute `LIVE` path |
