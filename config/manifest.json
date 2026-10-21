@@ -255,6 +255,21 @@
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
+    "assertion-guardian": {
+      "base_hash": "df60aa02ccb22a28b69f5b7175b4720177e15cd7699caf7a88c7016bb1cc6d0a",
+      "description": "Blocks edits that weaken tests to fake a green run: removed or loosened assertions, added skips, deleted cases, swallowed errors, snapshot rewrites.",
+      "fetch": "git",
+      "framework": null,
+      "install": "copy github.com/ccdwyer/assertion-guardian into ~/.claude/skills/assertion-guardian",
+      "kind": "skill",
+      "license": "MIT",
+      "patch": "config/patches/assertion-guardian.patch",
+      "path": ".",
+      "pinned": "ae1de89f090f04e6353b03346541c8a9f3e696db",
+      "publish": true,
+      "source": "github:ccdwyer/assertion-guardian",
+      "status": "edited"
+    },
     "astro": {
       "base_hash": "e05938aad01151341193690fb94e419a68a027548b4e4a2bfee7151349e3917a",
       "description": "Skill for building with the Astro web framework.",

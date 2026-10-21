@@ -156,6 +156,14 @@ License: MIT.
 |---|---|---|
 | `humanizer` | downloaded | Rewrite AI-sounding text so it reads naturally without changing what it says. |
 
+### ccdwyer/assertion-guardian
+
+License: MIT.
+
+| Skill | Status | What it does |
+|---|---|---|
+| `assertion-guardian` | edited | Blocks edits that weaken tests to fake a green run: removed or loosened assertions, added skips, deleted cases, swallowed errors, snapshot rewrites. |
+
 ### chrishan17/skill-router
 
 License: MIT.
