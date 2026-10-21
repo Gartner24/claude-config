@@ -78,7 +78,7 @@ this repo. Older verdicts with longer notes: `docs/research/SKILLS-EVALUATION.md
 
 | Name | Kind | Dates | What it is for | Open question | Source |
 |---|---|---|---|---|---|
-| Assertion Guardian | mod (claude-mods) | 2026-10-18 | Stops tests being weakened | Blocks harmless edits, each needs `/allow-test-change`; stalled the runner twice. Owner will not allow it in autonomous mode. Owner chose 2026-10-19: block only removed or loosened checks, allow added ones. Not built yet | chat 2026-10-19 |
+| Assertion Guardian | mod (github.com/ccdwyer/assertion-guardian, via the claude-mods index) | 2026-10-18 | Stops tests being weakened | Blocks harmless edits, each needs `/allow-test-change`; stalled the runner twice. Owner will not allow it in autonomous mode. Owner chose 2026-10-19: block only removed or loosened checks, allow added ones. Spec 0068 (2026-10-20): shell edits run, compared, undone; kept as an edited manifest entry with a patch. Not built yet | chat 2026-10-19, 2026-10-20 |
 | feature-dev, code-simplifier, clangd-lsp | plugins | 2026-05-15 | Agents; C/C++ language server | Removal proposed 2026-07-07 (never used, wrong stack), no answer recorded | chat 2026-07-07 |
 | Language packs (rust, go, java, jpa, nestjs, django) | skills | 2026-05-25 | Other stacks | Never invoked in 1,384 sessions; set name-only 2026-09-24 | chat 2026-07-07; token diet |
 
