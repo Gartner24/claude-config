@@ -102,11 +102,12 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 81 | wf-dash design should-fixes | Release 9 | done |
 | 82 | Finish when the owner is away | Release 9 | done |
 | 83 | The word "after" stalls a feature | Release 9 | done |
-| 84 | Assertion Guardian blocks only removed checks | Release 9 | in-progress |
+| 84 | Assertion Guardian blocks only removed checks | Release 9 | done |
 | 85 | Mod install also reinstalls the runner copy | Release 9 | needs a decision |
 | 86 | Home-base chat runs from claude-config | Release 9 | done |
 | 87 | A live install box is ticked only when it is live | Release 9 | needs a decision |
 | 88 | Fix: auto handoff answers the question it cut off | Release 9 | done |
+| 89 | Review leftovers 2026-10-21 | Release 9 | not started |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -1187,19 +1188,19 @@ The runner's waiting check (`WAITING` in `runner/wf.py`, `\b(after|waits on)\b`)
 - [x] Sync docs: `/sync the word after stalls a feature` (PR #106)
 Spec [0066](../specs/0066-waiting-only-by-marker.md) · Source: work chat 2026-10-19; memory reference_wf_after_word_skips_feature.md.
 
-### 84. Assertion Guardian blocks only removed checks · in-progress · auto
+### 84. Assertion Guardian blocks only removed checks · done · auto
 The test-weakening check blocks harmless test edits, each needs `/allow-test-change`, and it stalled the runner twice. You chose: block only removed or loosened checks, allow added ones.
 **Done when:** adding a test or an assertion is never blocked; deleting, skipping or loosening a check still is; the change survives a mod update.
 - [x] Design it (spec): `/architect assertion guardian blocks only removed checks`
-- [ ] Build it: `/develop assertion guardian blocks only removed checks`
-  - [ ] Probes P2 and P3, whole tree hash check, scratch export (AC-6 part)
-  - [ ] Shell plan and run, compare, undo (AC-1 to AC-4)
-  - [ ] Mod tests, README gap line, scan (AC-5, AC-7)
-  - [ ] claude-config.py drift and notice fixes, manifest entry, patch, rebuild test (AC-6)
-- [ ] Verify it: `/check verify assertion guardian blocks only removed checks`
-- [ ] Test it: `/test assertion guardian blocks only removed checks`
-- [ ] Install it live: move `~/.claude/skills/assertion-guardian` to the trash, run `bin/install.sh`, then `python3 bin/claude-config.py drift` shows nothing for it; no sync before this · waits on you
-- [ ] Sync docs: `/sync assertion guardian blocks only removed checks`
+- [x] Build it: `/develop assertion guardian blocks only removed checks` (PR #124, review round 1 fixes in the same commit)
+  - [x] Probes P2 and P3, whole tree hash check, scratch export (AC-6 part)
+  - [x] Shell plan and run, compare, undo (AC-1 to AC-4)
+  - [x] Mod tests, README gap line, scan (AC-5, AC-7)
+  - [x] claude-config.py drift and notice fixes, manifest entry, patch, rebuild test (AC-6)
+- [x] Verify it: `/check verify assertion guardian blocks only removed checks` (live, real session in a scratch repo: a weakening `sed -i` was refused and the file put back byte for byte; an added assertion through `sed` ran untouched)
+- [x] Test it: `/test assertion guardian blocks only removed checks` (mod 41 tests, 7 mutants red; fast suite 1135 green)
+- [x] Install it live: move `~/.claude/skills/assertion-guardian` to the trash, run `bin/install.sh`, then `python3 bin/claude-config.py drift` shows nothing for it; no sync before this · waits on you
+- [x] Sync docs: `/sync assertion guardian blocks only removed checks` (spec Accepted, tool catalog row, leftovers in row 89)
 Spec [0068](../specs/0068-assertion-guardian-removed-checks.md) · Source: [brief](../briefs/assertion-guardian.md) (your panel answers 2026-10-19 and 2026-10-20).
 
 ### 85. Mod install also reinstalls the runner copy
@@ -1246,6 +1247,12 @@ When you asked something just before the handoff line, the gate cut the turn sho
 - [x] Test it: `/test auto handoff answers the question it cut off` (2 tests in `tests/auto.test.ts`, 2 mutants red, suite 78 green)
 - [x] Sync docs: `/sync auto handoff answers the question it cut off` (no AGENTS.md change; live once merged, the live mod links the plan checkout)
 Source: your message 2026-10-20 ("The automatic rollover also is wiping my questions ... we need to fix that now").
+
+### 89. Review leftovers 2026-10-21
+Small bugs the Assertion Guardian review left (low severity, none blocks use).
+**Done when:** each leftover in the report is fixed with a test, or dropped with a reason.
+- [ ] Fix them: `/debug review leftovers 2026-10-21`
+Source: [review report](../reviews/review-2026-10-21.md) (P3 rows and Guardrails): a file with a byte order mark refused with generic text; restore writes through a symlink; build() clones an unreachable source twice; `/allow-test-change <file>` does nothing for a shell refusal; concurrent Bash calls can undo each other's additions; spec 0068 has no Amended line for the refusal shape.
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
