@@ -106,6 +106,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 85 | Mod install also reinstalls the runner copy | Release 9 | needs a decision |
 | 86 | Home-base chat runs from claude-config | Release 9 | in-progress |
 | 87 | A live install box is ticked only when it is live | Release 9 | needs a decision |
+| 88 | Fix: auto handoff answers the question it cut off | Release 9 | done |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -1236,6 +1237,15 @@ Rows 67, 69 and 71 each had a "copy live" box ticked while `claude-config drift`
 - [ ] Test it: `/test a live install box is ticked only when it is live`
 - [ ] Sync docs: `/sync a live install box is ticked only when it is live`
 Source: drift check 2026-10-20 in the conductor chat. Plan item E7 in the [brief](../briefs/tool-review-2026-10.md).
+
+### 88. Fix: auto handoff answers the question it cut off · done
+When you asked something just before the handoff line, the gate cut the turn short, and the fresh chat was told your question was already answered, because the mod trusted the old chat's own "Status:" line in the handover (handoff 313e03e8 to a4f6bf38 on 2026-10-21 logged "priority off").
+**Done when:** a question whose turn the gate cut short is always put first in the fresh chat, whatever the handover's Status line says; a question answered in a full turn is not, with tests that fail on the old code.
+- [x] Fix it: `/debug auto handoff answers the question it cut off` (wf-handoff `register.ts`: `answered` in the chain, set false by your typed prompt, true when a turn ends without the gate; the Status line can only add priority)
+- [x] Verify it: `/check verify auto handoff answers the question it cut off` (2 can fail steps: seed keeps priority off on a cut question; seed puts priority on for an answered one)
+- [x] Test it: `/test auto handoff answers the question it cut off` (2 tests in `tests/auto.test.ts`, 2 mutants red, suite 78 green)
+- [x] Sync docs: `/sync auto handoff answers the question it cut off` (no AGENTS.md change; live once merged, the live mod links the plan checkout)
+Source: your message 2026-10-20 ("The automatic rollover also is wiping my questions ... we need to fix that now").
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.

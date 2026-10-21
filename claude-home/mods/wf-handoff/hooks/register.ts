@@ -6,6 +6,7 @@ type Phase = 'idle' | 'gated' | 'rolling' | 'clearing' | 'seeding' | 'paused' | 
 type Chain = {
   root: string; session: string; previous: string | null; startTokens: number | null; unattended: number
   triggeredAt: string | null; phase: Phase; lastRequest: string | null; link?: string; pageKey?: string
+  answered?: boolean // false from an owner prompt until a turn ends without the gate
 }
 
 const GATE_TEXT = 'context is at the handoff line; finish this turn in words, the handoff starts at the end of it'
@@ -34,6 +35,7 @@ let pending = 0 // tool output characters the last usage figure does not hold ye
 let exemptTurn = false
 let exemptNext = false // an exempt command typed mid turn: it runs as the next turn
 let requestAtTrigger: string | null = null
+let answeredAtTrigger = true
 let armedTurn: string | null = null
 let currentTurn: string | null = null
 let rollResolved = false
@@ -228,6 +230,7 @@ async function startHandoff($: EngineInterface) {
   rollResolved = false
   counted = false
   requestAtTrigger = c.lastRequest
+  answeredAtTrigger = c.answered !== false
   panelStep = 0; panelResult = null
   await setPhase($, 'rolling')
   await notify($, `auto handoff started: ${STEPS[0]}`)
@@ -307,7 +310,8 @@ async function seed($: EngineInterface, slot: string) {
     nextFor = null
     await $.fs.read(page).then(html => $.fs.write(page, addNext(html, link))).catch(() => log($, `previous page ${page} not found`))
   }
-  const priority = lastRequestStatus(slot) === 'not answered'
+  // The mod's own record wins; the handover's Status line can only add priority, never drop it.
+  const priority = (!!requestAtTrigger && !answeredAtTrigger) || lastRequestStatus(slot) === 'not answered'
   // The request the rollover judged, not one held since (those are sent again below).
   const args = fillTemplate(await template($, 'instructions'), { priority, lastRequest: requestAtTrigger ?? '' })
   await log($, `cleared; seed run (priority ${priority ? 'on' : 'off'})`)
@@ -385,7 +389,7 @@ export const register: Register = (on, options) => {
     const owner = typed && !e.command && !e.text.startsWith('/')
     if (typed && ['gated', 'rolling', 'clearing', 'seeding'].includes(chain.phase)) {
       held.push(e.text)
-      if (owner) { chain.unattended = 0; chain.lastRequest = e.text; await save($) }
+      if (owner) { chain.unattended = 0; chain.lastRequest = e.text; chain.answered = false; await save($) }
       await log($, `prompt held during ${chain.phase}`)
       // AC-2: an interrupted gated turn that never reached turn.complete hands off here.
       if (chain.phase === 'gated' && !e.turnId) void startHandoff($)
@@ -394,6 +398,7 @@ export const register: Register = (on, options) => {
     if (owner) {
       chain.unattended = 0
       chain.lastRequest = e.text
+      chain.answered = false
       if (chain.phase === 'paused' || chain.phase === 'failed') {
         chain.phase = 'idle'; panelResult = null; $.ui.status(undefined)
         await writePanel($)
@@ -457,6 +462,8 @@ export const register: Register = (on, options) => {
     }
     const wasExempt = exemptTurn
     exemptTurn = false
+    // A gated turn was cut short, so it did not answer; any other turn ran to its end.
+    if (!wasExempt && chain.phase !== 'gated' && chain.answered === false) { chain.answered = true; await save($) }
     if (!wasExempt && (chain.phase === 'gated' || (await crossed($)))) {
       if (chain.phase !== 'gated') await arm($, e.turnId, 'turn ended past the line')
       await startHandoff($)
