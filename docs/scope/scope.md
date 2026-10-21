@@ -102,7 +102,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 81 | wf-dash design should-fixes | Release 9 | done |
 | 82 | Finish when the owner is away | Release 9 | done |
 | 83 | The word "after" stalls a feature | Release 9 | done |
-| 84 | Assertion Guardian blocks only removed checks | Release 9 | needs a decision |
+| 84 | Assertion Guardian blocks only removed checks | Release 9 | in-progress |
 | 85 | Mod install also reinstalls the runner copy | Release 9 | needs a decision |
 | 86 | Home-base chat runs from claude-config | Release 9 | in-progress |
 | 87 | A live install box is ticked only when it is live | Release 9 | needs a decision |
@@ -1186,15 +1186,20 @@ The runner's waiting check (`WAITING` in `runner/wf.py`, `\b(after|waits on)\b`)
 - [x] Sync docs: `/sync the word after stalls a feature` (PR #106)
 Spec [0066](../specs/0066-waiting-only-by-marker.md) · Source: work chat 2026-10-19; memory reference_wf_after_word_skips_feature.md.
 
-### 84. Assertion Guardian blocks only removed checks
+### 84. Assertion Guardian blocks only removed checks · in-progress · auto
 The test-weakening check blocks harmless test edits, each needs `/allow-test-change`, and it stalled the runner twice. You chose: block only removed or loosened checks, allow added ones.
 **Done when:** adding a test or an assertion is never blocked; deleting, skipping or loosening a check still is; the change survives a mod update.
-- [ ] Design it (spec): `/architect assertion guardian blocks only removed checks`
+- [x] Design it (spec): `/architect assertion guardian blocks only removed checks`
 - [ ] Build it: `/develop assertion guardian blocks only removed checks`
+  - [ ] Probes P2 and P3, whole tree hash check, scratch export (AC-6 part)
+  - [ ] Shell plan and run, compare, undo (AC-1 to AC-4)
+  - [ ] Mod tests, README gap line, scan (AC-5, AC-7)
+  - [ ] claude-config.py drift and notice fixes, manifest entry, patch, rebuild test (AC-6)
 - [ ] Verify it: `/check verify assertion guardian blocks only removed checks`
 - [ ] Test it: `/test assertion guardian blocks only removed checks`
+- [ ] Install it live: move `~/.claude/skills/assertion-guardian` to the trash, run `bin/install.sh`, then `python3 bin/claude-config.py drift` shows nothing for it; no sync before this · waits on you
 - [ ] Sync docs: `/sync assertion guardian blocks only removed checks`
-Source: [brief](../briefs/assertion-guardian.md) (your panel answer 2026-10-19).
+Spec [0068](../specs/0068-assertion-guardian-removed-checks.md) · Source: [brief](../briefs/assertion-guardian.md) (your panel answers 2026-10-19 and 2026-10-20).
 
 ### 85. Mod install also reinstalls the runner copy
 When a mod calls a new `wf` subcommand, the install box copies the mod but not the runner, so the mod calls a command the installed `wf` does not have yet.
