@@ -1,7 +1,7 @@
 # 0068. Assertion Guardian blocks only removed checks
 
 **Date**: 2026-10-20
-**Status**: Proposed
+**Status**: Accepted, built in d764b60
 **Paths:** `config/manifest.json`, `config/patches/assertion-guardian.patch`, `bin/claude-config.py`, `runner/tests/test_claude_config.py`
 
 ## What you're agreeing to
