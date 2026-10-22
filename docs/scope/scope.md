@@ -1334,7 +1334,7 @@ Source: your message 2026-10-22 ("I turned auto handoff [off] and it got done ag
 Your tools are the "chip" family. The wf-dash mod becomes `chip-dash` everywhere (folder, plugin id, state keys, tests, chip text), command `/chip`, `/wf-dash` kept as an alias.
 **Done when:** no `wf-dash` name is left in the mod except the alias, its tests pass, and you relink it after the security scan.
 - [x] Rename it: `/develop rename the dashboard mod to chip-dash` (PR #148 merged 2026-10-22, e3cd82c; suite 1136 pass, mod tests 57 and 97 pass)
-- [ ] Relink `~/.claude/skills/chip-dash` after `skillspector scan` · waits on you
+- [x] Relink `~/.claude/skills/chip-dash` after `skillspector scan` · waits on you (2026-10-22: scan `--no-llm`, no model key; 2 HIGH and 10 MEDIUM, all false positives: audit report prose, PRODUCT.md prose, list form subprocess calls)
 Source: [brief](../briefs/dashboard-restructure.md) (name answer).
 
 ### 97. Restructure claude-config to the icm-architect folder layout · needs a decision
