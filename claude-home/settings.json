@@ -24,9 +24,9 @@
       "Bash(gio trash *)",
       "Bash(python3 /home/santiago/claude-config/bin/claude-config.py *)",
       "Bash(python3 /home/santiago/claude-config/scripts/skill-keep.py *)",
-      "Bash(bash /home/santiago/.claude/conductor/*)",
+      "Bash(bash /home/santiago/.claude/conductor/lastsaid.sh)",
+      "Bash(bash /home/santiago/.claude/conductor/lastsaid.sh *)",
       "Read(~/.claude/projects/**)",
-      "Read(~/.claude.json)",
       "Edit(~/.claude/CLAUDE.md)",
       "Edit(~/.claude/rules/**)"
     ],
