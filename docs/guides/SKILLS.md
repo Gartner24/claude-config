@@ -25,6 +25,7 @@ Linked from `claude-home/skills/`; editing the repo copy is live.
 | `lead-finder` | Given a city and a trade, list 10 to 20 local businesses with weak web presence (no website, no booking, stale blog, another agency's credit) with the evidence for each. |
 | `nano-banana` | Generate hyper-realistic, tightly-controlled images (product shots, hero frames, brand imagery, blog images) using Google's Nano Banana (Gemini image model) via structured JSON prompting that neutralizes the plastic "AI look." Use in /brand-system (mascot/logo/imagery - replaces the manual step) and for /new-site + content-ops assets. |
 | `reaction-tester` | Up to 12 simulated customers react to an idea, offer or page, after one plain baseline answer to compare. |
+| `review-fix` | Fix the confirmed findings of a review on a PR with a test and mutation check each, then run suite, verify and test. |
 | `review-stack` | Run the multi-agent pre-ship review stack over local changes OR someone else's pull request - dispatch regression-hunter + pr-intent-verifier + security-reviewer + database-reviewer + the matching language reviewer + code-reviewer as parallel subagents, then synthesize findings by severity. |
 | `seo-ops` | Run recurring SEO/AEO for a live client site - monthly audit, page-2 internal-link lifts, GSC language mining, structured-data upkeep, and re-indexing (IndexNow). |
 | `spawn-review` | Start a SECOND Claude session on an isolated git worktree, so a review can run on another branch or PR while you keep coding on yours. |

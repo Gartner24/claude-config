@@ -54,3 +54,30 @@ All fixtures are temp trees; nothing ran against the real `~/.claude`.
 Ran: `check.py --test` 30 of 30; `tests/fast.py` 154 tests, 0 failed; `bin/install.sh --dry-run` lists mkdir workflows and the workflow-builder link; templates all carry follows e16cafe6a664 and `drift` prints no review line (pin equals follows). Re-mutated: workflows dropped from the install link loop (TestWorkflowLinks red), linked_kind workflows call removed (test_workflows red); restored, suite green.
 
 Verdict: AC-2, AC-3, AC-5, AC-6, AC-9, AC-10 met. AC-1, AC-4, AC-7, AC-8 are skill prose and not verifiable until the proof build (row 102); Verify and Test boxes stay unticked.
+
+## Proof build: review-fix (2026-10-22)
+
+Built `review-fix` (row 102 first box) with the builder, from the owner's seven answers (last bullet of
+`docs/briefs/workflow-builder.md`). Files: `claude-home/workflows/review-fix/{CONTEXT.md,review-fix.js,stages/01_sort,02_fix,03_check/CONTEXT.md}`
+and `claude-home/skills/review-fix/SKILL.md`. No workflow run was started (the dry run is the owner's call).
+
+Ran: `check.py review-fix` prints `ok` (check.py resolves its repo from its own file location, so running the
+worktree copy checks the worktree; `CLAUDE_HOME_DIR` and `CLAUDE_LIVE_DIR` also override); `check.py --test` 30 of 30;
+`bin/claude-config.py docs` wrote the worktree's `docs/guides/SKILLS.md`; `claude-config.py install --dry-run` lists
+`skills/review-fix` and `workflows/review-fix` links; `tests/fast.py` 154 tests, 0 failed.
+
+| Step | AC | Result | can fail |
+|---|---|---|---|
+| Answers brief holds all seven interview answers (job, walk-through, stages, per-stage contracts, fan out, owner steps, args) and the files use them: 3 stages `01_sort`/`02_fix`/`03_check`, models sonnet low/medium/medium, args repo, runId, pr, branch, round, suite | AC-1 | pass (interview itself ran in the main chat; the files match its answers) | a stage name, Model line or arg that differs from the answers means the files do not match the brief |
+| `check.py review-fix` prints `ok`: literal meta, phases equal to the 3 stage folders in order, every `agent()` has label/model/effort/schema, Model lines equal the script, one Human check line each, input paths exist, root table equals the folders | AC-2, AC-3, AC-5 | pass | changing one Model line or a phase title makes it print a problem line (its `--test` cases) |
+| Starter `claude-home/skills/review-fix/SKILL.md`: owner steps before (pr, findings, round, branch, suite), repo, run id, `.workflow/` ignore check, Workflow call with `scriptPath` and `{repo, runId, limit, pr, branch, round, suite}`, per stage listing with human check, run folder count, owner steps after (push only when ready and no ask finding) | AC-4 | pass with one deviation: the run id is `<pr>-<date>-<n>` as the owner answered (7), not the spec's `YYYYMMDD-HHMMSS` | dropping the ignore check, the `limit` arg or the folder count line leaves a starter step missing against AC-4 |
+| Update mode (section 5) | AC-7 | not proven: this build used no `--update`; only prose and SKILL.md section 5 exist | not run: needs a later `--update` on review-fix |
+| Dry run offer (section 4 step 4) | AC-8 | not proven: no run started by instruction; script honors `args.limit` as the template does | not run: needs the owner's yes to `/review-fix <pr> --limit 1` on a real PR |
+
+Verdict: AC-1, AC-2, AC-3, AC-5 proven by this build; AC-4 met with the run id deviation; AC-7 and AC-8 still
+unproven. Verify and Test boxes of row 101 stay unticked.
+
+Ambiguity: the answers do not say how `round` is derived. The starter counts earlier run folders `<pr>-*` in
+`.workflow/runs/review-fix/` plus 1 and refuses a third. Also not said: who writes the leftovers brief and scope row;
+the starter does it after the run in round 2. And 03_check merges in a worktree of the PR branch (the answers say only
+"merges the groups onto the PR branch").
