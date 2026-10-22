@@ -1,7 +1,7 @@
 # 0072c. Scope split
 
 ## Summary
-Third PR of phase 1. Closed rows of `docs/scope/scope.md` move to `docs/scope/done.md`, so the plan a chat loads holds only open work. Branch `feat/0072-scope-split`, off `main` (it touches no file of 0072a or 0072b).
+Third PR of phase 1. Closed rows of `docs/scope/scope.md` move to `docs/scope/done.md`, so the plan a chat loads holds only open work. Branch `feat/0072-scope-split`, stacked on 0072a while 0072a is unmerged (0072a changes scope links to moved files).
 
 ## Scope
 Acceptance criteria AC-11 and AC-12 of [index.md](index.md); build plan tasks 8 and 9.

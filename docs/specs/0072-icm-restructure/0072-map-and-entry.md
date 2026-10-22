@@ -18,4 +18,4 @@ Acceptance criteria AC-6 to AC-10 of [index.md](index.md); build plan tasks 5 to
 
 ## Notes for the build
 - Probe result (verify.md): the Edit and Write tools refuse a symlink and name its target, so they keep the link; `sed -i` replaces the link with a normal file. That is why AC-9 (commit refusal) is required, not optional.
-- Rationale: one real file means a skill that edits `AGENTS.md` either lands in `CLAUDE.md` or is stopped at commit; drift cannot reach git.
+- Rationale: one real file means a skill that edits `AGENTS.md` with the Edit or Write tool is refused with `CLAUDE.md` named as the target, and a shell edit that replaces the link is stopped at commit; drift cannot reach git.

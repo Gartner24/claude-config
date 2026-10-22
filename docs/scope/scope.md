@@ -1337,11 +1337,18 @@ Your tools are the "chip" family. The wf-dash mod becomes `chip-dash` everywhere
 - [x] Relink `~/.claude/skills/chip-dash` after `skillspector scan` · waits on you (2026-10-22: scan `--no-llm`, no model key; 2 HIGH and 10 MEDIUM, all false positives: audit report prose, PRODUCT.md prose, list form subprocess calls)
 Source: [brief](../briefs/dashboard-restructure.md) (name answer).
 
-### 97. Restructure claude-config to the icm-architect folder layout · needs a decision
-You asked to restructure claude-config into the folder layout of RinDig's icm-architect repo.
+### 97. Restructure claude-config to the icm-architect folder layout · in-progress
+You asked to restructure claude-config into the folder layout of RinDig's icm-architect repo. Phase 1: [0072](../specs/0072-icm-restructure/index.md); phase 2 is designed after phase 1 lands.
 **Done when:** the repo follows the agreed layout, `bin/install.sh --dry-run` and the suite pass, and every live link still resolves.
 - [x] Run icm-architect read only: skillspector scan of RinDig/icm-architect, install it, run its restructure mode steps 1 to 5 only (inventory, form, roles, reference report, proposed tree and migration map, nothing moved); save its output in [brief](../briefs/icm-research.md) and show the owner its tree next to ours
-- [ ] Design it (spec): `/architect restructure claude-config to the icm-architect layout` (questions in [brief](../briefs/icm-research.md) section 5; owner ideas and the "missing from your picture" list there too)
+- [x] Design it (spec): `/architect restructure claude-config to the icm-architect layout` (spec 0072, phase 1; answers in [brief](../briefs/icm-restructure.md))
+- [ ] Build it: `/develop restructure claude-config to the icm-architect layout`
+  - [ ] Reference check, tests split, runner archive (0072a; AC-1 to AC-5, AC-13)
+  - [ ] Map cards, CLAUDE.md entry, AGENTS.md link (0072b; AC-6 to AC-10)
+  - [ ] Scope split (0072c; AC-11, AC-12)
+- [ ] Verify it: `/check verify restructure claude-config to the icm-architect layout`
+- [ ] Test it: `/test restructure claude-config to the icm-architect layout`
+- [ ] Design phase 2 (spec): `/architect restructure claude-config phase 2` (after phase 1 is merged and reviewed)
 Source: [brief](../briefs/icm-restructure.md); [brief](../briefs/retire-runner.md) line 13; your messages 2026-10-22.
 
 ### 98. Helper scripts the switch-on rules still lack
@@ -1355,6 +1362,25 @@ You asked that auto handoff be off in chats that are only talk (no build), besid
 **Done when:** a chat with no repo work does not hand off by itself, by the condition you pick, with a mod test.
 - [ ] Design it (spec): `/architect auto handoff off in plain talk chats`
 Source: [brief](../briefs/retire-runner.md) second chat decisions ("still to build"); your first message 2026-10-22.
+
+### 100. build-features workflow, shown while it runs · needs a decision
+A saved Claude Code workflow (`/build-features`) that builds every ready scope row whose questions are answered, one worktree agent each, with per row model and effort; running agents show as rows in the agent panel and as a count on the chip band. from spec 0072
+**Done when:** `/build-features` builds two non overlapping ready rows to draft PRs, and both places show them while they run.
+- [ ] Design it (spec): `/architect build-features workflow` (probe first: can the mod API see workflow agents)
+Source: [brief](../briefs/icm-restructure.md) "Workflows" and "Running workflows show"; your messages 2026-10-22.
+
+### 101. Workflow templates research and a workflow builder skill · needs a decision
+Research recommended workflow templates and the workflows we can make from our own skills and repos (site design, SEO, reviews), then a skill that builds new workflows the ICM way (marketing and publicity workflows come later). from spec 0072
+**Done when:** a research brief lists the candidates with sources, and the builder skill makes one workflow that passes its own check.
+- [ ] Research it: `/deep-research workflow templates for claude-config`
+- [ ] Design it (spec): `/architect workflow builder skill`
+Source: [brief](../briefs/icm-restructure.md) "Workflows"; your messages 2026-10-22.
+
+### 102. review-fix and restructure-check workflows · needs a decision
+The two workflows you asked to be reminded of: `review-fix` (fix a PR's review findings) and `restructure-check` (the nothing broke check as one command). Built with the row 101 builder. from spec 0072
+**Done when:** both run as `/review-fix` and `/restructure-check` on a real PR.
+- [ ] Design it (spec): `/architect review-fix and restructure-check workflows`
+Source: [brief](../briefs/icm-restructure.md) "Workflows"; your messages 2026-10-22.
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.

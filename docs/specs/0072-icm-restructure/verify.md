@@ -9,5 +9,8 @@ Setup in a scratch folder: `CLAUDE.md` with one line, `ln -s CLAUDE.md AGENTS.md
 - `sed -i 's/line one/line one by sed/' AGENTS.md`: exit 0, and `ls -l` shows `AGENTS.md` as a regular 16 byte file. The link was REPLACED, the two files now differ.
 Result: the link alone is not enough; AC-9 (commit refusal) and AC-8 (suite test) are required.
 
+### Commit of a replaced link is refused (runs first in the 0072b build)
+Owed: after the twin check lands, replace the link with `sed -i` in a scratch clone and try to commit. The commit must be refused. The build stops if it is not.
+
 ### Mod API sees workflow agents
 Not run here: it belongs to row 100 (where runs show), not this spec.
