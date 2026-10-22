@@ -2,7 +2,8 @@
   "cleanupPeriodDays": 365,
   "includeCoAuthoredBy": false,
   "env": {
-    "ENABLE_STOP_REVIEW": "0"
+    "ENABLE_STOP_REVIEW": "0",
+    "AUTO_HANDOFF_TOKENS": "250000"
   },
   "permissions": {
     "allow": [
@@ -12,7 +13,22 @@
       "Bash(wf auto take *)",
       "Bash(wf queue)",
       "Bash(wf questions)",
-      "Bash(wf report)"
+      "Bash(wf report)",
+      "Bash(~/.claude/skills/jjstack/bin/jjstack-rollover-slot *)",
+      "Bash(gh pr ready * -R Gartner24/*)",
+      "Bash(gh pr ready * --repo Gartner24/*)",
+      "Bash(gh pr merge * -R Gartner24/*)",
+      "Bash(gh pr merge * --repo Gartner24/*)",
+      "Bash(gh pr view * -R Gartner24/*)",
+      "Bash(gh pr close * -R Gartner24/*)",
+      "Bash(gio trash *)",
+      "Bash(python3 /home/santiago/claude-config/bin/claude-config.py *)",
+      "Bash(python3 /home/santiago/claude-config/scripts/skill-keep.py *)",
+      "Bash(bash /home/santiago/.claude/conductor/*)",
+      "Read(~/.claude/projects/**)",
+      "Read(~/.claude.json)",
+      "Edit(~/.claude/CLAUDE.md)",
+      "Edit(~/.claude/rules/**)"
     ],
     "deny": [
       "Bash(*wf auto on*)",

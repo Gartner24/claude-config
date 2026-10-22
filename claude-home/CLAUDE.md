@@ -82,7 +82,7 @@ anyway. Surface every `Assumed` spec before starting new work.
 
 ### Context
 - Clear at boundaries (feature closed), not by token count.
-- Size: the wf-handoff mod hands a chat off by itself at 200k tokens. Never run `/rollover` for
+- Size: the wf-handoff mod hands a chat off by itself at 250k tokens. Never run `/rollover` for
   size before that, only when the mod says auto handoff is paused or off.
 - Brief before every handoff (any `/clear`, `/rollover`, `/save-and-clear`, or a command
   given for another session): decisions agreed in chat but not yet in a spec, scope row or
