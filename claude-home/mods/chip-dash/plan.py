@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The wf-dash Plan view's data, as JSON on stdout: every repo scope under the scan roots, each feature with its
+"""The chip-dash Plan view's data, as JSON on stdout: every repo scope under the scan roots, each feature with its
 state and next step (spec 0060 AC-1). The scope parser is runner/wf.py's (parse_text, sections, pick_next,
 feature_state, plan_scopes), trimmed to what the pane reads: the runner is retired, so the states it alone could
 tell (building, to publish, in review) are gone. Stdlib only."""

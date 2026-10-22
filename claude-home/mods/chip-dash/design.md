@@ -1,4 +1,6 @@
-# wf-dash design (locked 2026-10-17)
+# chip-dash design (locked 2026-10-17)
+
+Renamed to chip-dash 2026-10-22 (was wf-dash; command /chip, /wf-dash kept as alias).
 
 Changed 2026-10-22, the wf runner retired: the band's right end shows the auto handoff (`handoff on 200k`, `handoff
 off`, `handoff ?`) where the runner counts were, the AUTO segment is gone, and the dashboard keeps Plan (from
@@ -29,7 +31,7 @@ scripts (`facts.py`, `plan.py`, `runner.py`) for `wf status --json` and `wf plan
   meter its number. ASCII only.
 
 ## Band (one line above the prompt)
-`[ wf-dash ]  Opus 5.5 medium  <folder>  <branch> +s ~m ?u  ctx 16% 160k/1M  [5h meter] 20% in 2h10m  [week meter] 45% in 3d22h  auto: 2 chats on     wf 1 building  0 stuck  1 question`
+`[ chip ]  Opus 5.5 medium  <folder>  <branch> +s ~m ?u  ctx 16% 160k/1M  [5h meter] 20% in 2h10m  [week meter] 45% in 3d22h  auto: 2 chats on     wf 1 building  0 stuck  1 question`
 - Effort in color per level (low ok, medium warn, high design, xhigh review, max accent). Shown from the first
   second: the status line receives `.effort.level` from Claude Code on every redraw, and the build makes our own bar
   (spec 0058, not jjstack) hand it to the band. Until then the band reads it only from each model
@@ -60,7 +62,7 @@ scripts (`facts.py`, `plan.py`, `runner.py`) for `wf status --json` and `wf plan
   last tick could not read the runner, and `reading wf` before the first tick. When the alerts
   outgrow the pane, `j` / `k` scroll them and a dim line says `N newer above, +M older`.
 
-## Dashboard (`/wf-dash`, or click the band's chip, or `w` once the band has the keys)
+## Dashboard (`/chip`, or click the band's chip, or `w` once the band has the keys)
 One pane with four views, switched by a letter: `p: Plan  b: Builds  a: Agents  l: Alerts`. The owner asked for
 one dashboard to move inside, not a command per view. It replaces the separate `/plan`, `/agents` and `/runner`
 of spec 0060 (which also clash with Claude Code's own `/plan` and `/agents`); row 73 records the change.
@@ -117,4 +119,4 @@ of spec 0060 (which also clash with Claude Code's own `/plan` and `/agents`); ro
   exact text.
 
 ## Preview
-`claude --plugin-dir claude-home/mods/wf-dash`, then `/wf-dash` for the dashboard; its Alerts view (`l`) lists the session's alerts.
+`claude --plugin-dir claude-home/mods/chip-dash`, then `/chip` for the dashboard; its Alerts view (`l`) lists the session's alerts.

@@ -67,7 +67,7 @@ export type WfDashLoaded<T> = { data: T | null; at: number | null; error: string
 
 declare module 'claude-code' {
   interface PluginState {
-    'wf-dash': {
+    'chip-dash': {
       facts: WfDashFacts
       effort: string | null
       plan: WfDashLoaded<WfDashPlan>

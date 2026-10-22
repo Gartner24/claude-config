@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-18
 **Status**: Accepted
-**Paths:** `claude-home/mods/wf-dash/**`
+**Paths:** `claude-home/mods/chip-dash/**`
 **Amends:** [0059](0059-wf-dash-band.md) AC-3 (a run that leaves `running` toasts `finished` only when its record says it finished)
 
 ## What you're agreeing to

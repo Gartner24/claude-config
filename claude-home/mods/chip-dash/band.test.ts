@@ -30,7 +30,7 @@ test('the right end says on with the line, off, or ? when unknown, and never nam
   expect(words(segments({ ...facts, handoff: null }, 0, false).right)).toBe('handoff ?')
   expect(words(segments({ ...facts, handoff: undefined }, 0, false).right)).toBe('handoff ?')
   const all = segments(facts, 0, false)
-  // the chip's own name says wf-dash; the runner's segment began "wf " and named builds, stuck runs and questions
+  // the chip's own name says chip-dash; the runner's segment began "wf " and named builds, stuck runs and questions
   expect([...all.left, all.right].map(words).join(' ')).not.toMatch(/(^|\s)wf\s|building|stuck|question/)
 })
 

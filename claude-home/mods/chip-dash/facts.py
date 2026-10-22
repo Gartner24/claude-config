@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The wf-dash band's facts about this session's folder, as JSON on stdout: folder, git and the provider
+"""The chip-dash band's facts about this session's folder, as JSON on stdout: folder, git and the provider
 (spec 0059 AC-2). Stdlib only and self-contained: it used to import the wf runner's wf.py and statusbar.py, and
 the runner is retired."""
 import json

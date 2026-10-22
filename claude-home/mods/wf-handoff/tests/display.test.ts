@@ -30,7 +30,7 @@ function world(on: On, o: { tailscale?: string; answers?: Record<string, string>
   on('session.surfaces', () => ({ value: (o.surfaces ?? ['terminal']) as any }))
   on('session.usage', () => ({ value: { startedAt: 0, context: { tokens: w.tokens, window: 1_000_000 }, rateLimits: [] } as any }))
   on('session.messages', () => ({ value: [] as any }))
-  on('state.get', (_$, e: any) => e.plugin === 'wf-dash'
+  on('state.get', (_$, e: any) => e.plugin === 'chip-dash'
     ? { value: { value: o.band ? {} : undefined, version: o.band ? 3 : 0 } as any }
     : undefined as any)
   on('command.register', (_$, e: any) => ({ value: { command: e.name } }))
@@ -168,14 +168,14 @@ test('AC-3 with no band the start, the result and a sticky line are toasts, stic
   expect(w.toasts.at(-1)).toEqual({ text: 'auto handoff paused: type anything to resume', timeoutMs: 30000 })
 })
 
-test('AC-3 the wf-dash band in the terminal takes the place of the toasts', { options: { threshold: 200000 } }, async ($, on) => {
+test('AC-3 the chip-dash band in the terminal takes the place of the toasts', { options: { threshold: 200000 } }, async ($, on) => {
   const w = world(on, { band: true })
   await start($, w)
   await handoff($, w, 1)
   expect(w.toasts).toEqual([])
 })
 
-test('AC-3 a surface that draws no band gets the toasts even with wf-dash loaded', { options: { threshold: 200000 } }, async ($, on) => {
+test('AC-3 a surface that draws no band gets the toasts even with chip-dash loaded', { options: { threshold: 200000 } }, async ($, on) => {
   const w = world(on, { band: true, surfaces: ['terminal', 'mobile'] })
   await start($, w)
   await handoff($, w, 1)

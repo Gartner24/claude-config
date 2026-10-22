@@ -5,16 +5,16 @@ import { DEFAULT_VIEW, Dashboard, safeStep } from '../panes.tsx'
 import type { WfDashAsk } from '../types/index.d.ts'
 import { color, pane, space, time, width } from '../tokens.ts'
 
-// wf-dash: the band (spec 0059) reads this session and wf-handoff's files; the dashboard (spec 0060) reads plan.py and
+// chip-dash: the band (spec 0059) reads this session and wf-handoff's files; the dashboard (spec 0060) reads plan.py and
 // offers two actions, each behind a confirm. The drawing in band.tsx and panes.tsx is the locked look. Nothing here
 // runs or reads the retired wf runner.
 
-const FACTS = { plugin: 'wf-dash', key: 'facts' } as const
-const EFFORT = { plugin: 'wf-dash', key: 'effort' } as const
-const PLAN = { plugin: 'wf-dash', key: 'plan' } as const
-const VIEW = { plugin: 'wf-dash', key: 'view' } as const
-const HANDOFF = { plugin: 'wf-dash', key: 'handoff' } as const
-const PANE = 'wf-dash'
+const FACTS = { plugin: 'chip-dash', key: 'facts' } as const
+const EFFORT = { plugin: 'chip-dash', key: 'effort' } as const
+const PLAN = { plugin: 'chip-dash', key: 'plan' } as const
+const VIEW = { plugin: 'chip-dash', key: 'view' } as const
+const HANDOFF = { plugin: 'chip-dash', key: 'handoff' } as const
+const PANE = 'chip-dash'
 // P9: a prompt submitted from inside the confirming hook does not start a turn; from the clock after it returns, it does.
 // The host refuses $.prompt.submit of a text starting with "/" (it would run a command as the user), so the step goes
 // through $.command.run, which runs it as if typed, once the session is idle.
@@ -68,8 +68,8 @@ async function perform($: any, a: WfDashAsk): Promise<{ text: string; ok: boolea
 async function openDashboard($: any) {
   isOpen = true
   void loadPanes(true)
-  await $.ui.open({ id: PANE, title: 'wf-dash', focus: true, closeOnEscape: true, rows: pane.rows })
-  return { text: 'wf-dash open: p a switch views, esc closes' }
+  await $.ui.open({ id: PANE, title: 'chip-dash', focus: true, closeOnEscape: true, rows: pane.rows })
+  return { text: 'chip-dash open: p a switch views, esc closes' }
 }
 
 export const register: Register = on => {
@@ -186,11 +186,11 @@ export const register: Register = on => {
       await $.state.set(HANDOFF, { ...h, frame: h.frame + 1 })
     })
 
-    await $.command.register({ name: 'wf-dash', description: 'wf-dash: the plan and this chat\'s agents in one dashboard' })
+    for (const name of ['chip', 'wf-dash']) await $.command.register({ name, description: 'chip-dash: the plan and this chat\'s agents in one dashboard' })
     return started
   })
 
-  on('command.run', { command: 'wf-dash' }, async $ => openDashboard($))
+  for (const command of ['chip', 'wf-dash']) on('command.run', { command }, async $ => openDashboard($))
 
   on('ui.close', async ($, e, next) => {
     if (e.id === PANE) isOpen = false
@@ -232,7 +232,7 @@ export const register: Register = on => {
       ? <Band Box={Box} Text={Text} Button={Button} facts={value} columns={e.props.bodyColumns ?? (e.viewport?.columns ?? width.viewport) - space.hostReserve} onOpen={() => void openDashboard($)} />
       : (
         <Box paddingX={space.padX}>
-          <Text color={color.dim}>wf-dash: reading status</Text>
+          <Text color={color.dim}>chip-dash: reading status</Text>
         </Box>
       )
     if (!line) return band

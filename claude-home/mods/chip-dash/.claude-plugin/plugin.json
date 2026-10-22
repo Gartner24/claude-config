@@ -1,0 +1,1 @@
+{ "name": "chip-dash", "version": "0.1.0", "description": "Live band above the prompt for this session and its auto handoff, plus a plan and agents dashboard (/chip-dash)", "author": { "name": "Santiago Valencia" }, "types": "./types/index.d.ts" }
