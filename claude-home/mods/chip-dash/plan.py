@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """The chip-dash Plan view's data, as JSON on stdout: every repo scope under the scan roots, each feature with its
-state and next step (spec 0060 AC-1). The scope parser is runner/wf.py's (parse_text, sections, pick_next,
-feature_state, plan_scopes), trimmed to what the pane reads: the runner is retired, so the states it alone could
-tell (building, to publish, in review) are gone. Stdlib only."""
+state and next step (spec 0060 AC-1). The scope parser (parse_text, sections, pick_next,
+feature_state, plan_scopes) started as the retired runner's, trimmed to what the pane reads: the states only the
+runner could tell (building, to publish, in review) are gone. Stdlib only."""
 import json
 import os
 import re
@@ -249,6 +249,10 @@ def plan_entry(path):
     main = next(os.path.join(folder, f) for f in SCOPE_FILES if os.path.isfile(os.path.join(folder, f)))
     top = read(main)
     texts = list(read(f) for f in epics(folder, top, warnings)) if main.endswith("index.md") else [top]
+    # closed features moved to done.md (spec 0072c); they still count as built, so read them with the open ones
+    done_md = os.path.join(folder, "done.md")
+    if os.path.isfile(done_md):
+        texts.append(read(done_md))
     feats = []
     for text in texts:
         for heading, raw, deferred in sections(text):

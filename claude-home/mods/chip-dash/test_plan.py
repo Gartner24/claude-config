@@ -118,6 +118,19 @@ class Plan(unittest.TestCase):
         self.assertTrue(self.repos["hub"]["hub"])
         self.assertNotIn("wt", self.repos)
 
+    def test_closed_features_in_done_md_still_count_as_built(self):
+        # spec 0072c AC-12: the split moves closed features to done.md; the open ones and the built count stay the same
+        folder = Path(self.root, "here/docs/scope")
+        text = (folder / "scope.md").read_text()
+        start = text.index("### 4. Built")
+        end = text.index("### 5. Half done")
+        (folder / "done.md").write_text("# Closed\n\n" + text[start:end])
+        (folder / "scope.md").write_text(text[:start] + text[end:])
+        feats = {f["heading"].split(".")[0]: f["state"]
+                 for r in run(self.root)["repos"] if r["name"] == "here" for f in r["features"]}
+        self.assertEqual(feats, {k: f["state"] for k, f in self.feats.items()})
+        self.assertEqual(feats["4"], "done")
+
     def test_a_broken_scope_is_listed_with_its_error(self):
         bad = Path(self.root, "bad/docs/scope")
         bad.mkdir(parents=True)
