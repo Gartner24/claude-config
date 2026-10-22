@@ -304,8 +304,9 @@ Research recommended workflow templates and the workflows we can make from our o
   - [x] Install link and drift kind (AC-6)
   - [x] icm-architect scan, manifest entry, build, follows line check (AC-9, AC-10) (scan and install run by you 2026-10-22)
   - [x] Proof: build review-fix (row 102) with it
-- [ ] Verify it: `/check verify workflow builder skill`
-- [ ] Test it: `/test workflow builder skill`
+- [x] Verify it: `/check verify workflow builder skill` (AC-1 to AC-6, AC-9, AC-10 with can fail lines in the spec verify.md; AC-7 and AC-8 on first real use, your answer 2026-10-22)
+- [x] Test it: `/test workflow builder skill` (check.py 30 of 30, suite 154 ok; mutants in verify.md)
+- [ ] Prove AC-7 and AC-8 on first real use: your first `/review-fix <pr> --limit 1` on a real review (AC-8), and your first change to review-fix through `/workflow-builder review-fix --update` (AC-7) · waits on you · later boxes go on
 Source: [brief](../briefs/workflow-builder.md); [brief](../briefs/icm-restructure.md) "Workflows"; your messages 2026-10-22.
 
 ### 102. review-fix and restructure-check workflows

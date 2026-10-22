@@ -3,6 +3,7 @@
 Research: [workflow-templates.md](workflow-templates.md).
 
 ## Agreed so far, do not ask again
+- 2026-10-22: spec 0076 AC-7 (update mode) and AC-8 (dry run) are proven on first real use, not on a test PR (owner: "On first real use"); #176 merges with every other AC passed and one waiting box for those two.
 - 2026-10-22: a workflow's contract is the ICM pipeline stage folder tree (owner: "I want the ICM pipeline from the investigation ... best for me and even token usage"): one folder per workflow with numbered stage folders, each holding its own `CONTEXT.md` (Inputs, Process, Outputs, one Human check, Do NOT load), `references/` and `output/`. Not a single card in `map/processes/`.
 - 2026-10-22 (asked again, the owner corrected the first answer "inside each repo"): each workflow folder lives in `claude-home/workflows/<name>/` and is linked live to `~/.claude/workflows/<name>` by bin/install.sh, so it works in every repo; a thin skill starts it by scriptPath. The owner also asked for "a way of you allowing when I say so to write there, so we can edit ourselves when we need to" (meaning being confirmed, see below).
 - 2026-10-22: one script per workflow; each stage still writes its output/ and its CONTEXT.md names its human check, but the run goes straight through and the owner reads the outputs after it ends (merge and push still wait for the owner).
