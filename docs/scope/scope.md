@@ -260,6 +260,14 @@ A manual `/rollover` then `/clear` gets no "not live" list in the handover: the 
 - [ ] Live check: type `/rollover`, then `/clear`; the new chat's handover has a `## Handoff facts` block with the not live list · waits on you · later boxes go on
 Source: gap found in the ninth chat of 2026-10-22 (handover of that chat, next action 2).
 
+### 104. Fix: a resumed chat follows the folder's auto handoff setting both ways · planned
+A chat saved while auto handoff was off, resumed after you typed `/auto-handoff on` in that folder, stays off: at chat start the wf-handoff mod only ever sets `chain.off = true` from the folder file, never back to on (`claude-home/mods/wf-handoff/hooks/register.ts`, found in the row 95 verify).
+**Done when:** a resumed chat takes the folder's current setting, on or off, with a mod test red on the old code.
+- [x] Fix it: `/debug a resumed chat follows the folder's auto handoff setting` (chat start takes the folder file's word, on or off; no word keeps the chat's own)
+- [x] Verify it: `/check verify a resumed chat follows the folder's auto handoff setting` (off side: the row 95 resumed and forked tests; on side: the new row 104 test, the resumed chat is gated past the line. can fail: chat start only ever sets off, the old code; red)
+- [x] Test it: `/test a resumed chat follows the folder's auto handoff setting` (2 tests; mutants: old `if off then true` line -> row 104 resumed test red; no-word guard dropped -> 4 tests red incl. the row 104 no-word test; mod tests 157 pass)
+Source: [row 95 verify](../reviews/verify-row-95-2026-10-22.md); your answer 2026-10-22 ("Make it a row").
+
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
 
