@@ -447,6 +447,26 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/santiago/.claude/hooks/chain-catch.py",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/santiago/.claude/hooks/chain-catch.py --prompt",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "Notification": [

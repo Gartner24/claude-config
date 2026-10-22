@@ -57,6 +57,8 @@ Branches and PRs follow `rules/branch-pr.md`: one branch per spec, stacked only 
 - PR text: `/document pr`. Other prose: `/write`.
 - Bug, failing test, wrong behavior: `/debug`.
 - Which skill, cost and who starts it: `rules/skill-map.md`.
+- A chat opening in a repo starts `/audit` or `/scope` by itself (wf-handoff mod), and a Stop hook
+  (`hooks/chain-catch.py`) refuses to end a turn while a planned step or a `/debug` for a red test is owed.
 
 ### Decision gate (defines "clearly defined")
 A task is clearly defined only if every value it produces, computes or displays has a

@@ -3,6 +3,10 @@
 
 Run inside a repo. `--spec NNNN` (repeatable) names the specs being synced; they never warn.
 Prints `warning: <file> touches accepted spec <NNNN> <title> (<glob>)` per hit, exits 0 either way.
+`--files <path>...` (spec 0070 AC-4) prints `<repo relative path>\t<NNNN,NNNN or ->` per path inside the
+repo: the specs whose Paths globs match it, any status. Files under `docs/` never match (spec Paths never
+name docs/), except in a document repo (AGENTS.md `**Deliverable:** documents`, AC-20), where only
+`docs/scope/`, `docs/specs/`, `docs/briefs/` and `docs/reviews/` never match; `.workflow/` never matches.
 A git failure prints `spec-paths: <error>` and exits 1; a bad flag exits 2. `--test` runs the self checks.
 """
 import argparse
@@ -18,6 +22,9 @@ STATUS = re.compile(r"^\*\*Status\*\*:\s*(.*)$", re.M)
 PATHS = re.compile(r"^\*\*Paths:\*\*(.*)$", re.M)
 TITLE = re.compile(r"^#\s+\d{4}\s*[.:·-]?\s*(.*)$", re.M)
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+DELIVERABLE_DOCS = re.compile(r"^\*\*Deliverable:\*\*\s*documents\b", re.M)
+PLAN_DIRS = ("docs/scope/", "docs/specs/", "docs/briefs/", "docs/reviews/")
+WORKTREE = re.compile(r"^\.claude/worktrees/[^/]+/")
 
 
 class GitError(Exception):
@@ -102,15 +109,46 @@ def warnings(top, specs):
     return sorted(out)
 
 
+def document_repo(top):
+    try:
+        return bool(DELIVERABLE_DOCS.search(open(os.path.join(top, "AGENTS.md"), encoding="utf-8", errors="replace").read()))
+    except OSError:
+        return False
+
+
+def file_specs(top, paths):
+    """[(repo relative path, [NNNN, ...])] for each path inside the repo (AC-4, AC-20)."""
+    docs = document_repo(top)
+    specs = []
+    for n, rel in sorted(top_files(top).items()):
+        paths_line = PATHS.search(open(os.path.join(top, rel), encoding="utf-8", errors="replace").read())
+        specs.append((n, re.findall(r"`([^`]+)`", paths_line.group(1)) if paths_line else []))
+    out = []
+    for p in paths:
+        f = os.path.relpath(os.path.realpath(os.path.join(os.getcwd(), p)), os.path.realpath(top))
+        if f == "." or f.startswith(".." + os.sep) or f == "..":
+            continue
+        # a nested worktree is a checkout of this repo: `.claude/worktrees/w1/src/a.py` is `src/a.py`
+        f = WORKTREE.sub("", f.replace(os.sep, "/"))
+        plan = f.startswith(".workflow/") or f.startswith(PLAN_DIRS if docs else ("docs/",))
+        out.append((f, [] if plan else [n for n, globs in specs if any(fnmatch.fnmatchcase(f, g) for g in globs)]))
+    return out
+
+
 def main(argv):
     ap = argparse.ArgumentParser(prog="spec-paths")
     ap.add_argument("--spec", action="append", type=spec_number, default=[])
+    ap.add_argument("--files", nargs="+")
     ap.add_argument("--test", action="store_true")
     a = ap.parse_args(argv)
     if a.test:
         return self_test()
     try:
         top = git(os.getcwd(), "rev-parse", "--show-toplevel").strip()
+        if a.files:
+            for f, ns in file_specs(top, a.files):
+                print(f"{f}\t{','.join(ns) or '-'}")
+            return 0
         for line in warnings(top, set(a.spec)):
             print(line)
     except GitError as e:
@@ -217,6 +255,25 @@ def self_test():
         write(ms, "src/a.py", "b\n")
         sh(ms, "commit", "-q", "-am", "change")
         check("branch off master", run(ms), (0, [hit.format("src/*.py")]))
+
+        # Spec 0070 AC-4 and AC-20: --files maps each path to the specs whose globs match it.
+        fl = os.path.join(tmp, "f")
+        os.makedirs(fl)
+        sh(fl, "init", "-q", "-b", "main")
+        write(fl, "docs/specs/0001-src.md", spec("0001", "Accepted", "`src/*.py`, `lib/**`"))
+        write(fl, "docs/specs/0002-lib/index.md", spec("0002", "Proposed", "`lib/**`"))
+        write(fl, "docs/specs/0003-none.md", spec("0003", "Accepted", "none"))
+        write(fl, "docs/specs/0004-man.md", spec("0004", "Accepted", "`docs/manual/**`, `docs/specs/**`"))
+        files = ["src/a.py", os.path.join(fl, "lib/x/y.py"), "README.md", "docs/manual/m.md",
+                 "docs/specs/0003-none.md", ".workflow/scope/scope.md", os.path.join(tmp, "elsewhere.py")]
+        check("--files", run(fl, "--files", *files), (0, [
+            "src/a.py\t0001", "lib/x/y.py\t0001,0002", "README.md\t-", "docs/manual/m.md\t-",
+            "docs/specs/0003-none.md\t-", ".workflow/scope/scope.md\t-"]))
+        check("--files strips a nested worktree", run(fl, "--files", ".claude/worktrees/w1/src/a.py", ".claude/worktrees/w1/README.md")[1],
+              ["src/a.py\t0001", "README.md\t-"])
+        write(fl, "AGENTS.md", "# r\n\n**Deliverable:** documents\n")
+        check("--files in a document repo", run(fl, "--files", "docs/manual/m.md", "docs/specs/0003-none.md", "docs/x.md")[1],
+              ["docs/manual/m.md\t0004", "docs/specs/0003-none.md\t-", "docs/x.md\t-"])
 
         bare = os.path.join(tmp, "nogit")
         os.makedirs(bare)

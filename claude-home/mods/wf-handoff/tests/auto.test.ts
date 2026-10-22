@@ -29,6 +29,7 @@ function world(on: On, env: Record<string, string> = {}) {
     prs: '[]' as string | null, // `gh pr list` output, null when gh fails
     branches: '' as string | null, // `git branch --no-merged` output, null when it fails
     repos: { '/w': '/w/.git' } as Record<string, string>, // folder -> git common dir; any other folder is no repo
+    tops: {} as Record<string, string>, // folder -> `rev-parse --show-toplevel` (spec 0070 start); none by default
     ghArgs: [] as string[][],
     ghCwd: [] as (string | undefined)[],
   }
@@ -57,6 +58,8 @@ function world(on: On, env: Record<string, string> = {}) {
   // gh runs as `env -C <folder> gh ...`: ghArgs keeps the gh part, ghCwd the folder
   on('process.run', (_$, e: any) => e.argv[0] === 'env' && e.argv[3] === 'gh'
     ? (w.ghArgs.push(e.argv.slice(3)), w.ghCwd.push(e.argv[2]), out(w.prs === null ? 1 : 0, w.prs ?? ''))
+    : e.argv[0] === 'git' && e.argv[4] === '--show-toplevel'
+    ? (w.tops[e.argv[2]] ? out(0, `${w.tops[e.argv[2]]}\n`) : out(128, ''))
     : e.argv[0] === 'git' && e.argv[3] === 'rev-parse'
     ? (w.repos[e.argv[2]] ? out(0, `${w.repos[e.argv[2]]}\n`) : out(128, ''))
     : e.argv[0] === 'git' && e.argv[3] === 'branch'
@@ -553,6 +556,16 @@ const handOff = async ($: any, w: ReturnType<typeof world>) => {
   await w.clock.advance(1500)
   return w.commands.find(c => c.command === 'resume-from-clear')!.args
 }
+
+test('spec 0070 AC-3: a chat seeded by the auto handoff never starts /audit or /scope, even after a reload', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  await handOff($, w)
+  expect(chain(w).startedFor).toBe('S2')
+  w.tops = { '/w': '/w' }
+  await start($) // a reload of the mod in the seeded chat
+  await w.clock.settle()
+  expect(w.commands.filter(c => c.command === 'audit' || c.command === 'scope')).toEqual([])
+})
 
 test('open PRs go into the facts as not live, and the fresh chat must open with them', { options: { threshold: 50000 } }, async ($, on) => {
   const w = world(on)
