@@ -13,6 +13,9 @@ Drive `~/claude-config/bin/claude-config.py`. It never asks anything itself; you
   - exit 2: a conflict. Nothing was installed. Show the files under `~/.claude/state/claude-config-conflicts/<entry>/` with their `<<<<<<<` markers, help the user fix them, then run `update --apply <entry> --resolved`.
   - exit 1: show the message and stop for that entry.
   Entries listed as "update by hand, not checked" are never applied by the tool; show their `install` command instead.
+  A `review workflow-builder templates: ...` line (also printed by `drift`) is not an entry: the icm-architect pin
+  moved past the commit the builder's templates follow. Tell the user; the review is the workflow-builder skill's
+  "Upstream" section (spec 0076).
 - Plugins update outside this tool, so scan them yourself (spec 0054): before `claude plugin install`, run `skill-scan static <plugin source path>`; after a background plugin update, run `skill-scan <its installPath from ~/.claude/plugins/installed_plugins.json>`. Show the new serious findings; they never block.
 
 The drift check runs only here, never at session start. The session start line about upstream checks comes from a hook and only counts days.

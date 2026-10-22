@@ -34,7 +34,7 @@ for f in settings.json settings.local.json; do
   fi
 done
 
-for d in agents rules hooks scripts commands skills; do
+for d in agents rules hooks scripts commands skills workflows; do
   run mkdir -p "$LIVE/$d"
 done
 
@@ -60,9 +60,9 @@ for f in hooks/claude-config-reminder.py hooks/workflow-start.sh scripts/claude-
 done
 
 # Symlinked: editing the live file edits the repo, so there is one copy of the
-# truth. This is how the existing install is already wired.
+# truth. This is how the existing install is already wired. Spec 0076 AC-6: workflows/<name> the same way.
 echo "symlink:"
-for d in commands skills; do
+for d in commands skills workflows; do
   for src in "$REPO/claude-home/$d"/*; do
     [ -e "$src" ] || continue
     name="$(basename "$src")"

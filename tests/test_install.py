@@ -81,6 +81,22 @@ class TestInstallStage(Scratch):
         self.assertEqual((self.hooks / "pre-commit").read_text(), CHECKER)
 
 
+class TestWorkflowLinks(Scratch):
+    # covers: spec 0076 AC-6 (each claude-home/workflows/<name> is linked to ~/.claude/workflows/<name>; a real folder
+    # already there is skipped and named, never replaced)
+    def test_workflow_links(self):
+        for name in ("a", "b"):
+            (self.repo / "claude-home" / "workflows" / name).mkdir(parents=True)
+        home = self.tmp / "home-wf"
+        (home / ".claude" / "workflows" / "b").mkdir(parents=True)
+        _, live, r = self.install("wf")
+        link = live / "workflows" / "a"
+        self.assertTrue(link.is_symlink(), r.stdout + r.stderr)
+        self.assertEqual(link.resolve(), (self.repo / "claude-home" / "workflows" / "a").resolve())
+        self.assertFalse((live / "workflows" / "b").is_symlink())
+        self.assertIn("SKIP workflows/b (a real file is already there)", r.stdout)
+
+
 class TestDryRun(unittest.TestCase):
     # covers: spec 0020 AC-12, retired 2026-10-22 (the real install.sh --dry-run exits 0, no longer copies or links
     # the runner, and writes nothing under the home folder)

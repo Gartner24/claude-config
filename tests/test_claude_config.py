@@ -396,12 +396,68 @@ class TestDrift(Case):
         self.assertEqual(r.returncode, 1)
         self.assertIn("setting:\n  settings.json: model: differs\n  settings.json: skillOverrides: differs", r.stdout)
 
+    # covers: spec 0076 AC-6 (a workflow linked live is no drift; a real folder where the link belongs, a missing link
+    # and a live only workflow are reported under kind workflow)
+    def test_workflows(self):
+        own = self.repo / "claude-home" / "workflows" / "w"
+        own.mkdir(parents=True)
+        (own / "CONTEXT.md").write_text("x\n")
+        (self.live / "workflows").mkdir()
+        (self.live / "workflows" / "w").symlink_to(own)
+        r = self.tool("drift")
+        self.assertEqual((r.returncode, r.stdout.strip()), (0, "drift: none"), r.stdout + r.stderr)
+        (self.live / "workflows" / "w").unlink()
+        r = self.tool("drift")
+        self.assertIn("workflow:\n  w: missing live", r.stdout)
+        (self.live / "workflows" / "w").mkdir()
+        (self.live / "workflows" / "stray").mkdir()
+        r = self.tool("drift")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("workflow:\n  stray: live only", r.stdout)
+        self.assertIn("  w: in the repo, but live is not a link to it", r.stdout)
+
+    # covers: spec 0076 AC-10 (drift and update --plan compare each template's follows commit with the icm-architect
+    # pin: no entry, equal, moved; a template with no follows line is named too)
+    def test_follows(self):
+        t = self.repo / "claude-home" / "skills" / "workflow-builder" / "templates"
+        t.mkdir(parents=True)
+        (t / "CONTEXT.md").write_text("<!-- follows icm-architect aaa -->\n# x\n")
+        (t / "workflow.js").write_text("// follows icm-architect aaa\nexport const meta = {}\n")
+        none = "icm-architect not installed, templates not compared"
+        for cmd in (("drift",), ("update", "--plan")):
+            self.assertIn(none, self.tool(*cmd).stdout, cmd)
+        entry = {"kind": "skill", "status": "downloaded", "source": "github:x/icm-architect", "path": ".",
+                 "pinned": "aaa", "base_hash": None, "license": "MIT", "publish": True, "patch": None,
+                 "fetch": "manual", "install": "x", "framework": None}
+        self.manifest({"icm-architect": entry})
+        for cmd in (("drift",), ("update", "--plan")):
+            out = self.tool(*cmd).stdout
+            self.assertNotIn("review workflow-builder templates", out, cmd)
+            self.assertNotIn(none, out, cmd)
+        self.manifest({"icm-architect": {**entry, "pinned": "bbb"}})
+        want = "review workflow-builder templates: they follow icm-architect aaa, the pin is bbb"
+        for cmd in (("drift",), ("update", "--plan")):
+            self.assertIn(want, self.tool(*cmd).stdout, cmd)
+        (t / "stage-CONTEXT.md").write_text("# no follows line\n")
+        self.manifest({"icm-architect": entry})
+        self.assertIn("they follow icm-architect (no follows line), the pin is aaa", self.tool("drift").stdout)
+
     # covers: AC-7 (the old override guard: a reinstall over an edited skill shows in drift)
     def test_override_lost(self):
         s = self.install_edited()
         self.assertEqual(self.tool("drift").returncode, 0, self.tool("drift").stdout)
         (s / "SKILL.md").write_text(SKILL)
         self.assertIn("s: your edit is no longer in it", self.tool("drift").stdout)
+
+
+class TestWorkflowBuilderCheck(unittest.TestCase):
+    # covers: spec 0076 AC-5 (check.py's self check runs in the suite: a good workflow and the filled templates pass,
+    # each fixture's problem is reported)
+    def test_self_check(self):
+        r = subprocess.run([sys.executable, "-B", str(REAL / "claude-home" / "skills" / "workflow-builder" / "check.py"),
+                            "--test"], capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=120)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("check.py self check: ok", r.stdout)
 
 
 class TestBuild(Case):
