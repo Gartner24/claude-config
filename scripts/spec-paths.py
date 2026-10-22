@@ -7,7 +7,11 @@ Prints `warning: <file> touches accepted spec <NNNN> <title> (<glob>)` per hit, 
 repo: the specs whose Paths globs match it, any status. Files under `docs/` never match (spec Paths never
 name docs/), except in a document repo (AGENTS.md `**Deliverable:** documents`, AC-20), where only
 `docs/scope/`, `docs/specs/`, `docs/briefs/` and `docs/reviews/` never match; `.workflow/` never matches.
-A git failure prints `spec-paths: <error>` and exits 1; a bad flag exits 2. `--test` runs the self checks.
+`--overlap NNNN NNNN` (spec 0073 AC-4) prints `overlap: <glob of first> meets <glob of second>` and exits 1 when
+any pair of their Paths globs meets (fnmatch either way, or one a folder prefix of the other), `overlap: NNNN has
+no Paths line` and exits 1 when one has none, else `no overlap` and exits 0; `**Paths:** none` meets nothing.
+Exits: `--spec` and `--files` 0, or 1 on a git failure (`spec-paths: <error>`); `--overlap` 0 none, 1 overlap,
+2 unknown spec; a bad flag exits 2. `--test` runs the self checks.
 """
 import argparse
 import fnmatch
@@ -135,16 +139,55 @@ def file_specs(top, paths):
     return out
 
 
+def under(path, dirs):
+    """By whole path components: /a/bc is not under /a/b, and /a/b/ is /a/b (runner/run.py under)."""
+    path = os.path.normpath(path)
+    for d in dirs:
+        d = os.path.normpath(d)
+        if path == d or path.startswith(d.rstrip("/") + "/"):
+            return True
+    return False
+
+
+def overlap(a, b):
+    """The first (glob of a, glob of b) that meet, else None (runner/pr.py overlap, returning both globs)."""
+    for x in a:
+        for y in b:
+            if fnmatch.fnmatchcase(x, y) or fnmatch.fnmatchcase(y, x) or under(x, [y]) or under(y, [x]):
+                return x, y
+    return None
+
+
+def spec_globs(top, tops, n):
+    """The globs on spec n's Paths line ([] for `none`), or None when it has no Paths line."""
+    m = PATHS.search(open(os.path.join(top, tops[n]), encoding="utf-8", errors="replace").read())
+    return re.findall(r"`([^`]+)`", m.group(1)) if m else None
+
+
 def main(argv):
     ap = argparse.ArgumentParser(prog="spec-paths")
     ap.add_argument("--spec", action="append", type=spec_number, default=[])
     ap.add_argument("--files", nargs="+")
+    ap.add_argument("--overlap", nargs=2, type=spec_number, metavar="NNNN")
     ap.add_argument("--test", action="store_true")
     a = ap.parse_args(argv)
     if a.test:
         return self_test()
     try:
         top = git(os.getcwd(), "rev-parse", "--show-toplevel").strip()
+        if a.overlap:
+            tops = top_files(top)
+            for n in a.overlap:
+                if n not in tops:
+                    ap.error(f"no spec {n} in {top}")
+            globs = [spec_globs(top, tops, n) for n in a.overlap]
+            for n, g in zip(a.overlap, globs):
+                if g is None:
+                    print(f"overlap: {n} has no Paths line")
+                    return 1
+            hit = overlap(*globs)
+            print(f"overlap: {hit[0]} meets {hit[1]}" if hit else "no overlap")
+            return 1 if hit else 0
         if a.files:
             for f, ns in file_specs(top, a.files):
                 print(f"{f}\t{','.join(ns) or '-'}")
@@ -274,6 +317,20 @@ def self_test():
         write(fl, "AGENTS.md", "# r\n\n**Deliverable:** documents\n")
         check("--files in a document repo", run(fl, "--files", "docs/manual/m.md", "docs/specs/0003-none.md", "docs/x.md")[1],
               ["docs/manual/m.md\t0004", "docs/specs/0003-none.md\t-", "docs/x.md\t-"])
+
+        # Spec 0073 AC-4: --overlap on two specs' Paths globs.
+        write(fl, "docs/specs/0005-all.md", spec("0005", "Accepted", "`**`"))
+        write(fl, "docs/specs/0006-dir.md", spec("0006", "Accepted", "`bin/install.sh`, `src`"))
+        write(fl, "docs/specs/0007-bare.md", "# 0007. Bare\n\n**Status**: Accepted\n")
+        write(fl, "docs/specs/0008-other.md", spec("0008", "Accepted", "`bin/sync.sh`, `tests/*.py`"))
+        check("--overlap glob meets glob", run(fl, "--overlap", "1", "2"), (1, ["overlap: lib/** meets lib/**"]))
+        check("--overlap fnmatch the other way", run(fl, "--overlap", "5", "1"), (1, ["overlap: ** meets src/*.py"]))
+        check("--overlap folder prefix", run(fl, "--overlap", "1", "6"), (1, ["overlap: src/*.py meets src"]))
+        check("--overlap none meets nothing", run(fl, "--overlap", "3", "5"), (0, ["no overlap"]))
+        check("--overlap apart", run(fl, "--overlap", "6", "8"), (0, ["no overlap"]))
+        check("--overlap no Paths line", run(fl, "--overlap", "8", "7"), (1, ["overlap: 0007 has no Paths line"]))
+        check("--overlap unknown spec", run(fl, "--overlap", "1", "99")[0], 2)
+        check("--overlap needs two", run(fl, "--overlap", "1")[0], 2)
 
         bare = os.path.join(tmp, "nogit")
         os.makedirs(bare)

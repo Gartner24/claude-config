@@ -120,6 +120,15 @@ else
   note "skill-scan -> scripts/skill-scan.py"
   run ln -sfn "$REPO/scripts/skill-scan.py" "$BIN/skill-scan"
 fi
+# Spec 0073 AC-14: the helpers the switch-on rules call.
+for name in start-gates design-check issue-reread review-isolated; do
+  if [ -e "$BIN/$name" ] && ! [ -L "$BIN/$name" ]; then
+    note "SKIP $name (a real file is already at $BIN/$name)"
+  else
+    note "$name -> scripts/$name.py"
+    run ln -sfn "$REPO/scripts/$name.py" "$BIN/$name"
+  fi
+done
 # Spec 0036 AC-6: the missed skill hook matches messages against this index, which jjstack setup
 # builds once; without a rebuild it misses every skill added since.
 triggers="$LIVE/skills/jjstack/bin/jjstack-extract-triggers"
@@ -281,6 +290,11 @@ else
   python3 "$REPO/scripts/fb-ask.py" --test </dev/null >/dev/null 2>&1 \
     && note "fb-ask: all self-checks passed" \
     || { echo "  FB-ASK SELF-CHECK FAILED - run: python3 scripts/fb-ask.py --test" >&2; exit 1; }
+  for name in start-gates design-check issue-reread review-isolated; do
+    python3 "$REPO/scripts/$name.py" --test </dev/null >/dev/null 2>&1 \
+      && note "$name: all self-checks passed" \
+      || { echo "  ${name^^} SELF-CHECK FAILED - run: python3 scripts/$name.py --test" >&2; exit 1; }
+  done
   missing=0
   while read -r imp; do
     real="${imp/#@\~/$HOME}"

@@ -1361,13 +1361,13 @@ Source: [brief](../briefs/icm-restructure.md); [brief](../briefs/retire-runner.m
 `rules/when-to-switch-on.md` lists scripts not built yet: start gates (free memory, 5 hour use, cores per suite), design-check, issue reread, review-isolated, `spec-paths --overlap`, scope marker warnings. Spec [0073](../specs/0073-switch-on-helpers/index.md). Build only after rows 92, 93 and 97 phase 1 (0072a) merge: their Paths overlap.
 **Done when:** each script exists with its self check, and the rule file's "Needs a script" list is empty.
 - [x] Design it (spec): `/architect helper scripts for the switch-on rules` (spec 0073 accepted 2026-10-22 after a Sonnet cross check, 14 fixes applied)
-- [ ] Build it: `/develop helper scripts for the switch-on rules`
-  - [ ] Part A: start-gates, `spec-paths --overlap`, two rule lines (AC-1 to AC-4)
-  - [ ] Part B: design-check, `plan.py --warnings`, two rule lines (AC-5 to AC-7)
-  - [ ] Part C: probes P2b and P2c, issue-reread, review-isolated, last rule lines (AC-8 to AC-12)
-  - [ ] Install links, self checks, live rule copy, `bin/sync.sh` (AC-13, AC-14)
-- [ ] Verify it: `/check verify helper scripts for the switch-on rules`
-- [ ] Test it: `/test helper scripts for the switch-on rules`
+- [x] Build it: `/develop helper scripts for the switch-on rules` (PR #172, /review CAUTION, all 5 findings fixed in d2d2c19)
+  - [x] Part A: start-gates, `spec-paths --overlap`, two rule lines (AC-1 to AC-4)
+  - [x] Part B: design-check, `plan.py --warnings`, two rule lines (AC-5 to AC-7)
+  - [x] Part C: probes P2b and P2c, issue-reread, review-isolated, last rule lines (AC-8 to AC-12) · probes passed, see [verify](../specs/0073-switch-on-helpers/verify.md)
+  - [ ] Install links, self checks, live rule copy, `bin/sync.sh` (AC-13, AC-14); links and self checks are in `bin/install.sh`, the live copy and the install wait · later boxes go on
+- [x] Verify it: `/check verify helper scripts for the switch-on rules` (AC-1 to AC-14 with can fail lines in the spec verify.md; isolated review probed against the real claude)
+- [x] Test it: `/test helper scripts for the switch-on rules` (five self checks and suite 145 ok; 42 mutants red)
 Source: [brief](../briefs/switch-on-helpers.md); `claude-home/rules/when-to-switch-on.md` "Needs a script, not built yet"; your messages 2026-10-22.
 
 ### 99. Auto handoff off by itself in plain talk chats · dropped
