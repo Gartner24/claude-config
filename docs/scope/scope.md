@@ -1239,11 +1239,11 @@ Source: your messages 2026-10-02 ("should I keep working on here or in claude-co
 Rows 67, 69 and 71 each had a "copy live" box ticked while `claude-config drift` showed the file missing or different live (found and fixed 2026-10-20). Spec [0075](../specs/0075-live-tick-guard.md). Build only after row 92 merges (both edit `settings.json` and `bin/claude-config.py`).
 **Done when:** ticking a ` · live` box first runs the drift check for the files it names and refuses the tick if they differ, with a test.
 - [x] Design it (spec): `/architect a live install box is ticked only when it is live` (spec 0075 accepted 2026-10-22 after a Sonnet cross check, 9 fixes applied)
-- [ ] Build it: `/develop a live install box is ticked only when it is live`
-  - [ ] `live-tick.py` with `--test` (AC-1 to AC-6, AC-8)
-  - [ ] `COPIED_FILES`, live settings entry, `bin/sync.sh` (AC-7)
-- [ ] Verify it: `/check verify a live install box is ticked only when it is live`
-- [ ] Test it: `/test a live install box is ticked only when it is live`
+- [x] Build it: `/develop a live install box is ticked only when it is live` (PR #169, /review APPROVE, review and security fixes in)
+  - [x] `live-tick.py` with `--test` (AC-1 to AC-6, AC-8)
+  - [ ] `COPIED_FILES`, live settings entry, `bin/sync.sh` (AC-7) (repo side built; the live copy and live settings entry come after the merge) · later boxes go on
+- [x] Verify it: `/check verify a live install box is ticked only when it is live` (AC-1 to AC-8 with can fail lines in the spec verify.md)
+- [x] Test it: `/test a live install box is ticked only when it is live` (24 self checks, suite 144 ok, every guard mutation checked)
 - [ ] Sync docs: `/sync a live install box is ticked only when it is live`
 Source: [brief](../briefs/live-tick.md); drift check 2026-10-20 in the conductor chat. Plan item E7 in the [brief](../briefs/tool-review-2026-10.md).
 

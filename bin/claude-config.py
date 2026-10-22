@@ -36,6 +36,7 @@ IGNORE = REPO / "config" / "drift-ignore.json"
 COPIED_FILES = ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py",
                 "hooks/context-monitor.js", "hooks/claude-config-reminder.py",
                 "hooks/workflow-start.sh", "hooks/handover-start.sh", "hooks/no-jjstack-bar.py", "hooks/chain-catch.py",
+                "hooks/live-tick.py",
                 "scripts/claude-ram-watch.sh")
 # .in_use/<pid> is a marker Claude Code drops in a plugin folder per running session; it used to make 10
 # of 12 plugin base_hash values go stale as soon as any session started.
