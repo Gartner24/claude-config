@@ -1401,10 +1401,12 @@ Research recommended workflow templates and the workflows we can make from our o
 - [ ] Test it: `/test workflow builder skill`
 Source: [brief](../briefs/workflow-builder.md); [brief](../briefs/icm-restructure.md) "Workflows"; your messages 2026-10-22.
 
-### 102. review-fix and restructure-check workflows · needs a decision
-The two workflows you asked to be reminded of: `review-fix` (fix a PR's review findings) and `restructure-check` (the nothing broke check as one command). Built with the row 101 builder. from spec 0072
+### 102. review-fix and restructure-check workflows
+The two workflows you asked to be reminded of: `review-fix` (fix a PR's review findings) and `restructure-check` (the nothing broke check as one command). Built with the row 101 builder. from spec 0072. No separate spec (your answer 2026-10-22): the builder's interview is their design, seeded by the stage outlines in the [research brief](../briefs/workflow-templates.md) section 2. Starts after row 101 is built.
 **Done when:** both run as `/review-fix` and `/restructure-check` on a real PR.
-- [ ] Design it (spec): `/architect review-fix and restructure-check workflows`
+- [ ] Design and build review-fix: `/workflow-builder review-fix` (row 101's proof step)
+- [ ] Design and build restructure-check: `/workflow-builder restructure-check`
+- [ ] Run both on a real PR · waits on you
 Source: [brief](../briefs/icm-restructure.md) "Workflows"; your messages 2026-10-22.
 
 ### 103. Fix: a manual handoff gets the "not live" facts list
