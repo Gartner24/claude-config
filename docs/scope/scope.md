@@ -1386,12 +1386,20 @@ A saved Claude Code workflow (`/build-features`) that builds every ready scope r
 - [ ] Test it: `/test build-features workflow`
 Source: [brief](../briefs/build-features.md) (probe passed); [brief](../briefs/icm-restructure.md) "Workflows" and "Running workflows show"; your messages 2026-10-22.
 
-### 101. Workflow templates research and a workflow builder skill · needs a decision
+### 101. Workflow templates research and a workflow builder skill · in-progress
 Research recommended workflow templates and the workflows we can make from our own skills and repos (site design, SEO, reviews), then a skill that builds new workflows the ICM way (marketing and publicity workflows come later). from spec 0072
 **Done when:** a research brief lists the candidates with sources, and the builder skill makes one workflow that passes its own check.
 - [x] Research it: `/deep-research workflow templates for claude-config` ([brief](../briefs/workflow-templates.md), 2026-10-22)
-- [ ] Design it (spec): `/architect workflow builder skill`
-Source: [brief](../briefs/icm-restructure.md) "Workflows"; your messages 2026-10-22.
+- [x] Design it (spec): `/architect workflow builder skill` (spec [0076](../specs/0076-workflow-builder.md) accepted 2026-10-22 after a Sonnet cross check, 15 fixes applied). Build after rows 92, 87, 98 and 97 phase 1 merge.
+- [ ] Build it: `/develop workflow builder skill`
+  - [ ] Templates and `check.py` (AC-2, AC-3, AC-5)
+  - [ ] The skill: interview, writing, update mode, dry run offer (AC-1, AC-4, AC-7, AC-8)
+  - [ ] Install link and drift kind (AC-6)
+  - [ ] icm-architect scan, manifest entry, build, follows line check (AC-9, AC-10)
+  - [ ] Proof: build review-fix (row 102) with it
+- [ ] Verify it: `/check verify workflow builder skill`
+- [ ] Test it: `/test workflow builder skill`
+Source: [brief](../briefs/workflow-builder.md); [brief](../briefs/icm-restructure.md) "Workflows"; your messages 2026-10-22.
 
 ### 102. review-fix and restructure-check workflows · needs a decision
 The two workflows you asked to be reminded of: `review-fix` (fix a PR's review findings) and `restructure-check` (the nothing broke check as one command). Built with the row 101 builder. from spec 0072
