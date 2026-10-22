@@ -91,6 +91,74 @@ Each one gets a process card in `map/processes/` as its ICM contract (inputs, pr
 3. Which workflows first, and their names.
 4. Where running runs show: the agent panel (`subagentStatusLine`), the chip band, or both.
 
+## 6. icm-architect run on this repo (restructure steps 1 to 5, read only, 2026-10-22)
+Run: clone of RinDig/icm-architect at HEAD into a new empty folder, `skillspector scan --no-llm`: 7/100, LOW, one MEDIUM (EA2 at SKILL.md:43, an interview question, false positive), no scripts. Not linked into `~/.claude/skills`: a downloaded skill belongs in `config/manifest.json` (AGENTS.md rules), so the permanent install is a build step. Its restructure mode was followed from its own SKILL.md and references. Nothing was moved.
+
+### Step 1: inventory (tracked files, last commit, in repo files naming the area)
+| Area | Files | Last touched | Referrers | What it is |
+|---|---|---|---|---|
+| `AGENTS.md` / `CLAUDE.md` | 1 / 1 | 10-22 / 10-14 | 113 / 99 | entry: rules and commands / one line import |
+| `README.md`, `docs/architecture.md` | 1, 1 | 10-20, 10-22 | 27, many | orientation: what the repo is; runner design |
+| `claude-home/skills` | 234 | 10-22 | 37 | own skills, linked live |
+| `claude-home/rules` | 69 | 10-22 | 41 | rules, copied live (50 are under `ecc/`, mostly vendored) |
+| `claude-home/mods` | 38 | 10-22 | 26 | wf-handoff, chip-dash, linked by hand |
+| `claude-home/agents`, `hooks`, `commands`, `scripts` | 31, 8, 5, 1 | 10-15 to 10-22 | 15, 18, 4, 1 | copied or linked live |
+| `bin`, `scripts`, `config` | 6, 10, 6 | 10-22 | 179, 91, 103 | install, sync, checks, manifest |
+| `runner` (code) | 15 | 10-22 | 176 | the wf runner, retired live 10-22 |
+| `runner/tests` | 59 | 10-22 | 87 | the WHOLE repo suite (`fast.py`), not only runner tests |
+| `runner/e2e` | 7 | 10-18 | 25 | runner end to end probes |
+| `docs/specs` | 231 | 10-22 | 28 | 70 or so spec folders, the decisions |
+| `docs/scope/scope.md` | 1 | 10-22 | 60 | the plan: 1391 lines, about 28k tokens, 88 of 103 rows closed |
+| `docs/briefs`, `research`, `reviews`, `guides` | 35, 23, 7, 5 | 10-19 to 10-22 | 55, 22, 4, 25 | chat products, research, review reports, guides |
+
+Outside the repo, pointing in (step 4 asks these of the owner; these were found):
+- 27 links in `~/.claude/skills` and `~/.claude/commands` into `claude-home/skills`, `claude-home/mods`, `claude-home/commands`.
+- 3 links in `~/.local/bin` (`fb-ask`, `spec-paths`, `skill-scan`) into `scripts/`.
+- `~/.claude/settings.json:18-19` names `bin/claude-config.py` and `scripts/skill-keep.py`.
+- `~/projects/docs/master-list.md:4` names `docs/scope/scope.md`.
+- The dotfiles submodule pointer and the `~/claude-config` link name the repo root.
+- Not checked, owner to name: cron or systemd jobs, other machines, GitHub settings.
+
+### Step 2: the hidden form
+The repeating unit is a feature: scope row, then spec, then build, then verify, test, PR. That is a **record library** (specs are numbered records, `docs/scope/` the index log) wrapped around a **factory** (`claude-home/`, shipped to `~/.claude` by `bin/install.sh`). For an agent that must edit it, the form is the **System map** (forms.md:18). Name collisions a map must state once: "workflow" (our JSM chain vs Claude Code workflows), "review" (jjstack `/review` vs built in), "wf" (retired runner vs the `wf-handoff` mod), "dash" (old `wf-dash` is now `chip-dash`).
+
+### Step 3: roles
+- **Catalog:** `CLAUDE.md`, `AGENTS.md`, `README.md`, `docs/scope/scope.md` (as index), `docs/guides/SKILLS.md` (generated).
+- **Contract:** `docs/specs/*` (how each part must work), `docs/architecture.md`, `claude-home/rules/*` (how every chat must work).
+- **Factory:** `claude-home/` (all), `config/`, `bin/`, `scripts/`, templates inside skills.
+- **Product:** `docs/briefs/`, `docs/reviews/`, `docs/research/`, closed scope rows.
+- **Leftover (not Dead):** `runner/*.py`, `runner/e2e/`. Retired live, but still referenced (see step 4).
+- **Dead:** none confirmed. Every candidate has a live referrer.
+
+### Step 4: reference integrity, the blockers
+- `runner/` cannot move as a whole: `runner/tests/` is the suite for `bin/claude-config.py`, `scripts/*`, the layout and the borrowed ideas (`test_claude_config.py`, `test_skill_keep.py`, `test_skill_scan.py`, `test_spec_paths.py`, `test_layout.py`, `test_borrowed_ideas.py`, `test_move_home_chat.py`, `test_fast.py`), and `AGENTS.md` names `python3 runner/tests/fast.py` as the suite; `config/test-preferences.json:6` points there too. About 41 of the 59 test files import runner modules and would go with it. No live code imports the runner (`chip-dash/plan.py` copied its parser).
+- `claude-home/` cannot move: 27 outside links, `bin/install.sh`, spec 0035 same path rule.
+- `bin/` and `scripts/` cannot move: settings.json and `~/.local/bin` links.
+- `docs/scope/` and `docs/specs/` cannot move: every JSM skill and `spec-paths` expect them; the master list links the scope.
+- `docs/scope/scope.md` itself can split: the scope contract allows an `index.md` top file, but the chip-dash plan pane parses it, so a split needs that parser checked in the same change.
+
+### Step 5: the skill's proposed tree and migration map (nothing moved)
+```
+claude-config/
+  CLAUDE.md            stays a one line pointer (ICM allows it, core.md naming rule)
+  AGENTS.md            cut to routing only, under 60 lines; rules and gotchas move to map/ cards
+  claude-home/ bin/ scripts/ config/ docs/   unchanged paths (held, step 4)
+  docs/scope/          index.md (open rows) + done.md (closed rows), if the plan pane parser follows
+  map/                 NEW System map: CLAUDE.md, CONTEXT.md, _meta/schema.md, _templates/,
+                       objects/ (install, mods, rules, skills, specs, scope, suite),
+                       processes/ (install, sync, land a feature, handoff), effects/CONTEXT.md
+  tests/               NEW home of the non runner tests (moved out of runner/tests/, suite path updated)
+  _archive/runner/     runner code, e2e and its own tests, after tests/ is split out
+```
+| Old path | New path | Role | Referrers to update in the same change |
+|---|---|---|---|
+| `runner/tests/test_{claude_config,skill_keep,skill_scan,spec_paths,layout,borrowed_ideas,move_home_chat,fast}.py`, `fast.py`, `fixtures/` | `tests/` | Factory (suite) | `AGENTS.md` commands and standing answer, `config/test-preferences.json:6`, each spec `**Paths:**` naming them |
+| `runner/*.py`, `runner/e2e/`, the other runner tests | `_archive/runner/` | Leftover | `AGENTS.md`, `README.md`, `docs/architecture.md`, `docs/NOTICE.md`, `bin/install.sh:91` comment, `scripts/asciify.py:24` and `scripts/fb-ask.py:174` comments, spec `**Paths:**` lines |
+| `AGENTS.md` rules and gotchas | `map/objects/*.md` | Contract | none outside (the 113 referrers name the file, which stays) |
+| closed rows of `docs/scope/scope.md` | `docs/scope/done.md` | Product | `chip-dash/plan.py` parser, `~/projects/docs/master-list.md:4` (keeps working if `scope.md` stays the top file) |
+
+Next to section 4: the skill agrees on `map/` and on keeping `claude-home/`, `docs/specs/`, `docs/scope/` in place. It differs in three places: it finds `runner/tests/` is the whole suite, so the runner can only be archived after the tests are split; it adds the entry file cut (AGENTS.md to under 60 lines); and it flags the 28k token scope file as the largest single break of ICM's 2k to 8k per step rule. It proposes no `.claude/workflows/` (ICM has no workflows; those stay our layer).
+
 ## Sources
 1. https://github.com/RinDig/icm-architect - README.md, SKILL.md, references/core.md, forms.md, system-map.md, reference-integrity.md, assets/templates/ (all 15 files read)
 2. Van Clief, McDermott, "Interpretable Context Methodology: Folder Structure as Agentic Architecture", arXiv 2603.16021 v2, 18 Mar 2026 - read in full
