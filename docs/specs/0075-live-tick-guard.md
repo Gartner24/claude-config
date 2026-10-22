@@ -1,7 +1,7 @@
 # 0075. A live install box is ticked only when it is live
 
 **Date**: 2026-10-22
-**Status**: Proposed
+**Status**: Accepted
 **Paths:** `claude-home/hooks/live-tick.py`, `claude-home/settings.json`, `bin/claude-config.py`
 
 ## What you're agreeing to

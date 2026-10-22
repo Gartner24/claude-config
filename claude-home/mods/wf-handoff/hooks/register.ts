@@ -351,12 +351,44 @@ async function notLiveNow($: EngineInterface, files: string[]) {
   return out
 }
 
-// The slot written since this handoff started, or ''.
-async function newSlot($: EngineInterface) {
+// The one place both paths (auto and a manual /rollover then /handoff) get the facts and the not live
+// list from. Only the auto path called it before (row 103), so a manual handover never named them.
+async function gatherFacts($: EngineInterface) {
+  // Commits come from git, not from commit output: `git commit -q` prints none and an amend
+  // printed a sha that no longer exists ("Commits: none" after 3 amends).
+  const gitLog = chain?.startedAt
+    ? await $.process.run(['git', '-C', await $.session.cwd(), 'log', `--since=${chain.startedAt}`, '-n', '30', '--format=%h %s'], { timeoutMs: 5000 }).catch(() => null)
+    : null
+  const facts = extractFacts(await $.session.messages(), ignoreFiles, gitLog?.exitCode === 0 ? gitLog.stdout : '')
+  return { facts, notLive: await notLiveNow($, facts.files) }
+}
+
+// The slot written since `since` (ISO), or ''.
+async function newSlot($: EngineInterface, since = chain!.triggeredAt!) {
   const r = await slotCmd($)
   const path = r.exitCode === 0 ? r.stdout.trim() : ''
   const stat = path ? await $.fs.stat(path).catch(() => null) : null
-  return stat && stat.mtimeMs > Date.parse(chain!.triggeredAt!) ? path : ''
+  return stat && stat.mtimeMs > Date.parse(since) ? path : ''
+}
+
+// A manual /rollover wrote this slot with no facts block; the auto path stamps it in finishRollover.
+// A slot that already has the block (stamped by the auto path, or by an earlier /handoff or /clear) is
+// left alone. Returns a sentence for the owner when stamping failed, else ''.
+async function stampManualSlot($: EngineInterface, path: string) {
+  if (!active || !chain) return ''
+  try {
+    const text = await $.fs.read(path)
+    if (!text.includes('## Handoff facts')) {
+      const g = await gatherFacts($)
+      const n: Numbers = { tokens: await size($), line: lineNow().line, lineSource: lineNow().source, start: chain.startTokens, unattended: chain.unattended }
+      const marked = markUnverified(text, n)
+      await $.fs.write(path, insertAfterHeading(marked.text, factsBlock(g.facts, n, chain.link, g.notLive)))
+    }
+    return ''
+  } catch (err) {
+    await log($, `manual handoff: facts not added (${err})`)
+    return ` The not live list could not be added (${err}).`
+  }
 }
 
 // Each main turn.complete of the rollover. The probe's rollover turn ended while its writer still ran,
@@ -401,20 +433,15 @@ async function finishRollover($: EngineInterface) {
   c.pageKey = key
   c.link = viewerBase ? `${viewerBase}/${c.session.slice(0, 8)}-${key}` : `file://${page}`
   nextFor = prevLink && c.previous ? { page: `${dir}/pages/${c.previous}.html`, link: c.link } : null
-  // Commits come from git, not from commit output: `git commit -q` prints none and an amend
-  // printed a sha that no longer exists ("Commits: none" after 3 amends).
-  const gitLog = c.startedAt
-    ? await $.process.run(['git', '-C', await $.session.cwd(), 'log', `--since=${c.startedAt}`, '-n', '30', '--format=%h %s'], { timeoutMs: 5000 }).catch(() => null)
-    : null
-  const facts = extractFacts(await $.session.messages(), ignoreFiles, gitLog?.exitCode === 0 ? gitLog.stdout : '')
-  notLiveAtHandoff = await notLiveNow($, facts.files)
+  const gathered = await gatherFacts($)
+  notLiveAtHandoff = gathered.notLive
   const marked = markUnverified(await $.fs.read(path), n)
   for (const f of marked.marked) await log($, `unverified figure: ${f}`)
   // Spec 0069 AC-22: a handover that names no index says so, and the fresh chat tells the owner.
   const named = /Handover memory: \S/.test(marked.text) || /memory not written: /i.test(marked.text)
   if (!named) await log($, 'the handover names no memory index')
   const text = named ? marked.text : `${marked.text.replace(/\n*$/, '')}\n\n${NO_MEMORY}\n`
-  const slot = insertAfterHeading(text, factsBlock(facts, n, c.link, notLiveAtHandoff))
+  const slot = insertAfterHeading(text, factsBlock(gathered.facts, n, c.link, notLiveAtHandoff))
   await $.fs.write(path, slot)
   await $.fs.write(page, renderPage(slot, { key, prev: prevLink, title: `Handover ${c.triggeredAt}` }))
     .catch(err => log($, `page not written (${err})`))
@@ -588,6 +615,13 @@ export const register: Register = (on, options) => {
   })
 
   on('session.end', async ($, e, next) => {
+    // An owner's /clear after a manual /rollover (row 103): stamp the slot while this chat's messages
+    // and id are still readable, so before next(e). Not the handoff's own clear, and not a slot an
+    // older chat wrote (the slot must be newer than this chat's start).
+    if (active && e.reason === 'clear' && chain?.startedAt && chain.phase !== 'clearing' && !(chain.phase === 'failed' && lateClear)) {
+      const path = await newSlot($, chain.startedAt).catch(() => '')
+      if (path) await stampManualSlot($, path)
+    }
     const r = await next(e)
     // An owner's own /clear starts a new chain and gets no seed.
     if (active && e.reason === 'clear' && chain && chain.phase === 'failed' && lateClear) {
@@ -730,10 +764,11 @@ export const register: Register = (on, options) => {
     home ||= (await $.env.get('HOME')) ?? ''
     const r = await slotCmd($)
     if (r.exitCode !== 0 || !r.stdout.trim()) return { text: 'no handover, run /rollover first' }
+    const stampError = await stampManualSlot($, r.stdout.trim())
     // Probe P2: awaiting $.command.run inside a command.run hook is refused (it waits on the turn
     // this hook holds), so the clear runs from a timer after the hook has returned.
     $.clock.after(1500, () => { void $.command.run({ command: 'clear', args: '' }).catch(() => {}) })
-    return { text: `Handover found at ${r.stdout.trim()}; clearing in 1.5 s, then it loads.` }
+    return { text: `Handover found at ${r.stdout.trim()}; clearing in 1.5 s, then it loads.${stampError}` }
   })
 
   // A chat that is not for coding fills fast and drifts less, so the owner turns the handoff off

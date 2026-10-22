@@ -1,7 +1,7 @@
 # 0073. Helper scripts for the switch-on rules
 
 **Date**: 2026-10-22
-**Status**: Proposed
+**Status**: Accepted
 **Paths:** `scripts/start-gates.py`, `scripts/design-check.py`, `scripts/issue-reread.py`, `scripts/review-isolated.py`, `scripts/spec-paths.py`, `claude-home/mods/chip-dash/plan.py`, `claude-home/mods/chip-dash/test_plan.py`, `bin/install.sh`, `claude-home/rules/when-to-switch-on.md`
 
 ## What you're agreeing to

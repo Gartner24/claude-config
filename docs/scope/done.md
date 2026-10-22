@@ -1086,6 +1086,18 @@ You want the chat that runs your Claude setup and the runner (today opened in `~
 Spec [0067](../specs/0067-home-chat-in-claude-config/index.md) · code in `bin/move-home-chat.sh`, `tests/test_move_home_chat.py`
 Source: your messages 2026-10-02 ("should I keep working on here or in claude-config"), 2026-10-11, and 2026-10-20 ("I wanted to move all the sessions from ~/.claude to claude-config"); personal plan item 9 ("decide whether conductor sessions keep running from `~/.claude`"). Plan item E6 in the [brief](../briefs/tool-review-2026-10.md).
 
+### 87. A live install box is ticked only when it is live · done
+Rows 67, 69 and 71 each had a "copy live" box ticked while `claude-config drift` showed the file missing or different live (found and fixed 2026-10-20). Spec [0075](../specs/0075-live-tick-guard.md). Build only after row 92 merges (both edit `settings.json` and `bin/claude-config.py`).
+**Done when:** ticking a ` · live` box first runs the drift check for the files it names and refuses the tick if they differ, with a test.
+- [x] Design it (spec): `/architect a live install box is ticked only when it is live` (spec 0075 accepted 2026-10-22 after a Sonnet cross check, 9 fixes applied)
+- [x] Build it: `/develop a live install box is ticked only when it is live` (PR #169, /review APPROVE, review and security fixes in)
+  - [x] `live-tick.py` with `--test` (AC-1 to AC-6, AC-8)
+  - [x] `COPIED_FILES`, live settings entry, `bin/sync.sh` (AC-7) (repo side built; the live copy and live settings entry come after the merge) · later boxes go on
+- [x] Verify it: `/check verify a live install box is ticked only when it is live` (AC-1 to AC-8 with can fail lines in the spec verify.md)
+- [x] Test it: `/test a live install box is ticked only when it is live` (24 self checks, suite 144 ok, every guard mutation checked)
+- [x] Sync docs: `/sync a live install box is ticked only when it is live`
+Source: [brief](../briefs/live-tick.md); drift check 2026-10-20 in the conductor chat. Plan item E7 in the [brief](../briefs/tool-review-2026-10.md).
+
 ### 88. Fix: auto handoff answers the question it cut off · done
 When you asked something just before the handoff line, the gate cut the turn short, and the fresh chat was told your question was already answered, because the mod trusted the old chat's own "Status:" line in the handover (handoff 313e03e8 to a4f6bf38 on 2026-10-21 logged "priority off").
 **Done when:** a question whose turn the gate cut short is always put first in the fresh chat, whatever the handover's Status line says; a question answered in a full turn is not, with tests that fail on the old code.
@@ -1095,11 +1107,65 @@ When you asked something just before the handoff line, the gate cut the turn sho
 - [x] Sync docs: `/sync auto handoff answers the question it cut off` (no AGENTS.md change; live once merged, the live mod links the plan checkout)
 Source: your message 2026-10-20 ("The automatic rollover also is wiping my questions ... we need to fix that now").
 
+### 91. Handover memory · done
+A fresh chat after a handoff keeps every open question, shown list and agreed decision, written by a small helper into the feature's brief and checked against the old transcript.
+**Done when:** spec 0069's acceptance criteria hold, and the replay of the 11 audited handoffs keeps at least as much as today's slots.
+- [x] Design it (spec): `/architect handover memory` (spec [0069](../specs/0069-handover-memory.md) accepted 2026-10-22)
+- [x] Build it: `/develop handover memory` (PR open, see below)
+  - [x] Probe: a foreground writer agent inside a mod-started rollover finishes before the slot check; a FAIL goes back to `/architect` (FAIL 2026-10-22, the Agent tool runs the writer in the background; you picked a mod wait for running agents, spec amended; run 3 with the wait PASS; see the spec's [verify.md](../specs/0069-handover-memory/verify.md))
+  - [x] `scripts/handover-memory.py` check, prune, ages, close, lint, with `--test` (also path, messages, add, done; 32 mutants red)
+  - [x] Replay the 11 audited handoffs; stop on a loss (run 2 FAIL, 2 of 11 kept fewer open owner questions; you decided the slot keeps its Open questions section beside the memory, spec amended; run 3 PASS counting memory plus slot; see verify.md)
+  - [x] Templates `sections.md` and `instructions.md`, writer failure line, mod tests (mod tests 148 pass, 52 mutants red)
+  - [x] Live rules: `handover-carry.md`, `check-gates.md` gate 5, `CLAUDE.md` Context, live templates, then `bin/sync.sh` (repo copies under `claude-home/` edited; copying them live is left, after the merge) · later boxes go on
+- [x] Verify it: `/check verify handover memory` (AC-1 to AC-22 with can fail lines in the spec verify.md; replay run 3 PASS)
+- [x] Test it: `/test handover memory` (mod tests 148, suite 149, handover-memory self checks pass; 52 mutants red)
+Source: [brief](../briefs/handover-memory.md), [brief](../briefs/handoff-loss-audit.md) and [brief](../briefs/retire-runner.md).
+
+### 92. Skills start themselves at the right moment · done
+Today the 9 workflow skills start only because rule text says so, and on 2026-10-22 `/scope` never ran at chat start and free form builds skipped the `/develop` chain. You want real triggers, like the JSM agentic engineering course describes.
+**Done when:** each of the 9 skills has a trigger you chose (hook or rule), and a chat that skips one is caught, with a test per hook.
+- [x] Design it (spec): `/architect skills start themselves at the right moment` (spec [0070](../specs/0070-skills-start-themselves.md) accepted 2026-10-22)
+- [x] Build it: `/develop skills start themselves at the right moment` (PR #166, merged 2026-10-22, 1229a0b)
+  - [x] Probes: Stop hook block, headless tell, mod start at chat open and after `/clear`; a FAIL goes back to `/architect` (2026-10-22: (a) to (e) PASS; finding F1 in [verify.md](../specs/0070-skills-start-themselves/verify.md): the shell start hook runs before the mod, so it applies the mod's rule itself, spec amended)
+  - [x] `spec-paths --files`, then `chain-catch.py` with `--test` and its Stop hook (also `--prompt` and the AC-17 to AC-20 rules; 65 checks, each mutation checked)
+  - [x] wf-handoff mod start of `/audit` and `/scope`, `workflow-start.sh` skip, mod tests (F1: the hook applies the mod's rule itself, owner 2026-10-22; one shared case list; the origin is parsed, not substring matched)
+  - [x] Live rules: `handoff.md`, `skill-map.md`, `CLAUDE.md`, settings Stop hook, then `bin/sync.sh` (repo copies under `claude-home/` edited, plus `check-gates.md`, `scope-contract.md` and the UserPromptSubmit hook; copied live 2026-10-22 after PR #166; drift clean, live self checks pass) · later boxes go on
+- [x] Verify it: `/check verify skills start themselves at the right moment` (AC-1 to AC-21 with can fail lines in the spec's verify.md; /review APPROVE on PR #166, its P2 and 3 security notes fixed)
+- [x] Test it: `/test skills start themselves at the right moment` (mod tests 137, chain-catch, workflow-start and spec-paths self checks pass, suite 139 ok; 117 mutants red)
+Source: [brief](../briefs/skills-start-themselves.md), your messages 2026-10-22 ("the 9 skills should have rules when to trigger automatically like develop or others") and [brief](../briefs/retire-runner.md).
+
+### 93. Dashboard restructure for the setup without wf · done
+The wf-dash band and panes still read the retired runner's ideas. You like the dashboard and want it restructured and connected to today's setup.
+**Done when:** every number and pane reads a live source of today's setup, and the design gate passes.
+- [x] Design it (spec): `/architect dashboard restructure for the setup without wf` (spec [0071](../specs/0071-dashboard-now-view.md) accepted 2026-10-22)
+- [x] Build it: `/develop dashboard restructure for the setup without wf` (after rows 95 and 96 merge) (PR #164, /review APPROVE, review fixes 6f49598)
+  - [x] Probe `gh api graphql` PR search from the mod (a FAIL goes back to `/architect`) (PASS 2026-10-22, spec verify.md)
+  - [x] Readers, Now view, band `owed N`, mod tests (26 new tests, 27 of 28 mutants red; mod tests 82 of 82 pass after the review fix)
+  - [x] Let the old view key assertion change: type `/allow-test-change`, then `dashboard.test.ts:60` expects `p n a` · waits on you (allowed 2026-10-22; mod tests 81 pass)
+  - [x] Confirm Plan's next group key `t` (`n` went to Now; a guessed letter) · waits on you · later boxes go on (your answer 2026-10-22: keep `t`)
+  - [x] design.md and PRODUCT.md, then `design-gate` (gate pass 3 2026-10-22: PASS WITH FINDINGS, 1 should-fix for `/architect`: `checks failing` cut at 40 columns)
+- [x] Verify it: `/check verify dashboard restructure for the setup without wf` (AC-1 to AC-10 with can fail lines in the spec's verify.md; open: `checks failing` and `checks pending` cut at 40 columns, a label AC-3 spells, for `/architect`)
+- [x] Test it: `/test dashboard restructure for the setup without wf` (mod tests 82 of 82, suite 1136 ok, mutants in verify.md)
+Source: [brief](../briefs/dashboard-restructure.md); your message 2026-10-22 ("I think the dashboard is great still just need a restructuring and connect with our updates").
+
 ### 94. Three numbers for the switch-on rules · done
 `rules/when-to-switch-on.md` has three `[ask the owner]` placeholders.
 **Done when:** the keep awake hours, the wait in minutes for a first PR check, and the review loop rounds are your numbers in the live rule and the repo.
 - [x] Fill them: `/develop three numbers for the switch-on rules` (your answers 2026-10-22: 8h, 10 minutes, 3 rounds; live and in the repo)
 Source: [brief](../briefs/context-trim-and-all-chats.md) Part 2.
+
+### 98. Helper scripts the switch-on rules still lack · done
+`rules/when-to-switch-on.md` lists scripts not built yet: start gates (free memory, 5 hour use, cores per suite), design-check, issue reread, review-isolated, `spec-paths --overlap`, scope marker warnings. Spec [0073](../specs/0073-switch-on-helpers/index.md). Build only after rows 92, 93 and 97 phase 1 (0072a) merge: their Paths overlap.
+**Done when:** each script exists with its self check, and the rule file's "Needs a script" list is empty.
+- [x] Design it (spec): `/architect helper scripts for the switch-on rules` (spec 0073 accepted 2026-10-22 after a Sonnet cross check, 14 fixes applied)
+- [x] Build it: `/develop helper scripts for the switch-on rules` (PR #172, /review CAUTION, all 5 findings fixed in d2d2c19)
+  - [x] Part A: start-gates, `spec-paths --overlap`, two rule lines (AC-1 to AC-4)
+  - [x] Part B: design-check, `plan.py --warnings`, two rule lines (AC-5 to AC-7)
+  - [x] Part C: probes P2b and P2c, issue-reread, review-isolated, last rule lines (AC-8 to AC-12) · probes passed, see [verify](../specs/0073-switch-on-helpers/verify.md)
+  - [x] Install links, self checks, live rule copy, `bin/sync.sh` (AC-13, AC-14); links and self checks are in `bin/install.sh`, the live copy and the install wait · later boxes go on
+- [x] Verify it: `/check verify helper scripts for the switch-on rules` (AC-1 to AC-14 with can fail lines in the spec verify.md; isolated review probed against the real claude)
+- [x] Test it: `/test helper scripts for the switch-on rules` (five self checks and suite 145 ok; 42 mutants red)
+Source: [brief](../briefs/switch-on-helpers.md); `claude-home/rules/when-to-switch-on.md` "Needs a script, not built yet"; your messages 2026-10-22.
 
 ## Deferred
 

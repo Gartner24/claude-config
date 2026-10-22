@@ -93,3 +93,17 @@ Branch `feat/0072-scope-split`. 86 of 107 feature sections (every `· done` or `
 - `test_closed_features_in_done_md_still_count_as_built`: `if os.path.isfile(done_md)` changed to `if False and ...`, red (feature 4 missing); restored from backup, green.
 
 Docstring at `plan.py:3` no longer says the parser is `runner/wf.py`'s. Not run: the regression-hunter report.
+
+## Phase 1 whole verify (2026-10-22)
+Merged main at f97b743 (PRs #165, #167, #175 in). Snapshot re-created from commit 5ee24c1 in a throwaway worktree: `ref-check.py snapshot --repo <5ee24c1 tree> --link-root /home/santiago/claude-config` gave 691 pointers (271 text, 385 spec Paths, 33 live links, 2 settings.json strings), 98 already dangling left out.
+
+- [x] AC-5 whole phase, ref-check: `ref-check.py verify <snapshot> --map-from-git 5ee24c1` exits 1 with 36 BROKEN lines (35 text, 1 spec-paths). The rule wants the referrer to name the new path; in all 36 the referrer no longer names the old path at all (checked by token search in the current referrer, `docs/scope/done.md` included for scope.md rows): 0 of 36 still name a missing path. 35 are pointers the 0072b/0072c rewrites dropped (old `AGENTS.md` text, scope rows moved to or trimmed for `done.md`, `README.md`, `docs/architecture.md`, `docs/NOTICE.md`). The last is `0035-readable-layout` Paths, now `_archive/runner/tests/` (exists; the tool compares it without the trailing slash). Judged: no dangling pointer, strict exit is a tool limit for dropped pointers. can fail: a doc still naming `runner/` or a Paths line left on a moved folder would show in the "STILL NAMES" check as a nonzero count (it was 0).
+- [x] Live links: 33 links under `~/.claude` and `~/.local/bin` point into the repo (same 33 as the snapshot), 0 dangling (`os.path.exists` on each link, read only). can fail: a link to a moved file, such as one into `runner/`, counts as DANGLING.
+- [x] `bin/install.sh --dry-run`: clean, lists copy, symlink, bin links (spec-paths, fb-ask, skill-scan, start-gates, design-check, issue-reread, review-isolated) all from `scripts/` and `claude-home/`; nothing written. can fail: a path in the installer to a moved file makes the plan print an error or a source path that does not exist.
+- [x] `python3 -B tests/fast.py`: `Ran 150 tests in 12.2s, 0 failed, OK` (includes test_layout, test_map, test_plan, test_docs_pr, test_install). can fail: any of the layout, link or install tests turning red on a wrong move.
+- [x] `ref-check.py --test`: `ref-check self check: ok`. `spec-paths.py --spec 0001 0035 0043 0056 0072`: no output, no `matches no` line. can fail: a spec Paths glob matching no file prints a `matches no` line.
+- [x] Layout: top level is `_archive bin claude-home config docs map scripts tests`, `CLAUDE.md`, `AGENTS.md -> CLAUDE.md`, `README.md`, `LICENSE`; no `runner/`; `CLAUDE.md` 52 lines (AC-6 under 60). can fail: a leftover `runner/` folder or a regular-file AGENTS.md (test_single_load red).
+- Not run: regression-hunter report (AC-5); `ref-check.py check` over all markdown reports 519 MISSING (only the tail was read; those seen are in specs naming old or planned paths); it is meant for map cards, not a gate.
+
+## Phase 1 whole test (2026-10-22)
+No uncommitted source changes; each part shipped its tests (see mutations above). No test added or changed here. Suite run on merged main: 150 tests, 0 failed. MUTATION CHECKED: 0.
