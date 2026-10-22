@@ -1341,7 +1341,7 @@ Source: [brief](../briefs/dashboard-restructure.md) (name answer).
 You asked to restructure claude-config into the folder layout of RinDig's icm-architect repo.
 **Done when:** the repo follows the agreed layout, `bin/install.sh --dry-run` and the suite pass, and every live link still resolves.
 - [ ] Design it (spec): `/architect restructure claude-config to the icm-architect layout`
-Source: [brief](../briefs/retire-runner.md) line 13; your first message 2026-10-22.
+Source: [brief](../briefs/icm-restructure.md); [brief](../briefs/retire-runner.md) line 13; your messages 2026-10-22.
 
 ### 98. Helper scripts the switch-on rules still lack
 `rules/when-to-switch-on.md` lists scripts not built yet: start gates (free memory, 5 hour use, cores per suite), design-check, issue reread, review-isolated, `spec-paths --overlap`, scope marker warnings.
