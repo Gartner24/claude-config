@@ -15,7 +15,7 @@ overwritten.
 | Copied (`CLAUDE.md`, `settings*.json`, `agents/`, `rules/`, your hooks and scripts) | `claude-home/` | `~/.claude/<same path>` | live wins | you, in `~/.claude` | `bin/sync.sh` copies live into the repo; `bin/install.sh` copies back on a new machine |
 | Linked (`skills/`, `commands/` you wrote) | `claude-home/skills/`, `claude-home/commands/` | `~/.claude/skills/<name>` is a symlink (a pointer) into the repo | repo wins | you, in the repo | `bin/install.sh` makes the links |
 | Downloaded (skills from GitHub and packages) | `config/manifest.json`, your edits in `config/patches/` | `~/.claude/skills/<name>` | upstream plus your patch | their installer, then you | `/claude-config update`, after your yes per skill |
-| Runner (`wf`, `next`) | `runner/` | `~/.local/share/wf/<fp>/`, linked from `~/.local/bin/wf` | repo wins | you, in the repo | `bin/install.sh` copies it out |
+| Runner (`wf`, `next`) | `_archive/runner/` | `~/.local/share/wf/<fp>/`, linked from `~/.local/bin/wf` | repo wins | you, in the repo | `bin/install.sh` copies it out |
 | Repo tools | `bin/`, `scripts/` | none (a few are linked into `~/.local/bin`) | repo wins | you, in the repo | nothing |
 | Frameworks (gstack, jjstack, ECC commands, the JSM skills, plugins) | named in `config/manifest.json` | their own folders in `~/.claude` | their installer wins | their installer | their own installer; never copied here |
 | Private (names, work rules, settings fragments, private skills and patches) | none | `~/.claude/private/` | live only | you | nothing; never in any repo |

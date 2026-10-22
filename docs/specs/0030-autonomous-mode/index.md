@@ -2,9 +2,9 @@
 
 **Date**: 2026-10-13
 **Status**: Accepted (built 376d029)
-**Paths:** `runner/auto.py`, `runner/wf.py`, `runner/run.py`, `runner/tests/test_auto.py`, `claude-home/skills/auto/SKILL.md`, `claude-home/settings.json`, `AGENTS.md`
-**Amends**: [0021](../0021-never-stop/index.md) (new run level row U11 `auto_off`), architecture invariant 5 (starting a run), [0020](../0020-one-command-wf/index.md) (who may run `wf -y`).
-**Amended by**: [0058](../0058-own-status-bar.md) AC-10 (the bar draws its own segments, no jjstack script)
+**Paths:** `_archive/runner/auto.py`, `_archive/runner/wf.py`, `_archive/runner/run.py`, `_archive/runner/tests/test_auto.py`, `claude-home/skills/auto/SKILL.md`, `claude-home/settings.json`, `AGENTS.md`
+**Amends**: [0021](../../../_archive/runner/docs/specs/0021-never-stop/index.md) (new run level row U11 `auto_off`), architecture invariant 5 (starting a run), [0020](../0020-one-command-wf/index.md) (who may run `wf -y`).
+**Amended by**: [0058](../../../_archive/runner/docs/specs/0058-own-status-bar.md) AC-10 (the bar draws its own segments, no jjstack script)
 
 ## What you're agreeing to
 - You type `/auto on` in a Claude session. From then on that session starts `wf` itself whenever there is work, tells you its questions and the morning report, and starts it again when new work appears. You never open a terminal for it.

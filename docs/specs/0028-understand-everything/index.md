@@ -2,8 +2,8 @@
 
 **Date**: 2026-10-13
 **Status**: Accepted (built 8b7fd19)
-**Paths:** `claude-home/rules/plain-questions.md`, `claude-home/hooks/plain-panel.py`, `claude-home/settings.json`, `bin/install.sh`, `bin/sync.sh`, `runner/plain.py`, `runner/run.py`, `runner/ntfy.py`, `runner/report.py`, `runner/tests/test_plain.py`
-**Amends**: [0005](../0005-decision-parking-phone-pings/index.md) (the ping body gains a `learn:` line, the prompt a `LEARN:` line), [0011](../0011-build-decision-queue/index.md) (a Decision gains `learn` and `jargon`), [0018](../0018-morning-report/index.md) AC-2 and AC-4 (item words and reasons in plain words), [0021](../0021-never-stop/index.md) AC-2 (case questions in plain words with a learn line).
+**Paths:** `claude-home/rules/plain-questions.md`, `claude-home/hooks/plain-panel.py`, `claude-home/settings.json`, `bin/install.sh`, `bin/sync.sh`, `_archive/runner/plain.py`, `_archive/runner/run.py`, `_archive/runner/ntfy.py`, `_archive/runner/report.py`, `_archive/runner/tests/test_plain.py`
+**Amends**: [0005](../../../_archive/runner/docs/specs/0005-decision-parking-phone-pings/index.md) (the ping body gains a `learn:` line, the prompt a `LEARN:` line), [0011](../0011-build-decision-queue/index.md) (a Decision gains `learn` and `jargon`), [0018](../0018-morning-report/index.md) AC-2 and AC-4 (item words and reasons in plain words), [0021](../../../_archive/runner/docs/specs/0021-never-stop/index.md) AC-2 (case questions in plain words with a learn line).
 
 ## What you're agreeing to
 - Everything Claude tells you, in chat, in question panels, in phone questions and in the morning report, uses words you can follow, and explains any new idea in a few words where it first comes up.

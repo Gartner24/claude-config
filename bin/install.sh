@@ -88,7 +88,7 @@ if [ -f "$REPO/config/manifest.json" ]; then
   fi
 fi
 
-# The wf runner is retired live (2026-10-21): runner/ stays in the repo but is no longer copied
+# The wf runner is retired live (2026-10-21): _archive/runner/ stays in the repo but is no longer copied
 # to ~/.local/share/wf, linked as wf/next, or tested here.
 echo "bin links:"
 # Spec 0020 AC-3: under `wf`, install.sh runs into a stage and writes nothing outside $LIVE; wf swaps

@@ -2,8 +2,8 @@
 
 **Date**: 2026-10-13
 **Status**: Accepted (built f08c6a2)
-**Paths:** `runner/pr.py`, `runner/run.py`, `runner/wf.py`, `runner/report.py`, `runner/finish.py`, `runner/tests/test_pr.py`, `scripts/private-names.py`, `claude-home/rules/branch-pr.md`, `claude-home/CLAUDE.md`
-**Amends**: [0007](../0007-push-guard/index.md) and architecture invariants 1, 4 and 5 (calls still never push; the runner process may push a feature branch and open a draft PR in an opted in repo), [0011](../0011-build-decision-queue/index.md) (`queue.json` gains `prs`), [0018](../0018-morning-report/index.md) AC-2 (built lines carry the PR), [0020](../0020-one-command-wf/index.md) AC-12 (the runner copy also carries `scripts/private-names.py`), [0021](../0021-never-stop/index.md) AC-1 (new case rows). Closes scope feature 14 "Draft PR per spec".
+**Paths:** `_archive/runner/pr.py`, `_archive/runner/run.py`, `_archive/runner/wf.py`, `_archive/runner/report.py`, `_archive/runner/finish.py`, `_archive/runner/tests/test_pr.py`, `scripts/private-names.py`, `claude-home/rules/branch-pr.md`, `claude-home/CLAUDE.md`
+**Amends**: [0007](../0007-push-guard/index.md) and architecture invariants 1, 4 and 5 (calls still never push; the runner process may push a feature branch and open a draft PR in an opted in repo), [0011](../0011-build-decision-queue/index.md) (`queue.json` gains `prs`), [0018](../0018-morning-report/index.md) AC-2 (built lines carry the PR), [0020](../0020-one-command-wf/index.md) AC-12 (the runner copy also carries `scripts/private-names.py`), [0021](../../../_archive/runner/docs/specs/0021-never-stop/index.md) AC-1 (new case rows). Closes scope feature 14 "Draft PR per spec".
 **Amended by**: [0031](../0031-adopt-open-prs/index.md) (adopted PRs, watch until done, merge on your explicit "merge now"); [0051](../0051-clean-branches-commits/index.md) (PR only, squash merge, delete on merge, up to date by merge for unstacked branches, self merge of small low risk PRs)
 
 ## What you're agreeing to

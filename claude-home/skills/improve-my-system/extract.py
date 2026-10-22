@@ -91,7 +91,7 @@ def session(path):
 
 
 def propose(lines):
-    """Up to 3 top findings into the runner's inbox, keyed like its own proposals (runner/insights.py), never twice."""
+    """Up to 3 top findings into the runner's inbox, keyed like its own proposals (_archive/runner/insights.py), never twice."""
     import fcntl
     import hashlib
     import tempfile

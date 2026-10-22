@@ -5,7 +5,7 @@ Short answer: yes, in a plain interactive session, by one of two mechanisms. Nei
 ## What exists today (files read)
 - ~/.claude/skills/rollover/SKILL.md step 5d: plain session ends with "Handover written to <slot path> -- type /clear, then /resume-from-clear." Only internal-relay workers (5e-5g) restart without the user: they send "restart fresh" to `<name>-manager`, which relaunches claude without `--continue` and auto-types `/sync-inbox fresh`; the QM resume order carries "/resume-from-clear".
 - ~/.claude/skills/resume-from-clear/SKILL.md: wakes on "exactly three carriers": the handover slot (`jjstack-rollover-slot status`), a QM resume order, a internal-relay self-message. Step 1b "twin" check and step 8 `jjstack-rollover-slot consume` guard against double resume.
-- ~/claude-config/runner/run.py:2937-2938: wf runs `claude -p ... --resume <id> --output-format json` or `--session-id <id>`. wf continues the SAME session id (no context reset); it never needs /clear because each box is a new `-p` call.
+- ~/claude-config/_archive/runner/run.py:2937-2938: wf runs `claude -p ... --resume <id> --output-format json` or `--session-id <id>`. wf continues the SAME session id (no context reset); it never needs /clear because each box is a new `-p` call.
 - ~/claude-config/claude-home/hooks/context-monitor.js: PostToolUse hook, warns at 150k, 650k critical, tells the model to run /rollover. It only advises.
 
 ## Official mechanisms found
