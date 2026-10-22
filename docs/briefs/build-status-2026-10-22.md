@@ -23,7 +23,7 @@ All live: hooks, rules, CLAUDE.md, templates and settings entries copied; drift 
 
 ## For /architect later (none blocks)
 - New row "Assertion Guardian guard gaps" (security review 2026-10-22): self approval of `/allow-test-change` (check the command came from the owner), MultiEdit not checked, path and symlink tricks, `ln` and `git apply` not seen as writes; also `/allow-test-change` says "nothing is blocked" while it does approve.
-- Row 97 phase 2 also designs the ICM layout for the live `~/.claude` (routing CLAUDE.md, `CONTEXT.md` per folder), shipped from `claude-home/` by `bin/install.sh`; `~/.claude/private/` stays live only (owner, 2026-10-22, "really important"; landed in the row 97 phase 2 box).
+- Row 97 phase 2 checks the `~/.claude` map: first whether Claude ever edits `~/.claude` without the repo's map; if not, drop it with one line of reasoning; if yes, only the smallest pointer file, never loaded in normal chats. `~/.claude/private/` stays live only. Nothing of quality is lost today: every behaviour file is live (owner, 2026-10-22, "lets do what you recommend"; landed in the row 97 phase 2 box).
 - Dashboard: `checks failing` and `checks pending` cut at 40 columns (a label spec 0071 AC-3 spells).
 - Row 101 spec choices: worktree branch names gain `-<n>`; the follows line only prints; `**Paths:**` misses four files.
 - Row 91 spec choices: `close` accepts `replaced by D<n>`; detail paths are relative to the index.
