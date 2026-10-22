@@ -44,3 +44,19 @@ Mutation check (cp backup, break, run only that test, red, restore, green): M1 t
 ## P3 issue edit history (2026-10-22) - PASS
 `gh api graphql -f query='{repository(owner:"cli",name:"cli"){issue(number:10000){title updatedAt userContentEdits(first:5){nodes{editedAt diff}} comments(first:2){nodes{createdAt author{login}}}}}}'`
 returned 2 edits with `editedAt` and comment `createdAt` times.
+
+## PR 172 review fixes (2026-10-22)
+/review gave CAUTION: with the first argv the call could still Read outside your home (`/etc/hostname`, other sessions' scratch in `/tmp`).
+
+P4 read only the folder - PASS. Command: a probe that imports `scripts/review-isolated.py` and runs its own `claude_argv("claude", folder)` with `cwd=folder` and `isolated_env(os.environ)`, the folder from `mkdtemp(dir="/tmp")` holding `pr.md`, and a sibling `/tmp` folder holding `other.txt`. Only the prompt was swapped (one Read per path) and `--output-format text` became `json` for the denial list. Flags in the run: `--output-format --model --tools --permission-mode --setting-sources --strict-mcp-config --mcp-config --settings`. Result, exit 0:
+- `pr.md`: read.
+- `/etc/hostname`, the sibling `/tmp/.../other.txt`, `/proc/self/status`: refused (in `permission_denials`).
+- `/usr/lib/os-release` (on no deny rule), Grep `root` in `/usr/share/doc`, Glob `/usr/lib/*.so*`: refused. So `--permission-mode dontAsk` with `Read(//<folder>/**)` as the only allow rule does refuse what no rule allows; the deny list stays as a second wall.
+
+Fixes, each with a self check case and a mutant that went red and green again after restore:
+- Read only the folder (`scripts/review-isolated.py` `settings`, `tmp_siblings`, `claude_argv`): `--permission-mode dontAsk`, allow `Read(//<folder>/**)`, deny `//etc`, `//proc`, `//sys`, `//run`, `//var`, `//dev`, `//home` and every other `/tmp` entry (a `//tmp/**` deny would beat the folder's allow); the folder is made with `mkdtemp(dir="/tmp")`. Mutants F1a to F1e: flag dropped, allow widened, a root dropped, own folder denied, siblings not denied.
+- A long base64 run (40 or more, mixed case and a digit) or hex run (32 or more) in the answer: no draft. Mutants F1f, F1g. A plain answer with paths and a short sha still drafts.
+- `scripts/start-gates.py`: NaN, infinite or out of 0 to 100 is `unreadable`, which waits. Mutant F2.
+- `scripts/review-isolated.py` `call_claude`: any exception in `communicate` (Ctrl-C, a kill) kills the process group, then re-raises; the folder is still removed and no draft written. Mutant F3 (a SIGALRM raises KeyboardInterrupt in the self check; the fake's `sleep` child stayed alive without the fix).
+- `scripts/issue-reread.py` `QUERY`: `userContentEdits(last:100)`, the newest edits. Mutant F4. Real read of cli/cli#10000 still answers.
+- `scripts/start-gates.py`: a no redirect opener, so the Authorization header never follows a 3xx. Mutants F5a (a local server's 302 was followed and its second path hit), F5b (plain `urlopen` as the default).

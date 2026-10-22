@@ -4,7 +4,8 @@ AC-12).
 
 `review-isolated <pr>` (URL or `owner/repo#n`) writes the PR's title, body, author, file list and diff into pr.md
 in a new empty temp folder and runs one `claude -p` there on Sonnet with Read, Grep and Glob only, user settings
-only, all hooks off, no MCP, claude.ai connectors off, `Read(~/**)` denied, the sandbox on with no network and
+only, all hooks off, no MCP, claude.ai connectors off, Read allowed only in that folder (`--permission-mode
+dontAsk`, with `~`, the system roots and every other /tmp entry denied), the sandbox on with no network and
 writes only in that folder, and a trimmed environment; the call's process group is killed after 15 minutes. The
 answer goes to ~/.claude/state/reviews/<owner>-<repo>-<n>.md and the script prints that path and the verdict line,
 exit 0. An answer holding a secret or local path, a failed call or a failed gh read prints
@@ -39,6 +40,12 @@ ISOLATED_ENV = ("PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "LC_CTYPE",
 SECRET = re.compile(r"(gh[pousr]_[A-Za-z0-9]{20,}|github_pat_\w{20,}|sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|"
                     r"xox[abposr]-[\w-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY|eyJ[\w-]{10,}\.[\w-]{10,}\.|"
                     r"(?i:password|passwd|secret|token|api[_-]?key)\s*[:=]\s*\S{6,})")
+# PR 172 review: an encoded secret is a long base64 run (mixed case and a digit) or a long hex run
+BASE64_RUN = re.compile(r"[A-Za-z0-9+/]{40,}={0,2}")
+HEX_RUN = re.compile(r"(?<![0-9A-Za-z])[0-9a-fA-F]{32,}(?![0-9A-Za-z])")
+# The call may read only its own folder: these roots are denied besides ~ and every other /tmp entry.
+TMP = "/tmp"
+ROOTS = ("/etc", "/proc", "/sys", "/run", "/var", "/dev", "/home")
 LOCAL_PATH = re.compile(r"(^|[\s'\"`(=:])(/home/|/Users/|/root/|/etc/|/var/|/tmp/|~/|\$HOME)")
 VERDICT = re.compile(r"^\W*verdict:\W*(approve|comment|request changes)\W*$", re.I | re.M)
 PROMPT = (
@@ -102,10 +109,23 @@ def pr_text(owner, name, n, view, diff):
     return cap(head + cap("".join(cap(p, FILE_MAX) for p in parts), DIFF_MAX), FILES_MAX)
 
 
+def tmp_siblings(folder):
+    """Every other entry of /tmp, as Read denies: a deny of //tmp/** would beat the folder's own allow, and /tmp
+    holds other sessions' scratch (PR 172 review)."""
+    try:
+        names = sorted(os.listdir(TMP))
+    except OSError:
+        names = []
+    return [r for n in names if os.path.join(TMP, n) != folder for r in (f"Read(/{TMP}/{n})", f"Read(/{TMP}/{n}/**)")]
+
+
 def settings(folder):
     return json.dumps({
         "disableAllHooks": True,
-        "permissions": {"deny": ["Read(~/**)"] + [f"Read({p})" for p in SECRETS]},
+        # dontAsk refuses what no allow rule names; the denies hold even if a user allow rule names more
+        "permissions": {"allow": [f"Read(/{folder}/**)"],
+                        "deny": ["Read(~/**)"] + [f"Read({p})" for p in SECRETS] + [f"Read(/{r}/**)" for r in ROOTS]
+                        + tmp_siblings(folder)},
         "sandbox": {"enabled": True, "failIfUnavailable": True, "allowUnsandboxedCommands": False,
                     "network": {"allowedDomains": [], "strictAllowlist": True},
                     "filesystem": {"allowWrite": [folder]}}})
@@ -119,6 +139,7 @@ def isolated_env(environ):
 
 def claude_argv(binary, folder):
     return [binary, "-p", PROMPT, "--output-format", "text", "--model", "sonnet", "--tools", "Read,Grep,Glob",
+            "--permission-mode", "dontAsk",
             "--setting-sources", "user", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
             "--settings", settings(folder)]
 
@@ -140,6 +161,13 @@ def call_claude(binary, folder, timeout):
             pass
         p.communicate()
         raise NotDrafted(f"timed out after {timeout / 60:g} minutes")
+    except BaseException:
+        # Ctrl-C or a kill of this script used to leave claude running (PR 172 review)
+        try:
+            os.killpg(p.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        raise
     if p.returncode:
         raise NotDrafted(f"claude exited {p.returncode}")
     if not out.strip():
@@ -150,7 +178,9 @@ def call_claude(binary, folder, timeout):
 def secret_hit(text):
     t = str(text or "")
     home = os.path.expanduser("~")
-    return bool(SECRET.search(t) or LOCAL_PATH.search(t) or (home and home != "/" and home in t))
+    return bool(SECRET.search(t) or LOCAL_PATH.search(t) or (home and home != "/" and home in t) or HEX_RUN.search(t)
+                or any(re.search(r"\d", m) and re.search(r"[a-z]", m) and re.search(r"[A-Z]", m)
+                       for m in BASE64_RUN.findall(t)))
 
 
 def main(argv, run=subprocess.run, binary="claude", timeout=TIMEOUT, drafts=None):
@@ -164,7 +194,7 @@ def main(argv, run=subprocess.run, binary="claude", timeout=TIMEOUT, drafts=None
     try:
         owner, name, n = parse_pr(argv[0])
         text = pr_text(owner, name, n, gh(run, "view", owner, name, n), gh(run, "diff", owner, name, n))
-        folder = tempfile.mkdtemp(prefix="review-isolated-")
+        folder = tempfile.mkdtemp(prefix="review-isolated-", dir=TMP)
         with open(os.path.join(folder, "pr.md"), "w", encoding="utf-8") as f:
             f.write(text)
         answer = call_claude(binary, folder, timeout)
@@ -236,6 +266,7 @@ sys.exit({code})
             return code, out.getvalue().splitlines()
 
         good = "x.py:1 f now subtracts; fix: `return a + 1`.\n\nverdict: request changes\n"
+        sibling = tempfile.mkdtemp(prefix="review-isolated-test-sibling-", dir=TMP)
         os.environ["GH_TOKEN"] = "ghp_" + "x" * 30
         try:
             code, out = go(["https://github.com/o/r/pull/7"], fake_claude(good))
@@ -247,21 +278,31 @@ sys.exit({code})
         check("drafted", (code, out), (0, [draft, "verdict: request changes"]))
         check("draft text", open(draft).read(), good)
         folder = rec["cwd"]
-        check("argv", rec["argv"], [
+        check("argv", rec["argv"][:-1], [
             "-p", PROMPT, "--output-format", "text", "--model", "sonnet", "--tools", "Read,Grep,Glob",
-            "--setting-sources", "user", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}', "--settings",
-            json.dumps({"disableAllHooks": True,
-                        "permissions": {"deny": ["Read(~/**)", "Read(~/.config/gh)", "Read(~/.ssh)",
-                                                 "Read(~/.git-credentials)", "Read(~/.netrc)", "Read(~/.aws)",
-                                                 "Read(~/.config/gcloud)", "Read(~/.azure)", "Read(~/.npmrc)",
-                                                 "Read(~/.config/git/credentials)", "Read(~/.docker/config.json)",
-                                                 "Read(~/.pypirc)", "Read(~/.kube)", "Read(~/.claude/anthropic_api_key)",
-                                                 "Read(~/.config/wf)", "Read(~/.config/claude-fb)", "Read(~/.gnupg)",
-                                                 "Read(~/.claude/private)", "Read(~/.claude/.credentials.json)"]},
-                        "sandbox": {"enabled": True, "failIfUnavailable": True, "allowUnsandboxedCommands": False,
-                                    "network": {"allowedDomains": [], "strictAllowlist": True},
-                                    "filesystem": {"allowWrite": [folder]}}})])
-        check("temp folder from mkdtemp", os.path.dirname(folder), tempfile.gettempdir())
+            "--permission-mode", "dontAsk", "--setting-sources", "user", "--strict-mcp-config", "--mcp-config",
+            '{"mcpServers":{}}', "--settings"])
+        got = json.loads(rec["argv"][-1])
+        perms = got.pop("permissions")
+        check("settings", got, {"disableAllHooks": True,
+                                "sandbox": {"enabled": True, "failIfUnavailable": True, "allowUnsandboxedCommands": False,
+                                            "network": {"allowedDomains": [], "strictAllowlist": True},
+                                            "filesystem": {"allowWrite": [folder]}}})
+        check("only the folder is allowed", perms["allow"], [f"Read(/{folder}/**)"])
+        fixed = ["Read(~/**)", "Read(~/.config/gh)", "Read(~/.ssh)", "Read(~/.git-credentials)", "Read(~/.netrc)",
+                 "Read(~/.aws)", "Read(~/.config/gcloud)", "Read(~/.azure)", "Read(~/.npmrc)",
+                 "Read(~/.config/git/credentials)", "Read(~/.docker/config.json)", "Read(~/.pypirc)", "Read(~/.kube)",
+                 "Read(~/.claude/anthropic_api_key)", "Read(~/.config/wf)", "Read(~/.config/claude-fb)",
+                 "Read(~/.gnupg)", "Read(~/.claude/private)", "Read(~/.claude/.credentials.json)",
+                 "Read(//etc/**)", "Read(//proc/**)", "Read(//sys/**)", "Read(//run/**)", "Read(//var/**)",
+                 "Read(//dev/**)", "Read(//home/**)"]
+        check("denies home, secrets and roots", perms["deny"][:len(fixed)], fixed)
+        rest = perms["deny"][len(fixed):]
+        name = os.path.basename(sibling)
+        check("another /tmp entry denied", [f"Read(//tmp/{name})", f"Read(//tmp/{name}/**)"] == [r for r in rest if name in r], True)
+        check("own folder never denied", [r for r in perms["deny"] if os.path.basename(folder) in r], [])
+        check("only /tmp entries after the roots", all(r.startswith("Read(//tmp/") for r in rest), True)
+        check("temp folder under /tmp", os.path.dirname(folder), "/tmp")
         check("folder holds only pr.md", rec["files"], ["pr.md"])
         check("own process group", rec["pgid"] != os.getpgid(0), True)
         allowed = set(ISOLATED_ENV) | {"ENABLE_CLAUDEAI_MCP_SERVERS"}
@@ -294,7 +335,8 @@ sys.exit({code})
         # an answer holding a secret or a local path writes nothing
         os.remove(draft)
         for bad in ("token: ghp_" + "a" * 30, "see /tmp/review-isolated-x/pr.md:3", "key in ~/.ssh/id_rsa",
-                    f"at {os.path.expanduser('~')}/x"):
+                    f"at {os.path.expanduser('~')}/x", "blob QmFzZTY0IGVuY29kZWQgc2VjcmV0IGxvb2tzIGxpa2UgdGhpcw== here",
+                    "hash 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08 here"):
             code, out = go(["o/r#7"], fake_claude(bad + "\nverdict: comment\n"))
             check(f"secret {bad[:12]}", (code, out, os.path.exists(draft)),
                   (1, ["review not drafted: answer holds a secret or local path"], False))
@@ -307,13 +349,35 @@ sys.exit({code})
         check("timeout", (code, out, os.path.exists(draft)), (1, ["review not drafted: timed out after 0.0333333 minutes"], False))
         check("timeout is prompt", time.monotonic() - t0 < 20, True)
         check("timeout folder removed", os.path.exists(rec["cwd"]), False)
-        time.sleep(0.2)
+        def alive(pid):
+            time.sleep(0.3)
+            try:
+                os.kill(pid, 0)
+                return open(f"/proc/{pid}/stat").read().split()[2] != "Z"
+            except (ProcessLookupError, FileNotFoundError):
+                return False
+
+        check("group child killed", alive(rec["child"]), False)
+        # PR 172 review: Ctrl-C during the call kills the group too, and still removes the folder
+        def interrupt(*a):
+            raise KeyboardInterrupt
+        old = signal.signal(signal.SIGALRM, interrupt)
+        signal.alarm(2)
         try:
-            os.kill(rec["child"], 0)
-            alive = not open(f"/proc/{rec['child']}/stat").read().split()[2] == "Z"
-        except (ProcessLookupError, FileNotFoundError):
-            alive = False
-        check("group child killed", alive, False)
+            go(["o/r#7"], fake_claude("late\nverdict: approve\n", sleep=30))
+            check("interrupt reaches the caller", "no interrupt", "KeyboardInterrupt")
+        except KeyboardInterrupt:
+            pass
+        finally:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, old)
+        rec = json.load(open(record))
+        check("interrupt kills the group", alive(rec["child"]), False)
+        check("interrupt folder removed", os.path.exists(rec["cwd"]), False)
+        check("interrupt writes no draft", os.path.exists(draft), False)
+        os.rmdir(sibling)
+        check("plain review text is no secret", secret_hit("claude-home/mods/chip-dash/test_plan.py:12, src/components/"
+                                                           "settings/AccountSettings/Profile.tsx:4 and commit abc1234"), False)
         # a failed call or gh read writes no draft
         check("claude fails", go(["o/r#7"], fake_claude("x", code=3))[1], ["review not drafted: claude exited 3"])
         check("empty answer", go(["o/r#7"], fake_claude("  \n"))[1], ["review not drafted: empty answer"])

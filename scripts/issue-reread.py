@@ -19,7 +19,7 @@ import sys
 ISSUE_URL = re.compile(r"^https://github\.com/([\w.-]+)/([\w.-]+)/issues/(\d+)/?$")
 ISSUE_REF = re.compile(r"^([\w.-]+)/([\w.-]+)#(\d+)$")
 QUERY = ("query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){closedAt "
-         "userContentEdits(first:100){nodes{editedAt}} comments(last:100){nodes{createdAt body author{__typename login}}}}}}")
+         "userContentEdits(last:100){nodes{editedAt}} comments(last:100){nodes{createdAt body author{__typename login}}}}}}")
 TIMEOUT = 30
 CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f\udc80-\udcff]")
 
@@ -211,6 +211,9 @@ def self_test():
         check("change lines", out, [f"comment by ann 2026-10-02T10:00:00Z: {('please also handle ' + 'x' * 300)[:200]}",
                                     "title or body edited 2026-10-03T09:00:00Z", "closed 2026-10-04T00:00:00Z"])
         check("one read only gh call", [c[:3] for c in calls], [["gh", "api", "graphql"]])
+        # PR 172 review: first:100 returned the oldest edits, so a recent one past 100 was missed
+        check("newest 100 edits and comments", ("userContentEdits(last:100)" in calls[0][4],
+                                                "comments(last:100)" in calls[0][4]), (True, True))
         check("owner, repo and number passed", calls[0][-6:], ["-f", "o=o", "-f", "r=r", "-F", "n=7"])
         code, out = go(["o/r#7", "--spec", spec], fake(issue(comments=[("2026-09-29T00:00:00Z", "old", "User", "x")])))
         check("no change", (code, out), (0, [f"no change since {since}"]))

@@ -10,6 +10,7 @@ logged or written. A value that cannot be read is unknown, and unknown means wai
 import argparse
 import io
 import json
+import math
 import os
 import re
 import subprocess
@@ -67,12 +68,21 @@ def claude_version():
     return CONTROL.sub("", words[0]) or "unknown" if r.returncode == 0 and words else "unknown"
 
 
-def five_hour(env=None, urlopen=urllib.request.urlopen, version=claude_version):
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    # urllib carries the Authorization header across a redirect, to any host (PR 172 review); a 3xx is an error here
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+OPENER = urllib.request.build_opener(NoRedirect)
+
+
+def five_hour(env=None, urlopen=OPENER.open, version=claude_version, url=URL):
     """(percent, None) or (None, reason)."""
     tok = token(os.environ if env is None else env)
     if tok is None:
         return None, NOT_LOGIN
-    req = urllib.request.Request(URL, headers={
+    req = urllib.request.Request(url, headers={
         "Authorization": f"Bearer {tok}", "anthropic-beta": "oauth-2025-04-20", "anthropic-version": "2023-06-01",
         "Accept": "application/json", "User-Agent": f"claude-code/{version()}"})
     del tok
@@ -93,7 +103,7 @@ def five_hour(env=None, urlopen=urllib.request.urlopen, version=claude_version):
     except (ValueError, KeyError, TypeError):
         return None, "unreadable"
     # runner/usage.py:73 read a null utilization as 0; unknown is never zero here
-    if isinstance(u, bool) or not isinstance(u, (int, float)):
+    if isinstance(u, bool) or not isinstance(u, (int, float)) or not (math.isfinite(u) and 0 <= u <= 100):
         return None, "unreadable"
     return float(u), None
 
@@ -184,6 +194,42 @@ def self_test():
         check("not json", five_hour(env, fake_open(b"<html>"), ver), (None, "unreadable"))
         check("bool utilization", five_hour(env, fake_open(b'{"five_hour": {"utilization": true}}'), ver),
               (None, "unreadable"))
+        # PR 172 review: NaN, infinite or out of range is unknown, never a percent
+        for raw in (b"NaN", b"Infinity", b"-1", b"100.5"):
+            check(f"utilization {raw.decode()}", five_hour(env, fake_open(b'{"five_hour": {"utilization": %s}}' % raw), ver),
+                  (None, "unreadable"))
+        check("utilization 100 kept", five_hour(env, fake_open(b'{"five_hour": {"utilization": 100}}'), ver), (100.0, None))
+        check("the default opener", five_hour.__defaults__[1], OPENER.open)
+
+        # PR 172 review: a redirect is never followed, so the token never reaches the other place
+        import http.server
+        import threading
+        hits = []
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                hits.append((self.path, self.headers.get("Authorization")))
+                if self.path == "/usage":
+                    self.send_response(302)
+                    self.send_header("Location", f"http://127.0.0.1:{srv.server_port}/elsewhere")
+                    self.end_headers()
+                else:
+                    self.send_response(200)
+                    self.end_headers()
+                    self.wfile.write(b'{"five_hour": {"utilization": 1}}')
+
+            def log_message(self, *a):
+                pass
+
+        srv = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            got = five_hour(env, version=ver, url=f"http://127.0.0.1:{srv.server_port}/usage")
+        finally:
+            srv.shutdown()
+            srv.server_close()
+        check("redirect not followed", (got, [p for p, _ in hits]), ((None, "usage service: 302"), ["/usage"]))
+
         err = urllib.error.HTTPError(URL, 429, "too many", {}, io.BytesIO(b"x"))
         check("http error", five_hour(env, fake_open(exc=err), ver), (None, "usage service: 429"))
         check("network error", five_hour(env, fake_open(exc=TimeoutError("tok-SECRET-123")), ver),
