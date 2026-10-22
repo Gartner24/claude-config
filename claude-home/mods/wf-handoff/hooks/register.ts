@@ -363,12 +363,32 @@ async function gatherFacts($: EngineInterface) {
   return { facts, notLive: await notLiveNow($, facts.files) }
 }
 
-// The slot written since this handoff started, or ''.
-async function newSlot($: EngineInterface) {
+// The slot written since `since` (ISO), or ''.
+async function newSlot($: EngineInterface, since = chain!.triggeredAt!) {
   const r = await slotCmd($)
   const path = r.exitCode === 0 ? r.stdout.trim() : ''
   const stat = path ? await $.fs.stat(path).catch(() => null) : null
-  return stat && stat.mtimeMs > Date.parse(chain!.triggeredAt!) ? path : ''
+  return stat && stat.mtimeMs > Date.parse(since) ? path : ''
+}
+
+// A manual /rollover wrote this slot with no facts block; the auto path stamps it in finishRollover.
+// A slot that already has the block (stamped by the auto path, or by an earlier /handoff or /clear) is
+// left alone. Returns a sentence for the owner when stamping failed, else ''.
+async function stampManualSlot($: EngineInterface, path: string) {
+  if (!active || !chain) return ''
+  try {
+    const text = await $.fs.read(path)
+    if (!text.includes('## Handoff facts')) {
+      const g = await gatherFacts($)
+      const n: Numbers = { tokens: await size($), line: lineNow().line, lineSource: lineNow().source, start: chain.startTokens, unattended: chain.unattended }
+      const marked = markUnverified(text, n)
+      await $.fs.write(path, insertAfterHeading(marked.text, factsBlock(g.facts, n, chain.link, g.notLive)))
+    }
+    return ''
+  } catch (err) {
+    await log($, `manual handoff: facts not added (${err})`)
+    return ` The not live list could not be added (${err}).`
+  }
 }
 
 // Each main turn.complete of the rollover. The probe's rollover turn ended while its writer still ran,
@@ -595,6 +615,13 @@ export const register: Register = (on, options) => {
   })
 
   on('session.end', async ($, e, next) => {
+    // An owner's /clear after a manual /rollover (row 103): stamp the slot while this chat's messages
+    // and id are still readable, so before next(e). Not the handoff's own clear, and not a slot an
+    // older chat wrote (the slot must be newer than this chat's start).
+    if (active && e.reason === 'clear' && chain?.startedAt && chain.phase !== 'clearing' && !(chain.phase === 'failed' && lateClear)) {
+      const path = await newSlot($, chain.startedAt).catch(() => '')
+      if (path) await stampManualSlot($, path)
+    }
     const r = await next(e)
     // An owner's own /clear starts a new chain and gets no seed.
     if (active && e.reason === 'clear' && chain && chain.phase === 'failed' && lateClear) {
@@ -737,24 +764,7 @@ export const register: Register = (on, options) => {
     home ||= (await $.env.get('HOME')) ?? ''
     const r = await slotCmd($)
     if (r.exitCode !== 0 || !r.stdout.trim()) return { text: 'no handover, run /rollover first' }
-    // A manual /rollover wrote this slot with no facts block; the auto path stamps it in finishRollover.
-    // A slot that already has the block (stamped by the auto path, or by an earlier /handoff) is left alone.
-    let stampError = ''
-    if (active && chain) {
-      try {
-        const path = r.stdout.trim()
-        const text = await $.fs.read(path)
-        if (!text.includes('## Handoff facts')) {
-          const g = await gatherFacts($)
-          const n: Numbers = { tokens: await size($), line: lineNow().line, lineSource: lineNow().source, start: chain.startTokens, unattended: chain.unattended }
-          const marked = markUnverified(text, n)
-          await $.fs.write(path, insertAfterHeading(marked.text, factsBlock(g.facts, n, chain.link, g.notLive)))
-        }
-      } catch (err) {
-        stampError = ` The not live list could not be added (${err}).`
-        await log($, `manual handoff: facts not added (${err})`)
-      }
-    }
+    const stampError = await stampManualSlot($, r.stdout.trim())
     // Probe P2: awaiting $.command.run inside a command.run hook is refused (it waits on the turn
     // this hook holds), so the clear runs from a timer after the hook has returned.
     $.clock.after(1500, () => { void $.command.run({ command: 'clear', args: '' }).catch(() => {}) })
