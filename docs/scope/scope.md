@@ -1284,14 +1284,14 @@ Source: [brief](../briefs/retire-runner.md) ("Decisions 2026-10-22 (third chat)"
 A fresh chat after a handoff keeps every open question, shown list and agreed decision, written by a small helper into the feature's brief and checked against the old transcript.
 **Done when:** spec 0069's acceptance criteria hold, and the replay of the 11 audited handoffs keeps at least as much as today's slots.
 - [x] Design it (spec): `/architect handover memory` (spec [0069](../specs/0069-handover-memory.md) accepted 2026-10-22)
-- [ ] Build it: `/develop handover memory`
-  - [ ] Probe: a foreground writer agent inside a mod-started rollover finishes before the slot check; a FAIL goes back to `/architect`
-  - [ ] `scripts/handover-memory.py` check, prune, ages, close, lint, with `--test`
-  - [ ] Replay the 11 audited handoffs; stop on a loss
-  - [ ] Templates `sections.md` and `instructions.md`, writer failure line, mod tests
-  - [ ] Live rules: `handover-carry.md`, `check-gates.md` gate 5, `CLAUDE.md` Context, live templates, then `bin/sync.sh`
-- [ ] Verify it: `/check verify handover memory`
-- [ ] Test it: `/test handover memory`
+- [x] Build it: `/develop handover memory` (PR open, see below)
+  - [x] Probe: a foreground writer agent inside a mod-started rollover finishes before the slot check; a FAIL goes back to `/architect` (FAIL 2026-10-22, the Agent tool runs the writer in the background; you picked a mod wait for running agents, spec amended; run 3 with the wait PASS; see the spec's [verify.md](../specs/0069-handover-memory/verify.md))
+  - [x] `scripts/handover-memory.py` check, prune, ages, close, lint, with `--test` (also path, messages, add, done; 32 mutants red)
+  - [x] Replay the 11 audited handoffs; stop on a loss (run 2 FAIL, 2 of 11 kept fewer open owner questions; you decided the slot keeps its Open questions section beside the memory, spec amended; run 3 PASS counting memory plus slot; see verify.md)
+  - [x] Templates `sections.md` and `instructions.md`, writer failure line, mod tests (mod tests 148 pass, 52 mutants red)
+  - [ ] Live rules: `handover-carry.md`, `check-gates.md` gate 5, `CLAUDE.md` Context, live templates, then `bin/sync.sh` (repo copies under `claude-home/` edited; copying them live is left, after the merge) · later boxes go on
+- [x] Verify it: `/check verify handover memory` (AC-1 to AC-22 with can fail lines in the spec verify.md; replay run 3 PASS)
+- [x] Test it: `/test handover memory` (mod tests 148, suite 149, handover-memory self checks pass; 52 mutants red)
 Source: [brief](../briefs/handover-memory.md), [brief](../briefs/handoff-loss-audit.md) and [brief](../briefs/retire-runner.md).
 
 ### 92. Skills start themselves at the right moment · in-progress

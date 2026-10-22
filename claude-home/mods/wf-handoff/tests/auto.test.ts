@@ -624,3 +624,169 @@ test('git branch failing says the branches are unknown, never none', { options: 
   const seed = await handOff($, w)
   expect(seed).toContain('- unknown in /w: git branch --no-merged origin/HEAD failed, check by hand')
 })
+
+// Spec 0069 AC-3, probe 2026-10-22: the Agent tool runs the memory writer in the background, so the
+// rollover turn ended before the handover was written and the slot check found none.
+const slotText = (extra = '') => `# Rollover handover\nNext: go on.\nHandover memory: /w/docs/briefs/f.md\n${extra}`
+const rollWithWriter = async ($: any, w: ReturnType<typeof world>) => {
+  w.rolloverWrites = false
+  await start($)
+  w.tokens = 60_000
+  await complete($, 'T1')
+  await w.clock.settle()
+  await step($, 'T2', 0)
+  await $.tool.call({ tool: 'Agent', prompt: 'write the memory' } as any)
+  w.agents = [{ id: 'writer', status: 'running' }]
+  await complete($, 'T2') // the rollover turn ends while the writer runs
+}
+
+test('spec 0069 AC-3: the slot is checked only after the writer finished and a later turn ended', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  await rollWithWriter($, w)
+  await w.clock.advance(1500)
+  expect(w.commands.map(c => c.command)).toEqual(['rollover'])
+  expect(chain(w).phase).toBe('rolling')
+  w.agents[0]!.status = 'completed'
+  await complete($, 'T2') // the turn.complete right after the agent's own (probe run 1): still the old turn
+  await w.clock.advance(1500)
+  expect(chain(w).phase).toBe('rolling')
+  await step($, 'T3', 0) // the completion notice wakes a new main turn, which writes the handover
+  w.files.set(SLOT, { text: slotText(), mtimeMs: w.clock.now() + 10 })
+  await complete($, 'T3')
+  await w.clock.advance(1500)
+  expect(w.commands.map(c => c.command)).toEqual(['rollover', 'clear', 'resume-from-clear'])
+  const log = w.files.get(`${STATE}/auto-handoff.log`)!.text
+  expect(log.split('waiting for its agents before the slot check').length).toBe(2)
+  expect(log).not.toContain('slot missing')
+})
+
+test('spec 0069 AC-3: the wait is capped at 15 minutes, then no slot fails with the usual line', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  await rollWithWriter($, w)
+  await w.clock.advance(14 * 60_000)
+  expect(chain(w).phase).toBe('rolling')
+  await w.clock.advance(60_000 + 1000)
+  expect(chain(w).phase).toBe('failed')
+  expect(w.status).toBe('auto handoff failed: the rollover wrote no new handover; nothing was cleared')
+  expect(w.files.get(`${STATE}/auto-handoff.log`)!.text).toContain('agents still running after 15 min; slot checked')
+})
+
+test('spec 0069 AC-3: a handover written while an agent still runs waits for that agent', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  await rollWithWriter($, w)
+  w.files.set(SLOT, { text: slotText(), mtimeMs: w.clock.now() + 10 })
+  await complete($, 'T2')
+  await w.clock.advance(1500)
+  expect(w.commands.map(c => c.command)).toEqual(['rollover'])
+  w.agents[0]!.status = 'completed'
+  await step($, 'T3', 0)
+  await complete($, 'T3')
+  await w.clock.advance(1500)
+  expect(w.commands.map(c => c.command)).toEqual(['rollover', 'clear', 'resume-from-clear'])
+})
+
+test('spec 0069 AC-3: a turn begun after the writer finished that wrote no handover fails at once, not after 15 minutes', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  await rollWithWriter($, w)
+  w.agents[0]!.status = 'completed'
+  await step($, 'T3', 0)
+  await complete($, 'T3')
+  expect(chain(w).phase).toBe('failed')
+  expect(w.status).toBe('auto handoff failed: the rollover wrote no new handover; nothing was cleared')
+})
+
+test('spec 0069 AC-3: at the cap a slot already written goes on to the clear', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  await rollWithWriter($, w)
+  w.files.set(SLOT, { text: slotText(), mtimeMs: w.clock.now() + 10 })
+  await w.clock.advance(15 * 60_000 + 2500)
+  expect(w.commands.map(c => c.command)).toEqual(['rollover', 'clear', 'resume-from-clear'])
+})
+
+test('spec 0069 AC-22: a handover naming no index gets the memory not written line, and the handoff goes on', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  await handOff($, w) // the mock rollover writes a handover with no Handover memory line
+  expect(w.files.get(SLOT)!.text).toContain('memory not written: the handover names no index (the writer did not run, or its result was not written)')
+  expect(w.commands.map(c => c.command)).toEqual(['rollover', 'clear', 'resume-from-clear'])
+})
+
+test('spec 0069 AC-22: a failure line the rollover wrote is kept and not doubled', { options: { threshold: 50000 } }, async ($, on) => {
+  const w2 = world(on)
+  await rollWithWriter($, w2)
+  w2.agents[0]!.status = 'completed'
+  await step($, 'T3', 0)
+  w2.files.set(SLOT, { text: slotText('memory not written: check exited 1\n'), mtimeMs: w2.clock.now() + 10 })
+  await complete($, 'T3')
+  expect(w2.files.get(SLOT)!.text.split('memory not written').length).toBe(2)
+})
+
+// Spec 0069 amended 2026-10-22 (the replay lost 2 of 11): the slot keeps its Open questions section
+// beside the memory, and the fresh chat gets both lists together.
+const INDEX = '/w/docs/briefs/f.md'
+const seedWithQuestions = async ($: any, w: ReturnType<typeof world>) => {
+  w.files.set(INDEX, { text: [
+    '# F: brief and handover memory', '', '## Open questions',
+    '- Q1 | open | 2026-10-20 | Merge the fix now? | owner 11111111 "merge it?" | -',
+    '- Q2 | open | 2026-10-21 | Only in the memory: which port? | claude 11111111 "which port" | -',
+    '- Q3 | done | 2026-10-21 | An answered one | claude 11111111 "answered" | -', '',
+  ].join('\n'), mtimeMs: 0 })
+  await rollWithWriter($, w)
+  w.agents[0]!.status = 'completed'
+  await step($, 'T3', 0)
+  w.files.set(SLOT, { text: `# Rollover handover\nNext: go on.\nHandover memory: ${INDEX}\n\n## Open questions and loose ends\n- Q1: should the fix be merged now (slot words)\n- Only in the slot: is the post up yet\n`, mtimeMs: w.clock.now() + 10 })
+  await complete($, 'T3')
+  await w.clock.advance(1500)
+  const seed = w.commands.find(c => c.command === 'resume-from-clear')!.args
+  return seed.slice(seed.indexOf('Open questions, the handover'))
+}
+
+test('spec 0069 amended: a question only in the slot is listed for the fresh chat', { options: { threshold: 50000 } }, async ($, on) => {
+  expect(await seedWithQuestions($, world(on))).toContain('\n- Only in the slot: is the post up yet')
+})
+
+test('spec 0069 amended: a question only in the memory is listed for the fresh chat', { options: { threshold: 50000 } }, async ($, on) => {
+  const block = await seedWithQuestions($, world(on))
+  expect(block).toContain('\n- Q2 Only in the memory: which port?')
+  expect(block).not.toContain('An answered one')
+})
+
+test('spec 0069 amended: a question in both lists is listed once', { options: { threshold: 50000 } }, async ($, on) => {
+  const block = await seedWithQuestions($, world(on))
+  expect(block.split('\n').filter(l => /^- Q1\b/.test(l))).toEqual(['- Q1 Merge the fix now?'])
+  expect(block).not.toContain('slot words')
+})
+
+// Review of PR #174: the rollover writes markdown, so the index path can come in backticks and a
+// question can be a numbered or indented line.
+const seedFromSlot = async ($: any, w: ReturnType<typeof world>, slotBody: string) => {
+  w.files.set(INDEX, { text: '## Open questions\n- Q2 | open | 2026-10-21 | Only in the memory: which port? | claude 11111111 "which port" | -\n', mtimeMs: 0 })
+  await rollWithWriter($, w)
+  w.agents[0]!.status = 'completed'
+  await step($, 'T3', 0)
+  w.files.set(SLOT, { text: `# Rollover handover\nNext: go on.\n${slotBody}`, mtimeMs: w.clock.now() + 10 })
+  await complete($, 'T3')
+  await w.clock.advance(1500)
+  return w.commands.find(c => c.command === 'resume-from-clear')!.args
+}
+
+test('review: an index path in backticks is still read', { options: { threshold: 50000 } }, async ($, on) => {
+  const seed = await seedFromSlot($, world(on), `Handover memory: \`${INDEX}\`\n`)
+  expect(seed).toContain('\n- Q2 Only in the memory: which port?')
+})
+
+test('review: a numbered or indented question in the slot is listed', { options: { threshold: 50000 } }, async ($, on) => {
+  const seed = await seedFromSlot($, world(on), `Handover memory: ${INDEX}\n\n## Open questions and loose ends\n1. Numbered: is the post up yet\n  - Indented: which branch\n`)
+  expect(seed).toContain('\n- Numbered: is the post up yet')
+  expect(seed).toContain('\n- Indented: which branch')
+})
+
+test('spec 0069 AC-22: a handover naming its index gets no extra line', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  await rollWithWriter($, w)
+  w.agents[0]!.status = 'completed'
+  await step($, 'T3', 0)
+  w.files.set(SLOT, { text: slotText(), mtimeMs: w.clock.now() + 10 })
+  await complete($, 'T3')
+  expect(w.files.get(SLOT)!.text).toContain('Handover memory: /w/docs/briefs/f.md')
+  expect(w.files.get(SLOT)!.text).not.toContain('memory not written')
+})

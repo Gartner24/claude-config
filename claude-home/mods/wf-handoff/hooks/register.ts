@@ -38,6 +38,7 @@ const HARD_MARGIN = 20000
 // this chat's background agents first, checking every AGENT_POLL_MS, at most AGENT_WAIT_MS.
 const AGENT_WAIT_MS = 15 * 60000
 const AGENT_POLL_MS = 5000
+const NO_MEMORY = 'memory not written: the handover names no index (the writer did not run, or its result was not written)'
 
 let opts: PluginOptions = {}
 let threshold = 200000
@@ -77,6 +78,12 @@ let ownerNext = false // an owner message typed while idle: the next turn starts
 let ownerTurn = false // this turn started with a fresh owner message: never gated below HARD_MARGIN
 let graceLeft = 0
 let waitingAgents = false
+// Spec 0069 AC-3: the rollover turn starts the memory writer with the Agent tool, which always runs it
+// in the background (probe 2026-10-22), so that turn ends before the handover is written; the slot
+// check waits for running agents and for a main turn begun after they finished.
+let writerLaunched = false
+let afterAgents = false
+let rollGen = 0
 // session.start waits on the other start hooks (MCP servers connecting, tens of seconds after
 // `claude -c`); an /auto-handoff typed in that window used to find no chain and say the chat
 // does not run the handoff (2026-10-22).
@@ -304,6 +311,7 @@ async function beginHandoff($: EngineInterface) {
   const c = chain!
   c.triggeredAt = new Date(await $.clock.now()).toISOString()
   rollResolved = false
+  writerLaunched = false; afterAgents = false; rollGen++
   counted = false
   requestAtTrigger = c.lastRequest
   answeredAtTrigger = c.answered !== false
@@ -343,12 +351,40 @@ async function notLiveNow($: EngineInterface, files: string[]) {
   return out
 }
 
-async function finishRollover($: EngineInterface) {
-  const c = chain!
+// The slot written since this handoff started, or ''.
+async function newSlot($: EngineInterface) {
   const r = await slotCmd($)
   const path = r.exitCode === 0 ? r.stdout.trim() : ''
   const stat = path ? await $.fs.stat(path).catch(() => null) : null
-  if (!stat || stat.mtimeMs <= Date.parse(c.triggeredAt!)) {
+  return stat && stat.mtimeMs > Date.parse(chain!.triggeredAt!) ? path : ''
+}
+
+// Each main turn.complete of the rollover. The probe's rollover turn ended while its writer still ran,
+// and the slot was checked before the handover existed: wait while an agent runs, or while a writer
+// ran but no main turn has begun since every agent finished; at most AGENT_WAIT_MS, then check once.
+let rollWaitGen = -1
+async function rollTurnDone($: EngineInterface) {
+  if ((await agentsRunning($)) || (writerLaunched && !afterAgents && !(await newSlot($)))) {
+    if (rollWaitGen === rollGen) return
+    rollWaitGen = rollGen
+    const gen = rollGen
+    await log($, 'rollover turn ended; waiting for its agents before the slot check')
+    $.clock.after(AGENT_WAIT_MS, async () => {
+      if (gen !== rollGen || !rollResolved || chain?.phase !== 'rolling') return
+      rollResolved = false
+      await log($, `agents still running after ${AGENT_WAIT_MS / 60000} min; slot checked`)
+      await finishRollover($)
+    })
+    return
+  }
+  rollResolved = false
+  await finishRollover($)
+}
+
+async function finishRollover($: EngineInterface) {
+  const c = chain!
+  const path = await newSlot($)
+  if (!path) {
     await log($, 'slot missing: the rollover wrote no new handover')
     return fail($, 'the rollover wrote no new handover; nothing was cleared')
   }
@@ -374,7 +410,11 @@ async function finishRollover($: EngineInterface) {
   notLiveAtHandoff = await notLiveNow($, facts.files)
   const marked = markUnverified(await $.fs.read(path), n)
   for (const f of marked.marked) await log($, `unverified figure: ${f}`)
-  const slot = insertAfterHeading(marked.text, factsBlock(facts, n, c.link, notLiveAtHandoff))
+  // Spec 0069 AC-22: a handover that names no index says so, and the fresh chat tells the owner.
+  const named = /Handover memory: \S/.test(marked.text) || /memory not written: /i.test(marked.text)
+  if (!named) await log($, 'the handover names no memory index')
+  const text = named ? marked.text : `${marked.text.replace(/\n*$/, '')}\n\n${NO_MEMORY}\n`
+  const slot = insertAfterHeading(text, factsBlock(facts, n, c.link, notLiveAtHandoff))
   await $.fs.write(path, slot)
   await $.fs.write(page, renderPage(slot, { key, prev: prevLink, title: `Handover ${c.triggeredAt}` }))
     .catch(err => log($, `page not written (${err})`))
@@ -395,6 +435,18 @@ async function finishRollover($: EngineInterface) {
     }
     await seed($, slot)
   })
+}
+
+// Spec 0069, amended 2026-10-22: the replay lost open questions the slot had kept, so the slot keeps its
+// Open questions section beside the memory. An open question in either list is open; a slot line that
+// starts with a memory id (Q2) is the same question and is listed once.
+function openQuestions(slot: string, index: string) {
+  const section = slot.match(/^## Open questions[^\n]*\n([\s\S]*?)(?=^## |(?![\s\S]))/m)?.[1] ?? ''
+  // a numbered (`1.`) or indented line is a question too; only `- ` lines used to count
+  const fromSlot = section.split('\n').map(l => l.match(/^\s*(?:[-*]|\d+[.)])\s+(.*)$/)?.[1]?.trim() ?? '').filter(t => t && t !== 'none')
+  const memory = [...index.matchAll(/^- (Q\d+) \| open \| [^|]* \| ([^|]*?) \|/gm)].map(m => `${m[1]} ${m[2]!.trim()}`)
+  const ids = new Set(memory.map(q => q.split(' ')[0]))
+  return [...memory, ...fromSlot.filter(t => !ids.has(t.match(/^(Q\d+)\b/)?.[1] ?? ''))]
 }
 
 async function seed($: EngineInterface, slot: string) {
@@ -422,7 +474,12 @@ async function seed($: EngineInterface, slot: string) {
   // placeholder of the instructions copies written before {{transcript}} existed.
   const filled = fillTemplate(await template($, 'instructions'), { priority, lastRequest: requestAtTrigger ?? '', transcript })
   const notice = notLiveNotice(notLiveAtHandoff)
-  const args = [transcript ? filled.split('<previous transcript>').join(transcript) : filled, notice].filter(Boolean).join('\n\n')
+  // the rollover writes markdown: a path in backticks or bold must still be read
+  const indexPath = slot.match(/Handover memory: (\S+)/)?.[1]?.replace(/^[`*_(<]+|[`*_)>]+$/g, '')
+  const index = indexPath ? await $.fs.read(indexPath).catch(() => '') : ''
+  const questions = openQuestions(slot, index)
+  const open = questions.length ? `Open questions, the handover's list and the memory's together (an open question in either one is open):\n${questions.map(q => `- ${q}`).join('\n')}` : ''
+  const args = [transcript ? filled.split('<previous transcript>').join(transcript) : filled, open, notice].filter(Boolean).join('\n\n')
   await log($, `cleared; seed run (priority ${priority ? 'on' : 'off'})`)
   $.command.run({ command: 'resume-from-clear', args }).catch(err =>
     fail($, `the fresh chat did not start (${err}); the handover waits, type /resume-from-clear`))
@@ -595,6 +652,7 @@ export const register: Register = (on, options) => {
 
   on('tool.call', async ($, e, next) => {
     if (!active || e.agentId) return next(e)
+    if (chain?.phase === 'rolling' && (e.tool === 'Agent' || e.tool === 'Task')) writerLaunched = true
     if (await crossed($)) {
       const hard = (await size($)) >= lineNow().line + HARD_MARGIN
       // an owner's turn runs on and hands off at its end, unless it reaches the hard margin
@@ -617,6 +675,7 @@ export const register: Register = (on, options) => {
     if (!active || e.agentId || !chain) return yield* next(e)
     if (exemptNext && e.turnId !== currentTurn) { exemptNext = false; exemptTurn = true }
     if (e.turnId !== currentTurn) { ownerTurn = ownerNext; ownerNext = false }
+    if (e.turnId !== currentTurn && chain.phase === 'rolling' && writerLaunched && !afterAgents && !(await agentsRunning($))) afterAgents = true
     currentTurn = e.turnId
     // AC-2 fallback: a gated turn ended without turn.complete (Esc); the next step hands off.
     if (chain.phase === 'gated' && armedTurn !== e.turnId) {
@@ -648,7 +707,7 @@ export const register: Register = (on, options) => {
     if (!active || e.agentId || !chain) return r
     ownerTurn = false
     if (chain.phase === 'rolling') {
-      if (rollResolved) { rollResolved = false; exemptTurn = false; await finishRollover($) }
+      if (rollResolved) { exemptTurn = false; await rollTurnDone($) }
       return r
     }
     const wasExempt = exemptTurn
