@@ -13,9 +13,10 @@ FIX = ('add a last option "Learn this first" (explain the ideas here from zero w
 
 
 def load_jargon(folder=None):
-    """AC-4: plain.jargon from the folder of the real ~/.local/bin/wf, else None."""
+    """AC-4: plain.jargon from the repo's runner/, else None."""
     try:
-        folder = folder or os.path.dirname(os.path.realpath(os.path.expanduser("~/.local/bin/wf")))
+        # this used to follow ~/.local/bin/wf; the runner is retired live, so read the repo copy
+        folder = folder or os.path.expanduser("~/claude-config/runner")
         spec = importlib.util.spec_from_file_location("wf_plain", os.path.join(folder, "plain.py"))
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)

@@ -45,7 +45,7 @@ for d in agents rules; do
   run cp -a "$REPO/claude-home/$d/." "$LIVE/$d/"
 done
 for f in hooks/block-destructive.sh hooks/review-stack-pre-push hooks/plain-panel.py hooks/context-monitor.js \
-         hooks/handover-start.sh; do
+         hooks/handover-start.sh hooks/no-jjstack-bar.py; do
   note "$f"
   run cp -a "$REPO/claude-home/$f" "$LIVE/$f"
   run chmod +x "$LIVE/$f"
@@ -88,20 +88,17 @@ if [ -f "$REPO/config/manifest.json" ]; then
   fi
 fi
 
-# The runner goes on PATH as a copy outside the repo (spec 0020 AC-12). It used to link into
-# runner/, and the SessionStart hook naming wf then made every wf run call's guard deny runner/.
-# `next` is the same file; called by that name it acts as `wf next`.
-echo "runner:"
+# The wf runner is retired live (2026-10-21): runner/ stays in the repo but is no longer copied
+# to ~/.local/share/wf, linked as wf/next, or tested here.
+echo "bin links:"
 # Spec 0020 AC-3: under `wf`, install.sh runs into a stage and writes nothing outside $LIVE; wf swaps
-# the runner copy, the bin links and the git hooks in itself, with the same code.
+# the bin links and the git hooks in itself, with the same code.
 if [ -n "${WF_STAGE:-}" ]; then
   note "staged: bin links and git hooks left to wf"
   note "staged: skill trigger index not rebuilt; run ~/.claude/skills/jjstack/bin/jjstack-extract-triggers"
 else
 BIN="$HOME/.local/bin"
 run mkdir -p "$BIN"
-# A scratch copy of this script with no runner/ (the spec 0013 self checks) installs the rest.
-[ -d "$REPO/runner" ] && python3 -B -c 'import sys; sys.path.insert(0, sys.argv[1] + "/runner"); import finish; finish.install_runner(sys.argv[1], sys.argv[2], sys.argv[3] == "1")' "$REPO" "$HOME" "$DRY"
 # Spec 0015 AC-6: /sync runs spec-paths to warn about stale accepted specs.
 if [ -e "$BIN/spec-paths" ] && ! [ -L "$BIN/spec-paths" ]; then
   note "SKIP spec-paths (a real file is already at $BIN/spec-paths)"
@@ -278,11 +275,6 @@ else
   node "$REPO/claude-home/skills/design/scripts/build-ramp.mjs" --check >/dev/null 2>&1 \
     && note "colour ramp: solver targets and emitted pairs meet AA" \
     || { echo "  RAMP SELF-CHECK FAILED - generated palettes may ship below AA" >&2; exit 1; }
-  # The suite builds its own temp homes; the stage or live dir this install writes must not leak into it.
-  # Spec 0043 AC-7: the whole suite in parallel, about a minute.
-  env -u WF_STAGE -u CLAUDE_LIVE_DIR python3 "$REPO/runner/tests/fast.py" </dev/null >/dev/null 2>&1 \
-    && note "runner: unittest suite passes" \
-    || { echo "  RUNNER SELF-CHECK FAILED - run: python3 runner/tests/fast.py" >&2; exit 1; }
   python3 "$REPO/scripts/spec-paths.py" --test >/dev/null 2>&1 \
     && note "spec-paths: all self-checks passed" \
     || { echo "  SPEC-PATHS SELF-CHECK FAILED - run: python3 scripts/spec-paths.py --test" >&2; exit 1; }

@@ -116,9 +116,9 @@ class TestRunnerCopy(unittest.TestCase):
         env = {**os.environ, "HOME": str(self.home), "CLAUDE_LIVE_DIR": str(self.tmp / "live")}
         r = subprocess.run(["bash", str(real / "bin/install.sh"), "--dry-run"], capture_output=True, text=True, env=env)
         self.assertEqual(r.returncode, 0, r.stderr)
-        fp = finish.runner_fp(str(RUNNER))
-        self.assertIn(f"would: copy runner/*.py to {self.share}/{fp}", r.stdout)
-        self.assertIn(f"would: ln -sfn {self.share}/{fp}/wf.py {self.bin}/wf", r.stdout)
+        # the runner is retired live (2026-10-22): install no longer copies or links it
+        self.assertNotIn("runner/*.py", r.stdout)
+        self.assertNotIn(f"{self.bin}/wf", r.stdout)
         self.assertFalse(self.share.exists())
 
 
