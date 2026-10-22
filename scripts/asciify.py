@@ -21,7 +21,7 @@ SKIP_SUBSTR = ("anti-ai-writing", "node_modules/")
 
 # Accented characters inside real names. Stripping these corrupts the name.
 KEEP = {"Â", "é"}  # A-circumflex (TACHES), e-acute (cafes)
-# The scope contract's tag separator (rules/scope-contract.md), parsed by runner/wf.py.
+# The scope contract's tag separator (rules/scope-contract.md), parsed by _archive/runner/wf.py.
 KEEP.add("·")
 
 # Dashes are handled by regex before the char table, so that surrounding spaces

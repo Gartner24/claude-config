@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-17
 **Status**: Accepted
-**Paths:** `runner/insights.py`, `claude-home/skills/improve-my-system/extract.py`, `runner/run.py`, `runner/report.py`, `runner/wf.py`, `runner/tests/test_insights.py`, `claude-home/skills/improve-my-system/**`
+**Paths:** `_archive/runner/insights.py`, `claude-home/skills/improve-my-system/extract.py`, `_archive/runner/run.py`, `_archive/runner/report.py`, `_archive/runner/wf.py`, `_archive/runner/tests/test_insights.py`, `claude-home/skills/improve-my-system/**`
 **Amends**: [0018](../0018-morning-report/index.md) (the session start report line gains a proposals count), [0020](../0020-one-command-wf/index.md) (adds `wf insights`)
 
 ## What you're agreeing to

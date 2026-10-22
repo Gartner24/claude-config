@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-17
 **Status**: Accepted
-**Paths:** `runner/tests/test_borrowed_ideas.py`, `claude-home/skills/lead-finder/**`, `claude-home/skills/reaction-tester/**`, `claude-home/skills/business-analyzer/references/new-business.md`, `claude-home/rules/new-number-replaces-old.md`
+**Paths:** `tests/test_borrowed_ideas.py`, `claude-home/skills/lead-finder/**`, `claude-home/skills/reaction-tester/**`, `claude-home/skills/business-analyzer/references/new-business.md`, `claude-home/rules/new-number-replaces-old.md`
 
 ## What you're agreeing to
 - Lead finder: you type a city and a trade, and it lists 10 to 20 local businesses with weak web presence and the evidence. It never contacts anyone; you do that by hand.

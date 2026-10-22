@@ -137,7 +137,7 @@ Pick the language, the entry point, how it installs onto your PATH, and how it i
 **Done when:** a spec records the choice, and an empty runner installs through `bin/install.sh` and passes its own self check.
 - [x] Design it (spec): `/architect runner stack and layout`
 - [x] Scaffold from the decision: `/develop runner stack and layout`
-Spec [0001](../specs/0001-runner-stack-and-layout.md) · code in `runner/`
+Spec [0001](../specs/0001-runner-stack-and-layout.md) · code in `_archive/runner/`
 
 ### 2. Scope contract for the runner · done
 The fields the runner reads: the hub `Repos` column (replaces `**Repo:**`), `**Source of truth:**`, `**Autopilot:**`, the `auto` tag, and how the next box is found (first unticked box, `docs/` or `.workflow/` base, milestone sub items). The skills that write the scope have to agree with it.
@@ -149,7 +149,7 @@ The fields the runner reads: the hub `Repos` column (replaces `**Repo:**`), `**S
    - [x] Manual `/scope` replan, headless `/scope`, `/architect` queue check (AC-10); replan, headless and the `· auto` write pass; the no tag half passed at the feature 17 capture (2026-10-11)
 - [x] Verify it: `/check verify scope contract for the runner`
 - [x] Test it: `/test scope contract for the runner`
-Spec [0003](../specs/0003-scope-contract/index.md) · code in `rules/scope-contract.md`, `runner/wf.py`, `runner/tests/`
+Spec [0003](../specs/0003-scope-contract/index.md) · code in `rules/scope-contract.md`, `_archive/runner/wf.py`, `_archive/runner/tests/`
 
 ## Release 1: next step in one command
 
@@ -165,7 +165,7 @@ From any folder, name a repo (a path, its folder name or its scope title, found 
    - [x] fzf picker, worktrees, `--list`, manual real claude check (AC-2, AC-4, AC-12, AC-15)
 - [x] Verify it: `/check verify next repo command`
 - [x] Test it: `/test next repo command`
-Spec [0002](../specs/0002-next-repo-command/index.md) · code in `runner/wf.py`, `runner/tests/`
+Spec [0002](../specs/0002-next-repo-command/index.md) · code in `_archive/runner/wf.py`, `_archive/runner/tests/`
 
 ### 17. Worktree discovery without git · done
 Discovery still runs `git worktree list --porcelain` in every scanned main checkout. Decide whether to read `.git/worktrees/*/gitdir` instead, so no git runs in a repo that is only scanned (the rule since `c26dc8a`). Changing it rewords spec 0002 AC-2 and its worktree label row.
@@ -176,7 +176,7 @@ Discovery still runs `git worktree list --porcelain` in every scanned main check
    - [x] "Worktree without git" test: zero git calls, relative, prunable, reused, empty and placeholder cases, no git on PATH (AC-2)
 - [x] Verify it: `/check verify worktree discovery without git`
 - [x] Test it: `/test worktree discovery without git`
-Spec [0002](../specs/0002-next-repo-command/index.md) (amended AC-2) · code in `runner/wf.py`, `runner/tests/`
+Spec [0002](../specs/0002-next-repo-command/index.md) (amended AC-2) · code in `_archive/runner/wf.py`, `_archive/runner/tests/`
 
 ### 18. fzf failure is not a cancel · done
 When fzf cannot open a terminal it prints `inappropriate ioctl for device` and `next` exits 0, the same as a cancelled pick (AC-4). Spec 0002 now names it: a failure exits 1 with a message. Same amendment: an empty or unknown `HEAD` shows `-` in the list branch column, not `detached ` (AC-12).
@@ -187,7 +187,7 @@ When fzf cannot open a terminal it prints `inappropriate ioctl for device` and `
    - [x] Shared hash pattern, `head_branch()` shows `-` for an empty or unknown `HEAD`, list tests (AC-12, build step 7)
 - [x] Verify it: `/check verify fzf failure is not a cancel`
 - [x] Test it: `/test fzf failure is not a cancel`
-Spec [0002](../specs/0002-next-repo-command/index.md) (amended AC-4, AC-12) · code in `runner/wf.py`, `runner/tests/test_wf.py`, `runner/tests/test_run.py`
+Spec [0002](../specs/0002-next-repo-command/index.md) (amended AC-4, AC-12) · code in `_archive/runner/wf.py`, `_archive/runner/tests/test_wf.py`, `_archive/runner/tests/test_run.py`
 
 ### 19. Singular change count · done
 The confirm line reads `1 changes` for one change. It should read `1 change`; spec 0002 AC-8 writes `N changes`, so its wording gets the singular too.
@@ -197,7 +197,7 @@ The confirm line reads `1 changes` for one change. It should read `1 change`; sp
    - [x] `changes()` returns `1 change` for one, `N changes` otherwise, test for 0, 1 and 2 (AC-8, build step 8)
 - [x] Verify it: `/check verify singular change count`
 - [x] Test it: `/test singular change count`
-Spec [0002](../specs/0002-next-repo-command/index.md) (amended AC-8) · code in `runner/wf.py`, `runner/tests/test_wf.py`
+Spec [0002](../specs/0002-next-repo-command/index.md) (amended AC-8) · code in `_archive/runner/wf.py`, `_archive/runner/tests/test_wf.py`
 
 ## Release 2: one feature unattended
 
@@ -213,7 +213,7 @@ Run each box as a fresh `claude -p` call inside the repo, recompute the next box
    - [x] Manual real claude checks in `verify.md` (AC-15)
 - [x] Verify it: `/check verify headless step loop`
 - [x] Test it: `/test headless step loop`
-Spec [0004](../specs/0004-headless-step-loop/index.md) · code in `runner/run.py`, `runner/wf.py`, `runner/tests/test_run.py`
+Spec [0004](../../_archive/runner/docs/specs/0004-headless-step-loop/index.md) · code in `_archive/runner/run.py`, `_archive/runner/wf.py`, `_archive/runner/tests/test_run.py`
 
 ### 5. Decision parking and phone pings · done
 The unattended prompt fixes the safe panel answers and asks real decisions as `DECISION NEEDED:` plus `OPTION:` lines; you get the question on your phone with buttons and the session resumes with your reply.
@@ -227,7 +227,7 @@ The unattended prompt fixes the safe panel answers and asks real decisions as `D
    - [x] Manual checks in `verify.md` (AC-14): all six on claude -p 2.1.296 and the phone; label cuts and browser replies fixed from check 5
 - [x] Verify it: `/check verify decision parking and phone pings`
 - [x] Test it: `/test decision parking and phone pings`
-Spec [0005](../specs/0005-decision-parking-phone-pings/index.md) · code in `runner/ntfy.py`, `runner/run.py`, `runner/wf.py`, `runner/tests/`
+Spec [0005](../../_archive/runner/docs/specs/0005-decision-parking-phone-pings/index.md) · code in `_archive/runner/ntfy.py`, `_archive/runner/run.py`, `_archive/runner/wf.py`, `_archive/runner/tests/`
 
 ### 6. Standing answers · done
 Answers you always give the same way (`/test` runs the suite, who marks done) live once in each repo's `AGENTS.md` (`.workflow/AGENTS.md` in team repos), and `wf run` adds them to the unattended prompt instead of pinging you. Tier stays on the scope header, accepting a spec stays with you. The cross check key was dropped on 2026-10-12 (spec 0006 amended).
@@ -240,7 +240,7 @@ Answers you always give the same way (`/test` runs the suite, who marks done) li
    - [x] Manual checks on the real claude (AC-9): verify.md UI steps 1 and 2, both passed 2026-10-12 through a real `wf run` on scratch repos
 - [x] Verify it: `/check verify standing answers`
 - [x] Test it: `/test standing answers`
-Spec [0006](../specs/0006-standing-answers/index.md) · code in `runner/run.py`, `runner/tests/test_run.py`
+Spec [0006](../../_archive/runner/docs/specs/0006-standing-answers/index.md) · code in `_archive/runner/run.py`, `_archive/runner/tests/test_run.py`
 
 ### 22. Waiting boxes owed to you · done
 A box only you can close (a manual check on the real claude or your phone, like spec 0006 AC-9) gets a marker in the scope contract (spec 0003), and `next` and `wf run` treat it as waiting: refused with a reason, never built. The last `wf run` looped `/develop` on feature 6 because its open AC-9 milestone was owed to you.
@@ -254,7 +254,7 @@ A box only you can close (a manual check on the real claude or your phone, like 
    - [x] Headless `/scope` probe (AC-8; the `wf run` refusal passed, see spec 0012 `verify.md`) · waits on you
 - [x] Verify it: `/check verify waiting boxes owed to you`
 - [x] Test it: `/test waiting boxes owed to you`
-Spec [0012](../specs/0012-waiting-boxes-owed-to-you/index.md) · code in `runner/wf.py`, `runner/run.py`, `runner/tests/`, `rules/scope-contract.md`
+Spec [0012](../specs/0012-waiting-boxes-owed-to-you/index.md) · code in `_archive/runner/wf.py`, `_archive/runner/run.py`, `_archive/runner/tests/`, `rules/scope-contract.md`
 Source: your message of 2026-10-12, after the feature 6 `wf run` loop.
 
 ### 20. Push guard outside the model · done
@@ -285,7 +285,7 @@ What parks a feature instead of looping: 2 `/debug` attempts after a FAIL, BLOCK
    - [x] Manual checks 4 to 6 in `verify.md` (AC-11): all passed 2026-10-12 through real `wf run`s on scratch repos
 - [x] Verify it: `/check verify failure and park policy`
 - [x] Test it: `/test failure and park policy`
-Spec [0008](../specs/0008-failure-park-policy/index.md) · code in `runner/run.py`, `runner/tests/test_park.py`
+Spec [0008](../../_archive/runner/docs/specs/0008-failure-park-policy/index.md) · code in `_archive/runner/run.py`, `_archive/runner/tests/test_park.py`
 Follow-up: the usage limit probe (spec 0008 `verify.md` Follow-up, check 3) waits on you at the next real limit; it does not hold this feature open.
 
 ### 7. Headless verify and test · done
@@ -304,9 +304,9 @@ Follow-up: the usage limit probe (spec 0008 `verify.md` Follow-up, check 3) wait
    - [x] P8 and P9 through `wf run`, with P2 rerun (AC-11)
 - [x] Verify it: `/check verify headless verify and test`
 - [x] Test it: `/test headless verify and test`
-Spec [0009](../specs/0009-headless-verify-test/index.md) · code in `runner/run.py`, `runner/tests/test_browser.py`
+Spec [0009](../../_archive/runner/docs/specs/0009-headless-verify-test/index.md) · code in `_archive/runner/run.py`, `_archive/runner/tests/test_browser.py`
 Unblocked 2026-10-12: P5 failed on the WebRTC switch spelling Brave ignores; spec 0009 amended (AC-4 `--webrtc-ip-handling-policy`, `MCP_CACHE`) and P2 to P7 now pass. Steps 3 to 6 built 2026-10-12 (the held patch reapplied plus the `MCP_CACHE` checks); P8 and P9 through `wf run` remain.
-Blocked 2026-10-12: a security review of the build found seven doors (app jail narrower than the call deny set, app network and token, npx local package resolution, browser loopback reach, guard URL parser differential, browser downloads, guard path symlink swap); they go to `/architect` before P8 and P9. Source: [docs/briefs/0009-review-findings.md](../briefs/0009-review-findings.md)
+Blocked 2026-10-12: a security review of the build found seven doors (app jail narrower than the call deny set, app network and token, npx local package resolution, browser loopback reach, guard URL parser differential, browser downloads, guard path symlink swap); they go to `/architect` before P8 and P9. Source: [_archive/runner/docs/briefs/0009-review-findings.md](../../_archive/runner/docs/briefs/0009-review-findings.md)
 Blocked 2026-10-12 (step 8): the review fixes are built; P3 to P7, P10 and P11 pass through the built code, but P2 fails (bwrap cannot bind over a symlinked dotfile in the frozen deny list) and the step 7 commit review found absent deny paths left writable (`.git/hooks`). Both go to `/architect` (brief findings 8 and 9).
 Unblocked 2026-10-12: `/architect` settled the seven findings (fix 1, 2, 3, 5, 7; accept 4 with the prompt reworded; accept 6, P11 saw no download saved); spec 0009 amended, P10 and P11 recorded. Last hardening round on this feature.
 Unblocked 2026-10-12: `/architect` settled findings 8 and 9 (bind real paths, park a symlink inside a writable folder, catch an absent denied path that appears, plus ten cross check details); spec 0009 amended, build step 9.
@@ -323,7 +323,7 @@ Frontend work in a headless run is audited by `design-gate`, never skipped: UI w
    - [x] P2 to P4 through `wf run` in `verify.md` (AC-9)
 - [x] Verify it: `/check verify design enforcement unattended`
 - [x] Test it: `/test design enforcement unattended`
-Spec [0010](../specs/0010-design-enforcement-unattended/index.md) · code in `runner/run.py`, `runner/tests/test_design.py`
+Spec [0010](../../_archive/runner/docs/specs/0010-design-enforcement-unattended/index.md) · code in `_archive/runner/run.py`, `_archive/runner/tests/test_design.py`
 Steps 1 to 3 built 2026-10-12 inside a `wf run` call. P2 to P4 passed 2026-10-12 through real `wf run` from a normal session; P3's `design` deny was confirmed by a direct probe, since under `wf run` the AC-5 prompt line stops the call from trying (`verify.md`).
 
 ## Release 3: queues
@@ -340,7 +340,7 @@ A parked feature no longer stops the run: the runner moves to the next queued fe
    - [x] Manual checks on the real claude and phone (AC-22) · waits on you
 - [x] Verify it: `/check verify build queue and decision queue`
 - [x] Test it: `/test build queue and decision queue`
-Spec [0011](../specs/0011-build-decision-queue/index.md) · code in `runner/run.py`, `runner/wf.py`, `runner/tests/test_queue.py`
+Spec [0011](../specs/0011-build-decision-queue/index.md) · code in `_archive/runner/run.py`, `_archive/runner/wf.py`, `_archive/runner/tests/test_queue.py`
 AC-22 manual checks passed 2026-10-12 through real `wf run` and phone taps (`verify.md`).
 
 ### 26. Review stack fixes · done
@@ -351,21 +351,21 @@ Every HIGH, MEDIUM and LOW finding of the `/review-stack` of `d02d329..c95f181`,
    - [x] Decision loop, plan answers and guard lines, standing answers watch, stale on unqueue, per call app logs, env strip (H1 to H4, L6, L9)
    - [x] MEDIUM fixes and the 3 mutants (M1 to M13)
    - [x] LOW fixes (L1 to L13)
-   - [x] Push rule probe on the real claude: `bash docs/specs/0004-headless-step-loop/probes/push-rule.sh` (M9) · waits on you
+   - [x] Push rule probe on the real claude: `bash _archive/runner/docs/specs/0004-headless-step-loop/probes/push-rule.sh` (M9) · waits on you
 - [x] Verify it: `/check verify review stack fixes`
 - [x] Test it: `/test review stack fixes`
-Specs amended: [0011](../specs/0011-build-decision-queue/index.md), [0009](../specs/0009-headless-verify-test/index.md), [0008](../specs/0008-failure-park-policy/index.md) · code in `runner/run.py`, `runner/wf.py`, `runner/ntfy.py`
-Source: [docs/briefs/runner-review-stack-2026-10-12.md](../briefs/runner-review-stack-2026-10-12.md)
+Specs amended: [0011](../specs/0011-build-decision-queue/index.md), [0009](../../_archive/runner/docs/specs/0009-headless-verify-test/index.md), [0008](../../_archive/runner/docs/specs/0008-failure-park-policy/index.md) · code in `_archive/runner/run.py`, `_archive/runner/wf.py`, `_archive/runner/ntfy.py`
+Source: [_archive/runner/docs/briefs/runner-review-stack-2026-10-12.md](../../_archive/runner/docs/briefs/runner-review-stack-2026-10-12.md)
 
 ### 27. Second review stack fixes · done
 Every HIGH and MEDIUM finding of the `/review-stack` of `c95f181..d20a328`, plus L8, fixed with a test and a mutation check each; the private secret file names rewritten out of the unpushed commits.
 **Done when:** every second round finding in the brief is fixed with a test that goes red without its fix, no unpushed commit names a private secret file, and the suite passes.
 - [x] Build it: `/develop second review stack fixes`
-   - [x] Push rule probe rerun on the real claude, steps 9 to 11: `bash docs/specs/0004-headless-step-loop/probes/push-rule.sh` · waits on you
+   - [x] Push rule probe rerun on the real claude, steps 9 to 11: `bash _archive/runner/docs/specs/0004-headless-step-loop/probes/push-rule.sh` · waits on you
 - [x] Verify it: `/check verify second review stack fixes`
 - [x] Test it: `/test second review stack fixes`
-Specs amended: [0004](../specs/0004-headless-step-loop/index.md), [0006](../specs/0006-standing-answers/index.md), [0007](../specs/0007-push-guard/index.md), [0008](../specs/0008-failure-park-policy/index.md), [0009](../specs/0009-headless-verify-test/index.md), [0010](../specs/0010-design-enforcement-unattended/index.md), [0011](../specs/0011-build-decision-queue/index.md) · code in `runner/run.py`
-Source: [docs/briefs/runner-review-stack-2026-10-12.md](../briefs/runner-review-stack-2026-10-12.md) (second review section)
+Specs amended: [0004](../../_archive/runner/docs/specs/0004-headless-step-loop/index.md), [0006](../../_archive/runner/docs/specs/0006-standing-answers/index.md), [0007](../specs/0007-push-guard/index.md), [0008](../../_archive/runner/docs/specs/0008-failure-park-policy/index.md), [0009](../../_archive/runner/docs/specs/0009-headless-verify-test/index.md), [0010](../../_archive/runner/docs/specs/0010-design-enforcement-unattended/index.md), [0011](../specs/0011-build-decision-queue/index.md) · code in `_archive/runner/run.py`
+Source: [_archive/runner/docs/briefs/runner-review-stack-2026-10-12.md](../../_archive/runner/docs/briefs/runner-review-stack-2026-10-12.md) (second review section)
 
 ### 21. Work names out of the public repo · done
 The merge of the runner branch to main waits on this. Built by `wf run`; no `wf` step writes `.git/hooks` or `~/.claude` (those steps are yours, marked below).
@@ -414,19 +414,19 @@ Source: personal scope row 10 (`~/projects/docs/scope/scope.md`; hook errors on 
 
 ### 24. Runner resilience · done · auto
 Eight runner changes: wait through an API outage, stop on a crash loop, count tokens and cost, name the boxes a timed out call ticked, a real end to end fixture, a live log, a `/sync` box that runs, and a waits on you box that lets later boxes go on.
-**Done when:** the spec is built, each behavior has its test, and `python3 runner/e2e/run.py` passes on the real claude.
+**Done when:** the spec is built, each behavior has its test, and `python3 _archive/runner/e2e/run.py` passes on the real claude.
 - [x] Design it (spec): `/architect runner resilience`
 - [x] Build it: `/develop runner resilience`
    - [x] Tokens and cost, live log with `--session-id` (AC-3, AC-6)
    - [x] Timeout unconfirmed boxes, outage waits, crash loop (AC-1, AC-2, AC-4)
    - [x] Sync box and skip ahead in `wf.py` and `run.py`, repo copy of `rules/scope-contract.md`, architecture table (AC-7, AC-8)
-   - [x] Fixture repo and `runner/e2e/run.py` with its fake `wf` test (AC-5)
+   - [x] Fixture repo and `_archive/runner/e2e/run.py` with its fake `wf` test (AC-5)
 - [x] Verify it: `/check verify runner resilience`
 - [x] Test it: `/test runner resilience`
 - [x] Copy the rule file live: `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` (AC-8) · waits on you
-- [x] Run the real end to end with `!`: `python3 runner/e2e/run.py`, record it in `docs/specs/0014-runner-resilience/verify.md` (AC-5, AC-9) · waits on you
+- [x] Run the real end to end with `!`: `python3 _archive/runner/e2e/run.py`, record it in `docs/specs/0014-runner-resilience/verify.md` (AC-5, AC-9) · waits on you
 - [x] Sync docs: `/sync runner resilience`
-Spec [0014](../specs/0014-runner-resilience/index.md) · code in `runner/run.py`, `runner/wf.py`, `runner/e2e/`, tests in `runner/tests/test_resilience.py`
+Spec [0014](../specs/0014-runner-resilience/index.md) · code in `_archive/runner/run.py`, `_archive/runner/wf.py`, `_archive/runner/e2e/`, tests in `_archive/runner/tests/test_resilience.py`
 Source: [~/projects/docs/briefs/runner-ideas-2026-10-12.md](../../../../projects/docs/briefs/runner-ideas-2026-10-12.md) (spec A, ideas 1 to 6); personal scope row 24 (skip ahead and `/sync` box notes); personal scope row 18.
 
 ### 25. Checks that cannot lie · done · auto
@@ -443,22 +443,22 @@ One always loaded rule file the vendored skills cannot overwrite: verify steps a
 - [x] Copy the rule live and link the script: `cp ~/claude-config/rules/check-gates.md ~/.claude/rules/check-gates.md`, then `bin/install.sh` (AC-1, AC-6) · waits on you
 - [x] Run probes P1 to P3 with `!` and record them in `docs/specs/0015-checks-that-cannot-lie/verify.md` (AC-10) · waits on you
 - [x] Sync docs: `/sync checks that cannot lie`
-Spec [0015](../specs/0015-checks-that-cannot-lie/index.md) · code in `runner/run.py`, `scripts/spec-paths.py`, `rules/check-gates.md`, `bin/install.sh`, tests in `runner/tests/test_checks.py`, `runner/tests/test_spec_paths.py`
+Spec [0015](../specs/0015-checks-that-cannot-lie/index.md) · code in `_archive/runner/run.py`, `scripts/spec-paths.py`, `rules/check-gates.md`, `bin/install.sh`, tests in `_archive/runner/tests/test_checks.py`, `tests/test_spec_paths.py`
 Source: [~/projects/docs/briefs/runner-ideas-2026-10-12.md](../../../../projects/docs/briefs/runner-ideas-2026-10-12.md) (spec B, ideas 7 and 8; item 7 narrowed to changed tests, agreed 2026-10-13); personal scope rows 19 and 12 part 2.
 
 ### 29. Several repos at once · done · auto
 Bare `wf run` becomes a parent that starts today's single repo run once per repo with work, side by side: `--jobs N` caps it, repos sharing an app port, git dir or folder never run together, lines are prefixed `[<repo>]` with one summary at the end. Several features inside one repo at once still waits on feature 14.
-**Done when:** the spec is built, and one `wf run` builds features in two repos at the same time (`runner/e2e/run.py --parallel` passes on the real claude).
+**Done when:** the spec is built, and one `wf run` builds features in two repos at the same time (`_archive/runner/e2e/run.py --parallel` passes on the real claude).
 - [x] Design it (spec): `/architect several repos at once`
 - [x] Build it: `/develop several repos at once`
    - [x] Parent: has work flag, staggered child start, `--jobs`, exit codes (AC-1, AC-2, AC-6, AC-7)
    - [x] Never together rule, prefixed output and summary, signal forwarding (AC-3, AC-4, AC-5)
-   - [x] `runner/e2e/run.py --parallel` (AC-8)
+   - [x] `_archive/runner/e2e/run.py --parallel` (AC-8)
 - [x] Verify it: `/check verify several repos at once`
 - [x] Test it: `/test several repos at once`
-- [x] Run `python3 runner/e2e/run.py --parallel` with `!` and record it in the spec's Follow-up (AC-8) · waits on you
+- [x] Run `python3 _archive/runner/e2e/run.py --parallel` with `!` and record it in the spec's Follow-up (AC-8) · waits on you
 - [x] Sync docs: `/sync several repos at once`
-Spec [0017](../specs/0017-several-repos-at-once/index.md) · code in `runner/run.py` (`parallel()`), `runner/wf.py` (`--jobs`), `runner/e2e/run.py` (`--parallel`), tests in `runner/tests/test_parallel.py`
+Spec [0017](../../_archive/runner/docs/specs/0017-several-repos-at-once/index.md) · code in `_archive/runner/run.py` (`parallel()`), `_archive/runner/wf.py` (`--jobs`), `_archive/runner/e2e/run.py` (`--parallel`), tests in `_archive/runner/tests/test_parallel.py`
 Source: personal scope row 23 (`~/projects/docs/scope/scope.md`; your message of 2026-10-12, multi tasking question).
 
 ## Release 5: nothing left for you in the morning
@@ -470,7 +470,7 @@ The runner keeps building and gathers every waits-on-you step of the run that co
 **Done when:** a run whose features end in live setup steps leaves you one command, and running it does every step, keeps `autoMode`, and ticks the boxes so the next run can `/sync`.
 - [x] Design it (spec): `/architect live setup steps in one command`
 - [x] Build it: `/develop live setup steps in one command`
-   - [x] ` · live` tag, shapes, plan and confirm in `runner/finish.py` and `wf finish` (AC-1 to AC-3)
+   - [x] ` · live` tag, shapes, plan and confirm in `_archive/runner/finish.py` and `wf finish` (AC-1 to AC-3)
    - [x] Phases, backups, logs, failure policy, Ctrl C (AC-4)
    - [x] Record in verify.md, tick, commit, end lines, report.seen, exit codes (AC-5 to AC-8)
    - [x] `bin/install.sh` keeps `autoMode`, its self checks; repo copies of `rules/scope-contract.md` and `rules/runner-handoff.md` (AC-9, AC-10)
@@ -480,7 +480,7 @@ The runner keeps building and gathers every waits-on-you step of the run that co
 - [x] Copy the handoff rule live: `cp ~/claude-config/rules/runner-handoff.md ~/.claude/rules/runner-handoff.md` (AC-10) · waits on you · live
 - [x] Install, keeping your autoMode: `bin/install.sh` (AC-9) · waits on you · live
 - [x] Sync docs: `/sync live setup steps in one command`
-Spec [0019](../specs/0019-live-setup-steps/index.md) · code in `runner/finish.py`, `runner/wf.py`, `bin/install.sh`, tests in `runner/tests/test_finish.py`, `scripts/private-names.py --test`
+Spec [0019](../specs/0019-live-setup-steps/index.md) · code in `_archive/runner/finish.py`, `_archive/runner/wf.py`, `bin/install.sh`, tests in `_archive/runner/tests/test_finish.py`, `scripts/private-names.py --test`
 Source: [docs/briefs/morning-report-and-live-steps.md](../briefs/morning-report-and-live-steps.md) (fix A).
 
 ### 13. Morning report · done · auto
@@ -488,18 +488,18 @@ When a run ends, for any reason, one phone message: what got built, what waits o
 **Done when:** after a run you get the phone note, and your next `~/.claude` session opens with the report.
 - [x] Design it (spec): `/architect morning report`
 - [x] Build it: `/develop morning report`
-   - [x] `runner/report.py`, `ntfy` title, tags and `scrub_field`, called at the end of a single repo run (AC-1 to AC-4)
+   - [x] `_archive/runner/report.py`, `ntfy` title, tags and `scrub_field`, called at the end of a single repo run (AC-1 to AC-4)
    - [x] One report for a bare `wf run` parent (AC-1, AC-2)
    - [x] `wf report`, `--seen`, `--hook`, killed run line; settings SessionStart entry and the handoff rule line (AC-5 to AC-7)
-   - [x] `runner/e2e/run.py` report checks (AC-8)
+   - [x] `_archive/runner/e2e/run.py` report checks (AC-8)
 - [x] Verify it: `/check verify morning report`
 - [x] Test it: `/test morning report`
 - [x] Install the session hook: `bin/install.sh` (AC-7) · waits on you · live
 - [x] Copy the handoff rule live: `cp ~/claude-config/rules/runner-handoff.md ~/.claude/rules/runner-handoff.md` (AC-7) · waits on you · live
-- [x] Real end to end with the report: `python3 runner/e2e/run.py` (AC-8) · waits on you · live
-- [x] Real parallel end to end with one report: `python3 runner/e2e/run.py --parallel` (AC-8) · waits on you · live
+- [x] Real end to end with the report: `python3 _archive/runner/e2e/run.py` (AC-8) · waits on you · live
+- [x] Real parallel end to end with one report: `python3 _archive/runner/e2e/run.py --parallel` (AC-8) · waits on you · live
 - [x] Sync docs: `/sync morning report`
-Spec [0018](../specs/0018-morning-report/index.md) · code in `runner/report.py`, `runner/ntfy.py`, `runner/run.py`, `runner/wf.py`, `runner/e2e/run.py`, tests in `runner/tests/test_report.py`
+Spec [0018](../specs/0018-morning-report/index.md) · code in `_archive/runner/report.py`, `_archive/runner/ntfy.py`, `_archive/runner/run.py`, `_archive/runner/wf.py`, `_archive/runner/e2e/run.py`, tests in `_archive/runner/tests/test_report.py`
 Source: [docs/briefs/morning-report-and-live-steps.md](../briefs/morning-report-and-live-steps.md) (fix B); first deferred 2026-10-12, brought back 2026-10-13.
 
 ## Release 6: work non stop
@@ -509,26 +509,26 @@ You type only `wf`. After one confirm screen it shows the report, applies pendin
 **Done when:** with a run going in another repo, one `wf` does all five steps, that run keeps going and its next call uses the new setup, a change to `~/.claude` not made by `wf` still stops the run, and no skill, rule or report tells you to type any `wf` subcommand.
 - [x] Design it (spec): `/architect one command wf`
 - [x] Build it: `/develop one command wf`
-   - [x] Runner copy: `install_runner` in `runner/finish.py`, `bin/install.sh` calls it, deny `~/.local/share/wf` (AC-12)
+   - [x] Runner copy: `install_runner` in `_archive/runner/finish.py`, `bin/install.sh` calls it, deny `~/.local/share/wf` (AC-12)
    - [x] Locks: holder line by every taker, `wf finish` without repo locks, held repos skipped (AC-9, AC-7)
    - [x] Runs take a `wf` swap: `live_dir()`, ledger acceptance, live dir guard rebuild, state folder deny (AC-5)
    - [x] Staged setup and swap: `WF_STAGE` in `bin/install.sh`, stage, journal, ledger, ordered renames, crash finish (AC-3, AC-4)
    - [x] Retakes by reason, then bare `wf`: screen, order, builds, checks beside them, commit retries (AC-6, AC-1, AC-2, AC-7, AC-8)
-   - [x] One command texts and rule copies, corpus test, `runner/e2e/run.py --beside` (AC-10, AC-11)
+   - [x] One command texts and rule copies, corpus test, `_archive/runner/e2e/run.py --beside` (AC-10, AC-11)
 - [x] Verify it: `/check verify one command wf`
 - [x] Test it: `/test one command wf`
 - [x] Copy the handoff rule live: `cp ~/claude-config/rules/runner-handoff.md ~/.claude/rules/runner-handoff.md` (AC-10) · waits on you · live
 - [x] Copy the scope contract live: `cp ~/claude-config/rules/scope-contract.md ~/.claude/rules/scope-contract.md` (AC-10) · waits on you · live
 - [x] Install the runner copy: `bin/install.sh` (AC-12) · waits on you · live
-- [x] Real check beside a run: `python3 runner/e2e/run.py --beside` (AC-11) · waits on you · live
+- [x] Real check beside a run: `python3 _archive/runner/e2e/run.py --beside` (AC-11) · waits on you · live
 - [x] Sync docs: `/sync one command wf`
 Spec [0020](../specs/0020-one-command-wf/index.md)
 Source: [docs/briefs/never-wait-on-each-other.md](../briefs/never-wait-on-each-other.md).
 
 ### 33. Ask, never stop · done · auto
-A step that needs a protected place (`~/.claude`, the runner's own `runner/`, `.git/hooks`) never parks. With a standing permission for that repo (allowed once, ahead of time) the run just writes it and goes on. Without one, it asks on your phone (yes, no, always), keeps building everything else meanwhile, and resumes that step when you answer.
+A step that needs a protected place (`~/.claude`, the runner's own `_archive/runner/`, `.git/hooks`) never parks. With a standing permission for that repo (allowed once, ahead of time) the run just writes it and goes on. Without one, it asks on your phone (yes, no, always), keeps building everything else meanwhile, and resumes that step when you answer.
 The same holds for every other reason a feature is set aside today (blocked, failed checks, caps, on main): it becomes a phone question with a recommended action, the rest keeps building, and your answer resumes it (see the brief).
-**Done when:** a claude-config night run whose features edit `~/.claude` and `runner/` builds them to the end with no stop, given the standing permission; without it you get one phone question and the step resumes on your yes; no park reason ends a feature without a question; a change to `~/.claude` from outside the run still stops that repo.
+**Done when:** a claude-config night run whose features edit `~/.claude` and `_archive/runner/` builds them to the end with no stop, given the standing permission; without it you get one phone question and the step resumes on your yes; no park reason ends a feature without a question; a change to `~/.claude` from outside the run still stops that repo.
 - [x] Design it (spec): `/architect ask never stop`
 - [x] Build it: `/develop ask never stop`
    - [x] Case table in code with the AC-1 completeness test
@@ -539,7 +539,7 @@ The same holds for every other reason a feature is set aside today (blocked, fai
 - [x] Verify it: `/check verify ask never stop`
 - [x] Test it: `/test ask never stop`
 - [x] Sync docs: `/sync ask never stop`
-Spec [0021](../specs/0021-never-stop/index.md) · code in `runner/run.py`, `runner/report.py`
+Spec [0021](../../_archive/runner/docs/specs/0021-never-stop/index.md) · code in `_archive/runner/run.py`, `_archive/runner/report.py`
 Source: [docs/briefs/runner-never-stops.md](../briefs/runner-never-stops.md).
 
 ### 34. Report names repos · done · auto
@@ -558,7 +558,7 @@ A repo that starts later in a bare `wf` checks its protected files are unchanged
 - [x] Verify it: `/check verify guard baseline check between repos`
 - [x] Test it: `/test guard baseline check between repos`
 - [x] Sync docs: `/sync guard baseline check between repos`
-Spec [0025](../specs/0025-guard-baseline-between-repos/index.md) · Source: spec 0017 accepted gap; decision `w8d0` of 2026-10-13.
+Spec [0025](../../_archive/runner/docs/specs/0025-guard-baseline-between-repos/index.md) · Source: spec 0017 accepted gap; decision `w8d0` of 2026-10-13.
 
 ### 16. Issues and mixed source of truth · done · auto
 In repos set to `issues` or `mixed`, `wf` rereads the linked issue before every step and hands its text to the step as quoted data; a change after the spec was accepted asks you with the diff, and the rest builds.
@@ -569,7 +569,7 @@ In repos set to `issues` or `mixed`, `wf` rereads the linked issue before every 
 - [x] Test it: `/test issues and mixed source of truth`
 - [x] Probe P2 on a throwaway issue (it edits the issue): see the spec's verify.md · waits on you
 - [x] Sync docs: `/sync issues and mixed source of truth`
-Spec [0024](../specs/0024-issues-source-of-truth/index.md) · Source: your message 2026-10-13 (agreed, not optional).
+Spec [0024](../../_archive/runner/docs/specs/0024-issues-source-of-truth/index.md) · Source: your message 2026-10-13 (agreed, not optional).
 
 ### 12. Usage limit planning · done · auto
 The `wf` screen says whether tonight's picks fit your 5 hour window and your week; a run that does not fit waits for the reset (or you pick fewer, or type `now`), never refused. 10 points of the week stay free for your daytime use.
@@ -580,7 +580,7 @@ The `wf` screen says whether tonight's picks fit your 5 hour window and your wee
 - [x] Test it: `/test usage limit planning`
 - [x] Compare the first real `wf` screen with the status line bars (P4) · waits on you
 - [x] Sync docs: `/sync usage limit planning`
-Spec [0022](../specs/0022-usage-limit-planning/index.md) · Source: your message 2026-10-13 (agreed, not optional).
+Spec [0022](../../_archive/runner/docs/specs/0022-usage-limit-planning/index.md) · Source: your message 2026-10-13 (agreed, not optional).
 
 ### 14. Branch and PR flow · done · auto
 One branch per spec (stacked only when the spec says so, at most 3 deep), one squashed commit per feature. In repos that opt in with `- push: draft PR`, `wf` (never a call) pushes the branch and opens a draft PR after the private names and attribution scans; a pre-push hook refusal keeps the branch local. After you mark it ready, review comments are fixed, pushed and answered with an @mention; declines are asked first. It never marks ready or merges.
@@ -597,14 +597,14 @@ Spec [0026](../specs/0026-branch-pr-flow/index.md) · Source: personal scope row
 
 ### 35. Several features of one repo at once · done · auto
 A repo that opts in with `- parallel: <n>` builds up to n features at once, each in its own worktree on its own branch; features whose spec paths overlap never run together.
-**Done when:** `runner/e2e/run.py --same-repo` passes on the real claude.
+**Done when:** `_archive/runner/e2e/run.py --same-repo` passes on the real claude.
 - [x] Design it (spec): `/architect several features of one repo at once`
 - [x] Build it: `/develop several features of one repo at once`
 - [x] Verify it: `/check verify several features of one repo at once`
 - [x] Test it: `/test several features of one repo at once`
-- [x] Real check: `python3 runner/e2e/run.py --same-repo` · waits on you · live
+- [x] Real check: `python3 _archive/runner/e2e/run.py --same-repo` · waits on you · live
 - [x] Sync docs: `/sync several features of one repo at once`
-Spec [0027](../specs/0027-same-repo-parallel/index.md) · Source: personal scope row 23.
+Spec [0027](../../_archive/runner/docs/specs/0027-same-repo-parallel/index.md) · Source: personal scope row 23.
 
 ### 15. Cheap worker tier · done · auto
 Boring reading jobs go to the free claude-fb models through `fb-ask` (text only, six job kinds); never client or work repos; falls back to normal Claude at once when the free models are down. Used today for the summary a failed check hands to `/debug`.
@@ -677,7 +677,7 @@ A PR review requested of you becomes a question: wf drafts the review in an isol
 - [x] Test it: `/test review requests`
 - [x] Probes P3 to P5 on a scratch GitHub repo (they post) · waits on you · later boxes go on
 - [x] Sync docs: `/sync review requests`
-Spec [0032](../specs/0032-review-requests/index.md) · Source: your message 2026-10-13 (watch for review requests to me).
+Spec [0032](../../_archive/runner/docs/specs/0032-review-requests/index.md) · Source: your message 2026-10-13 (watch for review requests to me).
 
 ### 40. Context and links in every message · done · auto
 Every question and report on your phone says where it comes from: repo, feature, spec link, step, what it did, issue and PR links, and why the recommended answer is recommended.
@@ -688,7 +688,7 @@ Every question and report on your phone says where it comes from: repo, feature,
 - [x] Test it: `/test context in messages`
 - [x] Probe P1: read a real question on your phone and say whether it explains itself · waits on you · later boxes go on
 - [x] Sync docs: `/sync context in messages`
-Spec [0033](../specs/0033-context-in-messages/index.md) · Source: your message 2026-10-13 (context, links and the why in every message).
+Spec [0033](../../_archive/runner/docs/specs/0033-context-in-messages/index.md) · Source: your message 2026-10-13 (context, links and the why in every message).
 
 ### 41. Styled Telegram messages · done · auto
 Telegram questions in bold and italics with tappable links and the step's own words in an expandable quote; every inserted value escaped.
@@ -698,7 +698,7 @@ Telegram questions in bold and italics with tappable links and the step's own wo
 - [x] Verify it: `/check verify styled telegram`
 - [x] Test it: `/test styled telegram`
 - [x] Sync docs: `/sync styled telegram`
-Spec [0038](../specs/0038-styled-telegram/index.md) · Source: your message 2026-10-14 01:30.
+Spec [0038](../../_archive/runner/docs/specs/0038-styled-telegram/index.md) · Source: your message 2026-10-14 01:30.
 
 ### 42. Answer questions while wf is off · done · auto
 Open questions show on the wf screen to answer at the keyboard; `wf questions` lists them with links; a user timer keeps Telegram taps while wf is off.
@@ -709,7 +709,7 @@ Open questions show on the wf screen to answer at the keyboard; `wf questions` l
 - [x] Test it: `/test questions while off`
 - [x] Turn the timer on: `wf telegram timer on` · waits on you · later boxes go on
 - [x] Sync docs: `/sync questions while off`
-Spec [0039](../specs/0039-questions-while-off/index.md) · Source: your message 2026-10-14 02:20.
+Spec [0039](../../_archive/runner/docs/specs/0039-questions-while-off/index.md) · Source: your message 2026-10-14 02:20.
 
 ### 43. Runs adapt to setup changes · done · auto
 A run switches to Telegram set up mid run, retakes a step the old setup refused once the new one allows it, and the design gate finds the right base in a shallow clone.
@@ -719,7 +719,7 @@ A run switches to Telegram set up mid run, retakes a step the old setup refused 
 - [x] Verify it: `/check verify runs adapt to setup changes`
 - [x] Test it: `/test runs adapt to setup changes`
 - [x] Sync docs: `/sync runs adapt to setup changes`
-Spec [0040](../specs/0040-runs-adapt-to-setup-changes/index.md) · Source: the night of 2026-10-13, morning list 2026-10-14.
+Spec [0040](../../_archive/runner/docs/specs/0040-runs-adapt-to-setup-changes/index.md) · Source: the night of 2026-10-13, morning list 2026-10-14.
 
 ### 44. A run does its own copy steps · done · auto
 When a build reaches a copy of a rule, agent, command or skill into ~/.claude, it asks you on the phone and runs exactly the approved copy itself.
@@ -729,7 +729,7 @@ When a build reaches a copy of a rule, agent, command or skill into ~/.claude, i
 - [x] Verify it: `/check verify live steps in a run`
 - [x] Test it: `/test live steps in a run`
 - [x] Sync docs: `/sync live steps in a run`
-Spec [0041](../specs/0041-live-steps-in-a-run/index.md) · Source: your message 2026-10-14 (fix the reason it stopped).
+Spec [0041](../../_archive/runner/docs/specs/0041-live-steps-in-a-run/index.md) · Source: your message 2026-10-14 (fix the reason it stopped).
 
 ### 45. Each step gets the feature's brief · done · auto
 Every unattended step gets the feature's brief (the agreed decisions) so nothing agreed in chat is lost between steps.
@@ -739,7 +739,7 @@ Every unattended step gets the feature's brief (the agreed decisions) so nothing
 - [x] Verify it: `/check verify step brief`
 - [x] Test it: `/test step brief`
 - [x] Sync docs: `/sync step brief`
-Spec [0034](../specs/0034-step-brief/index.md) · Source: personal scope row 12 (session handoff fidelity, last part). Code in `runner/run.py` (`brief_parts`, `brief_fit`, `Run.brief_check`).
+Spec [0034](../../_archive/runner/docs/specs/0034-step-brief/index.md) · Source: personal scope row 12 (session handoff fidelity, last part). Code in `_archive/runner/run.py` (`brief_parts`, `brief_fit`, `Run.brief_check`).
 
 ### 46. Missed-skill detector · done · auto
 A hook notes when a session could have used a skill it did not, and a weekly report lists the top misses.
@@ -773,7 +773,7 @@ One README map of what lives where, everything installed under claude-home/, gui
 - [x] Test it: `/test readable layout`
 - [x] Run the live migration steps in the spec's migrate.md, one at a time with their checks · waits on you (2026-10-15, all steps passed; step 4 left until the open freelance design run closes)
 - [x] Sync docs: `/sync readable layout`
-Spec [0035](../specs/0035-readable-layout/index.md) · code in `claude-home/`, `bin/sync.sh`, `bin/install.sh`, `scripts/`, `runner/finish.py`, `README.md` · Source: personal scope row 9.
+Spec [0035](../specs/0035-readable-layout/index.md) · code in `claude-home/`, `bin/sync.sh`, `bin/install.sh`, `scripts/`, `_archive/runner/finish.py`, `README.md` · Source: personal scope row 9.
 
 ### 50. Fewer avoidable stops · done · auto
 The runner stops less for things that need nothing from you: a check that cannot pass in the sandbox leaves those parts to the plan's later box, a retry that cannot help is not recommended, and quoted test values in the attribution scan are handled as you decide.
@@ -783,7 +783,7 @@ The runner stops less for things that need nothing from you: a check that cannot
 - [x] Verify it: `/check verify fewer avoidable stops`
 - [x] Test it: `/test fewer avoidable stops`
 - [x] Sync docs: `/sync fewer avoidable stops`
-Spec [0045](../specs/0045-fewer-avoidable-stops/index.md) · code in `runner/run.py`, `runner/tests/test_fewer_stops.py`, `AGENTS.md` · Source: [brief](../briefs/fewer-stops.md).
+Spec [0045](../specs/0045-fewer-avoidable-stops/index.md) · code in `_archive/runner/run.py`, `_archive/runner/tests/test_fewer_stops.py`, `AGENTS.md` · Source: [brief](../briefs/fewer-stops.md).
 
 ### 51. Autonomous mode per chat · done · auto
 Several Claude chats each drive the runner for their own repos at once; a repo belongs to one chat at a time and moves with its context written down first.
@@ -795,7 +795,7 @@ Several Claude chats each drive the runner for their own repos at once; a repo b
 - [x] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
 - [x] Two real chats in two folders: each turns on its own repos, the bars show only their own, a take of the other's repo is refused (AC-11) · waits on you · later boxes go on (passed 2026-10-17: the personal chat's take of claude-config was refused, its bar showed only its own)
 - [x] Sync docs: `/sync autonomous mode per chat`
-Spec [0046](../specs/0046-autonomous-mode-per-chat/index.md) · Source: [brief](../briefs/autonomous-per-chat.md) · code in `runner/auto.py`.
+Spec [0046](../specs/0046-autonomous-mode-per-chat/index.md) · Source: [brief](../briefs/autonomous-per-chat.md) · code in `_archive/runner/auto.py`.
 
 ### 52. Review leftovers 2026-10-15 · done · auto
 Only you release a repo from a chat; a check handing parts to a later step needs a written note; the bar's running count checks each run's own lock.
@@ -806,7 +806,7 @@ Only you release a repo from a chat; a check handing parts to a later step needs
 - [x] Test it: `/test review leftovers 2026-10-15`
 - [x] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
 - [x] Sync docs: `/sync review leftovers 2026-10-15`
-Spec [0047](../specs/0047-review-leftovers/index.md) · code in `runner/auto.py`, `runner/run.py`, `claude-home/settings.json`, `claude-home/skills/auto/SKILL.md` · Source: [review](../reviews/review-2026-10-15.md) (Leftovers).
+Spec [0047](../specs/0047-review-leftovers/index.md) · code in `_archive/runner/auto.py`, `_archive/runner/run.py`, `claude-home/settings.json`, `claude-home/skills/auto/SKILL.md` · Source: [review](../reviews/review-2026-10-15.md) (Leftovers).
 
 ### 53. Only a typed /auto turns on or releases · done · auto
 `wf auto on` and `wf auto release` always refuse; only your typed `/auto` turns a chat on or releases a repo, and `wf auto hook` is denied to Claude.
@@ -820,7 +820,7 @@ Spec [0047](../specs/0047-review-leftovers/index.md) · code in `runner/auto.py`
 - [x] Test it: `/test only a typed auto turns on or releases`
 - [x] Install it live after the merge, from main (the plan branch does not hold this feature's code) · waits on you · later boxes go on
 - [x] Sync docs: `/sync only a typed auto turns on or releases`
-Spec [0049](../specs/0049-typed-auto-only/index.md) · code in `runner/auto.py`, `runner/wf.py`, `claude-home/settings.json`, `claude-home/skills/auto/SKILL.md` · Source: [review](../reviews/review-2026-10-15-0047.md) (Leftovers).
+Spec [0049](../specs/0049-typed-auto-only/index.md) · code in `_archive/runner/auto.py`, `_archive/runner/wf.py`, `claude-home/settings.json`, `claude-home/skills/auto/SKILL.md` · Source: [review](../reviews/review-2026-10-15-0047.md) (Leftovers).
 
 ### 54. Organize claude-config and ~/.claude, sync what you use daily · done · auto
 A folder structure and docs that are easy to read, and a repo that holds (or names) everything you use every day, without losing any skill.
@@ -853,7 +853,7 @@ A fixed keep list of 37 skills keeps its description in every session; a script 
 - [x] Test it: `/test fewer skills described in every session`
 - [x] Run `python3 scripts/skill-keep.py --dry-run`, then without it, then `bin/sync.sh` right away (AC-7) · waits on you · later boxes go on
 - [x] Sync docs: `/sync fewer skills described in every session`
-Spec [0050](../specs/0050-fixed-skill-keep-list/index.md) · code in `scripts/skill-keep.py`, `scripts/skill-keep.txt`, `runner/tests/test_skill_keep.py` · Source: [research](../research/organize-and-sync-review-2026-10-15.md), section 5, and the [brief](../briefs/organize-and-sync.md).
+Spec [0050](../specs/0050-fixed-skill-keep-list/index.md) · code in `scripts/skill-keep.py`, `scripts/skill-keep.txt`, `tests/test_skill_keep.py` · Source: [research](../research/organize-and-sync-review-2026-10-15.md), section 5, and the [brief](../briefs/organize-and-sync.md).
 
 ## Release 7: clean branches and the tool review
 The clean branches feature and the October 2026 tool review plan ([brief](../briefs/tool-review-2026-10.md)).
@@ -916,7 +916,7 @@ Our own status bar without jjstack: the segments ported into the runner.
 - [x] Verify it: `/check verify own status bar and dashboards with mods`
 - [x] Test it: `/test own status bar and dashboards with mods` (990 tests pass; 19 tests mutation checked, one fixed to see its own seen write)
 - [x] Sync docs: `/sync own status bar and dashboards with mods`
-Spec [0058](../specs/0058-own-status-bar.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B3, part 1 of 3; the band is row 72, the panes row 73.
+Spec [0058](../../_archive/runner/docs/specs/0058-own-status-bar.md) · Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced until done. Plan item B3, part 1 of 3; the band is row 72, the panes row 73.
 
 ### 59. Memory tool: claude-mem, MemPalace, graphify or NotebookLM
 Pick the memory tool (MemPalace or NotebookLM as a second brain; graphify was removed and claude-mem's data deleted 2026-10-19), weighing usage, token cost, memory quality and code memory.
@@ -968,7 +968,7 @@ Treat the runner as a system with a feedback loop: each run's results improve th
 - [x] Test it: `/test runner that improves itself` (984 tests pass; 3 new tests mutation checked)
 - [x] Write `~/.claude/private/history-allow.txt` with your own project folders (AC-9) · waits on you · later boxes go on
 - [x] Sync docs: `/sync runner that improves itself`
-Spec [0061](../specs/0061-runner-improves-itself/index.md) · code in `runner/insights.py`, `claude-home/skills/improve-my-system/` · Source: [brief](../briefs/tool-review-2026-10.md). Plan item B5.
+Spec [0061](../specs/0061-runner-improves-itself/index.md) · code in `_archive/runner/insights.py`, `claude-home/skills/improve-my-system/` · Source: [brief](../briefs/tool-review-2026-10.md). Plan item B5.
 
 ### 63. Evaluate Harvey, Soup, MiroFish, claude-skills-founder, Headroom · done
 Research each tool and compare it with the setup: Harvey (repo, site and `~/Downloads/guia-harvey.pdf`), Soup, MiroFish, claude-skills-founder, Headroom.
@@ -1042,7 +1042,7 @@ Source: [brief](../briefs/tool-review-2026-10.md), section The plan, enforced un
 The PR #18 review's open items and two script bugs found while landing it.
 **Done when:** each item is fixed with a test or dropped with a reason.
 - [x] Design it (spec): `/architect self merge rules and review notes` (decided the three spec items: risk list, old branch date, wait for a check) · waits on you (answered 2026-10-17, written into spec 0051 AC-3, AC-4, AC-12, AC-16)
-- [x] Build it: `/develop self merge rules and review notes` (spec 0051 build step 9; tag this feature `· auto` only after row 56 is done, both change `runner/pr.py`)
+- [x] Build it: `/develop self merge rules and review notes` (spec 0051 build step 9; tag this feature `· auto` only after row 56 is done, both change `_archive/runner/pr.py`)
 - [x] Copy the CLAUDE.md wording live: `cp claude-home/CLAUDE.md ~/.claude/CLAUDE.md` · waits on you · live · later boxes go on
 - [x] Verify it: `/check verify self merge rules and review notes`
 - [x] Test it: `/test self merge rules and review notes`
@@ -1184,14 +1184,14 @@ When you say you are leaving, everything in the plan that does not need your pas
 Source: your message of 2026-10-18 ("each time I tell you Im going away ... find out what the problem is"); evidence in [brief](../briefs/leftovers-2026-10-18.md), section Finish when away.
 
 ### 83. The word "after" stalls a feature · done · auto
-The runner's waiting check (`WAITING` in `runner/wf.py`, `\b(after|waits on)\b`) runs on the text of the next box's first open milestone, so any milestone that just mentions "after" makes `wf queue` say "skip: waiting" forever. Found 2026-10-19 on a work repo feature; rewording the milestone unstuck it. Two features in another work repo show the same "skip: waiting" and may be the same bug.
+The runner's waiting check (`WAITING` in `_archive/runner/wf.py`, `\b(after|waits on)\b`) runs on the text of the next box's first open milestone, so any milestone that just mentions "after" makes `wf queue` say "skip: waiting" forever. Found 2026-10-19 on a work repo feature; rewording the milestone unstuck it. Two features in another work repo show the same "skip: waiting" and may be the same bug.
 **Done when:** a box or milestone counts as waiting only by its ` · waits on you` tag (or another explicit tag the spec names), never by the word "after" in its text, with a test that fails on the old code.
 - [x] Design it (spec): `/architect the word after stalls a feature` (your pick 2026-10-19: only the marker counts)
 - [x] Fix it: `/debug the word after stalls a feature` (PR #106)
 - [x] Verify it: `/check verify the word after stalls a feature` (PR #106, 4 can fail steps)
 - [x] Test it: `/test the word after stalls a feature` (PR #106, 10 mutants red, suite 1090 green)
 - [x] Sync docs: `/sync the word after stalls a feature` (PR #106)
-Spec [0066](../specs/0066-waiting-only-by-marker.md) · Source: work chat 2026-10-19; memory reference_wf_after_word_skips_feature.md.
+Spec [0066](../../_archive/runner/docs/specs/0066-waiting-only-by-marker.md) · Source: work chat 2026-10-19; memory reference_wf_after_word_skips_feature.md.
 
 ### 84. Assertion Guardian blocks only removed checks · done · auto
 The test-weakening check blocks harmless test edits, each needs `/allow-test-change`, and it stalled the runner twice. You chose: block only removed or loosened checks, allow added ones.
@@ -1232,7 +1232,7 @@ You want the chat that runs your Claude setup and the runner (today opened in `~
 - [x] Check it yourself: run claude in ~/claude-config, ask about the conductor session note, and open /resume to see this year's chats · waits on you
 - [x] Update the memory notes that say the conductor runs from ~/.claude, and personal plan item 9's note · waits on you
 - [x] Sync docs: `/sync home-base chat runs from claude-config`
-Spec [0067](../specs/0067-home-chat-in-claude-config/index.md) · code in `bin/move-home-chat.sh`, `runner/tests/test_move_home_chat.py`
+Spec [0067](../specs/0067-home-chat-in-claude-config/index.md) · code in `bin/move-home-chat.sh`, `tests/test_move_home_chat.py`
 Source: your messages 2026-10-02 ("should I keep working on here or in claude-config"), 2026-10-11, and 2026-10-20 ("I wanted to move all the sessions from ~/.claude to claude-config"); personal plan item 9 ("decide whether conductor sessions keep running from `~/.claude`"). Plan item E6 in the [brief](../briefs/tool-review-2026-10.md).
 
 ### 87. A live install box is ticked only when it is live · in-progress
@@ -1345,7 +1345,7 @@ You asked to restructure claude-config into the folder layout of RinDig's icm-ar
 - [x] Run icm-architect read only: skillspector scan of RinDig/icm-architect, install it, run its restructure mode steps 1 to 5 only (inventory, form, roles, reference report, proposed tree and migration map, nothing moved); save its output in [brief](../briefs/icm-research.md) and show the owner its tree next to ours
 - [x] Design it (spec): `/architect restructure claude-config to the icm-architect layout` (spec 0072, phase 1; answers in [brief](../briefs/icm-restructure.md))
 - [ ] Build it: `/develop restructure claude-config to the icm-architect layout`
-  - [ ] Reference check, tests split, runner archive (0072a; AC-1 to AC-5, AC-13)
+  - [x] Reference check, tests split, runner archive (0072a; AC-1 to AC-5, AC-13) · PR #165: ref-check clean, suite 139 ok (5 live-script tests copied from the archive, your call after the regression check), /review APPROVE with 2 P3s fixed, see [verify](../specs/0072-icm-restructure/verify.md)
   - [ ] Map cards, CLAUDE.md entry, AGENTS.md link (0072b; AC-6 to AC-10)
   - [ ] Scope split (0072c; AC-11, AC-12)
 - [ ] Verify it: `/check verify restructure claude-config to the icm-architect layout`
@@ -1434,7 +1434,7 @@ Features build, check and test 4 at a time on their own branches, one plan file 
 - [x] Merge into feat/release-4, set the switches, scan and push feat/release-4 (AC-1, AC-11)
 - [x] Run `wf` on 39 to 48 and compare the elapsed time (AC-12) · waits on you · skipped
 - [x] Sync docs: `/sync fast runner`
-Spec [0043](../specs/0043-fast-runner/index.md) · Source: [brief](../briefs/fast-runner.md).
+Spec [0043](../specs/0043-fast-runner/index.md) · Source: [brief](../../_archive/runner/docs/briefs/fast-runner.md).
 
 ### 11. Autopilot offer and batch design · dropped
 Covered by `rules/runner-handoff.md` (batch first: every feature that needs a decision gets its `/architect` before the hand-off to the runner) and by choosing tonight's features on the `wf` screen (spec 0020 AC-13).

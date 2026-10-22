@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-ROOT = Path(__file__).resolve().parent.parent.parent
+ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "scripts" / "skill-keep.py"
 
 spec = importlib.util.spec_from_file_location("skill_keep", SCRIPT)

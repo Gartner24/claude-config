@@ -2,10 +2,10 @@
 
 **Date**: 2026-10-12
 **Status**: Accepted
-**Paths:** `runner/wf.py`, `runner/run.py`, `claude-home/rules/scope-contract.md`, `runner/tests/**`
+**Paths:** `_archive/runner/wf.py`, `_archive/runner/run.py`, `claude-home/rules/scope-contract.md`, `_archive/runner/tests/**`
 **Amends**: [0002](../0002-next-repo-command/index.md) AC-6 (what makes a box waiting) and [0003](../0003-scope-contract/index.md) (a new box segment, rule file line).
 **Amended by**: [0014](../0014-runner-resilience/index.md) - a waiting box that also ends ` · later boxes go on` is passed over, not refused; an untagged one stops as before.
-**Amended by**: [0066](../0066-waiting-only-by-marker.md) - only the marker makes a box wait; the words "after" and "waits on" no longer do.
+**Amended by**: [0066](../../../_archive/runner/docs/specs/0066-waiting-only-by-marker.md) - only the marker makes a box wait; the words "after" and "waits on" no longer do.
 
 ## Summary
 

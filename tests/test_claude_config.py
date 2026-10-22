@@ -13,7 +13,7 @@ from pathlib import Path
 
 from test_skill_scan import fake_bin, issue
 
-REAL = Path(__file__).resolve().parents[2]
+REAL = Path(__file__).resolve().parents[1]
 TOOL = REAL / "bin" / "claude-config.py"
 ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1", "GIT_AUTHOR_NAME": "t",
        "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}

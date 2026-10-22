@@ -3,7 +3,7 @@
   "gate": null,
   "additionalTools": [],
   "e2eTool": "none",
-  "testDir": "runner/tests/",
+  "testDir": "tests/",
   "filePattern": "test_*.py",
   "packageManager": "none"
 }

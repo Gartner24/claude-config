@@ -6,13 +6,13 @@ import subprocess
 import unittest
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[1]
 # Spec 0048 AC-1: four files plus folders. `live` is allowed only as the temporary link to claude-home (AC-15).
-TOP = {"README.md", "AGENTS.md", "CLAUDE.md", "LICENSE", "bin", "config", "claude-home", "runner", "scripts", "docs",
-       ".claude", ".gitignore"}
+TOP = {"README.md", "AGENTS.md", "CLAUDE.md", "LICENSE", "bin", "config", "claude-home", "scripts", "docs",
+       ".claude", ".gitignore", "tests", "map", "_archive"}
 # Spec 0048 AC-3: the old paths, outside the doc folders that record history.
 OLD = re.compile(r"(?<![\w./~-])live[/]|(?<![\w/.-])\.[/](install|sync)\.sh\b|(?<![\w/.-])(mcp-config|test-preferences)\.json")
-HISTORY = ("docs/specs/", "docs/reviews/", "docs/briefs/")
+HISTORY = ("docs/specs/", "docs/reviews/", "docs/briefs/", "_archive/")
 # Vendored trees are not repo owned (AGENTS.md `## Rules`), so their links are upstream's.
 VENDORED = ("claude-home/agents/", "claude-home/rules/ecc/", "claude-home/skills/anti-ai-writing/")
 LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
@@ -61,7 +61,8 @@ class TestShape(unittest.TestCase):
     def test_links(self):
         bad = []
         for rel in tracked("*.md"):
-            if rel.startswith(VENDORED) or "/node_modules/" in rel:
+            # _archive/ is frozen (spec 0072 AC-13): its links were written for the old layout.
+            if rel.startswith(VENDORED + ("_archive/",)) or "/node_modules/" in rel:
                 continue
             src = REPO / rel
             # The staged copy, not the file on disk: under wf the plan file is main's live copy, whose new rows

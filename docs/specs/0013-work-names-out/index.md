@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-12
 **Status**: Accepted
-**Paths:** `scripts/private-names.py`, `scripts/check-routing.py`, `bin/sync.sh`, `bin/install.sh`, `claude-home/settings.json`, `claude-home/CLAUDE.md`, `README.md`, `runner/wf.py`
+**Paths:** `scripts/private-names.py`, `scripts/check-routing.py`, `bin/sync.sh`, `bin/install.sh`, `claude-home/settings.json`, `claude-home/CLAUDE.md`, `README.md`, `_archive/runner/wf.py`
 **Amended**: 2026-10-12, AC-7 copies the checker into the commit hooks instead of linking it
 
 ## Summary
