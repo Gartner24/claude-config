@@ -68,7 +68,7 @@ Move only what nothing outside points at, add the ICM map and entry file, and le
 | AC-12 done count | closed rows | `docs/scope/done.md` |
 | card citations | cited paths | backticked paths in `map/**/*.md` |
 
-**Key invariants**: no held path changes; moves are `git mv` only; the suite passes after every PR; nothing private enters the repo; nothing outside git is deleted.
+**Key invariants**: behavior does not change, only where files live (owner, 2026-10-22): every rule, skill, hook, mod and command works the same after each PR; no held path changes; moves are `git mv` only; the suite passes after every PR; nothing private enters the repo; nothing outside git is deleted.
 
 **Security model**: no change. The pre-commit hook stays a copy, not a link (spec 0013 AC-7); the twin check lives in `scripts/private-names.py` pre-commit mode, so the existing hook carries it.
 
@@ -106,7 +106,7 @@ Move only what nothing outside points at, add the ICM map and entry file, and le
 **Neutral**: phase 2 needs its own `/architect` with a migration map for the held paths.
 
 ## Follow-up
-- [ ] Phase 2: `/architect` the whole restructure after phase 1 is merged and reviewed. Its migration map moves held paths only with every outside referrer updated in the same change; its review is the same script plus one agent, switched to `/review` if phase 2 rewrites code rather than moving files.
+- [ ] Phase 2: `/architect` the whole restructure after phase 1 is merged and reviewed. Its migration map moves held paths only with every outside referrer updated in the same change; its review is the same script plus one agent, switched to `/review` if phase 2 rewrites code rather than moving files. Phase 2 too changes only where files live, never how anything works; a behavior change is its own question to the owner.
 - [ ] Rows 100 to 102 (workflows) are separate scope rows.
 
 ## Rationale
