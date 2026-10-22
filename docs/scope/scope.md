@@ -1351,14 +1351,22 @@ You asked to restructure claude-config into the folder layout of RinDig's icm-ar
 - [ ] Design phase 2 (spec): `/architect restructure claude-config phase 2` (after phase 1 is merged and reviewed)
 Source: [brief](../briefs/icm-restructure.md); [brief](../briefs/retire-runner.md) line 13; your messages 2026-10-22.
 
-### 98. Helper scripts the switch-on rules still lack
-`rules/when-to-switch-on.md` lists scripts not built yet: start gates (free memory, 5 hour use, cores per suite), design-check, issue reread, review-isolated, `spec-paths --overlap`, scope marker warnings.
+### 98. Helper scripts the switch-on rules still lack · in-progress
+`rules/when-to-switch-on.md` lists scripts not built yet: start gates (free memory, 5 hour use, cores per suite), design-check, issue reread, review-isolated, `spec-paths --overlap`, scope marker warnings. Spec [0073](../specs/0073-switch-on-helpers/index.md). Build only after rows 92, 93 and 97 phase 1 (0072a) merge: their Paths overlap.
 **Done when:** each script exists with its self check, and the rule file's "Needs a script" list is empty.
-- [ ] Design it (spec): `/architect helper scripts for the switch-on rules`
+- [x] Design it (spec): `/architect helper scripts for the switch-on rules` (spec 0073 accepted 2026-10-22 after a Sonnet cross check, 14 fixes applied)
+- [ ] Build it: `/develop helper scripts for the switch-on rules`
+  - [ ] Part A: start-gates, `spec-paths --overlap`, two rule lines (AC-1 to AC-4)
+  - [ ] Part B: design-check, `plan.py --warnings`, two rule lines (AC-5 to AC-7)
+  - [ ] Part C: probes P2b and P2c, issue-reread, review-isolated, last rule lines (AC-8 to AC-12)
+  - [ ] Install links, self checks, live rule copy, `bin/sync.sh` (AC-13, AC-14)
+- [ ] Verify it: `/check verify helper scripts for the switch-on rules`
+- [ ] Test it: `/test helper scripts for the switch-on rules`
 Source: [brief](../briefs/switch-on-helpers.md); `claude-home/rules/when-to-switch-on.md` "Needs a script, not built yet"; your messages 2026-10-22.
 
-### 99. Auto handoff off by itself in plain talk chats · needs a decision
+### 99. Auto handoff off by itself in plain talk chats · dropped
 You asked that auto handoff be off in chats that are only talk (no build), besides the on/off switch.
+Dropped 2026-10-22 (your answer, tenth chat): your third chat decision stands, "Handoff in talk chats: manual only, the owner types /auto-handoff off. Nothing to build" ([brief](../briefs/retire-runner.md) line 81); row 95 makes that off hold per folder.
 **Done when:** a chat with no repo work does not hand off by itself, by the condition you pick, with a mod test.
 - [ ] Design it (spec): `/architect auto handoff off in plain talk chats`
 Source: [brief](../briefs/retire-runner.md) second chat decisions ("still to build"); your first message 2026-10-22.
