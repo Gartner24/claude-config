@@ -1325,7 +1325,7 @@ Source: [brief](../briefs/context-trim-and-all-chats.md) Part 2.
 You turned auto handoff off and a chat handed off by itself again. You also want an off to hold for every later chat started in the same folder, until you turn it on there.
 **Done when:** after `/auto-handoff off`, no chat in that folder (new, cleared, resumed or forked) hands off by itself until `/auto-handoff on`; a mod test reproduces the bug red first.
 - [x] Trace and fix: `/debug auto handoff fires after off` (PR #147: off was keyed by session id and dropped on an owner `/clear`; now one file per folder; 97 mod tests pass, 4 mutants red)
-- [ ] Merge PR #147 · waits on you · later boxes go on
+- [x] Merge PR #147 (merged 2026-10-22, eb42408)
 - [ ] Verify it: `/check verify fix auto handoff off`
 - [ ] Test it: `/test fix auto handoff off`
 Source: your message 2026-10-22 ("I turned auto handoff [off] and it got done again automatically... if I start a /auto-handoff off all the next chats started after it in the same folder will be off").
@@ -1333,7 +1333,7 @@ Source: your message 2026-10-22 ("I turned auto handoff [off] and it got done ag
 ### 96. Rename the dashboard mod to chip-dash · in-progress
 Your tools are the "chip" family. The wf-dash mod becomes `chip-dash` everywhere (folder, plugin id, state keys, tests, chip text), command `/chip`, `/wf-dash` kept as an alias.
 **Done when:** no `wf-dash` name is left in the mod except the alias, its tests pass, and you relink it after the security scan.
-- [ ] Rename it: `/develop rename the dashboard mod to chip-dash` (parallel worktree agent, 2026-10-22)
+- [x] Rename it: `/develop rename the dashboard mod to chip-dash` (PR #148 merged 2026-10-22, e3cd82c; suite 1136 pass, mod tests 57 and 97 pass)
 - [ ] Relink `~/.claude/skills/chip-dash` after `skillspector scan` · waits on you
 Source: [brief](../briefs/dashboard-restructure.md) (name answer).
 
