@@ -64,8 +64,8 @@ def direct(rel, repo):
     """AC-2 (a): the repo file and the live file both exist and are byte equal."""
     parts = rel.split("/")
     first = parts[0]
-    if first.startswith("settings"):
-        return []  # live settings differ by design (bin/sync.sh strips them); drift compares them
+    if first.startswith("settings") or first == "mods":
+        return []  # settings differ by design (bin/sync.sh strips them); mods are linked by hand; drift decides
     g = GROUP.get(first, first)
     a, live = repo / "claude-home" / rel, Path(home()) / ".claude"
     b = live / rel
@@ -89,7 +89,8 @@ def direct(rel, repo):
     pairs = [(rel, a, b)]
     if a.is_dir():
         pairs = [(f"{rel.rstrip('/')}/{f.relative_to(a).as_posix()}", f, b / f.relative_to(a))
-                 for f in sorted(a.rglob("*")) if f.is_file()]
+                 for f in sorted(a.rglob("*"))
+                 if f.is_file() and not {"__pycache__", ".in_use"} & set(f.relative_to(a).parts)]
     out = []
     for name, x, y in pairs:
         if not y.is_file():
@@ -102,7 +103,7 @@ def direct(rel, repo):
 def run_drift(repo):
     """Parsed drift lines (group, name, reason), or the string reason drift did not run."""
     try:
-        r = subprocess.run([sys.executable, str(repo / "bin" / "claude-config.py"), "drift"],
+        r = subprocess.run([sys.executable, "-I", str(repo / "bin" / "claude-config.py"), "drift"],
                            capture_output=True, text=True, timeout=TIMEOUT)
     except subprocess.TimeoutExpired:
         return f"timed out after {TIMEOUT}s"
@@ -141,7 +142,9 @@ def check(data):
         return None
     path = ti["file_path"]
     repo, rel = find_repo(path)
-    if repo is None or not rel.startswith(("docs/scope/", ".workflow/scope/")):
+    # Only the owner's clone is trusted: drift runs that repo's script, so a stranger's checkout must never get here.
+    trusted = Path(os.path.realpath(os.path.join(home(), "claude-config")))
+    if repo is None or repo != trusted or not rel.startswith(("docs/scope/", ".workflow/scope/")):
         return None
     real = os.path.realpath(path)
     old = Path(real).read_text(encoding="utf-8") if os.path.isfile(real) else ""
@@ -210,9 +213,11 @@ def self_test():
         (live / "hooks").mkdir()
         # fake drift: prints drift.out, exits drift.rc, sleeps drift.sleep seconds
         (repo / "bin" / "claude-config.py").write_text(
-            "import sys,time,pathlib\np=pathlib.Path(__file__).parent\n"
+            "import sys,time,pathlib\ntry:\n import hijack\nexcept ImportError:\n pass\np=pathlib.Path(__file__).parent\n"
             "time.sleep(float((p/'sleep').read_text()))\n"
             "sys.stdout.write((p/'out').read_text())\nsys.exit(int((p/'rc').read_text()))\n")
+        (t / "home" / "claude-config").symlink_to(repo)  # the one trusted clone
+        (repo / "bin" / "hijack.py").write_text("import sys\nsys.exit(3)\n")
         scope = repo / "docs" / "scope" / "scope.md"
 
         def drift(out="drift: none\n", rc=0, sleep=0):
@@ -277,6 +282,26 @@ def self_test():
         finally:
             TIMEOUT = 60
         drift()
+
+        ok("drift runs isolated (-I): a planted module beside it is not imported", edit(box, tick, box) is None)
+
+        stranger = t / "stranger"
+        (stranger / "bin").mkdir(parents=True)
+        (stranger / "docs" / "scope").mkdir(parents=True)
+        (stranger / "bin" / "claude-config.py").write_text(f"open({str(t / 'marker')!r}, 'w').write('ran')\n")
+        sscope = stranger / "docs" / "scope" / "scope.md"
+        ok("untrusted repo is never run", edit(box, tick, box, path=sscope) is None and not (t / "marker").exists())
+
+        mbox = "- [ ] Link: claude-home/mods/m/x.ts · live\n"
+        ok("mods box left to drift", edit(mbox, mbox.replace("[ ]", "[x]"), mbox) is None)
+
+        (repo / "claude-home" / "rules" / "d" / "__pycache__").mkdir(parents=True)
+        (live / "rules" / "d").mkdir()
+        (repo / "claude-home" / "rules" / "d" / "a.md").write_text("a")
+        (live / "rules" / "d" / "a.md").write_text("a")
+        (repo / "claude-home" / "rules" / "d" / "__pycache__" / "c.pyc").write_text("c")
+        dbox = "- [ ] Copy: claude-home/rules/d · live\n"
+        ok("folder box skips __pycache__", edit(dbox, dbox.replace("[ ]", "[x]"), dbox) is None)
 
         ok("AC-1 unticking edit passes", edit(tick, box, tick) is None)
         other = repo / "notes.md"
