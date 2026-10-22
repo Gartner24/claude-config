@@ -257,7 +257,7 @@ You asked to restructure claude-config into the folder layout of RinDig's icm-ar
   - [x] Scope split (0072c; AC-11, AC-12)
 - [ ] Verify it: `/check verify restructure claude-config to the icm-architect layout`
 - [ ] Test it: `/test restructure claude-config to the icm-architect layout`
-- [ ] Design phase 2 (spec): `/architect restructure claude-config phase 2` (after phase 1 is merged and reviewed)
+- [ ] Design phase 2 (spec): `/architect restructure claude-config phase 2` (after phase 1 is merged and reviewed). Also checks the live side (your answers 2026-10-22): first find out whether Claude ever edits `~/.claude` without the repo's map. If not, drop the `~/.claude` map with one line of reasoning in the spec; if yes, add only the smallest pointer file, shipped from `claude-home/` by `bin/install.sh` and never loaded in normal chats. `~/.claude/private/` stays live only
 Source: [brief](../briefs/icm-restructure.md); [brief](../briefs/retire-runner.md) line 13; your messages 2026-10-22.
 
 ### 98. Helper scripts the switch-on rules still lack · in-progress
