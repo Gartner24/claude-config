@@ -57,3 +57,25 @@ Dropped as runner only: everything else in those files (the runner's report, que
 Mutants (script backed up with cp, only that file run, then restored): docs-pr archive path back to `runner`, red (7 of 8); tracked-changes check off, red; attribution scan off, red. repo-settings `allow_merge_commit=true`, red (3 of 3). fb-ask `client_repo` refusal off, red; cheap-worker rule edited, red. install.sh WF_STAGE break off, red; hook `cmp` up-to-date off, red; dry run printing `runner/*.py`, red. extract.py email redaction off, red. All restored, green.
 
 Not done in this PR: the regression-hunter report; the live checks of `~/.claude` links (ref-check ran with `--link-root` at the main checkout, no link points at a moved path); the 74 archived-suite failures above; `plan.py` docstring.
+
+## 0072b (map cards, CLAUDE.md entry, AGENTS.md link)
+Branch `feat/0072-map-and-entry`. Suite: `python3 tests/fast.py` gives 143 tests, 0 failed. `scripts/ref-check.py verify` against the pre-change snapshot: 0 broken pointers. `bin/install.sh --dry-run`: clean.
+
+| AC | Evidence | can fail |
+|---|---|---|
+| AC-6 | `CLAUDE.md` is 52 lines: never-break rules, the 4 commands, a row pointing at `map/CLAUDE.md`, standing answers, agent skills, context files. `tests/test_layout.py` `test_readers` (under 200, opens "For an AI agent") reads it through the link. | can fail: a rewrite that drops the opening line, or grows past 200 lines. The 60-line limit itself is not asserted (the tightening edit was dropped by the coordinator); checked by `wc -l`. |
+| AC-7 | `map/_meta/line-homes.md` pinned to c08534f. `tests/test_map.py` `test_every_old_line_has_a_home` and `test_homes_exist`. | can fail: row for old line 13 deleted, test red (mutant below). |
+| AC-8 | `AGENTS.md` is mode 120000 to `CLAUDE.md`; `test_single_load` asserts CLAUDE.md is a regular file, AGENTS.md a symlink, target `CLAUDE.md`. | can fail: AGENTS.md as a plain copy, red; link to another file, red (mutants below). |
+| AC-9 | `agents_link_bad()` in `scripts/private-names.py`, called first by `cmd_check_staged` (the pre-commit hook). `--test` block "AC-9": no AGENTS.md is a no-op, link passes, replaced file refused with the repair command, link to another file refused, repaired link passes. | can fail: `agents_link_bad` forced to False, the two refuse cases red. |
+| AC-10 | `map/` has the catalog, CONTEXT, schema, 2 templates, 8 object cards, 5 process cards, effects page. `test_card_set` and `test_citations_exist` (runs `ref-check.py check` over every card). | can fail: a card citing `bin/sync-gone.sh`, red. |
+
+### Mutations
+- `test_single_load`: AGENTS.md replaced by a plain copy of CLAUDE.md, red (is_symlink); AGENTS.md linked to README.md, red (readlink); restored, green.
+- `test_fb_ask` (reads the `fb-ask <task>` line from `map/objects/rules.md`): `[--local]` dropped from that line, red; restored (cp backup), green.
+- `test_map`: line-homes row for line 13 removed, red; a card citing a missing `bin/` path, red; restored, green.
+- `private-names.py --test` AC-9 block: see the AC-9 row. The full `--test` run crashes in this sandbox at an unrelated `install.sh` section (missing `settings.json` in its temp HOME), same on main; the AC-9 block was run alone with the later sections skipped.
+
+### Left for after merge
+- The AC-9 probe commit (replace the link with `sed -i`, expect refusal) and the `cmp` of the hook copy against `scripts/private-names.py` need `bin/install.sh` run for real; until then `~/.git/hooks` keeps the old copy, which does not check the link.
+- AC-9 asks the check to land in a commit before the swap; the owner asked for one commit, so both are in it.
+- Not run: the regression-hunter report (AC-5).

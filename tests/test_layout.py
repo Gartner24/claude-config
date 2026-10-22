@@ -78,9 +78,12 @@ class TestShape(unittest.TestCase):
                     bad.append(f"{rel}: {target}")
         self.assertEqual(bad, [], f"{len(bad)} broken links:\n" + "\n".join(bad))
 
-    # covers: AC-4 (root CLAUDE.md only imports AGENTS.md, .claude/CLAUDE.md is gone, claude-home/CLAUDE.md is the payload)
+    # covers: spec 0072 AC-8 (CLAUDE.md is the one real entry file, AGENTS.md a symlink to it; .claude/CLAUDE.md is
+    # gone, claude-home/CLAUDE.md is the payload)
     def test_single_load(self):
-        self.assertEqual((REPO / "CLAUDE.md").read_text().strip(), "@AGENTS.md")
+        self.assertTrue((REPO / "CLAUDE.md").is_file() and not (REPO / "CLAUDE.md").is_symlink())
+        self.assertTrue((REPO / "AGENTS.md").is_symlink())
+        self.assertEqual(os.readlink(REPO / "AGENTS.md"), "CLAUDE.md")
         self.assertEqual(tracked(".claude/CLAUDE.md"), [])
         self.assertEqual(tracked("claude-home/CLAUDE.md"), ["claude-home/CLAUDE.md"])
 
