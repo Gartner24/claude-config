@@ -8,32 +8,31 @@ const facts = {
   model: 'claude-opus-5-5[1m]', effort: 'medium', folder: 'claude-config',
   git: { branch: 'main', changes: 0, staged: 0, modified: 0, untracked: 0 },
   context: 16, contextTokens: 160000, contextWindow: 1000000,
-  fiveHour: 21, fiveHourReset: null, week: 45, weekReset: null, via: null,
-  wf: { running: 0, parked: 0, questions: 0 }, auto: null, staleSince: null, statusOk: true,
+  fiveHour: 21, fiveHourReset: null, week: 45, weekReset: null, via: null, staleSince: null,
 }
-const text = (f: any) => segments(f, 0, false).left.find(s => s.id === 'handoff')?.runs.map(r => r.text).join('')
+const text = (f: any) => segments(f, 0, false).right.runs.map(r => r.text).join('')
 
 test('the handoff segment says on with its line, off, or ? when no chain file names this chat', () => {
   expect(text({ ...facts, handoff: { off: false, line: 200000 } })).toBe('handoff on 200k')
   expect(text({ ...facts, handoff: { off: true, line: 200000 } })).toBe('handoff off')
   expect(text({ ...facts, handoff: { off: false, line: null } })).toBe('handoff on')
   expect(text({ ...facts, handoff: null })).toBe('handoff ?')
-  expect(text(facts)).toBeUndefined()
+  expect(text(facts)).toBe('handoff ?')
 })
 
 test('a narrow band drops the model before the handoff state', () => {
   const f = { ...facts, handoff: { off: true, line: 200000 } }
   const { left, right } = segments(f, 0, false)
   const chip = left.find(s => s.id === 'chip')!.cells
-  const hand = left.find(s => s.id === 'handoff')!.cells
-  // room for the chip, the handoff segment and the runner counts, not the model too
-  const room = chip + hand + right.cells + 2 * space.gap + 2 * space.padX
-  expect(fit(left, right, room).map(s => s.id)).toEqual(['chip', 'handoff'])
+  // room for the chip and the handoff segment, not the model too
+  const room = chip + right.cells + space.gap + 2 * space.padX
+  expect(fit(left, right, room).map(s => s.id)).toEqual(['chip'])
+  expect(right.id).toBe('handoff')
 })
 
 const SID = '0a73f089-5127-4347-998d-3a7c8adf3ac9'
 const DIR = '/h/.claude/state/auto-handoff'
-function host(on: any, files: Record<string, string>) {
+function host(on: any, files: Record<string, string>, argv: string[][] = []) {
   const clock = mock.clock(on)
   mock.env(on, { HOME: '/h', XDG_STATE_HOME: '' })
   on('session.start', () => ({ cwd: '/w' }))
@@ -45,7 +44,10 @@ function host(on: any, files: Record<string, string>) {
   on('fs.write', (_$: any, e: any) => { files[e.path] = e.text ?? ''; return { value: undefined } })
   on('fs.read', (_$: any, e: any) => (e.path in files ? { value: files[e.path] } : { deny: 'ENOENT' }))
   on('command.register', (_$: any, e: any) => ({ value: { command: e.name } }))
-  on('process.run', (_$: any, e: any) => ({ value: { exitCode: 0, stdout: e.argv[0] === 'wf' ? '{}' : JSON.stringify({ folder: 'w', git: null, via: null }), stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
+  on('process.run', (_$: any, e: any) => {
+    argv.push([...e.argv])
+    return { value: { exitCode: 0, stdout: JSON.stringify({ folder: 'w', git: null, via: null }), stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+  })
   return clock
 }
 const props = { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 160 }
@@ -77,7 +79,8 @@ test('a chain file that names another chat is not this chat\'s: the band says ?'
   await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/w' } as any)
   await clock.advance(10)
   const ui = await $.ui.mount({ plugin: 'wf-dash', surface: 'terminal', component: 'AbovePrompt', props } as never)
-  expect(await ui.find({ type: 'Text', text: /^handoff \?$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^\?$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^off$/ })).toBeUndefined()
   await ui.unmount()
 })
 
@@ -91,4 +94,14 @@ test('a survey holds the band: the band steps aside', async ($, on) => {
   expect(await ui.find({ type: 'Text', text: /wf-dash/ })).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: /^the survey$/ })).toBeDefined()
   await ui.unmount()
+})
+
+test('nothing the band runs is the wf runner: only facts.py, by its own path', async ($, on) => {
+  const argv: string[][] = []
+  const clock = host(on, {}, argv)
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/w' } as any)
+  await clock.advance(10)
+  await clock.advance(5000)
+  expect(argv.length).toBeGreaterThan(0)
+  expect(argv.filter(a => a[0] !== 'python3' || !a[1].endsWith('/facts.py'))).toEqual([])
 })

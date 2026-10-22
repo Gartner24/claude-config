@@ -1,27 +1,24 @@
-// The dashboard: one pane, four sections you move between with a key (p Plan, b Builds, a Agents, l Alerts).
+// The dashboard: one pane, two sections you move between with a key (p Plan, a Agents). The runner's Builds and
+// Alerts views went with the runner.
 // Same look as the band: k9s rows, state words that carry their meaning without color, dim chrome, color spent on
 // state. Pure drawing from data; tokens.ts holds every value.
-import type { WfDashAlert, WfDashAsk, WfDashFeature, WfDashLoaded, WfDashPlan } from './types/index.d.ts'
-import { agentStatus, alert, color, glyph, pane, shortTab, space, specStatus, state, stateHelp, stateOrder, tinyTab } from './tokens.ts'
+import type { WfDashAsk, WfDashFeature, WfDashLoaded, WfDashPlan } from './types/index.d.ts'
+import { agentStatus, color, glyph, pane, shortTab, space, specStatus, state, stateHelp, stateOrder, tinyTab } from './tokens.ts'
 
 type El = { Box: any; Text: any; Button: any }
-export type View = { section: string; tab: string; page: number; sel: number; bpos: number; apos?: number; gsel?: number; ask?: WfDashAsk | null; notice?: { text: string; ok: boolean } | null }
+export type View = { section: string; tab: string; page: number; sel: number; gsel?: number; ask?: WfDashAsk | null; notice?: { text: string; ok: boolean } | null }
 // run: the confirmed action (spec 0060 AC-5); only the confirm row's `y` reaches it
 export type Act = { go: (v: Partial<View>) => void; retry: () => void; run: (ask: WfDashAsk) => void }
 type Plan = WfDashLoaded<WfDashPlan> | undefined
 
 export const SECTIONS = [
   { id: 'plan', key: 'p', label: 'Plan' },
-  { id: 'builds', key: 'b', label: 'Builds' },
   { id: 'agents', key: 'a', label: 'Agents' },
-  { id: 'alerts', key: 'l', label: 'Alerts' },
 ]
 
 // Plan filters, in the order of their digit keys; `states` null means every open feature.
 export const PLAN_TABS: { id: string; label: string; states: string[] | null; done?: boolean; empty: string }[] = [
   { id: 'needs-you', label: 'Needs you', states: ['waits on you'], empty: 'Nothing waits on you. A step only you can do (a login, a check on your phone) lands here.' },
-  { id: 'building', label: 'Building', states: ['building'], empty: 'Nothing is building. A feature lands here while wf builds it.' },
-  { id: 'publish', label: 'To publish', states: ['to publish', 'in review'], empty: 'Nothing to publish. A feature lands here once it is built on its branch, until its PR is merged.' },
   { id: 'ready', label: 'Ready', states: ['ready to build'], empty: 'Nothing is ready to build. A feature lands here once its design is accepted.' },
   { id: 'design', label: 'Needs design', states: ['needs a design'], empty: 'Nothing needs a design. A feature lands here while a decision is owed (/architect).' },
   { id: 'progress', label: 'In progress', states: ['in progress'], empty: 'Nothing is in progress. A feature lands here when it is partly done.' },
@@ -29,7 +26,7 @@ export const PLAN_TABS: { id: string; label: string; states: string[] | null; do
   { id: 'open', label: 'All open', states: null, empty: 'Nothing open.' },
 ]
 
-export const DEFAULT_VIEW: View = { section: 'plan', tab: 'needs-you', page: 0, sel: 0, bpos: 0 }
+export const DEFAULT_VIEW: View = { section: 'plan', tab: 'needs-you', page: 0, sel: 0 }
 
 // -- Actions (spec 0060 AC-5): the only next steps the dashboard may start; anything else is typed by you ------------
 export const SAFE_STEPS = ['/architect', '/develop', '/check verify', '/test', '/sync', '/debug', '/scope']
@@ -41,16 +38,13 @@ const inRepo = (path: string, cwd: string | null) => !!cwd && (cwd === path || c
 // The start offer for a feature: the exact text to submit, or why it is yours to type; null when it has no next step.
 export function startOffer(f: WfDashFeature, path: string, cwd: string | null): { ok: boolean; text: string } | null {
   if (isDone(f.state) || !f.command || f.state === 'waits on you') return null
-  if (f.state === 'building') return { ok: false, text: 'wf is building it now' }
   if (!safeStep(f.command)) return { ok: false, text: `type it yourself: ${f.command}` }
   if (!inRepo(path, cwd)) return { ok: false, text: `type it yourself in ${path}: ${f.command}` }
   return { ok: true, text: f.command }
 }
 
 export function confirmText(a: WfDashAsk): string {
-  if (a.kind === 'start') return `Start "${a.text}" in this chat?`
-  if (a.kind === 'stop') return `Stop ${a.label}?`
-  return a.n ? `Answer question ${a.id} with ${a.n} ${a.options[a.n - 1]}?` : `Answer question ${a.id}: pick an option`
+  return a.kind === 'start' ? `Start "${a.text}" in this chat?` : `Stop ${a.label}?`
 }
 
 type Offer = { key: string; label: string; ask: WfDashAsk } | { note: string } | null
@@ -70,9 +64,7 @@ function actionParts(view: View, act: Act, offer: Offer, cells: number): { lines
   let keys: Key[]
   if (a) {
     keys = [
-      ...(a.kind === 'answer' && !a.n
-        ? a.options.map((o, i) => ({ key: String(i + 1), label: o, on: true, press: () => act.go({ ask: { ...a, n: i + 1 } }) }))
-        : [{ key: 'y', label: 'yes', on: true, press: () => { act.go({ ask: null }); act.run(a) } }]),
+      { key: 'y', label: 'yes', on: true, press: () => { act.go({ ask: null }); act.run(a) } },
       { key: 'c', label: 'cancel', on: true, press: () => act.go({ ask: null }) },
     ]
     // wrapped, never cut: the whole text that runs is on screen before yes
@@ -101,7 +93,6 @@ const hhmm = (ms: number) => {
   const d = new Date(ms)
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
-const isoTime = (iso: string | null) => (iso && /T(\d\d:\d\d)/.exec(iso)?.[1]) || glyph.unknown
 const stateOf = (s: string) => (state as Record<string, { color: string; word: string }>)[s.replace(' (untagged)', '')] ?? { color: color.text, word: s }
 const rank = (s: string) => {
   const i = (stateOrder as readonly string[]).indexOf(s.replace(' (untagged)', ''))
@@ -110,17 +101,10 @@ const rank = (s: string) => {
 // "done (untagged)" is the done group: one state, one group
 const norm = (s: string) => s.replace(' (untagged)', '')
 const isDone = (s: string) => ['done', 'dropped', 'existing'].includes(s.replace(' (untagged)', ''))
-// the box's command is what the next step runs; a PR number says where a finished feature waits
 // a box's text without backticks and without the scope's trailing tags (" . waits on you", " . live"): plan markup, not words
 export const untag = (s: string) => s.replace(/`/g, '').replace(/\s+[.·]\s+(waits on you|later boxes go on|live|skipped)\b.*$/, '')
-const step = (f: WfDashFeature) => (f.pr ? `PR #${f.pr} ${f.prState}` : f.command ?? untag(f.next ?? ''))
-// "/check verify x" -> "verify": the step's kind in one word
-const kind = (cmd: string) => {
-  const m = /^\/(\w+)(?:\s+(\w+))?/.exec(cmd)
-  if (!m) return cmd
-  const verbs: Record<string, string> = { develop: 'build', architect: 'design', test: 'test', debug: 'debug', sync: 'sync', scope: 'plan' }
-  return m[1] === 'check' ? (m[2] ?? 'check') : verbs[m[1]] ?? m[1]
-}
+// the box's command is what the next step runs
+const step = (f: WfDashFeature) => f.command ?? untag(f.next ?? '')
 
 function cell(Box: any, Text: any, text: string, w: number | null, props: Record<string, unknown> = {}) {
   return (
@@ -143,7 +127,7 @@ function loading({ Box, Text }: El, what: string, l: WfDashLoaded<unknown> | und
     return (
       <Box flexDirection="column" marginTop={space.line}>
         <Text color={color.bad}>{`Could not read ${what} (${l.error}).`}</Text>
-        <Text color={color.dim}>r tries again. If it keeps failing, wf itself may be down: run wf queue in a terminal to see.</Text>
+        <Text color={color.dim}>r tries again. If it keeps failing, run python3 plan.py from the wf-dash mod folder in a terminal to see why.</Text>
       </Box>
     )
   }
@@ -193,11 +177,6 @@ export function planLines(repos: WfDashPlan['repos'], tab: (typeof PLAN_TABS)[nu
     } else if (!tab.done && picked.some(p => p.repo === r.name)) r.warnings?.forEach(w => lines.push({ kind: 'note', text: `${r.name}: ${w}`, tone: color.warn }))
   }
   return lines
-}
-
-// The runner writes "<what it needs> in <feature>. <detail>"; the row above already names the feature, so drop it.
-export function askText(question: string, feature: string): string {
-  return question.split(` in ${feature}`).join('').replace(/\s{2,}/g, ' ').trim()
 }
 
 // Up to `max` lines of `cells` cells, broken at spaces; the last line ends in "..." when text is left over.
@@ -282,7 +261,6 @@ function PlanSection({ el, plan, view, act, columns, cwd, extra = 0 }: { el: El;
     // position first, so a narrow pane never cuts it; the repo only when the rows on screen do not already show it
     const meta = [
       `${sel + 1} of ${feats.length}`,
-      chosen.pr ? `PR #${chosen.pr} ${chosen.prState}` : chosen.review === 'unknown' ? 'in review: unknown' : '',
       chosen.spec ? (isDone(chosen.state) ? `spec ${chosen.spec}` : `spec ${chosen.spec}: ${specStatus[chosen.specStatus ?? 'unknown'] ?? chosen.specStatus}`) : 'no spec',
       !repoCol && new Set(feats.map(x => x.line.repo)).size > 1 ? feats[sel].line.repo : '',
     ].filter(Boolean).join('  ')
@@ -307,7 +285,7 @@ function PlanSection({ el, plan, view, act, columns, cwd, extra = 0 }: { el: El;
     <Box flexDirection="column">
       {wide && (
         <Text color={color.dim} wrap="truncate-end">
-          {tab.id === 'needs-you' ? "Steps only you can do. wf's own questions are in Builds." : 'Every plan, grouped by what each feature needs next.'}
+          {tab.id === 'needs-you' ? 'Steps only you can do: a login, a check on your phone.' : 'Every plan, grouped by what each feature needs next.'}
         </Text>
       )}
       {tabRows.map(row =>
@@ -358,132 +336,6 @@ function PlanSection({ el, plan, view, act, columns, cwd, extra = 0 }: { el: El;
   )
 }
 
-// -- Builds (the runner) -------------------------------------------------------------------------------------------
-
-type Item = { rows: number; draw: () => any; heading?: boolean; run?: string; question?: { id: string; options: string[] } }
-
-function BuildsSection({ el, plan, view, act, columns, extra = 0 }: { el: El; plan: Plan; view: View; act: Act; columns: number; extra?: number }) {
-  const { Box, Text } = el
-  if (!plan?.data) return loading(el, 'the builds', plan, act)
-  const { runs, questions } = plan.data
-  const full = (runs ?? []).length <= pane.fullRuns
-  const heading = (word: string, n: number, tone: string): Item => ({
-    rows: 1,
-    heading: true,
-    draw: () => <Box flexDirection="row" gap={space.tight}><Text color={tone} bold>{word}</Text><Text color={color.dim}>{`${n}`}</Text></Box>,
-  })
-  // what waits on you sits in its own block above the runs, so it never falls below the fold
-  const items: Item[] = [
-    ...((questions ?? []).length ? [heading(state['waits on you'].word, questions!.length, state['waits on you'].color)] : []),
-    ...(questions ?? []).map(q => {
-      // every reply option shown, wrapped to two lines if need be (they are the point of the row); the ask, without the
-      // "in <feature>" the row above names, keeps its two lines: it says what to decide
-      const w = Math.max(pane.minWrap, columns - 2 * space.padX - space.indent)
-      const prefix = columns >= pane.specMin ? `reply on your phone to question ${q.id}:` : `on phone, ${q.id}:`
-      const reply = wrapWords(`${prefix}  ${q.options.map((o, i) => `${i + 1} ${o}`).join('  ')}`, w, 2)
-      const ask = wrapWords(askText(q.question, q.feature), w, 2)
-      return {
-      question: q,
-      rows: 1 + ask.length + reply.length,
-      draw: () => (
-        <Box flexDirection="column">
-          {/* fixed cells: a bare Text in a row wraps mid-word in a narrow pane and breaks the row budget */}
-          <Box flexDirection="row">
-            {cell(Box, Text, q.parked ? 'stuck' : 'question', pane.col.word, { color: q.parked ? color.bad : color.warn, bold: true })}
-            {cell(Box, Text, q.feature, null, { color: color.text })}
-            {cell(Box, Text, q.repo, pane.col.repo, { color: color.dim })}
-          </Box>
-          {ask.map(t => <Box paddingLeft={space.indent}><Text color={color.text} wrap="truncate-end">{t}</Text></Box>)}
-          {/* dim, not the accent: the numbers are the phone's buttons, not keys here */}
-          {reply.map(t => <Box paddingLeft={space.indent}><Text color={color.dim} wrap="truncate-end">{t}</Text></Box>)}
-        </Box>
-      ),
-      }
-    }),
-    ...((runs ?? []).length ? [heading(state.building.word, runs!.length, state.building.color)] : []),
-    ...(runs ?? []).map(r => {
-      const steps = full ? r.steps.slice(-pane.steps) : []
-      return {
-        rows: 2 + steps.length,
-        // the summary line names the run in a fixed width, so "now <step>" always fits beside it
-        run: `${r.feature.length > pane.col.next ? r.feature.slice(0, pane.col.next - glyph.cut.length) + glyph.cut : r.feature}  now ${r.step ? kind(r.step) : glyph.unknown}`,
-        draw: () => (
-          <Box flexDirection="column">
-            <Box flexDirection="row">
-              {cell(Box, Text, r.feature, null, { color: color.text, bold: true })}
-              {cell(Box, Text, r.repo, pane.col.repo, { color: color.dim })}
-            </Box>
-            <Box paddingLeft={space.indent}>
-              <Text wrap="truncate-end">
-                <Text color={color.dim}>now </Text>
-                <Text color={color.text} bold>{r.step ? kind(r.step) : r.calls === 0 ? 'starting' : glyph.unknown}</Text>
-                <Text color={color.dim}>
-                  {'  ' + (r.calls ? `${r.calls} ${r.calls === 1 ? 'step' : 'steps'} so far, ${r.cost === null ? glyph.unknown : `$${r.cost.toFixed(2)}`}, started ${isoTime(r.startedAt)}` : `started ${isoTime(r.startedAt)}`)}
-                </Text>
-              </Text>
-            </Box>
-            {steps.map(st => (
-              <Box flexDirection="row" paddingLeft={space.indent}>
-                {cell(Box, Text, isoTime(st.started), pane.col.time, { color: color.dim })}
-                {cell(Box, Text, kind(st.command), pane.col.word, { color: color.text })}
-                {cell(Box, Text, st.ok ? 'ok' : 'failed', pane.col.result, { color: st.ok ? color.ok : color.bad, bold: !st.ok })}
-                {cell(Box, Text, `${st.minutes}m  ${st.cost === null ? glyph.unknown : `$${st.cost.toFixed(2)}`}`, null, { color: color.dim })}
-              </Box>
-            ))}
-          </Box>
-        ),
-      }
-    }),
-  ]
-  // show what fits from the scroll position; the rest is counted, never silently cut
-  const start = Math.min(view.bpos ?? 0, Math.max(0, items.length - 1))
-  // the answer acts on the first question from the scroll position; a question with no options is typed on the phone.
-  // Its rows (and a confirm's) come out of the list's budget, so the pane never grows past its rows.
-  const q = items.slice(start).find(it => it.question)?.question
-  const parts = actionParts(view, act, !q ? null : q.options.length
-    ? { key: 'o', label: `answer ${q.id}`, ask: { kind: 'answer', id: q.id, options: q.options } }
-    : { note: `question ${q.id} takes a typed answer: reply on your phone` }, columns - 2 * space.padX)
-  const shown: Item[] = []
-  let used = 0
-  const rest = items.slice(start)
-  for (const [i, it] of rest.entries()) {
-    // a heading only comes with its first item, never alone at the foot
-    const need = it.heading && rest[i + 1] ? it.rows + rest[i + 1].rows : it.rows
-    if (shown.length && used + need > pane.buildRows + extra - parts.rows) break
-    shown.push(it)
-    used += it.rows
-  }
-  // headings are not items the reader is missing; count only questions and runs below the fold
-  const below = items.slice(start + shown.length).filter(it => !it.heading).length
-  // runs scrolled out of view are still named, so the band's run count always has a match here
-  const hiddenRuns = items.slice(start + shown.length).flatMap(it => (it.run ? [it.run] : []))
-  return (
-    <Box flexDirection="column">
-      {columns >= pane.specMin && <Text color={color.dim}>What wf builds on its own right now, and what it asks you.</Text>}
-      {runs === null && <Text color={color.bad}>Could not read what wf is building.</Text>}
-      {runs !== null && runs.length === 0 && !(questions ?? []).length && <Text color={color.dim}>wf is not building anything right now, and asks you nothing.</Text>}
-      {shown.map(it => it.draw())}
-      {/* a run below the fold still gets its own line, so "is it running?" is answered without scrolling */}
-      {hiddenRuns.length > 0 && (
-        <Text wrap="truncate-end">
-          <Text color={state.building.color} bold>{`${state.building.word} `}</Text>
-          <Text color={color.text}>{hiddenRuns[0]}</Text>
-          <Text color={color.dim}>{hiddenRuns.length > 1 ? `  +${hiddenRuns.length - 1}` : ''}</Text>
-        </Text>
-      )}
-      {/* the runs below are named by the summary line, so "more" counts only the questions still below */}
-      {(start > 0 || below - hiddenRuns.length > 0) && (
-        <Text color={color.dim}>{[start > 0 ? `${start} above` : '', below - hiddenRuns.length > 0 ? `+${below - hiddenRuns.length} more` : ''].filter(Boolean).join(', ')}</Text>
-      )}
-      {keyRow(el, [
-        { key: 'j', label: 'down', on: below > 0, press: () => act.go({ bpos: below > 0 ? start + 1 : start }) },
-        { key: 'k', label: 'up', on: start > 0, press: () => act.go({ bpos: Math.max(0, start - 1) }) },
-      ])}
-      {actionRow(el, parts)}
-    </Box>
-  )
-}
-
 // -- Agents --------------------------------------------------------------------------------------------------------
 
 const SHELL_NOTE = "Shells come from this chat's Bash results: a started one may have ended unseen."
@@ -499,7 +351,7 @@ function AgentsSection({ el, agents, view, act, columns, extra = 0 }: { el: El; 
     : null, cells)
   // shells pile up over a long chat: show the rows that fit beside the note, the j/k row and the action, and follow
   // the cursor, so the confirm's keys never fall off the bottom (design-gate 2026-10-18 pass 4)
-  const fit = Math.max(1, pane.buildRows + extra - parts.rows - Math.ceil(SHELL_NOTE.length / Math.max(1, cells)) - 1)
+  const fit = Math.max(1, pane.listRows + extra - parts.rows - Math.ceil(SHELL_NOTE.length / Math.max(1, cells)) - 1)
   const start = Math.max(0, sel - fit + 1)
   const below = Math.max(0, agents.length - start - fit)
   return (
@@ -530,53 +382,10 @@ function AgentsSection({ el, agents, view, act, columns, extra = 0 }: { el: El; 
   )
 }
 
-// -- Alerts --------------------------------------------------------------------------------------------------------
-
-function AlertsSection({ el, alerts, view, act, columns, extra = 0, statusOk }: { el: El; alerts: WfDashAlert[]; view: View; act: Act; columns: number; extra?: number; statusOk?: boolean | null }) {
-  const { Box, Text } = el
-  const list = [...alerts].reverse()
-  // details print in full, so an alert takes its title row plus the rows its detail wraps to
-  const textCells = Math.max(1, columns - 2 * space.padX - pane.col.kind - space.tight)
-  const rows = (a: WfDashAlert) => 1 + Math.max(1, Math.ceil(a.detail.length / textCells))
-  const start = Math.min(view.apos ?? 0, Math.max(0, list.length - 1))
-  let used = 0
-  let end = start
-  while (end < list.length && (end === start || used + rows(list[end]) <= pane.buildRows + extra)) used += rows(list[end++])
-  const below = list.length - end
-  return (
-    <Box flexDirection="column">
-      {columns >= pane.specMin && <Text color={color.dim}>Every alert this session, newest first. Each also shows at the top right for 15 s.</Text>}
-      {/* spec 0065 AC-3: an empty list from a runner that could not be read is not "no alerts yet" */}
-      {list.length === 0 && <Text color={color.dim}>{statusOk == null ? 'reading wf' : statusOk ? 'No alerts yet. When wf finishes a feature, gets stuck or asks you something, it lands here.' : 'could not read wf'}</Text>}
-      {/* inbox rows, Linear style: kind and feature on the title line with the time at the right, the detail in full below */}
-      {list.slice(start, end).map(a => (
-        <Box flexDirection="column">
-          <Box flexDirection="row">
-            {cell(Box, Text, a.kind, pane.col.kind, { color: alert[a.kind], bold: true })}
-            {cell(Box, Text, a.feature, null, { color: color.text, bold: true })}
-            <Box width={pane.col.clock} flexShrink={0} justifyContent="flex-end"><Text color={color.dim}>{hhmm(a.at)}</Text></Box>
-          </Box>
-          <Box paddingLeft={pane.col.kind + space.tight}><Text color={color.dim}>{a.detail}</Text></Box>
-        </Box>
-      ))}
-      {(start > 0 || below > 0) && (
-        <Text color={color.dim}>{[start > 0 ? `${start} newer above` : '', below > 0 ? `+${below} older` : ''].filter(Boolean).join(', ')}</Text>
-      )}
-      {keyRow(el, [
-        { key: 'j', label: 'down', on: below > 0, press: () => act.go({ apos: below > 0 ? start + 1 : start }) },
-        { key: 'k', label: 'up', on: start > 0, press: () => act.go({ apos: Math.max(0, start - 1) }) },
-      ])}
-    </Box>
-  )
-}
-
 // -- The dashboard -------------------------------------------------------------------------------------------------
 
-export function Dashboard({ el, view, act, plan, agents, alerts, facts, statusOk, columns, cwd = null, focused = true, rows }: {
-  el: El; view: View; act: Act; plan: Plan; agents: any[] | null; alerts: WfDashAlert[]; columns: number; cwd?: string | null; focused?: boolean; rows?: number
-  // null before the band's first tick (spec 0065 AC-3)
-  statusOk?: boolean | null
-  facts: { running: number | null; parked: number | null; questions: number | null } | null
+export function Dashboard({ el, view, act, plan, agents, columns, cwd = null, focused = true, rows }: {
+  el: El; view: View; act: Act; plan: Plan; agents: any[] | null; columns: number; cwd?: string | null; focused?: boolean; rows?: number
 }) {
   const { Box, Text } = el
   const section = SECTIONS.find(s => s.id === view.section) ?? SECTIONS[0]
@@ -593,9 +402,7 @@ export function Dashboard({ el, view, act, plan, agents, alerts, facts, statusOk
       {!focused && <Text color={color.warn} wrap="truncate-end">Keys go to the prompt now: click the dashboard to return</Text>}
       <Box flexDirection="column">
         {section.id === 'plan' && <PlanSection el={el} plan={plan} view={view} act={act} columns={columns} cwd={cwd} extra={extra} />}
-        {section.id === 'builds' && <BuildsSection el={el} plan={plan} view={view} act={act} columns={columns} extra={extra} />}
         {section.id === 'agents' && <AgentsSection el={el} agents={agents} view={view} act={act} columns={columns} extra={extra} />}
-        {section.id === 'alerts' && <AlertsSection el={el} alerts={alerts} view={view} act={act} columns={columns} extra={extra} statusOk={statusOk} />}
       </Box>
       <Box flexDirection="row" columnGap={space.gap} flexWrap="wrap">
         {keyRow(el, [{ key: 'r', label: 'refresh', on: true, press: act.retry }])}

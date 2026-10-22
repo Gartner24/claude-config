@@ -1,4 +1,4 @@
-// The band above the prompt: this session on the left, the runner on the right, always one line.
+// The band above the prompt: this session on the left, its auto handoff on the right, always one line.
 // Pure drawing from facts; every color, width and word comes from tokens.ts.
 import type { WfDashFacts } from './types/index.d.ts'
 import type { HandoffLine } from './handoff.ts'
@@ -52,17 +52,9 @@ function meterSeg(id: string, label: string, value: number | null, reset = ''): 
   return seg(id, runs)
 }
 
-// `cells`: the number (or its `?`) is left padded to it, so the full band's line does not shift as a count grows;
-// the compact band passes none, its zero test and budget read the bare text
-function countRun(n: number | null, one: string, many: string, tone: string, cells = 0): Run {
-  if (n === null) return { text: `${pad(glyph.unknown, cells)} ${many}`, color: color.dim }
-  const word = n === 1 ? one : many
-  return n === 0 ? { text: `${pad('0', cells)} ${word}`, color: color.dim } : { text: `${pad(String(n), cells)} ${word}`, color: tone, bold: true }
-}
-
 // `rich` adds the reset times and the context tokens; the band drops them before it drops a segment.
-// `compact` is for a column too narrow for the chip and the full runner counts (the ~31 cells beside the docked
-// dashboard): zero counts leave, the words shorten, one space between them.
+// `compact` is for a column too narrow for the chip and the full handoff segment (the ~31 cells beside the docked
+// dashboard).
 export function segments(f: Facts, now = Date.now(), rich = true, compact = false, maxCells = Infinity) {
   const left: Seg[] = [seg('chip', [{ text: ' wf-dash ', bg: color.accent, color: 'inverseText', bold: true }])]
   const model: Run[] = [{ text: prettyModel(f.model), color: color.text }]
@@ -84,57 +76,29 @@ export function segments(f: Facts, now = Date.now(), rich = true, compact = fals
     if (rich && f.contextTokens !== null && f.contextWindow) ctx.push({ text: ` ${tokens(f.contextTokens)}/${tokens(f.contextWindow)}`, color: color.dim })
     left.push(seg('ctx', ctx))
   }
-  // the owner turns the auto handoff off in chats that are not for coding (/auto-handoff); the band says which this is
-  if (f.handoff !== undefined) {
-    const h = f.handoff
-    left.push(seg('handoff', h === null
-      ? [{ text: `handoff ${glyph.unknown}`, color: color.dim }]
-      : h.off
-        ? [{ text: 'handoff ', color: color.dim }, { text: 'off', color: color.warn }]
-        : [{ text: 'handoff ', color: color.dim }, { text: h.line ? `on ${tokens(h.line)}` : 'on', color: color.text }]))
-  }
   if (f.via) left.push(seg('via', [{ text: `via ${f.via}`, color: color.dim }]))
   else left.push(
     meterSeg('5h', '5h', f.fiveHour, rich ? resetIn(f.fiveHourReset, now) : ''),
     meterSeg('week', 'week', f.week, rich ? resetIn(f.weekReset, now) : ''),
   )
 
-  // the bar's AUTO segment: lit when this chat drives the runner, dim when only other chats do; it sits next to the
-  // runner counts and is among the first to leave a narrow line
-  if (f.auto?.here) left.push(seg('auto', [{ text: 'auto on', color: color.ok, bold: true }]))
-  else if (f.auto?.chats) left.push(seg('auto', [{ text: `auto: ${f.auto.chats} ${f.auto.chats === 1 ? 'chat' : 'chats'} on`, color: color.dim }]))
-
-  const w = f.wf
-  // compact: the chip right beside it already names wf
-  const right: Run[] = compact ? [] : [{ text: 'wf ', color: color.accent, bold: true }]
-  if (w === null) right.push({ text: `${glyph.unknown} status`, color: color.dim })
-  else if (compact) {
-    // most urgent first (what needs you, then what is stuck), and a count that does not fit `maxCells` leaves whole
-    const counts = [countRun(w.questions, 'ask', 'ask', color.warn), countRun(w.parked, 'stuck', 'stuck', color.bad), countRun(w.running, 'run', 'run', color.text)]
-    const live = counts.filter(r => !r.text.startsWith('0 '))
-    // all zero: one dim word, so the runner segment never vanishes
-    if (!live.length) right.push({ text: 'idle', color: color.dim })
-    // the stale mark is added after the counts, so its cells come out of their budget, or the host cuts it off
-    let cells = f.staleSince ? ' stale'.length : 0
-    for (const [i, r] of live.entries()) {
-      const need = r.text.length + (i ? 1 : 0)
-      // stale: even the first count leaves whole when it and the mark do not fit; old counts never pass as current
-      if ((i || f.staleSince) && cells + need > maxCells) break
-      right.push(...(i ? [{ text: ' ' }] : []), r)
-      cells += need
-    }
-  } else {
-    right.push(countRun(w.running, 'building', 'building', color.text, width.count), { text: glyph.sep })
-    right.push(countRun(w.parked, 'stuck', 'stuck', color.bad, width.count), { text: glyph.sep })
-    right.push(countRun(w.questions, 'question', 'questions', color.warn, width.count))
+  // The right end, where the retired runner's counts were: the auto handoff, which the owner turns off in chats that
+  // are not for coding (/auto-handoff). Compact (the ~31 cells beside the docked dashboard) drops the word.
+  const h = f.handoff
+  const right: Run[] = compact ? [] : [{ text: 'handoff ', color: color.dim }]
+  if (h === undefined || h === null) right.push({ text: glyph.unknown, color: color.dim })
+  else if (h.off) right.push({ text: 'off', color: color.warn })
+  else right.push({ text: h.line ? `on ${tokens(h.line)}` : 'on', color: color.text })
+  // the stale mark goes when it does not fit `maxCells` beside the state, never the state itself
+  if (f.staleSince) {
+    const mark = compact ? ' stale' : `${glyph.sep}stale since ${f.staleSince}`
+    if (right.reduce((n, r) => n + r.text.length, 0) + mark.length <= maxCells) right.push({ text: mark, color: color.dim })
   }
-  if (f.staleSince) right.push({ text: compact ? (right.length ? ' stale' : 'stale') : `${glyph.sep}stale since ${f.staleSince}`, color: color.dim })
-  return { left, right: seg('wf', right) }
+  return { left, right: seg('handoff', right) }
 }
 
-// Left segments leave in this order when the line is too narrow; the runner segment and the chip stay. The handoff
-// state is the last to go: it is the one fact here no other part of the screen shows.
-const DROP = ['folder', 'auto', 'git', 'week', '5h', 'via', 'ctx', 'model', 'handoff']
+// Left segments leave in this order when the line is too narrow; the handoff segment and the chip stay.
+const DROP = ['folder', 'git', 'week', '5h', 'via', 'ctx', 'model']
 
 export function fit(left: Seg[], right: Seg, columns: number) {
   const used = (l: Seg[]) => l.reduce((n, s) => n + s.cells, 0) + space.gap * Math.max(0, l.length - 1) + space.gap + right.cells + 2 * space.padX
@@ -172,7 +136,7 @@ export function Band({ Box, Text, Button, facts, columns, onOpen }: { Box: any; 
     ;({ left, right } = segments(facts, Date.now(), false, true, room - 2 * space.padX - left[0].cells - space.gap))
     kept = fit(left, right, room)
   }
-  // the chip is pinned; when even the compact counts do not fit, the runner segment truncates at its end instead
+  // the chip is pinned; when even the compact state does not fit, the handoff segment truncates at its end instead
   return (
     <Box flexDirection="row" paddingX={space.padX} width="100%">
       <Box flexDirection="row" gap={space.gap} flexGrow={1} flexShrink={kept.length === 1 ? 0 : 1}>

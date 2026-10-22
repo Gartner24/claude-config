@@ -7,48 +7,48 @@ const facts = {
   git: { branch: 'docs/wf-dash-design', changes: 3, staged: 1, modified: 1, untracked: 1 },
   context: 16, contextTokens: 160000, contextWindow: 1000000,
   fiveHour: 21, fiveHourReset: null, week: 45, weekReset: null, via: null,
-  wf: { running: 4, parked: 1, questions: 2 }, auto: { here: false, chats: 2 }, staleSince: null, statusOk: true,
+  staleSince: null, handoff: { off: false, line: 200000 },
 }
 
 // the cells the band takes for the segments it keeps, the way fit() counts them
 const width = (kept: { cells: number }[], right: { cells: number }) =>
   kept.reduce((n, s) => n + s.cells, 0) + space.gap * Math.max(0, kept.length - 1) + space.gap + right.cells + 2 * space.padX
+const words = (s: { runs: { text: string }[] }) => s.runs.map(r => r.text).join('')
 
 for (const columns of [94, 120, 160]) {
-  test(`the band fits one line at ${columns} columns and keeps the chip and the runner`, () => {
+  test(`the band fits one line at ${columns} columns and keeps the chip and the handoff state`, () => {
     const { left, right } = segments(facts, 0, false)
     const kept = fit(left, right, columns - space.hostReserve)
     expect(width(kept, right)).toBeLessThanOrEqual(columns - space.hostReserve)
     expect(kept.map(s => s.id)).toContain('chip')
-    expect(right.runs.map(r => r.text).join('')).toContain('4 building')
+    expect(words(right)).toBe('handoff on 200k')
   })
 }
 
-test('compact runner counts leave zeros out and put what needs you first', () => {
-  const { right } = segments({ ...facts, wf: { running: 4, parked: 0, questions: 2 } }, 0, false, true)
-  expect(right.runs.map(r => r.text).join('')).toBe('2 ask 4 run')
+test('the right end says on with the line, off, or ? when unknown, and never names the runner', () => {
+  expect(words(segments({ ...facts, handoff: { off: true, line: 200000 } }, 0, false).right)).toBe('handoff off')
+  expect(words(segments({ ...facts, handoff: null }, 0, false).right)).toBe('handoff ?')
+  expect(words(segments({ ...facts, handoff: undefined }, 0, false).right)).toBe('handoff ?')
+  const all = segments(facts, 0, false)
+  // the chip's own name says wf-dash; the runner's segment began "wf " and named builds, stuck runs and questions
+  expect([...all.left, all.right].map(words).join(' ')).not.toMatch(/(^|\s)wf\s|building|stuck|question/)
 })
 
-test('the 31-cell column beside the docked dashboard keeps the chip and drops whole counts, least urgent first', () => {
+test('the 31-cell column beside the docked dashboard keeps the chip and the bare handoff state', () => {
   const room = 31 - space.hostReserve - space.hotkeyCells
-  const wf = { running: 1, parked: 2, questions: 2 }
-  const chip = segments({ ...facts, wf }, 0, false).left[0]
-  const { left, right } = segments({ ...facts, wf }, 0, false, true, room - 2 * space.padX - chip.cells - space.gap)
+  const chip = segments(facts, 0, false).left[0]
+  const { left, right } = segments(facts, 0, false, true, room - 2 * space.padX - chip.cells - space.gap)
   const kept = fit(left, right, room)
   expect(kept.map(s => s.id)).toEqual(['chip'])
   expect(width(kept, right)).toBeLessThanOrEqual(room)
-  expect(right.runs.map(r => r.text).join('')).toBe('2 ask')
+  expect(words(right)).toBe('on 200k')
 })
 
-test('the stale mark fits the 31-cell column too, so old counts never read as current', () => {
-  const room = 31 - space.hostReserve - space.hotkeyCells
-  const f = { ...facts, wf: { running: 1, parked: 2, questions: 2 }, staleSince: '10:42' }
-  const chip = segments(f, 0, false).left[0]
-  const { left, right } = segments(f, 0, false, true, room - 2 * space.padX - chip.cells - space.gap)
-  expect(width(fit(left, right, room), right)).toBeLessThanOrEqual(room)
-  expect(right.runs.map(r => r.text).join('')).toBe('stale')
-  const wide = segments(f, 0, false, true, 20).right
-  expect(wide.runs.map(r => r.text).join('')).toBe('2 ask 2 stuck stale')
+test('the stale mark shows when it fits and leaves before the handoff state does', () => {
+  const f = { ...facts, staleSince: '10:42' }
+  expect(words(segments(f, 0, false).right)).toBe('handoff on 200k  stale since 10:42')
+  expect(words(segments(f, 0, false, true, 20).right)).toBe('on 200k stale')
+  expect(words(segments(f, 0, false, true, 8).right)).toBe('on 200k')
 })
 
 test('a wide line keeps every segment', () => {
@@ -72,5 +72,10 @@ test('unknown context is left out, never shown as 0', () => {
 test('a repo whose counts were skipped shows its branch only, never clean', () => {
   const git = { branch: 'main', changes: null, staged: null, modified: null, untracked: null }
   const { left } = segments({ ...facts, git }, 0, false)
-  expect(left.find(s => s.id === 'git')!.runs.map(r => r.text).join('')).toBe('main')
+  expect(words(left.find(s => s.id === 'git')!)).toBe('main')
+})
+
+test('unknown effort is left out of the band, never guessed', () => {
+  const { left } = segments({ ...facts, effort: null }, 0, false)
+  expect(words(left.find(s => s.id === 'model')!)).toBe('Opus 5.5')
 })

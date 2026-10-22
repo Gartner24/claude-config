@@ -1,17 +1,16 @@
 import type { Register } from 'claude-code'
-import { alertTick, counts, parseStatus } from '../alerts.ts'
 import { Band, HandoffRow, type Facts } from '../band.tsx'
 import { handoffLine } from '../handoff.ts'
 import { DEFAULT_VIEW, Dashboard, safeStep } from '../panes.tsx'
 import type { WfDashAsk } from '../types/index.d.ts'
 import { color, pane, space, time, width } from '../tokens.ts'
 
-// wf-dash: the band and alerts (spec 0059) read `wf status --json`; the dashboard (spec 0060) reads `wf plan --json`
-// and offers three actions, each behind a confirm. The drawing in band.tsx and panes.tsx is the locked look.
+// wf-dash: the band (spec 0059) reads this session and wf-handoff's files; the dashboard (spec 0060) reads plan.py and
+// offers two actions, each behind a confirm. The drawing in band.tsx and panes.tsx is the locked look. Nothing here
+// runs or reads the retired wf runner.
 
 const FACTS = { plugin: 'wf-dash', key: 'facts' } as const
 const EFFORT = { plugin: 'wf-dash', key: 'effort' } as const
-const ALERTS = { plugin: 'wf-dash', key: 'alerts' } as const
 const PLAN = { plugin: 'wf-dash', key: 'plan' } as const
 const VIEW = { plugin: 'wf-dash', key: 'view' } as const
 const HANDOFF = { plugin: 'wf-dash', key: 'handoff' } as const
@@ -20,15 +19,8 @@ const PANE = 'wf-dash'
 // The host refuses $.prompt.submit of a text starting with "/" (it would run a command as the user), so the step goes
 // through $.command.run, which runs it as if typed, once the session is idle.
 const SUBMIT_AFTER = 1500
-// a session id that may name a file, and an effort level as the settings spell one
-const SESSION_ID = /^[A-Za-z0-9-]{1,100}$/
+// an effort level as the settings spell one
 const LEVEL = /^[a-z]{1,20}$/
-
-// `<state>/wf-dash` is the mod's own folder, as runner/auto.py dash_dir() names it, never under the runner's (AC-5);
-// `<state>/wf/runs` holds the runner's run records, read only (runner/run.py state_dir)
-async function stateDir($: any) {
-  return (await $.env.get('XDG_STATE_HOME')) || `${await $.env.get('HOME')}/.local/state`
-}
 
 // shortcut: module values, so a hot reload forgets the dashboard is open until it is opened again; fine for a preview
 let isOpen = false
@@ -59,7 +51,7 @@ async function shells($: any) {
   return [...found.values()].filter(s => !stoppedShells.has(s.id))
 }
 
-// AC-5: the three confirmed actions. Nothing else is reachable: no push, merge, delete, settings or spec edit.
+// AC-5: the two confirmed actions. Nothing else is reachable: no push, merge, delete, settings or spec edit.
 async function perform($: any, a: WfDashAsk): Promise<{ text: string; ok: boolean }> {
   if (a.kind === 'start') {
     if (!safeStep(a.text)) return { text: `not started, not on the safe list: ${a.text}`, ok: false }
@@ -67,22 +59,17 @@ async function perform($: any, a: WfDashAsk): Promise<{ text: string; ok: boolea
     $.clock.after(SUBMIT_AFTER, () => void $.command.run({ command, args }).catch(() => {}))
     return { text: `starting ${a.text}`, ok: true }
   }
-  if (a.kind === 'stop') {
-    const r = await $.tool.call({ tool: 'TaskStop', task_id: a.id }).catch((err: any) => ({ deny: String(err?.message ?? err) }))
-    const ok = r && !('deny' in r) && !r.isError
-    if (ok) stoppedShells.add(a.id)
-    return ok ? { text: `stopped ${a.label}`, ok: true } : { text: `could not stop ${a.label}: ${r?.deny ?? r?.text ?? 'no answer'}`, ok: false }
-  }
-  const r = await $.process.run(['wf', 'answer', a.id, String(a.n)]).catch(() => null)
-  void loadPanes(true)
-  return r ? { text: (r.stdout || r.stderr).trim() || `exit ${r.exitCode}`, ok: r.exitCode === 0 } : { text: 'wf answer did not run', ok: false }
+  const r = await $.tool.call({ tool: 'TaskStop', task_id: a.id }).catch((err: any) => ({ deny: String(err?.message ?? err) }))
+  const ok = r && !('deny' in r) && !r.isError
+  if (ok) stoppedShells.add(a.id)
+  return ok ? { text: `stopped ${a.label}`, ok: true } : { text: `could not stop ${a.label}: ${r?.deny ?? r?.text ?? 'no answer'}`, ok: false }
 }
 
 async function openDashboard($: any) {
   isOpen = true
   void loadPanes(true)
   await $.ui.open({ id: PANE, title: 'wf-dash', focus: true, closeOnEscape: true, rows: pane.rows })
-  return { text: 'wf-dash open: p b a l switch views, esc closes' }
+  return { text: 'wf-dash open: p a switch views, esc closes' }
 }
 
 export const register: Register = on => {
@@ -92,13 +79,19 @@ export const register: Register = on => {
     let factsRead = false
     let busy = false
     const id = await $.session.id().catch(() => '')
-    const sid = SESSION_ID.test(id) ? id : null
-    const state = await stateDir($)
-    const dir = `${state}/wf-dash`
     const handoffDir = `${await $.env.get('HOME')}/.claude/state/auto-handoff`
     const panelPath = `${handoffDir}/panel.json`
     let me = id
     let prev: string | null = null
+
+    // /auto-handoff on or off, and the line: the chain file wf-handoff's save() writes, found the way its own
+    // session.start finds it (a handed off chat points at its chain's root). No file names this chat: null, never on.
+    const readAuto = async () => {
+      const root = (await $.fs.read(`${handoffDir}/${me}.root`).catch(() => '')).trim() || me
+      let c: any = null
+      try { c = JSON.parse(await $.fs.read(`${handoffDir}/${root}.json`)) } catch {}
+      return c && c.session === me ? { off: c.off === true, line: typeof c.line === 'number' ? c.line : null } : null
+    }
 
     // Spec 0064 AC-2, AC-6: the wf-handoff mod's panel. A /clear keeps this module but changes the id, so the
     // id before it is the chat this one came from. A panel another chat wrote keeps the last one that was ours.
@@ -113,40 +106,24 @@ export const register: Register = on => {
       await $.state.set(HANDOFF, { panel: mine ? p : old?.panel ?? null, me, prev, dismissed: old?.dismissed ?? 0, frame: old?.frame ?? 0, auto: await readAuto() })
     }
 
-    // /auto-handoff on or off, and the line: the chain file wf-handoff's save() writes, found the way its own
-    // session.start finds it (a handed off chat points at its chain's root). No file names this chat: null, never on.
-    const readAuto = async () => {
-      const root = (await $.fs.read(`${handoffDir}/${me}.root`).catch(() => '')).trim() || me
-      let c: any = null
-      try { c = JSON.parse(await $.fs.read(`${handoffDir}/${root}.json`)) } catch {}
-      return c && c.session === me ? { off: c.off === true, line: typeof c.line === 'number' ? c.line : null } : null
-    }
-
     const refresh = async () => {
       if (busy) return
       busy = true
       try {
-        // AC-4: the marker tells this session's `wf auto bar` to go short; its mtime is all it says
-        if (sid) await $.fs.write(`${dir}/${sid}`, '').catch(() => {})
         await readPanel()
         const cwd = await $.session.cwd()
-        const [r, st, usage, model, setLevel] = await Promise.all([
+        const [r, usage, model, setLevel] = await Promise.all([
           $.process.run(['python3', `${$.plugin.root}/facts.py`, cwd]).catch(() => null),
-          $.process.run(['wf', 'status', '--json']).catch(() => null),
           $.session.usage().catch(() => null),
           $.session.model().catch(() => null),
-          // `wf auto bar` used to hand over the status line's level in a file; with the runner gone the settings'
-          // effortLevel stands in until the first reply brings the real one (turn.step). Env vars are the parent
-          // shell's and showed `high` in a `medium` session: never read.
+          // the settings' effortLevel stands in until the first reply brings the real one (turn.step). Env vars are the
+          // parent shell's and showed `high` in a `medium` session: never read.
           $.settings.read({ key: 'effortLevel' }).catch(() => null),
         ])
-        const status = st && st.exitCode === 0 ? parseStatus(st.stdout) : null
-        const wf = counts(status)
-        const statusOk = !!wf && Object.values(wf).some(v => v !== null)
-        await alertTick($, status, sid && `${dir}/${sid}.toasts`, { keep: pane.history, timeoutMs: time.toast, runs: `${state}/wf/runs` })
-        const parsed = r && r.exitCode === 0 ? JSON.parse(r.stdout || 'null') : null
-        // facts.py failing from the start must not hide or freeze the runner counts all session: its fields show `?`
-        // until it first answers; only a failure after that keeps the last good facts, marked stale
+        let parsed: any = null
+        try { parsed = r && r.exitCode === 0 ? JSON.parse(r.stdout || 'null') : null } catch {}
+        // facts.py failing from the start must not hide the band: its fields show `?` until it first answers; only a
+        // failure after that keeps the last good facts, marked stale
         if (parsed) factsRead = true
         const raw = parsed ?? (factsRead ? null : {})
         const limit = (kind: string) => usage?.rateLimits?.find((x: any) => x.kind === kind) ?? null
@@ -164,19 +141,12 @@ export const register: Register = on => {
             week: limit('seven_day')?.percentUsed ?? null,
             weekReset: limit('seven_day')?.resetsAt ?? null,
             via: raw.via ?? null,
-            wf,
-            auto: raw.auto ?? null,
             staleSince: null,
-            statusOk,
           }
           await $.state.set(FACTS, lastGood)
-        } else if (lastGood) {
-          // a failed tick keeps the last good facts, marked stale, never an empty band; the runner counts read on this
-          // tick still show (spec 0065 AC-1), only a field that failed keeps its last good count. lastGood takes the
-          // mark too, or each failed tick moved `stale since` to its own time.
-          const old = lastGood.wf
-          const fresh = wf && old ? { running: wf.running ?? old.running, parked: wf.parked ?? old.parked, questions: wf.questions ?? old.questions } : wf ?? old
-          lastGood = { ...lastGood, wf: fresh, statusOk, staleSince: lastGood.staleSince ?? clock(await $.clock.now()) }
+        } else if (lastGood && !lastGood.staleSince) {
+          // a failed tick keeps the last good facts, marked stale, never an empty band; the mark keeps its first time
+          lastGood = { ...lastGood, staleSince: clock(await $.clock.now()) }
           await $.state.set(FACTS, lastGood)
         }
       } finally {
@@ -184,14 +154,14 @@ export const register: Register = on => {
       }
     }
 
-    // AC-2: never two `wf plan` calls at once (a tick is skipped while one runs); a failed or timed out call keeps the
+    // AC-2: never two plan.py calls at once (a tick is skipped while one runs); a failed or timed out call keeps the
     // last good plan, marked with the error, never an empty one
     let planBusy = false
     loadPanes = async (force = false) => {
       if (planBusy || !(force || isOpen)) return
       planBusy = true
       try {
-        const r = await $.process.run(['wf', 'plan', '--json']).catch(() => null)
+        const r = await $.process.run(['python3', `${$.plugin.root}/plan.py`]).catch(() => null)
         let data = null
         try {
           data = r && r.exitCode === 0 ? JSON.parse(r.stdout) : null
@@ -216,7 +186,7 @@ export const register: Register = on => {
       await $.state.set(HANDOFF, { ...h, frame: h.frame + 1 })
     })
 
-    await $.command.register({ name: 'wf-dash', description: 'wf-dash: the plan, the builds, the agents and the alerts in one dashboard' })
+    await $.command.register({ name: 'wf-dash', description: 'wf-dash: the plan and this chat\'s agents in one dashboard' })
     return started
   })
 
@@ -283,8 +253,6 @@ export const register: Register = on => {
     const el = $.ui.resolve(e)
     const { value: view = DEFAULT_VIEW } = await $.state.get(VIEW)
     const { value: plan } = await $.state.get(PLAN)
-    const { value: alerts = [] } = await $.state.get(ALERTS)
-    const { value: facts } = await $.state.get(FACTS)
     const listed = view.section === 'agents' ? await $.agent.list().catch(() => null) : []
     // a shell row never shares an id with an agent, so its stop can never reach one
     const agents = listed && view.section === 'agents'
@@ -299,6 +267,6 @@ export const register: Register = on => {
       retry: () => void loadPanes(true),
       run: (a: WfDashAsk) => void perform($, a).then(notice => go({ notice })),
     }
-    return <Dashboard el={el} view={view} act={act} plan={plan} cwd={cwd} agents={agents as any[] | null} alerts={alerts} focused={e.props.isFocused !== false} rows={e.props.placement === 'dock' ? e.props.scroll?.bodyRows : undefined} facts={facts?.wf ?? null} statusOk={facts ? facts.statusOk : null} columns={e.props.bodyColumns ?? (e.viewport?.columns ?? width.viewport) - pane.frame} />
+    return <Dashboard el={el} view={view} act={act} plan={plan} cwd={cwd} agents={agents as any[] | null} focused={e.props.isFocused !== false} rows={e.props.placement === 'dock' ? e.props.scroll?.bodyRows : undefined} columns={e.props.bodyColumns ?? (e.viewport?.columns ?? width.viewport) - pane.frame} />
   })
 }
