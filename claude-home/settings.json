@@ -337,22 +337,6 @@
         ]
       },
       {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/santiago/.local/bin/wf report --hook"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/santiago/.local/bin/wf auto hook"
-          }
-        ]
-      },
-      {
         "matcher": "startup",
         "hooks": [
           {
@@ -361,14 +345,13 @@
             "timeout": 5
           }
         ]
-      }
-    ],
-    "UserPromptSubmit": [
+      },
       {
         "hooks": [
           {
             "type": "command",
-            "command": "/home/santiago/.local/bin/wf auto hook"
+            "command": "python3 /home/santiago/.claude/hooks/no-jjstack-bar.py",
+            "timeout": 5
           }
         ]
       }
@@ -478,11 +461,6 @@
         ]
       }
     ]
-  },
-  "statusLine": {
-    "type": "command",
-    "command": "/home/santiago/.local/bin/wf auto bar",
-    "refreshInterval": 5
   },
   "enabledPlugins": {
     "superpowers@claude-plugins-official": false,
