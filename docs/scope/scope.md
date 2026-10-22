@@ -1355,7 +1355,7 @@ Source: [brief](../briefs/icm-restructure.md); [brief](../briefs/retire-runner.m
 `rules/when-to-switch-on.md` lists scripts not built yet: start gates (free memory, 5 hour use, cores per suite), design-check, issue reread, review-isolated, `spec-paths --overlap`, scope marker warnings.
 **Done when:** each script exists with its self check, and the rule file's "Needs a script" list is empty.
 - [ ] Design it (spec): `/architect helper scripts for the switch-on rules`
-Source: `claude-home/rules/when-to-switch-on.md` "Needs a script, not built yet"; your messages 2026-10-22.
+Source: [brief](../briefs/switch-on-helpers.md); `claude-home/rules/when-to-switch-on.md` "Needs a script, not built yet"; your messages 2026-10-22.
 
 ### 99. Auto handoff off by itself in plain talk chats · needs a decision
 You asked that auto handoff be off in chats that are only talk (no build), besides the on/off switch.
