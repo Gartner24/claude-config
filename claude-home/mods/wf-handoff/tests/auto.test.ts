@@ -26,6 +26,11 @@ function world(on: On, env: Record<string, string> = {}) {
     gitLog: '',
     gitArgs: [] as string[][],
     agents: [] as { id: string; status: string }[],
+    prs: '[]' as string | null, // `gh pr list` output, null when gh fails
+    branches: '' as string | null, // `git branch --no-merged` output, null when it fails
+    repos: { '/w': '/w/.git' } as Record<string, string>, // folder -> git common dir; any other folder is no repo
+    ghArgs: [] as string[][],
+    ghCwd: [] as (string | undefined)[],
   }
   on('agent.list', () => ({ value: w.agents as any }))
   on('session.cwd', () => ({ value: '/w' }))
@@ -48,7 +53,15 @@ function world(on: On, env: Record<string, string> = {}) {
   })
   // the first name under the path, so a folder of folders lists as the disk does
   on('fs.list', (_$, e: any) => ({ value: [...new Set([...w.files.keys()].filter(k => k.startsWith(e.path + '/')).map(k => k.slice(e.path.length + 1).split('/')[0]!))].map(name => ({ name, kind: 'dir', size: 0 })) as any }))
-  on('process.run', (_$, e: any) => e.argv[0] === 'git'
+  const out = (exitCode: number, stdout: string) => ({ value: { exitCode, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } })
+  // gh runs as `env -C <folder> gh ...`: ghArgs keeps the gh part, ghCwd the folder
+  on('process.run', (_$, e: any) => e.argv[0] === 'env' && e.argv[3] === 'gh'
+    ? (w.ghArgs.push(e.argv.slice(3)), w.ghCwd.push(e.argv[2]), out(w.prs === null ? 1 : 0, w.prs ?? ''))
+    : e.argv[0] === 'git' && e.argv[3] === 'rev-parse'
+    ? (w.repos[e.argv[2]] ? out(0, `${w.repos[e.argv[2]]}\n`) : out(128, ''))
+    : e.argv[0] === 'git' && e.argv[3] === 'branch'
+    ? out(w.branches === null ? 1 : 0, w.branches ?? '')
+    : e.argv[0] === 'git'
     ? (w.gitArgs.push([...e.argv]), { value: { exitCode: 0, stdout: w.gitLog, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } })
     // '/link' stands for a symlink to '/w' (~/claude-config is a link to ~/dotfiles/claude-config)
     : e.argv[0] === 'realpath'
@@ -526,4 +539,75 @@ test('fix 5: the wait is capped at 15 minutes', { options: { threshold: 50000 } 
   await w.clock.advance(60_000 + 5000)
   expect(w.commands.map(c => c.command)).toEqual(['rollover'])
   expect(w.files.get(`${STATE}/auto-handoff.log`)!.text).toContain('agents still running after 15 min; handoff starts')
+})
+
+// 2026-10-22: the handover's facts said "Issues and PRs: none" while the fix PRs #147 and #148,
+// opened by helper agents, were still open; the fresh chat went on with docs work, never told the
+// owner, and the "fixed" auto handoff kept firing because the fix was not merged, so not live.
+const handOff = async ($: any, w: ReturnType<typeof world>) => {
+  await start($)
+  w.tokens = 60_000
+  await complete($, 'T1')
+  await w.clock.settle()
+  await complete($, 'T2')
+  await w.clock.advance(1500)
+  return w.commands.find(c => c.command === 'resume-from-clear')!.args
+}
+
+test('open PRs go into the facts as not live, and the fresh chat must open with them', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  w.prs = JSON.stringify([
+    { number: 147, title: 'fix(wf-handoff): off per folder', url: 'https://github.com/o/r/pull/147', isDraft: false },
+    { number: 148, title: 'refactor: rename ## dash', url: 'https://github.com/o/r/pull/148', isDraft: true },
+  ])
+  const seed = await handOff($, w)
+  expect(w.ghArgs[0]).toEqual(['gh', 'pr', 'list', '--author', '@me', '--state', 'open', '--json', 'number,title,url,isDraft', '--limit', '20'])
+  const prs = '- #147 fix(wf-handoff): off per folder https://github.com/o/r/pull/147\n- #148 refactor: rename dash (draft) https://github.com/o/r/pull/148'
+  expect(w.files.get(SLOT)!.text).toContain(`Open PRs, not merged, so not live yet:\n${prs}\n`)
+  expect(seed).toContain(prs)
+  expect(seed).toContain('Your first reply to the owner opens with these PRs')
+})
+
+test('gh failing says the open PRs are unknown, never none', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  w.prs = null
+  const seed = await handOff($, w)
+  expect(w.files.get(SLOT)!.text).toContain('Open PRs, not merged, so not live yet:\n- unknown')
+  expect(seed).toContain('Your first reply to the owner opens with')
+})
+
+test('no open PRs: the facts say none and the seed adds nothing', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  const seed = await handOff($, w)
+  expect(w.files.get(SLOT)!.text).toContain('Open PRs, not merged, so not live yet:\n- none')
+  expect(seed).not.toContain('first reply')
+})
+
+// The 2026-10-22 chat started in ~/.claude, no repo, and edited the claude-config plan: the repos
+// are found from edited files too, and a worktree of the same repo is asked once.
+test('repos come from edited files too, one gh call per repo, worktrees included', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  w.repos = { '/r': '/r/.git', '/r/wt': '/r/.git' }
+  w.messages = [{ toolUses: [{ tool: 'Edit', input: { file_path: '/r/a.ts' } }, { tool: 'Write', input: { file_path: '/r/wt/b.ts' } }] }]
+  w.prs = JSON.stringify([{ number: 147, title: 'fix: x', url: 'https://github.com/o/r/pull/147', isDraft: false }])
+  const seed = await handOff($, w)
+  expect(w.ghCwd).toEqual(['/r'])
+  expect(seed).toContain('- #147 fix: x https://github.com/o/r/pull/147')
+})
+
+test('branches not on main are listed, a squash merged [gone] branch is not', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  w.branches = 'old/x [gone]\ndocs/probe \nfeat/y [ahead 2]\n'
+  const seed = await handOff($, w)
+  const lines = '- branch docs/probe in /w: commits not on main\n- branch feat/y in /w: commits not on main'
+  expect(w.files.get(SLOT)!.text).toContain(`Open PRs, not merged, so not live yet:\n${lines}\n`)
+  expect(seed).toContain(lines)
+  expect(seed).not.toContain('old/x')
+})
+
+test('git branch failing says the branches are unknown, never none', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  w.branches = null
+  const seed = await handOff($, w)
+  expect(seed).toContain('- unknown in /w: git branch --no-merged origin/HEAD failed, check by hand')
 })

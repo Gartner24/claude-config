@@ -1,5 +1,5 @@
 import type { EngineInterface, PluginOptions, Register } from 'claude-code'
-import { extractFacts, factsBlock, fillTemplate, insertAfterHeading, lastRequestStatus, markUnverified, type Numbers } from '../facts.ts'
+import { extractFacts, factsBlock, fillTemplate, insertAfterHeading, lastRequestStatus, markUnverified, notLive, notLiveNotice, type Numbers } from '../facts.ts'
 import { addNext, renderPage } from '../pages.ts'
 
 type Phase = 'idle' | 'gated' | 'rolling' | 'clearing' | 'seeding' | 'paused' | 'failed'
@@ -69,6 +69,7 @@ let handoffTokens = 0
 let viewerBase = '' // http://<bind>:<port>, or '' for file links
 let nextFor: { page: string; link: string } | null = null
 let transcript: string | null = null // the handed off chat's own log, found once per handoff
+let notLiveAtHandoff: string[] = [] // open PRs and branches not on main at the handoff
 let folder = '' // realpath of the folder this chat started in
 let ownerNext = false // an owner message typed while idle: the next turn starts with it
 let ownerTurn = false // this turn started with a fresh owner message: never gated below HARD_MARGIN
@@ -319,6 +320,26 @@ async function beginHandoff($: EngineInterface) {
   )
 }
 
+// Every repo this chat touched: its folder plus each edited file's folder, one per git repo
+// (a worktree shares its repo's common dir). The chat that started in ~/.claude, no repo, edited
+// the claude-config plan, so its own folder alone would have found nothing (2026-10-22).
+async function notLiveNow($: EngineInterface, files: string[]) {
+  const run = (argv: string[]) => $.process.run(argv, { timeoutMs: 10000 }).catch(() => null)
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const d of [...new Set([await $.session.cwd(), ...files.map(f => f.replace(/\/[^/]*$/, '') || '/')])].slice(0, 20)) {
+    const r = await run(['git', '-C', d, 'rev-parse', '--path-format=absolute', '--git-common-dir'])
+    const common = r?.exitCode === 0 ? r.stdout.trim() : ''
+    if (!common || seen.has(common)) continue
+    seen.add(common)
+    // gh has no -C and finds its repo from the folder it runs in; `env -C` sets that folder
+    const gh = await run(['env', '-C', d, 'gh', 'pr', 'list', '--author', '@me', '--state', 'open', '--json', 'number,title,url,isDraft', '--limit', '20'])
+    const br = await run(['git', '-C', d, 'branch', '--no-merged', 'origin/HEAD', '--format=%(refname:short) %(upstream:track)'])
+    out.push(...notLive(d, gh?.exitCode === 0 ? gh.stdout : null, br?.exitCode === 0 ? br.stdout : null))
+  }
+  return out
+}
+
 async function finishRollover($: EngineInterface) {
   const c = chain!
   const r = await slotCmd($)
@@ -347,9 +368,10 @@ async function finishRollover($: EngineInterface) {
     ? await $.process.run(['git', '-C', await $.session.cwd(), 'log', `--since=${c.startedAt}`, '-n', '30', '--format=%h %s'], { timeoutMs: 5000 }).catch(() => null)
     : null
   const facts = extractFacts(await $.session.messages(), ignoreFiles, gitLog?.exitCode === 0 ? gitLog.stdout : '')
+  notLiveAtHandoff = await notLiveNow($, facts.files)
   const marked = markUnverified(await $.fs.read(path), n)
   for (const f of marked.marked) await log($, `unverified figure: ${f}`)
-  const slot = insertAfterHeading(marked.text, factsBlock(facts, n, c.link))
+  const slot = insertAfterHeading(marked.text, factsBlock(facts, n, c.link, notLiveAtHandoff))
   await $.fs.write(path, slot)
   await $.fs.write(page, renderPage(slot, { key, prev: prevLink, title: `Handover ${c.triggeredAt}` }))
     .catch(err => log($, `page not written (${err})`))
@@ -395,7 +417,8 @@ async function seed($: EngineInterface, slot: string) {
   // the real path: one fresh chat in six spent 11 s listing logs to find it. `<previous transcript>` is the
   // placeholder of the instructions copies written before {{transcript}} existed.
   const filled = fillTemplate(await template($, 'instructions'), { priority, lastRequest: requestAtTrigger ?? '', transcript })
-  const args = transcript ? filled.split('<previous transcript>').join(transcript) : filled
+  const notice = notLiveNotice(notLiveAtHandoff)
+  const args = [transcript ? filled.split('<previous transcript>').join(transcript) : filled, notice].filter(Boolean).join('\n\n')
   await log($, `cleared; seed run (priority ${priority ? 'on' : 'off'})`)
   $.command.run({ command: 'resume-from-clear', args }).catch(err =>
     fail($, `the fresh chat did not start (${err}); the handover waits, type /resume-from-clear`))
