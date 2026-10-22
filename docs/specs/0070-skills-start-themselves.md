@@ -83,7 +83,7 @@ The reminder line already existed and failed, so only code that cannot be ignore
 | `session` | text | the chat's session id (Stop hook input `session_id`) |
 | `turn` | text | uuid of the owner message that started the current turn; a different one resets `blocks` |
 | `blocks` | number 0 to 3 | turn ends blocked in this turn |
-| `owed` | list of text | the owed lines of the last block, shown to the owner when the cap lets the turn end |
+| `owed` | list of text | the owed lines of the last block, shown to the owner when the cap lets the turn end; emptied when a turn ends with no block (the dashboard reads it, spec 0071) |
 | `nagged` | list of text | repo relative paths AC-19 already blocked on in this chat; never reset by a new turn (owner approved 2026-10-22, "Apply all eight") |
 
 **Interface**: `chain-catch.py` reads the Stop hook JSON on stdin (`session_id`, `transcript_path`, `cwd`, `stop_hook_active`), prints `{"decision": "block", "reason": "<owed lines>"}` to block, or `{"systemMessage": "owed step not done: ..."}` at the cap, else nothing; exit 0 always. `chain-catch.py --test` runs the self checks. It is registered in `claude-home/settings.json` under `hooks.Stop` and listed in `COPIED_FILES` in `bin/claude-config.py`. Python 3 stdlib only, external commands through `subprocess` argument lists.

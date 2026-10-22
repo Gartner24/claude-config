@@ -1303,17 +1303,57 @@ Today the 9 workflow skills start only because rule text says so, and on 2026-10
 - [ ] Test it: `/test skills start themselves at the right moment`
 Source: [brief](../briefs/skills-start-themselves.md), your messages 2026-10-22 ("the 9 skills should have rules when to trigger automatically like develop or others") and [brief](../briefs/retire-runner.md).
 
-### 93. Dashboard restructure for the setup without wf · needs a decision
+### 93. Dashboard restructure for the setup without wf · in-progress
 The wf-dash band and panes still read the retired runner's ideas. You like the dashboard and want it restructured and connected to today's setup.
 **Done when:** every number and pane reads a live source of today's setup, and the design gate passes.
-- [ ] Design it (spec): `/architect dashboard restructure for the setup without wf` (then the `design` pipeline with you)
-Source: your message 2026-10-22 ("I think the dashboard is great still just need a restructuring and connect with our updates").
+- [x] Design it (spec): `/architect dashboard restructure for the setup without wf` (spec [0071](../specs/0071-dashboard-now-view.md) accepted 2026-10-22)
+- [ ] Build it: `/develop dashboard restructure for the setup without wf` (after rows 95 and 96 merge)
+  - [ ] Probe `gh api graphql` PR search from the mod (a FAIL goes back to `/architect`)
+  - [ ] Readers, Now view, band `owed N`, mod tests
+  - [ ] design.md and PRODUCT.md, then `design-gate`
+- [ ] Verify it: `/check verify dashboard restructure for the setup without wf`
+- [ ] Test it: `/test dashboard restructure for the setup without wf`
+Source: [brief](../briefs/dashboard-restructure.md); your message 2026-10-22 ("I think the dashboard is great still just need a restructuring and connect with our updates").
 
 ### 94. Three numbers for the switch-on rules · done
 `rules/when-to-switch-on.md` has three `[ask the owner]` placeholders.
 **Done when:** the keep awake hours, the wait in minutes for a first PR check, and the review loop rounds are your numbers in the live rule and the repo.
 - [x] Fill them: `/develop three numbers for the switch-on rules` (your answers 2026-10-22: 8h, 10 minutes, 3 rounds; live and in the repo)
 Source: [brief](../briefs/context-trim-and-all-chats.md) Part 2.
+
+### 95. Fix: auto handoff fires after /auto-handoff off, and off holds per folder · in-progress
+You turned auto handoff off and a chat handed off by itself again. You also want an off to hold for every later chat started in the same folder, until you turn it on there.
+**Done when:** after `/auto-handoff off`, no chat in that folder (new, cleared, resumed or forked) hands off by itself until `/auto-handoff on`; a mod test reproduces the bug red first.
+- [x] Trace and fix: `/debug auto handoff fires after off` (PR #147: off was keyed by session id and dropped on an owner `/clear`; now one file per folder; 97 mod tests pass, 4 mutants red)
+- [ ] Merge PR #147 · waits on you · later boxes go on
+- [ ] Verify it: `/check verify fix auto handoff off`
+- [ ] Test it: `/test fix auto handoff off`
+Source: your message 2026-10-22 ("I turned auto handoff [off] and it got done again automatically... if I start a /auto-handoff off all the next chats started after it in the same folder will be off").
+
+### 96. Rename the dashboard mod to chip-dash · in-progress
+Your tools are the "chip" family. The wf-dash mod becomes `chip-dash` everywhere (folder, plugin id, state keys, tests, chip text), command `/chip`, `/wf-dash` kept as an alias.
+**Done when:** no `wf-dash` name is left in the mod except the alias, its tests pass, and you relink it after the security scan.
+- [ ] Rename it: `/develop rename the dashboard mod to chip-dash` (parallel worktree agent, 2026-10-22)
+- [ ] Relink `~/.claude/skills/chip-dash` after `skillspector scan` · waits on you
+Source: [brief](../briefs/dashboard-restructure.md) (name answer).
+
+### 97. Restructure claude-config to the icm-architect folder layout · needs a decision
+You asked to restructure claude-config into the folder layout of RinDig's icm-architect repo.
+**Done when:** the repo follows the agreed layout, `bin/install.sh --dry-run` and the suite pass, and every live link still resolves.
+- [ ] Design it (spec): `/architect restructure claude-config to the icm-architect layout`
+Source: [brief](../briefs/retire-runner.md) line 13; your first message 2026-10-22.
+
+### 98. Helper scripts the switch-on rules still lack
+`rules/when-to-switch-on.md` lists scripts not built yet: start gates (free memory, 5 hour use, cores per suite), design-check, issue reread, review-isolated, `spec-paths --overlap`, scope marker warnings.
+**Done when:** each script exists with its self check, and the rule file's "Needs a script" list is empty.
+- [ ] Design it (spec): `/architect helper scripts for the switch-on rules`
+Source: `claude-home/rules/when-to-switch-on.md` "Needs a script, not built yet"; your messages 2026-10-22.
+
+### 99. Auto handoff off by itself in plain talk chats · needs a decision
+You asked that auto handoff be off in chats that are only talk (no build), besides the on/off switch.
+**Done when:** a chat with no repo work does not hand off by itself, by the condition you pick, with a mod test.
+- [ ] Design it (spec): `/architect auto handoff off in plain talk chats`
+Source: [brief](../briefs/retire-runner.md) second chat decisions ("still to build"); your first message 2026-10-22.
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
