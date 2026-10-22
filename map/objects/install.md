@@ -15,6 +15,7 @@
 - Runner: retired, see [runner](runner.md).
 - Downloaded skills (spec 0048): named in `config/manifest.json` with source, pin, license and install command, never copied; an edited one is its pin plus `config/patches/<name>.patch` (a `publish: false` or private one keeps its patch in `~/.claude/private/patches/`). Never copy a downloaded skill's files into the repo.
 - Frameworks (gstack, jjstack, ECC commands, the JSM skills, plugins): their installer wins, never vendored; the manifest's `frameworks` names each.
+- `bin/sync.sh` strips `autoMode` from settings.json; client skills are gitignored.
 - Private (`~/.claude/private/`): live only, never in any repo.
 - Claude Code state (`projects/`, `sessions/`, `history.jsonl`, caches): Claude Code only, never synced.
 - Scripts hardcode `~/.claude/skills/...` paths: they run through the symlink, not from the repo path.

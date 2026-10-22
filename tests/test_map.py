@@ -9,6 +9,16 @@ PINNED = "c08534f65dd3a85710901aa1bea5f2024264199c"
 ROW = re.compile(r"^\| (\d+)(?:-(\d+))? \| (\S+) \|$")
 
 
+# (old line, token) pairs the card words differently on purpose; each has its reason.
+PARAPHRASED = {
+    (40, "claude-home/rules/x.md"),  # example path: the card says "a file in claude-home/rules/" (ref-check cannot cite a made-up file)
+    (40, "~/.claude/rules/x.md"),    # same example, installed side
+    (43, "claude-home/mods/<name>/"),  # <name> placeholder: ref-check rejects <> in a cited path; the card names each mod
+    (49, "~/claude-config"),         # spelling: CLAUDE.md names the home chat's folder as "home chat" rules in CLAUDE.local.md
+    (66, "_archive/runner/wf.py"),   # path: the scope card says "the plan parser" and cites chip-dash plan.py, the live reader
+}
+
+
 def old_lines():
     text = subprocess.run(["git", "-C", str(REPO), "show", f"{PINNED}:AGENTS.md"], capture_output=True, text=True,
                           check=True, stdin=subprocess.DEVNULL).stdout
@@ -31,6 +41,19 @@ class TestLineHomes(unittest.TestCase):
         have = homes()
         missing = [f"{n}: {l[:60]}" for n, l in old_lines().items() if n not in have]
         self.assertEqual(missing, [], f"{len(missing)} old lines with no home:\n" + "\n".join(missing))
+
+    # covers: AC-7 review fix (a row naming an existing file is not enough: every backticked token of the old line
+    # must appear in its home file, so a dropped tail like line 51's cannot hide behind a row)
+    def test_home_holds_every_token(self):
+        have = homes()
+        texts = {}
+        missing = []
+        for n, line in old_lines().items():
+            home = texts.setdefault(have[n], (REPO / have[n]).read_text())
+            for tok in re.findall(r"`([^`]+)`", line):
+                if (n, tok) not in PARAPHRASED and tok not in home:
+                    missing.append(f"{n}: `{tok}` not in {have[n]}")
+        self.assertEqual(missing, [], f"{len(missing)} tokens lost:\n" + "\n".join(missing))
 
     def test_homes_exist(self):
         gone = sorted({f for f in homes().values() if not (REPO / f).is_file()})

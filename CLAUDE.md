@@ -4,7 +4,7 @@ For an AI agent working in this repo. This file only routes and holds the rules 
 `AGENTS.md` is a symlink to it (edit this file, never replace the link). What the repo is and where things
 live: [README.md](README.md). Everything else is a card in [map/](map/CLAUDE.md): open the card of the part
 you change, not all of them. The runner's design is in [docs/architecture.md](docs/architecture.md), the
-commands a person types in [docs/guides/DAILY-USE.md](docs/guides/DAILY-USE.md).
+`wf` commands a person types in [docs/guides/DAILY-USE.md](docs/guides/DAILY-USE.md).
 
 ## Never break
 

@@ -27,8 +27,8 @@ overwritten.
 notices in [docs/NOTICE.md](docs/NOTICE.md).
 
 **Rules for one place only.** Rules for this repo only go
-in [AGENTS.md](AGENTS.md); the root `CLAUDE.md` here only imports it, so a session in this repo
-loads the global instructions once and `AGENTS.md` once. The home chat opens in `~/claude-config`;
+in [CLAUDE.md](CLAUDE.md), the entry file; `AGENTS.md` is a symlink to it, so a session in this repo
+loads the global instructions once and the entry file once. The home chat opens in `~/claude-config`;
 its private runner rules are in `CLAUDE.local.md` (git ignored, spec 0067).
 
 ## One session, start to finish

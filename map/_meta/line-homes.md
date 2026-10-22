@@ -25,7 +25,7 @@ Spec 0072 AC-7. The old file is `git show c08534f65dd3a85710901aa1bea5f202426419
 | 45-48 | map/objects/install.md |
 | 49 | CLAUDE.md |
 | 50 | map/objects/runner.md |
-| 51 | CLAUDE.md |
+| 51 | map/objects/install.md |
 | 52-53 | map/objects/skills.md |
 | 54 | map/objects/specs.md |
 | 55 | map/objects/rules.md |
