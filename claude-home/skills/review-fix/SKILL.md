@@ -12,7 +12,7 @@ Start the `review-fix` workflow (spec 0076). Its stages and their checks: `~/.cl
    The answers fill the named args: `pr`: the argument; `branch`: `gh pr view <pr> --json headRefName`;
    `round`: 1 or 2 as counted; `suite`: the `suite:` standing answer in the repo's `AGENTS.md` (missing: stop with
    `missing arg: suite`).
-2. Repo: `git rev-parse --show-toplevel` (absolute). Run id: `<pr>-<date +%Y%m%d>-<n>`, `n` the round (local time).
+2. Repo: `git rev-parse --show-toplevel` (absolute). Run id: `<pr>-` then `date +%Y%m%d-%H%M%S` (local time), for example `176-20261022-143005`.
 3. Keep runs out of git: `git -C <repo> check-ignore -q .workflow/x`. When it exits non zero, append the line
    `.workflow/` to the file `git -C <repo> rev-parse --git-path info/exclude` names (relative paths are under `<repo>`).
 4. Call the Workflow tool with `scriptPath` `~/.claude/workflows/review-fix/review-fix.js` and `args`
