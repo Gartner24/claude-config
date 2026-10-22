@@ -4,6 +4,8 @@
 - The owner leans to a whole restructure, keeping today's quality, but the choice (whole, partial, map only) is decided by research, not by thinking: icm-architect repo in full, its paper (arXiv 2603.16021, linked from the repo), the two videos below, via `/deep-research`.
 - The owner sees the proposed structure (a tree) before anything is built.
 - Every claim below is checked as fact: correct, incorrect, or missing pieces.
+- The tree in icm-research.md section 4 is Claude's draft from reading the skill, NOT the skill's output. Before any /architect question, run icm-architect's own restructure mode read only (scan and install first) and show its proposed tree next to the draft; its output tells us what to set up (owner, 2026-10-22).
+- The trace fix for the repeat problem is merged (#152) and live after the restart; the first handoff after it is its real test.
 
 ## Owner's ideas to check (2026-10-22, owner's words condensed)
 1. In ICM there is no file per agent: folders are workflows, and those workflows are the agents. Is that right?
