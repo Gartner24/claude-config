@@ -2,8 +2,8 @@
 
 **Date**: 2026-10-12
 **Status**: Accepted
-**Paths:** `runner/run.py`, `runner/wf.py`, `runner/e2e/run.py`, `runner/e2e/fixture/**`, `claude-home/rules/scope-contract.md`, `runner/tests/test_resilience.py`
-**Amends**: [0003](../0003-scope-contract/index.md) (the `· later boxes go on` tag, a `/sync` box), [0004](../0004-headless-step-loop/index.md) (AC-4 argv gains `--session-id`, AC-11 final lines), [0008](../0008-failure-park-policy/index.md) (classification order gains the outage rule, AC-10 record fields), [0011](../0011-build-decision-queue/index.md) (AC-3 next box pick, AC-9 run stops `api_outage` and `crash_loop`, AC-10 `cap` on a timeout that ticked boxes), [0012](../0012-waiting-boxes-owed-to-you/index.md) (a tagged waiting box is skipped, not refused).
+**Paths:** `_archive/runner/run.py`, `_archive/runner/wf.py`, `_archive/runner/e2e/run.py`, `_archive/runner/e2e/fixture/**`, `claude-home/rules/scope-contract.md`, `_archive/runner/tests/test_resilience.py`
+**Amends**: [0003](../0003-scope-contract/index.md) (the `· later boxes go on` tag, a `/sync` box), [0004](../../../_archive/runner/docs/specs/0004-headless-step-loop/index.md) (AC-4 argv gains `--session-id`, AC-11 final lines), [0008](../../../_archive/runner/docs/specs/0008-failure-park-policy/index.md) (classification order gains the outage rule, AC-10 record fields), [0011](../0011-build-decision-queue/index.md) (AC-3 next box pick, AC-9 run stops `api_outage` and `crash_loop`, AC-10 `cap` on a timeout that ticked boxes), [0012](../0012-waiting-boxes-owed-to-you/index.md) (a tagged waiting box is skipped, not refused).
 
 ## Summary
 

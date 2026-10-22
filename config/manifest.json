@@ -1455,6 +1455,21 @@
       "source": "github:blader/humanizer",
       "status": "downloaded"
     },
+    "icm-architect": {
+      "base_hash": "26dce80fdbd2589bb5d7291d444c9be7b90793bfbf0b3a985bef87a58962b1e6",
+      "description": "Design any process or body of knowledge into an ICM workspace (folder structure as agent architecture), or restructure an existing folder or repo into one.",
+      "fetch": "git",
+      "framework": null,
+      "install": "npx skills add RinDig/icm-architect/.",
+      "kind": "skill",
+      "license": "MIT",
+      "patch": null,
+      "path": ".",
+      "pinned": "e16cafe6a664dcf6d787a726b452adba77d913f4",
+      "publish": true,
+      "source": "github:RinDig/icm-architect",
+      "status": "downloaded"
+    },
     "impeccable": {
       "base_hash": "8829e563ab649987ba74e074c022e839550c17b93b5a61834caa4d0ffccfc625",
       "description": "Use when the user wants to design, redesign, shape, critique, audit, polish, clarify, distill, harden, optimize, adapt, animate, colorize, extract, or otherwise improve a frontend interface.",

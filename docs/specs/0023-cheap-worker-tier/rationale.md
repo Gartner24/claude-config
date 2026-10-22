@@ -2,7 +2,7 @@
 
 ## Context
 
-Scope feature 15: low value work goes to the free claude-fb models and comes back as data; never code edits, decisions, security review or client code. Brief: [docs/briefs/finish-runner-today.md](../../briefs/finish-runner-today.md) item 12.
+Scope feature 15: low value work goes to the free claude-fb models and comes back as data; never code edits, decisions, security review or client code. Brief: [docs/briefs/finish-runner-today.md](../../../_archive/runner/docs/briefs/finish-runner-today.md) item 12.
 
 What exists today:
 - `claude-fb` (a shell function in the dotfiles repo) runs Claude Code through a local LiteLLM proxy on `127.0.0.1:4000`. It starts the proxy with `~/.local/share/claude-fb/start-proxy.sh` when `/health/liveliness` does not answer, and authenticates with `LITELLM_MASTER_KEY` from its key file (a private path, so `fb-ask` reads it from `~/.claude/private/fb-ask.conf`). The proxy speaks the Anthropic `/v1/messages` API.

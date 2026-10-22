@@ -397,6 +397,14 @@ License: Apache-2.0.
 |---|---|---|
 | `impeccable` | downloaded | Use when the user wants to design, redesign, shape, critique, audit, polish, clarify, distill, harden, optimize, adapt, animate, colorize, extract, or otherwise improve a frontend interface. |
 
+### RinDig/icm-architect
+
+License: MIT.
+
+| Skill | Status | What it does |
+|---|---|---|
+| `icm-architect` | downloaded | Design any process or body of knowledge into an ICM workspace (folder structure as agent architecture), or restructure an existing folder or repo into one. |
+
 ### zanwei/design-dna
 
 License: MIT.

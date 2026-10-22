@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-15
 **Status**: Proposed
-**Paths:** `runner/run.py`, `runner/plain.py`, `AGENTS.md`, `runner/tests/test_fewer_stops.py`
+**Paths:** `_archive/runner/run.py`, `_archive/runner/plain.py`, `AGENTS.md`, `_archive/runner/tests/test_fewer_stops.py`
 
 ## What you're agreeing to
 - A check step that needs something its locked room cannot give (a real Claude session, a real `claude -p` call, your phone, days of real use) leaves that part to the feature's later "waits on you" box instead of failing the whole check.

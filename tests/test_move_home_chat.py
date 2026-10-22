@@ -11,7 +11,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-REAL = Path(__file__).resolve().parents[2]
+REAL = Path(__file__).resolve().parents[1]
 SCRIPT = REAL / "bin" / "move-home-chat.sh"
 
 LIVE = "-home-santiago-dotfiles-claude-config"

@@ -1,6 +1,6 @@
 # Are we reinventing the wheel? Runner landscape, 2026-10-14
 
-Scope: compare our runner (`wf`, Python, about 11,700 lines in runner/, 43 specs) with public projects that run coding agents unattended or in parallel. Stars, push dates and licenses come from `gh api repos/OWNER/REPO` on 2026-10-14. Behavior comes from READMEs I opened (copied to scratch), DeepWiki answers on each repo, and two vendor docs pages. DeepWiki answers are AI summaries of the code, so treat file names they give as pointers, not proof. I did not run any of these tools.
+Scope: compare our runner (`wf`, Python, about 11,700 lines in _archive/runner/, 43 specs) with public projects that run coding agents unattended or in parallel. Stars, push dates and licenses come from `gh api repos/OWNER/REPO` on 2026-10-14. Behavior comes from READMEs I opened (copied to scratch), DeepWiki answers on each repo, and two vendor docs pages. DeepWiki answers are AI summaries of the code, so treat file names they give as pointers, not proof. I did not run any of these tools.
 
 ## 1. The candidates (verified to exist)
 
