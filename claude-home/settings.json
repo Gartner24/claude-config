@@ -7,13 +7,6 @@
   },
   "permissions": {
     "allow": [
-      "Bash(wf auto start)",
-      "Bash(wf auto wait)",
-      "Bash(wf auto status)",
-      "Bash(wf auto take *)",
-      "Bash(wf queue)",
-      "Bash(wf questions)",
-      "Bash(wf report)",
       "Bash(~/.claude/skills/jjstack/bin/jjstack-rollover-slot *)",
       "Bash(gh pr ready * -R Gartner24/*)",
       "Bash(gh pr ready * --repo Gartner24/*)",
@@ -31,15 +24,6 @@
       "Edit(~/.claude/rules/**)"
     ],
     "deny": [
-      "Bash(*wf auto on*)",
-      "Bash(*wf.py auto on*)",
-      "Bash(wf auto on:*)",
-      "Bash(*wf auto release*)",
-      "Bash(*wf.py auto release*)",
-      "Bash(wf auto release:*)",
-      "Bash(*wf auto hook*)",
-      "Bash(*wf.py auto hook*)",
-      "Bash(wf auto hook:*)",
       "Bash(fdisk *)",
       "Bash(halt *)",
       "Bash(mkfs*)",
@@ -51,7 +35,6 @@
       "Bash(sudo mkfs*)",
       "Bash(sudo rm *)",
       "Edit(//home/santiago/.aws/**)",
-      "Edit(//home/santiago/.local/state/wf/auto.json)",
       "Edit(//home/santiago/.bash_profile)",
       "Edit(//home/santiago/.bashrc)",
       "Edit(//home/santiago/.profile)",

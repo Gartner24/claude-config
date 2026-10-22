@@ -59,9 +59,6 @@ class TestOneCommand(unittest.TestCase):
 
     # covers: AC-10 (the rule texts the spec names)
     def test_rules(self):
-        handoff = (RUNNER.parent / RULES[0]).read_text()
-        self.assertIn('"Ready for the runner: type `wf` in a terminal."', handoff)
-        self.assertIn("read the queue (`wf queue`, read only) yourself", handoff.replace("Read the queue", "read the queue"))
         self.assertNotIn("wf finish", (RUNNER.parent / RULES[1]).read_text())
 
 

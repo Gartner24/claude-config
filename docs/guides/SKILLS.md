@@ -14,7 +14,6 @@ Linked from `claude-home/skills/`; editing the repo copy is live.
 | `anti-ai-writing` | Use when writing or auditing any written content - captions, carousels, newsletters, threads, LinkedIn posts, long-form - and as the FINAL filter on every piece. |
 | `assets` | Sources, generates, codes and edits imagery for a design - photos, icons, illustrations, blobs, patterns, grain, logos, background removal and the optimization ladder. |
 | `astro-patterns` | Astro static-site patterns for the freelance client stack (Astro + React islands + Tailwind + shadcn on Cloudflare). |
-| `auto` | Turn autonomous mode on or off for this chat. |
 | `brand-system` | Produces a client's brand system as a self-contained, contract-validated HTML brand board - the canonical binding source the build follows. |
 | `business-analyzer` | Produce rigorous, data-backed business and strategy analysis - SWOT, B2B and B2C analysis, market and competitive analysis, pricing/go-to-market, financial projections, and country/jurisdiction context - for a NEW idea or an EXISTING business, grounded in CURRENT real-world data via web search. |
 | `claude-config` | Sync ~/.claude and the claude-config repo both ways, show drift between them, and update downloaded skills from upstream after a yes per skill (spec 0048). |
