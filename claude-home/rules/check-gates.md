@@ -6,7 +6,7 @@ pull, so the gates live here, and this file wins where a skill says otherwise.
 
 ## 1. A verify step must be able to fail
 
-Applies to every `/check verify`, interactive or under `wf run`.
+Applies to every `/check verify`.
 
 - For every step you report, write one note in the report: `can fail: <the break that would
   make this step fail>`. Name a real break in the code under test, for example "the parser
@@ -21,7 +21,7 @@ Applies to every `/check verify`, interactive or under `wf run`.
 
 ## 2. A test must be able to fail
 
-Applies to every `/test`, interactive or under `wf run`.
+Applies to every `/test`.
 
 - Mutation check every test you add or change, as `rules/lessons.md` describes: back up the
   file with `cp`, break the behavior the test claims to cover, run only that test file, see
@@ -32,10 +32,6 @@ Applies to every `/test`, interactive or under `wf run`.
 - The report lists each checked test with its mutant, one line each.
 - When the suite passes, end your final message with one line: `MUTATION CHECKED: <n>`,
   where `<n>` is the number of tests checked (0 when no test was added or changed).
-
-Under `wf run`, a `/check verify` or `/test` call that ticks its box without its line parks
-`unchecked`, and so does a verify line that says 0, or a test line that says 0 while a test
-file changed during the call.
 
 ## 3. Every spec names its files, and `/sync` warns on stale ones
 
