@@ -1309,12 +1309,14 @@ Source: [brief](../briefs/skills-start-themselves.md), your messages 2026-10-22 
 The wf-dash band and panes still read the retired runner's ideas. You like the dashboard and want it restructured and connected to today's setup.
 **Done when:** every number and pane reads a live source of today's setup, and the design gate passes.
 - [x] Design it (spec): `/architect dashboard restructure for the setup without wf` (spec [0071](../specs/0071-dashboard-now-view.md) accepted 2026-10-22)
-- [ ] Build it: `/develop dashboard restructure for the setup without wf` (after rows 95 and 96 merge)
-  - [ ] Probe `gh api graphql` PR search from the mod (a FAIL goes back to `/architect`)
-  - [ ] Readers, Now view, band `owed N`, mod tests
-  - [ ] design.md and PRODUCT.md, then `design-gate`
-- [ ] Verify it: `/check verify dashboard restructure for the setup without wf`
-- [ ] Test it: `/test dashboard restructure for the setup without wf`
+- [x] Build it: `/develop dashboard restructure for the setup without wf` (after rows 95 and 96 merge) (PR #164, /review APPROVE, review fixes 6f49598)
+  - [x] Probe `gh api graphql` PR search from the mod (a FAIL goes back to `/architect`) (PASS 2026-10-22, spec verify.md)
+  - [x] Readers, Now view, band `owed N`, mod tests (26 new tests, 27 of 28 mutants red; mod tests 82 of 82 pass after the review fix)
+  - [x] Let the old view key assertion change: type `/allow-test-change`, then `dashboard.test.ts:60` expects `p n a` · waits on you (allowed 2026-10-22; mod tests 81 pass)
+  - [x] Confirm Plan's next group key `t` (`n` went to Now; a guessed letter) · waits on you · later boxes go on (your answer 2026-10-22: keep `t`)
+  - [x] design.md and PRODUCT.md, then `design-gate` (gate pass 3 2026-10-22: PASS WITH FINDINGS, 1 should-fix for `/architect`: `checks failing` cut at 40 columns)
+- [x] Verify it: `/check verify dashboard restructure for the setup without wf` (AC-1 to AC-10 with can fail lines in the spec's verify.md; open: `checks failing` and `checks pending` cut at 40 columns, a label AC-3 spells, for `/architect`)
+- [x] Test it: `/test dashboard restructure for the setup without wf` (mod tests 82 of 82, suite 1136 ok, mutants in verify.md)
 Source: [brief](../briefs/dashboard-restructure.md); your message 2026-10-22 ("I think the dashboard is great still just need a restructuring and connect with our updates").
 
 ### 94. Three numbers for the switch-on rules · done

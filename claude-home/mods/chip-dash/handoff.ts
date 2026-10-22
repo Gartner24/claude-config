@@ -26,6 +26,13 @@ export function handoffLine(h: WfDashHandoff, now: number): HandoffLine | null {
     return { kind: 'result', text: p.link ? `${p.result} · ${p.link}` : p.result, color: color.ok, link: p.link }
   }
   // a chat that came from a handoff keeps its way back to the handover
-  if (p.session === h.me && p.previous && p.link) return { kind: 'link', text: `handover: ${p.link}`, color: color.dim, link: p.link }
+  const link = handoverLink(h)
+  if (link) return { kind: 'link', text: `handover: ${link}`, color: color.dim, link }
   return null
+}
+
+// The handover this chat came from, under the rule the band's link line uses; the Now view shows the same (spec 0071 AC-5).
+export function handoverLink(h: WfDashHandoff): string | null {
+  const p = h.panel
+  return p && p.session === h.me && p.previous && p.link ? p.link : null
 }

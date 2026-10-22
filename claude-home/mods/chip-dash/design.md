@@ -6,6 +6,42 @@ Changed 2026-10-22, the wf runner retired: the band's right end shows the auto h
 off`, `handoff ?`) where the runner counts were, the AUTO segment is gone, and the dashboard keeps Plan (from
 `plan.py`) and Agents; Builds, Alerts and the answer action went with the runner. Text below about them is history.
 
+Changed 2026-10-22, spec 0071 (today's setup): a third view, Now (`n`), and an `owed N` band segment; both sections
+below. Plan's next group key moved from `n` to `t`, since two buttons on one hotkey let the later one win and `n`
+would never have opened Now from Plan (the owner chose `t`, 2026-10-22).
+
+## Band: owed (spec 0071 AC-7)
+- `owed N` in warn bold, a right side segment just before `handoff`, when this chat's catch state file
+  (`~/.claude/state/chain-catch/<session>.json`, spec 0070; this chat's id, else the id it replaced after a `/clear`)
+  has N owed lines. Nothing at 0, with no file, or with a file that does not parse: the band never prints `owed 0` or
+  `owed ?` (the Now view says which). Read on the band's 5 s tick, also while `facts.py` fails.
+- Narrow line: it is the last segment to go and stays in the compact band beside the docked dashboard; past the
+  model nothing more leaves, and the handoff state truncates at its end instead.
+
+## Now view (spec 0071)
+What this chat needs from you right now, in four blocks of fixed height, so a refresh never moves a row (14-row pane:
+owed 3, PRs 6, handoff 2, agents 1, each counting its heading; a taller docked pane gives the extra rows to PRs).
+No intro line: the four blocks take every row.
+- Owed: `owed N` warn bold, then each owed line in warn, indented; past the block `and k more`. No catch folder:
+  `catch not installed (row 92)`; no file for either id, or an empty list: `nothing owed`, dim; a file that does not
+  parse: `owed ?` and the parse error, dim.
+- Your PRs: `your PRs N` (N is GitHub's count, `?` until known), then one row per PR, newest update first:
+  `<repo>#<number>  draft|ready  checks ok|failing|pending|none  <title>`, the id column as wide as the widest on
+  screen (24 at most, 14 under 80 body columns so a narrow pane keeps some title), checks in its color (ok, failing bad, pending warn, none dim; a state GitHub does not document
+  is `?`), the title truncated, never wrapped. A `>` cursor moves with `j` / `k` and the list scrolls with it; one dim
+  line counts what is off screen and past GitHub's first 20: `2 above, +3 more, +7 more on GitHub`. `no open PRs`
+  when the search finds none; `reading GitHub` before the first answer; a first call that fails says `could not read
+  GitHub (<error>); r tries again` in bad; a later failure keeps the list and adds `stale since HH:MM: <error>` in
+  warn, the time of the last good answer.
+- Source: one `gh api graphql` search (`is:pr is:open author:@me sort:updated-desc`, first 20, each PR's last commit
+  check rollup) through `$.process.run`, 10 s timeout. It runs only while the dashboard is open on Now: when Now
+  opens, on `r`, and every 2 minutes on the panes' 10 s tick; never closed, never on Plan or Agents.
+- Handoff: `handoff on 200k`, `handoff on`, `handoff off` or `handoff ?`, the band's words from the band's source; under
+  it `last handover: <link>`, dim, when the band would show its handover link.
+- Agents: `agents N running, M shells` (agents with status running, shells not stopped or finished, from the Agents
+  view's lists), `agents ?` when either list could not be read, then a dim `a: details`.
+- Footer on one row: `j: down  k: up  r: refresh  esc closes`; `j` / `k` dim at the ends of the list. Now has no action.
+
 The look rows 72 (band and alerts, spec 0059) and 73 (panes and actions, spec 0060) build. The drawing code in this
 folder (`band.tsx`, `panes.tsx`, `tokens.ts`) is the reference: the build keeps it and swaps the preview fact
 scripts (`facts.py`, `plan.py`, `runner.py`) for `wf status --json` and `wf plan --json`.
@@ -70,8 +106,8 @@ of spec 0060 (which also clash with Claude Code's own `/plan` and `/agents`); ro
 - Top line: the chip, then the view keys; the selected view and filter are bracketed (`[Plan]`) and at full
   strength, the rest dim, so the cue does not rest on brightness alone. No counts line: the band right below
   already shows them. No blank lines: the pane is short (about 14 rows).
-- Footer: Plan `j: down  k: up  d: page down N/M  u: page up  n: next group  g: top` (narrow: `d: pg N/M  u: back
-  n: group`), Builds and Alerts `j: down  k: up` (lit only with more below or above), then on every view `r: refresh  esc closes`. Every key shown is
+- Footer: Plan `j: down  k: up  d: page down N/M  u: page up  t: next group  g: top` (narrow: `d: pg N/M  u: back
+  t: group`; `n` until spec 0071 gave it to Now), Builds and Alerts `j: down  k: up` (lit only with more below or above), then on every view `r: refresh  esc closes`. Every key shown is
   always bound and dims when it would do nothing (one item, one page, one group), because a key with no button falls
   through to the prompt and takes the keyboard. When that happens anyway (any other letter), a warn line under the
   top line says `Keys go to the prompt now: click the dashboard to return`, the one way back that worked in a real
