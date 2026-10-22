@@ -343,10 +343,11 @@ def owed_lines(chat, top, feats, nagged):
               for n in re.findall(r"(?<!\d)\d{4}(?!\d)", str(inp.get("prompt", "")))}
 
     # AC-4, AC-5, AC-6
-    done_rows = {x.row for x in feats if "done" in x.tags}
+    # a row that is missing (a typo) or closed (done, dropped, existing) is not waited on
+    open_rows = {x.row for x in feats if not x.tags & GONE}
     for f in live:
-        # a row that builds only after other rows merge owes nothing while one is not `· done`
-        if f.after - done_rows:
+        # a row that builds only after other rows merge owes nothing while one of them is still open
+        if f.after & open_rows:
             continue
         if f.specs & nums and not f.specs & handed:
             cmd = next_command(f)
@@ -639,6 +640,17 @@ def self_test():
         fresh()
         scope(waiting(" · done", " · done").replace("### 5. Feat", "### 9. Nine · done\n\n### 5. Feat"))
         check("waits-on rows all done owes the build", reason(run(T().owner("x").edit("src/a.py"))), "owed: /develop feat (row 5 Feat)")
+        fresh()
+        scope(waiting(" · done", " · done"))
+        check("waits-on a row that does not exist (a typo) still owes the build",
+              reason(run(T().owner("x").edit("src/a.py"))), "owed: /develop feat (row 5 Feat)")
+        fresh()
+        scope(waiting(" · dropped", " · existing").replace("### 5. Feat", "### 9. Nine · done\n\n### 5. Feat"))
+        check("waits-on rows dropped or existing still owes the build",
+              reason(run(T().owner("x").edit("src/a.py"))), "owed: /develop feat (row 5 Feat)")
+        fresh()
+        scope(waiting(" · done", " · done").replace("### 5. Feat", "### 9. Nine · in-progress\n\n### 5. Feat"))
+        check("waits-on an open row among done ones owes nothing", run(T().owner("x").edit("src/a.py")), None)
         fresh()
 
         # Review fix 1: an edit in a nested worktree is the same repo path.
