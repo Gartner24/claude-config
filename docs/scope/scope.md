@@ -1371,11 +1371,18 @@ Dropped 2026-10-22 (your answer, tenth chat): your third chat decision stands, "
 - [ ] Design it (spec): `/architect auto handoff off in plain talk chats`
 Source: [brief](../briefs/retire-runner.md) second chat decisions ("still to build"); your first message 2026-10-22.
 
-### 100. build-features workflow, shown while it runs · needs a decision
-A saved Claude Code workflow (`/build-features`) that builds every ready scope row whose questions are answered, one worktree agent each, with per row model and effort; running agents show as rows in the agent panel and as a count on the chip band. from spec 0072
+### 100. build-features workflow, shown while it runs · in-progress
+A saved Claude Code workflow (`/build-features`) that builds every ready scope row whose questions are answered, one worktree agent each, with per row model and effort; running agents show as rows in the agent panel and as a count on the chip band. from spec 0072. Spec [0074](../specs/0074-build-features/index.md). Build only after rows 93 and 98 merge (it uses row 98's helpers and edits chip-dash).
 **Done when:** `/build-features` builds two non overlapping ready rows to draft PRs, and both places show them while they run.
-- [ ] Design it (spec): `/architect build-features workflow` (probe first: can the mod API see workflow agents)
-Source: [brief](../briefs/icm-restructure.md) "Workflows" and "Running workflows show"; your messages 2026-10-22.
+- [x] Design it (spec): `/architect build-features workflow` (spec 0074 accepted 2026-10-22 after a Sonnet cross check, 17 fixes applied; probe P1 passed: a mod sees workflow agents)
+- [ ] Build it: `/develop build-features workflow`
+  - [ ] Probes P2 (agent panel rows) and P3 (worktree agent builds and pushes); a P3 FAIL goes back to `/architect`
+  - [ ] Skill: ready list, clashes, pick panel, start gates, workflow script (AC-1 to AC-8)
+  - [ ] Review and merge loop (AC-9, AC-10)
+  - [ ] Panel script, band count, rule line, live copy and `bin/sync.sh` (AC-11 to AC-13)
+- [ ] Verify it: `/check verify build-features workflow`
+- [ ] Test it: `/test build-features workflow`
+Source: [brief](../briefs/build-features.md) (probe passed); [brief](../briefs/icm-restructure.md) "Workflows" and "Running workflows show"; your messages 2026-10-22.
 
 ### 101. Workflow templates research and a workflow builder skill · needs a decision
 Research recommended workflow templates and the workflows we can make from our own skills and repos (site design, SEO, reviews), then a skill that builds new workflows the ICM way (marketing and publicity workflows come later). from spec 0072
