@@ -1235,15 +1235,17 @@ You want the chat that runs your Claude setup and the runner (today opened in `~
 Spec [0067](../specs/0067-home-chat-in-claude-config/index.md) · code in `bin/move-home-chat.sh`, `runner/tests/test_move_home_chat.py`
 Source: your messages 2026-10-02 ("should I keep working on here or in claude-config"), 2026-10-11, and 2026-10-20 ("I wanted to move all the sessions from ~/.claude to claude-config"); personal plan item 9 ("decide whether conductor sessions keep running from `~/.claude`"). Plan item E6 in the [brief](../briefs/tool-review-2026-10.md).
 
-### 87. A live install box is ticked only when it is live
-Rows 67, 69 and 71 each had a "copy live" box ticked while `claude-config drift` showed the file missing or different live (found and fixed 2026-10-20).
+### 87. A live install box is ticked only when it is live · in-progress
+Rows 67, 69 and 71 each had a "copy live" box ticked while `claude-config drift` showed the file missing or different live (found and fixed 2026-10-20). Spec [0075](../specs/0075-live-tick-guard.md). Build only after row 92 merges (both edit `settings.json` and `bin/claude-config.py`).
 **Done when:** ticking a ` · live` box first runs the drift check for the files it names and refuses the tick if they differ, with a test.
-- [ ] Design it (spec): `/architect a live install box is ticked only when it is live`
+- [x] Design it (spec): `/architect a live install box is ticked only when it is live` (spec 0075 accepted 2026-10-22 after a Sonnet cross check, 9 fixes applied)
 - [ ] Build it: `/develop a live install box is ticked only when it is live`
+  - [ ] `live-tick.py` with `--test` (AC-1 to AC-6, AC-8)
+  - [ ] `COPIED_FILES`, live settings entry, `bin/sync.sh` (AC-7)
 - [ ] Verify it: `/check verify a live install box is ticked only when it is live`
 - [ ] Test it: `/test a live install box is ticked only when it is live`
 - [ ] Sync docs: `/sync a live install box is ticked only when it is live`
-Source: drift check 2026-10-20 in the conductor chat. Plan item E7 in the [brief](../briefs/tool-review-2026-10.md).
+Source: [brief](../briefs/live-tick.md); drift check 2026-10-20 in the conductor chat. Plan item E7 in the [brief](../briefs/tool-review-2026-10.md).
 
 ### 88. Fix: auto handoff answers the question it cut off · done
 When you asked something just before the handoff line, the gate cut the turn short, and the fresh chat was told your question was already answered, because the mod trusted the old chat's own "Status:" line in the handover (handoff 313e03e8 to a4f6bf38 on 2026-10-21 logged "priority off").
@@ -1387,7 +1389,7 @@ Source: [brief](../briefs/build-features.md) (probe passed); [brief](../briefs/i
 ### 101. Workflow templates research and a workflow builder skill · needs a decision
 Research recommended workflow templates and the workflows we can make from our own skills and repos (site design, SEO, reviews), then a skill that builds new workflows the ICM way (marketing and publicity workflows come later). from spec 0072
 **Done when:** a research brief lists the candidates with sources, and the builder skill makes one workflow that passes its own check.
-- [ ] Research it: `/deep-research workflow templates for claude-config`
+- [x] Research it: `/deep-research workflow templates for claude-config` ([brief](../briefs/workflow-templates.md), 2026-10-22)
 - [ ] Design it (spec): `/architect workflow builder skill`
 Source: [brief](../briefs/icm-restructure.md) "Workflows"; your messages 2026-10-22.
 
