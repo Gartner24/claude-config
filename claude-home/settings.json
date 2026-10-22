@@ -398,6 +398,16 @@
         ]
       },
       {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/santiago/.claude/hooks/live-tick.py",
+            "timeout": 65
+          }
+        ]
+      },
+      {
         "matcher": "Write|Edit",
         "hooks": [
           {

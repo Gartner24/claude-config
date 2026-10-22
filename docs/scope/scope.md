@@ -1240,8 +1240,8 @@ Rows 67, 69 and 71 each had a "copy live" box ticked while `claude-config drift`
 **Done when:** ticking a ` · live` box first runs the drift check for the files it names and refuses the tick if they differ, with a test.
 - [x] Design it (spec): `/architect a live install box is ticked only when it is live` (spec 0075 accepted 2026-10-22 after a Sonnet cross check, 9 fixes applied)
 - [ ] Build it: `/develop a live install box is ticked only when it is live`
-  - [ ] `live-tick.py` with `--test` (AC-1 to AC-6, AC-8)
-  - [ ] `COPIED_FILES`, live settings entry, `bin/sync.sh` (AC-7)
+  - [x] `live-tick.py` with `--test` (AC-1 to AC-6, AC-8)
+  - [ ] `COPIED_FILES`, live settings entry, `bin/sync.sh` (AC-7) (repo side built; the live copy and live settings entry wait on the owner)
 - [ ] Verify it: `/check verify a live install box is ticked only when it is live`
 - [ ] Test it: `/test a live install box is ticked only when it is live`
 - [ ] Sync docs: `/sync a live install box is ticked only when it is live`
