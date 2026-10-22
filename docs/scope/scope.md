@@ -170,11 +170,11 @@ Small bugs the Assertion Guardian review left (low severity, none blocks use).
 **Done when:** each leftover in the report is fixed with a test, or dropped with a reason.
 - [ ] Fix them: `/debug review leftovers 2026-10-21`
   - [x] build() clones an unreachable source twice (PR #139)
-  - [ ] Byte order mark refusal text, and restore skips a symlink: edit the live assertion-guardian mod, `claude plugin test`, then `bin/sync.sh` regenerates `config/patches/assertion-guardian.patch`
-  - [ ] `/allow-test-change <file>` for a shell refusal: find the code first
+  - [x] Byte order mark refusal text, and restore skips a symlink: edit the live assertion-guardian mod, `claude plugin test`, then `bin/sync.sh` regenerates `config/patches/assertion-guardian.patch`
+  - [x] `/allow-test-change <file>` for a shell refusal: find the code first
   - [ ] Concurrent Bash calls undo each other's additions: the fixing chat picked "leave it, the README says it" · waits on you
   - [ ] Spec 0068 Amended line for the refusal shape: `/architect assertion guardian blocks only removed checks`
-  - [ ] chain-catch owes `/develop` for a row whose text says it builds only after other rows (row 100 on 2026-10-22, after an edit of the live `settings.json` its spec names): skip a row that still waits on unmerged rows
+  - [x] chain-catch owes `/develop` for a row whose text says it builds only after other rows (row 100 on 2026-10-22, after an edit of the live `settings.json` its spec names): skip a row that still waits on unmerged rows
   - [ ] `bin/install.sh` copies the commit hooks to `<repo>/<hooksPath>` when a global `core.hooksPath` is set (dry run 2026-10-22: `mkdir -p .../claude-config//home/santiago/.config/git/hooks`); it should use `git rev-parse --git-common-dir`/hooks, where the global dispatcher looks
 Source: [review report](../reviews/review-2026-10-21.md) (P3 rows and Guardrails): a file with a byte order mark refused with generic text; restore writes through a symlink; build() clones an unreachable source twice; `/allow-test-change <file>` does nothing for a shell refusal; concurrent Bash calls can undo each other's additions; spec 0068 has no Amended line for the refusal shape.
 
@@ -193,14 +193,14 @@ Source: [brief](../briefs/retire-runner.md) ("Decisions 2026-10-22 (third chat)"
 A fresh chat after a handoff keeps every open question, shown list and agreed decision, written by a small helper into the feature's brief and checked against the old transcript.
 **Done when:** spec 0069's acceptance criteria hold, and the replay of the 11 audited handoffs keeps at least as much as today's slots.
 - [x] Design it (spec): `/architect handover memory` (spec [0069](../specs/0069-handover-memory.md) accepted 2026-10-22)
-- [ ] Build it: `/develop handover memory`
-  - [ ] Probe: a foreground writer agent inside a mod-started rollover finishes before the slot check; a FAIL goes back to `/architect`
-  - [ ] `scripts/handover-memory.py` check, prune, ages, close, lint, with `--test`
-  - [ ] Replay the 11 audited handoffs; stop on a loss
-  - [ ] Templates `sections.md` and `instructions.md`, writer failure line, mod tests
-  - [ ] Live rules: `handover-carry.md`, `check-gates.md` gate 5, `CLAUDE.md` Context, live templates, then `bin/sync.sh`
-- [ ] Verify it: `/check verify handover memory`
-- [ ] Test it: `/test handover memory`
+- [x] Build it: `/develop handover memory` (PR open, see below)
+  - [x] Probe: a foreground writer agent inside a mod-started rollover finishes before the slot check; a FAIL goes back to `/architect` (FAIL 2026-10-22, the Agent tool runs the writer in the background; you picked a mod wait for running agents, spec amended; run 3 with the wait PASS; see the spec's [verify.md](../specs/0069-handover-memory/verify.md))
+  - [x] `scripts/handover-memory.py` check, prune, ages, close, lint, with `--test` (also path, messages, add, done; 32 mutants red)
+  - [x] Replay the 11 audited handoffs; stop on a loss (run 2 FAIL, 2 of 11 kept fewer open owner questions; you decided the slot keeps its Open questions section beside the memory, spec amended; run 3 PASS counting memory plus slot; see verify.md)
+  - [x] Templates `sections.md` and `instructions.md`, writer failure line, mod tests (mod tests 148 pass, 52 mutants red)
+  - [ ] Live rules: `handover-carry.md`, `check-gates.md` gate 5, `CLAUDE.md` Context, live templates, then `bin/sync.sh` (repo copies under `claude-home/` edited; copying them live is left, after the merge) · later boxes go on
+- [x] Verify it: `/check verify handover memory` (AC-1 to AC-22 with can fail lines in the spec verify.md; replay run 3 PASS)
+- [x] Test it: `/test handover memory` (mod tests 148, suite 149, handover-memory self checks pass; 52 mutants red)
 Source: [brief](../briefs/handover-memory.md), [brief](../briefs/handoff-loss-audit.md) and [brief](../briefs/retire-runner.md).
 
 ### 92. Skills start themselves at the right moment · in-progress

@@ -87,6 +87,10 @@ anyway. Surface every `Assumed` spec before starting new work.
   Use the file the scope row's `Source:` names, else `docs/briefs/<feature-slug>.md`
   (`.workflow/briefs/` in bot-reviewed repos), and point the row's `Source:` at it.
   `/scope` and `/architect` read that brief and list anything they drop or weaken.
+- One brief per feature, and it is the feature's handover index (spec 0069): its four sections hold
+  open questions, things shown and still needed, agreed decisions and live state, one quoted item
+  each, written with `~/claude-config/scripts/handover-memory.py` (`rules/handover-carry.md`).
+  `/sync` deletes it when the feature closes (`rules/check-gates.md` gate 5).
 - Which handoff (feature open vs closed): `rules/handoff.md`.
 - Long single feature: suggest `/compact` mid build. Autocompact (700k) is a last resort.
 
