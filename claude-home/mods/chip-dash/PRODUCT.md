@@ -1,4 +1,6 @@
-# wf-dash
+# chip-dash
+
+Renamed to chip-dash 2026-10-22 (was wf-dash; command /chip, /wf-dash kept as alias).
 
 Source: specs 0058, 0059, 0060 (accepted 2026-10-17) and the owner's words that day. Nothing here is new; where a line is inferred it says so.
 

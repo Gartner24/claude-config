@@ -12,11 +12,11 @@ const PLAN = {
   ],
   warnings: [],
 }
-const PANE_PROPS = { title: 'wf-dash', isFocused: true, bodyColumns: 100, placement: 'inline', scroll: { offset: 0, bodyRows: 14 }, view: {} } as any
+const PANE_PROPS = { title: 'chip-dash', isFocused: true, bodyColumns: 100, placement: 'inline', scroll: { offset: 0, bodyRows: 14 }, view: {} } as any
 const isPlan = (argv: string[]) => argv[0] === 'python3' && argv[1].endsWith('/plan.py')
 
 function host(on: any) {
-  const calls = { planFails: false, planHold: null as null | Promise<void>, argv: [] as string[][], submitted: [] as string[], stopped: [] as any[], commands: [] as string[], messages: [] as any[] }
+  const calls = { planFails: false, planHold: null as null | Promise<void>, argv: [] as string[][], submitted: [] as string[], stopped: [] as any[], commands: [] as string[], opened: [] as string[], messages: [] as any[] }
   const clock = mock.clock(on)
   // $.state is the kit's own, so a write redraws the pane as in a session
   mock.env(on, { HOME: '/h', XDG_STATE_HOME: '' })
@@ -28,7 +28,7 @@ function host(on: any) {
   on('fs.write', () => ({ value: undefined }))
   on('fs.read', () => ({ deny: 'ENOENT' }))
   on('command.register', (_$: any, e: any) => { calls.commands.push(e.name); return { value: { command: e.name } } })
-  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.open', (_$: any, e: any) => { calls.opened.push(e.id); return { value: { isPlaced: true } } })
   on('agent.list', () => ({ value: [{ id: 'ag1', description: 'Look things up', type: 'general-purpose', status: 'running' }] }))
   on('session.messages', () => ({ value: calls.messages }))
   on('tool.call', (_$: any, e: any) => { calls.stopped.push(e); return { result: { message: 'stopped' } } })
@@ -46,16 +46,17 @@ function host(on: any) {
 async function open($: any, on: any) {
   const h = host(on)
   await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/w' } as any)
-  await $.command.run({ command: 'wf-dash', args: '' } as any)
+  await $.command.run({ command: 'chip', args: '' } as any)
   await h.clock.advance(10)
-  const ui = await $.ui.mount({ plugin: 'wf-dash', surface: 'terminal', component: 'Pane', requestId: 'wf-dash', props: PANE_PROPS })
+  const ui = await $.ui.mount({ plugin: 'chip-dash', surface: 'terminal', component: 'Pane', requestId: 'chip-dash', props: PANE_PROPS })
   return { ...h, ui }
 }
 const text = async (ui: any, re: RegExp) => (await ui.find({ type: 'Text', text: re }))?.text
 
-test('one command, /wf-dash; the views switch on p a; the plan comes from plan.py, never from wf', async ($, on) => {
+test('one command, /chip (and the /wf-dash alias); the views switch on p a; the plan comes from plan.py, never from wf', async ($, on) => {
   const { calls, ui } = await open($, on)
-  expect(calls.commands).toEqual(['wf-dash'])
+  expect(calls.commands.filter(c => c === 'wf-dash')).toEqual(['wf-dash'])
+  expect(calls.commands).toEqual(['chip', 'wf-dash'])
   expect(SECTIONS.map(s => s.key)).toEqual(['p', 'a'])
   expect(calls.argv.some(isPlan)).toBe(true)
   expect(calls.argv.filter(a => a[0] === 'wf')).toEqual([])
@@ -65,6 +66,15 @@ test('one command, /wf-dash; the views switch on p a; the plan comes from plan.p
   expect(await text(ui, /^Look things up$/)).toBeDefined()
   await ui.press({ key: 'k-p' })
   expect(await text(ui, /^Steps only you can do: a login, a check on your phone\.$/)).toBeDefined()
+})
+
+test('/chip and the /wf-dash alias both open the dashboard', async ($, on) => {
+  const h = host(on)
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/w' } as any)
+  await $.command.run({ command: 'chip', args: '' } as any)
+  await $.command.run({ command: 'wf-dash', args: '' } as any)
+  await h.clock.advance(10)
+  expect(h.calls.opened).toEqual(['chip-dash', 'chip-dash'])
 })
 
 test('start shows the exact text and submits only after yes, from the clock once the hook returned', async ($, on) => {

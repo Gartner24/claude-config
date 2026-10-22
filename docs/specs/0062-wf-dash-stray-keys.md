@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-18 (amended twice on 2026-10-18, after probes P10 and P11 failed)
 **Status**: Accepted
-**Paths:** `claude-home/mods/wf-dash/**`
+**Paths:** `claude-home/mods/chip-dash/**`
 
 ## What you're agreeing to
 - A key the dashboard does not use can still type into the chat prompt and take the keyboard. A mod cannot stop that (probes P10 and P11).

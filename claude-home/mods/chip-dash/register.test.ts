@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 
 const SID = '0a73f089-5127-4347-998d-3a7c8adf3ac9'
-const FACTS = { plugin: 'wf-dash', key: 'facts' } as const
+const FACTS = { plugin: 'chip-dash', key: 'facts' } as const
 
 // the host beneath register.tsx: facts.py answers as told, files live in memory
 function host(on: any, facts: () => { exitCode: number; stdout: string }) {
@@ -71,11 +71,11 @@ test('facts.py output that is not JSON counts as a failed tick, never a crash', 
 test('the band above the prompt draws, with and without a handoff line', async ($, on) => {
   const { state } = host(on, () => ({ exitCode: 1, stdout: '' }))
   const props = { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 100 }
-  let ui = await $.ui.mount({ plugin: 'wf-dash', surface: 'terminal', component: 'AbovePrompt', props } as never)
-  expect(await ui.find({ type: 'Text', text: /wf-dash: reading status/ })).toBeDefined()
+  let ui = await $.ui.mount({ plugin: 'chip-dash', surface: 'terminal', component: 'AbovePrompt', props } as never)
+  expect(await ui.find({ type: 'Text', text: /chip-dash: reading status/ })).toBeDefined()
   await ui.unmount()
   state['handoff'] = { panel: { sticky: true, steps: [] }, frame: 0 }
-  ui = await $.ui.mount({ plugin: 'wf-dash', surface: 'terminal', component: 'AbovePrompt', props } as never)
-  expect(await ui.find({ type: 'Text', text: /wf-dash: reading status/ })).toBeDefined()
+  ui = await $.ui.mount({ plugin: 'chip-dash', surface: 'terminal', component: 'AbovePrompt', props } as never)
+  expect(await ui.find({ type: 'Text', text: /chip-dash: reading status/ })).toBeDefined()
   await ui.unmount()
 })

@@ -127,7 +127,7 @@ function loading({ Box, Text }: El, what: string, l: WfDashLoaded<unknown> | und
     return (
       <Box flexDirection="column" marginTop={space.line}>
         <Text color={color.bad}>{`Could not read ${what} (${l.error}).`}</Text>
-        <Text color={color.dim}>r tries again. If it keeps failing, run python3 plan.py from the wf-dash mod folder in a terminal to see why.</Text>
+        <Text color={color.dim}>r tries again. If it keeps failing, run python3 plan.py from the chip-dash mod folder in a terminal to see why.</Text>
       </Box>
     )
   }
@@ -394,7 +394,7 @@ export function Dashboard({ el, view, act, plan, agents, columns, cwd = null, fo
   return (
     <Box flexDirection="column" paddingX={space.padX}>
       <Box flexDirection="row" columnGap={space.gap}>
-        <Text backgroundColor={color.accent} color="inverseText" bold>{' wf-dash '}</Text>
+        <Text backgroundColor={color.accent} color="inverseText" bold>{' chip '}</Text>
         {keyRow(el, SECTIONS.map(s => ({ key: s.key, label: s.label, on: s.id === section.id, mark: true, press: () => act.go({ section: s.id, ask: null, notice: null }) })), columns >= pane.specMin ? space.gap : space.tight)}
       </Box>
       {/* a stray key hands the keyboard to the prompt; say so, and how to come back, instead of failing silently.

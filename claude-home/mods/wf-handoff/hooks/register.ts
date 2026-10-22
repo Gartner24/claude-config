@@ -10,7 +10,7 @@ type Chain = {
   // /auto-handoff off: this chat never hands off on its own. Copied from the folder's off file
   // (offFile) at every chat start and clear, so the chain alone no longer decides it.
   off?: boolean
-  // the line in force at the last save, for the wf-dash band (it reads this file, no shared code)
+  // the line in force at the last save, for the chip-dash band (it reads this file, no shared code)
   line?: number
   // when this chat started (ISO): the handover's commits are `git log --since` it
   startedAt?: string
@@ -23,7 +23,7 @@ const EXEMPT = ['rollover', 'save-and-clear', 'handoff']
 const CLEAR_TIMEOUT_MS = 15000
 // shortcut: the log is cut to its newer half past this size; one log is shared by every chat
 const LOG_MAX = 256000
-// Spec 0064 AC-1: the steps the wf-dash band draws from panel.json.
+// Spec 0064 AC-1: the steps the chip-dash band draws from panel.json.
 const STEPS = ['writing the handover', 'clearing', 'starting the fresh chat']
 const STICKY_TOAST_MS = 30000
 // The gate used to refuse the very next tool call, so a promised step (a file save, a send to the
@@ -150,12 +150,12 @@ async function writePanel($: EngineInterface) {
   await $.fs.write(`${dir}/panel.json`, JSON.stringify(p) + '\n').catch(() => {})
 }
 
-// AC-3: a toast only where no band draws the panel: wf-dash not loaded, or a surface with no band
+// AC-3: a toast only where no band draws the panel: chip-dash not loaded, or a surface with no band
 // (the host raises the band on the terminal and the desktop only).
 async function notify($: EngineInterface, text: string, sticky = false) {
   const surfaces = await $.session.surfaces().catch(() => [] as readonly string[])
   const dash = surfaces.some(s => s !== 'terminal' && s !== 'desktop') ? null
-    : await $.state.get({ plugin: 'wf-dash', key: 'facts' } as any).catch(() => null)
+    : await $.state.get({ plugin: 'chip-dash', key: 'facts' } as any).catch(() => null)
   if (dash && dash.version > 0) return
   $.ui.toast(text, sticky ? { timeoutMs: STICKY_TOAST_MS } : undefined)
 }
@@ -588,7 +588,7 @@ export const register: Register = (on, options) => {
   })
 
   // A chat that is not for coding fills fast and drifts less, so the owner turns the handoff off
-  // there; the wf-dash band shows the state from the chain file save() writes.
+  // there; the chip-dash band shows the state from the chain file save() writes.
   on('command.run', { command: 'auto-handoff' }, async ($, e) => {
     if (!startDone) {
       await new Promise<void>(resolve => { startWaiters.push(resolve); $.clock.after(60000, resolve) })

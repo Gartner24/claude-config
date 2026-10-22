@@ -1,1 +1,0 @@
-{ "name": "wf-dash", "version": "0.1.0", "description": "Live band above the prompt for this session and its auto handoff, plus a plan and agents dashboard (/wf-dash)", "author": { "name": "Santiago Valencia" }, "types": "./types/index.d.ts" }

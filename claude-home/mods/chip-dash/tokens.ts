@@ -1,4 +1,4 @@
-// wf-dash design tokens. Every color, glyph, width and timing in the mod comes from here.
+// chip-dash design tokens. Every color, glyph, width and timing in the mod comes from here.
 // Colors are Claude Code ThemeKeys, never hex, so the mod follows the user's terminal theme.
 
 export const color = {

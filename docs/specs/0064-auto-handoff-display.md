@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-18
 **Status**: Accepted
-**Paths:** `claude-home/mods/wf-handoff/**`, `claude-home/mods/wf-dash/**`
+**Paths:** `claude-home/mods/wf-handoff/**`, `claude-home/mods/chip-dash/**`
 **Stacks on:** 0063
 
 ## What you're agreeing to

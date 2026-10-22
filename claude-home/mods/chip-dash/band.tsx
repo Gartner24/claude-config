@@ -56,7 +56,7 @@ function meterSeg(id: string, label: string, value: number | null, reset = ''): 
 // `compact` is for a column too narrow for the chip and the full handoff segment (the ~31 cells beside the docked
 // dashboard).
 export function segments(f: Facts, now = Date.now(), rich = true, compact = false, maxCells = Infinity) {
-  const left: Seg[] = [seg('chip', [{ text: ' wf-dash ', bg: color.accent, color: 'inverseText', bold: true }])]
+  const left: Seg[] = [seg('chip', [{ text: ' chip ', bg: color.accent, color: 'inverseText', bold: true }])]
   const model: Run[] = [{ text: prettyModel(f.model), color: color.text }]
   if (f.effort) model.push({ text: ' ' + f.effort, color: (effort as Record<string, string>)[f.effort] ?? color.dim })
   left.push(seg('model', model))
@@ -143,7 +143,7 @@ export function Band({ Box, Text, Button, facts, columns, onOpen }: { Box: any; 
         {kept.map(s =>
           // the chip opens the dashboard: a click, or w once the band holds the keys
           s.id === 'chip' && Button && onOpen
-            ? <Button key="wf-dash-open" plain hotkey="w" onPress={onOpen}><Text backgroundColor={color.accent} color="inverseText" bold>{' wf-dash '}</Text></Button>
+            ? <Button key="chip-open" plain hotkey="w" onPress={onOpen}><Text backgroundColor={color.accent} color="inverseText" bold>{' chip '}</Text></Button>
             : draw(Box, Text, s),
         )}
       </Box>
@@ -162,7 +162,7 @@ export function HandoffRow({ Box, Text, Button, line, onDismiss }: { Box: any; T
         <Text color={line.color} bold={line.kind === 'sticky'} wrap="truncate-end">{line.text}</Text>
       </Box>
       {line.kind === 'sticky' && Button && onDismiss
-        ? <Button key="wf-dash-handoff-dismiss" plain hotkey="x" onPress={onDismiss}><Text color={color.dim}>dismiss</Text></Button>
+        ? <Button key="chip-handoff-dismiss" plain hotkey="x" onPress={onDismiss}><Text color={color.dim}>dismiss</Text></Button>
         : null}
     </Box>
   )
