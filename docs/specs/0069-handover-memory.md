@@ -1,9 +1,9 @@
 # 0069. Handover memory: four kinds, quoted, one index per feature
 
 **Date**: 2026-10-22
-**Status**: Proposed
+**Status**: Accepted
 **Paths:** `claude-home/mods/wf-handoff/templates/*.md`, `claude-home/mods/wf-handoff/hooks/register.ts`, `claude-home/mods/wf-handoff/tests/**`, `claude-home/rules/handover-carry.md`, `claude-home/rules/check-gates.md`, `claude-home/CLAUDE.md`, `scripts/handover-memory.py`
-**Amended**: 2026-10-22, owner picked all five decisions and the three small values ([brief](../briefs/handover-memory.md)); AC-13 added (landed mark set automatically)
+**Amended**: 2026-10-22, owner picked all five decisions and the three small values ([brief](../briefs/handover-memory.md)); AC-13 added (landed mark set automatically); AC-14 to AC-22 added (the nine cross check fixes, owner: "Apply all nine")
 
 ## What you're agreeing to
 - A handover keeps only four things: open questions, things shown to you that are still needed, agreed decisions, and helpers still running. Your raw messages, the reasoning and the mistakes are never saved.
@@ -117,6 +117,17 @@ Only `open` items stay in the index. A `done` item moves to `archive.md` with ` 
 - **AC-11** (tests): `handover-memory.py --test` covers AC-2 (a made up quote dropped, a real one kept, an older session left alone), AC-6 (a 15 day old done line deleted, a 13 day old one kept, an open item of any age kept), AC-8 (an open item and an unlanded decision each exit 1) and AC-9 (both warnings); each test mutation checked. Mod changes keep `claude plugin test claude-home/mods/wf-handoff` green, with a test that the sections template no longer asks for owner messages.
 - **AC-12** (replay before live): replay the 11 audited handoffs of handoff-loss-audit.md: run the writer and AC-2 on each old transcript and count open questions, shown lists and decisions that reach the index against the audit's numbers. Results in `docs/specs/0069-handover-memory/verify.md`. A replay that keeps fewer open decisions than today's slots stops the build and goes back to `/architect`.
 - **AC-13** (landed mark is automatic): `rules/handover-carry.md` says that whatever writes a `D` item's decision into a spec, `AGENTS.md` or the scope (`/architect`, `/scope`, `/sync`, or a plain chat) sets that item `done` with `landed: <path>` in the same step; the owner never marks one. At each handoff the writer helper also marks a `D` item landed when the transcript shows this chat wrote it into one of those files, naming that path. `handover-memory.py --test` covers a `D` item the writer marks landed from a transcript edit, mutation checked.
+
+### Cross check fixes (owner, 2026-10-22: "Apply all nine")
+- **AC-14** (which feature): the index is the row of the checked out branch (`branch-pr.md` names); else the row whose spec this chat edited last; else `docs/briefs/general.md`. The rollover turn resolves the path and passes it to the writer; the writer never picks it.
+- **AC-15** (which session): the session id comes from the mod's transcript lookup (`transcriptOf` in `register.ts`) at an auto handoff, and from the slot's previous transcript line for a typed `/rollover`. `check` only checks items of the current session.
+- **AC-16** (what a message is): owner messages are `type=user` transcript lines whose content is a string or text blocks, with no `tool_result`, no `system-reminder` and no skill or command expansion; `claude` text is assistant text blocks only. AC-2 and the writer read the same filter, from the script.
+- **AC-17** (ids): the script assigns ids (the highest number over index plus archive, plus one); the writer matches an old item by id only, and a restated item is a new item.
+- **AC-18** (landed path is real): a `landed:` path must be an Edit or Write target in the transcript of the session that set it; `check` removes a mark that is not and prints `unlanded: <id> <path>`.
+- **AC-19** (detail files): a detail file keeps its source extension (`S1.<ext>`); a deliverable of several files gets a folder `S1/`. AC-12's replay counts `S` items it missed.
+- **AC-20** (pipe and size): the writer turns `|` into `/` in text and quote, and `check` compares the quote the same way. Over 2000 characters the index is still read whole, and the script lists the oldest items as candidates to archive; it never archives an open item itself.
+- **AC-21** (/sync order): `/sync` runs `prune`, then `close`. After `close` deletes a brief, the row's `Source:` becomes `<path> @ <short sha>`. `general.md` is exempt from the `uncited brief` warning.
+- **AC-22** (writer failure): when the writer fails or `check` exits 1, the handoff still goes on; the slot gets the line `memory not written: <reason>` and the fresh chat says so in its first turn. `claude plugin test` covers it.
 
 ## Decision
 The owner picked A on all five on 2026-10-22: (1) the writer is an agent started in the rollover turn; (2) markdown, one line per item, fields split by ` | `; (3) a `landed: <path>` mark, set automatically by the step that writes the item down (AC-13); (4) one file, the brief is the index; (5) the slot keeps next actions, the last request with its status, the facts block and the index path, nothing else. Small values accepted: `docs/briefs/general.md` for a chat with no feature, 500 tokens checked as 2000 characters, the 14 day delete runs at the next handoff or `/sync`.

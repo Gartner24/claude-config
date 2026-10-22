@@ -109,7 +109,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 88 | Fix: auto handoff answers the question it cut off | Release 9 | done |
 | 89 | Review leftovers 2026-10-21 | Release 9 | in-progress |
 | 90 | Retire the runner, its features in every chat | Release 10 | done |
-| 91 | Handover memory | Release 10 | needs a decision |
+| 91 | Handover memory | Release 10 | in-progress |
 | 92 | Skills start themselves at the right moment | Release 10 | needs a decision |
 | 93 | Dashboard restructure for the setup without wf | Release 10 | needs a decision |
 | 94 | Three numbers for the switch-on rules | Release 10 | done |
@@ -1276,10 +1276,18 @@ The `wf` runner is retired live. What it did for some chats is now a rule in eve
 - [ ] Try `fb-ask review` on the next risky review (never run against the real claude-fb models yet)
 Source: [brief](../briefs/retire-runner.md) ("Decisions 2026-10-22 (third chat)") and [brief](../briefs/context-trim-and-all-chats.md).
 
-### 91. Handover memory · needs a decision
+### 91. Handover memory · in-progress
 A fresh chat after a handoff keeps every open question, shown list and agreed decision, written by a small helper into the feature's brief and checked against the old transcript.
 **Done when:** spec 0069's acceptance criteria hold, and the replay of the 11 audited handoffs keeps at least as much as today's slots.
-- [ ] Design it (spec): `/architect handover memory` (spec [0069](../specs/0069-handover-memory.md) is Proposed: you approve its data model and pick its 5 open decisions, plus 3 small choices: `docs/briefs/general.md`, 500 tokens as 2000 characters, 14 days checked at the next handoff or `/sync`)
+- [x] Design it (spec): `/architect handover memory` (spec [0069](../specs/0069-handover-memory.md) accepted 2026-10-22)
+- [ ] Build it: `/develop handover memory`
+  - [ ] Probe: a foreground writer agent inside a mod-started rollover finishes before the slot check; a FAIL goes back to `/architect`
+  - [ ] `scripts/handover-memory.py` check, prune, ages, close, lint, with `--test`
+  - [ ] Replay the 11 audited handoffs; stop on a loss
+  - [ ] Templates `sections.md` and `instructions.md`, writer failure line, mod tests
+  - [ ] Live rules: `handover-carry.md`, `check-gates.md` gate 5, `CLAUDE.md` Context, live templates, then `bin/sync.sh`
+- [ ] Verify it: `/check verify handover memory`
+- [ ] Test it: `/test handover memory`
 Source: [brief](../briefs/handover-memory.md), [brief](../briefs/handoff-loss-audit.md) and [brief](../briefs/retire-runner.md).
 
 ### 92. Skills start themselves at the right moment · needs a decision
