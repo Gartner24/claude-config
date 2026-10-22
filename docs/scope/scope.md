@@ -1261,11 +1261,11 @@ Small bugs the Assertion Guardian review left (low severity, none blocks use).
 **Done when:** each leftover in the report is fixed with a test, or dropped with a reason.
 - [ ] Fix them: `/debug review leftovers 2026-10-21`
   - [x] build() clones an unreachable source twice (PR #139)
-  - [ ] Byte order mark refusal text, and restore skips a symlink: edit the live assertion-guardian mod, `claude plugin test`, then `bin/sync.sh` regenerates `config/patches/assertion-guardian.patch`
-  - [ ] `/allow-test-change <file>` for a shell refusal: find the code first
+  - [x] Byte order mark refusal text, and restore skips a symlink: edit the live assertion-guardian mod, `claude plugin test`, then `bin/sync.sh` regenerates `config/patches/assertion-guardian.patch`
+  - [x] `/allow-test-change <file>` for a shell refusal: find the code first
   - [ ] Concurrent Bash calls undo each other's additions: the fixing chat picked "leave it, the README says it" · waits on you
   - [ ] Spec 0068 Amended line for the refusal shape: `/architect assertion guardian blocks only removed checks`
-  - [ ] chain-catch owes `/develop` for a row whose text says it builds only after other rows (row 100 on 2026-10-22, after an edit of the live `settings.json` its spec names): skip a row that still waits on unmerged rows
+  - [x] chain-catch owes `/develop` for a row whose text says it builds only after other rows (row 100 on 2026-10-22, after an edit of the live `settings.json` its spec names): skip a row that still waits on unmerged rows
   - [ ] `bin/install.sh` copies the commit hooks to `<repo>/<hooksPath>` when a global `core.hooksPath` is set (dry run 2026-10-22: `mkdir -p .../claude-config//home/santiago/.config/git/hooks`); it should use `git rev-parse --git-common-dir`/hooks, where the global dispatcher looks
 Source: [review report](../reviews/review-2026-10-21.md) (P3 rows and Guardrails): a file with a byte order mark refused with generic text; restore writes through a symlink; build() clones an unreachable source twice; `/allow-test-change <file>` does nothing for a shell refusal; concurrent Bash calls can undo each other's additions; spec 0068 has no Amended line for the refusal shape.
 
