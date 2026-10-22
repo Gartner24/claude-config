@@ -1416,9 +1416,9 @@ Source: [brief](../briefs/icm-restructure.md) "Workflows"; your messages 2026-10
 ### 103. Fix: a manual handoff gets the "not live" facts list
 A manual `/rollover` then `/clear` gets no "not live" list in the handover: the wf-handoff mod adds it only on its auto path (`claude-home/mods/wf-handoff/hooks/register.ts:371`, `notLiveNow`). The PR #152 fix has never had a real test.
 **Done when:** a handover written by a manual `/rollover` names every changed file that is not live yet, the same as the auto path, with a mod test red on the old code.
-- [ ] Fix it: `/debug a manual handoff gets the not live facts list`
-- [ ] Verify it: `/check verify a manual handoff gets the not live facts list`
-- [ ] Test it: `/test a manual handoff gets the not live facts list`
+- [x] Fix it: `/debug a manual handoff gets the not live facts list` (root cause: `finishRollover` was the only caller of `notLiveNow`, so `/handoff` after a manual `/rollover` only cleared; now `gatherFacts` is shared and `/handoff` stamps the slot once)
+- [x] Verify it: `/check verify a manual handoff gets the not live facts list` (can fail: `/handoff` leaves the slot without a `## Handoff facts` block; mod test red with the stamp off)
+- [x] Test it: `/test a manual handoff gets the not live facts list` (mutants: stamp disabled -> red on `## Handoff facts`; once-guard removed -> red on the second `/handoff` adding a second block)
 Source: gap found in the ninth chat of 2026-10-22 (handover of that chat, next action 2).
 
 ## Deferred
