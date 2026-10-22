@@ -165,7 +165,7 @@ index ca09408..8c8a50d 100644
  // Tools
  
 diff --git a/hooks/register.tsx b/hooks/register.tsx
-index 9227632..1a2f62a 100644
+index 9227632..7af9536 100644
 --- a/hooks/register.tsx
 +++ b/hooks/register.tsx
 @@ -1,8 +1,8 @@
@@ -179,7 +179,7 @@ index 9227632..1a2f62a 100644
  
  const blocked = atom({ plugin: 'assertion-guardian', key: 'blocked' } as const, null)
  const allowed = atom({ plugin: 'assertion-guardian', key: 'allowed' } as const, [])
-@@ -92,17 +92,157 @@ async function check($: EngineInterface, e: { tool: string; [k: string]: unknown
+@@ -92,17 +92,159 @@ async function check($: EngineInterface, e: { tool: string; [k: string]: unknown
    return null
  }
  
@@ -320,13 +320,15 @@ index 9227632..1a2f62a 100644
 +        const rm = await $.process.run(['rm', '-f', '--', target], { timeoutMs: 5000 })
 +        if (rm.exitCode !== 0) throw new Error(rm.stderr)
 +      } else {
-+        // A write follows a link to wherever it points; a command that swapped the test for a link must not steer the restore.
-+        if (now !== null && (await $.process.run(['test', '-L', target], { timeoutMs: 5000 })).exitCode === 0) {
-+          kept.push(`${target} (is a symlink, not restored)`)
-+          continue
++        // A write follows a link to wherever it points, so a link (a dangling one reads as absent) is removed
++        // first and the test is written back as a regular file; a command that swapped the test for a link must not steer the restore.
++        const linked = (await $.process.run(['test', '-L', target], { timeoutMs: 5000 })).exitCode === 0
++        if (linked) {
++          const rm = await $.process.run(['rm', '-f', '--', target], { timeoutMs: 5000 })
++          if (rm.exitCode !== 0) throw new Error(rm.stderr)
 +        }
 +        await $.fs.write(target, was.text)
-+        if (now === null && was.mode !== undefined) {
++        if ((now === null || linked) && was.mode !== undefined) {
 +          const chmod = await $.process.run(['chmod', was.mode, '--', target], { timeoutMs: 5000 })
 +          if (chmod.exitCode !== 0) throw new Error(chmod.stderr)
 +        }
@@ -342,7 +344,7 @@ index 9227632..1a2f62a 100644
  export const register: Register = on => {
    on('session.start', async ($, e, next) => {
      await $.command.register({
-@@ -118,7 +258,8 @@ export const register: Register = on => {
+@@ -118,7 +260,8 @@ export const register: Register = on => {
      const last = await read($, blocked)
      if (last === null) return { text: 'Assertion Guardian: nothing is blocked right now.' }
      const named = e.args.trim()
@@ -352,7 +354,7 @@ index 9227632..1a2f62a 100644
        return { text: `Assertion Guardian: the blocked change is to ${last.target}, not ${named}. Nothing allowed.` }
      }
      await allow($, last)
-@@ -127,19 +268,26 @@ export const register: Register = on => {
+@@ -127,19 +270,26 @@ export const register: Register = on => {
  
    on('tool.call', async ($, e, next) => {
      const call = e as { tool: string; [k: string]: unknown }
@@ -388,7 +390,7 @@ index 9227632..1a2f62a 100644
    })
  
 diff --git a/tests/assertion-guardian.test.tsx b/tests/assertion-guardian.test.tsx
-index a9012d5..4445c8a 100644
+index a9012d5..d0d6466 100644
 --- a/tests/assertion-guardian.test.tsx
 +++ b/tests/assertion-guardian.test.tsx
 @@ -1,6 +1,7 @@
@@ -400,7 +402,7 @@ index a9012d5..4445c8a 100644
  
  const SPEC = `describe('sum', () => {
    it('adds', () => {
-@@ -324,3 +325,326 @@ describe('hooks', () => {
+@@ -324,3 +325,350 @@ describe('hooks', () => {
      await ui.unmount()
    })
  })
@@ -488,7 +490,10 @@ index a9012d5..4445c8a 100644
 +    w.log.push(argv.join(' '))
 +    if (argv[0] === 'stat') return run('755\n')
 +    if (argv[0] === 'test') return run('', w.links.has(argv[argv.length - 1]!) ? 0 : 1)
-+    if (argv[0] === 'rm') w.disk.delete(argv[argv.length - 1]!)
++    if (argv[0] === 'rm') {
++      w.disk.delete(argv[argv.length - 1]!)
++      w.links.delete(argv[argv.length - 1]!)
++    }
 +    return run('')
 +  })
 +  on('tool.call', () => {
@@ -568,7 +573,7 @@ index a9012d5..4445c8a 100644
 +    w.sh = d => d.delete(T)
 +    expect((await $.tool.call({ tool: 'Bash', command: 'rm src/sum.test.ts' })).deny).toMatch(/test cases deleted/)
 +    expect(w.disk.get(T)).toBe(SPEC)
-+    expect(w.log).toEqual([`stat -c %a -- ${T}`, `write ${T}`, `chmod 755 -- ${T}`])
++    expect(w.log).toEqual([`stat -c %a -- ${T}`, `test -L ${T}`, `write ${T}`, `chmod 755 -- ${T}`])
 +  })
 +
 +  test('every named file is put back, one the command created is removed, and the refusal says what happened', async ($, on) => {
@@ -716,15 +721,36 @@ index a9012d5..4445c8a 100644
 +    expect(w.runs).toBe(0)
 +  })
 +
-+  test('a target that is a symlink after the command is not written through', async ($, on) => {
++  test('a test swapped for a symlink is restored as a regular file, never written through the link', async ($, on) => {
 +    const w = world(on, { [T]: SPEC })
-+    w.sh = d => d.set(T, WEAK)
-+    w.links.add(T)
-+    const ran = await $.tool.call({ tool: 'Bash', command: "sed -i '/toEqual(0)/d' src/sum.test.ts" })
++    w.sh = d => {
++      d.set(T, WEAK)
++      w.links.add(T)
++    }
++    const ran = await $.tool.call({ tool: 'Bash', command: "rm src/sum.test.ts && ln -s other/weak.ts src/sum.test.ts" })
 +    expect(ran.deny).toMatch(/assertions removed/)
-+    expect(ran.deny).toMatch(new RegExp(`Not put back: ${T} \\(is a symlink, not restored\\)`))
-+    expect(w.log.filter(l => l.startsWith('write'))).toEqual([])
-+    expect(w.disk.get(T)).toBe(WEAK)
++    expect(ran.deny).not.toMatch(/Not put back/)
++    expect(w.disk.get(T)).toBe(SPEC)
++    expect(w.links.has(T)).toBe(false)
++    // The link goes first: a write before the rm would land in the file it points at.
++    const at = (prefix: string) => w.log.findIndex(l => l.startsWith(prefix))
++    expect(at(`rm -f -- ${T}`)).toBeGreaterThan(-1)
++    expect(at(`rm -f -- ${T}`)).toBeLessThan(at(`write ${T}`))
++    expect(w.log).toContain(`chmod 755 -- ${T}`)
++  })
++
++  test('a dangling symlink in place of the test is replaced by the regular file too', async ($, on) => {
++    const w = world(on, { [T]: SPEC })
++    w.sh = d => {
++      d.delete(T)
++      w.links.add(T)
++    }
++    const ran = await $.tool.call({ tool: 'Bash', command: "rm src/sum.test.ts && ln -s nowhere src/sum.test.ts" })
++    expect(ran.deny).toMatch(/test cases deleted/)
++    expect(ran.deny).not.toMatch(/Not put back/)
++    expect(w.disk.get(T)).toBe(SPEC)
++    expect(w.links.has(T)).toBe(false)
++    expect(w.log).toContain(`rm -f -- ${T}`)
 +  })
 +})
 diff --git a/types/index.d.ts b/types/index.d.ts
