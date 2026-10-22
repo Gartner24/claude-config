@@ -3,6 +3,7 @@
 **Date**: 2026-10-22
 **Status**: Proposed
 **Paths:** `claude-home/mods/wf-handoff/templates/*.md`, `claude-home/mods/wf-handoff/hooks/register.ts`, `claude-home/mods/wf-handoff/tests/**`, `claude-home/rules/handover-carry.md`, `claude-home/rules/check-gates.md`, `claude-home/CLAUDE.md`, `scripts/handover-memory.py`
+**Amended**: 2026-10-22, owner picked all five decisions and the three small values ([brief](../briefs/handover-memory.md)); AC-13 added (landed mark set automatically)
 
 ## What you're agreeing to
 - A handover keeps only four things: open questions, things shown to you that are still needed, agreed decisions, and helpers still running. Your raw messages, the reasoning and the mistakes are never saved.
@@ -40,7 +41,7 @@ Today the auto handoff writes a long handover into the jjstack slot: every owner
 | Repo, no feature in this chat | `docs/briefs/general.md` | `docs/briefs/general/` | `docs/briefs/general/archive.md` |
 | No repo | `~/.claude/state/handover/<project>/index.md` | same folder, `<id>.md` | same folder, `archive.md` |
 
-`<feature-slug>` is the scope row heading in lower case with runs of other characters as `-` (the rule `branch-pr.md` uses for branch names); when the row's `Source:` already names a brief, that file is the index. `<project>` is the start folder's real path with `/` as `-` (the name Claude Code gives its project folder). The index is the feature's brief: one file, not two (Open decision 4).
+`<feature-slug>` is the scope row heading in lower case with runs of other characters as `-` (the rule `branch-pr.md` uses for branch names); when the row's `Source:` already names a brief, that file is the index. `<project>` is the start folder's real path with `/` as `-` (the name Claude Code gives its project folder). The index is the feature's brief: one file, not two (decision 4).
 
 ### Index file format
 ```
@@ -81,7 +82,7 @@ Only `open` items stay in the index. A `done` item moves to `archive.md` with ` 
 ### Example (`docs/briefs/handover-memory.md`)
 ```
 # Handover memory: brief and handover memory
-**Feature:** docs/scope/scope.md row 90
+**Feature:** docs/scope/scope.md row 91
 **Updated:** 2026-10-22 18:40 by 3f2a1b9c
 
 ## Open questions
@@ -103,20 +104,27 @@ Only `open` items stay in the index. A `done` item moves to `archive.md` with ` 
 ```
 
 ## Requirements
-- **AC-1** (four kinds only): the writer helper writes only `Q`, `S`, `D` and `L` items. The handover never holds a copy of the owner's messages, reasoning, tool output, or "tried and failed" notes; `templates/sections.md` loses its "What the owner said" and "Tried and failed, and gotchas" sections (Open decision 5 for what the slot keeps). A lasting trap found in the chat goes to `AGENTS.md` or memory through the normal paths, not the handover.
+- **AC-1** (four kinds only): the writer helper writes only `Q`, `S`, `D` and `L` items. The handover never holds a copy of the owner's messages, reasoning, tool output, or "tried and failed" notes; `templates/sections.md` loses its "What the owner said" and "Tried and failed, and gotchas" sections (decision 5 for what the slot keeps). A lasting trap found in the chat goes to `AGENTS.md` or memory through the normal paths, not the handover.
 - **AC-2** (quote or drop): `scripts/handover-memory.py check <index> --transcript <jsonl>` reads every item whose session8 matches the transcript's session and looks for its quote in that session's owner messages (`who owner`) or assistant text (`who claude`), after collapsing whitespace. An item with no match is removed from the index and printed as `dropped: <id> <text>`; items from older sessions are left as they are (checked when written). Exit 0 with the dropped list; exit 1 only on a file it cannot parse, naming the line.
-- **AC-3** (writer at handoff): at every auto handoff and every typed `/rollover`, the writer helper (where it runs: Open decision 1) gets the transcript path, the current index if any, and the item format; it adds new items, marks finished ones `done`, never edits a quote of an existing item, and then AC-2 runs on its output. A newer owner message wins over an older item: the writer marks the older `D` item `done` with `detail: replaced by D<n>`.
+- **AC-3** (writer at handoff): at every auto handoff and every typed `/rollover`, the writer helper (one foreground agent, sonnet, effort low, started by the rollover turn: decision 1) gets the transcript path, the current index if any, and the item format; it adds new items, marks finished ones `done`, never edits a quote of an existing item, and then AC-2 runs on its output. A newer owner message wins over an older item: the writer marks the older `D` item `done` with `detail: replaced by D<n>`.
 - **AC-4** (no /tmp): before the index is written, every file the chat made under `/tmp` or the session scratchpad that an `S` item needs is moved into the detail folder and the item points at it. `rules/handover-carry.md` says a deliverable is saved as an `S` detail file the moment it is shown (fix 6), not at the handoff.
 - **AC-5** (new chat reads only the index): `templates/instructions.md` tells the fresh chat to read the index named in the slot and nothing else at start; its first turn lists every open `Q` item with its age, the title of every open `S` item, every `L` item to check, and says plainly which items AC-2 dropped (fix 2: show what is pending, say what could not be recovered). A detail file is opened only when the next step needs it.
 - **AC-6** (status, age, archive): `handover-memory.py prune <index>` moves `done` items to `archive.md` and deletes archive lines whose done date is more than 14 days before today; it never touches an `open` item. It runs at each handoff after AC-2 and from `/sync` (AC-8). With no daemon, "after 14 days" means at the first handoff or `/sync` after that day.
 - **AC-7** (ages shown): `handover-memory.py ages <index>` prints each open item as `<id> open <n>d <text>`; AC-5's first turn uses it.
-- **AC-8** (brief lifecycle in /sync): a new gate 5 in `rules/check-gates.md` (it beats the vendored `/sync`): when `/sync` closes a feature (`· done`), it runs `handover-memory.py close <index>`. That exits 1 and names each item when any `Q`, `S` or `L` item is still `open`, or any `D` item is not `done` with a `landed:` path that exists in the repo (how landing is found: Open decision 3). On exit 0 `/sync` deletes the index, its detail folder and archive with `git rm`, and points the row's `Source:` at the last commit that had it.
+- **AC-8** (brief lifecycle in /sync): a new gate 5 in `rules/check-gates.md` (it beats the vendored `/sync`): when `/sync` closes a feature (`· done`), it runs `handover-memory.py close <index>`. That exits 1 and names each item when any `Q`, `S` or `L` item is still `open`, or any `D` item is not `done` with a `landed:` path that exists in the repo (decision 3). On exit 0 `/sync` deletes the index, its detail folder and archive with `git rm`, and points the row's `Source:` at the last commit that had it.
 - **AC-9** (brief links): on every `/sync`, `handover-memory.py lint <repo>` prints `warning: uncited brief <path>` for each brief no scope row's `Source:` names and `warning: broken brief link <row> <path>` for each `Source:` naming a missing brief; `/sync` copies them under a heading `Briefs to tidy` and never stops on them.
 - **AC-10** (one brief per feature): `~/.claude/CLAUDE.md` `### Context` says a feature has one brief, which is its handover index; the rule for writing it stays next to the creation rule (course check step 5).
 - **AC-11** (tests): `handover-memory.py --test` covers AC-2 (a made up quote dropped, a real one kept, an older session left alone), AC-6 (a 15 day old done line deleted, a 13 day old one kept, an open item of any age kept), AC-8 (an open item and an unlanded decision each exit 1) and AC-9 (both warnings); each test mutation checked. Mod changes keep `claude plugin test claude-home/mods/wf-handoff` green, with a test that the sections template no longer asks for owner messages.
 - **AC-12** (replay before live): replay the 11 audited handoffs of handoff-loss-audit.md: run the writer and AC-2 on each old transcript and count open questions, shown lists and decisions that reach the index against the audit's numbers. Results in `docs/specs/0069-handover-memory/verify.md`. A replay that keeps fewer open decisions than today's slots stops the build and goes back to `/architect`.
+- **AC-13** (landed mark is automatic): `rules/handover-carry.md` says that whatever writes a `D` item's decision into a spec, `AGENTS.md` or the scope (`/architect`, `/scope`, `/sync`, or a plain chat) sets that item `done` with `landed: <path>` in the same step; the owner never marks one. At each handoff the writer helper also marks a `D` item landed when the transcript shows this chat wrote it into one of those files, naming that path. `handover-memory.py --test` covers a `D` item the writer marks landed from a transcript edit, mutation checked.
 
-## Open decisions (the owner picks; each has a recommendation)
+## Decision
+The owner picked A on all five on 2026-10-22: (1) the writer is an agent started in the rollover turn; (2) markdown, one line per item, fields split by ` | `; (3) a `landed: <path>` mark, set automatically by the step that writes the item down (AC-13); (4) one file, the brief is the index; (5) the slot keeps next actions, the last request with its status, the facts block and the index path, nothing else. Small values accepted: `docs/briefs/general.md` for a chat with no feature, 500 tokens checked as 2000 characters, the 14 day delete runs at the next handoff or `/sync`.
+
+## Rationale
+Each pick is the option's "Why" line below: least new code, readable in git, fails safe, one copy of agreed decisions, and the start the owner agreed (about 500 tokens).
+
+## Options considered
 
 ### 1. Where the writer helper runs
 - **A. In the handoff mod's rollover turn (recommended).** `sections.md` tells the rollover turn to start one writer agent (Agent tool, sonnet, effort low) with the transcript path, wait for it, then run AC-2 and AC-6. A rule line in `handover-carry.md` makes a typed `/rollover` do the same. Gains: no new mod API, works today, the mod already waits for agents. Risk: it depends on the model following the template; AC-2 catches made up items but not missing ones. Needs a probe: a foreground agent inside the mod-started rollover turn finishes before the slot check.
@@ -147,12 +155,12 @@ Why A: two copies of agreed decisions is the drift the course check found.
 Why A: it is what was agreed; B stays possible if the replay shows losses.
 
 ## Build plan
-1. Owner picks the open decisions; `/architect` amends this spec and the owner accepts it.
+1. Done 2026-10-22: the owner picked the decisions, `/architect` amended this spec.
 2. Probe for decision 1 (if A: a foreground agent inside a mod-started rollover; if B: `claude -p` from `$.process.run` inside the handoff), recorded in `verify.md`; a FAIL goes back to `/architect`.
 3. `scripts/handover-memory.py` with `check`, `prune`, `ages`, `close`, `lint` and `--test`, satisfies **AC-2**, **AC-6** to **AC-9**, part of **AC-11**.
 4. Replay, satisfies **AC-12**; stop on a loss.
 5. `templates/sections.md`, `templates/instructions.md`, and `register.ts` only if decision 1 is B, with mod tests, satisfies **AC-1**, **AC-3**, **AC-5**, rest of **AC-11**.
-6. Live edits (copied files, live wins): `~/.claude/rules/handover-carry.md`, `~/.claude/rules/check-gates.md` gate 5, `~/.claude/CLAUDE.md` `### Context`, the live templates under `~/.claude/auto-handoff/`, then `bin/sync.sh`, satisfies **AC-4**, **AC-8**, **AC-10** · waits on you if the sandbox refuses the write.
+6. Live edits (copied files, live wins): `~/.claude/rules/handover-carry.md`, `~/.claude/rules/check-gates.md` gate 5, `~/.claude/CLAUDE.md` `### Context`, the live templates under `~/.claude/auto-handoff/`, then `bin/sync.sh`, satisfies **AC-4**, **AC-8**, **AC-10**, **AC-13** · waits on you if the sandbox refuses the write.
 
 ## Consequences
 **Positive**: a fresh chat starts with about 500 tokens of what is still open instead of a long slot; open questions and shown lists survive by name; no file lives in `/tmp`; briefs stop piling up.

@@ -1,0 +1,13 @@
+# Handover memory: brief
+
+**Feature:** docs/scope/scope.md row 91 · spec [0069](../specs/0069-handover-memory.md)
+
+## Agreed so far, do not ask again
+- 2026-10-22: data model approved as written in spec 0069 (owner panel answer "Approve as written").
+- 2026-10-22: open decision 1, writer helper: A, an agent in the rollover turn (owner panel answer).
+- 2026-10-22: open decision 2, file format: A, markdown one line per item split by " | " (owner panel answer).
+- 2026-10-22: open decision 3, landed check: A, a `landed: <path>` mark, and the owner added "this step should be automatic too": the skill or chat that writes a D item into a spec, `AGENTS.md` or the scope sets the mark itself in the same step, never the owner.
+- 2026-10-22: open decision 4: A, one file, the feature's brief is the index (owner panel answer).
+- 2026-10-22: open decision 5, slot: A, next actions, last request with status, facts block, index path; no owner message copy, no jq read (owner panel answer).
+- 2026-10-22: cross check (another model) found 9 gaps; owner answered "Apply all nine". NOT YET WRITTEN into spec 0069, next step: (1) feature = row of the checked out branch, else the row whose spec the chat edited last, else `general.md`; the rollover turn resolves the path and passes it to the writer; (2) session id from the mod's transcript lookup (`transcriptOf`), from the slot for a typed `/rollover`; `check` only runs on the current session; (3) owner messages = `type=user` lines with string or text content, no tool_result, no system-reminder, no skill or command expansion; claude = assistant text blocks only; (4) the script assigns ids (max over index plus archive), the writer matches old items by id only, a restatement is a new item; (5) a `landed:` path must be an Edit/Write target in the transcript, checked by `check`; (6) detail files keep their extension (`S1.<ext>`), a folder for several files, the replay counts missed S items; (7) the writer turns `|` into `/` in text and quote, the check compares the same way; over 2000 characters the index is still read whole and the script lists the oldest items to archive; (8) `/sync` runs prune then close, `Source:` becomes `<path> @ <short sha>`, `general.md` is exempt from the uncited warning; (9) on writer failure or exit 1 the handoff goes on, the slot gets "memory not written: <reason>", the fresh chat says so. Then accept the spec (standing answer) and hand off for the build.
+- 2026-10-22: small values accepted: `docs/briefs/general.md` for a chat with no feature; 500 tokens checked as 2000 characters; the 14 day delete runs at the next handoff or `/sync` (owner panel answer).

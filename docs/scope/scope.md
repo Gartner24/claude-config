@@ -112,7 +112,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 91 | Handover memory | Release 10 | needs a decision |
 | 92 | Skills start themselves at the right moment | Release 10 | needs a decision |
 | 93 | Dashboard restructure for the setup without wf | Release 10 | needs a decision |
-| 94 | Three numbers for the switch-on rules | Release 10 | planned |
+| 94 | Three numbers for the switch-on rules | Release 10 | done |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -1280,7 +1280,7 @@ Source: [brief](../briefs/retire-runner.md) ("Decisions 2026-10-22 (third chat)"
 A fresh chat after a handoff keeps every open question, shown list and agreed decision, written by a small helper into the feature's brief and checked against the old transcript.
 **Done when:** spec 0069's acceptance criteria hold, and the replay of the 11 audited handoffs keeps at least as much as today's slots.
 - [ ] Design it (spec): `/architect handover memory` (spec [0069](../specs/0069-handover-memory.md) is Proposed: you approve its data model and pick its 5 open decisions, plus 3 small choices: `docs/briefs/general.md`, 500 tokens as 2000 characters, 14 days checked at the next handoff or `/sync`)
-Source: [brief](../briefs/handoff-loss-audit.md) and [brief](../briefs/retire-runner.md).
+Source: [brief](../briefs/handover-memory.md), [brief](../briefs/handoff-loss-audit.md) and [brief](../briefs/retire-runner.md).
 
 ### 92. Skills start themselves at the right moment · needs a decision
 Today the 9 workflow skills start only because rule text says so, and on 2026-10-22 `/scope` never ran at chat start and free form builds skipped the `/develop` chain. You want real triggers, like the JSM agentic engineering course describes.
@@ -1294,10 +1294,10 @@ The wf-dash band and panes still read the retired runner's ideas. You like the d
 - [ ] Design it (spec): `/architect dashboard restructure for the setup without wf` (then the `design` pipeline with you)
 Source: your message 2026-10-22 ("I think the dashboard is great still just need a restructuring and connect with our updates").
 
-### 94. Three numbers for the switch-on rules
+### 94. Three numbers for the switch-on rules · done
 `rules/when-to-switch-on.md` has three `[ask the owner]` placeholders.
 **Done when:** the keep awake hours, the wait in minutes for a first PR check, and the review loop rounds are your numbers in the live rule and the repo.
-- [ ] Fill them: `/develop three numbers for the switch-on rules` (after your three answers)
+- [x] Fill them: `/develop three numbers for the switch-on rules` (your answers 2026-10-22: 8h, 10 minutes, 3 rounds; live and in the repo)
 Source: [brief](../briefs/context-trim-and-all-chats.md) Part 2.
 
 ## Deferred
