@@ -45,6 +45,20 @@ def find_repo(path):
     return None, None
 
 
+def is_trusted(repo):
+    """Drift runs the repo's own script, so only the owner's clone and its worktrees (same git common dir) qualify."""
+    clone = os.path.join(home(), "claude-config")
+    if os.path.realpath(repo) == os.path.realpath(clone):
+        return True
+    try:
+        r = subprocess.run(["git", "-C", str(repo), "rev-parse", "--git-common-dir"],
+                           capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return r.returncode == 0 and os.path.realpath(os.path.join(repo, r.stdout.strip())) == \
+        os.path.realpath(os.path.join(clone, ".git"))
+
+
 def new_text(tool, ti, old):
     if tool == "Write":
         return ti["content"]
@@ -142,9 +156,7 @@ def check(data):
         return None
     path = ti["file_path"]
     repo, rel = find_repo(path)
-    # Only the owner's clone is trusted: drift runs that repo's script, so a stranger's checkout must never get here.
-    trusted = Path(os.path.realpath(os.path.join(home(), "claude-config")))
-    if repo is None or repo != trusted or not rel.startswith(("docs/scope/", ".workflow/scope/")):
+    if repo is None or not is_trusted(repo) or not rel.startswith(("docs/scope/", ".workflow/scope/")):
         return None
     real = os.path.realpath(path)
     old = Path(real).read_text(encoding="utf-8") if os.path.isfile(real) else ""
@@ -289,8 +301,20 @@ def self_test():
         (stranger / "bin").mkdir(parents=True)
         (stranger / "docs" / "scope").mkdir(parents=True)
         (stranger / "bin" / "claude-config.py").write_text(f"open({str(t / 'marker')!r}, 'w').write('ran')\n")
+        subprocess.run(["git", "-C", str(stranger), "init", "-q"], capture_output=True, check=True)
         sscope = stranger / "docs" / "scope" / "scope.md"
         ok("untrusted repo is never run", edit(box, tick, box, path=sscope) is None and not (t / "marker").exists())
+
+        # a real worktree of the trusted repo is checked (AC-1); the stranger above shares no git dir with it
+        g = ["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t"]
+        drift("rule:\n  rules/x.md: differs\n", 1)
+        scope.write_text(box)
+        for cmd in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "x"],
+                    ["worktree", "add", "-q", str(repo / ".claude" / "worktrees" / "w")]):
+            subprocess.run(g + cmd, capture_output=True, check=True)
+        wscope = repo / ".claude" / "worktrees" / "w" / "docs" / "scope" / "scope.md"
+        ok("worktree of the trusted repo is checked", "rules/x.md" in reason(edit(box, tick, box, path=wscope)))
+        drift()
 
         mbox = "- [ ] Link: claude-home/mods/m/x.ts · live\n"
         ok("mods box left to drift", edit(mbox, mbox.replace("[ ]", "[x]"), mbox) is None)
