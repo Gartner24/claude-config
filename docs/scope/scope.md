@@ -322,6 +322,7 @@ A manual `/rollover` then `/clear` gets no "not live" list in the handover: the 
 - [x] Fix it: `/debug a manual handoff gets the not live facts list` (root cause: `finishRollover` was the only caller of `notLiveNow`, so `/handoff` after a manual `/rollover` only cleared; now `gatherFacts` is shared and `/handoff` stamps the slot once)
 - [x] Verify it: `/check verify a manual handoff gets the not live facts list` (can fail: `/handoff` leaves the slot without a `## Handoff facts` block; mod test red with the stamp off)
 - [x] Test it: `/test a manual handoff gets the not live facts list` (mutants: stamp disabled -> red on `## Handoff facts`; once-guard removed -> red on the second `/handoff` adding a second block)
+- [ ] Live check: type `/rollover`, then `/clear`; the new chat's handover has a `## Handoff facts` block with the not live list · waits on you · later boxes go on
 Source: gap found in the ninth chat of 2026-10-22 (handover of that chat, next action 2).
 
 ## Deferred
