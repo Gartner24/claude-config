@@ -462,6 +462,27 @@ test('row 95: a forked chat (new id, history copied) is off, and gives no handof
   expect(((await $.tool.call({ tool: 'Read', file_path: '/w/a' } as any)) as any).deny).toBeUndefined()
 })
 
+test('row 104: a chat saved while off, resumed after on in the folder, is on and hands off past the line', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  await start($)
+  await cmd($, 'off') // S1's saved chain says off
+  w.id = 'S5'
+  await start($)
+  await cmd($, 'on') // typed in another chat of the folder
+  w.id = 'S1'
+  await start($) // claude --resume S1
+  expect(chain(w, 'S1').off).toBe(false)
+  w.tokens = 60_000
+  await typed($, 'go on')
+  expect(((await pastGrace($)) as any).deny).toBeDefined()
+})
+
+test('row 104: a chat that never typed off or on keeps its own setting when the folder file has no word', async ($, on) => {
+  const w = world(on)
+  await start($)
+  expect(chain(w).off).toBeUndefined()
+})
+
 test('the folder is the real path: off typed in a chat started through a link holds in the real folder',async ($, on) => {
   const w = world(on)
   await startIn($, '/link')

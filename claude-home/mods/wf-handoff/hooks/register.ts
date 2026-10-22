@@ -592,7 +592,9 @@ export const register: Register = (on, options) => {
     const root = await $.fs.read(`${dir}/${id}.root`).then(t => t.trim()).catch(() => id)
     const c = await $.fs.read(`${dir}/${root}.json`).then(t => JSON.parse(t) as Chain).catch(() => null)
     chain = c?.session === id ? c : { root: id, session: id, previous: null, startTokens: null, unattended: 0, triggeredAt: null, phase: 'idle', lastRequest: null }
-    if (await folderOff($)) chain.off = true
+    // Row 104: a resumed chat follows the folder both ways; with no word in the file it keeps its own.
+    const word = (await $.fs.read(offFile()).catch(() => '')).trim()
+    if (word === 'off' || word === 'on') chain.off = word === 'off'
     chain.startedAt ??= new Date(await $.clock.now()).toISOString()
     // A reload mid handoff loses the in-memory flags and timers that would finish it, so the
     // phase would hold every typed prompt forever.
