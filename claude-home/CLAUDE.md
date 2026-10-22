@@ -51,17 +51,12 @@ Branches and PRs follow `rules/branch-pr.md`: one branch per spec, stacked only 
   Prototype stop; Alpha `/check verify`; Beta + `/test`; GA + review + `/document`.
   Run the rest of the chain yourself without asking, then `/sync`. Stop only on a failure,
   an owed decision, or a step that pushes, merges, posts, or bills (`/review-stack`, `ultra`).
-  The user only answers questions and types `/clear`; every other handoff step is yours.
-  When the feature closes, invoke `/save-and-clear` yourself and tell the user to type
-  `/clear`, then the next command. Mid feature (after `/architect`):
-  invoke `/rollover` yourself and tell the user to type `/clear`; a start up hook loads the
-  handover (`/resume-from-clear` still works by hand).
+  Handoffs (`/rollover`, `/save-and-clear`, `/clear`): `rules/handoff.md`. Feature closed: `/sync` first.
 - UI changed: `/check verify` plus `design-gate`. New design or restyle: `design` pipeline.
-- Review: `## Review Rules` below decide the reviewer. Never `/check review`.
+- Review: `## Review Rules` below decide the reviewer.
 - PR text: `/document pr`. Other prose: `/write`.
 - Bug, failing test, wrong behavior: `/debug`.
-- Feature closed: `/sync`, invoke `/save-and-clear`, then stop and say: "Feature closed.
-  Type /clear, then `<next command from /scope>`."
+- Which skill, cost and who starts it: `rules/skill-map.md`.
 
 ### Decision gate (defines "clearly defined")
 A task is clearly defined only if every value it produces, computes or displays has a
@@ -90,10 +85,7 @@ anyway. Surface every `Assumed` spec before starting new work.
   Use the file the scope row's `Source:` names, else `docs/briefs/<feature-slug>.md`
   (`.workflow/briefs/` in bot-reviewed repos), and point the row's `Source:` at it.
   `/scope` and `/architect` read that brief and list anything they drop or weaken.
-- Which handoff: feature still open (boxes unticked, uncommitted work, a step half done)
-  -> `/rollover`, then `/clear` (the handover loads itself; `/resume-from-clear` by hand
-  also works). Feature closed or switching
-  task -> `/save-and-clear`, then `/clear`.
+- Which handoff (feature open vs closed): `rules/handoff.md`.
 - Long single feature: suggest `/compact` mid build. Autocompact (700k) is a last resort.
 
 ### Never in a repo
@@ -120,7 +112,7 @@ target, never by habit:
   confidence gate, ending in APPROVE / CAUTION / REJECT. Hard budgets: 60 min, 4 agents,
   10 findings. Idempotent on purpose: same code in, same verdict out, and a re-review
   reports only regressions and new P0/P1. `--deep` forces recall-max. Report lands in
-  `~/.gstack/projects/<slug>/` (scratch stays out of the repo); copy only the final `review-YYYY-MM-DD.md` into `docs/reviews/`. **The default before landing - except in bot-reviewed repos (below).**
+  `~/.gstack/projects/<slug>/` (scratch stays out of the repo); copy only the final `review-YYYY-MM-DD.md` into `docs/reviews/`.
 - `/jj-security-review` - jjstack's security pass. **Renamed from `/security-review` in
   jjstack 0.40.2 (pulled 2026-09-09)** specifically so Claude Code's own built-in
   `/security-review` stays reachable - the built-in has no other name. So: `/security-review`
@@ -142,6 +134,8 @@ Bot-reviewed repos (which orgs, which bot, what to run there) are defined in the
   Budgeted, converges, cheap enough to re-run. When it finishes, copy its final
   `review-YYYY-MM-DD.md` into `docs/reviews/`; no
   other jjstack file enters a repo.
+- Never `/check review`. Never run `/review` and `/review-stack` over the same diff
+  (you pay for the wrapped reviewer twice and reconcile two disagreeing reports).
 - `/code-review` alone is enough when ALL hold: under ~200 lines and ~10 files, nothing
   touching auth/payments/migrations/deletion/permissions/crypto/config, no contract change
   (exported signature, API field, DB column, enum, env var, CLI flag), no test deleted or
@@ -150,9 +144,6 @@ Bot-reviewed repos (which orgs, which bot, what to run there) are defined in the
   someone else's PR, anything on a risk path, or a change where "it was intentional" is
   carrying too much weight. A three-line permission change is exactly what a size
   threshold waves through. Add `sealed` when the answer has to survive your own memory.
-- **Never run `/review` and `/review-stack` over the same diff.** Both wrap a gstack or
-  Claude reviewer internally, so you pay for that pass twice and then reconcile two
-  reports that disagree for reasons neither one states.
 
 ### Every review answers these two first
 1. **Regression:** what worked before this diff and stops working after it? Grep every
@@ -206,7 +197,4 @@ hook, and a summarized copy of the steps is how steps got skipped before.
 - `design-gate` - the blind audit. Invoked by `design`; the Stop hook will not release
   the run until its report exists and is newer than every file it audited.
 
-The old 5-step copy of this rule and `~/claude-config/commands/design.md` are retired
-(2026-09-09). Setup notes in `~/claude-config/docs/guides/DESIGN-PIPELINE.md` are stale on two points:
-`/ui` and `/21` were never protocol features, and the `magic` MCP is now optional rather
-than the primary component source.
+Old copies of this rule and `docs/guides/DESIGN-PIPELINE.md` are retired or stale; trust `design`.
