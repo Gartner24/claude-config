@@ -78,3 +78,4 @@ Spec 0069. The script is `python3 ~/claude-config/scripts/handover-memory.py`.
   - Exit 0: `git rm` the brief, its detail folder and its `archive.md`, and change the row's
     `Source:` link to `<path> @ <short sha>`, the sha being the last commit that had the brief.
 - `docs/briefs/general.md` is never closed; its items leave only by the 14 day archive rule.
+- A brief a spec links to is kept: after `close` exits 0, skip the `git rm` and keep the row's `Source:` link (owner, 2026-10-22: the spec cites it as the record of the owner's answers).
