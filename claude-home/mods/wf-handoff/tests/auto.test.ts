@@ -19,6 +19,7 @@ function world(on: On, env: Record<string, string> = {}) {
     messages: [] as unknown[],
     rolloverWrites: true,
     clearHangs: false,
+    startGate: null as Promise<void> | null,
     sent: 0,
     resent: [] as string[],
     slotStatus: 'not answered',
@@ -71,7 +72,7 @@ function world(on: On, env: Record<string, string> = {}) {
     return { turnId: e.turnId, index: e.index, answer: 'a', toolUses: [], stopReason: 'end_turn', usage: null } as any
   })
   on('turn.complete', () => ({ text: '' }))
-  on('session.start', (_$, e: any) => ({ cwd: e.cwd }))
+  on('session.start', async (_$, e: any) => { await w.startGate; return { cwd: e.cwd } })
   on('session.end', (_$, e: any) => ({ sessionId: e.sessionId }))
   return w
 }
@@ -337,6 +338,19 @@ test('/auto-handoff with another word changes nothing and says how to use it', a
   await start($)
   expect(await cmd($, 'maybe')).toMatch(/^use \/auto-handoff on, \/auto-handoff off/)
   expect(chain(w).off).toBeUndefined()
+})
+
+test('/auto-handoff typed while the chat start is still running waits for it, then applies', async ($, on) => {
+  const w = world(on)
+  let open!: () => void
+  w.startGate = new Promise<void>(r => { open = r })
+  const starting = start($)
+  const reply = cmd($, 'off')
+  await new Promise(r => setTimeout(r, 20))
+  open()
+  await starting
+  expect(await reply).toMatch(/^auto handoff is off for this chat/)
+  expect(chain(w).off).toBe(true)
 })
 
 test('a chat where the handoff does not run says so', async ($, on) => {

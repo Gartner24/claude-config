@@ -74,6 +74,12 @@ let ownerNext = false // an owner message typed while idle: the next turn starts
 let ownerTurn = false // this turn started with a fresh owner message: never gated below HARD_MARGIN
 let graceLeft = 0
 let waitingAgents = false
+// session.start waits on the other start hooks (MCP servers connecting, tens of seconds after
+// `claude -c`); an /auto-handoff typed in that window used to find no chain and say the chat
+// does not run the handoff (2026-10-22).
+let startDone = false
+let startWaiters: (() => void)[] = []
+const startFinished = () => { startDone = true; startWaiters.splice(0).forEach(f => f()) }
 
 // The rollover skill took "the newest log in the project folder" as this chat's transcript: a
 // background agent's newer log was named instead once, and the search plus its 27k character
@@ -410,7 +416,7 @@ export const register: Register = (on, options) => {
     dir = `${home}/.claude/state/auto-handoff`
     active = e.isInteractive && !(await $.env.get('WF_RUN')) && !(await $.env.get('TM_WORKER_NAME'))
       && (await $.env.get('AUTO_HANDOFF_DISABLE')) !== '1'
-    if (!active) return started
+    if (!active) { startFinished(); return started }
     const t = Number(await $.env.get('AUTO_HANDOFF_TOKENS'))
     envTokens = t > 0 ? t : null
     for (const name of ['sections', 'instructions']) {
@@ -434,6 +440,7 @@ export const register: Register = (on, options) => {
     }
     // the band reads on/off and the line from this file from the chat's first tick
     else await save($)
+    startFinished()
     void startServer($)
     return started
   })
@@ -577,6 +584,10 @@ export const register: Register = (on, options) => {
   // A chat that is not for coding fills fast and drifts less, so the owner turns the handoff off
   // there; the wf-dash band shows the state from the chain file save() writes.
   on('command.run', { command: 'auto-handoff' }, async ($, e) => {
+    if (!startDone) {
+      await new Promise<void>(resolve => { startWaiters.push(resolve); $.clock.after(60000, resolve) })
+      if (!startDone) return { text: 'auto handoff is still starting (the chat start has not finished); try /auto-handoff again in a moment' }
+    }
     // no chain: session.start found the chat inactive and made none
     if (!chain) return { text: 'auto handoff does not run in this chat (not interactive, a wf or worker chat, or AUTO_HANDOFF_DISABLE=1)' }
     const word = e.args.trim().toLowerCase()
