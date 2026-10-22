@@ -10,7 +10,7 @@
 
 ## Rules (one source of truth per kind)
 - Copied (`claude-home/CLAUDE.md`, `claude-home/settings*.json`, `claude-home/agents/`, `claude-home/rules/`, the hand written hooks and scripts listed in `COPIED_FILES` in `bin/claude-config.py`): live wins. Edit the file in `~/.claude`, then `bin/sync.sh`; an edit made here is overwritten on the next sync.
-- Linked (`claude-home/skills/`, `claude-home/commands/`): repo wins. They are symlinked into `~/.claude`, so editing here is live.
+- Linked (`claude-home/skills/`, `claude-home/commands/`, `claude-home/workflows/<name>/`): repo wins. They are symlinked into `~/.claude`, so editing here is live. Each workflow is checked by `claude-home/skills/workflow-builder/check.py <name>` (spec 0076).
 - Mods (`claude-home/mods/<name>/`): repo wins; see [mods](mods.md).
 - Runner: retired, see [runner](runner.md).
 - Downloaded skills (spec 0048): named in `config/manifest.json` with source, pin, license and install command, never copied; an edited one is its pin plus `config/patches/<name>.patch` (a `publish: false` or private one keeps its patch in `~/.claude/private/patches/`). Never copy a downloaded skill's files into the repo.

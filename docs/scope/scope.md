@@ -232,20 +232,21 @@ Research recommended workflow templates and the workflows we can make from our o
 **Done when:** a research brief lists the candidates with sources, and the builder skill makes one workflow that passes its own check.
 - [x] Research it: `/deep-research workflow templates for claude-config` ([brief](../briefs/workflow-templates.md), 2026-10-22)
 - [x] Design it (spec): `/architect workflow builder skill` (spec [0076](../specs/0076-workflow-builder.md) accepted 2026-10-22 after a Sonnet cross check, 15 fixes applied). Build after rows 92, 87, 98 and 97 phase 1 merge.
-- [ ] Build it: `/develop workflow builder skill`
-  - [ ] Templates and `check.py` (AC-2, AC-3, AC-5)
-  - [ ] The skill: interview, writing, update mode, dry run offer (AC-1, AC-4, AC-7, AC-8)
-  - [ ] Install link and drift kind (AC-6)
-  - [ ] icm-architect scan, manifest entry, build, follows line check (AC-9, AC-10)
-  - [ ] Proof: build review-fix (row 102) with it
-- [ ] Verify it: `/check verify workflow builder skill`
-- [ ] Test it: `/test workflow builder skill`
+- [x] Build it: `/develop workflow builder skill`
+  - [x] Templates and `check.py` (AC-2, AC-3, AC-5)
+  - [x] The skill: interview, writing, update mode, dry run offer (AC-1, AC-4, AC-7, AC-8)
+  - [x] Install link and drift kind (AC-6)
+  - [x] icm-architect scan, manifest entry, build, follows line check (AC-9, AC-10) (scan and install run by you 2026-10-22)
+  - [x] Proof: build review-fix (row 102) with it
+- [x] Verify it: `/check verify workflow builder skill` (AC-1 to AC-6, AC-9, AC-10 with can fail lines in the spec verify.md; AC-7 and AC-8 on first real use, your answer 2026-10-22)
+- [x] Test it: `/test workflow builder skill` (check.py 30 of 30, suite 154 ok; mutants in verify.md)
+- [ ] Prove AC-7 and AC-8 on first real use: your first `/review-fix <pr> --limit 1` on a real review (AC-8), and your first change to review-fix through `/workflow-builder review-fix --update` (AC-7) · waits on you · later boxes go on
 Source: [brief](../briefs/workflow-builder.md); [brief](../briefs/icm-restructure.md) "Workflows"; your messages 2026-10-22.
 
 ### 102. review-fix and restructure-check workflows
 The two workflows you asked to be reminded of: `review-fix` (fix a PR's review findings) and `restructure-check` (the nothing broke check as one command). Built with the row 101 builder. from spec 0072. No separate spec (your answer 2026-10-22): the builder's interview is their design, seeded by the stage outlines in the [research brief](../briefs/workflow-templates.md) section 2. Starts after row 101 is built.
 **Done when:** both run as `/review-fix` and `/restructure-check` on a real PR.
-- [ ] Design and build review-fix: `/workflow-builder review-fix` (row 101's proof step)
+- [x] Design and build review-fix: `/workflow-builder review-fix` (row 101's proof step)
 - [ ] Design and build restructure-check: `/workflow-builder restructure-check`
 - [ ] Run both on a real PR · waits on you
 Source: [brief](../briefs/icm-restructure.md) "Workflows"; your messages 2026-10-22.

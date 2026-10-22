@@ -20,6 +20,7 @@ import fnmatch
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -86,7 +87,7 @@ def live_items(kind):
 
 
 def linked_kind(kind, manifest, fw, out):
-    """skills/ and commands/: repo items are linked in, downloaded ones are named in the manifest."""
+    """skills/, commands/ and workflows/: repo items are linked in, downloaded ones are named in the manifest."""
     label = kind.rstrip("s")
     own = {p.name for p in (HOME_DIR / kind).iterdir()} if (HOME_DIR / kind).is_dir() else set()
     private = LIVE / "private" / kind
@@ -212,6 +213,26 @@ def settings(out):
                             else ("live only" if key in live else "missing live")))
 
 
+TEMPLATES = HOME_DIR / "skills" / "workflow-builder" / "templates"
+
+
+def follows_check(manifest):
+    """Spec 0076 AC-10: each builder template names the icm-architect commit it was last reviewed against. A pin that
+    moved asks for a review. Separate from the upstream hash check, so it stays until the follows lines change."""
+    if not TEMPLATES.is_dir():
+        return
+    e = manifest.get("entries", {}).get("icm-architect")
+    if not e:
+        print("icm-architect not installed, templates not compared")
+        return
+    seen = set()
+    for f in sorted(TEMPLATES.iterdir()):
+        m = re.match(r"(?:<!--|//) follows icm-architect (\S+)", f.read_text().split("\n", 1)[0])
+        seen.add(m.group(1) if m else "(no follows line)")
+    for old in sorted(seen - {e.get("pinned")}):
+        print(f"review workflow-builder templates: they follow icm-architect {old}, the pin is {e.get('pinned')}")
+
+
 def drift():
     manifest = load_manifest()
     fw = framework_dirs(manifest)
@@ -222,6 +243,8 @@ def drift():
     other_hooks(manifest, fw, out)
     linked_kind("skills", manifest, fw, out)
     linked_kind("commands", manifest, fw, out)
+    # Spec 0076 AC-6: workflows have no manifest entries; a real folder where a link belongs is reported.
+    linked_kind("workflows", manifest, fw, out)
     settings(out)
     last = None
     for kind, name, why in sorted(out):
@@ -229,6 +252,7 @@ def drift():
             print(f"{kind}:")
             last = kind
         print(f"  {name}: {why}")
+    follows_check(manifest)
     print(f"drift: {len(out)} item(s)" if out else "drift: none")
     return 1 if out else 0
 
@@ -431,6 +455,7 @@ def update_plan():
         import datetime
         STATE.write_text(json.dumps({"last_upstream_check": datetime.datetime.now(datetime.timezone.utc)
                                     .isoformat(timespec="seconds")}) + "\n")
+    follows_check(m)
     print(f"update: {todo} entr{'y' if todo == 1 else 'ies'} to decide")
     return 0
 
