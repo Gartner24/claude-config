@@ -116,12 +116,14 @@ def direct(rel, repo):
 
 def run_drift(repo):
     """Parsed drift lines (group, name, reason), or the string reason drift did not run.
-    Only the trusted clone's script runs, never the found repo's own; CLAUDE_CONFIG_REPO makes it read
-    the found checkout's files (data only), so a worktree's verdict is for that worktree."""
+    Only the trusted clone's script runs, and it reads only the trusted clone: drift's settings check runs
+    REPO/scripts/private-names.py, so CLAUDE_CONFIG_REPO would run the found repo's code. A worktree tick
+    is therefore judged against the clone's main files, where live installs come from."""
     script = os.path.join(os.path.realpath(os.path.join(home(), "claude-config")), "bin", "claude-config.py")
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDE_CONFIG_REPO"}
     try:
         r = subprocess.run([sys.executable, "-I", script, "drift"], capture_output=True, text=True,
-                           timeout=TIMEOUT, env=dict(os.environ, CLAUDE_CONFIG_REPO=str(repo)))
+                           timeout=TIMEOUT, env=env)
     except subprocess.TimeoutExpired:
         return f"timed out after {TIMEOUT}s"
     if r.returncode not in (0, 1):
@@ -228,7 +230,10 @@ def self_test():
         (live / "hooks").mkdir()
         # fake drift: prints drift.out, exits drift.rc, sleeps drift.sleep seconds
         (repo / "bin" / "claude-config.py").write_text(
-            "import sys,time,pathlib\ntry:\n import hijack\nexcept ImportError:\n pass\np=pathlib.Path(__file__).parent\n"
+            "import sys,time,pathlib,os\n"
+            "r=os.environ.get('CLAUDE_CONFIG_REPO')  # like drift's settings check: runs REPO/scripts/private-names.py\n"
+            "if r and os.path.exists(r+'/scripts/private-names.py'): exec(open(r+'/scripts/private-names.py').read())\n"
+            "try:\n import hijack\nexcept ImportError:\n pass\np=pathlib.Path(__file__).parent\n"
             "time.sleep(float((p/'sleep').read_text()))\n"
             "sys.stdout.write((p/'out').read_text())\nsys.exit(int((p/'rc').read_text()))\n")
         (t / "home" / "claude-config").symlink_to(repo)  # the one trusted clone
@@ -325,10 +330,13 @@ def self_test():
         (crafted / "docs" / "scope").mkdir(parents=True)
         (crafted / ".git").write_text(f"gitdir: {repo}/.git/worktrees/w\n")
         (crafted / "bin" / "claude-config.py").write_text(f"open({str(t / 'marker2')!r}, 'w').write('ran')\n")
+        (crafted / "scripts").mkdir()
+        (crafted / "scripts" / "private-names.py").write_text(f"open({str(t / 'marker3')!r}, 'w').write('ran')\n")
         drift("hook:\n  hooks/zz.py: differs\n", 1)
         r = edit(ibox, itick, ibox, path=crafted / "docs" / "scope" / "scope.md")
         ok("found repo's own script never runs, the trusted drift does",
            not (t / "marker2").exists() and "hooks/zz.py" in reason(r))
+        ok("drift never reads the found repo (its private-names.py never runs)", not (t / "marker3").exists())
         drift()
 
         mbox = "- [ ] Link: claude-home/mods/m/x.ts · live\n"
