@@ -71,4 +71,6 @@ From the gated course research (jsm-course-gated-research.md):
 - [ ] Stop-and-reset rule: after 2 failed fixes, stop, start fresh with what was learned.
 - [ ] Refuse a Claude co-author trailer in every repo with a commit-msg hook; 3 installed JSM skill files still ask for it (develop/flow/git.md:27, test/SKILL.md:187, sync/agent-prompt.md:177).
 - Handoff line stays 250k (owner, 2026-10-22, over the course's ~150k). Do not ask again.
+From the cleanup answer (line "Cleanup" above):
+- [ ] Remove the leftover wf mentions: runner sentences in rules and CLAUDE.md, the auto skill, the Bash(wf ...) allow and deny rules, then gio trash ~/.config/wf; the owner revokes the Telegram bot token in BotFather after. runner/ code stays until the per-feature decisions.
 
