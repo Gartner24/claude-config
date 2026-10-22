@@ -115,10 +115,13 @@ def direct(rel, repo):
 
 
 def run_drift(repo):
-    """Parsed drift lines (group, name, reason), or the string reason drift did not run."""
+    """Parsed drift lines (group, name, reason), or the string reason drift did not run.
+    Only the trusted clone's script runs, never the found repo's own; CLAUDE_CONFIG_REPO makes it read
+    the found checkout's files (data only), so a worktree's verdict is for that worktree."""
+    script = os.path.join(os.path.realpath(os.path.join(home(), "claude-config")), "bin", "claude-config.py")
     try:
-        r = subprocess.run([sys.executable, "-I", str(repo / "bin" / "claude-config.py"), "drift"],
-                           capture_output=True, text=True, timeout=TIMEOUT)
+        r = subprocess.run([sys.executable, "-I", script, "drift"], capture_output=True, text=True,
+                           timeout=TIMEOUT, env=dict(os.environ, CLAUDE_CONFIG_REPO=str(repo)))
     except subprocess.TimeoutExpired:
         return f"timed out after {TIMEOUT}s"
     if r.returncode not in (0, 1):
@@ -314,6 +317,18 @@ def self_test():
             subprocess.run(g + cmd, capture_output=True, check=True)
         wscope = repo / ".claude" / "worktrees" / "w" / "docs" / "scope" / "scope.md"
         ok("worktree of the trusted repo is checked", "rules/x.md" in reason(edit(box, tick, box, path=wscope)))
+        drift()
+
+        # a crafted repo whose .git file points into the trusted clone passes is_trusted but its script never runs
+        crafted = t / "crafted"
+        (crafted / "bin").mkdir(parents=True)
+        (crafted / "docs" / "scope").mkdir(parents=True)
+        (crafted / ".git").write_text(f"gitdir: {repo}/.git/worktrees/w\n")
+        (crafted / "bin" / "claude-config.py").write_text(f"open({str(t / 'marker2')!r}, 'w').write('ran')\n")
+        drift("hook:\n  hooks/zz.py: differs\n", 1)
+        r = edit(ibox, itick, ibox, path=crafted / "docs" / "scope" / "scope.md")
+        ok("found repo's own script never runs, the trusted drift does",
+           not (t / "marker2").exists() and "hooks/zz.py" in reason(r))
         drift()
 
         mbox = "- [ ] Link: claude-home/mods/m/x.ts · live\n"
