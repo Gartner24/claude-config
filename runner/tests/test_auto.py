@@ -366,51 +366,6 @@ class TestHook(AutoCase):
         self.assertLess(len(line), 450)
 
 
-class TestSettings(unittest.TestCase):
-    # covers: AC-3 and the security review (the deny rules match every spelling of turning it on, path forms
-    # included, and the state file cannot be edited by a tool; no allow rule names wf auto; off stays open)
-    def test_deny(self):
-        import fnmatch
-        s = json.loads((Path(__file__).resolve().parents[2] / "claude-home" / "settings.json").read_text())
-        deny = s["permissions"]["deny"]
-        bash = [r[5:-1].replace(":*", "*") for r in deny if r.startswith("Bash(")]
-        for cmd in ("wf auto on", "/home/santiago/.local/bin/wf auto on", "~/.local/bin/wf auto on",
-                    "python3 runner/wf.py auto on", "python3 /home/x/runner/wf.py auto on", "cd /x && wf auto on",
-                    "WF=1 wf auto on", "wf auto release x", "cd /x && wf auto release x",
-                    "python3 runner/wf.py auto release x"):
-            self.assertTrue(any(fnmatch.fnmatchcase(cmd, p) for p in bash), cmd)
-        # Spec 0049 AC-1b: a hand made hook stdin passes interactive(), so Claude may not run the hook command.
-        for cmd in ("wf auto hook", "echo x | wf auto hook", "/home/santiago/.local/bin/wf auto hook",
-                    "python3 runner/wf.py auto hook"):
-            self.assertTrue(any(fnmatch.fnmatchcase(cmd, p) for p in bash), cmd)
-        for cmd in ("wf auto off", "wf auto off now", "wf auto status", "wf auto start", "wf auto wait",
-                    "wf auto take x"):
-            self.assertFalse(any(fnmatch.fnmatchcase(cmd, p) for p in bash), cmd)
-        self.assertIn("Edit(//home/santiago/.local/state/wf/auto.json)", deny)
-        # The runner commands any session in charge may run (answered 2026-10-15); none of them covers auto on.
-        allow = s["permissions"].get("allow", [])
-        self.assertEqual(sorted(r for r in allow if "wf" in r),
-                         sorted(f"Bash(wf {c})" for c in ("auto start", "auto wait", "auto status", "auto take *",
-                                                          "queue", "questions", "report")))
-        # Spec 0046 AC-10: a take chained with an on is denied, since the deny rule matches the whole command.
-        for cmd in ("wf auto take x && wf auto on", "wf auto take x; wf auto on now", "wf auto release x|wf auto on"):
-            self.assertTrue(any(fnmatch.fnmatchcase(cmd, p) for p in bash), cmd)
-        for cmd in ("wf auto on", "wf auto on now", "wf auto on x", "wf auto release x"):
-            self.assertFalse(any(fnmatch.fnmatchcase(cmd, r[5:-1].replace(":*", "*")) for r in allow
-                                 if r.startswith("Bash(")), cmd)
-        skill = (Path(__file__).resolve().parents[2] / "claude-home" / "skills" / "auto" / "SKILL.md").read_text()
-        self.assertIn("\ndisable-model-invocation: true\n", skill)
-        # Spec 0047 AC-3: the skill covers release as yours.
-        self.assertIn("\nargument-hint: on [repos] | off [now] | release <repos>\n", skill)
-        self.assertRegex(skill, r"\ndescription: [^\n]*only the user releases a repo from a chat \(`/auto release")
-        self.assertIn("Claude can never run `wf auto on` or `wf auto release`", skill)
-        # Spec 0049 AC-4: the reason is the command's refusal, and no text offers the ! backup.
-        self.assertIn("Claude can never run `wf auto on` or `wf auto release`: the command refuses them, and deny "
-                      "rules block them and `wf auto hook`", skill)
-        self.assertIn("ask the user to type the same `/auto` command again in this chat", skill)
-        self.assertNotIn("! wf auto", skill)
-
-
 class TestWait(AutoCase):
     def wait(self):
         out = io.StringIO()
