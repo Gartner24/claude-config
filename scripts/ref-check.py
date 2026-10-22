@@ -215,6 +215,11 @@ def mapped(target, moves):
     return None
 
 
+def _token(text, path):
+    """path appears as a whole path in text: not inside a longer path, and not as path:line of another pointer."""
+    return re.search(r"(?<![\w./-])" + re.escape(path) + r"(?![\w/-]|:\d)", text) is not None
+
+
 def verify(snap, moves, repo):
     tree = Tree(repo)
     bad = []
@@ -231,9 +236,16 @@ def verify(snap, moves, repo):
         new = mapped(target, moves)
         if new and tree.exists(new):
             if kind in ("text", "spec-paths"):
-                f = tree.repo / ref
-                if f.is_file() and new in f.read_text(errors="replace"):
-                    continue
+                # whole tokens, and the old one gone: a fixed pointer beside a stale one still breaks
+                if kind == "text":
+                    f = tree.repo / ref
+                    text = f.read_text(errors="replace") if f.is_file() else ""
+                    if _token(text, new) and not _token(text, target):
+                        continue
+                else:
+                    toks = {t for f, t in spec_pointers(tree) if f == ref}
+                    if new in toks and target not in toks:
+                        continue
             elif kind == "settings":
                 if new in Path(ref).read_text():
                     continue
@@ -344,6 +356,12 @@ def selftest():
             expect(f"{kind} pointer reported", f"BROKEN {kind}" in body)
         expect("report names the new path", "moved to lib/old.py" in body)
 
+        with (repo / "docs/guide.md").open("a") as f:
+            f.write("See `lib/old.py` too.\n")
+        rc, body = _out(verify, snap, moves, repo)
+        expect("a stale pointer beside a fixed one is still reported",
+               "BROKEN text: docs/guide.md -> scripts/old.py (moved to lib/old.py)\n" in body)
+
         g = (repo / "docs/guide.md").read_text().replace("scripts/old.py", "lib/old.py").replace(
             "scripts/*.py", "lib/*.py")
         (repo / "docs/guide.md").write_text(g)
@@ -353,7 +371,8 @@ def selftest():
         os.symlink(repo / "lib/old.py", home / ".claude/skills/s")
         (home / ".claude/settings.json").write_text(json.dumps(
             {"hooks": [{"command": f"{repo}/lib/old.py --x"}, {"command": "~/claude-config/bin/tool.sh"}]}))
-        expect("verify clean once referrers name the new path", verify(snap, moves, repo) == 0)
+        rc, body = _out(verify, snap, moves, repo)
+        expect("verify clean once referrers name the new path", rc == 0)
 
         _git(repo, "mv", "docs/guide.md", "_archive/guide.md")
         (repo / "_archive/guide.md").write_text("`scripts/old.py` frozen\n")
