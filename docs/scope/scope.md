@@ -1311,10 +1311,10 @@ The wf-dash band and panes still read the retired runner's ideas. You like the d
 - [x] Design it (spec): `/architect dashboard restructure for the setup without wf` (spec [0071](../specs/0071-dashboard-now-view.md) accepted 2026-10-22)
 - [ ] Build it: `/develop dashboard restructure for the setup without wf` (after rows 95 and 96 merge)
   - [x] Probe `gh api graphql` PR search from the mod (a FAIL goes back to `/architect`) (PASS 2026-10-22, spec verify.md)
-  - [x] Readers, Now view, band `owed N`, mod tests (25 new tests, 24 of 25 mutants red; mod tests 80 pass, 1 fail: the old view key assertion below)
+  - [x] Readers, Now view, band `owed N`, mod tests (26 new tests, 27 of 28 mutants red; mod tests 82 of 82 pass after the review fix)
   - [x] Let the old view key assertion change: type `/allow-test-change`, then `dashboard.test.ts:60` expects `p n a` · waits on you (allowed 2026-10-22; mod tests 81 pass)
   - [x] Confirm Plan's next group key `t` (`n` went to Now; a guessed letter) · waits on you · later boxes go on (your answer 2026-10-22: keep `t`)
-  - [ ] design.md and PRODUCT.md, then `design-gate` (docs done; gate pass 2 fails only on the assertion above)
+  - [x] design.md and PRODUCT.md, then `design-gate` (gate pass 3 2026-10-22: PASS WITH FINDINGS, 1 should-fix for `/architect`: `checks failing` cut at 40 columns)
 - [ ] Verify it: `/check verify dashboard restructure for the setup without wf`
 - [ ] Test it: `/test dashboard restructure for the setup without wf`
 Source: [brief](../briefs/dashboard-restructure.md); your message 2026-10-22 ("I think the dashboard is great still just need a restructuring and connect with our updates").

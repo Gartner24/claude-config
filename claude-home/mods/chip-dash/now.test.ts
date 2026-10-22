@@ -22,6 +22,7 @@ function host(on: any) {
     id: 'S1',
     files: {} as Record<string, string>,
     dirs: new Set<string>(),
+    existsFails: new Set<string>(),
     gh: { exitCode: 0, stdout: answer([node('here', 4, 'Fix it', false, 'FAILURE'), node('there', 9, 'Draft one', true, null)]), stderr: '' },
     ghHold: null as null | Promise<void>,
     argv: [] as string[][],
@@ -39,7 +40,7 @@ function host(on: any) {
   on('session.model', () => ({ value: 'claude-opus-5-5' }))
   on('fs.write', () => ({ value: undefined }))
   on('fs.read', (_$: any, e: any) => (e.path in w.files ? { value: w.files[e.path] } : { deny: 'ENOENT' }))
-  on('fs.exists', (_$: any, e: any) => ({ value: e.path in w.files || w.dirs.has(e.path) }))
+  on('fs.exists', (_$: any, e: any) => (w.existsFails.has(e.path) ? { deny: 'EACCES: permission denied' } : { value: e.path in w.files || w.dirs.has(e.path) }))
   on('command.register', (_$: any, e: any) => ({ value: { command: e.name } }))
   // the engine's record of open panes: the person's close mark takes the pane out of it (a test cannot raise ui.close)
   let open = false
@@ -114,6 +115,20 @@ test('AC-2 a file that does not parse: owed ? and the parse error, never nothing
   const { ui } = await openNow($, on, w => { w.dirs.add(CATCH); w.files[`${CATCH}/S1.json`] = '{"owed": [' })
   expect(await text(ui, /^owed \?$/)).toBeDefined()
   expect(await text(ui, /JSON|Unexpected|parse/i)).toBeDefined()
+  expect(await text(ui, /^nothing owed$/)).toBeUndefined()
+})
+
+// PR 164 review: a check that fails is an unknown answer, never "not installed" or "nothing owed"
+test('AC-2 an exists check that fails shows owed ? and the error, for the folder and for the file', async ($, on) => {
+  const { w, clock, ui } = await openNow($, on, w => { w.existsFails.add(CATCH) })
+  expect(await text(ui, /^owed \?$/)).toBeDefined()
+  expect(await text(ui, /EACCES/)).toBeDefined()
+  expect(await text(ui, /^catch not installed/)).toBeUndefined()
+  w.existsFails.clear()
+  w.dirs.add(CATCH)
+  w.existsFails.add(`${CATCH}/S1.json`)
+  await clock.advance(time.bandTick)
+  expect(await text(ui, /^owed \?$/)).toBeDefined()
   expect(await text(ui, /^nothing owed$/)).toBeUndefined()
 })
 

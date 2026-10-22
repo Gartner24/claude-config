@@ -34,13 +34,15 @@ Each step runs the mod's own code through `claude plugin test claude-home/mods/c
   Plan's next group moved `n` to `t` (`panes.tsx:334`): two buttons on one hotkey, the later wins, so `n` on Plan's
   footer would have beaten the top line. Test `now.test.ts:86`. can fail: Plan keeps `n` for next group, then `n`
   pressed on Plan never opens Now (mutant M1 reddens this test and 17 others).
-  OPEN: `dashboard.test.ts:60` still expects `['p', 'a']`; the Assertion Guardian refuses the change until the owner
-  types `/allow-test-change` (1 failing test).
-- [x] AC-2: `readOwed` (`hooks/register.tsx:121-131`) tries this chat's id, then `prev`; `parseOwed` (`now.ts:36-41`);
+  `dashboard.test.ts:60` now expects `['p', 'n', 'a']` (the owner allowed the change).
+- [x] AC-2: `readOwed` (`hooks/register.tsx:122-134`) tries this chat's id, then `prev`; `parseOwed` (`now.ts:36-41`);
   `owedLines` (`panes.tsx:398-410`). Tests `now.test.ts:99` (no folder: `catch not installed (row 92)`), `:104` (no file
   for this chat, then an empty list: `nothing owed`), `:113` (broken JSON: `owed ?` and the error), `:120` (each line),
   `:127` (after `/clear`, the replaced id's file). can fail: a parse error read as an empty list prints `nothing owed`
   (M4), or the `prev` id left out of the loop (M6).
+  PR 164 review fix: an `$.fs.exists` that rejects (the folder's or a file's) used to read as false, so it printed
+  `catch not installed` or `nothing owed`; now any failed check or read is `owed ?` and the error (`:131-133`). Test
+  `now.test.ts:122`. can fail: the rejected check read as false again (M26 folder, M27 file).
 - [x] AC-3: one call, `prArgv()` (`now.ts:5-6`) with the probe's query, run with `timeoutMs: 10000`
   (`hooks/register.tsx:219`); rows in `prBlock` and `NowSection` (`panes.tsx:416-437`, `:462-481`). Tests `now.test.ts:139`
   (argv, rows `here#4   ready  checks failing  Fix it`), `:151` (mapping, plus `?` for an undocumented state),
@@ -76,13 +78,14 @@ Each step runs the mod's own code through `claude plugin test claude-home/mods/c
   docked extra rows to PRs; `and k more` for owed, `N above, +M more, +K more on GitHub` for PRs; titles truncate.
   Tests AC-9 owed overflow and AC-8/AC-9 PR overflow. design-gate pass 1 and 2 rendered every data state with Ink 5.2.1
   at 40-200 columns: 0 over the 14 rows, 0 height changes. can fail: owed past 3 rows shown whole (M22).
-- [ ] AC-10: mod tests 80 pass, 1 fail (the owner-blocked `dashboard.test.ts:60` above); `claude plugin validate`
-  passes; design-gate pass 2: FAIL on that one must-fix only, every design lens clean, 2 should-fix left
-  (`.design/audit-report.md`). Not met until `/allow-test-change`.
+- [x] AC-10: mod tests 82 of 82 pass; `claude plugin validate` passes; design-gate pass 3: PASS WITH FINDINGS, every
+  design lens clean, 1 should-fix left (`failing` and `pending` cut at 40 columns; the fix changes the AC-3 row, so it
+  is `/architect`'s) (`.design/audit-report.md`).
 
 ### Mutation checks (each: cp backup, mutate, run the mod's tests, test red, restore, green)
-The kit has no single file mode; each mutant ran the mod's 81 tests (about 4 s). After every restore: 80 pass, 1 fail
-(the owner-blocked test).
+The kit has no single file mode; each mutant ran all the mod's tests (about 4 s). M1 to M25 ran on the first build,
+when every restore gave 80 pass, 1 fail (the then owner-blocked view key test); M26, M27 and M3b on the review fix,
+each restore 82 of 82 pass.
 M1 Plan next group back on `n` -> AC-1 red. M2 no folder read as nothing owed -> AC-2 no folder red. M3 no file read as
 `?` -> AC-2 no file red. M4 parse error as empty -> AC-2 broken red. M5 first owed line dropped -> AC-2 lines red. M6
 `prev` left out -> AC-2 clear red. M7 draft and ready swapped -> AC-3 rows red. M8 ERROR not failing -> AC-3 mapping
@@ -94,6 +97,8 @@ M19 `owed 0` printed -> AC-7 shown red. M20 owed droppable -> AC-7 compact red. 
 M22 owed overflow shown whole -> AC-9 owed red. M23 no scroll -> AC-8/AC-9 PRs red. M24 no search on reopen -> AC-4
 reopen red. M25 search started before the pane opens: survived (the kit's stand-in host lists the pane at once; the
 engine's timing is not reproducible here, so the order is kept by the comment at `hooks/register.tsx:77-78`).
+M26 rejected folder check read as false -> AC-2 exists failure red. M27 rejected file check read as false -> AC-2 exists
+failure red. M3b (M3 again on the rewritten reader) no file read as `?` -> AC-2 no file red.
 
 ### Suite
 `python3 runner/tests/fast.py`: 1136 tests, 0 failed.

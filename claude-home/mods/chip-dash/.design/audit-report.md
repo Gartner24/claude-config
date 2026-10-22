@@ -1,3 +1,47 @@
+# Design audit - chip-dash Now view and band owed segment, spec 0071, pass 3 - 2026-10-22
+
+verdict: PASS WITH FINDINGS (the pass 2 must-fix is closed, the readOwed change created no defect; the one should-fix left is an owner call on accepted spec text. Pass budget spent: no fourth pass on this surface)
+pass: 3 of 3 (scope = pass 2's findings only, plus any defect the fixes created; diff since pass 2 = dashboard.test.ts:59-60 assertion and test name, committed in ba3c441; uncommitted hooks/register.tsx readOwed, `:119-134`, and now.test.ts `existsFails` host switch plus the test at `:122`)
+findings: 2 -> 1 (pass 2: 1 must-fix owner-blocked, 1 should-fix; now: 0 must-fix, 1 should-fix unchanged; 1 fixed, 0 created by the fixes. The count fell, so not STOP)
+ai-tell fails: 0/36        (not re-graded; no drawing code changed: panes.tsx, band.tsx, tokens.ts have no diff since pass 2)
+token leaks: 0. token-leak.sh exit 2, NOT APPLICABLE (no tokens.css; tokens are the TS object in tokens.ts). Substitute check on the changed lines: readOwed adds no color, width or timing literal
+a11y: static only (terminal surface). The new unknown state draws `owed ?` in warn bold plus the error in dim (`panes.tsx:401`): word and color, never color alone
+wcag22: not run (terminal surface); 2.5.7 no drag, 3.2.6 no help affordance, 3.3.8 no login
+contrast failures: not measured (theme keys; the user's theme decides the hues)
+responsive: unchanged from pass 2 (no drawing code changed). The new state reuses the parse-error rows of `owedLines` (`panes.tsx:401`, 2 rows inside the 3-row owed block) and each row truncates (`panes.tsx:452` `wrap="truncate-end"`), so a long EACCES message with a path cannot add a row
+motion: none in scope (the fixes add no animation, timer or spinner)
+reference: not re-run (pass 1 compared 4 sections against k9s, 0 worse)
+perf: NOT MEASURED (no browser surface)
+
+## Must fix
+None open.
+
+- [x] FIXED (pass 1 and 2 Must fix) - the suite is green: `claude plugin test claude-home/mods/chip-dash` - 82 pass, 0 fail across 8 files. `dashboard.test.ts:59` now expects `['p', 'n', 'a']` and the test name reads "the views switch on p n a" (`dashboard.test.ts:55`), after the owner allowed the change. Spec 0071 AC-10 is met.
+
+## Should fix (for the owner; not an agent fix)
+1. [ ] CARRIED (pass 2 item 1, unchanged) - at 40 columns `failing` and `pending` lose their last letters (`checks faili...`, `checks pendi...`; the color stays) because the `checks ` label is kept - `panes.tsx:474`. AC-3 spells the row with that label, so dropping it under 80 columns changes accepted spec text: an owner call through `/architect`.
+
+0 lower-severity findings dropped. 0 findings cut for lack of `file:line`.
+
+## Fix-created defects checked (readOwed, hooks/register.tsx:119-134)
+- None found. A rejected `$.fs.exists` on the folder or on a chat's file, a rejected `$.fs.read`, and a parse failure all reach `{ installed: true, lines: null, error }` (`:131-132`, `now.ts:36-40`), which the Now view draws as `owed ?` plus the error (`panes.tsx:401`). Before, a rejected exists read as false: `catch not installed` for the folder, a skipped file (so `nothing owed`, or the other id's file) for the file.
+- The band: `lines: null` adds no segment (`band.tsx:85-87`), the same as before for the folder case (then `installed: false`, also no segment). It never prints `owed ?` or `owed 0`, as AC-7 says.
+- One behavior narrows on purpose: a rejected exists on this chat's file no longer falls through to the replaced id's file. The answer for this chat is unknown, so `owed ?` is the right fact; not counted.
+- The read error text used to be caught per call; it is now one catch for the block, with the same `String(err?.message ?? err)` (`:132`), so the message the view shows is unchanged.
+
+## Checked and clean
+- Suite: 82 pass, 0 fail. now.test.ts: 25 pass, the new exists test among them.
+- New test can fail, mutation checked: re-adding `.catch(() => false)` to the folder exists (`register.tsx:124`) turns `AC-2 an exists check that fails...` (`now.test.ts:122`) red at its first `owed ?` expect; re-adding it to the file exists (`:127`) turns the same test red at its second half. Each restored from a `cp` backup; suite green again after (82 of 82).
+- ASCII: no non-ASCII in hooks/register.tsx or now.test.ts.
+- The comment at `register.tsx:119-121` names the past failure ("it used to read a rejected exists as false"), the repo's comment style.
+
+## Coverage notes
+- Per the re-audit rules, only pass 2's findings and fix-created defects were graded. Nothing new below P1 was raised.
+- No render probe was rerun: no file the probe copies (panes.tsx, band.tsx, tokens.ts, handoff.ts) changed since pass 2. The new state's height comes from reading `owedLines` and the truncating row, not a fresh render.
+- The 3-pass budget is spent. The should-fix above goes to the owner as a decision, not to a fourth audit.
+
+---
+
 # Design audit - chip-dash Now view and band owed segment, spec 0071, pass 2 - 2026-10-22
 
 verdict: FAIL (owner-blocked: the one must-fix is still open and the agent cannot close it; every design lens is clean. Once the owner allows the test change and the assertion is updated, this surface is PASS WITH FINDINGS with the one should-fix below)

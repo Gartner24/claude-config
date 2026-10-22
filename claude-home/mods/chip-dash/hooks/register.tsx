@@ -117,16 +117,20 @@ export const register: Register = on => {
     }
 
     // Spec 0071 AC-2, AC-7: what this chat owes, from spec 0070's catch file under this chat's id, else the id it
-    // replaced after a /clear (readPanel keeps both). A file that exists but cannot be read is unknown, never nothing.
+    // replaced after a /clear (readPanel keeps both). A check or a read that fails is unknown (`owed ?` and the
+    // error), never "not installed" or "nothing owed": it used to read a rejected exists as false (PR 164 review).
     const readOwed = async (): Promise<WfDashOwed> => {
-      if (!(await $.fs.exists(catchDir).catch(() => false))) return { installed: false, lines: null, error: null }
-      for (const sid of [me, prev]) {
-        const path = `${catchDir}/${sid}.json`
-        if (!sid || !(await $.fs.exists(path).catch(() => false))) continue
-        const raw = await $.fs.read(path).catch((err: any) => ({ failed: String(err?.message ?? err) }))
-        return typeof raw === 'string' ? parseOwed(raw) : { installed: true, lines: null, error: raw.failed }
+      try {
+        if (!(await $.fs.exists(catchDir))) return { installed: false, lines: null, error: null }
+        for (const sid of [me, prev]) {
+          const path = `${catchDir}/${sid}.json`
+          if (!sid || !(await $.fs.exists(path))) continue
+          return parseOwed(await $.fs.read(path))
+        }
+        return { installed: true, lines: [], error: null }
+      } catch (err: any) {
+        return { installed: true, lines: null, error: String(err?.message ?? err) }
       }
-      return { installed: true, lines: [], error: null }
     }
 
     const refresh = async () => {
