@@ -845,7 +845,7 @@ def build():
     own = {p.name for p in (HOME_DIR / "skills").iterdir()} if (HOME_DIR / "skills").is_dir() else set()
     traced, locked = parse_brief(BRIEF.read_text()) if BRIEF.exists() else {}, lock_entries()
     report, bad = [], 0
-    texts = {}
+    texts, gone = {}, set()
     with tempfile.TemporaryDirectory() as tmp:
         for p in live_items("skills"):
             name = p.name
@@ -884,6 +884,7 @@ def build():
                     commit, base = pin(repo, path, folder_hash(p), src.get("tree"), tmp)
                 except Gone as err:
                     report.append(f"{name}: source not reached, entry left as it was: {err}")
+                    gone.add(name)
                     bad = 1
                     continue
                 if name in locked:
@@ -902,8 +903,9 @@ def build():
     # A hand written entry for a folder with no SKILL.md (a mod) is skipped by the loop above, so its source got
     # no license text and the notice said "not reached at build".
     for name, e in sorted(m["entries"].items()):
+        # A source the main loop already reported unreachable is not cloned and reported a second time.
         if e.get("fetch") == "git" and (e.get("patch") or "").startswith("config/") and e.get("pinned") \
-                and e["source"] not in texts:
+                and e["source"] not in texts and name not in gone:
             try:
                 texts[e["source"]] = legal_texts(clone(e["source"]), e["pinned"], e["source"], e["license"])
             except Gone as err:
