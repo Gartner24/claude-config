@@ -12,10 +12,10 @@
 ## 2. What the setup uses
 - 54 jjstack skills are symlinks in ~/.claude/skills/ (not copies); `diff -rq` against jjstack/skills/ is identical for all 54 (own script, same=54 diff=0). Corrects the setup summary, which said "plain folders".
 - settings.json hooks (grep): UserPromptSubmit `jjstack/hooks/skill-miss-detect.sh` (l.410), PreToolUse `skill-fired-clear.sh` (l.520), PostToolUseFailure `mcp-reconnect.sh` (l.542). Symlinks in ~/.claude/hooks/ to jjstack: `auto-approve-safe.sh`, `error-detector.sh`, `injection-guard.sh`, `permission-floor.py`.
-- statusLine: ~/claude-config/runner/auto.py l.641 runs `bash ~/.claude/skills/jjstack/bin/statusline.sh` (237 lines).
+- statusLine: ~/claude-config/_archive/runner/auto.py l.641 runs `bash ~/.claude/skills/jjstack/bin/statusline.sh` (237 lines).
 - Named in rules: /review, /jj-security-review (CLAUDE.md), /rollover, /resume-from-clear, /save-and-clear (handoff.md), jjstack-rollover-slot, jjstack-skill-miss-report (spec 0036). install.sh l.120 calls `jjstack-extract-triggers`.
 - Not jjstack, already own: review-stack, regression-hunter, pr-intent-verifier, intent-router (docs/NOTICE.md "Authored here"); context-monitor.js derived from gsd.
-- Refs in claude-config: runner/auto.py, runner/tests/test_auto.py, test_skill_miss_hooks.py, bin/install.sh, claude-home/settings.json, rules/skill-map.md, manifest.json, many specs (0022, 0030, 0036, 0037, 0050).
+- Refs in claude-config: _archive/runner/auto.py, _archive/runner/tests/test_auto.py, test_skill_miss_hooks.py, bin/install.sh, claude-home/settings.json, rules/skill-map.md, manifest.json, many specs (0022, 0030, 0036, 0037, 0050).
 
 ## 3. Licence and provenance
 - LICENSE: MIT, "Copyright (c) 2026 Jesper Jurcenoks". Redistribution allowed if the notice is kept.

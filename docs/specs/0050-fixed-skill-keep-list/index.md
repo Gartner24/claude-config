@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-15
 **Status**: Proposed
-**Paths:** `scripts/skill-keep.py`, `scripts/skill-keep.txt`, `runner/tests/test_skill_keep.py`, `claude-home/settings.json`
+**Paths:** `scripts/skill-keep.py`, `scripts/skill-keep.txt`, `tests/test_skill_keep.py`, `claude-home/settings.json`
 
 ## What you're agreeing to
 - A short list in claude-config names the skills that keep their description in every session: 37 names, the 36 of your own skills used in the last 30 days plus `save-and-exit`.

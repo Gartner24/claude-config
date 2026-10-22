@@ -81,6 +81,10 @@ export function segments(f: Facts, now = Date.now(), rich = true, compact = fals
     meterSeg('5h', '5h', f.fiveHour, rich ? resetIn(f.fiveHourReset, now) : ''),
     meterSeg('week', 'week', f.week, rich ? resetIn(f.weekReset, now) : ''),
   )
+  // spec 0071 AC-7: the steps this chat owes, drawn just before the handoff segment; nothing at 0 or when the file
+  // could not be read (never `owed 0`, never `owed ?`). Kept in the left list so fit() counts it, last to drop.
+  const owed = f.owed?.lines?.length ?? 0
+  if (owed > 0) left.push(seg('owed', [{ text: `owed ${owed}`, color: color.warn, bold: true }]))
 
   // The right end, where the retired runner's counts were: the auto handoff, which the owner turns off in chats that
   // are not for coding (/auto-handoff). Compact (the ~31 cells beside the docked dashboard) drops the word.
@@ -97,8 +101,13 @@ export function segments(f: Facts, now = Date.now(), rich = true, compact = fals
   return { left, right: seg('handoff', right) }
 }
 
-// Left segments leave in this order when the line is too narrow; the handoff segment and the chip stay.
+// Left segments leave in this order when the line is too narrow; the handoff segment and the chip stay. The owed
+// count (drawn on the right) is the last to go: it outlasts the model and stays in the compact band beside the docked
+// dashboard (spec 0071 AC-7), where it is 2 cells too wide beside `on 200k`, so past the model nothing more leaves and
+// the handoff state truncates at its end instead.
 const DROP = ['folder', 'git', 'week', '5h', 'via', 'ctx', 'model']
+// the segments drawn at the left: every kept one but the owed count
+const leftOf = (kept: Seg[]) => kept.filter(s => s.id !== 'owed')
 
 export function fit(left: Seg[], right: Seg, columns: number) {
   const used = (l: Seg[]) => l.reduce((n, s) => n + s.cells, 0) + space.gap * Math.max(0, l.length - 1) + space.gap + right.cells + 2 * space.padX
@@ -132,21 +141,25 @@ export function Band({ Box, Text, Button, facts, columns, onOpen }: { Box: any; 
     ;({ left, right } = segments(facts, Date.now(), false))
     kept = fit(left, right, room)
   }
-  if (kept.length === 1) {
-    ;({ left, right } = segments(facts, Date.now(), false, true, room - 2 * space.padX - left[0].cells - space.gap))
+  if (leftOf(kept).length === 1) {
+    // the owed count stays in the compact band: its cells come out of the stale mark's room
+    const owedCells = kept.filter(s => s.id === 'owed').reduce((n, s) => n + s.cells + space.gap, 0)
+    ;({ left, right } = segments(facts, Date.now(), false, true, room - 2 * space.padX - left[0].cells - space.gap - owedCells))
     kept = fit(left, right, room)
   }
+  const owed = kept.find(s => s.id === 'owed')
   // the chip is pinned; when even the compact state does not fit, the handoff segment truncates at its end instead
   return (
     <Box flexDirection="row" paddingX={space.padX} width="100%">
-      <Box flexDirection="row" gap={space.gap} flexGrow={1} flexShrink={kept.length === 1 ? 0 : 1}>
-        {kept.map(s =>
+      <Box flexDirection="row" gap={space.gap} flexGrow={1} flexShrink={leftOf(kept).length === 1 ? 0 : 1}>
+        {leftOf(kept).map(s =>
           // the chip opens the dashboard: a click, or w once the band holds the keys
           s.id === 'chip' && Button && onOpen
             ? <Button key="chip-open" plain hotkey="w" onPress={onOpen}><Text backgroundColor={color.accent} color="inverseText" bold>{' chip '}</Text></Button>
             : draw(Box, Text, s),
         )}
       </Box>
+      {owed && <Box flexShrink={0} marginLeft={space.gap}>{draw(Box, Text, owed)}</Box>}
       <Box flexShrink={1} marginLeft={space.gap}>
         {draw(Box, Text, right, 1)}
       </Box>

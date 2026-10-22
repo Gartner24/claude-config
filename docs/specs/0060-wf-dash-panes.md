@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-17
 **Status**: Accepted
-**Paths:** `claude-home/mods/chip-dash/**`, `runner/wf.py`, `runner/questions.py`, `runner/telegram.py`, `runner/tests/test_wf_plan.py`
+**Paths:** `claude-home/mods/chip-dash/**`, `_archive/runner/wf.py`, `_archive/runner/questions.py`, `_archive/runner/telegram.py`, `_archive/runner/tests/test_wf_plan.py`
 **Stacks on:** 0059
 **Amended**: 2026-10-18 - one `/wf-dash` dashboard with Plan, Builds, Agents and Alerts views replaces the separate `/plan`, `/agents` and `/runner` panes (which also clash with Claude Code's own `/plan` and `/agents`); the plan gains a `to publish` state and eight filters. Source: the locked look in `claude-home/mods/wf-dash/design.md` (Dashboard) and the brief's "B3 wf-dash look" line.
 

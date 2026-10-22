@@ -53,11 +53,11 @@ async function open($: any, on: any) {
 }
 const text = async (ui: any, re: RegExp) => (await ui.find({ type: 'Text', text: re }))?.text
 
-test('one command, /chip (and the /wf-dash alias); the views switch on p a; the plan comes from plan.py, never from wf', async ($, on) => {
+test('one command, /chip (and the /wf-dash alias); the views switch on p n a; the plan comes from plan.py, never from wf', async ($, on) => {
   const { calls, ui } = await open($, on)
   expect(calls.commands.filter(c => c === 'wf-dash')).toEqual(['wf-dash'])
   expect(calls.commands).toEqual(['chip', 'wf-dash'])
-  expect(SECTIONS.map(s => s.key)).toEqual(['p', 'a'])
+  expect(SECTIONS.map(s => s.key)).toEqual(['p', 'n', 'a'])
   expect(calls.argv.some(isPlan)).toBe(true)
   expect(calls.argv.filter(a => a[0] === 'wf')).toEqual([])
   expect(await ui.find({ key: 'k-b' })).toBeUndefined()

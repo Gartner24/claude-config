@@ -16,7 +16,7 @@ because the LICENSE covers only the parts authored here.
 | `claude-home/hooks/handover-start.sh` | Loads a waiting rollover handover after `/clear` (spec 0057) |
 | `claude-home/mods/wf-handoff/` | `/handoff` mod: clears so the handover hook loads the handover (spec 0057); hands a chat off on its own at the token line (spec 0063) |
 | `claude-home/hooks/plain-panel.py` | Panel check: every question offers "Learn this first", at most 3 real options, no jargon (spec 0028) |
-| `runner/` | `wf`, the workflow runner (spec 0001) |
+| `_archive/runner/` | `wf`, the workflow runner (spec 0001) |
 | `claude-home/skills/auto/` | `/auto on`, `/auto off`: autonomous mode, the session drives `wf` (spec 0030) |
 | `claude-home/skills/improve-my-system/` | Weekly review of your own session history, redacted before any model reads it (spec 0061) |
 | `claude-home/rules/scope-contract.md` | The scope format the runner reads and the skills write (spec 0003) |

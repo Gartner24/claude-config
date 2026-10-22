@@ -2,8 +2,8 @@
 
 **Date**: 2026-10-13
 **Status**: Accepted (built 8490b26)
-**Paths:** `scripts/fb-ask.py`, `bin/install.sh`, `runner/run.py`, `runner/report.py`, `runner/tests/*`, `claude-home/rules/cheap-worker.md`, `AGENTS.md`
-**Amends**: [0008](../0008-failure-park-policy/index.md) AC-7 (one more credential folder hidden from calls).
+**Paths:** `scripts/fb-ask.py`, `bin/install.sh`, `_archive/runner/run.py`, `_archive/runner/report.py`, `_archive/runner/tests/*`, `claude-home/rules/cheap-worker.md`, `AGENTS.md`
+**Amends**: [0008](../../../_archive/runner/docs/specs/0008-failure-park-policy/index.md) AC-7 (one more credential folder hidden from calls).
 
 ## What you're agreeing to
 - Boring reading jobs (summaries of long pages, logs and transcripts, first pass triage, pulling fields out, sorting into labels, commit message drafts) can go to the free claude-fb models through one command, `fb-ask`, which only returns text.

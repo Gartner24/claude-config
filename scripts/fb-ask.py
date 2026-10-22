@@ -171,7 +171,7 @@ def names_check(text):
 # -- spec 0053 AC-3 build check ----------------------------------------------------
 
 def wf_building():
-    """An active.json entry whose runner lock is held (runner/auto.py entry_running): the laptop would swap
+    """An active.json entry whose runner lock is held (_archive/runner/auto.py entry_running): the laptop would swap
     under a build. An unreadable lock counts as held, as there."""
     state = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "wf")
     try:

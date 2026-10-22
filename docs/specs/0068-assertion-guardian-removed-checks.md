@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-20
 **Status**: Accepted, built in d764b60
-**Paths:** `config/manifest.json`, `config/patches/assertion-guardian.patch`, `bin/claude-config.py`, `runner/tests/test_claude_config.py`
+**Paths:** `config/manifest.json`, `config/patches/assertion-guardian.patch`, `bin/claude-config.py`, `tests/test_claude_config.py`
 
 ## What you're agreeing to
 - A test edit made through the shell (sed, cat >>, rm, cp, tee) is no longer refused before it runs. The command runs, the test check compares each test file before and after, and if a check got removed or looser it puts the files back and says so.

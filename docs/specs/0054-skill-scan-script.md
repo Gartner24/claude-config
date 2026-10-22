@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-17
 **Status**: Accepted
-**Paths:** `scripts/skill-scan.py`, `bin/claude-config.py`, `bin/install.sh`, `claude-home/skills/claude-config/SKILL.md`, `runner/tests/test_skill_scan.py`
+**Paths:** `scripts/skill-scan.py`, `bin/claude-config.py`, `bin/install.sh`, `claude-home/skills/claude-config/SKILL.md`, `tests/test_skill_scan.py`
 **Amends**: [0048](0048-organize-and-sync/index.md) AC-10 (`update --apply` runs a scan first; it still never asks)
 **Amended**: 2026-10-18 - AC-13 a trusted list the full scan skips and names in its report (gstack, jjstack, ui-ux-pro-max). Built in fb940be. Source: the brief's "B2 skill scan" line, your words of 2026-10-17.
 

@@ -1,0 +1,102 @@
+"""bin/install.sh (spec 0020 AC-3, AC-4, spec 0035 AC-7, spec 0072): copied from the archived runner suite, which no
+longer runs. A scratch repo holds a copy of the script; it stops at its own verify step, after every write."""
+import os
+import shutil
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[1]
+CHECKER = "#!/usr/bin/env python3\n# c\n"
+
+
+class Scratch(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, self.tmp)
+        self.repo = repo = self.tmp / "repo"
+        for d in ("claude-home/agents", "claude-home/rules", "claude-home/hooks", "claude-home/scripts", "scripts", "bin"):
+            (repo / d).mkdir(parents=True)
+        shutil.copy(REPO / "bin/install.sh", repo / "bin/install.sh")
+        for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py",
+                  "hooks/context-monitor.js", "hooks/handover-start.sh", "hooks/no-jjstack-bar.py"):
+            (repo / "claude-home" / f).write_text("#!/bin/sh\n")
+        (repo / "scripts" / "private-names.py").write_text(CHECKER)
+        (repo / "claude-home" / "settings.json").write_text("{}")
+        (repo / "claude-home" / "CLAUDE.md").write_text("# r\n")
+        subprocess.run(["git", "init", "-q", str(repo)], check=True, stdin=subprocess.DEVNULL)
+        self.hooks = repo / ".git" / "hooks"
+        self.hooks.mkdir(exist_ok=True)
+        for h in self.hooks.iterdir():
+            h.unlink()
+
+    def install(self, name, staged=False, *args):
+        home = self.tmp / f"home-{name}"
+        live = home / ".claude"
+        (live / "private").mkdir(parents=True, exist_ok=True)
+        (live / "private" / "names.txt").write_text("x\n")
+        (live / "settings.json").write_text('{"old": 1}')
+        env = {**os.environ, "HOME": str(home), "CLAUDE_LIVE_DIR": str(live), "GIT_CONFIG_GLOBAL": "/dev/null"}
+        env.pop("WF_STAGE", None)
+        if staged:
+            env["WF_STAGE"] = "1"
+        r = subprocess.run(["bash", str(self.repo / "bin/install.sh"), *args], env=env, capture_output=True, text=True,
+                           stdin=subprocess.DEVNULL, timeout=120)
+        return home, live, r
+
+
+class TestInstallStage(Scratch):
+    # covers: spec 0020 AC-3 (WF_STAGE=1 writes no bin link and no git hook; without it, as today)
+    def test_stage(self):
+        for staged in (True, False):
+            home, live, r = self.install(f"stage-{staged}", staged)
+            with self.subTest(staged=staged):
+                self.assertEqual(("staged: bin links and git hooks left to wf" in r.stdout), staged, r.stdout + r.stderr)
+                self.assertEqual((home / ".local" / "bin").exists(), not staged, r.stdout + r.stderr)
+                self.assertEqual((self.hooks / "pre-commit").exists(), not staged, r.stdout + r.stderr)
+                self.assertTrue((live / "rules").is_dir())
+                self.assertTrue((live / "settings.json").exists(), r.stdout + r.stderr)
+                # covers: spec 0035 AC-7 (the old settings are backed up under backups/settings/, never at the top)
+                baks = list((live / "backups" / "settings").glob("settings.json.bak.*"))
+                self.assertEqual([b.read_text() for b in baks], ['{"old": 1}'], r.stdout + r.stderr)
+                self.assertEqual([p.name for p in live.glob("*.bak.*")], [])
+
+    # covers: spec 0020 AC-4 (the hook replace rules of bin/install.sh: an up to date copy and a hand written hook are
+    # left alone; an older copy, same second line, is refreshed; a missing hook is copied)
+    def test_hooks_left_alone(self):
+        (self.hooks / "pre-commit").write_text(CHECKER)
+        (self.hooks / "pre-commit").chmod(0o755)
+        (self.hooks / "commit-msg").write_text("#!/bin/sh\nexit 0\n")
+        _, _, r = self.install("a")
+        self.assertIn("pre-commit: up to date", r.stdout, r.stdout + r.stderr)
+        self.assertIn("hook exists, not replaced: commit-msg", r.stdout, r.stdout + r.stderr)
+        self.assertEqual((self.hooks / "commit-msg").read_text(), "#!/bin/sh\nexit 0\n")
+        (self.hooks / "commit-msg").write_text("#!/usr/bin/env python3\n# c\nold\n")
+        (self.hooks / "pre-commit").unlink()
+        _, _, r = self.install("b")
+        self.assertIn("commit-msg: refreshed", r.stdout, r.stdout + r.stderr)
+        self.assertIn("pre-commit: copied", r.stdout, r.stdout + r.stderr)
+        self.assertEqual((self.hooks / "commit-msg").read_text(), CHECKER)
+        self.assertEqual((self.hooks / "pre-commit").read_text(), CHECKER)
+
+
+class TestDryRun(unittest.TestCase):
+    # covers: spec 0020 AC-12, retired 2026-10-22 (the real install.sh --dry-run exits 0, no longer copies or links
+    # the runner, and writes nothing under the home folder)
+    def test_install_sh_dry_run_names_no_runner_copy(self):
+        tmp = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, tmp)
+        home = tmp / "home"
+        env = {**os.environ, "HOME": str(home), "CLAUDE_LIVE_DIR": str(tmp / "live")}
+        r = subprocess.run(["bash", str(REPO / "bin/install.sh"), "--dry-run"], capture_output=True, text=True, env=env,
+                           stdin=subprocess.DEVNULL, timeout=120)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertNotIn("runner/*.py", r.stdout)
+        self.assertNotIn(f"{home}/.local/bin/wf", r.stdout)
+        self.assertFalse((home / ".local" / "share" / "wf").exists())
+        self.assertFalse((tmp / "live").exists())
+
+
+if __name__ == "__main__":
+    unittest.main()

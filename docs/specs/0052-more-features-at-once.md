@@ -2,8 +2,8 @@
 
 **Date**: 2026-10-17
 **Status**: Accepted (built eb8422a)
-**Paths:** `runner/run.py`, `runner/wf.py`, `runner/pr.py`, `runner/tests/fast.py`, `runner/tests/test_parallel_repo.py`, `runner/tests/test_parallel.py`, `runner/e2e/run.py`, `runner/e2e/stress_git.py`, `AGENTS.md`
-**Amends**: [0027](0027-same-repo-parallel/index.md) AC-1 (parallel is any whole number 1 to 8, not 1 to 4) and AC-4 (memory and usage brake); [0043](0043-fast-runner/index.md) AC-2 (the same files wait comes back, from each spec's Paths line)
+**Paths:** `_archive/runner/run.py`, `_archive/runner/wf.py`, `_archive/runner/pr.py`, `tests/fast.py`, `_archive/runner/tests/test_parallel_repo.py`, `_archive/runner/tests/test_parallel.py`, `_archive/runner/e2e/run.py`, `_archive/runner/e2e/stress_git.py`, `AGENTS.md`
+**Amends**: [0027](../../_archive/runner/docs/specs/0027-same-repo-parallel/index.md) AC-1 (parallel is any whole number 1 to 8, not 1 to 4) and AC-4 (memory and usage brake); [0043](0043-fast-runner/index.md) AC-2 (the same files wait comes back, from each spec's Paths line)
 
 ## What you're agreeing to
 - A repo's `parallel` can say any number from 1 to 8; the plan default you set in AGENTS.md becomes 6.

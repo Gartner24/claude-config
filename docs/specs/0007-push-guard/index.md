@@ -2,11 +2,11 @@
 
 **Date**: 2026-10-12
 **Status**: Accepted
-**Paths:** `runner/run.py`, `bin/install.sh`
+**Paths:** `_archive/runner/run.py`, `bin/install.sh`
 **Amended by**: [0011](../0011-build-decision-queue/index.md) - AC-9's `guard:` part moved from the confirm line to its own line in each repo's plan block (0011 AC-6), same text after `guard: `; AC-8's missing `claude` exits 1 (0011 AC-4).
 **Amended**: 2026-10-12, review stack findings M7, M8, M9 (`docs/briefs/runner-review-stack-2026-10-12.md`): AC-1 credential paths widened by spec 0008 AC-7; AC-2 and AC-7 submodule `config` and `hooks`; the spec 0004 `DENIED` push rule narrowed (spec 0004 AC-4).
 **Amended**: 2026-10-12, second review stack (`c95f181..d20a328`, same brief): AC-2 and AC-7 cover submodules cloned in place and each submodule's `.git` pointer, `config.worktree` and include targets; AC-8 lists the refusals the first review added; AC-9 gains `submodules`; spec 0011 AC-9 counts a file at or under a submodule's `.git` as its repo's own.
-**Amended by**: [0008](../0008-failure-park-policy/index.md) - AC-1 env strip widened to paid API keys, tokens and secrets (one `call_env()`); `~/.aws`, `~/.config/gcloud`, `~/.azure` join AC-2 `denyRead` and AC-5 `Read` denies. [0009](../0009-headless-verify-test/index.md) - AC-4: `/check verify` and debug calls in a repo naming an app get `MCP_BROWSER` instead of the empty list; AC-2 settings on those calls gain the browser hook. [0010](../0010-design-enforcement-unattended/index.md) - AC-5 deny list gains `Skill(design)` and `Skill(brand-system)`.
+**Amended by**: [0008](../../../_archive/runner/docs/specs/0008-failure-park-policy/index.md) - AC-1 env strip widened to paid API keys, tokens and secrets (one `call_env()`); `~/.aws`, `~/.config/gcloud`, `~/.azure` join AC-2 `denyRead` and AC-5 `Read` denies. [0009](../../../_archive/runner/docs/specs/0009-headless-verify-test/index.md) - AC-4: `/check verify` and debug calls in a repo naming an app get `MCP_BROWSER` instead of the empty list; AC-2 settings on those calls gain the browser hook. [0010](../../../_archive/runner/docs/specs/0010-design-enforcement-unattended/index.md) - AC-5 deny list gains `Skill(design)` and `Skill(brand-system)`.
 
 ## Summary
 
