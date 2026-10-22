@@ -22,7 +22,8 @@ class TestFbAsk(unittest.TestCase):
         self.assertEqual(len(local), 1, rule)
         for part in ("2 minutes", "6 words a second", "30,000 characters", "600000 ms"):
             self.assertIn(part, local[0])
-        agents = [l for l in (REPO / "AGENTS.md").read_text().splitlines() if l.startswith("fb-ask <task>")]
+        # spec 0072 AC-6: the command list moved out of the entry file into the rules card
+        agents = [l for l in (REPO / "map" / "objects" / "rules.md").read_text().splitlines() if "`fb-ask <task>" in l]
         self.assertEqual(len(agents), 1)
         self.assertIn("[--local]", agents[0])
 

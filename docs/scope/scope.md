@@ -1265,6 +1265,7 @@ Small bugs the Assertion Guardian review left (low severity, none blocks use).
   - [ ] `/allow-test-change <file>` for a shell refusal: find the code first
   - [ ] Concurrent Bash calls undo each other's additions: the fixing chat picked "leave it, the README says it" · waits on you
   - [ ] Spec 0068 Amended line for the refusal shape: `/architect assertion guardian blocks only removed checks`
+  - [ ] chain-catch owes `/develop` for a row whose text says it builds only after other rows (row 100 on 2026-10-22, after an edit of the live `settings.json` its spec names): skip a row that still waits on unmerged rows
 Source: [review report](../reviews/review-2026-10-21.md) (P3 rows and Guardrails): a file with a byte order mark refused with generic text; restore writes through a symlink; build() clones an unreachable source twice; `/allow-test-change <file>` does nothing for a shell refusal; concurrent Bash calls can undo each other's additions; spec 0068 has no Amended line for the refusal shape.
 
 ## Release 10: one workflow in every chat, no runner
@@ -1296,11 +1297,11 @@ Source: [brief](../briefs/handover-memory.md), [brief](../briefs/handoff-loss-au
 Today the 9 workflow skills start only because rule text says so, and on 2026-10-22 `/scope` never ran at chat start and free form builds skipped the `/develop` chain. You want real triggers, like the JSM agentic engineering course describes.
 **Done when:** each of the 9 skills has a trigger you chose (hook or rule), and a chat that skips one is caught, with a test per hook.
 - [x] Design it (spec): `/architect skills start themselves at the right moment` (spec [0070](../specs/0070-skills-start-themselves.md) accepted 2026-10-22)
-- [ ] Build it: `/develop skills start themselves at the right moment`
+- [x] Build it: `/develop skills start themselves at the right moment` (PR #166, merged 2026-10-22, 1229a0b)
   - [x] Probes: Stop hook block, headless tell, mod start at chat open and after `/clear`; a FAIL goes back to `/architect` (2026-10-22: (a) to (e) PASS; finding F1 in [verify.md](../specs/0070-skills-start-themselves/verify.md): the shell start hook runs before the mod, so it applies the mod's rule itself, spec amended)
   - [x] `spec-paths --files`, then `chain-catch.py` with `--test` and its Stop hook (also `--prompt` and the AC-17 to AC-20 rules; 65 checks, each mutation checked)
   - [x] wf-handoff mod start of `/audit` and `/scope`, `workflow-start.sh` skip, mod tests (F1: the hook applies the mod's rule itself, owner 2026-10-22; one shared case list; the origin is parsed, not substring matched)
-  - [ ] Live rules: `handoff.md`, `skill-map.md`, `CLAUDE.md`, settings Stop hook, then `bin/sync.sh` (repo copies under `claude-home/` edited, plus `check-gates.md`, `scope-contract.md` and the UserPromptSubmit hook; copying them live is left, after the merge of PR #166) · later boxes go on
+  - [x] Live rules: `handoff.md`, `skill-map.md`, `CLAUDE.md`, settings Stop hook, then `bin/sync.sh` (repo copies under `claude-home/` edited, plus `check-gates.md`, `scope-contract.md` and the UserPromptSubmit hook; copied live 2026-10-22 after PR #166; drift clean, live self checks pass) · later boxes go on
 - [x] Verify it: `/check verify skills start themselves at the right moment` (AC-1 to AC-21 with can fail lines in the spec's verify.md; /review APPROVE on PR #166, its P2 and 3 security notes fixed)
 - [x] Test it: `/test skills start themselves at the right moment` (mod tests 137, chain-catch, workflow-start and spec-paths self checks pass, suite 139 ok; 117 mutants red)
 Source: [brief](../briefs/skills-start-themselves.md), your messages 2026-10-22 ("the 9 skills should have rules when to trigger automatically like develop or others") and [brief](../briefs/retire-runner.md).
@@ -1348,7 +1349,7 @@ You asked to restructure claude-config into the folder layout of RinDig's icm-ar
 - [x] Design it (spec): `/architect restructure claude-config to the icm-architect layout` (spec 0072, phase 1; answers in [brief](../briefs/icm-restructure.md))
 - [ ] Build it: `/develop restructure claude-config to the icm-architect layout`
   - [x] Reference check, tests split, runner archive (0072a; AC-1 to AC-5, AC-13) · PR #165: ref-check clean, suite 139 ok (5 live-script tests copied from the archive, your call after the regression check), /review APPROVE with 2 P3s fixed, see [verify](../specs/0072-icm-restructure/verify.md)
-  - [ ] Map cards, CLAUDE.md entry, AGENTS.md link (0072b; AC-6 to AC-10)
+  - [x] Map cards, CLAUDE.md entry, AGENTS.md link (0072b; AC-6 to AC-10) · built on feat/0072-map-and-entry: suite 143 ok, ref-check clean, AC-9 probe commit and hook refresh left for after merge, see [verify](../specs/0072-icm-restructure/verify.md)
   - [ ] Scope split (0072c; AC-11, AC-12)
 - [ ] Verify it: `/check verify restructure claude-config to the icm-architect layout`
 - [ ] Test it: `/test restructure claude-config to the icm-architect layout`
