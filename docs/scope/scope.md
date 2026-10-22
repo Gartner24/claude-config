@@ -1,6 +1,6 @@
 # Scope: claude-config
 
-Your Claude Code setup, published. The current build is the autonomous workflow runner: it starts each next step of a repo's scope for you, then later runs whole features unattended and pings your phone only for a real decision.
+Your Claude Code setup, published. Rows 1 to 89 built the autonomous workflow runner (`wf`), retired live on 2026-10-22 (row 90). The current build is one workflow in every chat, with no runner.
 
 **Build approach:** Skateboard (each stage is usable on its own, and each next stage grows the same tool).
 **Workflow:** Beta (after `/develop`: `/check verify`, then `/test`). It runs unattended on your machine, so it gets tests. `/architect` is the recommended first stop for a feature with a real decision, but skippable when you already know the build. Any feature can carry its own tag (e.g. `· GA`) to do more or less.
@@ -103,11 +103,16 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 82 | Finish when the owner is away | Release 9 | done |
 | 83 | The word "after" stalls a feature | Release 9 | done |
 | 84 | Assertion Guardian blocks only removed checks | Release 9 | done |
-| 85 | Mod install also reinstalls the runner copy | Release 9 | needs a decision |
+| 85 | Mod install also reinstalls the runner copy | Release 9 | dropped |
 | 86 | Home-base chat runs from claude-config | Release 9 | done |
 | 87 | A live install box is ticked only when it is live | Release 9 | needs a decision |
 | 88 | Fix: auto handoff answers the question it cut off | Release 9 | done |
-| 89 | Review leftovers 2026-10-21 | Release 9 | not started |
+| 89 | Review leftovers 2026-10-21 | Release 9 | in-progress |
+| 90 | Retire the runner, its features in every chat | Release 10 | done |
+| 91 | Handover memory | Release 10 | needs a decision |
+| 92 | Skills start themselves at the right moment | Release 10 | needs a decision |
+| 93 | Dashboard restructure for the setup without wf | Release 10 | needs a decision |
+| 94 | Three numbers for the switch-on rules | Release 10 | planned |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -1203,7 +1208,8 @@ The test-weakening check blocks harmless test edits, each needs `/allow-test-cha
 - [x] Sync docs: `/sync assertion guardian blocks only removed checks` (spec Accepted, tool catalog row, leftovers in row 89)
 Spec [0068](../specs/0068-assertion-guardian-removed-checks.md) · Source: [brief](../briefs/assertion-guardian.md) (your panel answers 2026-10-19 and 2026-10-20).
 
-### 85. Mod install also reinstalls the runner copy
+### 85. Mod install also reinstalls the runner copy · dropped
+Dropped 2026-10-22: the runner is retired live (row 90), so no mod calls an installed `wf` any more.
 When a mod calls a new `wf` subcommand, the install box copies the mod but not the runner, so the mod calls a command the installed `wf` does not have yet.
 **Done when:** a mod install box that needs a new `wf` subcommand also reinstalls the runner copy (`finish.install_runner`), with a test.
 - [ ] Design it (spec): `/architect mod install also reinstalls the runner copy`
@@ -1252,7 +1258,47 @@ Source: your message 2026-10-20 ("The automatic rollover also is wiping my quest
 Small bugs the Assertion Guardian review left (low severity, none blocks use).
 **Done when:** each leftover in the report is fixed with a test, or dropped with a reason.
 - [ ] Fix them: `/debug review leftovers 2026-10-21`
+  - [x] build() clones an unreachable source twice (PR #139)
+  - [ ] Byte order mark refusal text, and restore skips a symlink: edit the live assertion-guardian mod, `claude plugin test`, then `bin/sync.sh` regenerates `config/patches/assertion-guardian.patch`
+  - [ ] `/allow-test-change <file>` for a shell refusal: find the code first
+  - [ ] Concurrent Bash calls undo each other's additions: the fixing chat picked "leave it, the README says it" · waits on you
+  - [ ] Spec 0068 Amended line for the refusal shape: `/architect assertion guardian blocks only removed checks`
 Source: [review report](../reviews/review-2026-10-21.md) (P3 rows and Guardrails): a file with a byte order mark refused with generic text; restore writes through a symlink; build() clones an unreachable source twice; `/allow-test-change <file>` does nothing for a shell refusal; concurrent Bash calls can undo each other's additions; spec 0068 has no Amended line for the refusal shape.
+
+## Release 10: one workflow in every chat, no runner
+
+### 90. Retire the runner, its features in every chat · done
+The `wf` runner is retired live. What it did for some chats is now a rule in every chat, the loaded text is trimmed, and risky reviews get a second claude-fb pass.
+**Done when:** no `wf` link, rule or allow entry is live; the kept features switch on by condition (`rules/when-to-switch-on.md`); the changes are merged and copied live.
+- [x] Build it: PRs #126 to #135, #137, #138 (retire live, `/auto-handoff` switch, 250k handoff line, allow rules, three small rules, question format, wf leftovers, handoff fixes, briefs, all chats rules, trim, fb second review); dotfiles PR #1 (global commit-msg hook)
+- [x] Copy live: rules, `CLAUDE.md`, hooks, settings (17 wf rules removed by your script), `~/.config/wf` trashed
+- [ ] Push the local dotfiles main (one merge commit, plus the AGENTS.md trim) · waits on you · later boxes go on
+- [ ] Try `fb-ask review` on the next risky review (never run against the real claude-fb models yet)
+Source: [brief](../briefs/retire-runner.md) ("Decisions 2026-10-22 (third chat)") and [brief](../briefs/context-trim-and-all-chats.md).
+
+### 91. Handover memory · needs a decision
+A fresh chat after a handoff keeps every open question, shown list and agreed decision, written by a small helper into the feature's brief and checked against the old transcript.
+**Done when:** spec 0069's acceptance criteria hold, and the replay of the 11 audited handoffs keeps at least as much as today's slots.
+- [ ] Design it (spec): `/architect handover memory` (spec [0069](../specs/0069-handover-memory.md) is Proposed: you approve its data model and pick its 5 open decisions, plus 3 small choices: `docs/briefs/general.md`, 500 tokens as 2000 characters, 14 days checked at the next handoff or `/sync`)
+Source: [brief](../briefs/handoff-loss-audit.md) and [brief](../briefs/retire-runner.md).
+
+### 92. Skills start themselves at the right moment · needs a decision
+Today the 9 workflow skills start only because rule text says so, and on 2026-10-22 `/scope` never ran at chat start and free form builds skipped the `/develop` chain. You want real triggers, like the JSM agentic engineering course describes.
+**Done when:** each of the 9 skills has a trigger you chose (hook or rule), and a chat that skips one is caught, with a test per hook.
+- [ ] Design it (spec): `/architect skills start themselves at the right moment` (compare with the course list in `jsm-course-check.md` and `jsm-course-gated-research.md`; which skill gets a hook and which a rule is your call)
+Source: your messages 2026-10-22 ("the 9 skills should have rules when to trigger automatically like develop or others") and [brief](../briefs/retire-runner.md).
+
+### 93. Dashboard restructure for the setup without wf · needs a decision
+The wf-dash band and panes still read the retired runner's ideas. You like the dashboard and want it restructured and connected to today's setup.
+**Done when:** every number and pane reads a live source of today's setup, and the design gate passes.
+- [ ] Design it (spec): `/architect dashboard restructure for the setup without wf` (then the `design` pipeline with you)
+Source: your message 2026-10-22 ("I think the dashboard is great still just need a restructuring and connect with our updates").
+
+### 94. Three numbers for the switch-on rules
+`rules/when-to-switch-on.md` has three `[ask the owner]` placeholders.
+**Done when:** the keep awake hours, the wait in minutes for a first PR check, and the review loop rounds are your numbers in the live rule and the repo.
+- [ ] Fill them: `/develop three numbers for the switch-on rules` (after your three answers)
+Source: [brief](../briefs/context-trim-and-all-chats.md) Part 2.
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
