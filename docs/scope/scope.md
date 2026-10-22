@@ -1382,6 +1382,14 @@ The two workflows you asked to be reminded of: `review-fix` (fix a PR's review f
 - [ ] Design it (spec): `/architect review-fix and restructure-check workflows`
 Source: [brief](../briefs/icm-restructure.md) "Workflows"; your messages 2026-10-22.
 
+### 103. Fix: a manual handoff gets the "not live" facts list
+A manual `/rollover` then `/clear` gets no "not live" list in the handover: the wf-handoff mod adds it only on its auto path (`claude-home/mods/wf-handoff/hooks/register.ts:371`, `notLiveNow`). The PR #152 fix has never had a real test.
+**Done when:** a handover written by a manual `/rollover` names every changed file that is not live yet, the same as the auto path, with a mod test red on the old code.
+- [ ] Fix it: `/debug a manual handoff gets the not live facts list`
+- [ ] Verify it: `/check verify a manual handoff gets the not live facts list`
+- [ ] Test it: `/test a manual handoff gets the not live facts list`
+Source: gap found in the ninth chat of 2026-10-22 (handover of that chat, next action 2).
+
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
 
