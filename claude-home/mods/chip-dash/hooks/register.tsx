@@ -1,19 +1,21 @@
 import type { Register } from 'claude-code'
 import { Band, HandoffRow, type Facts } from '../band.tsx'
 import { handoffLine } from '../handoff.ts'
+import { parseOwed, parsePrs, prArgv } from '../now.ts'
 import { DEFAULT_VIEW, Dashboard, safeStep } from '../panes.tsx'
-import type { WfDashAsk } from '../types/index.d.ts'
+import type { WfDashAsk, WfDashOwed } from '../types/index.d.ts'
 import { color, pane, space, time, width } from '../tokens.ts'
 
 // chip-dash: the band (spec 0059) reads this session and wf-handoff's files; the dashboard (spec 0060) reads plan.py and
-// offers two actions, each behind a confirm. The drawing in band.tsx and panes.tsx is the locked look. Nothing here
-// runs or reads the retired wf runner.
+// offers two actions, each behind a confirm; its Now view (spec 0071) reads the catch state file and one gh search.
+// The drawing in band.tsx and panes.tsx is the locked look. Nothing here runs or reads the retired wf runner.
 
 const FACTS = { plugin: 'chip-dash', key: 'facts' } as const
 const EFFORT = { plugin: 'chip-dash', key: 'effort' } as const
 const PLAN = { plugin: 'chip-dash', key: 'plan' } as const
 const VIEW = { plugin: 'chip-dash', key: 'view' } as const
 const HANDOFF = { plugin: 'chip-dash', key: 'handoff' } as const
+const PRS = { plugin: 'chip-dash', key: 'prs' } as const
 const PANE = 'chip-dash'
 // P9: a prompt submitted from inside the confirming hook does not start a turn; from the clock after it returns, it does.
 // The host refuses $.prompt.submit of a text starting with "/" (it would run a command as the user), so the step goes
@@ -25,6 +27,7 @@ const LEVEL = /^[a-z]{1,20}$/
 // shortcut: module values, so a hot reload forgets the dashboard is open until it is opened again; fine for a preview
 let isOpen = false
 let loadPanes = async (_force = false) => {}
+let loadPrs = async (_force = false) => {}
 
 function clock(ms: number) {
   const d = new Date(ms)
@@ -37,10 +40,12 @@ function clock(ms: number) {
 // Security review: only a background Bash call's own result, at its start, so quoted output never adds a row.
 const SHELL_ID = /^Command running in background with ID:\s*([A-Za-z0-9_-]+)\./
 const stoppedShells = new Set<string>()
-async function shells($: any) {
+// null when the transcript could not be read: the Now view then counts `agents ?`, never 0 shells (spec 0071 AC-6)
+async function shells($: any): Promise<any[] | null> {
   const msgs = await $.session.messages().catch(() => null)
+  if (!Array.isArray(msgs)) return null
   const found = new Map<string, any>()
-  for (const m of Array.isArray(msgs) ? msgs : []) {
+  for (const m of msgs) {
     for (const u of m.toolUses ?? []) {
       const id = u.tool === 'Bash' && u.input?.run_in_background === true ? SHELL_ID.exec(u.text ?? '')?.[1] : null
       if (id) found.set(id, { id, description: String(u.input?.description || u.input?.command || id), type: 'shell', status: 'started' })
@@ -69,7 +74,10 @@ async function openDashboard($: any) {
   isOpen = true
   void loadPanes(true)
   await $.ui.open({ id: PANE, title: 'chip-dash', focus: true, closeOnEscape: true, rows: pane.rows })
-  return { text: 'chip-dash open: p a switch views, esc closes' }
+  // reopened on Now: Now opens, so the PR search runs (spec 0071 AC-4); after the open, so the engine lists the pane.
+  // On any other view it does nothing
+  void loadPrs(true)
+  return { text: 'chip-dash open: p n a switch views, esc closes' }
 }
 
 export const register: Register = on => {
@@ -79,7 +87,9 @@ export const register: Register = on => {
     let factsRead = false
     let busy = false
     const id = await $.session.id().catch(() => '')
-    const handoffDir = `${await $.env.get('HOME')}/.claude/state/auto-handoff`
+    const home = await $.env.get('HOME')
+    const handoffDir = `${home}/.claude/state/auto-handoff`
+    const catchDir = `${home}/.claude/state/chain-catch`
     const panelPath = `${handoffDir}/panel.json`
     let me = id
     let prev: string | null = null
@@ -106,11 +116,25 @@ export const register: Register = on => {
       await $.state.set(HANDOFF, { panel: mine ? p : old?.panel ?? null, me, prev, dismissed: old?.dismissed ?? 0, frame: old?.frame ?? 0, auto: await readAuto() })
     }
 
+    // Spec 0071 AC-2, AC-7: what this chat owes, from spec 0070's catch file under this chat's id, else the id it
+    // replaced after a /clear (readPanel keeps both). A file that exists but cannot be read is unknown, never nothing.
+    const readOwed = async (): Promise<WfDashOwed> => {
+      if (!(await $.fs.exists(catchDir).catch(() => false))) return { installed: false, lines: null, error: null }
+      for (const sid of [me, prev]) {
+        const path = `${catchDir}/${sid}.json`
+        if (!sid || !(await $.fs.exists(path).catch(() => false))) continue
+        const raw = await $.fs.read(path).catch((err: any) => ({ failed: String(err?.message ?? err) }))
+        return typeof raw === 'string' ? parseOwed(raw) : { installed: true, lines: null, error: raw.failed }
+      }
+      return { installed: true, lines: [], error: null }
+    }
+
     const refresh = async () => {
       if (busy) return
       busy = true
       try {
         await readPanel()
+        const owed = await readOwed()
         const cwd = await $.session.cwd()
         const [r, usage, model, setLevel] = await Promise.all([
           $.process.run(['python3', `${$.plugin.root}/facts.py`, cwd]).catch(() => null),
@@ -142,11 +166,13 @@ export const register: Register = on => {
             weekReset: limit('seven_day')?.resetsAt ?? null,
             via: raw.via ?? null,
             staleSince: null,
+            owed,
           }
           await $.state.set(FACTS, lastGood)
-        } else if (lastGood && !lastGood.staleSince) {
-          // a failed tick keeps the last good facts, marked stale, never an empty band; the mark keeps its first time
-          lastGood = { ...lastGood, staleSince: clock(await $.clock.now()) }
+        } else if (lastGood) {
+          // a failed tick keeps the last good facts, marked stale, never an empty band; the mark keeps its first time.
+          // The owed count is its own read, so it stays current while facts.py fails.
+          lastGood = { ...lastGood, owed, staleSince: lastGood.staleSince ?? clock(await $.clock.now()) }
           await $.state.set(FACTS, lastGood)
         }
       } finally {
@@ -175,9 +201,35 @@ export const register: Register = on => {
       }
     }
 
+    // Spec 0071 AC-3, AC-4: the one PR search, only while the dashboard is open on Now: when Now opens and on r
+    // (force), and every 2 minutes on the panes' tick. Never two at once; a failed call keeps the last list, marked.
+    let prBusy = false
+    let prStarted = -Infinity
+    loadPrs = async (force = false) => {
+      const { value: view } = await $.state.get(VIEW)
+      // the engine's record of open panes first: the module's isOpen forgets an open pane on a hot reload; isOpen
+      // only when the record cannot be read
+      const open = (await $.ui.panes().catch(() => null))?.some((p: any) => p.id === PANE) ?? isOpen
+      if (prBusy || !open || view?.section !== 'now') return
+      const now = await $.clock.now()
+      if (!force && now - prStarted < time.prTick) return
+      prBusy = true
+      prStarted = now
+      try {
+        const r = await $.process.run(prArgv(), { timeoutMs: time.prTimeout }).catch(() => null)
+        const data = r && r.exitCode === 0 ? parsePrs(r.stdout) : null
+        const said = r ? String(r.stderr ?? '').split('\n').map(l => l.trim()).find(Boolean) : ''
+        const error = data ? null : !r ? 'did not run or timed out' : r.exitCode !== 0 ? said || `exit ${r.exitCode}` : 'not the expected answer'
+        const { value: old } = await $.state.get(PRS)
+        await $.state.set(PRS, data ? { data, at: await $.clock.now(), error } : { data: old?.data ?? null, at: old?.at ?? null, error })
+      } finally {
+        prBusy = false
+      }
+    }
+
     void refresh()
     $.clock.every(time.bandTick, () => void refresh())
-    $.clock.every(time.planTick, () => void loadPanes())
+    $.clock.every(time.planTick, () => { void loadPanes(); void loadPrs() })
     // the spinner turns only while a handoff step runs, and stays on its first frame under reduced motion, as the host's does
     $.clock.every(time.spin, async () => {
       const { value: h } = await $.state.get(HANDOFF)
@@ -186,7 +238,7 @@ export const register: Register = on => {
       await $.state.set(HANDOFF, { ...h, frame: h.frame + 1 })
     })
 
-    for (const name of ['chip', 'wf-dash']) await $.command.register({ name, description: 'chip-dash: the plan and this chat\'s agents in one dashboard' })
+    for (const name of ['chip', 'wf-dash']) await $.command.register({ name, description: 'chip-dash: the plan, what this chat owes and your PRs, and its agents in one dashboard' })
     return started
   })
 
@@ -253,20 +305,27 @@ export const register: Register = on => {
     const el = $.ui.resolve(e)
     const { value: view = DEFAULT_VIEW } = await $.state.get(VIEW)
     const { value: plan } = await $.state.get(PLAN)
-    const listed = view.section === 'agents' ? await $.agent.list().catch(() => null) : []
+    const live = view.section === 'agents' || view.section === 'now'
+    const listed = live ? await $.agent.list().catch(() => null) : []
     // a shell row never shares an id with an agent, so its stop can never reach one
-    const agents = listed && view.section === 'agents'
-      ? [...listed, ...(await shells($)).filter(s => !listed.some((a: any) => a.id === s.id))] : listed
+    const sh = listed && live ? (await shells($))?.filter(s => !listed.some((a: any) => a.id === s.id)) ?? null : []
+    const agents = listed && view.section === 'agents' ? [...listed, ...(sh ?? [])] : listed
+    // spec 0071 AC-6: the Now view's one line, from the Agents view's own lists
+    const count = listed && sh ? { running: listed.filter((a: any) => a.status === 'running').length, shells: sh.length } : null
     const cwd = await $.session.cwd().catch(() => null)
     const go = async (v: Partial<typeof view>) => {
       const { value: now = DEFAULT_VIEW } = await $.state.get(VIEW)
       await $.state.set(VIEW, { ...now, ...v })
+      if (v.section === 'now' && now.section !== 'now') void loadPrs(true)
     }
     const act = {
       go: (v: Partial<typeof view>) => void go(v),
-      retry: () => void loadPanes(true),
+      retry: () => { void loadPanes(true); void loadPrs(true) },
       run: (a: WfDashAsk) => void perform($, a).then(notice => go({ notice })),
     }
-    return <Dashboard el={el} view={view} act={act} plan={plan} cwd={cwd} agents={agents as any[] | null} focused={e.props.isFocused !== false} rows={e.props.placement === 'dock' ? e.props.scroll?.bodyRows : undefined} columns={e.props.bodyColumns ?? (e.viewport?.columns ?? width.viewport) - pane.frame} />
+    const extras = view.section === 'now'
+      ? { prs: (await $.state.get(PRS)).value, owed: (await $.state.get(FACTS)).value?.owed, handoff: (await $.state.get(HANDOFF)).value, count }
+      : {}
+    return <Dashboard el={el} view={view} act={act} plan={plan} cwd={cwd} agents={agents as any[] | null} focused={e.props.isFocused !== false} rows={e.props.placement === 'dock' ? e.props.scroll?.bodyRows : undefined} columns={e.props.bodyColumns ?? (e.viewport?.columns ?? width.viewport) - pane.frame} {...extras} />
   })
 }

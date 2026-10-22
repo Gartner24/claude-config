@@ -94,10 +94,14 @@ export const pane = {
   minWrap: 10,
   // repo: the plan's repo name, truncated past this; cursor: the ">" mark (its cell plus the cell's gap make the
   // 2-cell indent)
-  col: { state: 13, next: 24, spec: 15, repo: 14, cursor: 1 },
+  // prId: the Now view's `repo#number` column at most, as wide as the plan's next step column
+  col: { state: 13, next: 24, spec: 15, repo: 14, cursor: 1, prId: 24 },
   // under this many body columns (the host's bodyColumns, inside the frame) the plan drops its spec and next columns
   // and the views their intro line; the panel docked beside a 118-column session is about 84 inside (critique round 7)
   specMin: 80,
+  // spec 0071 AC-9: the Now view's blocks in the 14-row pane, each with its heading row; a docked pane's rows past
+  // 14 go to the PRs
+  now: { owed: 3, prs: 6, handoff: 2, agents: 1 },
 } as const;
 
 export const stateOrder = ["waits on you", "ready to build", "needs a design", "in progress", "done", "dropped", "existing"] as const;
@@ -162,4 +166,7 @@ export const time = {
   // spec 0064 AC-2: the handoff result shows this long; the spinner turns at `spin` while a step runs
   handoffResult: 10000,
   spin: 120,
+  // spec 0071 AC-4: the PR search runs every 2 minutes while Now is shown, and gives up after 10 s
+  prTick: 120000,
+  prTimeout: 10000,
 } as const;

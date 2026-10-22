@@ -1,18 +1,21 @@
-// The dashboard: one pane, two sections you move between with a key (p Plan, a Agents). The runner's Builds and
-// Alerts views went with the runner.
+// The dashboard: one pane, three sections you move between with a key (p Plan, n Now, a Agents). The runner's Builds
+// and Alerts views went with the runner.
 // Same look as the band: k9s rows, state words that carry their meaning without color, dim chrome, color spent on
 // state. Pure drawing from data; tokens.ts holds every value.
-import type { WfDashAsk, WfDashFeature, WfDashLoaded, WfDashPlan } from './types/index.d.ts'
+import type { WfDashAsk, WfDashFeature, WfDashHandoff, WfDashLoaded, WfDashOwed, WfDashPlan, WfDashPr, WfDashPrs } from './types/index.d.ts'
+import { tokens } from './band.tsx'
+import { handoverLink } from './handoff.ts'
 import { agentStatus, color, glyph, pane, shortTab, space, specStatus, state, stateHelp, stateOrder, tinyTab } from './tokens.ts'
 
 type El = { Box: any; Text: any; Button: any }
-export type View = { section: string; tab: string; page: number; sel: number; gsel?: number; ask?: WfDashAsk | null; notice?: { text: string; ok: boolean } | null }
+export type View = { section: string; tab: string; page: number; sel: number; gsel?: number; nsel?: number; ask?: WfDashAsk | null; notice?: { text: string; ok: boolean } | null }
 // run: the confirmed action (spec 0060 AC-5); only the confirm row's `y` reaches it
 export type Act = { go: (v: Partial<View>) => void; retry: () => void; run: (ask: WfDashAsk) => void }
 type Plan = WfDashLoaded<WfDashPlan> | undefined
 
 export const SECTIONS = [
   { id: 'plan', key: 'p', label: 'Plan' },
+  { id: 'now', key: 'n', label: 'Now' },
   { id: 'agents', key: 'a', label: 'Agents' },
 ]
 
@@ -220,7 +223,8 @@ function PlanSection({ el, plan, view, act, columns, cwd, extra = 0 }: { el: El;
     const i = feats.findIndex(x => x.page >= want)
     return i < 0 ? 0 : i
   }
-  // n: the first feature of the next state group, wrapping to the top
+  // t: the first feature of the next state group, wrapping to the top. It was n until Now took n (spec 0071 AC-1):
+  // two buttons on one hotkey, the later wins, so n would never have opened Now from Plan
   const nextGroup = () => {
     if (sel < 0) return 0
     const i = feats.findIndex((x, k) => k > sel && norm(x.line.f.state) !== norm(feats[sel].line.f.state))
@@ -327,7 +331,7 @@ function PlanSection({ el, plan, view, act, columns, cwd, extra = 0 }: { el: El;
         { key: 'k', label: 'up', on: feats.length > 1, press: () => act.go({ sel: Math.max(0, sel - 1) }) },
         { key: 'd', label: `${wide ? 'page down' : 'pg'} ${page + 1}/${pages}`, on: page < pages - 1, press: () => act.go({ sel: page < pages - 1 ? pageFirst(page + 1) : sel }) },
         { key: 'u', label: wide ? 'page up' : 'back', on: page > 0, press: () => act.go({ sel: page > 0 ? pageFirst(page - 1) : sel }) },
-        { key: 'n', label: wide ? 'next group' : 'group', on: new Set(feats.map(x => norm(x.line.f.state))).size > 1, press: () => act.go({ sel: nextGroup() }) },
+        { key: 't', label: wide ? 'next group' : 'group', on: new Set(feats.map(x => norm(x.line.f.state))).size > 1, press: () => act.go({ sel: nextGroup() }) },
         { key: 'g', label: 'top', on: sel > 0, press: () => act.go({ sel: 0 }) },
       ], wide ? space.gap : space.tight)}
       {warns.map(w => <Text color={color.warn} wrap="truncate-end">{w}</Text>)}
@@ -382,10 +386,127 @@ function AgentsSection({ el, agents, view, act, columns, extra = 0 }: { el: El; 
   )
 }
 
+// -- Now (spec 0071) -----------------------------------------------------------------------------------------------
+// This chat right now: what it owes, your open PRs, its handoff, its agents. Four blocks of fixed height (AC-9), so a
+// refresh never moves a row; each block draws `?` for what it could not read, never a 0.
+
+type NowLine = { t: string; tone: string; bold?: boolean; indent?: boolean }
+// agents with status running and shells not stopped or finished; null when either list could not be read
+export type AgentCount = { running: number; shells: number } | null
+
+// AC-2: up to `rows` rows, the heading counted; lines past them end in `and k more`
+export function owedLines(o: WfDashOwed | undefined, rows: number = pane.now.owed): NowLine[] {
+  if (!o) return [{ t: 'owed ?', tone: color.warn, bold: true }]
+  if (!o.installed) return [{ t: 'catch not installed (row 92)', tone: color.dim }]
+  if (o.lines === null) return [{ t: 'owed ?', tone: color.warn, bold: true }, { t: o.error ?? '', tone: color.dim, indent: true }]
+  if (!o.lines.length) return [{ t: 'nothing owed', tone: color.dim }]
+  const room = rows - 1
+  const shown = o.lines.length > room ? o.lines.slice(0, room - 1) : o.lines
+  return [
+    { t: `owed ${o.lines.length}`, tone: color.warn, bold: true },
+    ...shown.map(t => ({ t, tone: color.warn, indent: true })),
+    ...(shown.length < o.lines.length ? [{ t: `and ${o.lines.length - shown.length} more`, tone: color.dim, indent: true }] : []),
+  ]
+}
+
+const checksTone: Record<string, string> = { ok: color.ok, failing: color.bad, pending: color.warn, none: color.dim }
+
+// AC-3, AC-9: the PR block in `rows` rows (heading counted): the rows that fit beside a stale line and a "more" line,
+// following the cursor
+export function prBlock(l: WfDashLoaded<WfDashPrs> | undefined, nsel: number, rows: number) {
+  const data = l?.data ?? null
+  const head: NowLine = { t: `your PRs ${data ? data.total : glyph.unknown}`, tone: color.text, bold: true }
+  const none = { head, prs: [] as WfDashPr[], start: 0, sel: -1, notes: [] as NowLine[] }
+  if (!data) {
+    // before the first call ends, or a first call that failed: no list yet, so nothing to keep
+    const t = l?.error ? `could not read GitHub (${l.error}); r tries again` : 'reading GitHub'
+    return { ...none, notes: [{ t, tone: l?.error ? color.bad : color.dim, indent: true }] }
+  }
+  const stale: NowLine[] = l?.error ? [{ t: `stale since ${hhmm(l.at ?? Date.now())}: ${l.error}`, tone: color.warn, indent: true }] : []
+  if (!data.prs.length) return { ...none, notes: [...stale, { t: 'no open PRs', tone: color.dim, indent: true }] }
+  const onGitHub = Math.max(0, data.total - data.prs.length)
+  let fit = rows - 1 - stale.length
+  if (data.prs.length > fit || onGitHub > 0) fit -= 1
+  fit = Math.max(1, fit)
+  const sel = Math.max(0, Math.min(nsel, data.prs.length - 1))
+  const start = Math.max(0, sel - fit + 1)
+  const below = Math.max(0, data.prs.length - start - fit)
+  const more = [start > 0 ? `${start} above` : '', below > 0 ? `+${below} more` : '', onGitHub > 0 ? `+${onGitHub} more on GitHub` : ''].filter(Boolean).join(', ')
+  return { head, prs: data.prs.slice(start, start + fit), start, sel, notes: [...stale, ...(more ? [{ t: more, tone: color.dim, indent: true }] : [])] }
+}
+
+// AC-5: the band's own words for the handoff, then the handover this chat came from under the band's link rule
+export function handoffLines(h: WfDashHandoff | undefined): { runs: NowLine[]; link: string | null } {
+  const a = h?.auto
+  const word = a == null ? { t: glyph.unknown, tone: color.dim } : a.off ? { t: 'off', tone: color.warn } : { t: a.line ? `on ${tokens(a.line)}` : 'on', tone: color.text }
+  return { runs: [{ t: 'handoff ', tone: color.dim }, word], link: h ? handoverLink(h) : null }
+}
+
+export const agentsLine = (c: AgentCount) => (c ? `agents ${c.running} running, ${c.shells} shells` : `agents ${glyph.unknown}`)
+
+function NowSection({ el, view, act, prs, owed, handoff, count, columns, extra = 0 }: {
+  el: El; view: View; act: Act; prs: WfDashLoaded<WfDashPrs> | undefined; owed: WfDashOwed | undefined; handoff: WfDashHandoff | undefined; count: AgentCount; columns: number; extra?: number
+}) {
+  const { Box, Text } = el
+  const line = (l: NowLine) => (
+    <Box paddingLeft={l.indent ? space.indent : 0}><Text color={l.tone} bold={l.bold} wrap="truncate-end">{l.t}</Text></Box>
+  )
+  const block = prBlock(prs, view.nsel ?? 0, pane.now.prs + extra)
+  const total = prs?.data?.prs.length ?? 0
+  // the repo#number column takes the widest on screen, up to its cap, so the words line up; a narrow pane caps it at
+  // the plan's repo cells, so the title keeps some room (the row's words stay as AC-3 spells them)
+  const idW = Math.min(columns >= pane.specMin ? pane.col.prId : pane.col.repo, Math.max(0, ...block.prs.map(p => `${p.repo}#${p.number}`.length)))
+  const ho = handoffLines(handoff)
+  return (
+    <Box flexDirection="column">
+      <Box flexDirection="column" height={pane.now.owed}>{owedLines(owed).map(line)}</Box>
+      <Box flexDirection="column" height={pane.now.prs + extra}>
+        {line(block.head)}
+        {block.prs.map((p, i) => {
+          const on = block.start + i === block.sel
+          const id = `${p.repo}#${p.number}`
+          return (
+            <Box flexDirection="row">
+              {cell(Box, Text, on ? '>' : ' ', pane.col.cursor, { color: color.accent, bold: true })}
+              <Text wrap="truncate-end">
+                <Text color={color.text} bold={on}>{(id.length > idW ? id.slice(0, Math.max(0, idW - glyph.cut.length)) + glyph.cut : id).padEnd(idW)}</Text>
+                <Text color={p.draft ? color.dim : color.text}>{`  ${p.draft ? 'draft' : 'ready'}`}</Text>
+                <Text color={color.dim}>{'  checks '}</Text>
+                <Text color={checksTone[p.checks] ?? color.dim}>{p.checks.padEnd('failing'.length)}</Text>
+                <Text color={color.text}>{`  ${p.title}`}</Text>
+              </Text>
+            </Box>
+          )
+        })}
+        {block.notes.map(line)}
+      </Box>
+      <Box flexDirection="column" height={pane.now.handoff}>
+        <Text wrap="truncate-end">{ho.runs.map(r => <Text color={r.tone}>{r.t}</Text>)}</Text>
+        {ho.link && line({ t: `last handover: ${ho.link}`, tone: color.dim, indent: true })}
+      </Box>
+      <Box flexDirection="row" height={pane.now.agents} columnGap={space.gap}>
+        {/* the count takes the row, so `a: details` holds its cell when a count grows a digit */}
+        <Box flexGrow={1} flexShrink={1}><Text color={count ? color.text : color.dim} wrap="truncate-end">{agentsLine(count)}</Text></Box>
+        <Text color={color.dim}>a: details</Text>
+      </Box>
+      {/* AC-8: the view's whole footer on one row, so the four blocks keep the pane's 14 rows */}
+      <Box flexDirection="row" columnGap={space.gap} flexWrap="wrap">
+        {keyRow(el, [
+          { key: 'j', label: 'down', on: block.sel >= 0 && block.sel < total - 1, press: () => act.go({ nsel: Math.min(total - 1, block.sel + 1) }) },
+          { key: 'k', label: 'up', on: block.sel > 0, press: () => act.go({ nsel: Math.max(0, block.sel - 1) }) },
+          { key: 'r', label: 'refresh', on: true, press: act.retry },
+        ])}
+        <Text color={color.dim}>esc closes</Text>
+      </Box>
+    </Box>
+  )
+}
+
 // -- The dashboard -------------------------------------------------------------------------------------------------
 
-export function Dashboard({ el, view, act, plan, agents, columns, cwd = null, focused = true, rows }: {
+export function Dashboard({ el, view, act, plan, agents, columns, cwd = null, focused = true, rows, prs, owed, handoff, count = null }: {
   el: El; view: View; act: Act; plan: Plan; agents: any[] | null; columns: number; cwd?: string | null; focused?: boolean; rows?: number
+  prs?: WfDashLoaded<WfDashPrs>; owed?: WfDashOwed; handoff?: WfDashHandoff; count?: AgentCount
 }) {
   const { Box, Text } = el
   const section = SECTIONS.find(s => s.id === view.section) ?? SECTIONS[0]
@@ -402,12 +523,15 @@ export function Dashboard({ el, view, act, plan, agents, columns, cwd = null, fo
       {!focused && <Text color={color.warn} wrap="truncate-end">Keys go to the prompt now: click the dashboard to return</Text>}
       <Box flexDirection="column">
         {section.id === 'plan' && <PlanSection el={el} plan={plan} view={view} act={act} columns={columns} cwd={cwd} extra={extra} />}
+        {section.id === 'now' && <NowSection el={el} view={view} act={act} prs={prs} owed={owed} handoff={handoff} count={count} columns={columns} extra={extra} />}
         {section.id === 'agents' && <AgentsSection el={el} agents={agents} view={view} act={act} columns={columns} extra={extra} />}
       </Box>
-      <Box flexDirection="row" columnGap={space.gap} flexWrap="wrap">
-        {keyRow(el, [{ key: 'r', label: 'refresh', on: true, press: act.retry }])}
-        <Text color={color.dim}>esc closes</Text>
-      </Box>
+      {section.id !== 'now' && (
+        <Box flexDirection="row" columnGap={space.gap} flexWrap="wrap">
+          {keyRow(el, [{ key: 'r', label: 'refresh', on: true, press: act.retry }])}
+          <Text color={color.dim}>esc closes</Text>
+        </Box>
+      )}
     </Box>
   )
 }
