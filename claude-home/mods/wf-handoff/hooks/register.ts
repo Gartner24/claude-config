@@ -14,6 +14,8 @@ type Chain = {
   line?: number
   // when this chat started (ISO): the handover's commits are `git log --since` it
   startedAt?: string
+  // spec 0070 AC-1: the chat id /audit or /scope was started for (or skipped for), once per chat
+  startedFor?: string
 }
 
 const GATE_TEXT = 'context is at the handoff line; finish this turn in words, the handoff starts at the end of it'
@@ -80,6 +82,7 @@ let waitingAgents = false
 // does not run the handoff (2026-10-22).
 let startDone = false
 let startWaiters: (() => void)[] = []
+let pendingScope = false // spec 0070 AC-1: /scope runs when the started /audit turn completes
 const startFinished = () => { startDone = true; startWaiters.splice(0).forEach(f => f()) }
 
 // The rollover skill took "the newest log in the project folder" as this chat's transcript: a
@@ -398,6 +401,7 @@ async function seed($: EngineInterface, slot: string) {
   const c = chain!
   c.previous = c.session
   c.session = await $.session.id()
+  c.startedFor = c.session // spec 0070 AC-3: a seeded chat resumes the handover, never /audit or /scope
   c.startTokens = null
   c.startedAt = new Date(await $.clock.now()).toISOString()
   c.unattended++
@@ -424,6 +428,46 @@ async function seed($: EngineInterface, slot: string) {
     fail($, `the fresh chat did not start (${err}); the handover waits, type /resume-from-clear`))
   await setPhase($, 'idle')
   await resendHeld($)
+}
+
+// Spec 0070 AC-1 to AC-3: a chat in a git repo starts /audit (no AGENTS.md, then /scope when that
+// turn completes) or /scope by itself; the rule text alone was ignored on 2026-10-22. Never with a
+// handover waiting, and never /audit in a bot reviewed repo (orgs named in ~/.claude/private/work.md).
+// The origin is parsed (scp `git@host:org/repo`, ssh://, https://), never matched as a substring:
+// `url.includes('github.com:' + org + '/')` took an org whose name ends in a listed one, or that text
+// anywhere in the url, as bot reviewed. No origin is a local repo ('own'); an origin that does not parse
+// starts nothing ('bad'). workflow-start.sh holds the same rule; tests/start-cases.ts drives both.
+function originKind(url: string, work: string): 'own' | 'bot' | 'bad' {
+  if (!url) return 'own'
+  const m = url.match(/^(?:ssh|https?|git):\/\/(?:[^@/]+@)?([^/:]+)(?::\d+)?\/([^/]+)\/.+$/i)
+    ?? url.match(/^(?:[^@/]+@)?([^/:]+):(?!\/\/)([^/]+)\/.+$/)
+  if (!m) return 'bad'
+  const orgs = [...work.matchAll(/github\.com[:/]([\w.-]+)\//g)].map(x => x[1]!.toLowerCase())
+  return m[1]!.toLowerCase() === 'github.com' && orgs.includes(m[2]!.toLowerCase()) ? 'bot' : 'own'
+}
+
+async function startSkills($: EngineInterface, id: string, cwd: string) {
+  // once per chat id: callers start only a chat with no chain of its own yet (a reload finds one)
+  if (!chain) return
+  chain.startedFor = id
+  await save($)
+  if ((await slotCmd($)).exitCode === 0) return log($, 'chat start: a handover waits; no /audit or /scope')
+  const run = (argv: string[]) => $.process.run(argv, { timeoutMs: 5000 }).catch(() => null)
+  const top = await run(['git', '-C', cwd, 'rev-parse', '--show-toplevel'])
+  if (top?.exitCode !== 0 || !top.stdout.trim()) return
+  const root = top.stdout.trim()
+  const has = async (p: string) => !!(await $.fs.stat(`${root}/${p}`).catch(() => null))
+  const origin = await run(['git', '-C', root, 'remote', 'get-url', 'origin'])
+  const kind = originKind(origin?.exitCode === 0 ? origin.stdout.trim() : '',
+    await $.fs.read(`${home}/.claude/private/work.md`).catch(() => ''))
+  if (kind === 'bad') return log($, 'chat start: origin url not understood; nothing started')
+  const first = kind === 'bot' ? ((await has('docs/scope')) || (await has('.workflow/scope')) ? 'scope' : null)
+    : (await has('AGENTS.md')) ? 'scope' : 'audit'
+  if (!first) return log($, 'chat start: bot reviewed repo with no scope; nothing started')
+  pendingScope = first === 'audit'
+  await log($, `chat start: /${first} in ${root}`)
+  // Probe (c): not awaited, so the start hook returns before the command's turn runs.
+  void $.command.run({ command: first, args: '' }).catch(err => log($, `chat start: /${first} did not start (${err})`))
 }
 
 // Spec 0057 AC-10: /handoff replaces typing /clear after a /rollover. The clear empties the
@@ -475,6 +519,9 @@ export const register: Register = (on, options) => {
     else await save($)
     startFinished()
     void startServer($)
+    // A chain already kept for this id is a reload or a resume (probe (c): a reload fires
+    // session.start again and started /audit a second time): only a new chat starts a skill.
+    if (c?.session !== id) void startSkills($, id, e.cwd).catch(err => log($, `chat start failed (${err})`))
     return started
   })
 
@@ -494,8 +541,17 @@ export const register: Register = (on, options) => {
       chain = null
       const id = await $.session.id().catch(() => '')
       if (id) chain = { root: id, session: id, previous: null, startTokens: null, unattended: 0, triggeredAt: null, phase: 'idle', lastRequest: null, startedAt: new Date(await $.clock.now()).toISOString(), ...(off ? { off } : {}) }
-      pending = 0; awaitStart = false; exemptTurn = false; exemptNext = false
+      pending = 0; awaitStart = false; exemptTurn = false; exemptNext = false; pendingScope = false
       await save($)
+      // Spec 0070 AC-1, probe (d): inside session.end $.session.id() is still the old chat's id; a
+      // timer reads the new one, and the fresh chain is keyed by it so a reload does not start again.
+      const old = id
+      $.clock.after(500, () => (async () => {
+        const now = await $.session.id().catch(() => '')
+        if (!now || !chain || chain.phase !== 'idle') return
+        if (chain.session === old && now !== old) { chain.root = chain.session = now; await save($) }
+        await startSkills($, now, folder)
+      })().catch(err => log($, `chat start after /clear failed (${err})`)))
     }
     return r
   })
@@ -504,6 +560,7 @@ export const register: Register = (on, options) => {
     if (!active || !chain) return next(e)
     const typed = e.origin.kind === 'composer' || e.origin.kind === 'bridge'
     const owner = typed && !e.command && !e.text.startsWith('/')
+    if (typed) pendingScope = false // spec 0070 AC-1: the owner typed first, the queued /scope is dropped
     if (typed && ['gated', 'rolling', 'clearing', 'seeding'].includes(chain.phase)) {
       held.push(e.text)
       if (owner) { chain.unattended = 0; chain.lastRequest = e.text; chain.answered = false; await save($) }
@@ -596,6 +653,11 @@ export const register: Register = (on, options) => {
     if (!wasExempt && (chain.phase === 'gated' || (await crossed($)))) {
       if (chain.phase !== 'gated') await arm($, e.turnId, 'turn ended past the line')
       await startHandoff($)
+    }
+    if (pendingScope && chain.phase === 'idle') {
+      pendingScope = false
+      await log($, 'chat start: /audit turn done, /scope')
+      void $.command.run({ command: 'scope', args: '' }).catch(err => log($, `chat start: /scope did not start (${err})`))
     }
     return r
   })

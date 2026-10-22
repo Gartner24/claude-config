@@ -14,6 +14,14 @@ and types `/clear`; you run every other step yourself. Instead of that line:
 - Feature closed (heading `· done`) or switching task: commit, invoke `/save-and-clear` yourself,
   then say "Type `/clear`, then `<next command>`."
 
+## Owed steps are caught (spec 0070)
+
+- A turn that ends while a step is owed is refused by `hooks/chain-catch.py`, with `owed: <step>`
+  lines: run the step, or tick its box ` · skipped` in the scope with the reason. After 3 refusals in
+  one turn it lets the turn end and shows the owner what is still owed.
+- `/debug` started by the catch, or by any failing test, applies its minimal fix without asking, then
+  reruns the test. It still stops under `rules/stop-and-reset.md` after 2 failed fixes on the same cause.
+
 Never end a turn with a bare "/clear" handoff, and never ask the user to type `/rollover` or
 `/save-and-clear`. Before either, chat-only decisions are written down (`~/.claude/CLAUDE.md`
 `### Context`, brief before handoff).

@@ -41,6 +41,10 @@ Applies to every `/test`.
   `**Paths:**` then repo relative globs in backticks, comma separated (`fnmatch` syntax,
   `**` allowed), naming the code and config the spec governs, never `docs/`.
   A spec that governs no file writes `**Paths:** none`.
+- Document repos (spec 0070 AC-20): when the repo's `AGENTS.md` has the line
+  `**Deliverable:** documents`, `**Paths:**` may name folders under `docs/`, except `docs/scope/`,
+  `docs/specs/`, `docs/briefs/` and `docs/reviews/`. In such a repo `/architect` writes the feature's
+  test box ticked with ` · skipped` (no code, no suite): ``- [x] Test it: `/test x` · skipped``.
 - `/architect` writes the line on every new spec and updates it on every amendment.
 - `/sync`, before it reports: for every 4 digit spec number linked as `specs/NNNN-` on the
   synced feature's heading block (its pointer line and its `Spec` line), run
