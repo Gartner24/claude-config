@@ -1345,7 +1345,7 @@ You asked to restructure claude-config into the folder layout of RinDig's icm-ar
 - [x] Run icm-architect read only: skillspector scan of RinDig/icm-architect, install it, run its restructure mode steps 1 to 5 only (inventory, form, roles, reference report, proposed tree and migration map, nothing moved); save its output in [brief](../briefs/icm-research.md) and show the owner its tree next to ours
 - [x] Design it (spec): `/architect restructure claude-config to the icm-architect layout` (spec 0072, phase 1; answers in [brief](../briefs/icm-restructure.md))
 - [ ] Build it: `/develop restructure claude-config to the icm-architect layout`
-  - [x] Reference check, tests split, runner archive (0072a; AC-1 to AC-5, AC-13) · built on `feat/0072-ref-check-and-archive`, ref-check clean, suite 118 ok, regression-hunter report still owed, see [verify](../specs/0072-icm-restructure/verify.md)
+  - [x] Reference check, tests split, runner archive (0072a; AC-1 to AC-5, AC-13) · PR #165: ref-check clean, suite 139 ok (5 live-script tests copied from the archive, your call after the regression check), /review APPROVE with 2 P3s fixed, see [verify](../specs/0072-icm-restructure/verify.md)
   - [ ] Map cards, CLAUDE.md entry, AGENTS.md link (0072b; AC-6 to AC-10)
   - [ ] Scope split (0072c; AC-11, AC-12)
 - [ ] Verify it: `/check verify restructure claude-config to the icm-architect layout`
