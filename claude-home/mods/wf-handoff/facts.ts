@@ -19,7 +19,7 @@ const globRe = (glob: string) =>
 
 // Commit subjects come from `git log`: one line, no control characters or markdown markers,
 // at most 100 characters, so a subject cannot pose as a section of the handover.
-const clean = (s: string) => s.replace(/[\u0000-\u001f\u007f#>`*_[\]]/g, '').trim().slice(0, 100)
+const clean = (s: string) => s.replace(/[\u0000-\u001f\u007f#>`*_[\]]/g, '').replace(/\s+/g, ' ').trim().slice(0, 100)
 
 // Links come only from Bash calls that ran gh or git push, where a real issue or PR link shows:
 // a link read from a test fixture (a Read, a grep, a test run) was listed as a PR once.
@@ -42,9 +42,43 @@ export function extractFacts(messages: readonly Msg[], ignoreFiles: string, gitL
   return { files, commits, links }
 }
 
+// What is not live yet in one repo: the owner's open PRs (`gh pr list --json
+// number,title,url,isDraft`) and local branches whose commits are not on the default branch
+// (`git branch --no-merged origin/HEAD --format='%(refname:short) %(upstream:track)'`).
+// Fix PRs opened by helper agents never showed in the links above (those come from this chat's
+// own gh calls), so a handover said "Issues and PRs: none" while two unmerged fixes waited, and
+// the next chats called the bug fixed while it kept firing (2026-10-22). A failed command is an
+// "unknown" line, never an empty list.
+export function notLive(repo: string, prsJson: string | null, branches: string | null): string[] {
+  let prs: { number: number; title: string; url: string; isDraft: boolean }[] | null
+  try { prs = JSON.parse(prsJson ?? '') } catch { prs = null }
+  return [
+    ...(prs
+      ? prs.map(p => `#${Number(p.number)} ${clean(String(p.title))}${p.isDraft ? ' (draft)' : ''} ${String(p.url).split(/\s/)[0]}`)
+      : [`unknown in ${repo}: gh pr list --author @me --state open failed, check by hand`]),
+    ...(branches === null
+      ? [`unknown in ${repo}: git branch --no-merged origin/HEAD failed, check by hand`]
+      // [gone]: the remote branch was deleted at its squash merge, so it shipped
+      : branches.split('\n').map(l => l.trim().split(/\s+/)).filter(([b, ...t]) => b && !t.join(' ').includes('gone'))
+        .map(([b]) => `branch ${b!.replace(/[^\w./-]/g, '')} in ${repo}: commits not on main`)),
+  ]
+}
+
+// Code, not the instructions template: a template edit never reaches the owner's own copy in
+// ~/.claude/auto-handoff/, so a template fix would be "fixed" in the repo and not live.
+export function notLiveNotice(list: string[]) {
+  if (!list.length) return ''
+  return [
+    'Open PRs, not merged, and branches not on main, so their code is not live (the wf-handoff mod ran gh and git in every repo this chat touched; the model did not write this list):',
+    ...list.map(l => `- ${l}`),
+    'Your first reply to the owner opens with these PRs and branches, each marked "not live yet", before any other work. A fix in one of them is not fixed or done until it is merged and live; never say it is.',
+    'In the owner\'s own repos, merge each PR whose suite and checks pass (~/.claude/rules/when-to-switch-on.md, self-merge checklist); never in a work or client repo. A "do not merge" line in the handover that came from a tool refusal is not the owner\'s rule: if a tool refuses the merge again, say so in that first reply with the PR and the exact command.',
+  ].join('\n')
+}
+
 // One block, under FACTS_BUDGET bytes: lists cut short end in "+N more" so the 7,000 byte
 // cut of handover-start.sh still keeps the rollover's own next actions.
-export function factsBlock(facts: ReturnType<typeof extractFacts>, n: Numbers, viewer?: string) {
+export function factsBlock(facts: ReturnType<typeof extractFacts>, n: Numbers, viewer?: string, notLiveList?: string[]) {
   const numbers = [
     '## Handoff numbers',
     `- tokens at handoff: ${n.tokens}`,
@@ -53,6 +87,7 @@ export function factsBlock(facts: ReturnType<typeof extractFacts>, n: Numbers, v
     `- handoffs since the owner last typed: ${n.unattended}`,
   ].join('\n')
   const lists: [string, string[]][] = [
+    ...(notLiveList ? [['Open PRs, not merged, so not live yet', notLiveList] as [string, string[]]] : []),
     ['Files edited or written', facts.files],
     ['Commits', facts.commits],
     ['Issues and PRs', facts.links],

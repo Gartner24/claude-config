@@ -17,3 +17,14 @@ and types `/clear`; you run every other step yourself. Instead of that line:
 Never end a turn with a bare "/clear" handoff, and never ask the user to type `/rollover` or
 `/save-and-clear`. Before either, chat-only decisions are written down (`~/.claude/CLAUDE.md`
 `### Context`, brief before handoff).
+
+## Not live is not fixed (2026-10-22)
+
+- A fix is "fixed" only when it is merged and live (for a mod or skill: merged into the checkout
+  `~/.claude` links to). Until then say "in PR #N, not live yet", never "fixed" or "done".
+- A fresh chat opens its first reply with every unmerged PR and branch the handover or the wf-handoff
+  mod's "Open PRs" list names, then merges the ones the self-merge checklist allows
+  (`rules/when-to-switch-on.md`), before other work.
+- A tool refusal is not the owner's rule. Never write "do not merge" (or "do not X yourself") into a
+  handover or memory because a classifier refused once; write the refusal as a fact with the exact
+  command, and ask the owner.
