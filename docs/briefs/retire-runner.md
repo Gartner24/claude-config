@@ -74,3 +74,13 @@ From the gated course research (jsm-course-gated-research.md):
 From the cleanup answer (line "Cleanup" above):
 - [ ] Remove the leftover wf mentions: runner sentences in rules and CLAUDE.md, the auto skill, the Bash(wf ...) allow and deny rules, then gio trash ~/.config/wf; the owner revokes the Telegram bot token in BotFather after. runner/ code stays until the per-feature decisions.
 
+
+## Decisions 2026-10-22 (third chat, do not ask again)
+- Second AI on reviews: risky changes only (auth, permissions, security, deletion) get a second pass from claude-fb (free, non-Claude models); keep it even after CodeRabbit is bought later. Needs a rule change: cheap-worker.md says "never for security review"; the second pass is advisory, every finding checked before use.
+- Co-author line: one global commit-msg hook for all repos, repo hooks still run. BUILT and live 2026-10-22 (dotfiles PR #1, ~/.config/git/hooks).
+- Handoff in talk chats: manual only, the owner types /auto-handoff off. Nothing to build.
+- Trim: low-risk cuts plus a services list (owner picked A). Memory index shortened (15.7k to 10.5k chars). Still to do: text loaded twice in CLAUDE.md vs handoff.md/skill-map.md, dotfiles AGENTS.md trim, and the owner choosing which unused services to switch off (list in context-trim-and-all-chats.md).
+- Built and merged today: retire runner live (#126), /auto-handoff switch (#127), live sync (#128), tighter allow rules (#129), three small rules (#130), question format (#131), wf leftovers removed (#132).
+- Handoff fixes 4, 5, 7 merged (#133) after the owner allowed the four test edits; live template copied. Left from the audit: fixes 1, 2, 6-as-code (brain redesign, needs /architect).
+- Dotfiles: the local merge commit is NOT pushed; the owner handles it another day. Notion: the owner deletes it in claude.ai; other unused claude.ai connectors switched off there, not removed.
+- Open question to the owner: save then remove the six unused local MCP servers (deepwiki, paper-search, 21st, shadcn, tavily, searxng) so each can be re-added with one command.
