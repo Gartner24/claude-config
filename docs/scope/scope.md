@@ -1300,9 +1300,9 @@ Today the 9 workflow skills start only because rule text says so, and on 2026-10
   - [x] Probes: Stop hook block, headless tell, mod start at chat open and after `/clear`; a FAIL goes back to `/architect` (2026-10-22: (a) to (e) PASS; finding F1 in [verify.md](../specs/0070-skills-start-themselves/verify.md): the shell start hook runs before the mod, so it applies the mod's rule itself, spec amended)
   - [x] `spec-paths --files`, then `chain-catch.py` with `--test` and its Stop hook (also `--prompt` and the AC-17 to AC-20 rules; 65 checks, each mutation checked)
   - [x] wf-handoff mod start of `/audit` and `/scope`, `workflow-start.sh` skip, mod tests (F1: the hook applies the mod's rule itself, owner 2026-10-22; one shared case list; the origin is parsed, not substring matched)
-  - [ ] Live rules: `handoff.md`, `skill-map.md`, `CLAUDE.md`, settings Stop hook, then `bin/sync.sh` (repo copies under `claude-home/` edited, plus `check-gates.md`, `scope-contract.md` and the UserPromptSubmit hook; copying them live is left)
-- [ ] Verify it: `/check verify skills start themselves at the right moment`
-- [ ] Test it: `/test skills start themselves at the right moment`
+  - [ ] Live rules: `handoff.md`, `skill-map.md`, `CLAUDE.md`, settings Stop hook, then `bin/sync.sh` (repo copies under `claude-home/` edited, plus `check-gates.md`, `scope-contract.md` and the UserPromptSubmit hook; copying them live is left, after the merge of PR #166) · later boxes go on
+- [x] Verify it: `/check verify skills start themselves at the right moment` (AC-1 to AC-21 with can fail lines in the spec's verify.md; /review APPROVE on PR #166, its P2 and 3 security notes fixed)
+- [x] Test it: `/test skills start themselves at the right moment` (mod tests 137, chain-catch, workflow-start and spec-paths self checks pass, suite 139 ok; 117 mutants red)
 Source: [brief](../briefs/skills-start-themselves.md), your messages 2026-10-22 ("the 9 skills should have rules when to trigger automatically like develop or others") and [brief](../briefs/retire-runner.md).
 
 ### 93. Dashboard restructure for the setup without wf · in-progress
