@@ -24,6 +24,7 @@ TITLE = re.compile(r"^#\s+\d{4}\s*[.:·-]?\s*(.*)$", re.M)
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 DELIVERABLE_DOCS = re.compile(r"^\*\*Deliverable:\*\*\s*documents\b", re.M)
 PLAN_DIRS = ("docs/scope/", "docs/specs/", "docs/briefs/", "docs/reviews/")
+WORKTREE = re.compile(r"^\.claude/worktrees/[^/]+/")
 
 
 class GitError(Exception):
@@ -127,7 +128,8 @@ def file_specs(top, paths):
         f = os.path.relpath(os.path.realpath(os.path.join(os.getcwd(), p)), os.path.realpath(top))
         if f == "." or f.startswith(".." + os.sep) or f == "..":
             continue
-        f = f.replace(os.sep, "/")
+        # a nested worktree is a checkout of this repo: `.claude/worktrees/w1/src/a.py` is `src/a.py`
+        f = WORKTREE.sub("", f.replace(os.sep, "/"))
         plan = f.startswith(".workflow/") or f.startswith(PLAN_DIRS if docs else ("docs/",))
         out.append((f, [] if plan else [n for n, globs in specs if any(fnmatch.fnmatchcase(f, g) for g in globs)]))
     return out
@@ -267,6 +269,8 @@ def self_test():
         check("--files", run(fl, "--files", *files), (0, [
             "src/a.py\t0001", "lib/x/y.py\t0001,0002", "README.md\t-", "docs/manual/m.md\t-",
             "docs/specs/0003-none.md\t-", ".workflow/scope/scope.md\t-"]))
+        check("--files strips a nested worktree", run(fl, "--files", ".claude/worktrees/w1/src/a.py", ".claude/worktrees/w1/README.md")[1],
+              ["src/a.py\t0001", "README.md\t-"])
         write(fl, "AGENTS.md", "# r\n\n**Deliverable:** documents\n")
         check("--files in a document repo", run(fl, "--files", "docs/manual/m.md", "docs/specs/0003-none.md", "docs/x.md")[1],
               ["docs/manual/m.md\t0004", "docs/specs/0003-none.md\t-", "docs/x.md\t-"])

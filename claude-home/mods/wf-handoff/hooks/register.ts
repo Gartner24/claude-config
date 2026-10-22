@@ -457,9 +457,11 @@ async function startSkills($: EngineInterface, id: string, cwd: string) {
   if (top?.exitCode !== 0 || !top.stdout.trim()) return
   const root = top.stdout.trim()
   const has = async (p: string) => !!(await $.fs.stat(`${root}/${p}`).catch(() => null))
+  // No list means every repo would read as own, and /audit could start in a work repo: start nothing.
+  const work = await $.fs.read(`${home}/.claude/private/work.md`).catch(() => null)
+  if (work === null) return log($, 'chat start: ~/.claude/private/work.md missing or unreadable; nothing started')
   const origin = await run(['git', '-C', root, 'remote', 'get-url', 'origin'])
-  const kind = originKind(origin?.exitCode === 0 ? origin.stdout.trim() : '',
-    await $.fs.read(`${home}/.claude/private/work.md`).catch(() => ''))
+  const kind = originKind(origin?.exitCode === 0 ? origin.stdout.trim() : '', work)
   if (kind === 'bad') return log($, 'chat start: origin url not understood; nothing started')
   const first = kind === 'bot' ? ((await has('docs/scope')) || (await has('.workflow/scope')) ? 'scope' : null)
     : (await has('AGENTS.md')) ? 'scope' : 'audit'
@@ -521,7 +523,10 @@ export const register: Register = (on, options) => {
     void startServer($)
     // A chain already kept for this id is a reload or a resume (probe (c): a reload fires
     // session.start again and started /audit a second time): only a new chat starts a skill.
-    if (c?.session !== id) void startSkills($, id, e.cwd).catch(err => log($, `chat start failed (${err})`))
+    // `claude --resume` keeps the id and session.start already sees its history (29 messages in the
+    // review probe): with its chain file gone it used to get /audit mid conversation.
+    const history = await $.session.messages().catch(() => null) // unknown history: start nothing
+    if (c?.session !== id && history && !history.some(m => m.role === 'user')) void startSkills($, id, e.cwd).catch(err => log($, `chat start failed (${err})`))
     return started
   })
 

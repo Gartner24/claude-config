@@ -15,11 +15,14 @@ function world(on: On, env: Record<string, string> = {}) {
     top: '/w' as string | null, // `git rev-parse --show-toplevel`, null for no repo
     origin: 'git@github.com:me/own.git',
     commands: [] as string[],
+    messages: [] as { role: string; text: string; toolUses: unknown[] }[], // the transcript at session.start
   }
+  // the bot reviewed org list; with none the mod starts nothing (review fix 3)
+  w.files.set('/h/.claude/private/work.md', FIXTURE.work)
   on('session.cwd', () => ({ value: '/w' }))
   on('session.id', () => ({ value: w.id }))
   on('session.usage', () => ({ value: { startedAt: 0, context: { tokens: 1000, window: 1_000_000 }, rateLimits: [] } as any }))
-  on('session.messages', () => ({ value: [] as any }))
+  on('session.messages', () => ({ value: w.messages as any }))
   on('command.register', (_$, e: any) => ({ value: { command: e.name } }))
   on('ui.toast', () => ({ value: undefined }))
   on('ui.status', () => ({ value: undefined }))
@@ -121,7 +124,7 @@ test('AC-3 a live handover slot: no /audit or /scope', { options: { viewer: '' }
 for (const c of FIXTURE.cases) {
   test(`AC-2 AC-3 shared case: ${c.name}`, { options: { viewer: '' } }, async ($, on) => {
     const w = world(on)
-    w.files.set('/h/.claude/private/work.md', FIXTURE.work)
+    if (c.nowork) w.files.delete('/h/.claude/private/work.md')
     w.origin = c.origin
     if (!c.repo) w.top = null
     if (c.agents) w.files.set('/w/AGENTS.md', '# w')
@@ -132,6 +135,15 @@ for (const c of FIXTURE.cases) {
     expect(w.commands).toEqual(c.start ? [c.start] : [])
   })
 }
+
+// Review fix 4: `claude --resume` keeps the chat id and session.start already sees the history.
+test('AC-1 a resumed chat whose chain file is gone starts nothing mid conversation', { options: { viewer: '' } }, async ($, on) => {
+  const w = world(on)
+  w.files.set('/w/AGENTS.md', '# w')
+  w.messages = [{ role: 'user', text: 'fix the login', toolUses: [] }, { role: 'assistant', text: 'done', toolUses: [] }]
+  await start($, w)
+  expect(w.commands).toEqual([])
+})
 
 test('AC-1 once per chat id: a reload of the mod starts nothing again', { options: { viewer: '' } }, async ($, on) => {
   const w = world(on)

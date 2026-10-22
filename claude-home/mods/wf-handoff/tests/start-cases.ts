@@ -5,7 +5,8 @@
 // ~/.claude/private/work.md (public repo).
 // Fields: origin "" = no remote; start = what the mod runs (null = nothing). The hook prints its
 // Workflow line exactly when the folder is a git repo and the mod starts nothing.
-export type StartCase = { name: string; origin: string; repo: boolean; agents: boolean; scope: boolean; slot: boolean; start: 'audit' | 'scope' | null }
+// nowork: ~/.claude/private/work.md is missing (review fix 3: start nothing, the hook prints).
+export type StartCase = { name: string; origin: string; repo: boolean; agents: boolean; scope: boolean; slot: boolean; start: 'audit' | 'scope' | null; nowork?: boolean }
 export const FIXTURE: { work: string; cases: StartCase[] } = /* json:start */ {
   "work": "- **Bot-reviewed repos - origin under `github.com:team-org/` or `github.com:other-org/` - run NO local review.**",
   "cases": [
@@ -25,6 +26,8 @@ export const FIXTURE: { work: string; cases: StartCase[] } = /* json:start */ {
     { "name": "lookalike host starting with github.com", "origin": "https://github.com.evil.example/team-org/site.git", "repo": true, "agents": false, "scope": false, "slot": false, "start": "audit" },
     { "name": "listed text inside another host's path", "origin": "https://evil.example/github.com:team-org/site.git", "repo": true, "agents": false, "scope": false, "slot": false, "start": "audit" },
     { "name": "listed org on another host", "origin": "git@gitlab.com:team-org/site.git", "repo": true, "agents": false, "scope": false, "slot": false, "start": "audit" },
+    { "name": "no org list (work.md missing)", "origin": "git@github.com:me/own.git", "repo": true, "agents": true, "scope": true, "slot": false, "start": null, "nowork": true },
+    { "name": "no org list and no remote", "origin": "", "repo": true, "agents": false, "scope": false, "slot": false, "start": null, "nowork": true },
     { "name": "an origin that does not parse", "origin": "/srv/git/site.git", "repo": true, "agents": true, "scope": true, "slot": false, "start": null }
   ]
 } /* json:end */

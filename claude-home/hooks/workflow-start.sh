@@ -25,7 +25,8 @@ mod_starts() { # $1 repo top, $2 1 when a handover slot is live
 
 # own | bot | bad, the same parse as originKind in register.ts: scp, ssh:// and https:// forms,
 # host github.com and an org listed in work.md, ignoring case. A substring match used to take an
-# org ending in a listed name as bot reviewed. No origin is own; one that does not parse is bad.
+# org ending in a listed name as bot reviewed. No origin is own; one that does not parse, or a
+# missing or unreadable work.md, is bad.
 origin_kind() {
   python3 -I -c '
 import re, sys
@@ -33,7 +34,8 @@ url = sys.argv[1].strip()
 try:
     work = open(sys.argv[2], encoding="utf-8", errors="replace").read()
 except OSError:
-    work = ""
+    # no org list: every repo would read as own and /audit could start in a work repo
+    print("bad"); sys.exit()
 if not url:
     print("own"); sys.exit()
 m = re.match(r"^(?:ssh|https?|git)://(?:[^@/]+@)?([^/:]+)(?::\d+)?/([^/]+)/.+$", url, re.I) \
@@ -61,7 +63,8 @@ def world(tmp, case):
     os.makedirs(os.path.join(home, ".claude/skills/wf-handoff/hooks"))
     open(os.path.join(home, ".claude/skills/wf-handoff/hooks/register.ts"), "w").close()
     os.makedirs(os.path.join(home, ".claude/private"))
-    open(os.path.join(home, ".claude/private/work.md"), "w").write(fixture["work"])
+    if not case.get("nowork"):
+        open(os.path.join(home, ".claude/private/work.md"), "w").write(fixture["work"])
     slot = os.path.join(home, ".claude/skills/jjstack/bin/jjstack-rollover-slot")
     os.makedirs(os.path.dirname(slot))
     open(slot, "w").write("#!/bin/sh\nexit %d\n" % (0 if case.get("slot") else 1))
