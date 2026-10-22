@@ -13,13 +13,15 @@
 #164 (row 93 dashboard Now view), #165 #167 #175 (row 97 phase 1 a, b, c), #166 #170 (row 92 skills start themselves, chain-catch fix), #169 (row 87 live tick guard), #172 (row 98 helper scripts), #173 (row 89 review leftovers), #174 (row 91 handover memory), #177 (claude-config first install fix). Docs PRs #168, #171.
 All live: hooks, rules, CLAUDE.md, templates and settings entries copied; drift shows only the PreToolUse hook order in settings.json (the next `bin/sync.sh` evens it). icm-architect installed properly after #177. Mods (chip-dash, wf-handoff, assertion-guardian) load the new code after a Claude Code restart.
 
-## Open, next actions
-1. PR #176 (row 101 workflow builder): reviewed CAUTION, both fixes pushed (00ce337: no `vm`, own literal parser; items required). Merge main into it, run `python3 tests/fast.py` and `check.py --test`, merge.
-2. PR #178 (row 103 manual handoff facts): pushed, not reviewed beyond a read of the diff; small (about 120 lines). Merge after #176, then pull main. Live check: the first real `/rollover` then `/clear`.
-3. Row 95: its Verify and Test boxes (auto handoff off per folder, fix merged in #147) after #178.
-4. Row 100 (`/build-features`, spec 0074): starts after #176 (shares `bin/claude-config.py`); probes P2 and P3 first.
-5. Row 102 (review-fix, restructure-check workflows): after #176, through `/workflow-builder`; needs the owner's interview answers.
-6. `/sync` close-out for rows 87, 89, 91, 92, 93, 97 (phase 1), 98: AGENTS.md (CLAUDE.md) lines, `spec-paths --spec` warnings, `· done` tags.
+## Open, next actions (updated 2026-10-22 evening)
+Merged since: #176 (workflow builder plus review-fix, security fixes in), #178 (manual handoff facts), #184 (row 95 verify and test), #185 (gate 5 keeps a brief a spec links to), docs #180 to #183 (row 97 phase 2 note, /sync close of rows 87, 91, 92, 93, 98, row 97 phase 1 verify). `/review-fix` and `/workflow-builder` linked live by hand (3 symlinks, owner yes).
+1. PR #186 (review-fix escapes `</` inside data blocks, security follow-up): merge after its 10 minute wait (pushed 22:14 UTC).
+2. Owner restarts Claude Code after #185 (told "restart now"); then the row 103 live check on the first real `/rollover` then `/clear`.
+3. Row 100 (`/build-features`, spec 0074): #176 is merged, so it can start; probes P2 and P3 first.
+4. Row 102: restructure-check through `/workflow-builder restructure-check` (needs the owner's interview answers).
+5. Rows 95, 101: every box ticked except waiting ones; close them at the next `/sync` (row 101 waits on AC-7 and AC-8 at first real use).
+6. Owner: "scan dotfiles" before pushing the 28 local dotfiles commits; row 89 concurrent Bash leftover (leave it or fix it).
+7. Row 95 gap found in verify, not in its Done when: a resumed chat whose saved chain says off stays off after the folder is turned on (`register.ts` only sets `chain.off = true`). Ask the owner whether to make it a row.
 
 ## For /architect later (none blocks)
 - New row "Assertion Guardian guard gaps" (security review 2026-10-22): self approval of `/allow-test-change` (check the command came from the owner), MultiEdit not checked, path and symlink tricks, `ln` and `git apply` not seen as writes; also `/allow-test-change` says "nothing is blocked" while it does approve.
