@@ -50,6 +50,9 @@ function world(on: On, env: Record<string, string> = {}) {
   on('fs.list', (_$, e: any) => ({ value: [...new Set([...w.files.keys()].filter(k => k.startsWith(e.path + '/')).map(k => k.slice(e.path.length + 1).split('/')[0]!))].map(name => ({ name, kind: 'dir', size: 0 })) as any }))
   on('process.run', (_$, e: any) => e.argv[0] === 'git'
     ? (w.gitArgs.push([...e.argv]), { value: { exitCode: 0, stdout: w.gitLog, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } })
+    // '/link' stands for a symlink to '/w' (~/claude-config is a link to ~/dotfiles/claude-config)
+    : e.argv[0] === 'realpath'
+    ? { value: { exitCode: 0, stdout: `${e.argv.at(-1) === '/link' ? '/w' : e.argv.at(-1)}\n`, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
     : { value: w.files.has(SLOT)
     ? { exitCode: 0, stdout: `${SLOT}\n`, stderr: '', isStdoutTruncated: false, isStderrTruncated: false }
     : { exitCode: 1, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } })
@@ -359,7 +362,9 @@ test('a chat where the handoff does not run says so', async ($, on) => {
   expect(await cmd($, 'off')).toMatch(/^auto handoff does not run in this chat/)
 })
 
-test('off rides into the chat /handoff starts; an owner clear starts on', async ($, on) => {
+const startIn = ($: any, cwd: string) => $.session.start({ cwd, surface: 'terminal', isInteractive: true })
+
+test('off rides into the chat /handoff starts', async ($, on) => {
   const w = world(on)
   await start($)
   await cmd($, 'off')
@@ -368,9 +373,53 @@ test('off rides into the chat /handoff starts; an owner clear starts on', async 
   await w.clock.advance(1500)
   await $.session.end({ sessionId: 'S1', reason: 'clear' } as any)
   expect(chain(w, 'S2').off).toBe(true)
+})
+
+// Row 95: the owner typed /auto-handoff off and a later chat in the same folder (a forked
+// background job with a new session id) still handed off at the line, because off lived only on
+// the chain of the chat it was typed in (2026-10-22).
+test('off holds for every later chat started in the same folder, not in another folder', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  await start($)
+  await cmd($, 'off')
+  // a new chat, a resumed one or a fork: a session id with no chain of its own
+  w.id = 'S9'
+  await start($)
+  expect(chain(w, 'S9').off).toBe(true)
+  await typed($, 'fix it')
+  w.tokens = 60_000
+  await step($, 'T1', 0)
+  await complete($, 'T1')
+  expect(w.commands).toEqual([])
+  expect(await cmd($, '')).toMatch(/^auto handoff is off for this chat/)
+  w.id = 'S10'
+  await startIn($, '/v')
+  expect(chain(w, 'S10').off).toBeUndefined()
+})
+
+test('an owner /clear keeps the folder off; /auto-handoff on turns later chats on', async ($, on) => {
+  const w = world(on)
+  await start($)
+  await cmd($, 'off')
+  w.id = 'S2'
+  await $.session.end({ sessionId: 'S1', reason: 'clear' } as any)
+  expect(chain(w, 'S2').off).toBe(true)
+  expect(await cmd($, 'on')).toMatch(/^auto handoff is on/)
   w.id = 'S3'
-  await $.session.end({ sessionId: 'S2', reason: 'clear' } as any)
-  expect(chain(w, 'S3').off).toBeUndefined()
+  await start($)
+  expect(chain(w, 'S3').off).toBeFalsy()
+  w.id = 'S4'
+  await $.session.end({ sessionId: 'S3', reason: 'clear' } as any)
+  expect(chain(w, 'S4').off).toBeFalsy()
+})
+
+test('the folder is the real path: off typed in a chat started through a link holds in the real folder', async ($, on) => {
+  const w = world(on)
+  await startIn($, '/link')
+  await cmd($, 'off')
+  w.id = 'S2'
+  await startIn($, '/w')
+  expect(chain(w, 'S2').off).toBe(true)
 })
 
 test('the rollover and the fresh chat get this chat\'s transcript path, so neither searches for it', { options: { threshold: 50000 } }, async ($, on) => {

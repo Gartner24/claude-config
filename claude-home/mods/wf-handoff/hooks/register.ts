@@ -7,8 +7,8 @@ type Chain = {
   root: string; session: string; previous: string | null; startTokens: number | null; unattended: number
   triggeredAt: string | null; phase: Phase; lastRequest: string | null; link?: string; pageKey?: string
   answered?: boolean // false from an owner prompt until a turn ends without the gate
-  // /auto-handoff off: this chat never hands off on its own. It rides on the chain, so a chat
-  // it hands off to keeps it; an owner's own /clear starts a new chain, on again.
+  // /auto-handoff off: this chat never hands off on its own. Copied from the folder's off file
+  // (offFile) at every chat start and clear, so the chain alone no longer decides it.
   off?: boolean
   // the line in force at the last save, for the wf-dash band (it reads this file, no shared code)
   line?: number
@@ -69,7 +69,7 @@ let handoffTokens = 0
 let viewerBase = '' // http://<bind>:<port>, or '' for file links
 let nextFor: { page: string; link: string } | null = null
 let transcript: string | null = null // the handed off chat's own log, found once per handoff
-let handoffClear = false // the next clear is the one /handoff started
+let folder = '' // realpath of the folder this chat started in
 let ownerNext = false // an owner message typed while idle: the next turn starts with it
 let ownerTurn = false // this turn started with a fresh owner message: never gated below HARD_MARGIN
 let graceLeft = 0
@@ -100,6 +100,12 @@ async function slotCmd($: EngineInterface) {
     { timeoutMs: 2000 },
   ).catch(() => ({ exitCode: 1, stdout: '' }))
 }
+
+// Off used to live only on the chain of the chat it was typed in, so a new, resumed, forked or
+// owner cleared chat in the same folder got a fresh chain and handed off at the line anyway
+// (row 95, 2026-10-22). It is now one file per folder: 'off' or 'on', last word wins.
+const offFile = () => `${dir}/off-${encodeURIComponent(folder)}`
+const folderOff = async ($: EngineInterface) => (await $.fs.read(offFile()).catch(() => '')).trim() === 'off'
 
 function log($: EngineInterface, text: string) {
   logQueue = logQueue.then(async () => {
@@ -411,7 +417,7 @@ export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     await $.command.register({ name: 'handoff', description: 'After /rollover: clear and load the waiting handover' })
-    await $.command.register({ name: 'auto-handoff', description: 'Auto handoff for this chat: on, off, or no word to see it' })
+    await $.command.register({ name: 'auto-handoff', description: 'Auto handoff for chats in this folder: on, off, or no word to see it' })
     home = (await $.env.get('HOME')) ?? ''
     dir = `${home}/.claude/state/auto-handoff`
     active = e.isInteractive && !(await $.env.get('WF_RUN')) && !(await $.env.get('TM_WORKER_NAME'))
@@ -424,12 +430,16 @@ export const register: Register = (on, options) => {
       if ((await $.fs.read(own).catch(() => null)) === null)
         await $.fs.write(own, await $.fs.read(`${$.plugin.root}/templates/${name}.md`)).catch(() => {})
     }
+    // the start folder, not session.cwd later (that follows a Bash cd); a link such as
+    // ~/claude-config resolves to the same folder as its target
+    const r = await $.process.run(['realpath', '--', e.cwd], { timeoutMs: 2000 }).catch(() => null)
+    folder = (r?.exitCode === 0 && r.stdout.trim()) || e.cwd
     const id = await $.session.id()
     // A reload of the module (settings change) keeps the chain from its state file.
     const root = await $.fs.read(`${dir}/${id}.root`).then(t => t.trim()).catch(() => id)
     const c = await $.fs.read(`${dir}/${root}.json`).then(t => JSON.parse(t) as Chain).catch(() => null)
-    if (c?.session === id) chain = c
-    chain ??= { root: id, session: id, previous: null, startTokens: null, unattended: 0, triggeredAt: null, phase: 'idle', lastRequest: null }
+    chain = c?.session === id ? c : { root: id, session: id, previous: null, startTokens: null, unattended: 0, triggeredAt: null, phase: 'idle', lastRequest: null }
+    if (await folderOff($)) chain.off = true
     chain.startedAt ??= new Date(await $.clock.now()).toISOString()
     // A reload mid handoff loses the in-memory flags and timers that would finish it, so the
     // phase would hold every typed prompt forever.
@@ -456,9 +466,8 @@ export const register: Register = (on, options) => {
       if (id) { chain.previous = chain.session; chain.session = id; await save($) }
       pending = 0; awaitStart = false; exemptTurn = false; exemptNext = false
     } else if (active && e.reason === 'clear' && chain && chain.phase !== 'clearing') {
-      // the clear /handoff runs hands this chat on, so the fresh one keeps its off; any other clear is the owner's
-      const off = handoffClear && chain.off
-      handoffClear = false
+      // An owner's /clear used to drop the off typed before it; the folder's off holds for every clear.
+      const off = await folderOff($)
       chain = null
       const id = await $.session.id().catch(() => '')
       if (id) chain = { root: id, session: id, previous: null, startTokens: null, unattended: 0, triggeredAt: null, phase: 'idle', lastRequest: null, startedAt: new Date(await $.clock.now()).toISOString(), ...(off ? { off } : {}) }
@@ -574,10 +583,7 @@ export const register: Register = (on, options) => {
     if (r.exitCode !== 0 || !r.stdout.trim()) return { text: 'no handover, run /rollover first' }
     // Probe P2: awaiting $.command.run inside a command.run hook is refused (it waits on the turn
     // this hook holds), so the clear runs from a timer after the hook has returned.
-    $.clock.after(1500, () => {
-      handoffClear = true
-      void $.command.run({ command: 'clear', args: '' }).catch(() => { handoffClear = false })
-    })
+    $.clock.after(1500, () => { void $.command.run({ command: 'clear', args: '' }).catch(() => {}) })
     return { text: `Handover found at ${r.stdout.trim()}; clearing in 1.5 s, then it loads.` }
   })
 
@@ -595,10 +601,11 @@ export const register: Register = (on, options) => {
     if (word) {
       chain.off = word === 'off'
       await save($)
-      await log($, `auto handoff ${word} for this chat`)
+      await $.fs.write(offFile(), `${word}\n`).catch(() => {})
+      await log($, `auto handoff ${word} for this chat and later chats in ${folder}`)
     }
     return { text: chain.off
-      ? 'auto handoff is off for this chat, and for the chat a /handoff from it starts; /auto-handoff on turns it back on'
+      ? `auto handoff is off for this chat and every later chat started in ${folder}; /auto-handoff on turns it back on`
       : `auto handoff is on: this chat hands off at ${k(lineNow().line)} tokens (now ${k(await size($))})` }
   })
 }
