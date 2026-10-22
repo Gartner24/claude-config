@@ -1,5 +1,9 @@
 # wf-dash design (locked 2026-10-17)
 
+Changed 2026-10-22, the wf runner retired: the band's right end shows the auto handoff (`handoff on 200k`, `handoff
+off`, `handoff ?`) where the runner counts were, the AUTO segment is gone, and the dashboard keeps Plan (from
+`plan.py`) and Agents; Builds, Alerts and the answer action went with the runner. Text below about them is history.
+
 The look rows 72 (band and alerts, spec 0059) and 73 (panes and actions, spec 0060) build. The drawing code in this
 folder (`band.tsx`, `panes.tsx`, `tokens.ts`) is the reference: the build keeps it and swaps the preview fact
 scripts (`facts.py`, `plan.py`, `runner.py`) for `wf status --json` and `wf plan --json`.

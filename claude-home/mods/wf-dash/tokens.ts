@@ -15,11 +15,7 @@ export const color = {
 
 // One word per state: color is never the only signal.
 export const state = {
-  // full-strength text, not the accent: the accent is identity and cursor, and its hue sits beside warning and error
-  "building": { color: color.text, word: "building" },
   "waits on you": { color: color.warn, word: "waits on you" },
-  "in review": { color: color.review, word: "in review" },
-  "to publish": { color: color.review, word: "to publish" },
   "ready to build": { color: color.ok, word: "ready" },
   "needs a design": { color: color.design, word: "needs design" },
   "in progress": { color: color.text, word: "in progress" },
@@ -39,20 +35,9 @@ export const effort = {
   auto: color.dim,
 } as const;
 
-// Alerts: a toast at the top right (the host draws it, no color) and, in the dashboard's Alerts view, a colored row.
-export const alert = {
-  "finished": color.ok,
-  "stopped": color.warn,
-  "stuck": color.bad,
-  "question": color.warn,
-} as const;
-
 // Each plan state in plain words, for the detail line under the list.
 export const stateHelp: Record<string, string> = {
-  "building": "wf is building it now",
   "waits on you": "a step only you can do",
-  "to publish": "built on its branch, PR not opened yet",
-  "in review": "PR open, waiting for review and merge",
   "ready to build": "designed, ready to build",
   "needs a design": "a decision is owed first (/architect)",
   "in progress": "partly done, more steps to go",
@@ -63,13 +48,13 @@ export const stateHelp: Record<string, string> = {
 
 // Short filter labels for a narrow pane, where only the selected filter shows its count.
 export const shortTab: Record<string, string> = {
-  "needs-you": "Needs you", "building": "Building", "publish": "Publish", "ready": "Ready",
+  "needs-you": "Needs you", "ready": "Ready",
   "design": "Design", "progress": "Progress", "built": "Built", "open": "All",
 };
 
 // The act-now row's labels when its counts would not fit one line at the pane's width (big counts, a 56-cell pane).
 export const tinyTab: Record<string, string> = {
-  "needs-you": "You", "building": "Build", "publish": "Publish", "ready": "Ready",
+  "needs-you": "You", "ready": "Ready", "design": "Design", "progress": "Prog",
 };
 
 // A spec's status in plain words, for the plan's detail line.
@@ -99,27 +84,23 @@ export const pane = {
   detail: 3,
   // rows asked for when the pane opens above the prompt: a page plus header, tabs and pager
   rows: 21,
-  steps: 3,
-  // with more runs than this, each run shows two lines and no step history, so questions stay in view
-  fullRuns: 2,
-  // rows the Builds list may use in a 14-row pane: the top row, the intro, the "+N more" line and the footer take 4
-  buildRows: 10,
-  history: 20,
+  // rows the Agents list may use in a 14-row pane: the top row, the intro, the "+N more" line and the footer take 4
+  listRows: 10,
   // cells the host's pane border takes from the viewport width (one each side)
   frame: 2,
   // body rows the layout above is budgeted for (the ~14-row inline pane); a docked pane's rows past this go to the lists
   baseRows: 14,
   // the narrowest text column the detail block wraps into, so a tiny pane still shows words, not single letters
   minWrap: 10,
-  // word: the Builds state word ("question", "building"); repo: the Builds repo name, truncated past this
-  // cursor: the ">" mark (its cell plus the cell's gap make the 2-cell indent); clock: "HH:MM" right-aligned, no gap
-  col: { state: 13, next: 24, spec: 15, time: 6, kind: 10, word: 8, repo: 14, result: 7, cursor: 1, clock: 5 },
+  // repo: the plan's repo name, truncated past this; cursor: the ">" mark (its cell plus the cell's gap make the
+  // 2-cell indent)
+  col: { state: 13, next: 24, spec: 15, repo: 14, cursor: 1 },
   // under this many body columns (the host's bodyColumns, inside the frame) the plan drops its spec and next columns
   // and the views their intro line; the panel docked beside a 118-column session is about 84 inside (critique round 7)
   specMin: 80,
 } as const;
 
-export const stateOrder = ["building", "waits on you", "to publish", "in review", "ready to build", "needs a design", "in progress", "done", "dropped", "existing"] as const;
+export const stateOrder = ["waits on you", "ready to build", "needs a design", "in progress", "done", "dropped", "existing"] as const;
 
 // Usage meters as today's status bar draws them (spec 0058): the label centred in `width`
 // cells, the filled share on a background color, the rest dim, then the number.
@@ -146,7 +127,7 @@ export const glyph = {
 // Spacing in terminal cells.
 export const space = {
   gap: 2,
-  // the plan's 8 filters in a narrow pane: one cell between keys so the row fits one line
+  // the plan's 6 filters in a narrow pane: one cell between keys so the row fits one line
   tight: 1,
   // one blank row above an error or a view's closing note
   line: 1,
@@ -162,7 +143,6 @@ export const space = {
 // Fixed column widths so a tick never shifts the line.
 export const width = {
   pct: 4,
-  count: 3,
   state: 12,
   spec: 8,
   elapsed: 6,
@@ -179,8 +159,6 @@ export const border = {
 export const time = {
   bandTick: 5000,
   planTick: 10000,
-  barMarkerFresh: 15000,
-  toast: 15000,
   // spec 0064 AC-2: the handoff result shows this long; the spinner turns at `spin` while a step runs
   handoffResult: 10000,
   spin: 120,

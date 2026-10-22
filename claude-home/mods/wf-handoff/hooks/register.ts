@@ -7,6 +7,11 @@ type Chain = {
   root: string; session: string; previous: string | null; startTokens: number | null; unattended: number
   triggeredAt: string | null; phase: Phase; lastRequest: string | null; link?: string; pageKey?: string
   answered?: boolean // false from an owner prompt until a turn ends without the gate
+  // /auto-handoff off: this chat never hands off on its own. It rides on the chain, so a chat
+  // it hands off to keeps it; an owner's own /clear starts a new chain, on again.
+  off?: boolean
+  // the line in force at the last save, for the wf-dash band (it reads this file, no shared code)
+  line?: number
 }
 
 const GATE_TEXT = 'context is at the handoff line; finish this turn in words, the handoff starts at the end of it'
@@ -51,6 +56,20 @@ let panelResult: string | null = null
 let handoffTokens = 0
 let viewerBase = '' // http://<bind>:<port>, or '' for file links
 let nextFor: { page: string; link: string } | null = null
+let transcript: string | null = null // the handed off chat's own log, found once per handoff
+let handoffClear = false // the next clear is the one /handoff started
+
+// The rollover skill took "the newest log in the project folder" as this chat's transcript: a
+// background agent's newer log was named instead once, and the search plus its 27k character
+// listing cost a model round trip in each rollover and another in the fresh chat.
+async function transcriptOf($: EngineInterface, id: string) {
+  const base = `${home}/.claude/projects`
+  for (const d of await $.fs.list(base).catch(() => [])) {
+    const p = `${base}/${d.name}/${id}.jsonl`
+    if (await $.fs.stat(p).catch(() => null)) return p
+  }
+  return null
+}
 
 async function slotCmd($: EngineInterface) {
   const cwd = await $.session.cwd()
@@ -74,6 +93,7 @@ function log($: EngineInterface, text: string) {
 
 async function save($: EngineInterface) {
   if (!chain) return
+  chain.line = lineNow().line
   await $.fs.write(`${dir}/${chain.root}.json`, JSON.stringify(chain, null, 2) + '\n').catch(() => {})
   // session.start finds a handed off chat's chain through this pointer instead of parsing every chain file
   if (chain.session !== chain.root && pointed !== chain.session) {
@@ -102,10 +122,11 @@ async function writePanel($: EngineInterface) {
   await $.fs.write(`${dir}/panel.json`, JSON.stringify(p) + '\n').catch(() => {})
 }
 
-// AC-3: a toast only where no band draws the panel: wf-dash not loaded, or a surface it skips.
+// AC-3: a toast only where no band draws the panel: wf-dash not loaded, or a surface with no band
+// (the host raises the band on the terminal and the desktop only).
 async function notify($: EngineInterface, text: string, sticky = false) {
   const surfaces = await $.session.surfaces().catch(() => [] as readonly string[])
-  const dash = surfaces.some(s => s !== 'terminal') ? null
+  const dash = surfaces.some(s => s !== 'terminal' && s !== 'desktop') ? null
     : await $.state.get({ plugin: 'wf-dash', key: 'facts' } as any).catch(() => null)
   if (dash && dash.version > 0) return
   $.ui.toast(text, sticky ? { timeoutMs: STICKY_TOAST_MS } : undefined)
@@ -176,7 +197,7 @@ async function size($: EngineInterface) {
 
 // True when the line is crossed and the mod may act; past the guard it pauses instead.
 async function crossed($: EngineInterface) {
-  if (!chain || exemptTurn || (chain.phase !== 'idle' && chain.phase !== 'gated')) return false
+  if (!chain || chain.off || exemptTurn || (chain.phase !== 'idle' && chain.phase !== 'gated')) return false
   if (chain.phase === 'gated') return true
   if ((await size($)) <= lineNow().line) return false
   if (chain.unattended >= maxInRow) {
@@ -234,10 +255,11 @@ async function startHandoff($: EngineInterface) {
   panelStep = 0; panelResult = null
   await setPhase($, 'rolling')
   await notify($, `auto handoff started: ${STEPS[0]}`)
+  transcript = await transcriptOf($, c.session)
   const args = fillTemplate(await template($, 'sections'), {
-    priority: false, lastRequest: requestAtTrigger ?? '(none typed in this chat)',
+    priority: false, lastRequest: requestAtTrigger ?? '(none typed in this chat)', transcript,
   })
-  await log($, 'rollover started')
+  await log($, `rollover started${transcript ? '' : ' (transcript not found)'}`)
   // Probe P1: slash commands go through $.command.run (prompt.submit refuses them); P6: it
   // resolves when the rollover turn starts, so its end is the next main turn.complete.
   $.command.run({ command: 'rollover', args }).then(
@@ -313,7 +335,10 @@ async function seed($: EngineInterface, slot: string) {
   // The mod's own record wins; the handover's Status line can only add priority, never drop it.
   const priority = (!!requestAtTrigger && !answeredAtTrigger) || lastRequestStatus(slot) === 'not answered'
   // The request the rollover judged, not one held since (those are sent again below).
-  const args = fillTemplate(await template($, 'instructions'), { priority, lastRequest: requestAtTrigger ?? '' })
+  // the real path: one fresh chat in six spent 11 s listing logs to find it. `<previous transcript>` is the
+  // placeholder of the instructions copies written before {{transcript}} existed.
+  const filled = fillTemplate(await template($, 'instructions'), { priority, lastRequest: requestAtTrigger ?? '', transcript })
+  const args = transcript ? filled.split('<previous transcript>').join(transcript) : filled
   await log($, `cleared; seed run (priority ${priority ? 'on' : 'off'})`)
   $.command.run({ command: 'resume-from-clear', args }).catch(err =>
     fail($, `the fresh chat did not start (${err}); the handover waits, type /resume-from-clear`))
@@ -335,6 +360,7 @@ export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     await $.command.register({ name: 'handoff', description: 'After /rollover: clear and load the waiting handover' })
+    await $.command.register({ name: 'auto-handoff', description: 'Auto handoff for this chat: on, off, or no word to see it' })
     home = (await $.env.get('HOME')) ?? ''
     dir = `${home}/.claude/state/auto-handoff`
     active = e.isInteractive && !(await $.env.get('WF_RUN')) && !(await $.env.get('TM_WORKER_NAME'))
@@ -360,6 +386,8 @@ export const register: Register = (on, options) => {
       await setPhase($, 'failed')
       $.ui.status('auto handoff failed: the mod reloaded mid handoff')
     }
+    // the band reads on/off and the line from this file from the chat's first tick
+    else await save($)
     void startServer($)
     return started
   })
@@ -375,10 +403,14 @@ export const register: Register = (on, options) => {
       if (id) { chain.previous = chain.session; chain.session = id; await save($) }
       pending = 0; awaitStart = false; exemptTurn = false; exemptNext = false
     } else if (active && e.reason === 'clear' && chain && chain.phase !== 'clearing') {
+      // the clear /handoff runs hands this chat on, so the fresh one keeps its off; any other clear is the owner's
+      const off = handoffClear && chain.off
+      handoffClear = false
       chain = null
       const id = await $.session.id().catch(() => '')
-      if (id) chain = { root: id, session: id, previous: null, startTokens: null, unattended: 0, triggeredAt: null, phase: 'idle', lastRequest: null }
+      if (id) chain = { root: id, session: id, previous: null, startTokens: null, unattended: 0, triggeredAt: null, phase: 'idle', lastRequest: null, ...(off ? { off } : {}) }
       pending = 0; awaitStart = false; exemptTurn = false; exemptNext = false
+      await save($)
     }
     return r
   })
@@ -478,8 +510,26 @@ export const register: Register = (on, options) => {
     // Probe P2: awaiting $.command.run inside a command.run hook is refused (it waits on the turn
     // this hook holds), so the clear runs from a timer after the hook has returned.
     $.clock.after(1500, () => {
-      void $.command.run({ command: 'clear', args: '' })
+      handoffClear = true
+      void $.command.run({ command: 'clear', args: '' }).catch(() => { handoffClear = false })
     })
     return { text: `Handover found at ${r.stdout.trim()}; clearing in 1.5 s, then it loads.` }
+  })
+
+  // A chat that is not for coding fills fast and drifts less, so the owner turns the handoff off
+  // there; the wf-dash band shows the state from the chain file save() writes.
+  on('command.run', { command: 'auto-handoff' }, async ($, e) => {
+    // no chain: session.start found the chat inactive and made none
+    if (!chain) return { text: 'auto handoff does not run in this chat (not interactive, a wf or worker chat, or AUTO_HANDOFF_DISABLE=1)' }
+    const word = e.args.trim().toLowerCase()
+    if (word !== '' && word !== 'on' && word !== 'off') return { text: `use /auto-handoff on, /auto-handoff off, or /auto-handoff alone to see it (got "${e.args.trim()}")` }
+    if (word) {
+      chain.off = word === 'off'
+      await save($)
+      await log($, `auto handoff ${word} for this chat`)
+    }
+    return { text: chain.off
+      ? 'auto handoff is off for this chat, and for the chat a /handoff from it starts; /auto-handoff on turns it back on'
+      : `auto handoff is on: this chat hands off at ${k(lineNow().line)} tokens (now ${k(await size($))})` }
   })
 }

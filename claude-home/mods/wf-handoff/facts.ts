@@ -124,10 +124,15 @@ export function lastRequestStatus(slot: string): 'answered' | 'not answered' | u
   return s ? (s[1]!.toLowerCase() as 'answered' | 'not answered') : undefined
 }
 
-export function fillTemplate(text: string, vars: { priority: boolean; lastRequest: string }) {
+export function fillTemplate(text: string, vars: { priority: boolean; lastRequest: string; transcript?: string | null }) {
+  const path = vars.transcript ?? ''
   return text
     .replace(/\{\{#priority\}\}([\s\S]*?)\{\{\/priority\}\}/g, (_, b) => (vars.priority ? b : ''))
     .replace(/\{\{\^priority\}\}([\s\S]*?)\{\{\/priority\}\}/g, (_, b) => (vars.priority ? '' : b))
+    // the chat's own log when the mod found it, else the block drops and the skill finds it its own way
+    .replace(/\{\{#transcript\}\}([\s\S]*?)\{\{\/transcript\}\}/g, (_, b) => (path ? b : ''))
+    .replace(/\{\{\^transcript\}\}([\s\S]*?)\{\{\/transcript\}\}/g, (_, b) => (path ? '' : b))
+    .replace(/\{\{transcript\}\}/g, () => path)
     // A function, not a string: a string replacement reads "$&" and "$'" in the owner's text as
     // patterns and garbled the request in verify.
     .replace(/\{\{lastRequest\}\}/g, () => vars.lastRequest)

@@ -13,10 +13,9 @@ function texts(node: any): string[] {
 }
 
 function draw(focused: boolean, section = 'agents') {
-  const view = { section, tab: 'open', page: 0, sel: 0, bpos: 0, apos: 0 }
+  const view = { section, tab: 'open', page: 0, sel: 0 }
   return texts(Dashboard({
-    el, view, act: { go: () => {}, retry: () => {} }, plan: null as any, runner: null as any, agents: [], alerts: [],
-    facts: null, columns: 100, focused,
+    el, view, act: { go: () => {}, retry: () => {}, run: () => {} }, plan: null as any, agents: [], columns: 100, focused,
   }))
 }
 
@@ -35,7 +34,7 @@ test('focused, the dashboard shows no warn line', () => {
 // cannot read its own files as text, so the scan covers what it draws; design.md is grepped in verify
 test('no view of the dashboard still names ctrl+x tab', () => {
   const drawn: Record<string, string> = {}
-  for (const section of ['agents', 'alerts']) for (const focused of [false, true]) drawn[`${section} ${focused}`] = draw(focused, section).join('\n')
+  for (const section of ['agents', 'plan']) for (const focused of [false, true]) drawn[`${section} ${focused}`] = draw(focused, section).join('\n')
   expect(Object.values(drawn).join('\n').split('\n').length).toBeGreaterThan(5)
   expect(Object.keys(drawn).filter(k => drawn[k].includes('ctrl+x tab'))).toEqual([])
 })

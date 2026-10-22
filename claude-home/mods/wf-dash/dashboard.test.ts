@@ -1,23 +1,22 @@
 import { expect, mock, test } from 'claude-code/testing'
 import { SAFE_STEPS, SECTIONS, safeStep } from './panes.tsx'
 
-// spec 0060 AC-2, AC-5, AC-7: the dashboard drawn through the plugin from a `wf plan --json` answer, its view letters,
-// its commands, and each action reachable only through its confirm
+// spec 0060 AC-2, AC-5, AC-7: the dashboard drawn through the plugin from a plan.py answer, its view letters, its
+// commands, and each action reachable only through its confirm. The runner's Builds and Alerts views are gone.
 const feature = (heading: string, state: string, command: string | null) =>
-  ({ heading, state, next: command && `Do it: \`${command}\``, command, spec: null, specStatus: null, deferred: false, pr: null, prState: null, review: null })
+  ({ heading, state, next: command && `Do it: \`${command}\``, command, spec: null, specStatus: null, deferred: false })
 const PLAN = {
   repos: [
     { name: 'here', path: '/w', hub: false, warnings: [], features: [feature('1. Ready one', 'ready to build', '/develop ready one'), feature('2. Odd one', 'in progress', '/review odd one'), feature('4. Long one', 'needs a design', `/architect ${'long words '.repeat(20).trim()}`), feature('5. Mid one', 'in progress', `/test ${'mid words '.repeat(12).trim()}`)] },
     { name: 'there', path: '/x', hub: false, warnings: [], features: [feature('3. Far one', 'ready to build', '/develop far one')] },
   ],
   warnings: [],
-  runs: [],
-  questions: [{ id: 'q1', repo: 'here', feature: '1. Ready one', question: 'Which way?', options: ['left', 'right'], parked: false }],
 }
 const PANE_PROPS = { title: 'wf-dash', isFocused: true, bodyColumns: 100, placement: 'inline', scroll: { offset: 0, bodyRows: 14 }, view: {} } as any
+const isPlan = (argv: string[]) => argv[0] === 'python3' && argv[1].endsWith('/plan.py')
 
 function host(on: any) {
-  const calls = { planFails: false, planHold: null as null | Promise<void>, status: { running: [], parked: [], questions: [] } as any, argv: [] as string[][], submitted: [] as string[], stopped: [] as any[], commands: [] as string[], messages: [] as any[], files: {} as Record<string, string> }
+  const calls = { planFails: false, planHold: null as null | Promise<void>, argv: [] as string[][], submitted: [] as string[], stopped: [] as any[], commands: [] as string[], messages: [] as any[] }
   const clock = mock.clock(on)
   // $.state is the kit's own, so a write redraws the pane as in a session
   mock.env(on, { HOME: '/h', XDG_STATE_HOME: '' })
@@ -27,7 +26,7 @@ function host(on: any) {
   on('session.usage', () => ({ value: { context: { percent: 6 }, rateLimits: [] } }))
   on('session.model', () => ({ value: 'claude-opus-5-5' }))
   on('fs.write', () => ({ value: undefined }))
-  on('fs.read', (_$: any, e: any) => (e.path in calls.files ? { value: calls.files[e.path] } : { deny: 'ENOENT' }))
+  on('fs.read', () => ({ deny: 'ENOENT' }))
   on('command.register', (_$: any, e: any) => { calls.commands.push(e.name); return { value: { command: e.name } } })
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('agent.list', () => ({ value: [{ id: 'ag1', description: 'Look things up', type: 'general-purpose', status: 'running' }] }))
@@ -36,9 +35,9 @@ function host(on: any) {
   on('command.run', { command: 'develop' }, (_$: any, e: any) => { calls.submitted.push(`/${e.command} ${e.args}`); return { value: { text: '' } } })
   on('process.run', async (_$: any, e: any) => {
     calls.argv.push([...e.argv])
-    if (e.argv[1] === 'plan' && calls.planHold) await calls.planHold
-    if (e.argv[1] === 'plan' && calls.planFails) return { value: { exitCode: 1, stdout: '', stderr: 'boom', isStdoutTruncated: false, isStderrTruncated: false } }
-    const out = e.argv[1] === 'plan' ? JSON.stringify(PLAN) : e.argv[1] === 'answer' ? 'answered: q1 right (keyboard)' : e.argv[1] === 'status' ? JSON.stringify(calls.status) : '{}'
+    if (isPlan(e.argv) && calls.planHold) await calls.planHold
+    if (isPlan(e.argv) && calls.planFails) return { value: { exitCode: 1, stdout: '', stderr: 'boom', isStdoutTruncated: false, isStderrTruncated: false } }
+    const out = isPlan(e.argv) ? JSON.stringify(PLAN) : '{}'
     return { value: { exitCode: 0, stdout: out, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
   })
   return { calls, clock }
@@ -54,20 +53,23 @@ async function open($: any, on: any) {
 }
 const text = async (ui: any, re: RegExp) => (await ui.find({ type: 'Text', text: re }))?.text
 
-test('one command, /wf-dash, and none of /plan /agents /runner; the views switch on p b a l', async ($, on) => {
+test('one command, /wf-dash; the views switch on p a; the plan comes from plan.py, never from wf', async ($, on) => {
   const { calls, ui } = await open($, on)
   expect(calls.commands).toEqual(['wf-dash'])
-  expect(SECTIONS.map(s => s.key)).toEqual(['p', 'b', 'a', 'l'])
-  expect(calls.argv).toContainEqual(['wf', 'plan', '--json'])
-  await ui.press({ key: 'k-b' })
-  expect(await text(ui, /Which way/)).toBeDefined()
-  await ui.press({ key: 'k-l' })
-  expect(await text(ui, /No alerts yet/)).toBeDefined()
+  expect(SECTIONS.map(s => s.key)).toEqual(['p', 'a'])
+  expect(calls.argv.some(isPlan)).toBe(true)
+  expect(calls.argv.filter(a => a[0] === 'wf')).toEqual([])
+  expect(await ui.find({ key: 'k-b' })).toBeUndefined()
+  expect(await ui.find({ key: 'k-l' })).toBeUndefined()
+  await ui.press({ key: 'k-a' })
+  expect(await text(ui, /^Look things up$/)).toBeDefined()
+  await ui.press({ key: 'k-p' })
+  expect(await text(ui, /^Steps only you can do: a login, a check on your phone\.$/)).toBeDefined()
 })
 
 test('start shows the exact text and submits only after yes, from the clock once the hook returned', async ($, on) => {
   const { calls, clock, ui } = await open($, on)
-  await ui.press({ key: 'k-4' })
+  await ui.press({ key: 'k-2' })
   await ui.press({ key: 'k-s' })
   expect(await text(ui, /^Start "\/develop ready one" in this chat\?$/)).toBeDefined()
   expect(calls.submitted).toEqual([])
@@ -83,10 +85,10 @@ test('start shows the exact text and submits only after yes, from the clock once
 
 test('a step off the safe list, or in another repo, offers no start, only a type it yourself note', async ($, on) => {
   const { ui } = await open($, on)
-  await ui.press({ key: 'k-6' })
+  await ui.press({ key: 'k-4' })
   expect(await text(ui, /type it yourself: \/review odd one/)).toBeDefined()
   expect(await ui.find({ key: 'k-s' })).toBeUndefined()
-  await ui.press({ key: 'k-4' })
+  await ui.press({ key: 'k-2' })
   await ui.press({ key: 'k-j' })
   expect(await text(ui, /type it yourself in \/x: \/develop far one/)).toBeDefined()
   expect(await ui.find({ key: 'k-s' })).toBeUndefined()
@@ -95,7 +97,7 @@ test('a step off the safe list, or in another repo, offers no start, only a type
 // design-gate 2026-10-18 must fix: the confirm and its keys take the detail block's rows, never rows under it
 test('the confirm takes the detail block, and a step too long to show whole beside its keys is not offered', async ($, on) => {
   const { ui } = await open($, on)
-  await ui.press({ key: 'k-4' })
+  await ui.press({ key: 'k-2' })
   expect(await text(ui, /^next: /)).toBeDefined()
   await ui.press({ key: 'k-s' })
   expect(await text(ui, /^Start "\/develop ready one" in this chat\?$/)).toBeDefined()
@@ -103,13 +105,13 @@ test('the confirm takes the detail block, and a step too long to show whole besi
   expect(await text(ui, /^\d+ of \d+/)).toBeDefined()
   await ui.press({ key: 'k-c' })
   // a confirm wrapped to two lines and its keys fill all three rows: the ids line gives way
-  await ui.press({ key: 'k-6' })
+  await ui.press({ key: 'k-4' })
   await ui.press({ key: 'k-j' })
   await ui.press({ key: 'k-s' })
   expect(await text(ui, /^Start "\/test mid words/)).toBeDefined()
   expect(await text(ui, /^\d+ of \d+/)).toBeUndefined()
   await ui.press({ key: 'k-c' })
-  await ui.press({ key: 'k-5' })
+  await ui.press({ key: 'k-3' })
   expect(await text(ui, /^type it yourself: \/architect long words/)).toBeDefined()
   expect(await ui.find({ key: 'k-s' })).toBeUndefined()
 })
@@ -119,7 +121,7 @@ test('plan warnings under All open take their rows from the list page, and too m
   PLAN.warnings = ['w one', 'w two'] as any
   try {
     const { ui } = await open($, on)
-    await ui.press({ key: 'k-8' })
+    await ui.press({ key: 'k-6' })
     expect(await text(ui, /^w two$/)).toBeDefined()
     // 8 list lines on pages of 5 - 2 warnings = 3 rows, never orphaning a heading
     expect((await ui.find({ key: 'k-d' }))?.text).toMatch(/ 1\/3$/)
@@ -131,30 +133,6 @@ test('plan warnings under All open take their rows from the list page, and too m
   } finally {
     PLAN.warnings = []
   }
-})
-
-test('the answer key takes a row from the Builds list, so a question it pushes out is counted, never cut', async ($, on) => {
-  const more = [2, 3].map(n => ({ ...PLAN.questions[0], id: `q${n}` }))
-  PLAN.questions.push(...more)
-  try {
-    const { ui } = await open($, on)
-    await ui.press({ key: 'k-b' })
-    expect(await text(ui, /^\+1 more$/)).toBeDefined()
-  } finally {
-    PLAN.questions.splice(1)
-  }
-})
-
-test('answer picks an option, confirms, then runs wf answer with its number', async ($, on) => {
-  const { calls, ui } = await open($, on)
-  await ui.press({ key: 'k-b' })
-  await ui.press({ key: 'k-o' })
-  await ui.press({ key: 'k-2' })
-  expect(await text(ui, /^Answer question q1 with 2 right\?$/)).toBeDefined()
-  expect(calls.argv.some(a => a[1] === 'answer')).toBe(false)
-  await ui.press({ key: 'k-y' })
-  expect(calls.argv).toContainEqual(['wf', 'answer', 'q1', '2'])
-  expect(await text(ui, /answered: q1 right/)).toBeDefined()
 })
 
 test('stop asks first, then stops the agent through TaskStop by its id', async ($, on) => {
@@ -239,7 +217,7 @@ test('the safe list is the seven agreed commands, matched whole', () => {
 
 test('a failed refresh keeps the last plan, marked stale, never an empty one', async ($, on) => {
   const { calls, clock, ui } = await open($, on)
-  await ui.press({ key: 'k-4' })
+  await ui.press({ key: 'k-2' })
   calls.planFails = true
   await clock.advance(10000)
   expect(await text(ui, /^stale since \d\d:\d\d: the last refresh failed \(exit 1\); r tries again$/)).toBeDefined()
@@ -249,25 +227,25 @@ test('a failed refresh keeps the last plan, marked stale, never an empty one', a
 // covers: AC-2a (each filter carries its count, and p brings the Plan view back)
 test('p returns to Plan, and each filter key shows its own count', async ($, on) => {
   const { ui } = await open($, on)
-  await ui.press({ key: 'k-b' })
+  await ui.press({ key: 'k-a' })
   await ui.press({ key: 'k-p' })
   // the selected filter is bracketed, so pick one the checks below do not read
-  await ui.press({ key: 'k-6' })
-  expect((await ui.find({ key: 'k-4' }))?.text).toMatch(/ 2$/)
-  expect((await ui.find({ key: 'k-5' }))?.text).toMatch(/ 1$/)
-  expect((await ui.find({ key: 'k-1' }))?.text).toMatch(/ 0$/)
   await ui.press({ key: 'k-4' })
+  expect((await ui.find({ key: 'k-2' }))?.text).toMatch(/ 2$/)
+  expect((await ui.find({ key: 'k-3' }))?.text).toMatch(/ 1$/)
+  expect((await ui.find({ key: 'k-1' }))?.text).toMatch(/ 0$/)
+  await ui.press({ key: 'k-2' })
   expect(await text(ui, /1\. Ready one/)).toBeDefined()
   expect(await text(ui, /3\. Far one/)).toBeDefined()
   expect(await text(ui, /2\. Odd one/)).toBeUndefined()
 })
 
-// covers: AC-2 (never two wf plan calls at once: a tick or a retry while one runs is skipped)
-test('a refresh while wf plan still runs starts no second call', async ($, on) => {
+// covers: AC-2 (never two plan.py calls at once: a tick or a retry while one runs is skipped)
+test('a refresh while plan.py still runs starts no second call', async ($, on) => {
   const { calls, clock, ui } = await open($, on)
   let release = () => {}
   calls.planHold = new Promise<void>(r => { release = r })
-  const plans = () => calls.argv.filter(a => a[1] === 'plan').length
+  const plans = () => calls.argv.filter(isPlan).length
   const before = plans()
   await ui.press({ key: 'k-r' })
   await clock.advance(10000)
@@ -277,21 +255,4 @@ test('a refresh while wf plan still runs starts no second call', async ($, on) =
   release()
   await clock.advance(10000)
   expect(plans()).toBe(before + 2)
-})
-
-test('the Alerts view lists every alert newest first, the kind word in its color', async ($, on) => {
-  const { calls, clock, ui } = await open($, on)
-  calls.status = { running: [{ id: 'r1', repo: 'here', feature: '1. Old' }], parked: [], questions: [] }
-  // a run is finished only when its own record says so (wf-dash design should-fixes)
-  calls.files['/h/.local/state/wf/runs/r1/run.json'] = JSON.stringify({ ended: true, stop_reason: 'queue_done' })
-  await clock.advance(5000)
-  calls.status = { running: [], parked: [], questions: [] }
-  await clock.advance(5000)
-  calls.status = { running: [], parked: [], questions: [{ id: 'q9', repo: 'here', feature: '2. New', title: 'Pick one' }] }
-  await clock.advance(5000)
-  await ui.press({ key: 'k-l' })
-  const features = (await ui.findAll({ type: 'Text', text: /^\d\. (Old|New)$/ })).map((t: any) => t.text)
-  expect(features).toEqual(['2. New', '1. Old'])
-  expect((await ui.find({ type: 'Text', text: /^question$/ }))?.props.color).toBe('warning')
-  expect((await ui.find({ type: 'Text', text: /^finished$/ }))?.props.color).toBe('success')
 })
