@@ -16,7 +16,18 @@ export type WfDashFacts = {
   // the auto handoff segment on the right: undefined before the first read; null when no chain file names this chat
   // ("handoff ?", never a guessed on or off)
   handoff?: WfDashAuto | null
+  // spec 0071 AC-7: this chat's owed steps from the catch state file; undefined before the first read
+  owed?: WfDashOwed
 }
+
+// spec 0071 AC-2: ~/.claude/state/chain-catch/<session>.json (spec 0070) as the mod reads it. `installed` false: no
+// chain-catch folder; `lines` null with `error`: the file did not parse; `lines` [] : nothing owed
+export type WfDashOwed = { installed: boolean; lines: string[] | null; error: string | null }
+
+// spec 0071 AC-3: one open PR you opened, from the one gh api graphql search
+export type WfDashPr = { repo: string; number: number; title: string; draft: boolean; url: string; checks: string }
+// the search's answer: the PRs on its first page and `total`, its issueCount
+export type WfDashPrs = { total: number; prs: WfDashPr[] }
 
 export type WfDashFeature = {
   heading: string
@@ -72,10 +83,11 @@ declare module 'claude-code' {
       effort: string | null
       plan: WfDashLoaded<WfDashPlan>
       view: {
-        section: string; tab: string; page: number; sel: number; gsel?: number
+        section: string; tab: string; page: number; sel: number; gsel?: number; nsel?: number
         ask?: WfDashAsk | null; notice?: { text: string; ok: boolean } | null
       }
       handoff: WfDashHandoff
+      prs: WfDashLoaded<WfDashPrs>
     }
   }
 }

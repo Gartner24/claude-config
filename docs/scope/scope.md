@@ -1297,24 +1297,26 @@ Today the 9 workflow skills start only because rule text says so, and on 2026-10
 **Done when:** each of the 9 skills has a trigger you chose (hook or rule), and a chat that skips one is caught, with a test per hook.
 - [x] Design it (spec): `/architect skills start themselves at the right moment` (spec [0070](../specs/0070-skills-start-themselves.md) accepted 2026-10-22)
 - [ ] Build it: `/develop skills start themselves at the right moment`
-  - [ ] Probes: Stop hook block, headless tell, mod start at chat open and after `/clear`; a FAIL goes back to `/architect`
-  - [ ] `spec-paths --files`, then `chain-catch.py` with `--test` and its Stop hook
-  - [ ] wf-handoff mod start of `/audit` and `/scope`, `workflow-start.sh` skip, mod tests
-  - [ ] Live rules: `handoff.md`, `skill-map.md`, `CLAUDE.md`, settings Stop hook, then `bin/sync.sh`
-- [ ] Verify it: `/check verify skills start themselves at the right moment`
-- [ ] Test it: `/test skills start themselves at the right moment`
+  - [x] Probes: Stop hook block, headless tell, mod start at chat open and after `/clear`; a FAIL goes back to `/architect` (2026-10-22: (a) to (e) PASS; finding F1 in [verify.md](../specs/0070-skills-start-themselves/verify.md): the shell start hook runs before the mod, so it applies the mod's rule itself, spec amended)
+  - [x] `spec-paths --files`, then `chain-catch.py` with `--test` and its Stop hook (also `--prompt` and the AC-17 to AC-20 rules; 65 checks, each mutation checked)
+  - [x] wf-handoff mod start of `/audit` and `/scope`, `workflow-start.sh` skip, mod tests (F1: the hook applies the mod's rule itself, owner 2026-10-22; one shared case list; the origin is parsed, not substring matched)
+  - [ ] Live rules: `handoff.md`, `skill-map.md`, `CLAUDE.md`, settings Stop hook, then `bin/sync.sh` (repo copies under `claude-home/` edited, plus `check-gates.md`, `scope-contract.md` and the UserPromptSubmit hook; copying them live is left, after the merge of PR #166) · later boxes go on
+- [x] Verify it: `/check verify skills start themselves at the right moment` (AC-1 to AC-21 with can fail lines in the spec's verify.md; /review APPROVE on PR #166, its P2 and 3 security notes fixed)
+- [x] Test it: `/test skills start themselves at the right moment` (mod tests 137, chain-catch, workflow-start and spec-paths self checks pass, suite 139 ok; 117 mutants red)
 Source: [brief](../briefs/skills-start-themselves.md), your messages 2026-10-22 ("the 9 skills should have rules when to trigger automatically like develop or others") and [brief](../briefs/retire-runner.md).
 
 ### 93. Dashboard restructure for the setup without wf · in-progress
 The wf-dash band and panes still read the retired runner's ideas. You like the dashboard and want it restructured and connected to today's setup.
 **Done when:** every number and pane reads a live source of today's setup, and the design gate passes.
 - [x] Design it (spec): `/architect dashboard restructure for the setup without wf` (spec [0071](../specs/0071-dashboard-now-view.md) accepted 2026-10-22)
-- [ ] Build it: `/develop dashboard restructure for the setup without wf` (after rows 95 and 96 merge)
-  - [ ] Probe `gh api graphql` PR search from the mod (a FAIL goes back to `/architect`)
-  - [ ] Readers, Now view, band `owed N`, mod tests
-  - [ ] design.md and PRODUCT.md, then `design-gate`
-- [ ] Verify it: `/check verify dashboard restructure for the setup without wf`
-- [ ] Test it: `/test dashboard restructure for the setup without wf`
+- [x] Build it: `/develop dashboard restructure for the setup without wf` (after rows 95 and 96 merge) (PR #164, /review APPROVE, review fixes 6f49598)
+  - [x] Probe `gh api graphql` PR search from the mod (a FAIL goes back to `/architect`) (PASS 2026-10-22, spec verify.md)
+  - [x] Readers, Now view, band `owed N`, mod tests (26 new tests, 27 of 28 mutants red; mod tests 82 of 82 pass after the review fix)
+  - [x] Let the old view key assertion change: type `/allow-test-change`, then `dashboard.test.ts:60` expects `p n a` · waits on you (allowed 2026-10-22; mod tests 81 pass)
+  - [x] Confirm Plan's next group key `t` (`n` went to Now; a guessed letter) · waits on you · later boxes go on (your answer 2026-10-22: keep `t`)
+  - [x] design.md and PRODUCT.md, then `design-gate` (gate pass 3 2026-10-22: PASS WITH FINDINGS, 1 should-fix for `/architect`: `checks failing` cut at 40 columns)
+- [x] Verify it: `/check verify dashboard restructure for the setup without wf` (AC-1 to AC-10 with can fail lines in the spec's verify.md; open: `checks failing` and `checks pending` cut at 40 columns, a label AC-3 spells, for `/architect`)
+- [x] Test it: `/test dashboard restructure for the setup without wf` (mod tests 82 of 82, suite 1136 ok, mutants in verify.md)
 Source: [brief](../briefs/dashboard-restructure.md); your message 2026-10-22 ("I think the dashboard is great still just need a restructuring and connect with our updates").
 
 ### 94. Three numbers for the switch-on rules · done
