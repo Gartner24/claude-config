@@ -85,6 +85,12 @@ async function step($: any, turnId: string, index: number, agentId?: string) {
 const complete = ($: any, turnId: string, agentId?: string) => $.turn.complete({ turnId, answer: '', durationMs: 1, reason: 'answer', ...(agentId ? { agentId } : {}) })
 const chain = (w: ReturnType<typeof world>, root = 'S1') => JSON.parse(w.files.get(`${STATE}/${root}.json`)!.text)
 const read = ($: any, agentId?: string) => $.tool.call({ tool: 'Read', file_path: '/w/a', ...(agentId ? { agentId } : {}) } as any)
+const GRACE = 3 // GRACE_CALLS in hooks/register.ts
+// A gated turn still gets GRACE calls past the line; the call after them is the refused one.
+async function gate($: any) {
+  for (let i = 0; i < GRACE; i++) expect(((await read($)) as any).deny).toBeUndefined()
+  return read($)
+}
 const names = (w: ReturnType<typeof world>) => w.commands.map(c => c.command)
 const blockBytes = (slot: string) => new TextEncoder().encode(slot.slice(slot.indexOf('## Handoff facts'), slot.indexOf('Next: finish the gate'))).length
 async function handoff($: any, w: ReturnType<typeof world>, turn: string) {
@@ -178,12 +184,12 @@ test('AC-5 unverified figures: only context lines, never code spans, file names 
   w.tokens = 60_000
   await handoff($, w, 'T1')
   const slot = w.files.get(SLOT)!.text
-  expect(slot).toContain('12% [unverified: not in Handoff numbers]')
+  expect(slot).toContain('12% full')
   expect(slot).toContain('1,234,567 tokens [unverified: not in Handoff numbers]')
   expect(slot).toContain('`150k` in run-200k.txt\n')
   expect(slot).toContain('Built 5000 widgets today\n')
   expect(slot).toContain('Context at 60k tokens\n')
-  expect(w.files.get(`${STATE}/auto-handoff.log`)!.text).toContain('unverified figure: 12%')
+  expect(w.files.get(`${STATE}/auto-handoff.log`)!.text).toContain('unverified figure: 1,234,567 tokens')
 })
 
 test('AC-6 AC-7 an owner /clear starts a fresh chain: no seed, guard count reset', { options: { threshold: 50000, maxConsecutiveHandoffs: 1 } }, async ($, on) => {
@@ -197,7 +203,7 @@ test('AC-6 AC-7 an owner /clear starts a fresh chain: no seed, guard count reset
   await $.session.end({ sessionId: 'S2', reason: 'clear' } as any)
   expect(names(w)).toEqual(['rollover', 'clear', 'resume-from-clear'])
   w.tokens = 60_000
-  expect(((await read($)) as any).deny).toBeDefined()
+  expect(((await gate($)) as any).deny).toBeDefined()
 })
 
 test('AC-6 AC-8 a clear that rejects fails, sends no seed, says it may have cleared', { options: { threshold: 50000 } }, async ($, on) => {
@@ -230,7 +236,7 @@ test('AC-6 held slash text goes through command.run, plain text through prompt.s
   const w = world(on)
   await start($)
   w.tokens = 60_000
-  expect(((await read($)) as any).deny).toBeDefined()
+  expect(((await gate($)) as any).deny).toBeDefined()
   await typed($, 'plain words', 'T1')
   await typed($, '/scope add a thing', 'T1')
   await handoff($, w, 'T1')
@@ -263,7 +269,7 @@ test('AC-2 Esc: a gated turn with no turn.complete hands off at the next step', 
   await start($)
   await step($, 'T1', 0)
   w.tokens = 60_000
-  expect(((await read($)) as any).deny).toBeDefined()
+  expect(((await gate($)) as any).deny).toBeDefined()
   w.tokens = 1_000
   const r = await step($, 'T2', 0)
   expect(r.stopReason).toBe('end_turn')
@@ -276,7 +282,7 @@ test('AC-2 Esc: the next owner prompt starts the handoff and is held', { options
   await start($)
   await step($, 'T1', 0)
   w.tokens = 60_000
-  expect(((await read($)) as any).deny).toBeDefined()
+  expect(((await gate($)) as any).deny).toBeDefined()
   const h = await typed($, 'are you there')
   expect((h as any).drop).toBeDefined()
   await w.clock.settle()
@@ -290,7 +296,7 @@ test('AC-1 default line is 200000', async ($, on) => {
   w.tokens = 199_000
   expect(((await read($)) as any).deny).toBeUndefined()
   w.tokens = 201_000
-  expect(((await read($)) as any).deny).toBeDefined()
+  expect(((await gate($)) as any).deny).toBeDefined()
 })
 
 test('AC-7 default guard: the third unattended crossing pauses', { options: { threshold: 50000 } }, async ($, on) => {
@@ -315,7 +321,7 @@ test('AC-2 a refused call hands off even when the size later reads under the lin
   await start($)
   await step($, 'T1', 0)
   w.tokens = 60_000
-  expect(((await read($)) as any).deny).toBeDefined()
+  expect(((await gate($)) as any).deny).toBeDefined()
   w.tokens = 1_000
   expect(((await read($)) as any).deny).toBeDefined() // still gated
   await complete($, 'T1')
@@ -332,7 +338,7 @@ test('AC-1 a fresh chat hands off at start plus headroom, not at the threshold',
   w.tokens = 84_000 // past 50k, under 45k + 40k
   expect(((await read($)) as any).deny).toBeUndefined()
   w.tokens = 86_000
-  expect(((await read($)) as any).deny).toBeDefined()
+  expect(((await gate($)) as any).deny).toBeDefined()
   await handoff($, w, 'T2')
   expect(w.files.get(SLOT)!.text).toContain('- handoff line: 85000 (start plus headroom)')
 })
@@ -373,7 +379,7 @@ test('AC-12 a log line carries the session id for each event', { options: { thre
   w.clearMode = 'reject'
   await start($)
   w.tokens = 60_000
-  expect(((await read($)) as any).deny).toBeDefined()
+  expect(((await gate($)) as any).deny).toBeDefined()
   await handoff($, w, 'T1')
   const log = w.files.get(`${STATE}/auto-handoff.log`)!.text
   for (const s of ['trigger:', 'refused Read', 'rollover started', 'slot found', 'failed: the clear failed']) expect(log).toMatch(new RegExp(`^\\S+ S1 ${s}`, 'm'))
@@ -395,7 +401,7 @@ test('review: a failed handoff sends the held prompts again', { options: { thres
   w.noSlotWrite = true
   await start($)
   w.tokens = 60_000
-  expect(((await read($)) as any).deny).toBeDefined()
+  expect(((await gate($)) as any).deny).toBeDefined()
   await typed($, 'plain words', 'T1')
   await typed($, '/scope add a thing', 'T1')
   await handoff($, w, 'T1')
@@ -462,7 +468,7 @@ test('review: a handoff clear done after its timeout keeps the chain and its fai
   // once that clear settled, a later /clear is the owner's again
   w.id = 'S3'
   await $.session.end({ sessionId: 'S2', reason: 'clear' } as any)
-  expect(((await read($)) as any).deny).toBeDefined()
+  expect(((await gate($)) as any).deny).toBeDefined()
 })
 
 test('review: a handoff writes a session pointer to its chain', { options: { threshold: 50000 } }, async ($, on) => {
@@ -496,7 +502,7 @@ test('review: a timed out clear that settles with no new chat leaves the next /c
   await w.clock.settle()
   w.id = 'S9'
   await $.session.end({ sessionId: 'S1', reason: 'clear' } as any)
-  expect(((await read($)) as any).deny).toBeDefined()
+  expect(((await gate($)) as any).deny).toBeDefined()
 })
 
 test('review: the log is cut to its newer half once it passes 256000 characters', { options: { threshold: 50000 } }, async ($, on) => {
@@ -505,7 +511,7 @@ test('review: the log is cut to its newer half once it passes 256000 characters'
   w.files.set(`${STATE}/auto-handoff.log`, { text: 'FIRST\n' + line.repeat(2600), mtimeMs: 0 })
   await start($)
   w.tokens = 60_000
-  await read($)
+  await gate($)
   const log = w.files.get(`${STATE}/auto-handoff.log`)!.text
   expect(log.length).toBeLessThan(140_000)
   expect(log).not.toContain('FIRST')

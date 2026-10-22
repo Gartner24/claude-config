@@ -12,6 +12,8 @@ type Chain = {
   off?: boolean
   // the line in force at the last save, for the wf-dash band (it reads this file, no shared code)
   line?: number
+  // when this chat started (ISO): the handover's commits are `git log --since` it
+  startedAt?: string
 }
 
 const GATE_TEXT = 'context is at the handoff line; finish this turn in words, the handoff starts at the end of it'
@@ -24,6 +26,16 @@ const LOG_MAX = 256000
 // Spec 0064 AC-1: the steps the wf-dash band draws from panel.json.
 const STEPS = ['writing the handover', 'clearing', 'starting the fresh chat']
 const STICKY_TOAST_MS = 30000
+// The gate used to refuse the very next tool call, so a promised step (a file save, a send to the
+// phone, a note to a helper) stopped halfway: a gated turn gets this many more calls first, enough
+// for a write, a send and its check.
+const GRACE_CALLS = 3
+// Past the line by this much every tool call is refused, an owner's turn and the grace included.
+const HARD_MARGIN = 20000
+// A handoff used to stop a running helper agent, which was then relaunched from zero: it waits for
+// this chat's background agents first, checking every AGENT_POLL_MS, at most AGENT_WAIT_MS.
+const AGENT_WAIT_MS = 15 * 60000
+const AGENT_POLL_MS = 5000
 
 let opts: PluginOptions = {}
 let threshold = 200000
@@ -58,6 +70,10 @@ let viewerBase = '' // http://<bind>:<port>, or '' for file links
 let nextFor: { page: string; link: string } | null = null
 let transcript: string | null = null // the handed off chat's own log, found once per handoff
 let handoffClear = false // the next clear is the one /handoff started
+let ownerNext = false // an owner message typed while idle: the next turn starts with it
+let ownerTurn = false // this turn started with a fresh owner message: never gated below HARD_MARGIN
+let graceLeft = 0
+let waitingAgents = false
 
 // The rollover skill took "the newest log in the project folder" as this chat's transcript: a
 // background agent's newer log was named instead once, and the search plus its 27k character
@@ -213,7 +229,7 @@ async function crossed($: EngineInterface) {
 async function arm($: EngineInterface, turnId: string | null, why: string) {
   if (chain!.phase !== 'gated') await log($, `trigger: ${why}, size ${await size($)}, line ${lineNow().line}`)
   armedTurn = turnId
-  if (chain!.phase !== 'gated') { panelStep = -1; panelResult = null }
+  if (chain!.phase !== 'gated') { panelStep = -1; panelResult = null; graceLeft = GRACE_CALLS }
   await setPhase($, 'gated')
 }
 
@@ -245,7 +261,30 @@ async function template($: EngineInterface, name: 'sections' | 'instructions') {
   return $.fs.read(path).catch(() => $.fs.read(`${$.plugin.root}/templates/${name}.md`))
 }
 
+async function agentsRunning($: EngineInterface) {
+  const list = await $.agent.list().catch(() => [])
+  return list.filter(a => a.status === 'pending' || a.status === 'running' || a.status === 'waiting').length
+}
+
+// Every caller is in the gated phase; the wait runs off the hook, so turns and prompts go on
+// meanwhile (held, as in any gated phase), and an owner /clear during it drops the handoff.
 async function startHandoff($: EngineInterface) {
+  if (waitingAgents) return
+  const busy = await agentsRunning($)
+  if (!busy) return beginHandoff($)
+  waitingAgents = true
+  await log($, `waiting for ${busy} background agent(s) before the handoff`)
+  void (async () => {
+    const until = (await $.clock.now()) + AGENT_WAIT_MS
+    while ((await agentsRunning($)) && (await $.clock.now()) < until) await $.clock.sleep(AGENT_POLL_MS)
+    waitingAgents = false
+    if (chain?.phase !== 'gated') return
+    await log($, (await agentsRunning($)) ? `agents still running after ${AGENT_WAIT_MS / 60000} min; handoff starts` : 'background agents done; handoff starts')
+    await beginHandoff($)
+  })()
+}
+
+async function beginHandoff($: EngineInterface) {
   const c = chain!
   c.triggeredAt = new Date(await $.clock.now()).toISOString()
   rollResolved = false
@@ -290,7 +329,12 @@ async function finishRollover($: EngineInterface) {
   c.pageKey = key
   c.link = viewerBase ? `${viewerBase}/${c.session.slice(0, 8)}-${key}` : `file://${page}`
   nextFor = prevLink && c.previous ? { page: `${dir}/pages/${c.previous}.html`, link: c.link } : null
-  const facts = extractFacts(await $.session.messages(), ignoreFiles)
+  // Commits come from git, not from commit output: `git commit -q` prints none and an amend
+  // printed a sha that no longer exists ("Commits: none" after 3 amends).
+  const gitLog = c.startedAt
+    ? await $.process.run(['git', '-C', await $.session.cwd(), 'log', `--since=${c.startedAt}`, '-n', '30', '--format=%h %s'], { timeoutMs: 5000 }).catch(() => null)
+    : null
+  const facts = extractFacts(await $.session.messages(), ignoreFiles, gitLog?.exitCode === 0 ? gitLog.stdout : '')
   const marked = markUnverified(await $.fs.read(path), n)
   for (const f of marked.marked) await log($, `unverified figure: ${f}`)
   const slot = insertAfterHeading(marked.text, factsBlock(facts, n, c.link))
@@ -321,6 +365,7 @@ async function seed($: EngineInterface, slot: string) {
   c.previous = c.session
   c.session = await $.session.id()
   c.startTokens = null
+  c.startedAt = new Date(await $.clock.now()).toISOString()
   c.unattended++
   counted = true
   awaitStart = true
@@ -379,6 +424,7 @@ export const register: Register = (on, options) => {
     const c = await $.fs.read(`${dir}/${root}.json`).then(t => JSON.parse(t) as Chain).catch(() => null)
     if (c?.session === id) chain = c
     chain ??= { root: id, session: id, previous: null, startTokens: null, unattended: 0, triggeredAt: null, phase: 'idle', lastRequest: null }
+    chain.startedAt ??= new Date(await $.clock.now()).toISOString()
     // A reload mid handoff loses the in-memory flags and timers that would finish it, so the
     // phase would hold every typed prompt forever.
     if (['gated', 'rolling', 'clearing', 'seeding'].includes(chain.phase)) {
@@ -408,7 +454,7 @@ export const register: Register = (on, options) => {
       handoffClear = false
       chain = null
       const id = await $.session.id().catch(() => '')
-      if (id) chain = { root: id, session: id, previous: null, startTokens: null, unattended: 0, triggeredAt: null, phase: 'idle', lastRequest: null, ...(off ? { off } : {}) }
+      if (id) chain = { root: id, session: id, previous: null, startTokens: null, unattended: 0, triggeredAt: null, phase: 'idle', lastRequest: null, startedAt: new Date(await $.clock.now()).toISOString(), ...(off ? { off } : {}) }
       pending = 0; awaitStart = false; exemptTurn = false; exemptNext = false
       await save($)
     }
@@ -431,6 +477,8 @@ export const register: Register = (on, options) => {
       chain.unattended = 0
       chain.lastRequest = e.text
       chain.answered = false
+      // Gating the turn that answers it left the owner's newest message unanswered (audit fix 4)
+      if (!e.turnId) ownerNext = true
       if (chain.phase === 'paused' || chain.phase === 'failed') {
         chain.phase = 'idle'; panelResult = null; $.ui.status(undefined)
         await writePanel($)
@@ -447,9 +495,17 @@ export const register: Register = (on, options) => {
   on('tool.call', async ($, e, next) => {
     if (!active || e.agentId) return next(e)
     if (await crossed($)) {
-      await arm($, currentTurn, `tool call ${e.tool} past the line`)
-      await log($, `refused ${e.tool}`)
-      return { deny: GATE_TEXT }
+      const hard = (await size($)) >= lineNow().line + HARD_MARGIN
+      // an owner's turn runs on and hands off at its end, unless it reaches the hard margin
+      if (hard || !ownerTurn) {
+        await arm($, currentTurn, `tool call ${e.tool} past the line`)
+        if (hard || graceLeft <= 0) {
+          await log($, `refused ${e.tool}`)
+          return { deny: GATE_TEXT }
+        }
+        graceLeft--
+        await log($, `allowed ${e.tool} at the gate (${graceLeft} more)`)
+      }
     }
     const r = await next(e)
     pending += r.text?.length ?? 0
@@ -459,13 +515,14 @@ export const register: Register = (on, options) => {
   on('turn.step', async function* ($, e, next) {
     if (!active || e.agentId || !chain) return yield* next(e)
     if (exemptNext && e.turnId !== currentTurn) { exemptNext = false; exemptTurn = true }
+    if (e.turnId !== currentTurn) { ownerTurn = ownerNext; ownerNext = false }
     currentTurn = e.turnId
     // AC-2 fallback: a gated turn ended without turn.complete (Esc); the next step hands off.
     if (chain.phase === 'gated' && armedTurn !== e.turnId) {
       void startHandoff($)
       return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage: null }
     }
-    if (chain.phase === 'idle' && (await crossed($))) {
+    if (chain.phase === 'idle' && !ownerTurn && (await crossed($))) {
       await arm($, e.turnId, 'model request past the line')
       // Probe P7: answering without next(e) sends no request and ends the turn.
       return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage: null }
@@ -488,6 +545,7 @@ export const register: Register = (on, options) => {
   on('turn.complete', async ($, e, next) => {
     const r = await next(e)
     if (!active || e.agentId || !chain) return r
+    ownerTurn = false
     if (chain.phase === 'rolling') {
       if (rollResolved) { rollResolved = false; exemptTurn = false; await finishRollover($) }
       return r
