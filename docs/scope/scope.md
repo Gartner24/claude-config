@@ -110,7 +110,7 @@ Source: personal scope item 8 (`~/projects/docs/scope/scope.md`). Settled requir
 | 89 | Review leftovers 2026-10-21 | Release 9 | in-progress |
 | 90 | Retire the runner, its features in every chat | Release 10 | done |
 | 91 | Handover memory | Release 10 | in-progress |
-| 92 | Skills start themselves at the right moment | Release 10 | needs a decision |
+| 92 | Skills start themselves at the right moment | Release 10 | in-progress |
 | 93 | Dashboard restructure for the setup without wf | Release 10 | needs a decision |
 | 94 | Three numbers for the switch-on rules | Release 10 | done |
 
@@ -1290,11 +1290,18 @@ A fresh chat after a handoff keeps every open question, shown list and agreed de
 - [ ] Test it: `/test handover memory`
 Source: [brief](../briefs/handover-memory.md), [brief](../briefs/handoff-loss-audit.md) and [brief](../briefs/retire-runner.md).
 
-### 92. Skills start themselves at the right moment · needs a decision
+### 92. Skills start themselves at the right moment · in-progress
 Today the 9 workflow skills start only because rule text says so, and on 2026-10-22 `/scope` never ran at chat start and free form builds skipped the `/develop` chain. You want real triggers, like the JSM agentic engineering course describes.
 **Done when:** each of the 9 skills has a trigger you chose (hook or rule), and a chat that skips one is caught, with a test per hook.
-- [ ] Design it (spec): `/architect skills start themselves at the right moment` (compare with the course list in `jsm-course-check.md` and `jsm-course-gated-research.md`; which skill gets a hook and which a rule is your call)
-Source: your messages 2026-10-22 ("the 9 skills should have rules when to trigger automatically like develop or others") and [brief](../briefs/retire-runner.md).
+- [x] Design it (spec): `/architect skills start themselves at the right moment` (spec [0070](../specs/0070-skills-start-themselves.md) accepted 2026-10-22)
+- [ ] Build it: `/develop skills start themselves at the right moment`
+  - [ ] Probes: Stop hook block, headless tell, mod start at chat open and after `/clear`; a FAIL goes back to `/architect`
+  - [ ] `spec-paths --files`, then `chain-catch.py` with `--test` and its Stop hook
+  - [ ] wf-handoff mod start of `/audit` and `/scope`, `workflow-start.sh` skip, mod tests
+  - [ ] Live rules: `handoff.md`, `skill-map.md`, `CLAUDE.md`, settings Stop hook, then `bin/sync.sh`
+- [ ] Verify it: `/check verify skills start themselves at the right moment`
+- [ ] Test it: `/test skills start themselves at the right moment`
+Source: [brief](../briefs/skills-start-themselves.md), your messages 2026-10-22 ("the 9 skills should have rules when to trigger automatically like develop or others") and [brief](../briefs/retire-runner.md).
 
 ### 93. Dashboard restructure for the setup without wf · needs a decision
 The wf-dash band and panes still read the retired runner's ideas. You like the dashboard and want it restructured and connected to today's setup.
