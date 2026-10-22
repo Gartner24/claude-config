@@ -80,3 +80,16 @@ Branch `feat/0072-map-and-entry`. Suite: `python3 tests/fast.py` gives 143 tests
 - Done 2026-10-22 after PR #167 merged: `.git/hooks/pre-commit` and `commit-msg` copied from `scripts/private-names.py` by hand (`cmp` equal; `bin/install.sh` was not run because it would have put the paused chain-catch Stop hook back live). Probe: in a throwaway worktree, `AGENTS.md` replaced by a plain copy of `CLAUDE.md`, `git commit` exit 1 with "AGENTS.md must be a symlink to CLAUDE.md (spec 0072 AC-9). Repair: rm AGENTS.md && ln -s CLAUDE.md AGENTS.md && git add AGENTS.md". PASS.
 - AC-9 asks the check to land in a commit before the swap; the owner asked for one commit, so both are in it.
 - Not run: the regression-hunter report (AC-5).
+
+## 0072c (scope split)
+Branch `feat/0072-scope-split`. 86 of 107 feature sections (every `· done` or `· dropped` one with no unticked box, plus whole `## Release` blocks left empty) moved from `docs/scope/scope.md` to `docs/scope/done.md`; the two Deferred ones sit under `## Deferred` there so `plan.py` still marks them deferred. `scope.md` links `done.md` under the intro. The at-a-glance table is untouched (other PRs tick rows there). Suite `python3 tests/fast.py`: 145 tests, 0 failed. `claude plugin test claude-home/mods/chip-dash`: 82 pass, 0 fail. `test_plan.py`: 11 OK. `ref-check.py verify` against the pre-move snapshot (`--map-from-git origin/main`): 0 broken pointers.
+
+| AC | Evidence | can fail |
+|---|---|---|
+| AC-11 | `plan.py` run on a copy of main's `docs/` and on a copy of this branch's `docs/`: 102 features each; the 11 open features identical in order; per feature `next` and `command` identical; warnings identical. Features left in `scope.md` with a done or dropped tag (85, 90, 99) each still have an unticked box. | can fail: a section moved while it still held an unticked box would change that feature's `next` (None instead of the box), and the dict comparison would differ. |
+| AC-12 | Same run: open count 11 and 11, built count (done, dropped, existing states) 91 and 91, the full feature set equal as JSON. `plan.py` reads `done.md` beside `scope.md`; `test_closed_features_in_done_md_still_count_as_built` moves feature 4 into `done.md` and asserts all states equal the unsplit run. | can fail: plan.py not reading done.md, test red (mutant below). |
+
+### Mutations
+- `test_closed_features_in_done_md_still_count_as_built`: `if os.path.isfile(done_md)` changed to `if False and ...`, red (feature 4 missing); restored from backup, green.
+
+Docstring at `plan.py:3` no longer says the parser is `runner/wf.py`'s. Not run: the regression-hunter report.
