@@ -26,6 +26,8 @@ Each file, branch, PR, worktree or command that matters to the next steps, with 
 ## Open questions and loose ends
 Anything noticed but not done, promised to the owner, or waiting on someone, with who it waits on.
 
+Never stop a background agent or task that is still running: name each one with its id under open questions, so the fresh chat picks up its result.
+
 Leave out token counts and context sizes; the mod adds the real numbers itself.
 
 Once the slot is written, end the turn with one short line: the chat is cleared a second later, and the fresh chat reads the handover, not a summary.

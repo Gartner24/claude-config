@@ -27,11 +27,11 @@ test('AC-4 an Edit or Write that errored or was denied is not an edited file', a
   expect(f.files).toEqual(['/w/ok.ts'])
 })
 
-test('AC-4 commits only from git commit output, subjects stripped of markdown', async () => {
+test('AC-4 commits only from git log, subjects stripped of markdown', async () => {
   const f = extractFacts(uses(
     { tool: 'Bash', input: { command: 'git log' }, text: '[main 1111111] not a commit we made' },
-    { tool: 'Bash', input: { command: 'git commit -m x' }, text: '[feat/x (root-commit) abcdef1] ## `fake` *heading*\n[main 2222222] feat: real' },
-  ), '')
+    { tool: 'Bash', input: { command: 'git commit -m x' }, text: '[feat/x (root-commit) 3333333] parsed from output' },
+  ), '', 'abcdef1 ## `fake` *heading*\n2222222 feat: real\n')
   expect(f.commits).toEqual(['abcdef1 fake heading', '2222222 feat: real'])
 })
 
@@ -79,10 +79,10 @@ test('AC-5 unverified figures are marked only on context lines, outside code, nu
   ].join('\n')
   const r = markUnverified(slot, N)
   const out = r.text.split('\n')
-  expect(out[1]).toBe('Context was 12% [unverified: not in Handoff numbers] full at 1,234,567 tokens [unverified: not in Handoff numbers] and 150k [unverified: not in Handoff numbers], see `99k` and run-200k.txt')
+  expect(out[1]).toBe('Context was 12% full at 1,234,567 tokens [unverified: not in Handoff numbers] and 150k [unverified: not in Handoff numbers], see `99k` and run-200k.txt')
   expect(out[2]).toBe('Context is 60k tokens, the line 50000, start 45000')
   expect(out.slice(3).join('\n')).toBe(slot.split('\n').slice(3).join('\n'))
-  expect(r.marked).toEqual(['12%', '1,234,567 tokens', '150k'])
+  expect(r.marked).toEqual(['1,234,567 tokens', '150k'])
   expect(markUnverified('Context is `ctx 99k more` now', N).text).toBe('Context is `ctx 99k more` now')
 })
 
@@ -97,4 +97,38 @@ test('AC-9 templates switch priority blocks and quote the last request as typed'
   const t = '{{#priority}}FIRST {{lastRequest}}{{/priority}}{{^priority}}GO ON{{/priority}}'
   expect(fillTemplate(t, { priority: true, lastRequest: "use $& and $' and $1" })).toBe("FIRST use $& and $' and $1")
   expect(fillTemplate(t, { priority: false, lastRequest: 'x' })).toBe('GO ON')
+})
+
+// Handoff loss audit fix 7: the facts block was wrong both ways.
+test('fix 7: links only from gh or git push, never a fixture read, grepped or printed by a test run', async () => {
+  const fixture = 'see https://github.com/o/r/pull/12'
+  const f = extractFacts(uses(
+    { tool: 'Read', input: { file_path: '/w/tests/auto.test.ts' }, text: fixture },
+    { tool: 'Grep', input: { pattern: 'pull' }, text: fixture },
+    { tool: 'Bash', input: { command: 'claude plugin test claude-home/mods/wf-handoff' }, text: fixture },
+    { tool: 'Bash', input: { command: 'cat tests/gh.test.ts' }, text: fixture },
+    { tool: 'Bash', input: { command: 'gh pr create --draft --fill' }, text: 'https://github.com/o/r/pull/130\n' },
+    { tool: 'Bash', input: { command: 'git -C /w push -u origin fix/x' }, text: 'remote:   https://github.com/o/r/pull/131' },
+  ), '')
+  expect(f.links).toEqual(['https://github.com/o/r/pull/130', 'https://github.com/o/r/pull/131'])
+})
+
+test('fix 7: commits come from git log, so a quiet commit and an amend count', async () => {
+  const f = extractFacts(uses(
+    { tool: 'Bash', input: { command: 'git commit -q -m "feat: a"' }, text: '' },
+    { tool: 'Bash', input: { command: 'git commit --amend --no-edit' }, text: '[main 0000000] feat: a' },
+  ), '', 'c0ffee1 feat: a\n\nnot a commit line\n')
+  expect(f.commits).toEqual(['c0ffee1 feat: a'])
+})
+
+test('fix 7: only token figures are marked, never a share, a bare number or a quoted owner line', async () => {
+  const slot = [
+    '# H',
+    'Context: row 1234 done, 12% left, 2026 plan, 150k tokens used, 31337 tokens',
+    '> owner: context is 300k, hand off at 250k tokens',
+  ].join('\n')
+  const r = markUnverified(slot, N)
+  expect(r.marked).toEqual(['150k', '31337 tokens'])
+  expect(r.text.split('\n')[1]).toBe('Context: row 1234 done, 12% left, 2026 plan, 150k [unverified: not in Handoff numbers] tokens used, 31337 tokens [unverified: not in Handoff numbers]')
+  expect(r.text.split('\n')[2]).toBe('> owner: context is 300k, hand off at 250k tokens')
 })

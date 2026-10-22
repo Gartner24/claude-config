@@ -17,11 +17,15 @@ const FACTS_BUDGET = 2000
 const globRe = (glob: string) =>
   new RegExp('^' + glob.trim().replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, '\u0000').replace(/\*/g, '[^/]*').replace(/\u0000/g, '.*').replace(/\?/g, '.') + '$')
 
-// Commit subjects come from tool output: one line, no control characters or markdown markers,
+// Commit subjects come from `git log`: one line, no control characters or markdown markers,
 // at most 100 characters, so a subject cannot pose as a section of the handover.
 const clean = (s: string) => s.replace(/[\u0000-\u001f\u007f#>`*_[\]]/g, '').trim().slice(0, 100)
 
-export function extractFacts(messages: readonly Msg[], ignoreFiles: string) {
+// Links come only from Bash calls that ran gh or git push, where a real issue or PR link shows:
+// a link read from a test fixture (a Read, a grep, a test run) was listed as a PR once.
+const LINK_SOURCE = /(^|[\s;&|(])(gh(?=\s|$)|git\s+(?:-C\s+\S+\s+)?push\b)/
+
+export function extractFacts(messages: readonly Msg[], ignoreFiles: string, gitLog = '') {
   const ignore = ignoreFiles.split(',').filter(g => g.trim()).map(globRe)
   const files: string[] = [], commits: string[] = [], links: string[] = []
   const add = (list: string[], v: string) => { if (!list.includes(v)) list.push(v) }
@@ -30,13 +34,11 @@ export function extractFacts(messages: readonly Msg[], ignoreFiles: string) {
       const p = String(u.input.file_path ?? u.input.notebook_path ?? '')
       if (p && !ignore.some(r => r.test(p) || r.test(p.split('/').pop()!))) add(files, p)
     }
-    const out = u.text ?? ''
-    if (u.tool === 'Bash' && /\bgit\b.*\bcommit\b/.test(String(u.input.command ?? ''))) {
-      // git prints "[branch abc1234] subject" for each commit it makes.
-      for (const c of out.matchAll(/^\[[^\]\s]+(?: \([^)]*\))? ([0-9a-f]{7,40})\] (.+)$/gm)) add(commits, `${c[1]} ${clean(c[2]!)}`)
-    }
-    for (const l of out.matchAll(/https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/(?:issues|pull)\/\d+/g)) add(links, l[0])
+    if (u.tool !== 'Bash' || !LINK_SOURCE.test(String(u.input.command ?? ''))) continue
+    for (const l of (u.text ?? '').matchAll(/https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/(?:issues|pull)\/\d+/g)) add(links, l[0])
   }
+  // `git log --format='%h %s'` since the chat started, newest first
+  for (const c of gitLog.matchAll(/^([0-9a-f]{7,40}) (.+)$/gm)) add(commits, `${c[1]} ${clean(c[2]!)}`)
   return { files, commits, links }
 }
 
@@ -57,7 +59,7 @@ export function factsBlock(facts: ReturnType<typeof extractFacts>, n: Numbers, v
   ]
   const frame = (bodies: string[][]) => [
     '## Handoff facts',
-    '(pulled by the wf-handoff mod from this chat\'s tool calls and their output; the model did not write this list)',
+    '(pulled by the wf-handoff mod from this chat\'s tool calls, their output and git log; the model did not write this list)',
     ...(viewer ? [`viewer: ${viewer}`] : []),
     ...lists.map(([title], i) => [`${title}:`, ...bodies[i]!].join('\n')),
     '',
@@ -92,7 +94,9 @@ export function insertAfterHeading(slot: string, block: string) {
 
 const UNVERIFIED = ' [unverified: not in Handoff numbers]'
 
-// AC-5: a figure about context or tokens that the numbers block does not hold is marked.
+// AC-5: a token figure ("N tokens", "Nk") on a context line that the numbers block does not hold
+// is marked. Percentages and bare 4 digit numbers were marked too, and all 9 marks in the audit
+// were true facts; a quoted owner line (`> ...`) holds the owner's own words and is never marked.
 export function markUnverified(slot: string, n: Numbers) {
   const known = [n.tokens, n.line, n.start].filter((v): v is number => v != null)
   const marked: string[] = []
@@ -100,16 +104,14 @@ export function markUnverified(slot: string, n: Numbers) {
   const out = slot.split('\n').map(line => {
     if (/^\s*```/.test(line)) { fence = !fence; return line }
     if (/^#/.test(line)) inNumbers = /^## Handoff numbers/.test(line)
-    if (fence || inNumbers || !/context|tokens?\b/i.test(line)) return line
+    if (fence || inNumbers || /^\s*>/.test(line) || !/context|tokens?\b/i.test(line)) return line
     return line.split(/(`[^`]*`)/).map(part => part.startsWith('`') ? part : part.replace(
-      /(^|[\s(])([^\s()]*?)(\d[\d,]*(?:\.\d+)?)(\s*k\b|\s*tokens\b|%|)(?=[\s.,;:)]|$)/gi,
+      /(^|[\s(])([^\s()]*?)(\d[\d,]*(?:\.\d+)?)(\s*k\b|\s*tokens\b)(?=[\s.,;:)]|$)/gi,
       (all, pre, lead, num, unit) => {
         if (lead) return all // part of a file name, path or word
-        const bare = num.replace(/,/g, '')
-        const isK = /k/i.test(unit), isTok = /tokens/i.test(unit), isPct = unit === '%'
-        if (!isK && !isTok && !isPct && !(bare.length >= 4 && !bare.includes('.'))) return all
-        const v = parseFloat(bare) * (isK ? 1000 : 1)
-        if (!isPct && known.some(k => isK ? Math.abs(k - v) < 1000 : k === v)) return all
+        const isK = /k/i.test(unit)
+        const v = parseFloat(num.replace(/,/g, '')) * (isK ? 1000 : 1)
+        if (known.some(k => isK ? Math.abs(k - v) < 1000 : k === v)) return all
         marked.push(`${num}${unit}`)
         return `${pre}${num}${unit}${UNVERIFIED}`
       })).join('')
