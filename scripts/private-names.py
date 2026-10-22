@@ -154,7 +154,23 @@ def cmd_check(paths):
     return 1 if bad else 0
 
 
+REPAIR = "rm AGENTS.md && ln -s CLAUDE.md AGENTS.md && git add AGENTS.md"
+
+
+def agents_link_bad():
+    # Spec 0072 AC-9: `sed -i` replaces the AGENTS.md link with a copy of CLAUDE.md that then drifts, and the
+    # Edit and Write tools cannot be trusted to be the only editors. Checked on the staged entry, not the disk.
+    entry = git("ls-files", "-s", "--", "AGENTS.md").decode().split()
+    if not entry:
+        return False
+    # entry = [mode, sha, stage, path]; a symlink blob is its target string
+    return entry[0] != "120000" or git("cat-file", "blob", entry[1]).decode() != "CLAUDE.md"
+
+
 def cmd_check_staged():
+    if agents_link_bad():
+        print(f"AGENTS.md must be a symlink to CLAUDE.md (spec 0072 AC-9). Repair: {REPAIR}")
+        return 1
     names = load_names()
     bad = 0
     staged = git("diff", "--cached", "--name-only", "-z", "--diff-filter=ACMR").decode()
@@ -475,6 +491,38 @@ def selftest():
     code, out = commit("c.txt", "fine\n", "another clean commit")
     ok(code != 0 and "private names list missing" in out, "AC-8 missing list blocks a clean commit")
     (tmp / "names.bak").rename(names_file)
+
+    # spec 0072 AC-9: a commit where AGENTS.md is not a link to CLAUDE.md is refused, with the repair command
+    lrepo = new_repo("ac9")
+    (lrepo / ".git" / "hooks").mkdir(exist_ok=True)
+    shutil.copy(SCRIPT, lrepo / ".git" / "hooks" / "pre-commit")
+
+    def lcommit(message):
+        sh("git", "add", "-A", cwd=lrepo)
+        r = sh("git", "commit", "-q", "-m", message, cwd=lrepo)
+        return r.returncode, r.stdout + r.stderr
+
+    (lrepo / "CLAUDE.md").write_text("entry\n")
+    code, out = lcommit("no agents file")
+    ok(code == 0, f"AC-9 no AGENTS.md at all: no-op: {out.strip()}")
+    (lrepo / "AGENTS.md").symlink_to("CLAUDE.md")
+    code, out = lcommit("link")
+    ok(code == 0, f"AC-9 AGENTS.md linked to CLAUDE.md passes: {out.strip()}")
+    (lrepo / "AGENTS.md").unlink()
+    (lrepo / "AGENTS.md").write_text("entry\n")
+    code, out = lcommit("sed -i replaced the link")
+    ok(code != 0 and REPAIR in out, f"AC-9 a replaced link is refused with the repair command: {out.strip()}")
+    sh("git", "reset", "-q", cwd=lrepo)
+    (lrepo / "AGENTS.md").unlink()
+    (lrepo / "AGENTS.md").symlink_to("other.md")
+    code, out = lcommit("link to the wrong file")
+    ok(code != 0 and REPAIR in out, "AC-9 a link to another file is refused")
+    sh("git", "reset", "-q", cwd=lrepo)
+    (lrepo / "AGENTS.md").unlink()
+    (lrepo / "AGENTS.md").symlink_to("CLAUDE.md")
+    (lrepo / "x.txt").write_text("x\n")
+    code, out = lcommit("link restored")
+    ok(code == 0, f"AC-9 the repaired link passes: {out.strip()}")
 
     # AC-10: expressions, history scan, and a real rewrite
     expr = tmp / "expr.txt"
