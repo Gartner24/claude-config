@@ -17,6 +17,9 @@ export type WfDashFacts = {
   staleSince: string | null
   // spec 0065 AC-1: this tick's `wf status` parsed with at least one field read
   statusOk: boolean
+  // the auto handoff segment: absent before the first read; null when no chain file names this chat ("handoff ?",
+  // never a guessed on or off)
+  handoff?: WfDashAuto | null
 }
 
 export type WfDashAlert = { id: string; at: number; kind: 'finished' | 'stopped' | 'stuck' | 'question'; feature: string; detail: string }
@@ -87,8 +90,11 @@ export type WfDashPanel = {
   link: string | null
   at: number
 }
+// this chat's auto handoff from its chain file in ~/.claude/state/auto-handoff/ (wf-handoff writes it): off, and the
+// line in tokens; null until the file names this chat
+export type WfDashAuto = { off: boolean; line: number | null }
 // the last panel that was this chat's, this chat's id and the one it replaced, when the owner last dismissed
-export type WfDashHandoff = { panel: WfDashPanel | null; me: string; prev: string | null; dismissed: number; frame: number }
+export type WfDashHandoff = { panel: WfDashPanel | null; me: string; prev: string | null; dismissed: number; frame: number; auto?: WfDashAuto | null }
 
 export type WfDashLoaded<T> = { data: T | null; at: number | null; error: string | null }
 

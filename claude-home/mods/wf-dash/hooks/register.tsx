@@ -20,7 +20,7 @@ const PANE = 'wf-dash'
 // The host refuses $.prompt.submit of a text starting with "/" (it would run a command as the user), so the step goes
 // through $.command.run, which runs it as if typed, once the session is idle.
 const SUBMIT_AFTER = 1500
-// what `wf auto bar` takes as a session id and an effort level (runner/auto.py); anything else names no file
+// a session id that may name a file, and an effort level as the settings spell one
 const SESSION_ID = /^[A-Za-z0-9-]{1,100}$/
 const LEVEL = /^[a-z]{1,20}$/
 
@@ -95,7 +95,8 @@ export const register: Register = on => {
     const sid = SESSION_ID.test(id) ? id : null
     const state = await stateDir($)
     const dir = `${state}/wf-dash`
-    const panelPath = `${await $.env.get('HOME')}/.claude/state/auto-handoff/panel.json`
+    const handoffDir = `${await $.env.get('HOME')}/.claude/state/auto-handoff`
+    const panelPath = `${handoffDir}/panel.json`
     let me = id
     let prev: string | null = null
 
@@ -109,7 +110,16 @@ export const register: Register = on => {
       try { p = raw ? JSON.parse(raw) : null } catch {}
       const { value: old } = await $.state.get(HANDOFF)
       const mine = p && typeof p.session === 'string' && Array.isArray(p.steps) && (p.session === me || p.session === prev)
-      await $.state.set(HANDOFF, { panel: mine ? p : old?.panel ?? null, me, prev, dismissed: old?.dismissed ?? 0, frame: old?.frame ?? 0 })
+      await $.state.set(HANDOFF, { panel: mine ? p : old?.panel ?? null, me, prev, dismissed: old?.dismissed ?? 0, frame: old?.frame ?? 0, auto: await readAuto() })
+    }
+
+    // /auto-handoff on or off, and the line: the chain file wf-handoff's save() writes, found the way its own
+    // session.start finds it (a handed off chat points at its chain's root). No file names this chat: null, never on.
+    const readAuto = async () => {
+      const root = (await $.fs.read(`${handoffDir}/${me}.root`).catch(() => '')).trim() || me
+      let c: any = null
+      try { c = JSON.parse(await $.fs.read(`${handoffDir}/${root}.json`)) } catch {}
+      return c && c.session === me ? { off: c.off === true, line: typeof c.line === 'number' ? c.line : null } : null
     }
 
     const refresh = async () => {
@@ -120,12 +130,15 @@ export const register: Register = on => {
         if (sid) await $.fs.write(`${dir}/${sid}`, '').catch(() => {})
         await readPanel()
         const cwd = await $.session.cwd()
-        const [r, st, usage, model, handed] = await Promise.all([
+        const [r, st, usage, model, setLevel] = await Promise.all([
           $.process.run(['python3', `${$.plugin.root}/facts.py`, cwd]).catch(() => null),
           $.process.run(['wf', 'status', '--json']).catch(() => null),
           $.session.usage().catch(() => null),
           $.session.model().catch(() => null),
-          sid ? $.fs.read(`${dir}/${sid}.effort`).catch(() => null) : null,
+          // `wf auto bar` used to hand over the status line's level in a file; with the runner gone the settings'
+          // effortLevel stands in until the first reply brings the real one (turn.step). Env vars are the parent
+          // shell's and showed `high` in a `medium` session: never read.
+          $.settings.read({ key: 'effortLevel' }).catch(() => null),
         ])
         const status = st && st.exitCode === 0 ? parseStatus(st.stdout) : null
         const wf = counts(status)
@@ -140,9 +153,7 @@ export const register: Register = on => {
         if (raw) {
           lastGood = {
             model,
-            // the level `wf auto bar` handed over from the status line's own `.effort.level`; else the render falls back
-            // to turn.step. Env vars are the parent shell's and showed `high` in a `medium` session: never read.
-            effort: typeof handed === 'string' && LEVEL.test(handed) ? handed : null,
+            effort: typeof setLevel === 'string' && LEVEL.test(setLevel) ? setLevel : null,
             folder: raw.folder ?? null,
             git: raw.git ?? null,
             context: usage?.context?.percent ?? null,
@@ -236,15 +247,17 @@ export const register: Register = on => {
     return yield* next(e)
   })
 
+  // The host raises the band on the terminal and the desktop; it used to draw on the terminal only, so a desktop
+  // chat had no band at all. A survey holds the band while it asks.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    if (e.surface !== 'terminal') return next(e)
+    if ((e.surface !== 'terminal' && e.surface !== 'desktop') || e.props.hasSurvey) return next(e)
     const { Box, Text, Button } = $.ui.resolve(e)
     const { value: facts } = await $.state.get(FACTS)
     const { value: level } = await $.state.get(EFFORT)
     const { value: handoff } = await $.state.get(HANDOFF)
     const line = handoff ? handoffLine(handoff, Date.now()) : null
-    // the handed over level first, then the latest main loop request's; unknown stays out
-    const value = facts && !facts.effort && level ? { ...facts, effort: level } : facts
+    // the latest main loop request's level first, then the settings' one; unknown stays out
+    const value = facts && { ...facts, effort: level || facts.effort, ...(handoff && 'auto' in handoff ? { handoff: handoff.auto ?? null } : {}) }
     const band = value
       ? <Band Box={Box} Text={Text} Button={Button} facts={value} columns={e.props.bodyColumns ?? (e.viewport?.columns ?? width.viewport) - space.hostReserve} onOpen={() => void openDashboard($)} />
       : (

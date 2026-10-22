@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
-
+import { fillTemplate } from '../facts.ts'
 // Spec 0063: the automatic handoff, driven through the engine's own events with an in-memory world.
 const SLOT = '/h/.claude/projects/-w/rollover/session.md'
 const STATE = '/h/.claude/state/auto-handoff'
@@ -41,7 +41,8 @@ function world(on: On, env: Record<string, string> = {}) {
     if (!f) throw new Error(`ENOENT ${e.path}`)
     return { value: { kind: 'file', size: f.text.length, mtimeMs: f.mtimeMs, isLink: false } }
   })
-  on('fs.list', () => ({ value: [] }))
+  // the first name under the path, so a folder of folders lists as the disk does
+  on('fs.list', (_$, e: any) => ({ value: [...new Set([...w.files.keys()].filter(k => k.startsWith(e.path + '/')).map(k => k.slice(e.path.length + 1).split('/')[0]!))].map(name => ({ name, kind: 'dir', size: 0 })) as any }))
   on('process.run', () => ({ value: w.files.has(SLOT)
     ? { exitCode: 0, stdout: `${SLOT}\n`, stderr: '', isStdoutTruncated: false, isStderrTruncated: false }
     : { exitCode: 1, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
@@ -289,4 +290,99 @@ test('templates are copied on first start and the owner copy wins', async ($, on
   await start($)
   expect(w.files.get('/h/.claude/auto-handoff/sections.md')!.text).toContain('TEMPLATE sections.md')
   expect(w.files.get('/h/.claude/auto-handoff/instructions.md')!.text).toBe('MINE')
+})
+
+const cmd = async ($: any, args: string) => ((await $.command.run({ command: 'auto-handoff', args })) as any).text as string
+
+test('a fresh chat writes its chain file at start, on, with the line the band shows', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  await start($)
+  expect(chain(w)).toMatchObject({ phase: 'idle', line: 50000 })
+  expect(chain(w).off).toBeUndefined()
+  expect(await cmd($, '')).toBe('auto handoff is on: this chat hands off at 50k tokens (now 10k)')
+})
+
+test('/auto-handoff off: past the line no gate and no rollover; on again, the next call is gated', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  await start($)
+  expect(await cmd($, 'off')).toMatch(/^auto handoff is off for this chat/)
+  expect(chain(w).off).toBe(true)
+  await typed($, 'fix it')
+  w.tokens = 60_000
+  expect((await step($, 'T1', 0)).answer).toBe('a')
+  expect(((await $.tool.call({ tool: 'Read', file_path: '/w/a' } as any)) as any).deny).toBeUndefined()
+  await complete($, 'T1')
+  expect(w.commands).toEqual([])
+  expect(await cmd($, 'on')).toBe('auto handoff is on: this chat hands off at 50k tokens (now 60k)')
+  expect(chain(w).off).toBe(false)
+  await typed($, 'go on')
+  expect(((await $.tool.call({ tool: 'Read', file_path: '/w/b' } as any)) as any).deny).toBeDefined()
+})
+
+test('/auto-handoff with another word changes nothing and says how to use it', async ($, on) => {
+  const w = world(on)
+  await start($)
+  expect(await cmd($, 'maybe')).toMatch(/^use \/auto-handoff on, \/auto-handoff off/)
+  expect(chain(w).off).toBeUndefined()
+})
+
+test('a chat where the handoff does not run says so', async ($, on) => {
+  world(on, { AUTO_HANDOFF_DISABLE: '1' })
+  await start($)
+  expect(await cmd($, 'off')).toMatch(/^auto handoff does not run in this chat/)
+})
+
+test('off rides into the chat /handoff starts; an owner clear starts on', async ($, on) => {
+  const w = world(on)
+  await start($)
+  await cmd($, 'off')
+  w.files.set(SLOT, { text: 'handover', mtimeMs: w.clock.now() })
+  await $.command.run({ command: 'handoff', args: '' })
+  await w.clock.advance(1500)
+  await $.session.end({ sessionId: 'S1', reason: 'clear' } as any)
+  expect(chain(w, 'S2').off).toBe(true)
+  w.id = 'S3'
+  await $.session.end({ sessionId: 'S2', reason: 'clear' } as any)
+  expect(chain(w, 'S3').off).toBeUndefined()
+})
+
+test('the rollover and the fresh chat get this chat\'s transcript path, so neither searches for it', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  const log = '/h/.claude/projects/-w/S1.jsonl'
+  w.files.set('/h/.claude/projects/-other/S9.jsonl', { text: '', mtimeMs: 0 })
+  w.files.set(log, { text: '', mtimeMs: 0 })
+  w.files.set('/h/.claude/auto-handoff/instructions.md', { text: 'read <previous transcript> now', mtimeMs: 0 })
+  // the shipped template's two lines; the shipped file itself is checked in the test after next
+  w.files.set('/h/.claude/auto-handoff/sections.md', { text: "{{#transcript}}This chat's transcript is {{transcript}}: name it as the previous transcript{{/transcript}}\nOnce the slot is written, end the turn with one short line.", mtimeMs: 0 })
+  await start($)
+  w.tokens = 60_000
+  await step($, 'T1', 1)
+  await complete($, 'T1')
+  expect(w.commands[0]!.args).toContain(`This chat's transcript is ${log}: name it as the previous transcript`)
+  expect(w.commands[0]!.args).toContain('end the turn with one short line')
+  await w.clock.settle()
+  await step($, 'T2', 1)
+  await complete($, 'T2')
+  await w.clock.advance(1500)
+  expect(w.commands.find(c => c.command === 'resume-from-clear')!.args).toBe(`read ${log} now`)
+})
+
+test('with no transcript found the block drops and the placeholder stays for the skill', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  w.files.set('/h/.claude/auto-handoff/sections.md', { text: 'S{{#transcript}} log {{transcript}}{{/transcript}}{{^transcript}} none{{/transcript}}', mtimeMs: 0 })
+  await start($)
+  w.tokens = 60_000
+  await step($, 'T1', 1)
+  await complete($, 'T1')
+  expect(w.commands[0]!.args).toBe('S none')
+})
+
+// The shipped template's own lines (a test cannot read a .md file; verify greps templates/sections.md for them).
+const shippedSections = "{{#transcript}}\nThis chat's transcript is {{transcript}}: name it as the previous transcript, do not search for the newest log.\n{{/transcript}}\nOnce the slot is written, end the turn with one short line: the chat is cleared a second later, and the fresh chat reads the handover, not a summary."
+test('the transcript block keeps its line with a path and drops without one, the one line close stays', () => {
+  const text = shippedSections
+  const filled = fillTemplate(text, { priority: false, lastRequest: 'x', transcript: '/p/S1.jsonl' })
+  expect(filled).toContain("This chat's transcript is /p/S1.jsonl: name it as the previous transcript")
+  expect(fillTemplate(text, { priority: false, lastRequest: 'x', transcript: null })).not.toContain("This chat's transcript")
+  expect(filled).toContain('end the turn with one short line')
 })

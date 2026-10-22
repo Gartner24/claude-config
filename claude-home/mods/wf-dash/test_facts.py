@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import sys
@@ -35,6 +36,21 @@ class GitFacts(unittest.TestCase):
             repo(d)
             g = facts.git(d)
             self.assertEqual((g["branch"], g["changes"], g["untracked"]), ("main", 1, 1))
+
+
+class Alone(unittest.TestCase):
+    def test_runs_with_no_runner_beside_it(self):
+        # it used to import the runner's wf.py through a path four folders up; the runner is retired
+        with tempfile.TemporaryDirectory() as d, tempfile.TemporaryDirectory() as alone:
+            repo(d)
+            script = Path(alone, "facts.py")
+            script.write_text(Path(facts.__file__).read_text())
+            r = subprocess.run([sys.executable, "-I", str(script), d], capture_output=True, text=True,
+                               env={"PATH": os.environ["PATH"], "ANTHROPIC_BASE_URL": "https://user@llm.example:8443/v1"})
+            self.assertEqual(r.returncode, 0, r.stderr)
+            out = json.loads(r.stdout)
+            self.assertEqual((out["git"]["branch"], out["git"]["untracked"], out["via"]), ("main", 1, "llm.example"))
+            self.assertEqual(set(out), {"folder", "git", "via"})
 
 
 if __name__ == "__main__":

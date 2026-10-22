@@ -1,4 +1,7 @@
 This is an automatic handoff: the chat reached its handoff line, so write the full handover now and do not ask the owner anything. Do not tell the owner to type /clear; the wf-handoff mod clears and starts the fresh chat itself.
+{{#transcript}}
+This chat's transcript is {{transcript}}: name it as the previous transcript, do not search for the newest log.
+{{/transcript}}
 
 The fresh chat starts with nothing but this handover, and it cannot afford to reread this whole chat. Anything you leave out is lost. Write it rich, not short: the contract's "three to six sentences" and "anything else is padding" do not apply to this handover. Keep its fields, and keep the order below, most important first.
 
@@ -24,3 +27,5 @@ Each file, branch, PR, worktree or command that matters to the next steps, with 
 Anything noticed but not done, promised to the owner, or waiting on someone, with who it waits on.
 
 Leave out token counts and context sizes; the mod adds the real numbers itself.
+
+Once the slot is written, end the turn with one short line: the chat is cleared a second later, and the fresh chat reads the handover, not a summary.

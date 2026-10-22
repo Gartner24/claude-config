@@ -84,6 +84,15 @@ export function segments(f: Facts, now = Date.now(), rich = true, compact = fals
     if (rich && f.contextTokens !== null && f.contextWindow) ctx.push({ text: ` ${tokens(f.contextTokens)}/${tokens(f.contextWindow)}`, color: color.dim })
     left.push(seg('ctx', ctx))
   }
+  // the owner turns the auto handoff off in chats that are not for coding (/auto-handoff); the band says which this is
+  if (f.handoff !== undefined) {
+    const h = f.handoff
+    left.push(seg('handoff', h === null
+      ? [{ text: `handoff ${glyph.unknown}`, color: color.dim }]
+      : h.off
+        ? [{ text: 'handoff ', color: color.dim }, { text: 'off', color: color.warn }]
+        : [{ text: 'handoff ', color: color.dim }, { text: h.line ? `on ${tokens(h.line)}` : 'on', color: color.text }]))
+  }
   if (f.via) left.push(seg('via', [{ text: `via ${f.via}`, color: color.dim }]))
   else left.push(
     meterSeg('5h', '5h', f.fiveHour, rich ? resetIn(f.fiveHourReset, now) : ''),
@@ -123,8 +132,9 @@ export function segments(f: Facts, now = Date.now(), rich = true, compact = fals
   return { left, right: seg('wf', right) }
 }
 
-// Left segments leave in this order when the line is too narrow; the runner segment and the chip stay.
-const DROP = ['folder', 'auto', 'git', 'week', '5h', 'via', 'ctx', 'model']
+// Left segments leave in this order when the line is too narrow; the runner segment and the chip stay. The handoff
+// state is the last to go: it is the one fact here no other part of the screen shows.
+const DROP = ['folder', 'auto', 'git', 'week', '5h', 'via', 'ctx', 'model', 'handoff']
 
 export function fit(left: Seg[], right: Seg, columns: number) {
   const used = (l: Seg[]) => l.reduce((n, s) => n + s.cells, 0) + space.gap * Math.max(0, l.length - 1) + space.gap + right.cells + 2 * space.padX
