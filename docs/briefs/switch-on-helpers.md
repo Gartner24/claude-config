@@ -1,0 +1,10 @@
+# Helper scripts for the switch-on rules (scope row 98)
+
+## Agreed so far, do not ask again
+- 2026-10-22: build all six helpers named in `claude-home/rules/when-to-switch-on.md` "Needs a script": start gates, `spec-paths --overlap`, design-check, issue reread, review-isolated, scope marker warnings. Marker warnings reuse the existing parser in `claude-home/mods/chip-dash/plan.py` (a flag that `/scope` and `/sync` run), not a second parser.
+- 2026-10-22 (asked again after a wrong premise: a script CAN read the 5 hour use): start gates lifts the reader in `runner/usage.py` (the account usage endpoint, login token read for one request, never printed or saved). A failed read is unknown. No chip-dash change and no usage file from the mod; the earlier mod file answer and its data model are withdrawn.
+- 2026-10-22: unknown 5 hour use means wait: start gates prints "wait: 5 hour use unknown (<reason>)" and exits non zero; no extra agent starts.
+- 2026-10-22: issue reread is a script plus a rule line: `issue-reread <issue url> --since <spec accept date>` reads the edit history and comments after that date (no stored state); /develop and /check verify run it on a row whose Source is an issue; any change means ask the owner before building.
+- 2026-10-22: review-isolated runs a fixed review prompt (built from the Review Rules: regression and intent first, every finding with file:line) on Sonnet, with the runner recipe (PR as text in an empty folder, Read/Grep/Glob, user settings only, no hooks, no MCP); draft goes to `~/.claude/state/reviews/<repo>-<pr>.md`; posting with `gh pr review` only on the owner's exact yes. No /review-stack offer.
+- 2026-10-22: spec 0073 written; cross check (Sonnet) found 14 points, owner picked "apply the recommended fixes". This changes two items above: issue reread takes `--spec <file>` (first commit time of the spec) instead of `--since <date>`, and the draft name is `<owner>-<repo>-<n>.md`. The isolated review denies Read of all of `~` and turns claude.ai connectors off.
+- 2026-10-22: scope row 99 (auto handoff off in talk chats) dropped: the third chat decision "manual only, nothing to build" stands.
