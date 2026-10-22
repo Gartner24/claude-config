@@ -458,6 +458,19 @@ class TestBuild(Case):
         self.assertIn("- unknown: source unknown (unknown)", not_redistributed)
         self.assertNotIn("- a:", not_redistributed)
 
+    # covers: review 2026-10-21 leftover (a source the main loop could not reach is reported once, not cloned again)
+    def test_build_unreachable_reported_once(self):
+        self.install_edited()
+        lock = self.tmp / "lock.json"
+        lock.write_text(json.dumps({"skills": {"s": {"source": "x/y", "sourceType": "git",
+                                                     "sourceUrl": f"file://{self.up}", "skillPath": "skills/s/SKILL.md"}}}))
+        shutil.rmtree(self.up)
+        (self.repo / "docs").mkdir()
+        self.env.update(CLAUDE_CONFIG_LOCK=str(lock), XDG_CACHE_HOME=str(self.tmp / "cache"))
+        r = self.tool("build")
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertEqual(r.stdout.count("not reached"), 1, r.stdout + r.stderr)
+
     # covers: spec 0068 AC-6 (a hand written edited entry whose live folder has no SKILL.md gets its license text
     # in the notice, and the entry is kept as it was)
     def test_mod_license_text(self):
