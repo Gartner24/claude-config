@@ -1,6 +1,6 @@
 # Check gates (beats skill text)
 
-Spec 0015 in ~/claude-config. Three gates that stop the workflow from fooling itself. The
+Spec 0015 in ~/claude-config, gate 5 spec 0069. Gates that stop the workflow from fooling itself. The
 vendored skills (`/check`, `/test`, `/sync`, `/architect`, `/scope`) are overwritten on every
 pull, so the gates live here, and this file wins where a skill says otherwise.
 
@@ -64,3 +64,17 @@ Applies to every `/test`.
   brief's `## Agreed so far, do not ask again` section, and ask about every dropped or
   weakened item, with a recommended answer, before writing.
 - Neither changes anything you did not answer.
+
+## 5. A feature's brief closes with the feature
+
+Spec 0069. The script is `python3 ~/claude-config/scripts/handover-memory.py`.
+
+- On every `/sync`: run `<script> lint <repo>` once. Copy every `warning:` line into the report
+  under a heading `Briefs to tidy`. Never stop on them.
+- When `/sync` closes a feature (its heading gets `· done`) and the row's `Source:` names a brief:
+  run `<script> prune <brief>`, then `<script> close <brief>`.
+  - Exit 1: do not close the feature. Copy the lines it printed (each open item, each decision not
+    landed) into the report and ask the owner about them.
+  - Exit 0: `git rm` the brief, its detail folder and its `archive.md`, and change the row's
+    `Source:` link to `<path> @ <short sha>`, the sha being the last commit that had the brief.
+- `docs/briefs/general.md` is never closed; its items leave only by the 14 day archive rule.
