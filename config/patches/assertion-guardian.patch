@@ -1,17 +1,17 @@
 diff --git a/PRIVACY.md b/PRIVACY.md
-index f33083c..c98a4da 100644
+index f33083c..33d946d 100644
 --- a/PRIVACY.md
 +++ b/PRIVACY.md
 @@ -1,6 +1,6 @@
  # Privacy
  
 -It runs entirely on your machine. It sends nothing over the network. It runs `git` locally to read the previous version of a test file.
-+It runs entirely on your machine. It sends nothing over the network. It runs `git` locally to read the previous version of a test file, and `stat`, `chmod` and `rm` to put back a test file a shell command weakened.
++It runs entirely on your machine. It sends nothing over the network. It runs `git` locally to read the previous version of a test file, and `stat`, `test`, `chmod` and `rm` to put back a test file a shell command weakened.
  
  The mod collects no analytics or telemetry, and its author receives no data from it.
  
 diff --git a/README.md b/README.md
-index 83a1863..02e2903 100644
+index 83a1863..166e58c 100644
 --- a/README.md
 +++ b/README.md
 @@ -27,6 +27,10 @@ Before any Edit, Write or NotebookEdit to a test file runs, the mod works out th
@@ -46,7 +46,7 @@ index 83a1863..02e2903 100644
  ## Privacy
  
 -It runs entirely on your machine. It sends nothing over the network. It runs `git` locally to read the previous version of a test file.
-+It runs entirely on your machine. It sends nothing over the network. It runs `git` locally to read the previous version of a test file, and `stat`, `chmod` and `rm` to put back a test file a shell command weakened.
++It runs entirely on your machine. It sends nothing over the network. It runs `git` locally to read the previous version of a test file, and `stat`, `test`, `chmod` and `rm` to put back a test file a shell command weakened.
  
  The mod collects no analytics or telemetry, and its author receives no data from it.
  
@@ -165,7 +165,7 @@ index ca09408..8c8a50d 100644
  // Tools
  
 diff --git a/hooks/register.tsx b/hooks/register.tsx
-index 9227632..a5b4039 100644
+index 9227632..1a2f62a 100644
 --- a/hooks/register.tsx
 +++ b/hooks/register.tsx
 @@ -1,8 +1,8 @@
@@ -179,7 +179,7 @@ index 9227632..a5b4039 100644
  
  const blocked = atom({ plugin: 'assertion-guardian', key: 'blocked' } as const, null)
  const allowed = atom({ plugin: 'assertion-guardian', key: 'allowed' } as const, [])
-@@ -92,17 +92,146 @@ async function check($: EngineInterface, e: { tool: string; [k: string]: unknown
+@@ -92,17 +92,157 @@ async function check($: EngineInterface, e: { tool: string; [k: string]: unknown
    return null
  }
  
@@ -216,10 +216,14 @@ index 9227632..a5b4039 100644
 +  if (!(await $.fs.exists(path))) return null
 +  const { base64 } = await $.fs.read(path, { as: 'bytes' })
 +  const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
-+  const text = new TextDecoder('utf-8').decode(bytes)
++  // The decode drops a byte order mark, so the round trip below failed and a BOM file was refused as "not UTF-8":
++  // set the mark aside, check the rest, and keep it in the text so a restore writes it back.
++  const bom = bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf
++  const body = bom ? bytes.subarray(3) : bytes
++  const text = new TextDecoder('utf-8').decode(body)
 +  const again = new TextEncoder().encode(text)
-+  if (again.length !== bytes.length || again.some((b, i) => b !== bytes[i])) throw new Error(`${path} is not UTF-8 text`)
-+  return text
++  if (again.length !== body.length || again.some((b, i) => b !== body[i])) throw new Error(`${path} is not UTF-8 text`)
++  return bom ? `﻿${text}` : text
 +}
 +
 +async function spend($: EngineInterface, fp: string): Promise<boolean> {
@@ -251,9 +255,11 @@ index 9227632..a5b4039 100644
 +      const text = await readText($, target)
 +      const mode = text === null ? undefined : await $.process.run(['stat', '-c', '%a', '--', target], { timeoutMs: 5000 })
 +      before.set(target, { text, mode: mode?.exitCode === 0 ? mode.stdout.trim() : undefined })
-+    } catch {
-+      await update($, blocked, (): Blocked => ({ target: 'shell command', signals, fp }))
-+      return { deny: refusal('shell command', signals) }
++    } catch (err) {
++      // Name the file and the reason: the bash signals alone read as a refusal of the command, not of this file.
++      const why = [...signals, `${target} cannot be checked before the command runs: ${err instanceof Error ? err.message : String(err)}`]
++      await update($, blocked, (): Blocked => ({ target: 'shell command', signals: why, fp, files: targets }))
++      return { deny: refusal('shell command', why) }
 +    }
 +  }
 +  let r: ToolCallResult | undefined
@@ -314,6 +320,11 @@ index 9227632..a5b4039 100644
 +        const rm = await $.process.run(['rm', '-f', '--', target], { timeoutMs: 5000 })
 +        if (rm.exitCode !== 0) throw new Error(rm.stderr)
 +      } else {
++        // A write follows a link to wherever it points; a command that swapped the test for a link must not steer the restore.
++        if (now !== null && (await $.process.run(['test', '-L', target], { timeoutMs: 5000 })).exitCode === 0) {
++          kept.push(`${target} (is a symlink, not restored)`)
++          continue
++        }
 +        await $.fs.write(target, was.text)
 +        if (now === null && was.mode !== undefined) {
 +          const chmod = await $.process.run(['chmod', was.mode, '--', target], { timeoutMs: 5000 })
@@ -324,23 +335,35 @@ index 9227632..a5b4039 100644
 +      kept.push(`${target} (could not be put back)`)
 +    }
 +  }
-+  await update($, blocked, (): Blocked => ({ target: 'shell command', signals, fp }))
++  await update($, blocked, (): Blocked => ({ target: 'shell command', signals, fp, files: [...before.keys()] }))
 +  return { deny: undone([...before.keys()], signals, kept) }
 +}
 +
  export const register: Register = on => {
    on('session.start', async ($, e, next) => {
      await $.command.register({
-@@ -127,17 +256,22 @@ export const register: Register = on => {
+@@ -118,7 +258,8 @@ export const register: Register = on => {
+     const last = await read($, blocked)
+     if (last === null) return { text: 'Assertion Guardian: nothing is blocked right now.' }
+     const named = e.args.trim()
+-    if (named !== '' && last.target !== named && !last.target.endsWith(`/${named}`)) {
++    // A shell refusal blocks the command, so a file the command names counts as the target too.
++    if (named !== '' && ![last.target, ...(last.files ?? [])].some(t => t === named || t.endsWith(`/${named}`))) {
+       return { text: `Assertion Guardian: the blocked change is to ${last.target}, not ${named}. Nothing allowed.` }
+     }
+     await allow($, last)
+@@ -127,19 +268,26 @@ export const register: Register = on => {
  
    on('tool.call', async ($, e, next) => {
      const call = e as { tool: string; [k: string]: unknown }
++    let files: string[] | undefined
 +    if (call.tool === 'Bash') {
 +      const command = String(call.command ?? '')
 +      const signals = bashSignals(command)
 +      if (signals.length > 0) {
 +        const cwd = await $.session.cwd().catch(() => undefined)
 +        const plan = shellPlan(command, cwd)
++        files = plan.targets
 +        if (!plan.snapshotUpdate && !plan.refuseBefore && call.run_in_background !== true) {
 +          return runAndCompare($, call, plan.targets, signals, () => next(e))
 +        }
@@ -359,10 +382,13 @@ index 9227632..a5b4039 100644
 -    if (spent) return next(e)
 +    if (await spend($, fp)) return next(e)
  
-     await update($, blocked, (): Blocked => ({ target: found.target, signals: found.signals, fp }))
+-    await update($, blocked, (): Blocked => ({ target: found.target, signals: found.signals, fp }))
++    await update($, blocked, (): Blocked => ({ target: found.target, signals: found.signals, fp, files }))
      return { deny: refusal(found.target, found.signals) }
+   })
+ 
 diff --git a/tests/assertion-guardian.test.tsx b/tests/assertion-guardian.test.tsx
-index a9012d5..3587b15 100644
+index a9012d5..4445c8a 100644
 --- a/tests/assertion-guardian.test.tsx
 +++ b/tests/assertion-guardian.test.tsx
 @@ -1,6 +1,7 @@
@@ -374,7 +400,7 @@ index a9012d5..3587b15 100644
  
  const SPEC = `describe('sum', () => {
    it('adds', () => {
-@@ -324,3 +325,283 @@ describe('hooks', () => {
+@@ -324,3 +325,326 @@ describe('hooks', () => {
      await ui.unmount()
    })
  })
@@ -426,6 +452,8 @@ index a9012d5..3587b15 100644
 +  const w = {
 +    disk: new Map(Object.entries(files)) as Disk,
 +    log: [] as string[],
++    // Paths `test -L` calls a symlink.
++    links: new Set<string>(),
 +    runs: 0,
 +    sh: (_disk: Disk): void => {},
 +    answer: (): { result: unknown } | { deny: string } => ({ result: { stdout: 'built', stderr: '', interrupted: false } }),
@@ -459,6 +487,7 @@ index a9012d5..3587b15 100644
 +    }
 +    w.log.push(argv.join(' '))
 +    if (argv[0] === 'stat') return run('755\n')
++    if (argv[0] === 'test') return run('', w.links.has(argv[argv.length - 1]!) ? 0 : 1)
 +    if (argv[0] === 'rm') w.disk.delete(argv[argv.length - 1]!)
 +    return run('')
 +  })
@@ -637,8 +666,9 @@ index a9012d5..3587b15 100644
 +    const command = "sed -i '/toEqual(0)/d' src/sum.test.ts"
 +    w.sh = d => d.set(T, WEAK)
 +    expect((await $.tool.call({ tool: 'Bash', command })).deny).toMatch(/the command ran/)
-+    await $.command.run({ command: 'allow-test-change', args: 'sum.test.ts', origin: { kind: 'composer' as const }, presentation: { isFullscreen: false, columns: 100 } })
-+    // The blocked target is the shell command, so naming a file allows nothing.
++    // A file the command does not name allows nothing.
++    const other = await $.command.run({ command: 'allow-test-change', args: 'other.test.ts', origin: { kind: 'composer' as const }, presentation: { isFullscreen: false, columns: 100 } })
++    expect(JSON.stringify(other)).toMatch(/Nothing allowed/)
 +    expect((await $.tool.call({ tool: 'Bash', command })).deny).toMatch(/the command ran/)
 +    await $.command.run({ command: 'allow-test-change', args: '', origin: { kind: 'composer' as const }, presentation: { isFullscreen: false, columns: 100 } })
 +    expect((await $.tool.call({ tool: 'Bash', command })).deny).toBeUndefined()
@@ -657,4 +687,56 @@ index a9012d5..3587b15 100644
 +    expect(w.disk.get(T)).toBe(SPEC)
 +    expect(w.runs).toBe(6)
 +  })
++
++  test('allow once by file name: a file the shell command names allows it', async ($, on) => {
++    const w = world(on, { [T]: SPEC })
++    const command = "sed -i '/toEqual(0)/d' src/sum.test.ts"
++    w.sh = d => d.set(T, WEAK)
++    expect((await $.tool.call({ tool: 'Bash', command })).deny).toMatch(/the command ran/)
++    const said = await $.command.run({ command: 'allow-test-change', args: 'sum.test.ts', origin: { kind: 'composer' as const }, presentation: { isFullscreen: false, columns: 100 } })
++    expect(JSON.stringify(said)).not.toMatch(/Nothing allowed/)
++    expect((await $.tool.call({ tool: 'Bash', command })).deny).toBeUndefined()
++    expect(w.disk.get(T)).toBe(WEAK)
++  })
++
++  test('a file with a byte order mark is compared and put back like any other', async ($, on) => {
++    const BOM = '﻿'
++    const w = world(on, { [T]: BOM + SPEC })
++    w.sh = d => d.set(T, BOM + WEAK)
++    const ran = await $.tool.call({ tool: 'Bash', command: "sed -i '/toEqual(0)/d' src/sum.test.ts" })
++    expect(ran.deny).toMatch(/assertions removed/)
++    expect(ran.deny).not.toMatch(/cannot be checked/)
++    expect(w.disk.get(T)).toBe(BOM + SPEC)
++  })
++
++  test('a file that is not UTF-8 text is refused before running, naming the file and why', async ($, on) => {
++    const w = world(on, { '/repo/src/bin.test.ts': new Uint8Array([0x69, 0x74, 0xff, 0x0a]) })
++    const ran = await $.tool.call({ tool: 'Bash', command: "sed -i 's/it/xit/' src/bin.test.ts" })
++    expect(ran.deny).toMatch(/\/repo\/src\/bin\.test\.ts cannot be checked before the command runs: .*not UTF-8 text/)
++    expect(w.runs).toBe(0)
++  })
++
++  test('a target that is a symlink after the command is not written through', async ($, on) => {
++    const w = world(on, { [T]: SPEC })
++    w.sh = d => d.set(T, WEAK)
++    w.links.add(T)
++    const ran = await $.tool.call({ tool: 'Bash', command: "sed -i '/toEqual(0)/d' src/sum.test.ts" })
++    expect(ran.deny).toMatch(/assertions removed/)
++    expect(ran.deny).toMatch(new RegExp(`Not put back: ${T} \\(is a symlink, not restored\\)`))
++    expect(w.log.filter(l => l.startsWith('write'))).toEqual([])
++    expect(w.disk.get(T)).toBe(WEAK)
++  })
 +})
+diff --git a/types/index.d.ts b/types/index.d.ts
+index 678f935..09ed580 100644
+--- a/types/index.d.ts
++++ b/types/index.d.ts
+@@ -1,7 +1,7 @@
+ // The last change Assertion Guardian refused, for the band and /allow-test-change.
+ // `fp` fingerprints the exact call (tool, path, payload), so an allowance
+ // covers that change and nothing else.
+-export type Blocked = { target: string; signals: string[]; fp: string }
++export type Blocked = { target: string; signals: string[]; fp: string; files?: string[] }
+ 
+ declare module 'claude-code' {
+   interface PluginState {

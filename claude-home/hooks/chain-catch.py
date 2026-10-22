@@ -40,6 +40,7 @@ COMMAND = re.compile(r"^/[a-z][\w:-]*(\s|$)")
 SPEC_LINK = re.compile(r"specs/(?:[^/)]*/)?(\d{4})-")
 STATUS = re.compile(r"^\*\*Status\*\*:\s*(.*)$", re.M)
 SPEC_TOP = re.compile(r"(?:^|/)(?:docs|\.workflow)/specs/(\d{4})-[^/]*(?:\.md|/index\.md)$")
+AFTER_ROWS = re.compile(r"\bafter rows?\s+([^.]*?)\s+merges?\b", re.I)
 WAITS = re.compile(r"·\s*waits on you\s*(?=·|$)", re.I)
 LATER = re.compile(r"·\s*later boxes go on\s*(?=·|$)", re.I)
 TAGGED_NEEDS = re.compile(r"^###\s+.*·\s*needs a decision\s*(?=·|$)", re.I | re.M)
@@ -122,6 +123,7 @@ class Feature:
         self.row, self.name = (m.group(1), m.group(2)) if m else ("?", self.title)
         self.gone = bool(self.tags & GONE) or bool(re.search(r"\(\s*(done|existing|dropped)\s*\)", self.title, re.I))
         self.boxes, self.specs, self.deferred = [], set(), False
+        self.after = set()  # rows the heading block says it builds only after
 
     def label(self):
         return f"row {self.row} {LABEL_DROP.sub('', self.name).strip()[:80]}"
@@ -176,6 +178,12 @@ def parse_scope(text):
             box = Box(indent, b.group(2) != " ", b.group(3).strip(), stack[-1] if stack else None)
             stack.append(box)
             feat.boxes.append(box)
+        else:
+            for m in AFTER_ROWS.finditer(line):
+                for seg in re.split(r",|\band\b", m.group(1)):
+                    n = re.match(r"\s*(\d+)\b", seg)
+                    if n:
+                        feat.after.add(n.group(1))
         # The Source line names briefs and issues, not the feature's own spec.
         if not s.startswith("Source:"):
             feat.specs.update(SPEC_LINK.findall(line))
@@ -335,7 +343,11 @@ def owed_lines(chat, top, feats, nagged):
               for n in re.findall(r"(?<!\d)\d{4}(?!\d)", str(inp.get("prompt", "")))}
 
     # AC-4, AC-5, AC-6
+    done_rows = {x.row for x in feats if "done" in x.tags}
     for f in live:
+        # a row that builds only after other rows merge owes nothing while one is not `· done`
+        if f.after - done_rows:
+            continue
         if f.specs & nums and not f.specs & handed:
             cmd = next_command(f)
             cmd = cmd and safe_command(cmd)
@@ -611,6 +623,22 @@ def self_test():
         fresh()
         scope(rows("- [ ] Build it: `/develop feat`").replace("Spec [0001](../specs/0001-s.md)\n", ""))
         check("AC-4 a spec named only on the Source line maps nothing", run(T().owner("x").edit("src/a.py")), None)
+        fresh()
+
+        # A row whose heading block says it builds only after other rows merge owes nothing until each is done.
+        def waiting(r4, r3):
+            return ("### 4. Base" + r4 + "\n- [ ] Build: `/develop base`\n\n"
+                    "### 3. Other" + r3 + "\n- [ ] Build: `/develop other`\n\n"
+                    + rows("- [ ] Build it: `/develop feat`").replace(
+                        "Spec [0001]", "Build only after rows 4 and 3 (and 9 phase 1) merge. Spec [0001]"))
+        scope(waiting(" · in-progress", " · done"))
+        check("waits-on a named row not done owes nothing", run(T().owner("x").edit("src/a.py")), None)
+        fresh()
+        scope(waiting(" · done", " · in-progress"))
+        check("waits-on the other named row not done owes nothing", run(T().owner("x").edit("src/a.py")), None)
+        fresh()
+        scope(waiting(" · done", " · done").replace("### 5. Feat", "### 9. Nine · done\n\n### 5. Feat"))
+        check("waits-on rows all done owes the build", reason(run(T().owner("x").edit("src/a.py"))), "owed: /develop feat (row 5 Feat)")
         fresh()
 
         # Review fix 1: an edit in a nested worktree is the same repo path.
