@@ -1340,7 +1340,8 @@ Source: [brief](../briefs/dashboard-restructure.md) (name answer).
 ### 97. Restructure claude-config to the icm-architect folder layout · needs a decision
 You asked to restructure claude-config into the folder layout of RinDig's icm-architect repo.
 **Done when:** the repo follows the agreed layout, `bin/install.sh --dry-run` and the suite pass, and every live link still resolves.
-- [ ] Design it (spec): `/architect restructure claude-config to the icm-architect layout`
+- [ ] Run icm-architect read only: skillspector scan of RinDig/icm-architect, install it, run its restructure mode steps 1 to 5 only (inventory, form, roles, reference report, proposed tree and migration map, nothing moved); save its output in [brief](../briefs/icm-research.md) and show the owner its tree next to ours
+- [ ] Design it (spec): `/architect restructure claude-config to the icm-architect layout` (questions in [brief](../briefs/icm-research.md) section 5; owner ideas and the "missing from your picture" list there too)
 Source: [brief](../briefs/icm-restructure.md); [brief](../briefs/retire-runner.md) line 13; your messages 2026-10-22.
 
 ### 98. Helper scripts the switch-on rules still lack
