@@ -16,7 +16,7 @@ python3 scripts/check-routing.py                # after editing config/routing.m
 python3 scripts/gen-agent-index.py --check      # after touching claude-home/agents/ (drop --check to regenerate)
 python3 scripts/asciify.py --check              # ASCII-only lint on repo-owned markdown
 bash claude-home/hooks/block-destructive.sh --test     # guard hook self-checks
-python3 claude-home/hooks/plain-panel.py --test        # panel hook self checks (spec 0028): "Learn this first" last, at most 3 real options, no jargon
+python3 claude-home/hooks/plain-panel.py --test        # panel hook self checks: at most 3 options, first "(Recommended)", short labels and descriptions, no internal codes (rules/plain-questions.md)
 bash claude-home/hooks/handover-start.sh --test        # handover on /clear hook self checks (spec 0057); needs the real jjstack slot script
 claude plugin test claude-home/mods/wf-handoff         # /handoff and auto handoff mod tests (spec 0057 AC-10, spec 0063, spec 0064 display and viewer); `claude plugin validate` beside it
 claude plugin test claude-home/mods/wf-dash            # wf-dash band and panes tests (specs 0058 to 0060, 0064, 0065); `claude plugin validate` beside it; the band reads facts.py and the wf-handoff chain file, the Plan view plan.py, never the retired runner
