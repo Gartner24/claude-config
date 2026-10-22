@@ -429,7 +429,40 @@ test('an owner /clear keeps the folder off; /auto-handoff on turns later chats o
   expect(chain(w, 'S4').off).toBeFalsy()
 })
 
-test('the folder is the real path: off typed in a chat started through a link holds in the real folder', async ($, on) => {
+test('row 95: a resumed chat (same id, chain saved before the off) is off, and gives no handoff past the line', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  await start($) // S1 starts with its chain on
+  w.id = 'S5'
+  await start($)
+  await cmd($, 'off') // typed in another chat of the folder
+  w.id = 'S1'
+  await start($) // claude --resume S1: its saved chain has no off
+  expect(chain(w, 'S1').off).toBe(true)
+  await typed($, 'fix it')
+  w.tokens = 60_000
+  await step($, 'T1', 0)
+  await complete($, 'T1')
+  expect(w.commands).toEqual([])
+  expect(((await $.tool.call({ tool: 'Read', file_path: '/w/a' } as any)) as any).deny).toBeUndefined()
+})
+
+test('row 95: a forked chat (new id, history copied) is off, and gives no handoff past the line', { options: { threshold: 50000 } }, async ($, on) => {
+  const w = world(on)
+  await start($)
+  await cmd($, 'off')
+  w.id = 'S7'
+  w.messages = [{ role: 'user', content: 'old request' }]
+  await start($)
+  expect(chain(w, 'S7').off).toBe(true)
+  await typed($, 'fix it')
+  w.tokens = 60_000
+  await step($, 'T1', 0)
+  await complete($, 'T1')
+  expect(w.commands).toEqual([])
+  expect(((await $.tool.call({ tool: 'Read', file_path: '/w/a' } as any)) as any).deny).toBeUndefined()
+})
+
+test('the folder is the real path: off typed in a chat started through a link holds in the real folder',async ($, on) => {
   const w = world(on)
   await startIn($, '/link')
   await cmd($, 'off')

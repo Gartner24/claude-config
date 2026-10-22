@@ -182,8 +182,8 @@ You turned auto handoff off and a chat handed off by itself again. You also want
 **Done when:** after `/auto-handoff off`, no chat in that folder (new, cleared, resumed or forked) hands off by itself until `/auto-handoff on`; a mod test reproduces the bug red first.
 - [x] Trace and fix: `/debug auto handoff fires after off` (PR #147: off was keyed by session id and dropped on an owner `/clear`; now one file per folder; 97 mod tests pass, 4 mutants red)
 - [x] Merge PR #147 (merged 2026-10-22, eb42408)
-- [ ] Verify it: `/check verify fix auto handoff off`
-- [ ] Test it: `/test fix auto handoff off`
+- [x] Verify it: `/check verify fix auto handoff off` (docs/reviews/verify-row-95-2026-10-22.md)
+- [x] Test it: `/test fix auto handoff off` (resumed and forked tests added; 4 mutants red; mod tests 155 pass)
 Source: your message 2026-10-22 ("I turned auto handoff [off] and it got done again automatically... if I start a /auto-handoff off all the next chats started after it in the same folder will be off").
 
 ### 96. Rename the dashboard mod to chip-dash · in-progress
