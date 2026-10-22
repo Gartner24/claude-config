@@ -48,3 +48,9 @@ All fixtures are temp trees; nothing ran against the real `~/.claude`.
 - The interview, update mode and dry run (AC-1, AC-4, AC-7, AC-8) are skill prose; the first real run is the proof
   build of review-fix (row 102), left to the main chat.
 - The `mkdir -p ~/.claude/workflows` line has no test of its own (the link test's live folder already exists).
+
+## Re-verify 2026-10-22 (after merging origin/main)
+
+Ran: `check.py --test` 30 of 30; `tests/fast.py` 154 tests, 0 failed; `bin/install.sh --dry-run` lists mkdir workflows and the workflow-builder link; templates all carry follows e16cafe6a664 and `drift` prints no review line (pin equals follows). Re-mutated: workflows dropped from the install link loop (TestWorkflowLinks red), linked_kind workflows call removed (test_workflows red); restored, suite green.
+
+Verdict: AC-2, AC-3, AC-5, AC-6, AC-9, AC-10 met. AC-1, AC-4, AC-7, AC-8 are skill prose and not verifiable until the proof build (row 102); Verify and Test boxes stay unticked.
