@@ -325,14 +325,18 @@ def suite_command(top):
 def owed_lines(chat, top, feats, nagged):
     """(lines, AC-19 files): AC-4, AC-7, AC-17 and AC-18 lines first; AC-19 only when none."""
     lines = []
-    edits = chat.edits()
+    edits = chat.edits(after=chat.start)
     rels = spec_paths(top, sorted({p for *_, p in edits}))
     nums = {n for ns in rels.values() for n in ns}
     live = [f for f in feats if not f.gone and not f.deferred]
 
+    # a worktree Agent call whose prompt names a spec number is that spec's build under way
+    handed = {n for _, _, name, inp in chat.uses if name == "Agent" and inp.get("isolation") == "worktree"
+              for n in re.findall(r"(?<!\d)\d{4}(?!\d)", str(inp.get("prompt", "")))}
+
     # AC-4, AC-5, AC-6
     for f in live:
-        if f.specs & nums:
+        if f.specs & nums and not f.specs & handed:
             cmd = next_command(f)
             cmd = cmd and safe_command(cmd)
             if cmd and not chat.ran(*cmd_parts(cmd)):
@@ -703,7 +707,7 @@ def self_test():
         check("AC-9 the cap is logged", "cap reached" in slurp(state + "/owed.log"), True)
         st = json.loads(slurp(state + "/S1.json") or "{}")
         check("AC-9 state file", (st.get("blocks"), st.get("turn"), st.get("owed")), (3, "u1", ["owed: /develop feat (row 5 Feat)"]))
-        check("AC-9 a new owner message starts a new count", reason(run(t.owner("and now?"))), "owed: /develop feat (row 5 Feat)")
+        check("AC-9 a new owner message starts a new count", reason(run(t.owner("and now?").edit("src/a.py"))), "owed: /develop feat (row 5 Feat)")
         st["turn"] = "elsewhere"
         save_state(state + "/S1.json", st)
         check("AC-9 second guard: at the cap a hook loop passes even when the turn reads as new",
@@ -713,6 +717,28 @@ def self_test():
               "### 7. Three\nSpec [0001](x/specs/0001-s.md)\n- [ ] `/develop three`\n\n### 8. Four\nSpec [0001](x/specs/0001-s.md)\n- [ ] `/develop four`\n")
         check("AC-4 at most 3 lines plus and k more", reason(run(T().owner("x").edit("src/a.py"))),
               "owed: /develop feat (row 5 Feat)\nowed: /develop two (row 6 Two)\nowed: /develop three (row 7 Three)\nand 1 more")
+        fresh()
+
+        # AC-4 counts only the edits since the owner's last message; a worktree Agent naming the spec releases the row
+        scope(rows("- [ ] Build it: `/develop feat`"))
+        check("AC-4 an edit in an earlier turn owes nothing in a later turn",
+              run(T().owner("x").edit("src/a.py").owner("thanks")), None)
+        fresh()
+        check("AC-4 an edit this turn still owes", reason(run(T().owner("x").owner("again").edit("src/a.py"))),
+              "owed: /develop feat (row 5 Feat)")
+        fresh()
+        wt = lambda prompt, **kw: T().owner("x").edit("src/a.py").tool("Agent", {"prompt": prompt, **kw})
+        check("AC-4 a worktree Agent call naming the spec releases the row",
+              run(wt("build spec 0001 feat", isolation="worktree")), None)
+        fresh()
+        check("AC-4 a worktree Agent call naming the spec as 0001- releases the row",
+              run(wt("build 0001-s.md", isolation="worktree")), None)
+        fresh()
+        check("AC-4 an Agent call without worktree isolation does not release the row",
+              reason(run(wt("build spec 0001 feat"))), "owed: /develop feat (row 5 Feat)")
+        fresh()
+        check("AC-4 a worktree Agent call naming another spec does not release the row",
+              reason(run(wt("build spec 0002 feat", isolation="worktree"))), "owed: /develop feat (row 5 Feat)")
         fresh()
 
         # AC-10
