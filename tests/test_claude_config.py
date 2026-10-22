@@ -188,6 +188,30 @@ class TestUpdate(Case):
         self.assertIn("+line 2 mine", (self.repo / "config" / "patches" / "s.patch").read_text())
         self.assertNotIn("+line 5 up", (self.repo / "config" / "patches" / "s.patch").read_text())
 
+    # covers: a first install (live missing, or an empty folder) installs upstream as is: no merge, no patch.
+    # This used to read the missing folder as "every file deleted", install nothing and store a delete-all patch.
+    def test_first_install(self):
+        base = self.tmp / "base"
+        base.mkdir()
+        (base / "SKILL.md").write_text(SKILL)
+        (base / "ref.md").write_text("ref\n")
+        entry = {"kind": "skill", "status": "downloaded", "source": str(self.up), "path": "skills/s",
+                 "pinned": self.pinned, "base_hash": cc.folder_hash(base), "license": "MIT",
+                 "publish": True, "patch": None, "fetch": "git", "install": "x", "framework": None}
+        s = self.live / "skills" / "s"
+        for make_empty in (False, True):
+            shutil.rmtree(s, ignore_errors=True)
+            if make_empty:
+                s.mkdir()
+            self.manifest({"s": dict(entry)})
+            r = self.tool("update", "--apply", "s")
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertEqual((s / "SKILL.md").read_text(), SKILL, make_empty)
+            self.assertNotIn("(edited)", r.stdout)
+            e = self.manifest()["entries"]["s"]
+            self.assertEqual((e["status"], e["patch"]), ("downloaded", None))
+            self.assertFalse((self.repo / "config" / "patches" / "s.patch").exists())
+
     # covers: spec 0054 AC-7 (the merged folder is scanned against the live copy before it installs, and
     # installs even with findings)
     def test_scan_before_install(self):

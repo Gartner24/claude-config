@@ -471,6 +471,8 @@ def update_apply(name, resolved=False):
         print(f"{name}: update by hand: {e.get('install')}", file=sys.stderr)
         return 1
     live = installed(e, name)
+    # Not installed yet (missing, or an empty folder): a first install, never "you deleted every file".
+    fresh = not live.is_dir() or not any(live.iterdir())
     conflicts_dir = CONFLICTS / name
     with tempfile.TemporaryDirectory() as tmp:
         try:
@@ -492,7 +494,8 @@ def update_apply(name, resolved=False):
                 print(f"{name}: conflict markers left in: {', '.join(marked)}")
                 return 2
             result = conflicts_dir
-        elif e["status"] == "edited" or (e["status"] == "downloaded" and folder_hash(live) != e["base_hash"]):
+        elif e["status"] == "edited" or (e["status"] == "downloaded" and fresh is False
+                                         and folder_hash(live) != e["base_hash"]):
             # A downloaded entry edited since the last sync is merged too, never replaced.
             result = Path(tempfile.mkdtemp(dir=tmp))
             conflicts = merge(base, live, now, result)
