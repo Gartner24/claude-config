@@ -77,5 +77,6 @@ Branch `feat/0072-map-and-entry`. Suite: `python3 tests/fast.py` gives 143 tests
 
 ### Left for after merge
 - The AC-9 probe commit (replace the link with `sed -i`, expect refusal) and the `cmp` of the hook copy against `scripts/private-names.py` need `bin/install.sh` run for real; until then `~/.git/hooks` keeps the old copy, which does not check the link.
+- Done 2026-10-22 after PR #167 merged: `.git/hooks/pre-commit` and `commit-msg` copied from `scripts/private-names.py` by hand (`cmp` equal; `bin/install.sh` was not run because it would have put the paused chain-catch Stop hook back live). Probe: in a throwaway worktree, `AGENTS.md` replaced by a plain copy of `CLAUDE.md`, `git commit` exit 1 with "AGENTS.md must be a symlink to CLAUDE.md (spec 0072 AC-9). Repair: rm AGENTS.md && ln -s CLAUDE.md AGENTS.md && git add AGENTS.md". PASS.
 - AC-9 asks the check to land in a commit before the swap; the owner asked for one commit, so both are in it.
 - Not run: the regression-hunter report (AC-5).
