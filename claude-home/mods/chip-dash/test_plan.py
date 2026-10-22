@@ -132,5 +132,50 @@ class Plan(unittest.TestCase):
         self.assertIn("here", repos)
 
 
+def warnings(repo):
+    r = subprocess.run([sys.executable, "-I", str(HERE / "plan.py"), "--warnings", repo], capture_output=True, text=True,
+                       env={"PATH": os.environ["PATH"], "HOME": repo})
+    return r.returncode, r.stdout.splitlines()
+
+
+class Warnings(unittest.TestCase):
+    # covers: spec 0073 AC-7 (plan.py --warnings prints the pane's warnings for one repo, exit 1 when any)
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def scope(self, name, text, base="docs/scope", file="scope.md"):
+        d = self.root / name / base
+        d.mkdir(parents=True, exist_ok=True)
+        (d / file).write_text(text)
+        return str(self.root / name)
+
+    def test_near_miss_on_the_next_box_is_printed(self):
+        repo = self.scope("here", SCOPE)
+        self.assertEqual(warnings(repo), (1, ['"waits on" is not the marker here, end the box with " · waits on you": '
+                                              'Ask someone, waits on Bob']))
+
+    def test_near_miss_on_a_later_box_is_not(self):
+        repo = self.scope("later", "### 1. F\n- [ ] Build it: `/develop f`\n- [ ] Ask someone, waits on Bob\n")
+        self.assertEqual(warnings(repo), (0, []))
+
+    def test_both_scope_folders_and_a_missing_epic(self):
+        repo = self.scope("both", "# S\n\n- [epic](gone.md)\n- [epic](here.md)\n", file="index.md")
+        self.scope("both", "### 1. F\n- [ ] Build it: `/develop f`\n", file="here.md")
+        self.scope("both", "### 1. F\n- [ ] Build it: `/develop f`\n", base=".workflow/scope")
+        self.assertEqual(warnings(repo), (1, ["both docs/scope and .workflow/scope exist, using docs/scope",
+                                              "missing epic file gone.md"]))
+
+    def test_hub_and_no_scope_print_nothing(self):
+        hub = self.scope("hub", HUB)
+        self.scope("hub", HUB, base=".workflow/scope")
+        self.assertEqual(warnings(hub), (0, []))
+        (self.root / "empty").mkdir()
+        self.assertEqual(warnings(str(self.root / "empty")), (0, []))
+
+
 if __name__ == "__main__":
     unittest.main()

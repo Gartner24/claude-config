@@ -315,5 +315,22 @@ def plan_scopes():
     return out
 
 
+def print_warnings(path):
+    """Spec 0073 AC-7: the warnings the plan pane shows for one repo, one per line; 1 when any. A hub or a folder
+    with no scope has none."""
+    e = plan_entry(os.path.abspath(path))
+    lines = e["warnings"] if e and not e["hub"] else []
+    for w in lines:
+        print(w)
+    return 1 if lines else 0
+
+
 if __name__ == "__main__":
+    import argparse
+    import sys
+    ap = argparse.ArgumentParser(prog="plan.py")
+    ap.add_argument("--warnings", metavar="repo")
+    a = ap.parse_args()
+    if a.warnings is not None:
+        sys.exit(print_warnings(a.warnings))
     print(json.dumps({"repos": plan_scopes(), "warnings": []}))
