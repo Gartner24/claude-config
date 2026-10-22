@@ -32,6 +32,18 @@ All fixtures are temp trees; nothing ran against the real `~/.claude`.
   `workflows` dropped from the install link loop, check.py token cap off (suite hook): 8 of 8 red; the touched test
   modules green after restore.
 
+## Review fixes (PR 176, /review CAUTION)
+- P1: `walk.mjs` no longer evaluates the meta: `literalAt()` parses strings, numbers, true, false, null, arrays and
+  objects, and refuses anything else (regex literals, calls, identifiers as values, template strings). check.py
+  `--test` case "meta payload" holds the reviewer's payload with a marker path in a temp folder: refused, no marker.
+  Can fail: putting a `vm.runInNewContext` eval back turns it red with "marker written True".
+- P2: `templates/workflow.js`: the stage feeding the fan out uses `LIST` (items required), and a missing items list
+  marks the fan out stage failed. check.py `--test` runs the filled template under node with stub agents: without items
+  the fan out is `failed: true` and the first agent's schema requires `items`; with two items it reads "2 of 2 item(s)
+  done", `failed: false`. Can fail: dropping `items` from `LIST`, the missing list guard, or the count summary turns its
+  case red.
+- check.py `--test`: 30 of 30 pass. Mutants: 30 of 30 red, including the 4 new ones above.
+
 ## Not covered
 - The interview, update mode and dry run (AC-1, AC-4, AC-7, AC-8) are skill prose; the first real run is the proof
   build of review-fix (row 102), left to the main chat.

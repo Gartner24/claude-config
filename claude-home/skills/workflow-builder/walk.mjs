@@ -3,7 +3,6 @@
 // the banned calls. Comments and strings are skipped, so a word in a prompt is never read as code.
 // shortcut: a regex literal holding a quote would confuse the scanner; the templates use none.
 import { readFileSync } from 'node:fs'
-import vm from 'node:vm'
 
 const src = readFileSync(process.argv[2], 'utf8')
 
@@ -87,19 +86,74 @@ function keys(a, b) {
 
 const result = { meta: null, metaError: null, phases: [], agents: [], banned: [] }
 
-// meta: a pure literal. Outside strings only keys, numbers, true, false, null and punctuation may appear.
+// meta: a pure literal, read by this parser and never evaluated. A vm eval of it used to run code from the script
+// being checked (PR 176 review: a regex literal holding a quote blinded blank() and let a call through).
+// Strings, numbers, true, false, null, arrays and objects with plain or quoted keys; anything else is refused.
+function literalAt(s, i) {
+  const fail = () => { throw new Error('not a literal') }
+  const ws = () => {
+    for (;;) {
+      while (/\s/.test(s[i] || '')) i++
+      if (s.startsWith('//', i)) { const e = s.indexOf('\n', i); i = e < 0 ? s.length : e }
+      else if (s.startsWith('/*', i)) { const e = s.indexOf('*/', i + 2); if (e < 0) fail(); i = e + 2 }
+      else return
+    }
+  }
+  const str = () => {
+    const q = s[i++]
+    let out = ''
+    while (s[i] !== q) {
+      if (i >= s.length || s[i] === '\n') fail()
+      if (s[i] === '\\') { const c = s[i + 1]; out += { n: '\n', t: '\t', r: '\r' }[c] ?? c; i += 2 } else out += s[i++]
+    }
+    i++
+    return out
+  }
+  const value = () => {
+    ws()
+    const c = s[i]
+    if (c === "'" || c === '"') return str()
+    if (c === '{') {
+      i++
+      const obj = {}
+      for (ws(); s[i] !== '}'; ws()) {
+        let key
+        if (s[i] === "'" || s[i] === '"') key = str()
+        else { const m = /^[A-Za-z_$][\w$]*/.exec(s.slice(i)); if (!m) fail(); key = m[0]; i += key.length }
+        ws()
+        if (s[i++] !== ':') fail()
+        obj[key] = value()
+        ws()
+        if (s[i] === ',') i++
+        else if (s[i] !== '}') fail()
+      }
+      i++
+      return obj
+    }
+    if (c === '[') {
+      i++
+      const arr = []
+      for (ws(); s[i] !== ']'; ws()) {
+        arr.push(value())
+        ws()
+        if (s[i] === ',') i++
+        else if (s[i] !== ']') fail()
+      }
+      i++
+      return arr
+    }
+    const m = /^(-?\d+(\.\d+)?|true|false|null)(?![\w$])/.exec(s.slice(i))
+    if (!m) fail()
+    i += m[0].length
+    return JSON.parse(m[0])
+  }
+  return value()
+}
+
 const mm = /export\s+const\s+meta\s*=\s*\{/.exec(code)
 if (!mm) result.metaError = 'no `export const meta = {...}`'
 else {
-  const open = mm.index + mm[0].length - 1, end = close(open)
-  const body = code.slice(open, end)
-  const bad = /\$\{|\.\.\.|\(|`/.test(body) ||
-    body.replace(/[A-Za-z_$][\w$]*\s*:/g, ':').replace(/\b(true|false|null)\b/g, '').replace(/\b\d+(\.\d+)?\b/g, '')
-      .replace(/['"]/g, '').search(/[A-Za-z_$]/) >= 0
-  if (end < 0 || bad) result.metaError = 'meta is not a literal'
-  else {
-    try { result.meta = vm.runInNewContext('(' + src.slice(open, end) + ')', {}) } catch (e) { result.metaError = 'meta is not a literal' }
-  }
+  try { result.meta = literalAt(src, mm.index + mm[0].length - 1) } catch (e) { result.metaError = 'meta is not a literal' }
 }
 
 // phase('...') calls and agent( calls, in source order

@@ -44,7 +44,8 @@ From the templates, never from icm-architect's files. Strip the first line (`<!-
 - `claude-home/workflows/<name>/<name>.js` from `templates/workflow.js`: meta phase titles equal to the stage folder
   names in order, one `phase()` per stage, and on every `agent()` the `label`, the stage's `model` and `effort`
   copied from its `Model:` line, and a `schema`. Keep the args check (`missing arg: <key>`) with every named arg.
-  A fan out stage uses `pipeline()` over its items; drop `isolation: 'worktree'` and the branch lines when its
+  A fan out stage uses `pipeline()` over its items, and the stage that feeds it uses the `LIST` schema (items
+  required, a missing list marks the fan out failed); drop `isolation: 'worktree'` and the branch lines when its
   agents only read. Results of `parallel()` and `pipeline()` are filtered for nulls and a failed item is logged.
 - `claude-home/skills/<name>/SKILL.md` from `templates/starter-SKILL.md`: the owner steps, the run id, the
   `.workflow/` ignore check, the Workflow call, the after run listing.

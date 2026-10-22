@@ -311,6 +311,29 @@ def templates(tmp):
     return wf.parents[1], Path(tmp) / "live"
 
 
+RUNNER = """import { readFileSync } from 'node:fs'
+const body = readFileSync(process.argv[2], 'utf8').replace(/^export\\s+const\\s+meta\\b/m, 'const meta')
+const reply = JSON.parse(process.argv[3])
+const calls = []
+const agent = async (prompt, opts) => { calls.push(opts.schema.required); return { ...reply } }
+const pipeline = async (items, f) => Promise.all(items.map((x, i) => f(x, x, i)))
+const run = new (async function () {}).constructor('agent', 'pipeline', 'phase', 'log', 'args', body)
+const out = await run(agent, pipeline, () => {}, () => {}, { repo: '/r', runId: '1', limit: null, pr: 'x' })
+console.log(JSON.stringify({ out, calls }))
+"""
+
+
+def template_run(reply):
+    """The builder's own workflow.js template, filled, run under node with stub agents (it is our file, not a
+    checked one). Returns the script's result and each agent call's required schema keys."""
+    with tempfile.TemporaryDirectory() as tmp:
+        js, runner = Path(tmp) / "demo.js", Path(tmp) / "run.mjs"
+        js.write_text(fill((HERE / "templates" / "workflow.js").read_text(), ""))
+        runner.write_text(RUNNER)
+        r = subprocess.run(["node", str(runner), str(js), json.dumps(reply)], capture_output=True, text=True)
+        return json.loads(r.stdout) if r.returncode == 0 else {"error": r.stderr.strip()}
+
+
 def self_test():
     global HOME_DIR, LIVE
     failed = 0
@@ -328,7 +351,31 @@ def self_test():
         if not any(want in g for g in got):
             failed += 1
             print(f"FAIL {name}: wanted {want!r}, got {got}")
-    print(f"check.py self check: {len(CASES) + 2 - failed} of {len(CASES) + 2} pass")
+    # PR 176 review: a meta that runs code if it is evaluated. It must be refused, and the marker never written.
+    with tempfile.TemporaryDirectory() as tmp:
+        marker = Path(tmp) / "marker"
+        payload = ("{ name: /'/, description: (this.constructor.constructor(\"return process\")()"
+                   f".getBuiltinModule(\"fs\").writeFileSync({json.dumps(str(marker))}, \"x\"), 1), z: /'/, phases: [] }}")
+        HOME_DIR, LIVE = fixture(tmp, lambda wf: (wf / "demo.js").write_text(
+            re.sub(r"export const meta = \{.*?\n\}\n", lambda _: "export const meta = " + payload + "\n", GOOD_JS, count=1,
+                   flags=re.S)))
+        got = check("demo")
+        if marker.exists() or not any("demo.js: meta is not a literal" in g for g in got):
+            failed += 1
+            print(f"FAIL meta payload: marker written {marker.exists()}, got {got}")
+    # PR 176 review: the stage feeding the fan out must require items, and a missing list fails the fan out instead
+    # of reading as "0 of 0 item(s) done".
+    got = template_run({"summary": "s", "outputs": []})
+    fan = (got.get("out") or {}).get("stages", [{}, {}])[-1]
+    if "items" not in (got.get("calls") or [[]])[0] or fan.get("failed") is not True:
+        failed += 1
+        print(f"FAIL fan out without items: {got}")
+    got = template_run({"summary": "s", "outputs": [], "items": ["a", "b"]})
+    fan = (got.get("out") or {}).get("stages", [{}, {}])[-1]
+    if fan.get("failed") is not False or fan.get("summary") != "2 of 2 item(s) done":
+        failed += 1
+        print(f"FAIL fan out with items: {got}")
+    print(f"check.py self check: {len(CASES) + 5 - failed} of {len(CASES) + 5} pass")
     if not failed:
         print("check.py self check: ok")
     return 1 if failed else 0

@@ -33,6 +33,8 @@ const STAGE = {
   },
   required: ['summary', 'outputs'],
 }
+// The stage that feeds a fan out must return its items: a missing list used to read as "0 of 0 item(s) done".
+const LIST = { ...STAGE, required: [...STAGE.required, 'items'] }
 
 const brief = (stage, before, extra) => [
   `Read ${WF}/stages/${stage}/CONTEXT.md and do that stage.`,
@@ -46,9 +48,10 @@ const brief = (stage, before, extra) => [
 const stages = []
 
 // A single agent stage. A stage that returns nothing stops the run: it is reported as failed, never as clean.
+// This one feeds the fan out below, so it uses LIST; a sequential stage uses STAGE.
 phase('01_{{stage}}')
 const s1 = await agent(brief('01_{{stage}}', null), {
-  label: '01_{{stage}}', model: '{{model}}', effort: '{{effort}}', schema: STAGE,
+  label: '01_{{stage}}', model: '{{model}}', effort: '{{effort}}', schema: LIST,
 })
 stages.push(s1 ? { stage: '01_{{stage}}', ...s1 } : { stage: '01_{{stage}}', failed: true })
 if (!s1) return { run: RUN, stages }
@@ -56,7 +59,11 @@ if (!s1) return { run: RUN, stages }
 // A fan out stage: one agent per item of the earlier stage's `items`. isolation: 'worktree' and the branch lines only
 // when its agents edit files; drop them for read only agents.
 phase('02_{{stage}}')
-const all = s1.items || []
+if (!Array.isArray(s1.items)) {
+  stages.push({ stage: '02_{{stage}}', summary: '01_{{stage}} returned no items list', failed: true, items: [], branches: [] })
+  return { run: RUN, stages }
+}
+const all = s1.items
 const items = args.limit ? all.slice(0, args.limit) : all
 if (items.length < all.length) log(`--limit ${args.limit}: ${all.length - items.length} of ${all.length} item(s) not run`)
 const branch = i => `wf/${NAME}-${args.runId}-02_{{stage}}-${i + 1}`
