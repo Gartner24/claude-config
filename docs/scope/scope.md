@@ -127,6 +127,7 @@ Closed rows (done or dropped, no open box) live in [done.md](done.md).
 | 104 | Fix: a resumed chat follows the folder's auto handoff setting | Release 10 | done |
 | 105 | Fix: blind review findings | Release 10 | in-progress |
 | 106 | Assertion Guardian guard gaps | Release 10 | in-progress |
+| 107 | Review leftovers 2026-10-22: destructive guard spellings | Release 10 | not started |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -279,6 +280,14 @@ Close the ways around the Assertion Guardian found by the 2026-10-22 security re
 - [ ] Verify it: `/check verify assertion guardian guard gaps`
 - [ ] Test it: `/test assertion guardian guard gaps`
 Source: [build-status brief](../briefs/build-status-2026-10-22.md) "For /architect later"; row 89 leftovers (concurrent Bash, refusal shape); owner answers 2026-10-22 in chat.
+
+### 107. Review leftovers 2026-10-22: destructive guard spellings
+`block-destructive.sh` (row 105) still lets through spellings git accepts: an abbreviated `git reset --har`, and whole tree pathspecs `:/`, `:(top)`, `*` for `git checkout` and `git restore`, plus `checkout -f`. Found by the push security review of PR #196, MEDIUM.
+**Done when:** each of those spellings is refused, with a self test each in `block-destructive.sh --test`, and it is live.
+- [ ] Fix it: `/debug destructive guard spellings`
+- [ ] Verify it: `/check verify destructive guard spellings`
+- [ ] Test it: `/test destructive guard spellings`
+Source: automated push security review of PR #196 (2026-10-22, this chat).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
