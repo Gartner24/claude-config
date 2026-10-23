@@ -40,9 +40,10 @@ def first_line(*texts):
 
 def scope_texts(repo):
     for base in ("docs/scope", ".workflow/scope"):
-        files = sorted(glob.glob(os.path.join(repo, base, "*.md")))
+        files = sorted(glob.glob(os.path.join(repo, base, "**", "*.md"), recursive=True))
         if files:
-            top = next((f for f in files if os.path.basename(f) in ("scope.md", "index.md")), files[0])
+            tops = [f for f in files if os.path.dirname(f) == os.path.join(repo, base)]
+            top = next((f for f in tops if os.path.basename(f) in ("scope.md", "index.md")), (tops or files)[0])
             return open(top, encoding="utf-8", errors="replace").read(), \
                 [open(f, encoding="utf-8", errors="replace").read() for f in files]
     return "", []
@@ -89,7 +90,7 @@ def offer(repo, plan_py):
     rows = []
     for f in entry["features"]:
         heading = f.get("heading") or ""
-        if f.get("state") != "ready to build" or f.get("deferred") or "needs a decision" in raw.get(heading, heading):
+        if f.get("state") != "ready to build" or f.get("deferred"):
             continue
         if f.get("spec") and f.get("specStatus") not in READY_STATUS:
             continue
@@ -97,10 +98,17 @@ def offer(repo, plan_py):
         if not m:
             continue
         n, title = int(m.group(1)), m.group(2)
-        t = TIER.search(raw.get(heading, ""))
+        rawh = raw.get(heading)
+        if rawh is not None and "needs a decision" in rawh:
+            continue
+        t = TIER.search(rawh or "")
         r = {"row": n, "heading": heading, "spec": f.get("spec"), "tier": t.group(1) if t else default_tier,
              "label": " ".join([f"row {n}"] + [x.strip(",.;:") for x in title.split()[:3]]),
              "offered": True, "reason": None, "notes": []}
+        if rawh is None:
+            r.update(offered=False, reason="heading not found in scope files")
+            rows.append(r)
+            continue
         if not r["spec"]:
             r.update(offered=False, reason="no spec, not offered")
             rows.append(r)

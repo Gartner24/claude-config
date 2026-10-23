@@ -141,6 +141,37 @@ class TestReady(unittest.TestCase):
         self.assertIn("open PRs not checked: boom", out["rows"][0]["notes"])
 
 
+class TestReadyEpic(unittest.TestCase):
+    # covers: spec 0074 AC-1 (a tag in a nested epic file is seen; a heading found in no scope file is not offered)
+    def test_nested_epic_and_unfound_heading(self):
+        with tempfile.TemporaryDirectory() as t:
+            repo = Path(t) / "repo"
+            (repo / "docs" / "scope" / "epics").mkdir(parents=True)
+            (repo / "docs" / "specs").mkdir()
+            (repo / "docs" / "scope" / "index.md").write_text("# Plan\n**Workflow:** Beta\n\n- [Epic](epics/a.md)\n")
+            (repo / "docs" / "scope" / "epics" / "a.md").write_text(
+                "### 1. Tagged nested · needs a decision\nSpec [0001](../../specs/0001-a.md).\n- [ ] Build it: `/develop a`\n\n"
+                "### 2. Nested ok · GA\nSpec [0002](../../specs/0002-b.md).\n- [ ] Build it: `/develop b`\n\n"
+                "### 3. Commented <!-- note -->\nSpec [0003](../../specs/0003-c.md).\n- [ ] Build it: `/develop c`\n")
+            for n in ("0001-a", "0002-b", "0003-c"):
+                (repo / "docs" / "specs" / f"{n}.md").write_text(f"# {n}\n\n**Status**: Proposed\n")
+            sh("git", "init", "-q", "-b", "main", cwd=repo)
+            sh("git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "i", cwd=repo)
+            bin_ = Path(t) / "bin"
+            bin_.mkdir()
+            for name, body in (("gh", "#!/bin/sh\necho '[]'\n"), ("spec-paths", "#!/bin/sh\nexit 0\n")):
+                (bin_ / name).write_text(body)
+                (bin_ / name).chmod(0o755)
+            env = {**os.environ, "PATH": f"{bin_}:{os.environ['PATH']}", "WF_ROOTS": str(repo)}
+            r = subprocess.run([sys.executable, "-B", str(SKILL / "ready.py"), "--plan", str(PLAN)], cwd=repo,
+                               capture_output=True, text=True, env=env, timeout=120)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            rows = {x["row"]: x for x in json.loads(r.stdout)["rows"]}
+            self.assertNotIn(1, rows)
+            self.assertEqual((rows[2]["offered"], rows[2]["tier"]), (True, "GA"))
+            self.assertEqual((rows[3]["offered"], rows[3]["reason"]), (False, "heading not found in scope files"))
+
+
 HARNESS = textwrap.dedent("""\
     import { readFileSync } from 'node:fs'
     const src = readFileSync(process.argv[1], 'utf8').replace('export const meta', 'const meta')
@@ -191,6 +222,12 @@ class TestScript(unittest.TestCase):
         self.assertIn("gh pr create --draft", p)
         self.assertIn("'feat/0001-thing-number-1'", p)
         self.assertNotIn("/test Thing number 2", b["prompt"])
+
+    # covers: spec 0074 AC-6 (a GA agent never runs /review; the merge loop does, once)
+    def test_ga_agent_does_not_review(self):
+        p = self.run_script({"runId": "r1", "rows": [row(1, tier="GA")]})["calls"][0]["prompt"]
+        self.assertNotIn("/review", p)
+        self.assertIn("/document pr", p)
 
     # covers: spec 0074 AC-8 (the row and branch come from the args; an agent that returned nothing is failed)
     def test_results(self):
