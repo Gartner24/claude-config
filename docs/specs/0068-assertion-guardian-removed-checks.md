@@ -3,7 +3,7 @@
 **Date**: 2026-10-20
 **Status**: Accepted, built in d764b60
 **Paths:** `tools/config/manifest.json`, `tools/config/patches/assertion-guardian.patch`, `tools/bin/claude-config.py`, `tests/test_claude_config.py`
-**Amended by:** [0078](0078-assertion-guardian-gaps.md) (approval only when typed by you, `ln`/`git apply`/`patch` refused before running, targets resolved through links, one queue per test file)
+**Amended by:** [0078](0078-assertion-guardian-gaps.md) (approval only when typed by you, `ln`/`git apply`/`patch` refused before running, targets resolved through links, one queue per test file); [0079](0079-assertion-guardian-hidden-jobs.md) (hidden `&` jobs and `env -C`/`builtin cd`/`eval`/`source` folder changes refused before running)
 
 ## What you're agreeing to
 - A test edit made through the shell (sed, cat >>, rm, cp, tee) is no longer refused before it runs. The command runs, the test check compares each test file before and after, and if a check got removed or looser it puts the files back and says so.
