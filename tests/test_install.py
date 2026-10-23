@@ -125,6 +125,27 @@ class TestRulesOnDemand(Scratch):
         self.assertIn("live only: rules-on-demand/stale.md -> backups/rules/", r.stdout, out)
 
 
+    # covers: PR 205 review (a second same-day backup of the same path keeps the first one under a numbered name)
+    def test_backup_not_overwritten(self):
+        (self.repo / "claude-home" / "rules-on-demand").mkdir()
+        live = self.tmp / "home-bak" / ".claude"
+        for text in ("first\n", "second\n"):
+            (live / "rules").mkdir(parents=True, exist_ok=True)
+            (live / "rules" / "gone.md").write_text(text)
+            self.install("bak")
+        found = sorted(p.read_text() for p in (live / "backups" / "rules").rglob("gone.md*"))
+        self.assertEqual(found, ["first\n", "second\n"])
+
+    # covers: spec 0077 AC-1 live measure (verify sums live CLAUDE.md plus rules/*.md and fails over 20000, printing it)
+    def test_live_size_check(self):
+        _, _, r = self.install("small")
+        self.assertIn("live always loaded text: 4 characters (limit 20000)", r.stdout, r.stdout + r.stderr)
+        (self.repo / "claude-home" / "rules" / "big.md").write_text("x" * 20000)
+        _, _, r = self.install("big")
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertIn("IS 20004 CHARACTERS", r.stderr)
+
+
 class TestHookFiles(Scratch):
     # covers: row 105 (verify runs the hook file check last and exits non zero naming a settings.json hook command
     # whose file is missing after install; ~ and $HOME expand, an interpreter before the path is skipped, a command

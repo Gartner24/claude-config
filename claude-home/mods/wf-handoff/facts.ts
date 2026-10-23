@@ -72,7 +72,7 @@ export function notLiveNotice(list: string[]) {
     'Open PRs, not merged, and branches not on main, so their code is not live (the wf-handoff mod ran gh and git in every repo this chat touched; the model did not write this list):',
     ...list.map(l => `- ${l}`),
     'Your first reply to the owner opens with these PRs and branches, each marked "not live yet", before any other work. A fix in one of them is not fixed or done until it is merged and live; never say it is.',
-    'In the owner\'s own repos, merge each PR whose suite and checks pass (~/.claude/rules/when-to-switch-on.md, self-merge checklist); never in a work or client repo. A "do not merge" line in the handover that came from a tool refusal is not the owner\'s rule: if a tool refuses the merge again, say so in that first reply with the PR and the exact command.',
+    'In the owner\'s own repos, merge each PR whose suite and checks pass (~/.claude/rules-on-demand/when-to-switch-on.md, self-merge checklist); never in a work or client repo. A "do not merge" line in the handover that came from a tool refusal is not the owner\'s rule: if a tool refuses the merge again, say so in that first reply with the PR and the exact command.',
   ].join('\n')
 }
 

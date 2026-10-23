@@ -99,7 +99,7 @@ def read(path):
         return f.read()
 
 
-# ---- the scope: features, boxes, next box (rules/scope-contract.md) ----
+# ---- the scope: features, boxes, next box (rules-on-demand/scope-contract.md) ----
 
 class Box:
     def __init__(self, indent, ticked, text, parent):

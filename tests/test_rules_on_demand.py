@@ -14,19 +14,34 @@ BASE = "e361b3d51a63ad0ed64eeacb3446b7b41e2adabc"
 LIMIT = 20000
 KEPT_RULES = {"lessons.md", "no-attribution.md", "plain-questions.md", "new-number-replaces-old.md", "stop-and-reset.md"}
 # Kept equal to map.json on purpose (AC-3): a key added to the map without adding it here fails.
-KEYS = {"scope", "architect", "develop", "check", "test", "sync", "debug", "review", "review-stack", "review-fix",
+KEYS = {"scope", "architect", "develop", "check", "test", "sync", "audit", "debug", "review", "review-stack", "review-fix",
         "jj-security-review", "security-review", "code-review", "rollover", "save-and-clear", "resume-from-clear",
         "workflow-builder", "build-features", "restructure-check", "design", "design-gate", "assets", "document",
         "write", "pr"}
 # The situation pointer lines of AC-2: each file must be named by a "read ~/.claude/rules-on-demand/<file>" line.
 POINTED = {"when-to-switch-on.md", "review-fix.md", "branch-pr.md", "handoff.md", "handover-carry.md",
-           "second-review.md", "cheap-worker.md", "skill-map.md", "scope-contract.md"}
+           "second-review.md", "cheap-worker.md", "skill-map.md", "scope-contract.md", "workflow.md", "reviewers.md"}
 # AC-5 removed the per-message reminder; the one old line that cited it, and what it became.
 EDITED = {
     "| Session start in a repo, or plan / replan / enroll a feature | `/scope` | low | session | mod start at chat open; "
     "a reminder on every message to run `/scope <item>` for new work; catch: an edited file no spec names |":
     "| Session start in a repo, or plan / replan / enroll a feature | `/scope` | low | session | mod start at chat open; "
     "catch: an edited file no spec names |",
+    # main's spec 0074 rewrote this line after the base commit; the text moved with the file.
+    "- Parallel features (31). When: the owner says \"do these features\", or two or more features are ready. Do: one "
+    "`isolation: worktree` agent per feature, never two whose spec `**Paths:**` overlap (run `spec-paths --overlap NNNN "
+    "NNNN` for each pair before starting the second; exit 1 means they overlap, so the second waits), never two apps on "
+    "one port. Pick model and effort per agent (effort at most high, at least low; haiku for lookup, sonnet for edits "
+    "and review, opus for design and hard work). Writing the scope rows and the `/architect` questions for all of them "
+    "comes first (`rules/runner-handoff.md`; the build starts in a fresh chat per `rules/fresh-chat-after-architect.md`)."
+    " Gates before each extra agent: see the 32 line below.":
+    "- Parallel features (31). When: the owner says \"do these features\", or two or more features are ready. Do: run "
+    "`/build-features`, never hand started agents. It starts one `isolation: worktree` agent per picked row, never two "
+    "whose spec `**Paths:**` overlap (`spec-paths --overlap NNNN NNNN`), and proposes model and effort per row (effort "
+    "at most high, at least low; haiku for lookup, sonnet for edits and review, opus for design and hard work). Never "
+    "two apps on one port. Writing the scope rows and the `/architect` questions for all of them comes first "
+    "(`rules/runner-handoff.md`; the build starts in a fresh chat per `rules/fresh-chat-after-architect.md`). Gates "
+    "before each extra agent: see the 32 line below.",
 }
 
 
@@ -59,6 +74,9 @@ class TestAlwaysLoaded(unittest.TestCase):
                   "## Agent Behavior", "## Hallucination Prevention", "## Shell Discipline", "## Debugging Rules",
                   "### Every review answers these two first"):
             self.assertIn(f"\n{h}\n", "\n" + text, h)
+        for line in ("State the bug. Show the fix. Stop.", "No suggestions beyond the scope of the review.",
+                     "No compliments on the code before or after the review."):
+            self.assertIn(f"\n{line}\n", "\n" + text, line)
         self.assertEqual(re.findall(r"(?m)^## Routing$", text), ["## Routing"])
         self.assertIn("\n@~/.claude/private/work.md\n", text)
         for gone in ("## Review Rules", "### Which reviewer to use", "### Decision gate", "### Todos", "### Context",

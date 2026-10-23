@@ -3,6 +3,7 @@
 **Date**: 2026-10-22
 **Status**: Proposed
 **Paths:** `claude-home/CLAUDE.md`, `claude-home/rules/**`, `claude-home/rules-on-demand/**`, `claude-home/hooks/skill-rules.py`, `claude-home/hooks/chain-catch.py`, `claude-home/settings.json`, `claude-home/MAP.md`, `claude-home/mods/**`, `tools/**`, `bin/**`, `scripts/**`, `config/**`, `map/**`, `tests/**`, `.gitignore`, `README.md`, `CLAUDE.md`
+**Amended**: 2026-10-22: rule map widened by the PR #205 review
 **Amends:** [0072](../0072-icm-restructure/index.md) Follow-up "Phase 2"; [0070](../0070-skills-start-themselves.md) AC-12, AC-16, AC-21 (per-message reminder removed); [0073](../0073-switch-on-helpers/index.md) AC-14 (helper link sources move to `tools/scripts/`)
 
 ## What you're agreeing to
@@ -19,8 +20,8 @@ Phase 1 built the whole tree icm-architect proposed. Phase 2 finishes the restru
 
 ### PR A (0077a): lighter chats
 - **AC-1** Always loaded text = `CLAUDE.md` plus every `*.md` directly in `rules/` (not `rules/ecc/`, excluded by `claudeMdExcludes`; not the `@~/.claude/private/work.md` import, which is private). At most 20,000 characters, measured by a test on `claude-home/` AND by a verify step on live `~/.claude/` after install, each printing the total on failure.
-- **AC-2** `claude-home/CLAUDE.md` keeps: Approach, Output, Code Rules, The ticket is the spec, ASCII Only, Agent Behavior, Hallucination Prevention, Shell Discipline, Debugging Rules, the two review questions ("Every review answers these two first"), the work.md import, and one Routing block. `rules/` keeps `lessons.md`, `no-attribution.md`, `plain-questions.md`, `new-number-replaces-old.md`, `stop-and-reset.md`. The Routing block holds the current "Route by situation" bullets cut to one line each, plus one pointer line per situation trigger (table below), each naming the file to read, for example `- Before merging a PR: read ~/.claude/rules-on-demand/when-to-switch-on.md (self-merge checklist).`
-- **AC-3** Every other `CLAUDE.md` section and rule file moves, text unchanged, to `claude-home/rules-on-demand/` (section table below). `claude-home/rules-on-demand/map.json` maps skill names to files (rule map below). `tests/test_rules_on_demand.py` fails on: a file no skill or pointer line names, a mapped file that does not exist, a map key that is no installed skill name (`claude-home/skills/*`, `~/.claude/skills/*` at test time is not required; the test checks against a fixed list in the test kept equal to the map), and a line of today's `claude-home/CLAUDE.md` or `rules/*.md` that exists in neither the kept text nor `rules-on-demand/` (line homes check over both, saved from the base commit).
+- **AC-2** `claude-home/CLAUDE.md` keeps: Approach, Output, Code Rules, The ticket is the spec, ASCII Only, Agent Behavior, Hallucination Prevention, Shell Discipline, Debugging Rules, the two review questions ("Every review answers these two first") and the three Review Rules lines ("State the bug. Show the fix. Stop.", "No suggestions beyond the scope of the review.", "No compliments on the code before or after the review."; owner decision 2026-10-22), the work.md import, and one Routing block. `rules/` keeps `lessons.md`, `no-attribution.md`, `plain-questions.md`, `new-number-replaces-old.md`, `stop-and-reset.md`. The Routing block holds the current "Route by situation" bullets cut to one line each, plus one pointer line per situation trigger (table below), each naming the file to read, for example `- Before merging a PR: read ~/.claude/rules-on-demand/when-to-switch-on.md (self-merge checklist).`
+- **AC-3** Every other `CLAUDE.md` section and rule file moves, text unchanged, to `claude-home/rules-on-demand/` (section table below). `claude-home/rules-on-demand/map.json` maps skill names to files (rule map below). `tests/test_rules_on_demand.py` fails on: a file no skill or pointer line names, a mapped file that does not exist, a map key that is not in the fixed list in the test, kept equal to the map, and a line of today's `claude-home/CLAUDE.md` or `rules/*.md` that exists in neither the kept text nor `rules-on-demand/` (line homes check over both, saved from the base commit).
 - **AC-4** `claude-home/hooks/skill-rules.py` reads files from `~/.claude/rules-on-demand/` (`$CLAUDE_LIVE_DIR` override for tests). On PreToolUse with matcher `Skill` it takes `tool_input.skill`; on UserPromptSubmit it takes the first token of `prompt` when the prompt starts with `/` directly followed by a name (`/architect foo bar` gives `architect`; `/ architect` gives nothing), lower cased. Matching: the exact name first; for `plugin:skill`, only an exact `plugin:skill` key matches (no fallback to the part after the colon, so `code-review:code-review` does not load the `code-review` rules unless mapped). It prints `hookSpecificOutput.additionalContext` with each mapped file under a `# rules for /<skill>: <file>` line. A typed skill that the model then also starts gets the rules twice (accepted, no dedupe). An unknown skill or any error prints nothing and exits 0. Self check `--test`, run by install verify.
 - **AC-5** Remove the reminder: the UserPromptSubmit `chain-catch.py --prompt` entry in `claude-home/settings.json`, `prompt()` and its five AC-16 self checks in `chain-catch.py`, and the text citing it in `claude-home/CLAUDE.md`, `rules/skill-map.md` and `rules/scope-contract.md`. Chat-start `/audit` and `/scope` (wf-handoff mod) and the Stop hook stay.
 - **AC-6** `claude-home/MAP.md` (under 10 lines: this tree comes from `~/claude-config`; edit `claude-home/` there and run install; the map is `~/claude-config/map/CLAUDE.md`) is copied by install to `~/.claude/MAP.md`, is in `COPIED_FILES` for drift and sync, and is never auto loaded.
@@ -66,19 +67,21 @@ Phase 1 built the whole tree icm-architect proposed. Phase 2 finishes the restru
 ## Rule map (AC-3, skill start loading)
 | Skill | Files |
 |---|---|
-| scope | `scope-contract.md`, `skill-map.md`, `workflow.md` |
-| architect | `spec-gate.md`, `standing-answers.md`, `fresh-chat-after-architect.md`, `runner-handoff.md`, `check-gates.md`, `branch-pr.md`, `scope-contract.md`, `workflow.md` |
+| scope | `scope-contract.md`, `skill-map.md`, `workflow.md`, `check-gates.md`, `when-to-switch-on.md`, `handoff.md` |
+| architect | `spec-gate.md`, `standing-answers.md`, `fresh-chat-after-architect.md`, `runner-handoff.md`, `check-gates.md`, `branch-pr.md`, `scope-contract.md`, `workflow.md`, `handoff.md` |
 | develop | `branch-pr.md`, `handoff.md`, `check-gates.md`, `when-to-switch-on.md`, `scope-contract.md`, `workflow.md` |
-| check, test | `check-gates.md`, `when-to-switch-on.md`, `standing-answers.md`, `scope-contract.md` |
-| sync | `check-gates.md`, `handover-carry.md`, `when-to-switch-on.md`, `scope-contract.md`, `spec-gate.md` |
+| check, test | `check-gates.md`, `when-to-switch-on.md`, `standing-answers.md`, `scope-contract.md`, `handoff.md` |
+| sync | `check-gates.md`, `handover-carry.md`, `when-to-switch-on.md`, `scope-contract.md`, `spec-gate.md`, `standing-answers.md`, `handoff.md` |
+| audit | `standing-answers.md` |
 | debug | `handoff.md` |
 | review, review-stack, review-fix, jj-security-review, security-review, code-review | `reviewers.md`, `review-fix.md`, `second-review.md`, `cheap-worker.md` |
 | rollover, save-and-clear, resume-from-clear | `handoff.md`, `handover-carry.md`, `runner-handoff.md`, `workflow.md` |
 | workflow-builder, build-features, review-fix, restructure-check | `branch-pr.md`, `when-to-switch-on.md` |
 | design, design-gate, assets | `design-pipeline.md` |
-| document, write, pr | `branch-pr.md` |
+| write, pr | `branch-pr.md` |
+| document | `branch-pr.md`, `standing-answers.md` |
 
-Map keys are checked against the names in `claude-home/skills/` and the downloaded skills listed in `config/manifest.json`; a key matching neither fails AC-3's test.
+Map keys are checked against a fixed list inside `tests/test_rules_on_demand.py`, kept equal to `map.json` (AC-3): a key added to the map without adding it to the list fails, and so does a list entry missing from the map. The test does not read `claude-home/skills/` or `config/manifest.json`.
 
 ## Decision
 Keep `docs/specs/`, `docs/scope/` and `claude-home/`; move `bin/`, `scripts/`, `config/` into `tools/`; load skill rules through a hook and situation rules through pointer lines. Options and reasons: [rationale.md](rationale.md).

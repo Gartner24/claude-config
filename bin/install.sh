@@ -53,8 +53,12 @@ for d in rules rules-on-demand; do
   while IFS= read -r rel; do
     [ -e "$REPO/claude-home/$d/$rel" ] && continue
     note "live only: $d/$rel -> backups/rules/$stamp/$d/$rel"
-    run mkdir -p "$(dirname "$LIVE/backups/rules/$stamp/$d/$rel")"
-    run mv "$LIVE/$d/$rel" "$LIVE/backups/rules/$stamp/$d/$rel"
+    dest="$LIVE/backups/rules/$stamp/$d/$rel"
+    # an earlier same-day backup of this path is kept: the next one gets a numbered suffix
+    n=0
+    while [ -e "$dest" ]; do n=$((n + 1)); dest="$LIVE/backups/rules/$stamp/$d/$rel.$n"; done
+    run mkdir -p "$(dirname "$dest")"
+    run mv "$LIVE/$d/$rel" "$dest"
   done < <(cd "$LIVE/$d" && find . -type f -printf '%P\n')
 done
 # Spec 0077 AC-6: the pointer back to this repo; never auto loaded.
@@ -297,6 +301,18 @@ else
   python3 "$LIVE/hooks/skill-rules.py" --test >/dev/null 2>&1 \
     && note "skill rules hook: all self-checks passed" \
     || { echo "  SKILL RULES HOOK SELF-CHECK FAILED - run: python3 ~/.claude/hooks/skill-rules.py --test" >&2; exit 1; }
+  # Spec 0077 AC-1: the always loaded text of the live folder, CLAUDE.md plus rules/*.md (not rules/ecc/).
+  if ! total=$(python3 -c '
+import glob, sys
+live = sys.argv[1]
+files = [live + "/CLAUDE.md"] + sorted(glob.glob(live + "/rules/*.md"))
+print(sum(len(open(f, encoding="utf-8").read()) for f in files if __import__("os").path.isfile(f)))
+' "$LIVE"); then
+    echo "  LIVE SIZE CHECK FAILED - could not measure $LIVE" >&2; exit 1
+  fi
+  [ "$total" -le 20000 ] \
+    && note "live always loaded text: $total characters (limit 20000)" \
+    || { echo "  LIVE ALWAYS LOADED TEXT IS $total CHARACTERS, over the 20000 limit" >&2; exit 1; }
   python3 "$REPO/scripts/gen-agent-index.py" --check >/dev/null \
     && note "agent index: matches claude-home/agents/" || note "agent index: DRIFTED (regenerate)"
   bash "$REPO/claude-home/skills/design/scripts/test-ledger.sh" >/dev/null 2>&1 \

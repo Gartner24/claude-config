@@ -60,6 +60,9 @@ A skill's own rules load when it starts (`hooks/skill-rules.py`). The rest are i
 - A risky change under review: read ~/.claude/rules-on-demand/second-review.md.
 - Input over about 20,000 characters, or many items to sort: read ~/.claude/rules-on-demand/cheap-worker.md.
 - Picking a skill: read ~/.claude/rules-on-demand/skill-map.md.
+- Writing a handoff, brief, or a command for another session; a value with no named source (Assumed spec): read ~/.claude/rules-on-demand/workflow.md
+- Reviewing code or a PR in plain chat, no review skill: read ~/.claude/rules-on-demand/reviewers.md
+- In a moved rule, `rules/<name>.md` means `~/.claude/rules-on-demand/<name>.md`, except the five files still in rules/.
 - Writing a scope box from any skill: read ~/.claude/rules-on-demand/scope-contract.md.
 
 Bot-reviewed repos (which orgs, which bot, what to run there) are defined in the private file:
@@ -67,6 +70,9 @@ Bot-reviewed repos (which orgs, which bot, what to run there) are defined in the
 @~/.claude/private/work.md
 
 ### Every review answers these two first
+State the bug. Show the fix. Stop.
+No suggestions beyond the scope of the review.
+No compliments on the code before or after the review.
 1. **Regression:** what worked before this diff and stops working after it? Grep every
    caller outside the diff. Read `git log -L` on deleted lines: a line added by a `fix:`
    commit and removed here is the same bug coming back.

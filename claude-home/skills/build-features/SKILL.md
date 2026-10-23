@@ -55,9 +55,9 @@ and no merge. List the PRs for the owner and the team bot, and stop.
 Otherwise, for each row with status `pr`, in row order, one PR at a time:
 1. Bring the branch up to date with `<base>`: in a fresh worktree of the PR branch, `git merge origin/<base>`, push. A
    conflict: stop this PR and list it (`merge conflict with <base>`).
-2. Run `/review` (jjstack) on the PR. Fix the fix now findings by `rules/review-fix.md` in that worktree, one commit
+2. Run `/review` (jjstack) on the PR. Fix the fix now findings by `rules-on-demand/review-fix.md` in that worktree, one commit
    each, pushed (the owner's tick covers these pushes). At most 2 review rounds; a third round needed: not merged.
-3. Merge only when the verdict is APPROVE and the self merge checklist (`rules/when-to-switch-on.md`, row 38) holds:
+3. Merge only when the verdict is APPROVE and the self merge checklist (`rules-on-demand/when-to-switch-on.md`, row 38) holds:
    own or personal repo (never a work or client origin); the verify and test boxes of the row ticked in the scope
    file on the PR branch; the repo's suite green on the PR head; all checks green for that head (no check yet: wait
    10 minutes for a first one). Then `gh pr ready <n>` and
