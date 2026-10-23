@@ -128,7 +128,7 @@ Closed rows (done or dropped, no open box) live in [done.md](done.md).
 | 105 | Fix: blind review findings | Release 10 | done |
 | 106 | Assertion Guardian guard gaps | Release 10 | done |
 | 107 | Review leftovers 2026-10-22: destructive guard spellings | Release 10 | done |
-| 108 | Assertion Guardian: hidden background jobs and folder changes | Release 10 | in-progress |
+| 108 | Assertion Guardian: hidden background jobs and folder changes | Release 10 | done |
 | 109 | restructure-check follow-ups from its first real run | Release 10 | done |
 | 110 | Fix: install reapplies a changed patch to an edited skill | Release 10 | done |
 | 111 | Review leftovers 2026-10-23: destructive guard pathspec forms | Release 10 | not started |
@@ -265,17 +265,6 @@ A manual `/rollover` then `/clear` gets no "not live" list in the handover: the 
 - [x] Test it: `/test a manual handoff gets the not live facts list` (mutants: stamp disabled -> red on `## Handoff facts`; once-guard removed -> red on the second `/handoff` adding a second block)
 - [ ] Live check: type `/rollover`, then `/clear`; the new chat's handover has a `## Handoff facts` block with the not live list · waits on you · later boxes go on
 Source: gap found in the ninth chat of 2026-10-22 (handover of that chat, next action 2).
-
-### 108. Assertion Guardian: hidden background jobs and folder changes
-Two ways around spec 0068's "refuse before running" rule, confirmed by a probe during the PR #206 build: a bare `&` inside a `-c` string, `$(...)` or heredoc body is not seen as a background job; and `env -C`/`--chdir`, `builtin cd`, `eval cd`, `source` change the folder unseen, so a relative test path is checked in the wrong place (`env -C sub sed ...` hides the target). HIGH by the automated security review.
-**Done when:** each of those forms makes the guard refuse before running, with a mod test each, the patch is regenerated, and it is live.
-- [x] Design it (spec): `/architect assertion guardian hidden background and folder changes` (Assumed spec [0079](../specs/0079-assertion-guardian-hidden-jobs.md), owner to confirm)
-- [x] Build it: `/develop assertion guardian hidden background and folder changes` (PR #214 merged; probe and patch rebuild in [verify](../specs/0079-assertion-guardian-hidden-jobs/verify.md); live 2026-10-23)
-- [x] Verify it: `/check verify assertion guardian hidden background and folder changes` (5 steps pass through the built mod, each break turned red)
-- [x] Test it: `/test assertion guardian hidden background and folder changes` (13 new mod tests, 12 mutants red then restored; plugin test 69 pass, fast suite 184 ok)
-- [ ] Confirm the Assumed spec 0079 · waits on you · later boxes go on
-- [x] Install it live after merge: move `~/.claude/skills/assertion-guardian` to the trash, `tools/bin/install.sh`, then `python3 tools/bin/claude-config.py drift` shows nothing for it (done 2026-10-23, under the owner's "finish by yourself")
-Source: automated commit security review of the PR #206 build, confirmed by its build agent (2026-10-22, this chat).
 
 ### 111. Review leftovers 2026-10-23: destructive guard pathspec forms
 `block-destructive.sh` (rows 105 and 107) still lets through whole tree pathspecs with exclude magic (`:!x`, `:^x`, `:(exclude)x`), `:(top).`-style magic plus `.` or `*`, `:/.`, `./*`, `.//`, and `..` or `../` for `git checkout` and `git restore`. MEDIUM.

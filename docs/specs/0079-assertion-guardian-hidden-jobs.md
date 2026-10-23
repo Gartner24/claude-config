@@ -1,7 +1,7 @@
 # 0079. Assertion Guardian: hidden background jobs and folder changes
 
 **Date**: 2026-10-23
-**Status**: Assumed (owner asleep 2026-10-23; confirm)
+**Status**: Accepted (owner confirmed 2026-10-23; built in PR #214)
 **Paths:** `tools/config/patches/assertion-guardian.patch`
 **Amends:** [0068](0068-assertion-guardian-removed-checks.md) (AC-1 folder changes, AC-2 background runs)
 
