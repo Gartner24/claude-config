@@ -1,7 +1,7 @@
 # 0074. build-features: build ready rows in parallel, shown while they run
 
 **Date**: 2026-10-22
-**Status**: Proposed
+**Status**: In Progress
 **Paths:** `claude-home/skills/build-features/**`, `claude-home/hooks/subagent-statusline.py`, `claude-home/settings.json`, `claude-home/mods/chip-dash/**`, `claude-home/rules/when-to-switch-on.md`, `bin/claude-config.py`
 
 ## What you're agreeing to

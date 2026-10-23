@@ -214,10 +214,10 @@ A saved Claude Code workflow (`/build-features`) that builds every ready scope r
 **Done when:** `/build-features` builds two non overlapping ready rows to draft PRs, and both places show them while they run.
 - [x] Design it (spec): `/architect build-features workflow` (spec 0074 accepted 2026-10-22 after a Sonnet cross check, 17 fixes applied; probe P1 passed: a mod sees workflow agents)
 - [ ] Build it: `/develop build-features workflow`
-  - [ ] Probes P2 (agent panel rows) and P3 (worktree agent builds and pushes); a P3 FAIL goes back to `/architect`
-  - [ ] Skill: ready list, clashes, pick panel, start gates, workflow script (AC-1 to AC-8)
-  - [ ] Review and merge loop (AC-9, AC-10)
-  - [ ] Panel script, band count, rule line, live copy and `bin/sync.sh` (AC-11 to AC-13)
+  - [x] Probes P2 (agent panel rows) and P3 (worktree agent builds and pushes); a P3 FAIL goes back to `/architect` (P2 failed, AC-11 dropped; P3 passed)
+  - [x] Skill: ready list, clashes, pick panel, start gates, workflow script (AC-1 to AC-8) (code in `claude-home/skills/build-features/`)
+  - [x] Review and merge loop (AC-9, AC-10)
+  - [ ] Panel script, band count, rule line, live copy and `bin/sync.sh` (AC-11 to AC-13) (panel script dropped; band count and repo rule line built; live copy and `bin/sync.sh` not run yet)
 - [ ] Verify it: `/check verify build-features workflow`
 - [ ] Test it: `/test build-features workflow`
 Source: [brief](../briefs/build-features.md) (probe passed); [brief](../briefs/icm-restructure.md) "Workflows" and "Running workflows show"; your messages 2026-10-22.
