@@ -170,7 +170,7 @@ Small bugs the Assertion Guardian review left (low severity, none blocks use).
   - [x] build() clones an unreachable source twice (PR #139)
   - [x] Byte order mark refusal text, and restore skips a symlink: edit the live assertion-guardian mod, `claude plugin test`, then `bin/sync.sh` regenerates `config/patches/assertion-guardian.patch`
   - [x] `/allow-test-change <file>` for a shell refusal: find the code first
-  - [ ] Concurrent Bash calls undo each other's additions: the fixing chat picked "leave it, the README says it" · waits on you
+  - [x] Concurrent Bash calls undo each other's additions · skipped (owner 2026-10-22: leave it, the README names the gap; carried to the "Assertion Guardian guard gaps" design session)
   - [ ] Spec 0068 Amended line for the refusal shape: `/architect assertion guardian blocks only removed checks`
   - [x] chain-catch owes `/develop` for a row whose text says it builds only after other rows (row 100 on 2026-10-22, after an edit of the live `settings.json` its spec names): skip a row that still waits on unmerged rows
   - [ ] `bin/install.sh` copies the commit hooks to `<repo>/<hooksPath>` when a global `core.hooksPath` is set (dry run 2026-10-22: `mkdir -p .../claude-config//home/santiago/.config/git/hooks`); it should use `git rev-parse --git-common-dir`/hooks, where the global dispatcher looks
@@ -198,7 +198,7 @@ You asked to restructure claude-config into the folder layout of RinDig's icm-ar
   - [x] Scope split (0072c; AC-11, AC-12)
 - [x] Verify it: `/check verify restructure claude-config to the icm-architect layout` (whole phase on merged main: 33 live links resolve, dry run clean, suite 150 ok, ref-check strict exit 1 on 36 dropped pointers judged not dangling, see [verify](../specs/0072-icm-restructure/verify.md))
 - [x] Test it: `/test restructure claude-config to the icm-architect layout` (no new test; suite 150 ok; mutation check 0)
-- [ ] Design phase 2 (spec): `/architect restructure claude-config phase 2` (after phase 1 is merged and reviewed). Also checks the live side (your answers 2026-10-22): first find out whether Claude ever edits `~/.claude` without the repo's map. If not, drop the `~/.claude` map with one line of reasoning in the spec; if yes, add only the smallest pointer file, shipped from `claude-home/` by `bin/install.sh` and never loaded in normal chats. `~/.claude/private/` stays live only
+- [ ] Design phase 2 (spec): `/architect restructure claude-config phase 2` (after phase 1 is merged and reviewed). Also checks the live side (your answers 2026-10-22): first find out whether Claude ever edits `~/.claude` without the repo's map. If not, drop the `~/.claude` map with one line of reasoning in the spec; if yes, add only the smallest pointer file, shipped from `claude-home/` by `bin/install.sh` and never loaded in normal chats. `~/.claude/private/` stays live only. Right before this box, run the restructure-check interview (row 102, `/workflow-builder restructure-check`; owner 2026-10-22)
 Source: [brief](../briefs/icm-restructure.md); [brief](../briefs/retire-runner.md) line 13; your messages 2026-10-22.
 
 ### 99. Auto handoff off by itself in plain talk chats · dropped
@@ -241,7 +241,7 @@ Source: [brief](../briefs/workflow-builder.md); [brief](../briefs/icm-restructur
 The two workflows you asked to be reminded of: `review-fix` (fix a PR's review findings) and `restructure-check` (the nothing broke check as one command). Built with the row 101 builder. from spec 0072. No separate spec (your answer 2026-10-22): the builder's interview is their design, seeded by the stage outlines in the [research brief](../briefs/workflow-templates.md) section 2. Starts after row 101 is built.
 **Done when:** both run as `/review-fix` and `/restructure-check` on a real PR.
 - [x] Design and build review-fix: `/workflow-builder review-fix` (row 101's proof step)
-- [ ] Design and build restructure-check: `/workflow-builder restructure-check`
+- [ ] Design and build restructure-check: `/workflow-builder restructure-check` (interview right before row 97 phase 2 design, owner 2026-10-22)
 - [ ] Run both on a real PR · waits on you
 Source: [brief](../briefs/icm-restructure.md) "Workflows"; your messages 2026-10-22.
 
