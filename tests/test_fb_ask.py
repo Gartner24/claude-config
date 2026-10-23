@@ -16,7 +16,7 @@ class TestFbAsk(unittest.TestCase):
 
     # covers: spec 0053 AC-8 (the rule file stays at most 8 lines and names every local limit; AGENTS.md shows --local)
     def test_local_rule_and_docs(self):
-        rule = (REPO / "claude-home" / "rules" / "cheap-worker.md").read_text().splitlines()
+        rule = (REPO / "claude-home" / "rules-on-demand" / "cheap-worker.md").read_text().splitlines()
         self.assertLessEqual(len(rule), 8)
         local = [l for l in rule if "only with `--local`" in l]
         self.assertEqual(len(local), 1, rule)

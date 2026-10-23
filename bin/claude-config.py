@@ -39,7 +39,7 @@ IGNORE = REPO / "config" / "drift-ignore.json"
 COPIED_FILES = ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py",
                 "hooks/context-monitor.js", "hooks/claude-config-reminder.py",
                 "hooks/workflow-start.sh", "hooks/handover-start.sh", "hooks/no-jjstack-bar.py", "hooks/chain-catch.py",
-                "hooks/live-tick.py",
+                "hooks/live-tick.py", "hooks/skill-rules.py", "MAP.md",
                 "scripts/claude-ram-watch.sh")
 # .in_use/<pid> is a marker Claude Code drops in a plugin folder per running session; it used to make 10
 # of 12 plugin base_hash values go stale as soon as any session started.
@@ -153,7 +153,7 @@ def tree_files(root):
 
 
 def copied_trees(out):
-    for kind in ("agents", "rules"):
+    for kind in ("agents", "rules", "rules-on-demand"):
         rels = tree_files(HOME_DIR / kind) | tree_files(LIVE / kind)
         copied_files(sorted(f"{kind}/{r}" for r in rels), out, kind.rstrip("s"))
 

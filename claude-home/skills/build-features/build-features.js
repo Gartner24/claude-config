@@ -23,7 +23,7 @@ for (const r of args.rows) {
   if (typeof r.base !== 'string' || !SAFE.test(r.base) || r.base.startsWith('-')) bad('base')
 }
 
-// rules/branch-pr.md rule 1: feat/<spec>-<slug>, fix/ when the heading starts with "Fix"; the row number is not part of it
+// rules-on-demand/branch-pr.md rule 1: feat/<spec>-<slug>, fix/ when the heading starts with "Fix"; the row number is not part of it
 const branchOf = r => {
   const title = r.feature.replace(/^\d+\.\s*/, '')
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
@@ -60,7 +60,7 @@ const brief = r => {
     `1. Run: ${mark('develop')}. Then run the skill /develop ${name}.`,
     ...CHAIN[r.tier].map(([s, cmd], i) => `${i + 2}. Run: ${mark(s)}. Then run the skill ${cmd} ${name}.`),
     `${CHAIN[r.tier].length + 2}. Run: ${mark('pr')}.` +  ' Write the PR body with the skill /document pr.' +
-      ` Squash your commits into one Conventional Commit on '${branch}' (rules/branch-pr.md), push it with git push -u origin '${branch}' (if it hangs, retry with git -c protocol.version=0), then gh pr create --draft --base '${r.base}' --head '${branch}'.`,
+      ` Squash your commits into one Conventional Commit on '${branch}' (rules-on-demand/branch-pr.md), push it with git push -u origin '${branch}' (if it hangs, retry with git -c protocol.version=0), then gh pr create --draft --base '${r.base}' --head '${branch}'.`,
   ]
   return [
     `You build scope row ${r.row} ("${name}", spec ${r.spec}) in your own git worktree, unattended. Run id: ${args.runId}.`,

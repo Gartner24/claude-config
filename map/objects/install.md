@@ -9,7 +9,7 @@
 - `config/manifest.json`: downloaded skills and frameworks.
 
 ## Rules (one source of truth per kind)
-- Copied (`claude-home/CLAUDE.md`, `claude-home/settings*.json`, `claude-home/agents/`, `claude-home/rules/`, the hand written hooks and scripts listed in `COPIED_FILES` in `bin/claude-config.py`): live wins. Edit the file in `~/.claude`, then `bin/sync.sh`; an edit made here is overwritten on the next sync.
+- Copied (`claude-home/CLAUDE.md`, `claude-home/settings*.json`, `claude-home/agents/`, `claude-home/rules/`, `claude-home/rules-on-demand/`, `claude-home/MAP.md`, the hand written hooks and scripts listed in `COPIED_FILES` in `bin/claude-config.py`): live wins. Install moves a live file in `rules/` or `rules-on-demand/` with no repo source to `~/.claude/backups/rules/<date>/` (spec 0077 AC-7); `~/.claude/MAP.md` points back here and is never auto loaded (AC-6). Edit the file in `~/.claude`, then `bin/sync.sh`; an edit made here is overwritten on the next sync.
 - Linked (`claude-home/skills/`, `claude-home/commands/`, `claude-home/workflows/<name>/`): repo wins. They are symlinked into `~/.claude`, so editing here is live. Each workflow is checked by `claude-home/skills/workflow-builder/check.py <name>` (spec 0076).
 - Mods (`claude-home/mods/<name>/`): repo wins; see [mods](mods.md).
 - Runner: retired, see [runner](runner.md).

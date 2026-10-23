@@ -34,124 +34,45 @@
 - Partial delivery presented as complete is the failure this prevents. It has cost
   real money.
 
-## Workflow (JSM skills + ours)
-State lives in repo files, never only in chat: `AGENTS.md`, `docs/scope/`, `docs/specs/`,
-`design.md`, `docs/reviews/`. In bot-reviewed team repos the same tree lives under a
-gitignored `.workflow/`. Full guide: ~/Documents/workflow-research/05-new-workflow.md.
-Branches and PRs follow `rules/branch-pr.md`: one branch per spec, stacked only on `**Stacks on:**`, one commit per feature, PRs open as drafts.
-
-### Route by situation
-- Session start in a repo: run `/scope` with no argument and state where things stand.
-- Repo has no `AGENTS.md`: `/audit` first. No `docs/scope/`: `/scope` before feature work.
-- A load-bearing choice is unmade (stack, data model, provider, page design, feature
-  behavior): `/architect`. Never decide it inside a build.
+## Routing
+State lives in repo files, never only in chat: `AGENTS.md`, `docs/scope/`, `docs/specs/`, `design.md`, `docs/reviews/` (`.workflow/` in bot-reviewed team repos).
+A skill's own rules load when it starts (`hooks/skill-rules.py`). The rest are in `~/.claude/rules-on-demand/`: read the file a line below names when its situation comes up.
+- Session start in a repo: `/scope` with no argument, then state where things stand.
+- No `AGENTS.md`: `/audit` first. No `docs/scope/`: `/scope` before feature work.
+- A load-bearing choice is unmade, or a value with no named source: `/architect`. Never decide it inside a build.
 - Build a feature or fix scoped in the plan: `/develop`.
-- After `/develop`, or any chain step the user typed (`/check verify`, `/test`), follow
-  the project tier from the scope header:
-  Prototype stop; Alpha `/check verify`; Beta + `/test`; GA + review + `/document`.
-  Run the rest of the chain yourself without asking, then `/sync`. Stop only on a failure,
-  an owed decision, or a step that pushes, merges, posts, or bills (`/review-stack`, `ultra`).
-  Handoffs (`/rollover`, `/save-and-clear`, `/clear`): `rules/handoff.md`. Feature closed: `/sync` first.
-- UI changed: `/check verify` plus `design-gate`. New design or restyle: `design` pipeline.
-- Review: `## Review Rules` below decide the reviewer.
+- After `/develop` or a typed chain step: follow the scope header tier (Prototype stop; Alpha `/check verify`; Beta + `/test`; GA + review + `/document`), then `/sync`, without asking; stop only on a failure, an owed decision, or a push, merge, post or bill.
+- UI changed: `/check verify` plus `design-gate`. Any UI build or restyle: run the `design` skill.
+- Before landing your own repo: `/review`; small own diff: `/code-review`; never both `/review` and `/review-stack`.
 - PR text: `/document pr`. Other prose: `/write`.
 - Bug, failing test, wrong behavior: `/debug`.
-- Which skill, cost and who starts it: `rules/skill-map.md`.
-- A chat opening in a repo starts `/audit` or `/scope` by itself (wf-handoff mod), and a Stop hook
-  (`hooks/chain-catch.py`) refuses to end a turn while a planned step or a `/debug` for a red test is owed.
+- Todos in chat: `/scope` each, one row each, instead of answering with a list.
+- A repo holds no `.gstack/`, `jjstack/`, `.superpowers/`, `.claude/settings.local.json`; never commit one.
+- A chat in a repo starts `/audit` or `/scope` by itself (wf-handoff mod); a Stop hook (`hooks/chain-catch.py`) refuses to end a turn while a step is owed.
+- Before merging a PR: read ~/.claude/rules-on-demand/when-to-switch-on.md (self-merge checklist).
+- A PR you opened has review comments: read ~/.claude/rules-on-demand/when-to-switch-on.md (review comment loop) and ~/.claude/rules-on-demand/review-fix.md.
+- The branch has commits by someone else, or you review someone's PR: read ~/.claude/rules-on-demand/when-to-switch-on.md.
+- "I am leaving", "finish it", "do these features", or two features ready: read ~/.claude/rules-on-demand/when-to-switch-on.md.
+- Any commit, branch, push or PR: read ~/.claude/rules-on-demand/branch-pr.md.
+- Before saying fixed or done, or after a tool refusal: read ~/.claude/rules-on-demand/handoff.md ("Not live is not fixed").
+- Free form build or fix tied to a scope row: read ~/.claude/rules-on-demand/handoff.md (it counts as /develop).
+- Showing the owner a report, list or pending question: read ~/.claude/rules-on-demand/handover-carry.md.
+- A risky change under review: read ~/.claude/rules-on-demand/second-review.md.
+- Input over about 20,000 characters, or many items to sort: read ~/.claude/rules-on-demand/cheap-worker.md.
+- Picking a skill: read ~/.claude/rules-on-demand/skill-map.md.
+- Writing a handoff, brief, or a command for another session; a value with no named source (Assumed spec): read ~/.claude/rules-on-demand/workflow.md
+- Reviewing code or a PR in plain chat, no review skill: read ~/.claude/rules-on-demand/reviewers.md
+- In a moved rule, `rules/<name>.md` means `~/.claude/rules-on-demand/<name>.md`, except the five files still in rules/.
+- Writing a scope box from any skill: read ~/.claude/rules-on-demand/scope-contract.md.
 
-### Decision gate (defines "clearly defined")
-A task is clearly defined only if every value it produces, computes or displays has a
-named source in a spec, `AGENTS.md`, or the request. Any value without one is an owed
-decision: stop and route to `/architect`, or record an `Assumed` spec if told to build
-anyway. Surface every `Assumed` spec before starting new work.
-
-### Todos
-- Repo work lives only in that repo's `docs/scope/`. No TODO.md, STATE.md or progress
-  files in repos; skills own the status lines.
-- Cross-repo work: hub scope at `~/projects/<area>/docs/scope/` (freelance, work).
-- Personal, non-code: `~/projects/docs/scope/scope.md`.
-- When the user lists todos in chat, put each one in the right scope with `/scope <item>`
-  instead of answering with a list.
-- Every scope row names its Source (GitHub issue, spec, review report, or the user's
-  message). When the source is an issue, link it, read it before planning or building, and
-  take the row's intent and Done when from what the issue actually asks, not a summary.
-
-### Context
-- Clear at boundaries (feature closed), not by token count.
-- Size: the handoff mod hands a chat off by itself at 250k tokens. Never run `/rollover` for
-  size before that, only when the mod says auto handoff is paused or off.
-- Brief before every handoff (any `/clear`, `/rollover`, `/save-and-clear`, or a command
-  given for another session): decisions agreed in chat but not yet in a spec, scope row or
-  `AGENTS.md` go first into a brief under a top section "Agreed so far, do not ask again".
-  Use the file the scope row's `Source:` names, else `docs/briefs/<feature-slug>.md`
-  (`.workflow/briefs/` in bot-reviewed repos), and point the row's `Source:` at it.
-  `/scope` and `/architect` read that brief and list anything they drop or weaken.
-- One brief per feature, and it is the feature's handover index (spec 0069): its four sections hold
-  open questions, things shown and still needed, agreed decisions and live state, one quoted item
-  each, written with `~/claude-config/scripts/handover-memory.py` (`rules/handover-carry.md`).
-  `/sync` deletes it when the feature closes (`rules/check-gates.md` gate 5).
-- Which handoff (feature open vs closed): `rules/handoff.md`.
-- Long single feature: suggest `/compact` mid build. Autocompact (700k) is a last resort.
-
-### Never in a repo
-`.gstack/`, `jjstack/`, `.superpowers/`, `.claude/settings.local.json`, `.design/run*.json`,
-review worktrees. If a tool creates one, it is globally ignored; do not commit it.
-
-## Review Rules
-- State the bug. Show the fix. Stop.
-- No suggestions beyond the scope of the review.
-- No compliments on the code before or after the review.
-
-### Which reviewer to use
-Three tools share the word "review", and two of them wrap a third internally. Pick by
-target, never by habit:
-- `/code-review` - Claude Code's own reviewer. Local diff, or pass a target:
-  `/code-review 123` (PR), `/code-review main...HEAD`, `/code-review high`,
-  `/code-review ultra` (deep cloud pass), `--comment` to post inline PR comments,
-  `--fix` to apply. First stop for "are there bugs in this diff".
-- `/review` - jjstack's, NOT the built-in. It shadows Claude's `/review` alias, so type
-  `/code-review` when you mean the built-in. Deterministic pre-flight (the repo's own
-  typechecker, linter and tests, a blast-radius map of callers outside the diff, the
-  stated intent), then gstack's `/review`, then four bounded lenses - context,
-  correctness, security, coverage+absence - then per-finding verification behind a
-  confidence gate, ending in APPROVE / CAUTION / REJECT. Hard budgets: 60 min, 4 agents,
-  10 findings. Idempotent on purpose: same code in, same verdict out, and a re-review
-  reports only regressions and new P0/P1. `--deep` forces recall-max. Report lands in
-  `~/.gstack/projects/<slug>/` (scratch stays out of the repo); copy only the final `review-YYYY-MM-DD.md` into `docs/reviews/`.
-- `/jj-security-review` - jjstack's security pass. **Renamed from `/security-review` in
-  jjstack 0.40.2 (pulled 2026-09-09)** specifically so Claude Code's own built-in
-  `/security-review` stays reachable - the built-in has no other name. So: `/security-review`
-  is now Anthropic's, `/jj-security-review` is jjstack's (Anthropic's methodology + Sentry's
-  investigation-first approach + OWASP Top 10:2025 + MCP-specific CWE). Neither is `/review`.
-- `/review-stack` - the heavy adversarial gate, and the only one with a blind lane: the
-  same diff reviewed with no intent, no session context, no memory and no git history,
-  then a Disagreements section where the two lanes differ. Also checks the build against
-  `docs/specs/` contracts, auto-detects a stacked base, and writes the receipt the
-  pre-push hook requires. `sealed` upgrades the blind lane to isolated subprocesses
-  (measured USD 5-19 a run). It never launches `ultra` - that is billed and yours to type.
-
-### Which one, and never two at once
 Bot-reviewed repos (which orgs, which bot, what to run there) are defined in the private file:
 
 @~/.claude/private/work.md
 
-- **Everything else - my own and freelance repos - default before landing: `/review`.**
-  Budgeted, converges, cheap enough to re-run. When it finishes, copy its final
-  `review-YYYY-MM-DD.md` into `docs/reviews/`; no
-  other jjstack file enters a repo.
-- Never `/check review`. Never run `/review` and `/review-stack` over the same diff
-  (you pay for the wrapped reviewer twice and reconcile two disagreeing reports).
-- `/code-review` alone is enough when ALL hold: under ~200 lines and ~10 files, nothing
-  touching auth/payments/migrations/deletion/permissions/crypto/config, no contract change
-  (exported signature, API field, DB column, enum, env var, CLI flag), no test deleted or
-  skipped, and it is your own change. Any one fails -> escalate.
-- `/review-stack` (in bot-reviewed repos: only when I ask) when you distrust your own framing, not merely when the diff is large:
-  someone else's PR, anything on a risk path, or a change where "it was intentional" is
-  carrying too much weight. A three-line permission change is exactly what a size
-  threshold waves through. Add `sealed` when the answer has to survive your own memory.
-
 ### Every review answers these two first
+State the bug. Show the fix. Stop.
+No suggestions beyond the scope of the review.
+No compliments on the code before or after the review.
 1. **Regression:** what worked before this diff and stops working after it? Grep every
    caller outside the diff. Read `git log -L` on deleted lines: a line added by a `fix:`
    commit and removed here is the same bug coming back.
@@ -185,22 +106,3 @@ Cut it and say how many you cut.
 - Before concluding a file or directory is missing, run pwd. A stale cd looks exactly like a deleted tree.
 - $(...) and backticks do NOT expand inside a quoted heredoc (<<'EOF'). Either hardcode the value or leave the delimiter unquoted on purpose.
 - Read back anything sent outward - a PR comment, an issue body, a posted message - before moving on. An unexpanded placeholder is public the moment it posts.
-
-## Language Rules
-ECC rules live in ~/.claude/rules/ecc/ but are excluded from loading (claudeMdExcludes in
-settings.json) - most restate default practice. Read one on demand if a task needs it.
-The kept, project-specific lessons are in ~/.claude/rules/lessons.md (always loaded).
-
-## UI / design work - pipeline rule
-Any UI build, redesign, restyle or interface polish, in **any** stack: run the `design`
-skill. Do not paraphrase its pipeline here - it opens a run ledger and registers a Stop
-hook, and a summarized copy of the steps is how steps got skipped before.
-
-- `design` - the pipeline. Detect stack -> reference-lock against real shipped UI ->
-  direction -> tokens -> source -> assemble -> assets -> motion -> gate -> conversion.
-  Stack-agnostic: Tailwind keeps its fast path, everything else has a real one.
-- `assets` - imagery, icons, shapes, background removal. Standalone or as step 7.
-- `design-gate` - the blind audit. Invoked by `design`; the Stop hook will not release
-  the run until its report exists and is newer than every file it audited.
-
-Old copies of this rule and `docs/guides/DESIGN-PIPELINE.md` are retired or stale; trust `design`.

@@ -1,100 +1,72 @@
-# Runner architecture
+# Architecture
 
-For `/architect` and for you when a decision touches the runner or the setup sync. One page view of the workflow runner: what the parts are, how data moves between them, and the rules that hold everywhere. `/architect` reads this first (rule `spec-gate.md`) and updates it in the same commit when a decision changes an invariant. Specs: [0001](specs/0001-runner-stack-and-layout.md) stack, [0002](specs/0002-next-repo-command/index.md) `next`, [0003](specs/0003-scope-contract/index.md) scope contract, [0004](../_archive/runner/docs/specs/0004-headless-step-loop/index.md) `wf run`, [0005](../_archive/runner/docs/specs/0005-decision-parking-phone-pings/index.md) pings, [0006](../_archive/runner/docs/specs/0006-standing-answers/index.md) standing answers, [0007](specs/0007-push-guard/index.md) push guard, [0008](../_archive/runner/docs/specs/0008-failure-park-policy/index.md) failure and park policy, [0009](../_archive/runner/docs/specs/0009-headless-verify-test/index.md) headless verify and test, [0010](../_archive/runner/docs/specs/0010-design-enforcement-unattended/index.md) design enforcement, [0011](specs/0011-build-decision-queue/index.md) build and decision queue, [0014](specs/0014-runner-resilience/index.md) runner resilience, [0015](specs/0015-checks-that-cannot-lie/index.md) checks that cannot lie, [0016](specs/0016-guard-hook-false-alarms/index.md) guard hook false alarms, [0017](../_archive/runner/docs/specs/0017-several-repos-at-once/index.md) several repos at once, [0018](specs/0018-morning-report/index.md) morning report, [0019](specs/0019-live-setup-steps/index.md) live setup steps, [0020](specs/0020-one-command-wf/index.md) one command `wf`.
-
-The goal: `wf` builds your scoped features overnight, pings you only for real decisions, and never pushes or designs on its own.
+For `/architect` and for you when a decision touches how this setup works. One page view of today's system: a chat
+driven workflow, the hooks and mods around it, the workflows, and how this repo reaches `~/.claude`. `/architect`
+reads this first (rule `spec-gate.md`) and updates it in the same commit when a decision changes an invariant. The
+retired `wf` runner's design is kept as history in [_archive/runner/docs/architecture.md](../_archive/runner/docs/architecture.md).
 
 ## Components
 
-| Part | What it is | Writes | Reads |
-|---|---|---|---|
-| Scope files | `docs/scope/` (or `.workflow/scope/` in team repos). The plan and the queue: boxes, tags, header (`**Autopilot:**`, `**Source of truth:**`) | skills (`/scope`, `/architect`, `/develop`, `/check`, `/test`, `/sync`) | `next`, `wf run` |
-| Specs | `docs/specs/`. The decisions a build follows | `/architect` only (`/sync` and `/develop` touch status lines) | the skills inside each call |
-| `AGENTS.md` standing answers | an optional `## Standing answers` section per repo (spec 0006) | you, by hand | `wf run`, once at start and shown in the plan; reread before each call only to stop the repo if a call changed them (spec 0011 AC-6) |
-| `wf` (bare) | the one command you type (spec 0020): one confirm screen, then report seen, the staged live setup swap, retakes of parks whose cause changed, every repo with work started side by side (repos a run holds skipped), real claude checks beside the builds. The subcommands below are its internals; nothing tells you to type them | everything its internals write, plus `swaps.jsonl`, `swap.lock`, `finish/<stamp>/stage/` and `swap.json` | everything its internals read |
-| `next` (`wf next`) | interactive launcher: finds the repo, reads the first open box, opens `claude <command>` in that repo after your Enter | nothing | scope files, `.git` files |
-| `wf run` | unattended loop, one fresh `claude -p` call per box, then one `/sync` call per feature (`_archive/runner/run.py`). With spec 0011 it works through a queue: every `· auto` feature with a ticked `(spec)` box, in every repo on your `wf allow` list (or one named repo), one feature at a time per repo, moving on after a park or a question | run records, the locks, `queue.json` | scope files, standing answers, ntfy config, trust list, `queue.json` |
-| `wf report` | prints the last morning report; `--seen` stops it showing at session start; `--hook` is the SessionStart hook (spec 0018) | `report.seen` (`--seen` only) | `report.txt`, the newest run folder, the locks |
-| `wf finish` | internal (spec 0020): runs every open ` · waits on you · live` box (copies and `bin/install.sh` into a staged copy of the live dir, then one per file swap with a ledger line; real claude checks), records check results in verify.md, ticks the boxes that passed, one local commit per repo (spec 0019). Takes no repo lock and never refuses because of a run | `~/.claude`, scope boxes, verify.md, git commits, `finish/<stamp>/` backups and logs, `report.seen` | scope files, trust list, locks |
-| `wf queue`, `wf unpark` | read only plan of what `wf run` would do; clear a repo's or feature's parks and open questions (spec 0011) | `queue.json` (`wf unpark` only) | scope files, `queue.json`, locks |
-| `claude -p` calls | the actual work. Each gets the unattended prompt, the brief and spec summary (spec 0034, read by wf before every call, fenced as data), a deny list, a budget, a timeout | repo files (code, scope, specs) | everything a skill reads |
-| Phone channel: Telegram (`_archive/runner/telegram.py`, spec 0029) or ntfy (`_archive/runner/ntfy.py`) | sends your phone a scrubbed question with buttons and reads your reply. Telegram when `~/.config/wf/telegram.json` exists (only your chat answers; one process at a time fetches updates into a shared log), else ntfy (topic, one time codes) | `telegram-updates.jsonl` and `telegram.lock` in the state folder; `ntfy.json` (codes burned) | `telegram.json` or `ntfy.json` (hidden from calls), the bot or the topic |
-| Runner copy | `~/.local/share/wf/<fp>/`: one copy of `_archive/runner/*.py` per content fingerprint; `~/.local/bin/wf` and `next` link into the newest (spec 0020 AC-12), so every call's guard denies and hashes the copy, never the repo's `_archive/runner/`, and a running `wf` never mixes versions | `bin/install.sh` and the `wf` swap, both through `install_runner` | every `wf` process |
-| State folder | `$XDG_STATE_HOME/wf` else `~/.local/state/wf`: `locks/<sha1>.lock`, `runs/<name>-<time>-<pid>/run.json`, `call-NN.json`, `call-NN.stderr`, `log.txt` (live event log with each call's transcript path, spec 0014), `queue.json` (parks and open questions kept between runs, spec 0011), `report.txt` and `report.seen` (spec 0018), `finish/<stamp>/` (spec 0019) | `wf run`, `wf report`, `wf finish` | you, `wf report` |
-| Hooks | your `~/.claude` guard hooks (destructive command block, permission floor, Bash shape check), the design Stop hook, the review stack pre push receipt hook. They run inside every `claude -p` call too | deny or block a tool call | tool calls |
-| Rules | always loaded `~/.claude/rules/`: `scope-contract.md` (how skills write scopes), `spec-gate.md` (how specs are accepted), `handoff.md` (who runs the next chain step), `check-gates.md` (checks that can fail, spec `**Paths:**`, brief cross checks, spec 0015; brief close and links at `/sync`, spec 0069), `lessons.md` | nothing | every session, headless included |
-| App jail and browser | only for `/check verify` and debug calls in a repo whose standing answers name `app start` and `app url` (spec 0009): `wf` runs the app under `bwrap` on the shared localhost, and the call gets a pinned, isolated, headless chrome-devtools MCP that reaches only loopback | `app-NN.log`, `shots/` in the run folder | the standing answers |
-| Autonomous mode | `/auto on` (user only, spec 0030; on and release come only from your typed `/auto` through the prompt hook, the `wf auto on` and `wf auto release` commands refuse, spec 0049): `<state>/auto.json` names the one folder whose sessions drive `wf`. Its SessionStart and UserPromptSubmit hook (`wf auto hook`) tells the session to start bare `wf -y` as the `wf-auto` user unit (`wf auto start`, outside the session), wait in the background (`wf auto wait`) and relay questions and the report; the status bar (`wf auto bar`) shows it. `/auto off` lets a run finish its current features (`auto_off`, spec 0021 U11) | `auto.json`, the `wf-auto` unit | `auto.json`, `queue.json`, the locks, the plan bare `wf` would build |
-| Inhibitor | a `systemd-inhibit` child that keeps the machine awake, lid closed included, for the whole run | nothing | `wf`'s pid |
+| Part | What it is | Where |
+|---|---|---|
+| Global instructions | `~/.claude/CLAUDE.md` plus every `*.md` directly in `~/.claude/rules/`, loaded into every chat (spec 0077 AC-1: at most 20,000 characters). The code rules, the two review questions and one Routing block of one line per situation | `claude-home/CLAUDE.md`, `claude-home/rules/` |
+| Rules on demand | rules tied to a skill or a situation, not loaded until needed (spec 0077) | `claude-home/rules-on-demand/`, its `map.json` |
+| Skill rules hook | `skill-rules.py`: when a skill starts (PreToolUse `Skill`) or the owner types `/<name>` (UserPromptSubmit), prints that skill's mapped files from `map.json` as context | `claude-home/hooks/skill-rules.py` |
+| Pointer lines | a situation rule (a merge, a commit, a "done" claim) keeps one Routing line in `CLAUDE.md` naming the file to read | `claude-home/CLAUDE.md` |
+| Workflow skills | `/scope`, `/architect`, `/develop`, `/check`, `/test`, `/sync` (the JSM skills), `/debug`, `/document`; downloaded, overwritten on every pull, so never patched for our rules | `config/manifest.json` |
+| Plan and decisions | `docs/scope/` (the plan: features, boxes, tags), `docs/specs/` (one spec per decision), `docs/briefs/` (agreed items between chats), `docs/reviews/` | each repo |
+| Hooks | scripts `settings.json` runs on events: the Bash guard (`block-destructive.sh`), the panel check (`plain-panel.py`), the context monitor, the chat start hooks (`workflow-start.sh`, `handover-start.sh`), the Stop hook that refuses to end a turn while a planned step is owed (`chain-catch.py`, spec 0070), the live tick guard (`live-tick.py`, spec 0075), the skill rules hook | `claude-home/hooks/`, [HOOKS.md](guides/HOOKS.md) |
+| Mods | `wf-handoff`: starts `/audit` or `/scope` when a chat opens in a repo, `/handoff`, and the automatic handoff at the token line. `chip-dash`: the band and panes | `claude-home/mods/` |
+| Workflows | numbered stage folders with a contract each, run straight through by one Workflow script and started by a `/<name>` command (spec 0076); built with `workflow-builder` | `claude-home/workflows/` |
+| Install and sync | `bin/install.sh` (repo to `~/.claude`), `bin/sync.sh` (live copies back), `bin/claude-config.py` (`drift`, `hook-files`, `update`, `docs`), spec 0048 | `bin/` |
+| Repo tools | helper scripts, some linked into `~/.local/bin` (`spec-paths`, `fb-ask`, `skill-scan`, the switch-on helpers) | `scripts/` |
 
 ## Data flow
 
 ```
-you: /architect (spec), /scope (boxes), Autopilot allowed, standing answers
-        |
-        v
-  scope files + specs + AGENTS.md  <--------------------------------+
-        |                                                           |
-        v                                                           |
-  wf run: start checks -> confirm (Enter or -y) -> lock, inhibitor  |
-        |                                                           |
-        v                                                           |
-  claude -p <box command>  --(edits code, ticks boxes)--------------+
-        |
-        v
-  wf rereads the scope: next box, Autopilot, branch
-        |-- run stop (Ctrl C, caps, limit, global guard) --> stop, run.json
-        |-- repo stop (branch, Autopilot, repo guard) -----> next repo
-        |-- park (failure, BLOCKED, cap) ------------------> queue.json park, next feature
-        |-- DECISION NEEDED + OPTION lines ----------------> queue.json, phone ping, next feature;
-        |                                                     your reply -> claude -p --resume later
-        |-- next box in the same feature ------------------> next call
-        '-- feature finished ------------------------------> claude -p /sync -> feature_done, next feature
+chat opens in a repo
+  |-- CLAUDE.md + rules/*.md load (always)
+  |-- wf-handoff mod sends /audit or /scope  --> UserPromptSubmit --> skill-rules.py adds that skill's rules
+  v
+owner types /architect x  --> UserPromptSubmit --> skill-rules.py adds architect's rules
+Claude starts a skill      --> PreToolUse Skill --> skill-rules.py adds its rules
+  |
+  v
+skills read and write docs/scope/, docs/specs/, docs/briefs/, code
+  |
+  v
+turn ends --> chain-catch.py (Stop): a planned step still owed? block, name it (at most 3 times)
 ```
 
-With spec 0011 the run picks answered questions first, then the next queued feature in trust list and file order, and waits up to `--max-wait` at the end for open questions. Spec 0011 is not built yet; until then a park or question ends the run or waits in place.
-
-A call never tells `wf` that it finished a box: `wf` only believes the files. Everything a call prints stays in the run folder; only the scrubbed ping text leaves the machine.
+Probe P3 (spec 0077 verify.md) showed the mod's chat start `/scope` reaches UserPromptSubmit as `"prompt":"/scope"`,
+so the start skill gets its rules the same way a typed one does.
 
 ## Invariants (hold everywhere)
 
-1. **Calls never push or merge; code reaches the default branch only through a merged PR, squash merged, never a local merge and push; `wf` marks a PR ready and merges it only on your explicit "merge now" or under spec 0051's self merge.** In a repo whose standing answers say `branches: per spec` and `push: draft PR` ([spec 0026](specs/0026-branch-pr-flow/index.md)), the `wf` process itself (never a call) pushes only spec branches, after a private names scan and an attribution scan and through the repo's own pre-push hook, and opens only draft PRs, every `gh` command through one allow list whose only paths to ready and to a squash merge with `--delete-branch` are spec 0051's `merge_green` and `land_plan`. In a repo whose `~/.claude/private/pr.json` entry says `adopt: true` it also adopts your own open PRs into the same review loop and pushes their review fixes ([spec 0031](specs/0031-adopt-open-prs/index.md)). The one merge is `gh pr merge --match-head-commit <approved head>`, run by the `wf` process only after your exact "merge now" answer to the approval question; free text never merges. In a repo whose private `pr.json` entry says `auto_merge: true` ([spec 0051](specs/0051-clean-branches-commits/index.md)), `wf` also squash merges a PR itself when it is small and low risk (no risk path, no deleted or skipped test, no removed contract) and green by the default branch's own suite and the main plan's ticked boxes, never the PR's, under one merge lock per repo; any other green PR asks "merge now" after your `/review`. Plan only commits reach the default branch through a docs PR the runner merges itself, and every merged or closed PR's branch and worktree are deleted. Before any call runs on an adopted PR head, a change by anyone to files that can run code (`.claude/`, `CLAUDE.md`, hook managers, package scripts, build and test config) since the last cleared head stops it until you clear that head (spec 0031 AC-12), and every push sends the exact commit its scans read. In a repo whose `pr.json` entry says `review_requests: true` ([spec 0032](../_archive/runner/docs/specs/0032-review-requests/index.md)) the one other GitHub write is your review, posted through `POST .../pulls/<n>/reviews` only after your exact "post as my review"; the call that drafts it reads someone else's PR only as text in a clean folder, with user settings only, hooks off, no MCP server, no network and Read, Grep and Glob only. Apart from that, `wf run` itself runs no git write command (`wf finish`, run by you, makes one local commit of its own edits, never on `main` or `master`, spec 0019). Every call gets the prompt line and a deny list for the common spellings. Today that is a backstop only: `env git push` and `gh api` get past it (review 2026-10-12). Feature 20 ([spec 0007](specs/0007-push-guard/index.md)) makes it hold outside the model: no credential in a call as the main guard, then the Bash sandbox, tool denies and hashed hook and config files. Threat model: an accidental or prompt injected push, not a model actively working to escape; the residual risks are listed once in spec 0007. The same threat model covers the app and browser a run starts (spec 0009): an accidental or prompt injected leak, not a model working to escape, and no further hardening rounds on either feature.
-2. **Never decides design or accepts a spec unattended.** `wf run` refuses any box whose command is not on the allow list, so `/architect`, `/scope`, `/audit` and `design` boxes stay with you. Accepting a spec has no standing answer and never will (spec 0006). Inside an allowed step, any panel other than the three fixed ones and your standing answers becomes a ping. UI with no locked design parks `blocked`, calls can never invoke `design` or `brand-system`, and a feature whose branch changed frontend files closes only with a passing `design-gate` report newer than each of them, else it parks `design_gate` before `/sync` ([spec 0010](../_archive/runner/docs/specs/0010-design-enforcement-unattended/index.md)).
-3. **Paid steps never run unattended.** Billed commands (`/code-review ultra`, `/review-stack sealed`, `/ship`, deploys) are never on the allow list. The light `/code-review` runs only inside spec 0032's isolated review call, started by your tap, never `ultra`. Feature 8 ([spec 0008](../_archive/runner/docs/specs/0008-failure-park-policy/index.md)) closes the gap inside allowed steps: no API key, token, secret or cloud credential reaches a call.
-4. **What pings you:** a `DECISION NEEDED:` line at the end of a call, the branch and PR questions of spec 0026 (squash, scans, push, PR, review asks, rounds, approval, rebases), spec 0031's foreign change question, spec 0032's review request, draft (sent before it) and edit questions, and nothing else, plus the short ack after your reply (`Got your answer to question <id>: <option>. Resuming.`, spec 0033; every question carries a `from:` block with its repo, feature, spec, step, what the step found and why the first option is recommended, with links on Telegram only), one re-ping per run of a question still open from an earlier run (spec 0011), the `wf ntfy test` or `wf telegram test` you start yourself, the `wf connected` message at the end of `wf telegram init`, the one line hint the bot sends back to a plain message that answers no question (spec 0029), and one morning report note when a run ends, for any reason (spec 0018; one note for a bare `wf run` with several repos). No other ping for start, finish or failure.
-5. **Never automatic:** setting `**Autopilot:** allowed`, adding `· auto`, accepting a spec, choosing a tier, starting a run (Enter or `-y`; a run `wf auto start` begins while you have autonomous mode on counts as started by you, and only you turn that mode on, spec 0030), pushing or opening a PR outside a repo that opted in with `push: draft PR` (spec 0026) or `adopt: true` (spec 0031), marking a PR ready, merging it without your explicit "merge now" (spec 0031) except spec 0051's self merge of a small, low risk, green PR in a repo whose private `pr.json` says `auto_merge: true` and its docs PR of plan only commits, design direction, and marking a feature `done` except through `done: yes` on the box `wf` itself computed as the last one (spec 0006).
-6. **Opt in, one at a time:** a run needs `**Autopilot:** allowed` on a repo you listed with `wf allow` (spec 0008; a cloned scope cannot list itself), a named work branch (not `main`, `master` or detached), and the repo lock; a feature also needs `· auto` and a ticked `(spec)` box (spec 0011). One call at a time per repo (bare `wf run` runs one child per repo side by side, never two repos sharing a port, git common dir or folder, spec 0017), one feature at a time per repo, and every repo a run touches stays locked until it exits. Nothing else holds a repo lock longer than its step, every lock taker writes its holder line, and `wf` skips a repo a run holds instead of refusing (spec 0020). A run takes a live setup change whose exact fingerprints `wf` wrote to `swaps.jsonl` at its next guard check; any other change still stops it. While a repo is dirty and holds a park or open question, no other feature starts there. Autopilot, branch and scope are checked again after every call and every wait. Exception (specs 0027, 0043, 0052): a repo whose standing answers say `parallel: N` (1 to 8) runs up to N features at once, each in its own worktree on its own branch, never two whose spec Paths overlap, and starts one only while over 4.5 GB of memory is free and the 5 hour use is under 80%; the main checkout's scope file stays the one plan (each child syncs its feature's block into it under a lock), and each finished branch gets its own PR, merged one at a time after it is brought up to date with the default branch by a merge, never combined with another (spec 0051).
-7. **The files are the truth:** a box is done only when the scope says so. `wf run` writes nothing in a repo; only the calls do. `wf finish`, run by you, ticks the live boxes that passed and appends check results to verify.md (spec 0019).
-8. **Bounded:** budget and timeout per call, call and hour caps per run, a wait cap per decision, a clean stop on Ctrl C, SIGHUP or SIGTERM, at most 2 `/debug` calls, one usage limit wait (6 hours at most) and 91 minutes of API outage waits (spec 0014) per run, the run stopped `crash_loop` when two features in a row park with the same call error, denial or app failure (spec 0014), 120 s for the app to get ready and a sweep of every process left with the run's `WF_RUN` (spec 0009), and a `run.json` with a stop reason on every path. Every reason is a park (this feature is stuck, the run moves on), a repo stop (that repo is done for this run) or a run stop (the run ends), spec 0008 as amended by spec 0011. With the queue, `--max-calls` and the 2 debug attempts count per feature, `--max-hours`, the usage limit wait and the end of queue wait (`--max-wait`) per run.
-
-## Skills and commands under `wf run`
-
-`wf run` decides by the first word of the box command, or the first two for `/check verify` (allow list in `_archive/runner/run.py`). Anything not listed as `runs` is refused `manual_box` before any call, or stops the run as `manual_box` when it is the next box. A box ending ` · waits on you` (or whose first open milestone does) is refused `waiting` before the command check, whatever its command ([spec 0012](specs/0012-waiting-boxes-owed-to-you/index.md)), unless it also carries ` · later boxes go on`: then the build goes on past it and only the final `/sync` waits for it (spec 0014).
-
-| Command | `wf run` | Pings you for |
-|---|---|---|
-| `/develop` | runs | an owed decision (route to `/architect`, or build on an `Assumed` spec); any panel not fixed |
-| `/check verify` | runs; drives the app in the browser when the repo names one (spec 0009); runs `design-gate` when the branch changed frontend files (spec 0010); a pass without its `CAN FAIL CHECKED:` line parks `unchecked` (spec 0015) | the done offer, unless `done: yes` applies |
-| `/test` | runs; a pass without its `MUTATION CHECKED:` line parks `unchecked` (spec 0015) | `Run tests?` unless `run suite: yes`; the done offer unless `done: yes` applies |
-| `/debug` | runs | a fix choice it cannot make |
-| `/document` | runs | nothing for `Doc type` (fixed answer); other panels |
-| `/sync` | runs only as the feature's final call: automatically once every box is ticked, or as its `/sync` box once every other box is ticked (spec 0014) | any panel it shows |
-| `/architect`, `/scope`, `/audit` | refuses | |
-| `design`, `design-gate`, `brand-system`, `assets` as a box | refuses (inside a call, `design` and `brand-system` are denied, `design-gate` runs, spec 0010) | |
-| `/check review`, `/check` with any other second word, `/review`, `/code-review`, `/review-stack`, `/jj-security-review` | refuses | |
-| `/ship`, `/pr`, `/land-and-deploy`, `/document-release`, deploys | refuses | |
-| `/rollover`, `/save-and-clear`, `/resume-from-clear`, `/clear` | refuses (each call is already a fresh session) | |
-| any other command | refuses | |
-| a box with no command | stops (exit 3 at start, `no_command` mid run) | |
-
-Fixed answers in every call: `Doc type` the recommended option, `Save verify steps?` Save to verify.md, `Agent skills` Not now, later (spec 0005). Standing answers per repo: `run suite` and `done` (spec 0006). No standing answer touches a design or spec panel.
-
-`next` is not bound by this table: you are at the keyboard, so it opens any command after your Enter.
+1. **One source of truth per kind.** Copied files (`CLAUDE.md`, `settings*.json`, `agents/`, `rules/`,
+   `rules-on-demand/`, the listed hooks, `MAP.md`): live wins, edit in `~/.claude`, then `bin/sync.sh`. Linked files
+   (`skills/`, `commands/`, `workflows/<name>/`) and mods: repo wins. Downloaded skills: upstream plus a patch.
+   Private files: `~/.claude/private/`, live only.
+2. **Downloaded skills are never patched for our rules.** A rule a workflow skill must follow lives in
+   `rules-on-demand/` and reaches the skill through `map.json` and the skill rules hook, or in an always loaded file.
+3. **State lives in repo files**, never only in chat: the scope, the specs, the briefs, `AGENTS.md`.
+4. **Nothing pushes, merges, posts or bills without the owner's yes**, except the self merge checklist in own repos
+   (`rules-on-demand/when-to-switch-on.md`).
+5. **Hooks fail open.** A hook that breaks (bad input, missing file) prints nothing and exits 0, so a broken hook
+   never stops a chat; its `--test` self check runs in install verify.
+6. **The repo is public.** No client or employer names, keys or machine state; the commit hooks and `bin/sync.sh`
+   refuse a private name.
 
 ## Setup sync
 
-Spec [0048](specs/0048-organize-and-sync/index.md). `bin/claude-config.py`, driven by the `/claude-config` skill, keeps `claude-home/` and `~/.claude` in step: `sync` (live to repo, through `bin/sync.sh`), `install` (repo to live, through `bin/install.sh`), `drift` (everything in one place and not the other, exit 1 when any), `update --plan` and `update --apply <entry>`, `docs` (writes `docs/guides/SKILLS.md`). Downloaded skills are never copied: `config/manifest.json` names each one's source, pinned commit, base hash, license and install command, and an edited one is its pin plus a patch. An update merges your patch onto upstream file by file with `git merge-file` and installs only when nothing conflicts. The tool never asks and never changes a skill on its own; the skill asks you yes or no per entry. A SessionStart hook reminds you once 7 days pass without an upstream check.
+Spec [0048](specs/0048-organize-and-sync/index.md). `bin/claude-config.py`, driven by the `/claude-config` skill,
+keeps `claude-home/` and `~/.claude` in step: `sync` (live to repo, through `bin/sync.sh`), `install` (repo to live,
+through `bin/install.sh`), `drift` (everything in one place and not the other, exit 1 when any), `update --plan` and
+`update --apply <entry>`, `docs` (writes `docs/guides/SKILLS.md`). Install moves a live file in `rules/` or
+`rules-on-demand/` with no repo source to `~/.claude/backups/rules/<date>/`, so a moved rule stops auto loading
+(spec 0077 AC-7). `~/.claude/MAP.md` points a chat that edits `~/.claude` back to this repo (AC-6).
 
 ## Specs
 
-`docs/specs/NNNN-title.md`, or the folder form `NNNN-title/index.md` for a split spec. 0001 runner stack, 0002 `next`, 0003 scope contract, 0004 `wf run`, 0005 decision parking and phone pings, 0006 standing answers, 0007 push guard, 0008 failure and park policy, 0009 headless verify and test, 0010 design enforcement, 0011 build and decision queue, 0012 waiting boxes owed to you, 0013 work names out of the public repo, 0014 runner resilience, 0015 checks that cannot lie, 0016 guard hook false alarms, 0017 several repos at once, 0018 morning report, 0019 live setup steps, 0020 one command wf, 0021 never stop (every park reason asks a question instead), 0022 usage limit planning, 0023 cheap worker tier, 0024 issues as source of truth, 0025 guard baseline between repos, 0026 branch and PR flow, 0027 same repo in parallel, 0028 plain words, 0029 Telegram, 0030 autonomous mode, 0031 adopt open PRs, 0032 review requests, 0033 context in messages, 0034 step brief, 0035 readable layout, 0036 missed skill detector, 0037 context monitor, 0038 styled Telegram, 0039 questions while off, 0040 runs adapt to setup changes, 0041 live steps in a run, 0042 questions you can act on, 0043 fast runner, 0044 questions round two, 0045 fewer avoidable stops, 0046 autonomous mode per chat, 0047 review leftovers, 0048 organize and sync, 0049 typed auto only, 0050 fixed skill keep list, 0051 clean branches and commits, 0052 more features at once.
+`docs/specs/NNNN-title.md`, or the folder form `NNNN-title/index.md`. Each names the files it governs on its
+`**Paths:**` line; `spec-paths` warns when a governed file changed after the spec.

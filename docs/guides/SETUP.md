@@ -36,6 +36,8 @@ Do the steps in order. Hook paths in `settings.json` are hardcoded to the old ho
 cp -a claude-home/agents/. ~/.claude/agents/
 mkdir -p ~/.claude/rules
 cp -a claude-home/rules/. ~/.claude/rules/
+mkdir -p ~/.claude/rules-on-demand
+cp -a claude-home/rules-on-demand/. ~/.claude/rules-on-demand/
 cp -a claude-home/hooks/block-destructive.sh ~/.claude/hooks/
 chmod +x ~/.claude/hooks/block-destructive.sh
 bash ~/.claude/hooks/block-destructive.sh --test   # must print "all self-checks passed"

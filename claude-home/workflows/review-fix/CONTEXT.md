@@ -1,6 +1,6 @@
 # review-fix
 
-Sorts the confirmed findings of a review by `rules/review-fix.md`, fixes the "fix now" ones with a test and a mutation
+Sorts the confirmed findings of a review by `rules-on-demand/review-fix.md`, fixes the "fix now" ones with a test and a mutation
 check each, then runs the suite, `/check verify` and `/test`. Done is a report that says "ready to push: yes" or "no".
 
 ## Pipeline
@@ -8,7 +8,7 @@ Numbered folders carry the order; each stage's `CONTEXT.md` says exactly what to
 
 | Stage | Job | Input | Output | Human check |
 |---|---|---|---|---|
-| `01_sort` | Put every finding in one group (fix now, ask, never automatic) and split the fix now ones into file groups | `<run>/input/findings.md`, `rules/review-fix.md` | `sorted.md` plus the file groups as items | every finding in exactly one group |
+| `01_sort` | Put every finding in one group (fix now, ask, never automatic) and split the fix now ones into file groups | `<run>/input/findings.md`, `rules-on-demand/review-fix.md` | `sorted.md` plus the file groups as items | every finding in exactly one group |
 | `02_fix` | Fix one file group, add a test, mutation check it, commit in its own worktree | its group from `01_sort`, the files it names | `<group>.md` | each test went red on its mutant |
 | `03_check` | Merge the groups onto the PR branch, run the suite, `/check verify` and `/test` | the `02_fix` outputs | `report.md` | the suite line is green when it says ready |
 

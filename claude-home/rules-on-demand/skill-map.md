@@ -9,7 +9,7 @@ git repo; **catch** is `hooks/chain-catch.py`, which refuses to end a turn while
 
 | Situation | Skill | Cost | Who starts it | Starts by |
 |---|---|---|---|---|
-| Session start in a repo, or plan / replan / enroll a feature | `/scope` | low | session | mod start at chat open; a reminder on every message to run `/scope <item>` for new work; catch: an edited file no spec names |
+| Session start in a repo, or plan / replan / enroll a feature | `/scope` | low | session | mod start at chat open; catch: an edited file no spec names |
 | Repo has no AGENTS.md | `/audit` | low | session | mod start at chat open (never in bot-reviewed repos), then `/scope` |
 | A load bearing choice is unmade (stack, data model, provider, behavior, page design) | `/architect` | medium | session | catch: a row this chat tagged `· needs a decision`; else the feature's next box |
 | Spec accepted and nothing left to decide | build handoff: `/rollover`, or one worktree agent per feature | low | session | catch: the accepted spec, released by `/rollover`, `/handoff`, a worktree agent or "do it here" |
