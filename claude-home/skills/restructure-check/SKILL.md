@@ -9,12 +9,16 @@ Start the `restructure-check` workflow (spec 0076). Its stages and their checks:
    `git -C <repo> fetch origin pull/<n>/head:refs/restructure-check/pr-<n>` and use that ref as `head`. A branch:
    `git check-ref-format --branch <branch>` must pass (refuse on failure), use it as `head`. `base` is the `--base`
    value, else `origin/main`; `git -C <repo> rev-parse --verify <base>` must pass.
-   The answers fill the named args: `head`: the ref above; `base`: the base ref; `run`: the run id from step 2.
+   The workflow runs the head's own code (install dry run, tests, self checks), so it only runs on your own PRs: for
+   a PR number, `gh pr view <n> --json author --jq .author.login` must equal `gh api user --jq .login`; a branch must
+   be a local branch (`git show-ref --verify refs/heads/<branch>`). Otherwise stop and say "restructure-check runs
+   the head's code; it only runs on your own PRs". Run this check before the fetch.
+   The answers fill the named args: `head`: the ref above; `base`: the base ref.
 2. Repo: `git rev-parse --show-toplevel` (absolute). Run id: `date +%Y%m%d-%H%M%S` (local time).
 3. Keep runs out of git: `git -C <repo> check-ignore -q .workflow/x`. When it exits non zero, append the line
    `.workflow/` to the file `git -C <repo> rev-parse --git-path info/exclude` names (relative paths are under `<repo>`).
 4. Call the Workflow tool with `scriptPath` `~/.claude/workflows/restructure-check/restructure-check.js` and `args`
-   `{repo, runId, limit, head, base, run}`: `limit` is `1` when the user typed `--limit 1`, else `null`.
+   `{repo, runId, limit, head, base}`: `limit` is `1` when the user typed `--limit 1`, else `null`.
 5. After the run, for each stage show its output folder `<repo>/.workflow/runs/restructure-check/<run id>/NN_<stage>/output/`,
    the line under `## Human check` in `~/.claude/workflows/restructure-check/stages/NN_<stage>/CONTEXT.md`, and any `wf/...`
    branches the run returned. Say any stage marked `failed`. Count the folders in `<repo>/.workflow/runs/restructure-check/` and
