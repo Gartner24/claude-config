@@ -1167,6 +1167,30 @@ Source: [brief](../briefs/context-trim-and-all-chats.md) Part 2.
 - [x] Test it: `/test helper scripts for the switch-on rules` (five self checks and suite 145 ok; 42 mutants red)
 Source: [brief](../briefs/switch-on-helpers.md); `claude-home/rules/when-to-switch-on.md` "Needs a script, not built yet"; your messages 2026-10-22.
 
+### 95. Fix: auto handoff fires after /auto-handoff off, and off holds per folder · done
+You turned auto handoff off and a chat handed off by itself again. You also want an off to hold for every later chat started in the same folder, until you turn it on there.
+**Done when:** after `/auto-handoff off`, no chat in that folder (new, cleared, resumed or forked) hands off by itself until `/auto-handoff on`; a mod test reproduces the bug red first.
+- [x] Trace and fix: `/debug auto handoff fires after off` (PR #147: off was keyed by session id and dropped on an owner `/clear`; now one file per folder; 97 mod tests pass, 4 mutants red)
+- [x] Merge PR #147 (merged 2026-10-22, eb42408)
+- [x] Verify it: `/check verify fix auto handoff off` (docs/reviews/verify-row-95-2026-10-22.md)
+- [x] Test it: `/test fix auto handoff off` (resumed and forked tests added; 4 mutants red; mod tests 155 pass)
+Source: your message 2026-10-22 ("I turned auto handoff [off] and it got done again automatically... if I start a /auto-handoff off all the next chats started after it in the same folder will be off").
+
+### 96. Rename the dashboard mod to chip-dash · done
+Your tools are the "chip" family. The wf-dash mod becomes `chip-dash` everywhere (folder, plugin id, state keys, tests, chip text), command `/chip`, `/wf-dash` kept as an alias.
+**Done when:** no `wf-dash` name is left in the mod except the alias, its tests pass, and you relink it after the security scan.
+- [x] Rename it: `/develop rename the dashboard mod to chip-dash` (PR #148 merged 2026-10-22, e3cd82c; suite 1136 pass, mod tests 57 and 97 pass)
+- [x] Relink `~/.claude/skills/chip-dash` after `skillspector scan` · waits on you (2026-10-22: scan `--no-llm`, no model key; 2 HIGH and 10 MEDIUM, all false positives: audit report prose, PRODUCT.md prose, list form subprocess calls)
+Source: [brief](../briefs/dashboard-restructure.md) (name answer).
+
+### 104. Fix: a resumed chat follows the folder's auto handoff setting both ways · done
+A chat saved while auto handoff was off, resumed after you typed `/auto-handoff on` in that folder, stays off: at chat start the wf-handoff mod only ever sets `chain.off = true` from the folder file, never back to on (`claude-home/mods/wf-handoff/hooks/register.ts`, found in the row 95 verify).
+**Done when:** a resumed chat takes the folder's current setting, on or off, with a mod test red on the old code.
+- [x] Fix it: `/debug a resumed chat follows the folder's auto handoff setting` (chat start takes the folder file's word, on or off; no word keeps the chat's own)
+- [x] Verify it: `/check verify a resumed chat follows the folder's auto handoff setting` (off side: the row 95 resumed and forked tests; on side: the new row 104 test, the resumed chat is gated past the line. can fail: chat start only ever sets off, the old code; red)
+- [x] Test it: `/test a resumed chat follows the folder's auto handoff setting` (2 tests; mutants: old `if off then true` line -> row 104 resumed test red; no-word guard dropped -> 4 tests red incl. the row 104 no-word test; mod tests 157 pass)
+Source: [row 95 verify](../reviews/verify-row-95-2026-10-22.md); your answer 2026-10-22 ("Make it a row").
+
 ## Deferred
 
 ### 49. Fast runner · done

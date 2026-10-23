@@ -115,6 +115,16 @@ Closed rows (done or dropped, no open box) live in [done.md](done.md).
 | 92 | Skills start themselves at the right moment | Release 10 | done |
 | 93 | Dashboard restructure for the setup without wf | Release 10 | done |
 | 94 | Three numbers for the switch-on rules | Release 10 | done |
+| 95 | Fix: auto handoff fires after /auto-handoff off | Release 10 | done |
+| 96 | Rename the dashboard mod to chip-dash | Release 10 | done |
+| 97 | Restructure claude-config to the icm-architect layout | Release 10 | in-progress |
+| 98 | Helper scripts the switch-on rules still lack | Release 10 | done |
+| 99 | Auto handoff off by itself in plain talk chats | Release 10 | dropped |
+| 100 | build-features workflow, shown while it runs | Release 10 | in-progress |
+| 101 | Workflow templates research and a workflow builder skill | Release 10 | in-progress |
+| 102 | review-fix and restructure-check workflows | Release 10 | in-progress |
+| 103 | Fix: a manual handoff gets the "not live" facts list | Release 10 | in-progress |
+| 104 | Fix: a resumed chat follows the folder's auto handoff setting | Release 10 | done |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -176,22 +186,6 @@ The `wf` runner is retired live. What it did for some chats is now a rule in eve
 - [ ] Push the local dotfiles main (one merge commit, plus the AGENTS.md trim) · waits on you · later boxes go on
 - [ ] Try `fb-ask review` on the next risky review (never run against the real claude-fb models yet)
 Source: [brief](../briefs/retire-runner.md) ("Decisions 2026-10-22 (third chat)") and [brief](../briefs/context-trim-and-all-chats.md).
-
-### 95. Fix: auto handoff fires after /auto-handoff off, and off holds per folder · in-progress
-You turned auto handoff off and a chat handed off by itself again. You also want an off to hold for every later chat started in the same folder, until you turn it on there.
-**Done when:** after `/auto-handoff off`, no chat in that folder (new, cleared, resumed or forked) hands off by itself until `/auto-handoff on`; a mod test reproduces the bug red first.
-- [x] Trace and fix: `/debug auto handoff fires after off` (PR #147: off was keyed by session id and dropped on an owner `/clear`; now one file per folder; 97 mod tests pass, 4 mutants red)
-- [x] Merge PR #147 (merged 2026-10-22, eb42408)
-- [x] Verify it: `/check verify fix auto handoff off` (docs/reviews/verify-row-95-2026-10-22.md)
-- [x] Test it: `/test fix auto handoff off` (resumed and forked tests added; 4 mutants red; mod tests 155 pass)
-Source: your message 2026-10-22 ("I turned auto handoff [off] and it got done again automatically... if I start a /auto-handoff off all the next chats started after it in the same folder will be off").
-
-### 96. Rename the dashboard mod to chip-dash · in-progress
-Your tools are the "chip" family. The wf-dash mod becomes `chip-dash` everywhere (folder, plugin id, state keys, tests, chip text), command `/chip`, `/wf-dash` kept as an alias.
-**Done when:** no `wf-dash` name is left in the mod except the alias, its tests pass, and you relink it after the security scan.
-- [x] Rename it: `/develop rename the dashboard mod to chip-dash` (PR #148 merged 2026-10-22, e3cd82c; suite 1136 pass, mod tests 57 and 97 pass)
-- [x] Relink `~/.claude/skills/chip-dash` after `skillspector scan` · waits on you (2026-10-22: scan `--no-llm`, no model key; 2 HIGH and 10 MEDIUM, all false positives: audit report prose, PRODUCT.md prose, list form subprocess calls)
-Source: [brief](../briefs/dashboard-restructure.md) (name answer).
 
 ### 97. Restructure claude-config to the icm-architect folder layout · in-progress
 You asked to restructure claude-config into the folder layout of RinDig's icm-architect repo. Phase 1: [0072](../specs/0072-icm-restructure/index.md); phase 2 is designed after phase 1 lands.
@@ -259,14 +253,6 @@ A manual `/rollover` then `/clear` gets no "not live" list in the handover: the 
 - [x] Test it: `/test a manual handoff gets the not live facts list` (mutants: stamp disabled -> red on `## Handoff facts`; once-guard removed -> red on the second `/handoff` adding a second block)
 - [ ] Live check: type `/rollover`, then `/clear`; the new chat's handover has a `## Handoff facts` block with the not live list · waits on you · later boxes go on
 Source: gap found in the ninth chat of 2026-10-22 (handover of that chat, next action 2).
-
-### 104. Fix: a resumed chat follows the folder's auto handoff setting both ways · planned
-A chat saved while auto handoff was off, resumed after you typed `/auto-handoff on` in that folder, stays off: at chat start the wf-handoff mod only ever sets `chain.off = true` from the folder file, never back to on (`claude-home/mods/wf-handoff/hooks/register.ts`, found in the row 95 verify).
-**Done when:** a resumed chat takes the folder's current setting, on or off, with a mod test red on the old code.
-- [x] Fix it: `/debug a resumed chat follows the folder's auto handoff setting` (chat start takes the folder file's word, on or off; no word keeps the chat's own)
-- [x] Verify it: `/check verify a resumed chat follows the folder's auto handoff setting` (off side: the row 95 resumed and forked tests; on side: the new row 104 test, the resumed chat is gated past the line. can fail: chat start only ever sets off, the old code; red)
-- [x] Test it: `/test a resumed chat follows the folder's auto handoff setting` (2 tests; mutants: old `if off then true` line -> row 104 resumed test red; no-word guard dropped -> 4 tests red incl. the row 104 no-word test; mod tests 157 pass)
-Source: [row 95 verify](../reviews/verify-row-95-2026-10-22.md); your answer 2026-10-22 ("Make it a row").
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
