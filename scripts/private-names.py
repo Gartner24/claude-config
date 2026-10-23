@@ -732,7 +732,7 @@ def selftest():
     shutil.copy(SCRIPT, irepo / "scripts" / "private-names.py")
     # every file install.sh copies unconditionally: a missing one stops it under set -e before settings.json
     for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py", "hooks/context-monitor.js",
-              "hooks/handover-start.sh", "hooks/no-jjstack-bar.py"):
+              "hooks/handover-start.sh", "hooks/no-jjstack-bar.py", "hooks/skill-rules.py"):
         (irepo / "claude-home" / f).write_text("#!/bin/sh\n")
     (irepo / "claude-home" / "CLAUDE.md").write_text("# rules\n")
     (irepo / "claude-home" / "settings.json").write_text(json.dumps({"permissions": {"deny": ["Bash(rm:*)", "Read(~/x)"]}}))

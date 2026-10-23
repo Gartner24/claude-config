@@ -512,6 +512,19 @@ class TestWorkflowBuilderCheck(unittest.TestCase):
         self.assertIn("check.py self check: ok", r.stdout)
 
 
+class TestScriptSelfChecks(unittest.TestCase):
+    # the --test self checks of context-monitor.js and private-names.py are not run by anything else
+    def run_check(self, *cmd):
+        r = subprocess.run(cmd, cwd=REAL, capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=300)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_context_monitor(self):
+        self.run_check("node", str(REAL / "claude-home" / "hooks" / "context-monitor.js"), "--test")
+
+    def test_private_names(self):
+        self.run_check(sys.executable, "-B", str(REAL / "scripts" / "private-names.py"), "--test")
+
+
 class TestBuild(Case):
     # covers: AC-5, AC-6, AC-7, AC-8 happy path: an older pinned commit found by the history walk, a lock entry
     # edited after install pinned by its tree hash with a public patch, a cite only skill with nothing in the repo,
