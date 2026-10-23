@@ -85,16 +85,21 @@ git_clean_is_destructive() {
   return 0
 }
 
+# --staged/-S/--worktree/-W count only before a bare `--`; after it they are pathspecs.
+restore_staged_only() {
+  local pre
+  pre="$(sed -E 's/[[:space:]]--([[:space:]].*)?$//' <<<"$1")"
+  grep -Eq '[[:space:]](--staged|-S)([[:space:]]|$)' <<<"$pre" \
+    && ! grep -Eq '[[:space:]](--worktree|-W)([[:space:]]|$)' <<<"$pre"
+}
+
 # `git restore` of the whole tree discards work; `--staged` alone only unstages, so it is allowed.
 git_restore_is_destructive() {
   local seg
   # each restore on its own: `git restore --staged x; git restore .` must not pass on the first one's flag
   while read -r seg; do
     grep -Eq "[[:space:]]$TREE$END" <<<"$seg" || continue
-    if grep -Eq '[[:space:]](--staged|-S)([[:space:]]|$)' <<<"$seg" \
-        && ! grep -Eq '[[:space:]](--worktree|-W)([[:space:]]|$)' <<<"$seg"; then
-      continue
-    fi
+    restore_staged_only "$seg" && continue
     return 0
   done < <(grep -oEi 'git[[:space:]]+([^|;&]*[[:space:]])?restore[[:space:]]+[^|;&]*' <<<"$1")
   return 1
@@ -104,19 +109,23 @@ git_restore_is_destructive() {
 # (exclude and top magic, `:/.`) or is only `.`, `/`, `*` characters (`./*`, `.//`, `..`, `../`).
 # `restore --staged` alone only unstages, so it stays allowed.
 git_pathspec_is_tree() {
-  local seg kind rest tok
+  local seg kind rest tok dd
   local -a toks
   for kind in checkout restore; do
     while read -r seg; do
       rest="${seg#*"$kind"}"
-      if [[ $kind == restore ]] && grep -Eq '[[:space:]](--staged|-S)([[:space:]]|$)' <<<"$seg" \
-          && ! grep -Eq '[[:space:]](--worktree|-W)([[:space:]]|$)' <<<"$seg"; then
-        continue
-      fi
+      [[ $kind == restore ]] && restore_staged_only "$seg" && continue
       read -ra toks <<<"$rest"
+      dd=0
       for tok in "${toks[@]}"; do
         tok="${tok//[\"\']/}"
-        [[ "$tok" == :* || "$tok" =~ ^[./*]+$ ]] && return 0
+        [[ "$tok" == -- ]] && { dd=1; continue; }
+        # a `..` segment climbs to the root or above
+        [[ "$tok" == :* || "$tok" =~ ^[./*]+$ || "$tok" =~ (^|/)\.\.(/|$) ]] && return 0
+        # absolute, $VAR and ~ words cannot be judged as text
+        if [[ $kind == restore || $dd == 1 ]]; then
+          [[ "$tok" == /* || "$tok" == '$'* || "$tok" == '~'* ]] && return 0
+        fi
       done
     done < <(grep -oEi "git[[:space:]]+([^|;&]*[[:space:]])?$kind[[:space:]]+[^|;&]*" <<<"$1")
   done
@@ -124,7 +133,7 @@ git_pathspec_is_tree() {
 }
 
 check() {
-  local cmd="$1" p
+  local cmd="${1//\\$'\n'/ }" p
   if git_pathspec_is_tree "$cmd"; then
     echo "git checkout/restore of a whole tree pathspec discards uncommitted work" && return 2
   fi
@@ -607,6 +616,32 @@ if [[ "${1:-}" == "--test" ]]; then
   allow 'git checkout -- ./src/a.ts'
   allow 'git -C .. checkout main'
   allow 'git restore --staged :!x'
+  # row 113: late spellings
+  block 'git checkout -- sub/..'
+  block 'git checkout -- a/../..'
+  block 'git restore sub/..'
+  block 'git restore src/../src/a.ts'
+  block 'git checkout -- /home/santiago/x'
+  block 'git checkout -- $HOME'
+  block 'git checkout -- ~/x'
+  block 'git restore /home/santiago/x'
+  block 'git restore $PWD'
+  block 'git restore ~'
+  block 'git checkout \
+.'
+  block 'git restore \
+--staged --worktree .'
+  block 'git reset \
+--hard'
+  block 'git restore -- --staged .'
+  allow 'git restore --staged -- --staged .'
+  allow 'git checkout -- src/a.ts'
+  allow 'git restore --staged -- .'
+  allow 'git restore . --staged'
+  allow 'git checkout feature/x'
+  allow 'git checkout $BRANCH'
+  allow 'git status \
+--short'
   # follow-up of spec 0016: a destructive rm inside a quoted shell string
   block 'bash -c "rm -rf ~"'
   block "sh -c 'rm -rf /'"
