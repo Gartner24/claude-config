@@ -211,7 +211,9 @@ You asked to restructure claude-config into the folder layout of RinDig's icm-ar
 - [ ] Live check: a fresh chat with `/architect x` gets the rules, a plain question chat does not · waits on you · later boxes go on
 - [ ] Build phase 2 PR B: `/develop restructure claude-config phase 2` (0077b tools folder, AC-10 to AC-15, after PR A merges)
 - [ ] Verify it: `/check verify restructure claude-config phase 2`
+  - [x] PR A (AC-1 to AC-9): throwaway install shows 16,834 always loaded characters, the skill rules hook loads 9 architect files for a Skill start and a typed `/architect x` and nothing for a plain prompt, moved live rules backed up not deleted, restructure-check run 20261022-230208 cited; see [verify](../specs/0077-restructure-phase-2/verify.md)
 - [ ] Test it: `/test restructure claude-config phase 2`
+  - [x] PR A: suite 180 ok, wf-handoff mod 158 pass, dry run clean, no test added or changed in this pass (builder's 21 mutants stand), mutation check 0
 - Earlier note on this box (after phase 1 is merged and reviewed). Also checks the live side (your answers 2026-10-22): first find out whether Claude ever edits `~/.claude` without the repo's map. If not, drop the `~/.claude` map with one line of reasoning in the spec; if yes, add only the smallest pointer file, shipped from `claude-home/` by `bin/install.sh` and never loaded in normal chats. `~/.claude/private/` stays live only. Right before this box, run the restructure-check interview (row 102, `/workflow-builder restructure-check`; owner 2026-10-22). The design also cuts the always loaded text (about 18k to 25k tokens before the first message, [blind review](../reviews/blind-setup-review-2026-10-22.md) fix 1; owner 2026-10-22: fold it into phase 2)
 Source: [brief](../briefs/icm-restructure.md); [brief](../briefs/retire-runner.md) line 13; your messages 2026-10-22.
 

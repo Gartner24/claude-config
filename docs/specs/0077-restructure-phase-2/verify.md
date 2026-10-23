@@ -20,3 +20,17 @@ Measured with Python `len()` over `claude-home/CLAUDE.md` plus `claude-home/rule
 
 ## P2 Claude edits ~/.claude without the repo map (2026-10-22) - YES
 `rg -l` over `~/.claude/projects/*/*.jsonl` for `"file_path":"/home/santiago/.claude/(CLAUDE.md|rules/|hooks/|skills/*/SKILL.md|settings.json)`: 37 transcripts, from this repo and from work, freelance and university folders (reads and writes counted together). So AC-6 adds the pointer file.
+
+## PR A verify (0077a, AC-1 to AC-9), head after merging main, 2026-10-22
+Throwaway install: `HOME=/tmp/v77/home CLAUDE_LIVE_DIR=/tmp/v77/home/.claude WF_STAGE=1 bash bin/install.sh` (WF_STAGE=1 skips bin links and .git hooks; live rules seeded with `branch-pr.md` and `handoff.md`; `jjstack` skill linked and `private/patches` copied only so unrelated self checks can run). The real `~/.claude` was never touched.
+
+- [x] Live rules that moved are backed up, not deleted: output lists `live only: rules/branch-pr.md -> backups/rules/2026-10-22/rules/branch-pr.md` (and handoff.md); `rules/` then holds only lessons, new-number-replaces-old, no-attribution, plain-questions, stop-and-reset (+ ecc); `rules-on-demand/` holds 17 files + map.json. can fail: install leaves `rules/handoff.md` in place, or deletes it with no backup. -> AC-7
+- [x] Always loaded text in that install: `live always loaded text: 16834 characters (limit 20000)` from the install verify (CLAUDE.md + rules/*.md, 9664 + the CLAUDE.md part). can fail: a moved rule left in `rules/` pushes it past 20000 and verify exits 1 with the total. -> AC-1
+- [x] `skill-rules.py` with `{"hook_event_name":"PreToolUse","tool_input":{"skill":"architect"}}` prints additionalContext with 9 `# rules for /architect: <file>` headers (spec-gate ... handoff). can fail: a map key renamed or a file missing prints nothing. -> AC-3, AC-4
+- [x] Same hook with `{"hook_event_name":"UserPromptSubmit","prompt":"/architect x"}` prints the same 9 headers; `"what is a monad"` prints nothing; `code-review:code-review` prints nothing (no fallback after the colon). can fail: a hook that matches any prompt, or falls back to the part after the colon. -> AC-4
+- [x] Install verify runs `skill rules hook: all self-checks passed` and `settings.json` wires `skill-rules.py` on PreToolUse matcher `Skill` and on UserPromptSubmit; no `chain-catch.py --prompt` entry and no `def prompt` / `--prompt` code in chain-catch.py (only the removal note). can fail: reminder entry still in settings. -> AC-4, AC-5
+- [x] `MAP.md` (6 lines) is copied to live `MAP.md`. can fail: missing from COPIED_FILES. -> AC-6
+- [x] AC-9: restructure-check run 20261022-230208, verdict "4 needs a look", all four fixed in 76da9db (cited, not rerun). -> AC-9
+- AC-8 (docs rewritten) is covered by `tests/test_map.py` and the suite; see the /test report.
+- Install self checks after the size check stopped on `DESIGN LEDGER SELF-CHECK FAILED`: 3 brand-board tests need the freelance kit under the throwaway HOME (`website-build-templates`), unrelated to 0077; 105 of 108 pass. The later hook file check was therefore not reached in the throwaway; the suite covers it (`TestHookFiles`).
+- Owner boxes, not run: real install and live AC-1 measure; typed `/architect x` in a fresh chat vs a plain chat. · waits on you
