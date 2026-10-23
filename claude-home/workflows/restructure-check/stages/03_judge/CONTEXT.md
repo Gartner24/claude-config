@@ -17,10 +17,11 @@ base and head refs.
    or the command to run. When unsure, it needs a look.
 3. Write the report with the verdict line first: `nothing broke` only when every difference is expected, else
    `needs a look: <n> difference(s)`.
-4. Write the outputs below, then return the schema the prompt names.
+4. Do not write files (a workflow subagent's Write is refused for a report file). Return the whole report text in the
+   schema's `report` field; the starter writes it to the path below.
 
 ## Outputs
-- `<run>/03_judge/output/report.md`: verdict line, then each difference with its mark and evidence
+- `<run>/03_judge/output/report.md`, written by the starter from the `report` field: verdict line, then each difference with its mark and evidence
 
 ## Human check
 Every "needs a look" names a file:line or a command.

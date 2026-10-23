@@ -15,14 +15,21 @@ Start the `restructure-check` workflow (spec 0076). Its stages and their checks:
    be a local branch (`git show-ref --verify refs/heads/<branch>`). Otherwise stop and say "restructure-check runs
    the head's code; it only runs on your own PRs". Run this check before the fetch.
    Trust model: the workflow runs the PR's own code, so it is for the owner's own PRs only.
-   The answers fill the named args: `head`: the ref above; `base`: the base ref.
+   After the fetch, `headSha` = `git -C <repo> rev-parse <head>` (full 40 hex). Pass `ownerChecked: true` only after the
+   author check above passed. The script refuses unless `head` is `refs/heads/<x>` or `refs/restructure-check/pr-<n>`
+   (use the full ref names), `headSha` and `base` are 40 hex shas, and `ownerChecked` is true.
+   The answers fill the named args: `head`: the ref above; `headSha`; `ownerChecked`; `base`: the base sha.
+   The capture stage contract a run uses is the live (main) copy: when the PR touches
+   `claude-home/workflows/restructure-check/`, say that the run used the old contract.
 2. Repo: `git rev-parse --show-toplevel` (absolute). Run id: `date +%Y%m%d-%H%M%S` (local time).
 3. Keep runs out of git: `git -C <repo> check-ignore -q .workflow/x`. When it exits non zero, append the line
    `.workflow/` to the file `git -C <repo> rev-parse --git-path info/exclude` names (relative paths are under `<repo>`).
 4. Call the Workflow tool with `scriptPath` `~/.claude/workflows/restructure-check/restructure-check.js` and `args`
-   `{repo, runId, head, base}`.
+   `{repo, runId, head, headSha, ownerChecked, base}`.
 5. After the run, for each stage show its output folder `<repo>/.workflow/runs/restructure-check/<run id>/NN_<stage>/output/`,
    the line under `## Human check` in `~/.claude/workflows/restructure-check/stages/NN_<stage>/CONTEXT.md`, and any `wf/...`
    branches the run returned. Say any stage marked `failed`. Count the folders in `<repo>/.workflow/runs/restructure-check/` and
    say "<n> run folders kept until you delete them".
-6. After the run: show `03_judge/output/report.md`, verdict line first. Push, merge and post nothing.
+6. After the run: write the `report` field of the `03_judge` stage result, as returned, to
+   `<repo>/.workflow/runs/restructure-check/<run id>/03_judge/output/report.md` (the judge agent cannot write it), then show
+   it, verdict line first. Push, merge and post nothing.
