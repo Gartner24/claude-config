@@ -89,10 +89,10 @@ export function segments(f: Facts, now = Date.now(), rich = true, compact = fals
     meterSeg('5h', '5h', f.fiveHour, rich ? resetIn(f.fiveHourReset, now) : ''),
     meterSeg('week', 'week', f.week, rich ? resetIn(f.weekReset, now) : ''),
   )
-  // spec 0071 AC-7: the steps this chat owes, drawn just before the handoff segment; nothing at 0 or when the file
-  // could not be read (never `owed 0`, never `owed ?`). Kept in the left list so fit() counts it, last to drop.
   // spec 0074 AC-12: running /build-features workflow agents; nothing at 0
   if ((f.build ?? 0) > 0) left.push(seg('build', [{ text: `build ${f.build}`, color: color.text, bold: true }]))
+  // spec 0071 AC-7: the steps this chat owes, drawn just before the handoff segment; nothing at 0 or when the file
+  // could not be read (never `owed 0`, never `owed ?`). Kept in the left list so fit() counts it, last to drop.
   const owed = f.owed?.lines?.length ?? 0
   if (owed > 0) left.push(seg('owed', [{ text: `owed ${owed}`, color: color.warn, bold: true }]))
 
