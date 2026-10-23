@@ -258,10 +258,11 @@ Source: gap found in the ninth chat of 2026-10-22 (handover of that chat, next a
 Found by the automated security reviews of PRs #217 and #218 and the #218 review, after rows 111 and 112 closed. `block-destructive.sh` (a text pattern guard with stated limits): a pathspec with `sub/..` that climbs to the root, a `git checkout`/`restore` split by a backslash line continuation, and `--staged` written after `--`. Assertion Guardian (spec 0079 lists only pipes): text fed to a shell by `bash <<< "..."`, `sh <<<`, `source <(...)`, `bash <(...)`, `| ksh`, `| busybox sh`. MEDIUM. The guardian part widens spec 0079 AC-7, so it needs a short `/architect` answer first.
 **Done when:** each form is refused (the destructive guard) or refused before running (the guardian), with a self or mod test each, and it is live; or a form is dropped with the owner's reason.
 - [x] Design it (spec): `/architect guard leftovers here-strings` (owner 2026-10-23: same rule, spec 0079 amended)
-- [ ] Fix it: `/debug guard leftovers here-strings`
-  - [x] Guardian part (PR #222)
-- [ ] Verify it: `/check verify guard leftovers here-strings`
-- [ ] Test it: `/test guard leftovers here-strings`
+- [x] Fix it: `/debug guard leftovers here-strings` (both parts: destructive guard in PR #221, guardian in PR #222)
+  - [x] Guardian part (PR #222): here-strings, `<(...)`, pipes into `ksh`/`mksh`/`ash`/`busybox sh`/`fish` and a `while read` loop running a shell refused before running; `do`/`then`/`else`/`elif`/`!` dropped so writes in compounds are compared (spec 0079 AC-13 to AC-17).
+  - [x] Destructive guard part (PR #221): `..` segment, absolute, `$` and `~` pathspecs refused; backslash newline joined in check(); `--staged`/`-S`/`--worktree`/`-W` honoured only before a bare `--`. Self tests and mutants in `claude-home/hooks/block-destructive.sh`. Owner (2026-10-23): no more hardening of this text guard.
+- [x] Verify it: `/check verify guard leftovers here-strings` (guardian: spec 0079 verify.md, row 113 sections, CAN FAIL CHECKED 5 + 6; destructive guard: its self tests in PR #221)
+- [x] Test it: `/test guard leftovers here-strings` (guardian: 98 mod tests, 18 mutants red then restored; destructive guard: self tests and mutants in PR #221)
 Source: automated security reviews of PRs #217 and #218, and the PR #218 review (2026-10-23, this chat).
 
 ## Deferred
