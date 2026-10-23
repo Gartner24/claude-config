@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-12
 **Status**: Accepted
-**Paths:** `_archive/runner/run.py`, `bin/install.sh`
+**Paths:** `_archive/runner/run.py`, `tools/bin/install.sh`
 **Amended by**: [0011](../0011-build-decision-queue/index.md) - AC-9's `guard:` part moved from the confirm line to its own line in each repo's plan block (0011 AC-6), same text after `guard: `; AC-8's missing `claude` exits 1 (0011 AC-4).
 **Amended**: 2026-10-12, review stack findings M7, M8, M9 (`docs/briefs/runner-review-stack-2026-10-12.md`): AC-1 credential paths widened by spec 0008 AC-7; AC-2 and AC-7 submodule `config` and `hooks`; the spec 0004 `DENIED` push rule narrowed (spec 0004 AC-4).
 **Amended**: 2026-10-12, second review stack (`c95f181..d20a328`, same brief): AC-2 and AC-7 cover submodules cloned in place and each submodule's `.git` pointer, `config.worktree` and include targets; AC-8 lists the refusals the first review added; AC-9 gains `submodules`; spec 0011 AC-9 counts a file at or under a submodule's `.git` as its repo's own.

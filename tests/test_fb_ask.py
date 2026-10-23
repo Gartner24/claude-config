@@ -1,4 +1,4 @@
-"""scripts/fb-ask.py (spec 0023 AC-13, spec 0053 AC-8): copied from the archived runner suite, which no longer runs."""
+"""tools/scripts/fb-ask.py (spec 0023 AC-13, spec 0053 AC-8): copied from the archived runner suite, which no longer runs."""
 import subprocess
 import sys
 import unittest
@@ -10,7 +10,7 @@ REPO = Path(__file__).resolve().parents[1]
 class TestFbAsk(unittest.TestCase):
     # covers: spec 0023 AC-13 (fb-ask --test passes: fake proxy, temp repos, every reason)
     def test_fb_ask(self):
-        r = subprocess.run([sys.executable, str(REPO / "scripts" / "fb-ask.py"), "--test"], capture_output=True,
+        r = subprocess.run([sys.executable, str(REPO / "tools" / "scripts" / "fb-ask.py"), "--test"], capture_output=True,
                            text=True, stdin=subprocess.DEVNULL, timeout=300)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 

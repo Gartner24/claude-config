@@ -67,7 +67,7 @@ Applies to every `/test`.
 
 ## 5. A feature's brief closes with the feature
 
-Spec 0069. The script is `python3 ~/claude-config/scripts/handover-memory.py`.
+Spec 0069. The script is `python3 ~/claude-config/tools/scripts/handover-memory.py`.
 
 - On every `/sync`: run `<script> lint <repo>` once. Copy every `warning:` line into the report
   under a heading `Briefs to tidy`. Never stop on them.

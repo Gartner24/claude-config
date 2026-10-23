@@ -6,15 +6,15 @@ skills/anti-ai-writing is third-party; all are overwritten on reinstall, so
 editing them is diff noise. Proper nouns keep their accents.
 
 Usage:
-  python3 scripts/asciify.py --check    # list offenders, exit 1 if any (CI-safe)
-  python3 scripts/asciify.py            # rewrite in place
+  python3 tools/scripts/asciify.py --check    # list offenders, exit 1 if any (CI-safe)
+  python3 tools/scripts/asciify.py            # rewrite in place
 """
 import pathlib
 import re
 import subprocess
 import sys
 
-REPO = pathlib.Path(__file__).resolve().parent.parent
+REPO = pathlib.Path(__file__).resolve().parents[2]
 
 SKIP_PREFIXES = ("claude-home/agents/", "claude-home/rules/")
 SKIP_SUBSTR = ("anti-ai-writing", "node_modules/")

@@ -10,8 +10,8 @@ because the LICENSE covers only the parts authored here.
 | `claude-home/skills/review-stack/` | Multi-agent pre-ship and PR review orchestrator |
 | `claude-home/agents/regression-hunter.md` | Regression hunting: what worked before a diff and stops after |
 | `claude-home/agents/pr-intent-verifier.md` | Does a PR do what it claims, and nothing else |
-| `config/routing.md` | Prompt-to-skill routing reference table |
-| `scripts/check-routing.py`, `scripts/asciify.py`, `scripts/private-names.py`, `scripts/spec-paths.py`, `scripts/fb-ask.py` | Repo tooling |
+| `tools/config/routing.md` | Prompt-to-skill routing reference table |
+| `tools/scripts/check-routing.py`, `tools/scripts/asciify.py`, `tools/scripts/private-names.py`, `tools/scripts/spec-paths.py`, `tools/scripts/fb-ask.py` | Repo tooling |
 | `claude-home/hooks/block-destructive.sh` | Destructive-command guard |
 | `claude-home/hooks/handover-start.sh` | Loads a waiting rollover handover after `/clear` (spec 0057) |
 | `claude-home/mods/wf-handoff/` | `/handoff` mod: clears so the handover hook loads the handover (spec 0057); hands a chat off on its own at the token line (spec 0063) |
@@ -31,7 +31,7 @@ because the LICENSE covers only the parts authored here.
 | `claude-home/rules-on-demand/cheap-worker.md` | Cheap worker tier: which text jobs go to `fb-ask`, the never list, and what exit 3 or 4 means (spec 0023) |
 | `claude-home/rules/new-number-replaces-old.md`, `claude-home/skills/lead-finder/`, `claude-home/skills/reaction-tester/` | Ideas borrowed from Harvey, MiroFish and claude-skills-founder, written here from scratch (spec 0056) |
 | `claude-home/rules/ecc/*/index.md` (7 files) | Per-language rule indexes - authored here, not upstream. They only `@import` the files below. |
-| `bin/sync.sh`, `claude-home/CLAUDE.md`, `claude-home/rules/ecc/common/{code-review,testing}.md` additions | Setup and the hand-earned rules |
+| `tools/bin/sync.sh`, `claude-home/CLAUDE.md`, `claude-home/rules/ecc/common/{code-review,testing}.md` additions | Setup and the hand-earned rules |
 
 ## Redistributed from elsewhere
 
@@ -44,7 +44,7 @@ because the LICENSE covers only the parts authored here.
 | `claude-home/hooks/context-monitor.js` | [gsd-build/get-shit-done](https://github.com/gsd-build/get-shit-done) (`get-shit-done-cc` on npm) | MIT. Derived from its `gsd-context-monitor.js`: reads the transcript instead of the status line bridge file, token thresholds from `~/.claude/CLAUDE.md` (spec 0037). |
 | `claude-home/mods/wf-handoff/facts.ts`, the trigger, gate and loop guards in `claude-home/mods/wf-handoff/hooks/register.ts` | [alexknowshtml/claude-auto-handoff](https://github.com/alexknowshtml/claude-auto-handoff) 0.8.6 | MIT. Design reused (spec 0063): token line with unmeasured tool output, tool gate, facts pulled from the transcript (their `extractFacts`), figures marked unverified (their `markUnverifiedFigures`), loop guards, templates. Written fresh here from that design: the upstream source was not fetched into this build, so no upstream file is copied. |
 | `claude-home/mods/wf-handoff/pages.ts`, `claude-home/mods/wf-handoff/server.py`, the panel file in `claude-home/mods/wf-handoff/hooks/register.ts`, `claude-home/mods/chip-dash/handoff.ts` | [alexknowshtml/claude-auto-handoff](https://github.com/alexknowshtml/claude-auto-handoff) 0.8.6 | MIT. Design reused (spec 0064): a progress panel per step, a page per handover served on the Tailscale address (their `viewer.ts`, `server.ts`). Written fresh here from that design: GitHub is closed to this build, so no upstream file is copied. |
-| `map/_templates/` | [RinDig/icm-architect](https://github.com/RinDig/icm-architect) (pin in `config/manifest.json`) | MIT. Layout of the object and process cards follows its templates; written here from scratch for this repo (spec 0072). |
+| `map/_templates/` | [RinDig/icm-architect](https://github.com/RinDig/icm-architect) (pin in `tools/config/manifest.json`) | MIT. Layout of the object and process cards follows its templates; written here from scratch for this repo (spec 0072). |
 | `claude-home/skills/anti-ai-writing/` | third party, MIT | Recorded in `docs/research/SKILLS-EVALUATION.md`. |
 | `claude-home/skills/voice-dna/`, `claude-home/skills/business-analyzer/` | third party | **License not recorded.** Verify before relying on redistribution. |
 
@@ -60,7 +60,7 @@ ECC boilerplate. Editing one copy does not change the other 28. `scout.md` and
 
 ## Downloaded skills with a public patch
 
-Written by `bin/claude-config.py build` from `config/manifest.json`; edit the manifest, not this part.
+Written by `tools/bin/claude-config.py build` from `tools/config/manifest.json`; edit the manifest, not this part.
 
 ### ccdwyer/assertion-guardian
 

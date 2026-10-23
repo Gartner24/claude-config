@@ -1,4 +1,4 @@
-"""Spec 0067: bin/move-home-chat.sh against a fake HOME and a stub pgrep; never the real ~/.claude."""
+"""Spec 0067: tools/bin/move-home-chat.sh against a fake HOME and a stub pgrep; never the real ~/.claude."""
 import datetime
 import fcntl
 import json
@@ -12,7 +12,7 @@ import unittest
 from pathlib import Path
 
 REAL = Path(__file__).resolve().parents[1]
-SCRIPT = REAL / "bin" / "move-home-chat.sh"
+SCRIPT = REAL / "tools" / "bin" / "move-home-chat.sh"
 
 LIVE = "-home-santiago-dotfiles-claude-config"
 OLD = "-home-santiago--claude"

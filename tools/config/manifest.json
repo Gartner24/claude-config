@@ -263,7 +263,7 @@
       "install": "copy github.com/ccdwyer/assertion-guardian into ~/.claude/skills/assertion-guardian",
       "kind": "skill",
       "license": "MIT",
-      "patch": "config/patches/assertion-guardian.patch",
+      "patch": "tools/config/patches/assertion-guardian.patch",
       "path": ".",
       "pinned": "ae1de89f090f04e6353b03346541c8a9f3e696db",
       "publish": true,

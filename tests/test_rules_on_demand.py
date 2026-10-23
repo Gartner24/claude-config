@@ -123,6 +123,8 @@ class TestRulesOnDemand(unittest.TestCase):
                     continue
                 if line in EDITED:
                     line = EDITED[line]
+                # spec 0077 AC-11: the tool folders moved under tools/, so a moved line names the new path
+                line = re.sub(r"(~/claude-config/|`)(bin|scripts)/", r"\1tools/\2/", line)
                 if line not in now:
                     lost.append(f"{rel}:{n}: {line[:80]}")
         self.assertEqual(lost, [], f"{len(lost)} old lines with no home:\n" + "\n".join(lost))

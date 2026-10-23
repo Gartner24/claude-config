@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-22
 **Status**: Accepted
-**Paths:** `claude-home/mods/wf-handoff/templates/*.md`, `claude-home/mods/wf-handoff/hooks/register.ts`, `claude-home/mods/wf-handoff/tests/**`, `claude-home/rules-on-demand/handover-carry.md`, `claude-home/rules-on-demand/check-gates.md`, `claude-home/CLAUDE.md`, `scripts/handover-memory.py`
+**Paths:** `claude-home/mods/wf-handoff/templates/*.md`, `claude-home/mods/wf-handoff/hooks/register.ts`, `claude-home/mods/wf-handoff/tests/**`, `claude-home/rules-on-demand/handover-carry.md`, `claude-home/rules-on-demand/check-gates.md`, `claude-home/CLAUDE.md`, `tools/scripts/handover-memory.py`
 **Amended**: 2026-10-22, owner picked all five decisions and the three small values ([brief](../briefs/handover-memory.md)); AC-13 added (landed mark set automatically); AC-14 to AC-22 added (the nine cross check fixes, owner: "Apply all nine")
 **Amended:** 2026-10-22, owner: the writer agent runs in the background (probe FAIL), so the mod waits for running agents, then checks the slot
 **Amended:** 2026-10-22, owner: the slot keeps its Open questions section beside the memory (replay lost 2 of 11)

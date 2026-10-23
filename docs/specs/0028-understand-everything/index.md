@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-13
 **Status**: Accepted (built 8b7fd19)
-**Paths:** `claude-home/rules/plain-questions.md`, `claude-home/hooks/plain-panel.py`, `claude-home/settings.json`, `bin/install.sh`, `bin/sync.sh`, `_archive/runner/plain.py`, `_archive/runner/run.py`, `_archive/runner/ntfy.py`, `_archive/runner/report.py`, `_archive/runner/tests/test_plain.py`
+**Paths:** `claude-home/rules/plain-questions.md`, `claude-home/hooks/plain-panel.py`, `claude-home/settings.json`, `tools/bin/install.sh`, `tools/bin/sync.sh`, `_archive/runner/plain.py`, `_archive/runner/run.py`, `_archive/runner/ntfy.py`, `_archive/runner/report.py`, `_archive/runner/tests/test_plain.py`
 **Amends**: [0005](../../../_archive/runner/docs/specs/0005-decision-parking-phone-pings/index.md) (the ping body gains a `learn:` line, the prompt a `LEARN:` line), [0011](../0011-build-decision-queue/index.md) (a Decision gains `learn` and `jargon`), [0018](../0018-morning-report/index.md) AC-2 and AC-4 (item words and reasons in plain words), [0021](../../../_archive/runner/docs/specs/0021-never-stop/index.md) AC-2 (case questions in plain words with a learn line).
 
 ## What you're agreeing to

@@ -19,7 +19,7 @@ def front(name):
 class TestNotDownloaded(Case):
     # covers: AC-8 (no manifest entry, so update never names or overwrites them)
     def test_real_manifest(self):
-        entries = json.loads((REAL / "config" / "manifest.json").read_text())["entries"]
+        entries = json.loads((REAL / "tools" / "config" / "manifest.json").read_text())["entries"]
         self.assertEqual([n for n in OWN if n in entries], [])
 
     def test_plan_skips_own(self):

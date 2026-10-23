@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-13
 **Status**: Accepted (built 8490b26)
-**Paths:** `scripts/fb-ask.py`, `bin/install.sh`, `_archive/runner/run.py`, `_archive/runner/report.py`, `_archive/runner/tests/*`, `claude-home/rules-on-demand/cheap-worker.md`, `AGENTS.md`
+**Paths:** `tools/scripts/fb-ask.py`, `tools/bin/install.sh`, `_archive/runner/run.py`, `_archive/runner/report.py`, `_archive/runner/tests/*`, `claude-home/rules-on-demand/cheap-worker.md`, `AGENTS.md`
 **Amends**: [0008](../../../_archive/runner/docs/specs/0008-failure-park-policy/index.md) AC-7 (one more credential folder hidden from calls).
 
 ## What you're agreeing to

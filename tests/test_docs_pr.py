@@ -1,5 +1,5 @@
-"""bin/docs-pr.sh (spec 0051 AC-11, spec 0026 AC-6, spec 0072 AC-3): copied from the archived runner suite, which no
-longer runs. Every case runs a copy of the script inside a scratch repo whose origin carries scripts/private-names.py and
+"""tools/bin/docs-pr.sh (spec 0051 AC-11, spec 0026 AC-6, spec 0072 AC-3): copied from the archived runner suite, which no
+longer runs. Every case runs a copy of the script inside a scratch repo whose origin carries tools/scripts/private-names.py and
 _archive/runner, because the script reads its scanners from its repo's origin default branch."""
 import json
 import os
@@ -55,10 +55,10 @@ class DocsPr(unittest.TestCase):
         self.repo = self.tmp / "repo"
         self.repo.mkdir()
         self.git("init", "-q", "-b", "work")
-        (self.repo / "bin").mkdir()
-        shutil.copy(REPO / "bin" / "docs-pr.sh", self.repo / "bin" / "docs-pr.sh")
-        (self.repo / "scripts").mkdir()
-        shutil.copy(REPO / "scripts" / "private-names.py", self.repo / "scripts" / "private-names.py")
+        (self.repo / "tools" / "bin").mkdir(parents=True)
+        shutil.copy(REPO / "tools" / "bin" / "docs-pr.sh", self.repo / "tools" / "bin" / "docs-pr.sh")
+        (self.repo / "tools" / "scripts").mkdir()
+        shutil.copy(REPO / "tools" / "scripts" / "private-names.py", self.repo / "tools" / "scripts" / "private-names.py")
         shutil.copytree(REPO / "_archive" / "runner", self.repo / "_archive" / "runner",
                         ignore=shutil.ignore_patterns("tests", "__pycache__", "e2e", "docs"))
         (self.repo / "docs").mkdir()
@@ -82,7 +82,7 @@ class DocsPr(unittest.TestCase):
         return [json.loads(l) for l in p.read_text().splitlines()] if p.exists() else []
 
     def script(self, *args):
-        return subprocess.run(["bash", str(self.repo / "bin" / "docs-pr.sh"), *args], cwd=self.repo, capture_output=True,
+        return subprocess.run(["bash", str(self.repo / "tools" / "bin" / "docs-pr.sh"), *args], cwd=self.repo, capture_output=True,
                               text=True, env=self.env, timeout=120)
 
     def commit(self, path, text="x\n", message=None):
@@ -178,7 +178,7 @@ class DocsPr(unittest.TestCase):
     def test_planted_checker(self):
         self.commit("docs/notes.md", "made for Zorblex\n")
         # Untracked, so the tree check does not see it; python's script folder would.
-        (self.repo / "scripts" / "subprocess.py").write_text("import sys\nsys.exit(0)\n")
+        (self.repo / "tools" / "scripts" / "subprocess.py").write_text("import sys\nsys.exit(0)\n")
         self.gh({"land": str(self.origin)})
         r = self.script()
         self.assertEqual(r.returncode, 2, r.stdout + r.stderr)

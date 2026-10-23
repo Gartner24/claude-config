@@ -34,7 +34,7 @@ Which reviewer to use is in `## Review Rules` of the same CLAUDE.md file. Never 
 | `wf unpark <repo> [feature]` | Clears parks and open questions so the next `wf run` starts them fresh. | 0011 |
 | `wf allow <repo>` | Adds the repo to the trust list. `wf run` refuses an `untrusted` repo (exit 5) when it is not in `$XDG_CONFIG_HOME/wf/allowed.json`, else `~/.config/wf/allowed.json`. | 0008 |
 | `wf allow-writes <repo> <path>` | Gives standing write permission to that repo's `wf run` calls. It is kept in `~/.config/wf/allow.json`. A never writable set (secrets, live `~/.claude` settings, hooks, rules, PATH dirs, git config) always wins. Refused under `WF_RUN`. An `AGENTS.md` `- allow writes:` line is ignored now. | 0021 (AC-7) |
-| `wf finish [target] [-y]` | Runs the ` · live` waits-on-you boxes (cp into `~/.claude`, `bin/install.sh`, e2e, probes) after one Enter, keeps `autoMode`, ticks them, records `verify.md` and commits. Never from an unattended call. The exception: a `wf run` that reaches a live copy box into `rules/`, `agents/`, `commands/` or `skills/` asks on the phone and runs exactly the approved copies itself, pinned by source hash. | 0019, 0041 |
+| `wf finish [target] [-y]` | Runs the ` · live` waits-on-you boxes (cp into `~/.claude`, `tools/bin/install.sh`, e2e, probes) after one Enter, keeps `autoMode`, ticks them, records `verify.md` and commits. Never from an unattended call. The exception: a `wf run` that reaches a live copy box into `rules/`, `agents/`, `commands/` or `skills/` asks on the phone and runs exactly the approved copies itself, pinned by source hash. | 0019, 0041 |
 | `wf report [--seen\|--hook]` | Shows the last wf run's morning report. It is also sent to the phone at the end of every run. `--hook` is the `settings.json` SessionStart form and prints only an unseen report. `--seen` stops showing it. `report.txt` lives in the wf state folder. | 0018 |
 | `wf ntfy init\|codes\|test` | Phone pings for `wf run` decisions. Config is `~/.config/wf/ntfy.json` (0600). `wf run` refuses without it. | 0005 |
 | `wf telegram init\|test` | Your own Telegram bot instead of ntfy. `init` asks for the BotFather token (hidden), binds your chat with a `/start` code and writes `~/.config/wf/telegram.json` (0600). `test` sends one question. | 0029 |
@@ -48,14 +48,14 @@ Make the bot with BotFather, then run `wf telegram init` (spec 0029). With `tele
 
 ## Keep the repo and ~/.claude in sync
 
-Use the `/claude-config` skill (spec 0048, skill file [claude-home/skills/claude-config/SKILL.md](../../claude-home/skills/claude-config/SKILL.md)). It drives `bin/claude-config.py`. The tool never asks anything itself. The skill asks you, and nothing changes a skill without your yes on that skill.
+Use the `/claude-config` skill (spec 0048, skill file [claude-home/skills/claude-config/SKILL.md](../../claude-home/skills/claude-config/SKILL.md)). It drives `tools/bin/claude-config.py`. The tool never asks anything itself. The skill asks you, and nothing changes a skill without your yes on that skill.
 
 - `/claude-config drift` (also what you get with no argument): shows where the repo and `~/.claude` differ, grouped as live only, missing live, and differs. Kind `hook` lists each live `settings.json` hook command whose file is missing. Exit 1 means drift was found, not that the tool failed. It changes nothing.
 - `/claude-config sync`: copies `~/.claude` into the repo, then shows `git status --short`. It does not commit unless you ask.
 - `/claude-config install`: runs `--dry-run` first and shows it. It runs for real only after your yes.
 - `/claude-config update`: lists every downloaded skill whose upstream moved, with changed files and line counts. You answer yes or no per entry. On a conflict nothing is installed. You get the files with `<<<<<<<` markers under `~/.claude/state/claude-config-conflicts/<entry>/`, you fix them, and the skill reruns the entry with `--resolved`. Entries marked "update by hand, not checked" are never applied by the tool. An entry whose upstream folder became a link prints "is a link to <new name>, renamed upstream": point its manifest entry at the new name by hand.
 
-Before every commit in this repo, run `bin/sync.sh` and then look at `git diff`. Files copied from `~/.claude` are overwritten by the next sync, so edit those in `~/.claude`.
+Before every commit in this repo, run `tools/bin/sync.sh` and then look at `git diff`. Files copied from `~/.claude` are overwritten by the next sync, so edit those in `~/.claude`.
 
 The drift check runs only when you ask for it, never at session start. At session start a hook prints one line, "claude-config: upstream not checked for N days, run /claude-config update". It appears when 7 or more days have passed since the last `update --plan`, or when the state file is missing. It only counts days.
 
@@ -66,7 +66,7 @@ The layout of the repo, the manifest and the patches are in [the architecture no
 Main takes changes only through a squash merged PR (spec 0051), and GitHub refuses a direct push.
 
 - Runner features: each feature gets its own draft PR. Small, low risk ones merge themselves when green in a repo with `auto_merge` on. Any other PR asks "merge now" on your phone after your review. After a merge, the runner deletes the branch and its worktree.
-- Docs only commits from a session: `bin/docs-pr.sh <slug>` (see [SETUP.md](SETUP.md#land-changes-only-through-prs-spec-0051)).
+- Docs only commits from a session: `tools/bin/docs-pr.sh <slug>` (see [SETUP.md](SETUP.md#land-changes-only-through-prs-spec-0051)).
 - Code from a session: a branch, one commit, a draft PR, then `/review` before you merge.
 - The plan being worked through now is in [the tool review brief](../briefs/tool-review-2026-10.md), section "The plan, enforced until done".
 
@@ -74,9 +74,9 @@ Main takes changes only through a squash merged PR (spec 0051), and GitHub refus
 
 Typing the skill name always wins. Type `/review` and you get `/review`. The intent router only helps when you describe what you want instead of naming a skill.
 
-The routing table, the one the intent router reads, is [config/routing.md](../../config/routing.md). The same table is shown in [SKILLS.md](SKILLS.md) under `## Routing`. After you edit it or a skill's triggers, run `python3 scripts/check-routing.py`.
+The routing table, the one the intent router reads, is [tools/config/routing.md](../../tools/config/routing.md). The same table is shown in [SKILLS.md](SKILLS.md) under `## Routing`. After you edit it or a skill's triggers, run `python3 tools/scripts/check-routing.py`.
 
-The cheat sheet from the old USAGE guide is kept here, and also in `config/routing.md` under `## Cheat sheet`.
+The cheat sheet from the old USAGE guide is kept here, and also in `tools/config/routing.md` under `## Cheat sheet`.
 
 | Scenario | Route | Say something like |
 |----------|-------|--------------------|

@@ -1,4 +1,4 @@
-"""bin/install.sh (spec 0020 AC-3, AC-4, spec 0035 AC-7, spec 0072): copied from the archived runner suite, which no
+"""tools/bin/install.sh (spec 0020 AC-3, AC-4, spec 0035 AC-7, spec 0072): copied from the archived runner suite, which no
 longer runs. A scratch repo holds a copy of the script; it stops at its own verify step, after every write."""
 import json
 import os
@@ -17,15 +17,15 @@ class Scratch(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp()).resolve()
         self.addCleanup(shutil.rmtree, self.tmp)
         self.repo = repo = self.tmp / "repo"
-        for d in ("claude-home/agents", "claude-home/rules", "claude-home/hooks", "claude-home/scripts", "scripts", "bin"):
+        for d in ("claude-home/agents", "claude-home/rules", "claude-home/hooks", "claude-home/scripts", "tools/scripts", "tools/bin"):
             (repo / d).mkdir(parents=True)
-        shutil.copy(REPO / "bin/install.sh", repo / "bin/install.sh")
-        shutil.copy(REPO / "bin/claude-config.py", repo / "bin/claude-config.py")
+        shutil.copy(REPO / "tools/bin/install.sh", repo / "tools/bin/install.sh")
+        shutil.copy(REPO / "tools/bin/claude-config.py", repo / "tools/bin/claude-config.py")
         for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py",
                   "hooks/context-monitor.js", "hooks/handover-start.sh", "hooks/no-jjstack-bar.py", "hooks/skill-rules.py",
                   "hooks/chain-catch.py", "hooks/live-tick.py"):
             (repo / "claude-home" / f).write_text("#!/bin/sh\n")
-        (repo / "scripts" / "private-names.py").write_text(CHECKER)
+        (repo / "tools" / "scripts" / "private-names.py").write_text(CHECKER)
         (repo / "claude-home" / "settings.json").write_text("{}")
         (repo / "claude-home" / "CLAUDE.md").write_text("# r\n")
         subprocess.run(["git", "init", "-q", str(repo)], check=True, stdin=subprocess.DEVNULL)
@@ -44,7 +44,7 @@ class Scratch(unittest.TestCase):
         env.pop("WF_STAGE", None)
         if staged:
             env["WF_STAGE"] = "1"
-        r = subprocess.run(["bash", str(self.repo / "bin/install.sh"), *args], env=env, capture_output=True, text=True,
+        r = subprocess.run(["bash", str(self.repo / "tools/bin/install.sh"), *args], env=env, capture_output=True, text=True,
                            stdin=subprocess.DEVNULL, timeout=120)
         return home, live, r
 
@@ -65,7 +65,7 @@ class TestInstallStage(Scratch):
                 self.assertEqual([b.read_text() for b in baks], ['{"old": 1}'], r.stdout + r.stderr)
                 self.assertEqual([p.name for p in live.glob("*.bak.*")], [])
 
-    # covers: spec 0020 AC-4 (the hook replace rules of bin/install.sh: an up to date copy and a hand written hook are
+    # covers: spec 0020 AC-4 (the hook replace rules of tools/bin/install.sh: an up to date copy and a hand written hook are
     # left alone; an older copy, same second line, is refreshed; a missing hook is copied)
     def test_hooks_left_alone(self):
         (self.hooks / "pre-commit").write_text(CHECKER)
@@ -155,8 +155,8 @@ class TestHookFiles(Scratch):
     # whose file is missing after install; ~ and $HOME expand, an interpreter before the path is skipped, a command
     # that is no path and a hook under the live skills folder are left alone; every other self check still ran)
     def stub_verify(self):
-        for f in ("scripts/gen-agent-index.py", "scripts/spec-paths.py", "scripts/fb-ask.py", "scripts/start-gates.py",
-                  "scripts/design-check.py", "scripts/issue-reread.py", "scripts/review-isolated.py",
+        for f in ("tools/scripts/gen-agent-index.py", "tools/scripts/spec-paths.py", "tools/scripts/fb-ask.py", "tools/scripts/start-gates.py",
+                  "tools/scripts/design-check.py", "tools/scripts/issue-reread.py", "tools/scripts/review-isolated.py",
                   "claude-home/skills/design/scripts/test-ledger.sh", "claude-home/skills/design/scripts/build-ramp.mjs"):
             (self.repo / f).parent.mkdir(parents=True, exist_ok=True)
             (self.repo / f).write_text("")
@@ -191,7 +191,7 @@ class TestDryRun(unittest.TestCase):
         self.addCleanup(shutil.rmtree, tmp)
         home = tmp / "home"
         env = {**os.environ, "HOME": str(home), "CLAUDE_LIVE_DIR": str(tmp / "live")}
-        r = subprocess.run(["bash", str(REPO / "bin/install.sh"), "--dry-run"], capture_output=True, text=True, env=env,
+        r = subprocess.run(["bash", str(REPO / "tools/bin/install.sh"), "--dry-run"], capture_output=True, text=True, env=env,
                            stdin=subprocess.DEVNULL, timeout=120)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertNotIn("runner/*.py", r.stdout)

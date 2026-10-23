@@ -34,3 +34,42 @@ Throwaway install: `HOME=/tmp/v77/home CLAUDE_LIVE_DIR=/tmp/v77/home/.claude WF_
 - AC-8 (docs rewritten) is covered by `tests/test_map.py` and the suite; see the /test report.
 - Install self checks after the size check stopped on `DESIGN LEDGER SELF-CHECK FAILED`: 3 brand-board tests need the freelance kit under the throwaway HOME (`website-build-templates`), unrelated to 0077; 105 of 108 pass. The later hook file check was therefore not reached in the throwaway; the suite covers it (`TestHookFiles`).
 - Owner boxes, not run: real install and live AC-1 measure; typed `/architect x` in a fresh chat vs a plain chat. · waits on you
+
+## PR B build (0077b, AC-10 to AC-14), branch feat/0077-tools-folder, base 039220d, 2026-10-23
+The real flag names (AC-14): `snapshot --repo <tree> [--home DIR] [--link-root DIR] --out FILE` and
+`verify SNAPSHOT (--map FILE | --map-from-git BASE) [--repo <tree>] [--home DIR]`. Commands run, in this order, in the
+worktree `W` (`.claude/worktrees/agent-a0f07608fec590167` of the clone); the live links point into the main checkout,
+hence `--link-root`:
+1. On the base tree, before any move:
+   `python3 W/scripts/ref-check.py snapshot --repo W --link-root /home/santiago/dotfiles/claude-config --out /tmp/b77/before.json`
+   printed `snapshot: 813 pointers {'text': 442, 'spec-paths': 332, 'link': 37, 'settings': 2}, 88 already dangling (left out)`.
+2. `git mv bin tools/bin`, `git mv scripts tools/scripts`, `git mv config tools/config`; then every referrer (AC-11).
+3. `python3 -B W/tools/scripts/ref-check.py verify --repo W /tmp/b77/before.json --map-from-git origin/main`
+   (origin/main = 039220d): 31 broken, none of them a live pointer this PR should have moved:
+   - 16 in `docs/scope/done.md` and 2 in `docs/research/SKILLS-EVALUATION.md`: history, kept by AC-11.
+   - 9 live only (7 `~/.local/bin` links: spec-paths, fb-ask, skill-scan, start-gates, design-check, issue-reread,
+     review-isolated; 2 `~/.claude/settings.json` permission strings): the real install after merge relinks and rewrites them.
+   - 4 tokens that never pointed into this repo but matched a folder that existed at base: `scripts/` in
+     `docs/guides/SETUP.md` (the ECC and turnstile-spin folders) and in `claude-home/skills/design/references/_architecture-2026-09-09.md`
+     (a skill's own folder), and the ref-check self check fixtures `bin/**` and `scripts/*.py` in `tools/scripts/ref-check.py`.
+   Two ref-check gaps the move exposed were fixed first, each with a self check case: a home spelled token
+   (`~/claude-config/tools/scripts/x.py`) and a folder token (`bin/` to `tools/bin/`) counted as broken though the referrer
+   named the new path.
+4. `bash W/tools/bin/install.sh --dry-run`: exit 0; bin links now point at `tools/scripts/<name>.py`.
+5. Real install, `claude-config.py drift` prints `drift: none`, `hook-files` clean: owed, the owner runs the real install after merge. · waits on you
+6. `python3 -B W/tests/fast.py`: 184 tests, 0 failed (3 of them the new `tests/test_tools_folder.py`).
+
+## PR B verify (0077b, AC-10 to AC-15), head 396ae68 then merged with main dc66fdb, 2026-10-23
+Head recapture by hand (the live capture contract still ran the old paths): run `.workflow/runs/restructure-check/20261023-014032`, outputs in `01_capture/output/head-tools/`, commands from the PR's own `01_capture/CONTEXT.md` with `tools/` paths in a scratch worktree at 396ae68, compared with `01_capture/output/base/` after mapping `bin/`, `scripts/`, `config/` to `tools/`. Judge verdict: pass, needs a look 0.
+
+- [x] Install dry run exit 0 and identical to base line for line after mapping (agents 31, rules 55, rules-on-demand 18, hooks, skills, links, 7 bin links now `tools/scripts/*`). can fail: a link source or copy path still names `scripts/`, or a folder is missed, so a line differs or the run exits non zero. -> AC-11
+- [x] `live-links.txt`: 37 links, identical to base after mapping. can fail: a `~/.local/bin` link still points at the old folder. -> AC-11
+- [x] `docs` then `git status --porcelain` empty on head, same as base. can fail: docs writes a file from a stale path. -> AC-11
+- [x] All 9 script `--test` and 7 hook `--test` exit 0 with output identical to base, except ref-check (+1 line `verify: 0 broken pointers`, the PR's two self check fixes). can fail: a root finder still one level up (`parent.parent`) so a script cannot find the repo. -> AC-12
+- [x] spec-paths for all 55 spec numbers: exit 0 and base output plus only `warning:` lines (0 removed lines). can fail: a script reads specs from a wrong root and prints less or errors. -> AC-12
+- [x] ref-check verify against the base snapshot: 22 broken, all history (`done.md` 16, `SKILLS-EVALUATION.md` 2), non-repo tokens (`SETUP.md`, `_architecture-2026-09-09.md`) or the self check fixtures in `ref-check.py` (2). can fail: a live referrer left on the old path shows as a BROKEN text/link/settings pointer. -> AC-11, AC-14
+- [x] drift: 39 items = base 30 plus 9 files the PR edited (MAP.md, chain-catch.py, live-tick.py, ecc agents.md, 4 rules-on-demand, settings.json permissions) not yet installed live. can fail: a changed file outside the PR diff appears. -> AC-14
+- [x] Suite after merging main: 184 tests, 0 failed; `block-destructive.sh --test` passes. can fail: any moved path or the merged hook breaks a test. -> AC-10, AC-12, AC-13
+- Not covered: real install and `drift: none` (owner). `report-tools.md` could not be written by the judging agent (tool refused a report file); its content is the list above.
+
+CAN FAIL CHECKED: 8

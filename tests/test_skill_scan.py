@@ -1,4 +1,4 @@
-"""Spec 0054: scripts/skill-scan.py against a fake skillspector on PATH and a fake HOME; never the real ~/.claude."""
+"""Spec 0054: tools/scripts/skill-scan.py against a fake skillspector on PATH and a fake HOME; never the real ~/.claude."""
 import contextlib
 import datetime
 import importlib.util
@@ -13,7 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 REAL = Path(__file__).resolve().parents[1]
-_spec = importlib.util.spec_from_file_location("skill_scan", REAL / "scripts" / "skill-scan.py")
+_spec = importlib.util.spec_from_file_location("skill_scan", REAL / "tools" / "scripts" / "skill-scan.py")
 ss = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(ss)
 

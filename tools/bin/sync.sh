@@ -4,17 +4,17 @@
 # manage themselves and are documented, not vendored.
 set -euo pipefail
 
-# Spec 0048 AC-1: this script lives in bin/, the repo is one folder up.
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
+# Spec 0048 AC-1, 0077 AC-12: this script lives in tools/bin/, the repo is two folders up.
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 # CLAUDE_LIVE_DIR is for the self checks only: they sync a temp live tree, never ~/.claude.
 LIVE="${CLAUDE_LIVE_DIR:-$HOME/.claude}"
-NAMES=(python3 "$REPO/scripts/private-names.py")
+NAMES=(python3 "$REPO/tools/scripts/private-names.py")
 
 # Spec 0013: private names (~/.claude/private/names.txt) never reach this public repo.
 # Every source is checked BEFORE anything is copied, so a refused sync leaves the repo
 # byte for byte unchanged. The settings files are stripped into a temp dir first (autoMode
 # and every name bearing array string or object key out); the stripped entries become the
-# private fragments bin/install.sh merges back. Temp files also mean a malformed settings.json
+# private fragments tools/bin/install.sh merges back. Temp files also mean a malformed settings.json
 # can never leave a committable 0-byte file here, as `jq ... > dest` once did.
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -83,8 +83,8 @@ done
 
 # Spec 0048 AC-7: an edit to a downloaded skill becomes (or refreshes) its patch. A scratch copy of
 # this script with no tool (the spec 0013 self checks) skips it.
-if [ -f "$REPO/bin/claude-config.py" ] && [ -f "$REPO/config/manifest.json" ]; then
-  python3 "$REPO/bin/claude-config.py" patches || echo "  some patches not refreshed (above); rerun sync with network" >&2
+if [ -f "$REPO/tools/bin/claude-config.py" ] && [ -f "$REPO/tools/config/manifest.json" ]; then
+  python3 "$REPO/tools/bin/claude-config.py" patches || echo "  some patches not refreshed (above); rerun sync with network" >&2
 fi
 
 # Last line of defence: a name already in a repo-only file (README, a doc) is caught here.

@@ -8,7 +8,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 # Spec 0048 AC-1: four files plus folders. `live` is allowed only as the temporary link to claude-home (AC-15).
-TOP = {"README.md", "AGENTS.md", "CLAUDE.md", "LICENSE", "bin", "config", "claude-home", "scripts", "docs",
+TOP = {"README.md", "AGENTS.md", "CLAUDE.md", "LICENSE", "tools", "claude-home", "docs",
        ".claude", ".gitignore", "tests", "map", "_archive"}
 # Spec 0048 AC-3: the old paths, outside the doc folders that record history.
 OLD = re.compile(r"(?<![\w./~-])live[/]|(?<![\w/.-])\.[/](install|sync)\.sh\b|(?<![\w/.-])(mcp-config|test-preferences)\.json")
@@ -30,14 +30,14 @@ def links(text):
 
 
 class TestShape(unittest.TestCase):
-    # covers: spec 0048 AC-1 (the repo top holds only the listed entries; scripts in bin/, configs in config/)
+    # covers: spec 0048 AC-1 (the repo top holds only the listed entries; scripts in tools/bin/, configs in tools/config/, spec 0077 AC-10)
     def test_top(self):
         top = {p.split("/")[0] for p in tracked()}
         if "live" in top and os.path.islink(REPO / "live") and os.readlink(REPO / "live") == "claude-home":
             top.discard("live")
         extra = sorted(top - TOP)
         self.assertEqual(extra, [], f"{len(extra)} top level entries outside spec 0048 AC-1: {extra}")
-        for rel in ("bin/install.sh", "bin/sync.sh", "config/mcp-config.json", "config/test-preferences.json",
+        for rel in ("tools/bin/install.sh", "tools/bin/sync.sh", "tools/config/mcp-config.json", "tools/config/test-preferences.json",
                     "docs/NOTICE.md"):
             self.assertEqual(tracked(rel), [rel])
 
@@ -106,7 +106,7 @@ class TestReadme(unittest.TestCase):
 
 GUIDES = {"SETUP.md", "DAILY-USE.md", "SKILLS.md", "HOOKS.md", "DESIGN-PIPELINE.md"}
 TYPES = {"Type: tutorial", "Type: how to", "Type: reference", "Type: explanation"}
-REWRITTEN = ["README.md", "AGENTS.md", "docs/architecture.md", "config/routing.md"] + [f"docs/guides/{g}" for g in GUIDES]
+REWRITTEN = ["README.md", "AGENTS.md", "docs/architecture.md", "tools/config/routing.md"] + [f"docs/guides/{g}" for g in GUIDES]
 
 
 def load(rel):
@@ -133,15 +133,15 @@ class TestDocs(unittest.TestCase):
             self.assertIn((REPO / "docs/guides" / g).read_text().splitlines()[1], TYPES, g)
         self.assertEqual(tracked("docs/research/SKILLS-EVALUATION.md"), ["docs/research/SKILLS-EVALUATION.md"])
 
-    # covers: AC-13 (the committed SKILLS.md equals a fresh `bin/claude-config.py docs`, which reads the repo only)
+    # covers: AC-13 (the committed SKILLS.md equals a fresh `tools/bin/claude-config.py docs`, which reads the repo only)
     def test_skills_generated(self):
-        tool = load("bin/claude-config.py")
+        tool = load("tools/bin/claude-config.py")
         self.assertEqual((REPO / "docs/guides/SKILLS.md").read_text(), tool.docs_text(),
-                         "docs/guides/SKILLS.md is stale: run python3 bin/claude-config.py docs")
+                         "docs/guides/SKILLS.md is stale: run python3 tools/bin/claude-config.py docs")
 
     # covers: AC-13 (every rewritten file passes the ASCII rule)
     def test_ascii(self):
-        asciify = load("scripts/asciify.py")
+        asciify = load("tools/scripts/asciify.py")
         bad = [rel for rel in REWRITTEN if asciify.convert((REPO / rel).read_text())[0] != (REPO / rel).read_text()]
         self.assertEqual(bad, [])
 
@@ -154,6 +154,9 @@ class TestDocs(unittest.TestCase):
         for r in rows:
             cells = [c.strip() for c in r.strip("|").split("|")]
             target, heading = cells[3].strip("`"), cells[4]
+            # spec 0077 AC-10: the map is history; its old top level tool targets now live under tools/
+            if target.split("/")[0] in ("bin", "scripts", "config"):
+                target = "tools/" + target
             if "nowhere" in heading.lower() or not heading:
                 bad.append(r)
             elif not heading.startswith("dropped:") and not (REPO / target).exists():

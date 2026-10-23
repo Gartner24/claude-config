@@ -2,7 +2,7 @@
 """live-tick: a scope box ending ` · live` is ticked only when its files are live (spec 0075).
 
 PreToolUse hook on Edit|Write|MultiEdit. Reads the hook JSON on stdin; when the edit ticks a live
-box in docs/scope/ or .workflow/scope/ of a repo holding bin/claude-config.py, it compares the
+box in docs/scope/ or .workflow/scope/ of a repo holding tools/bin/claude-config.py, it compares the
 files that box names with ~/.claude and with `claude-config drift`, and prints a PreToolUse deny
 while any differ. Any error inside the hook lets the edit through and logs one line (AC-6).
 `--test` runs the self checks. Python 3 stdlib only.
@@ -37,10 +37,10 @@ def log_error(text):
 
 
 def find_repo(path):
-    """The folder holding bin/claude-config.py above path, and path relative to it."""
+    """The folder holding tools/bin/claude-config.py above path, and path relative to it."""
     real = Path(os.path.realpath(path))
     for d in real.parents:
-        if (d / "bin" / "claude-config.py").is_file():
+        if (d / "tools" / "bin" / "claude-config.py").is_file():
             return d, real.relative_to(d).as_posix()
     return None, None
 
@@ -79,7 +79,7 @@ def direct(rel, repo):
     parts = rel.split("/")
     first = parts[0]
     if first.startswith("settings") or first == "mods":
-        return []  # settings differ by design (bin/sync.sh strips them); mods are linked by hand; drift decides
+        return []  # settings differ by design (tools/bin/sync.sh strips them); mods are linked by hand; drift decides
     g = GROUP.get(first, first)
     a, live = repo / "claude-home" / rel, Path(home()) / ".claude"
     b = live / rel
@@ -117,9 +117,9 @@ def direct(rel, repo):
 def run_drift(repo):
     """Parsed drift lines (group, name, reason), or the string reason drift did not run.
     Only the trusted clone's script runs, and it reads only the trusted clone: drift's settings check runs
-    REPO/scripts/private-names.py, so CLAUDE_CONFIG_REPO would run the found repo's code. A worktree tick
+    REPO/tools/scripts/private-names.py, so CLAUDE_CONFIG_REPO would run the found repo's code. A worktree tick
     is therefore judged against the clone's main files, where live installs come from."""
-    script = os.path.join(os.path.realpath(os.path.join(home(), "claude-config")), "bin", "claude-config.py")
+    script = os.path.join(os.path.realpath(os.path.join(home(), "claude-config")), "tools", "bin", "claude-config.py")
     env = {k: v for k, v in os.environ.items() if k != "CLAUDE_CONFIG_REPO"}
     try:
         r = subprocess.run([sys.executable, "-I", script, "drift"], capture_output=True, text=True,
@@ -171,7 +171,7 @@ def check(data):
         return None
     rels, install = [], False
     for box in sorted(boxes):
-        install = install or "bin/install.sh" in box
+        install = install or "tools/bin/install.sh" in box
         for p in PATHS.findall(box):
             r = re.sub(r"^(?:claude-home/|~/\.claude/)", "", p)
             if r and r not in rels:
@@ -222,28 +222,28 @@ def self_test():
         t = Path(tmp)
         os.environ["HOME"] = str(t / "home")
         repo, live = t / "repo", t / "home" / ".claude"
-        (repo / "bin").mkdir(parents=True)
+        (repo / "tools" / "bin").mkdir(parents=True)
         (repo / "docs" / "scope").mkdir(parents=True)
         (repo / "claude-home" / "rules").mkdir(parents=True)
         (repo / "claude-home" / "hooks").mkdir()
         (live / "rules").mkdir(parents=True)
         (live / "hooks").mkdir()
         # fake drift: prints drift.out, exits drift.rc, sleeps drift.sleep seconds
-        (repo / "bin" / "claude-config.py").write_text(
+        (repo / "tools" / "bin" / "claude-config.py").write_text(
             "import sys,time,pathlib,os\n"
-            "r=os.environ.get('CLAUDE_CONFIG_REPO')  # like drift's settings check: runs REPO/scripts/private-names.py\n"
-            "if r and os.path.exists(r+'/scripts/private-names.py'): exec(open(r+'/scripts/private-names.py').read())\n"
+            "r=os.environ.get('CLAUDE_CONFIG_REPO')  # like drift's settings check: runs REPO/tools/scripts/private-names.py\n"
+            "if r and os.path.exists(r+'/tools/scripts/private-names.py'): exec(open(r+'/tools/scripts/private-names.py').read())\n"
             "try:\n import hijack\nexcept ImportError:\n pass\np=pathlib.Path(__file__).parent\n"
             "time.sleep(float((p/'sleep').read_text()))\n"
             "sys.stdout.write((p/'out').read_text())\nsys.exit(int((p/'rc').read_text()))\n")
         (t / "home" / "claude-config").symlink_to(repo)  # the one trusted clone
-        (repo / "bin" / "hijack.py").write_text("import sys\nsys.exit(3)\n")
+        (repo / "tools" / "bin" / "hijack.py").write_text("import sys\nsys.exit(3)\n")
         scope = repo / "docs" / "scope" / "scope.md"
 
         def drift(out="drift: none\n", rc=0, sleep=0):
-            (repo / "bin" / "out").write_text(out)
-            (repo / "bin" / "rc").write_text(str(rc))
-            (repo / "bin" / "sleep").write_text(str(sleep))
+            (repo / "tools" / "bin" / "out").write_text(out)
+            (repo / "tools" / "bin" / "rc").write_text(str(rc))
+            (repo / "tools" / "bin" / "sleep").write_text(str(sleep))
 
         def edit(old, new, text, tool="Edit", path=None, **kw):
             (path or scope).write_text(text)
@@ -278,7 +278,7 @@ def self_test():
         tbox = "- [ ] Copy: ~/.claude/rules/typo.md · live\n"
         ok("AC-2 typo path refused as not found", "not found" in reason(edit(tbox, tbox.replace("[ ]", "[x]"), tbox)))
 
-        ibox = "- [ ] Run `bin/install.sh` · live\n"
+        ibox = "- [ ] Run `tools/bin/install.sh` · live\n"
         itick = ibox.replace("[ ]", "[x]")
         drift("hook:\n  hooks/gsd.sh: live only\ndrift: 1 item(s)\n", 1)
         ok("AC-2 install box ignores a live only extra", edit(ibox, itick, ibox) is None)
@@ -306,9 +306,9 @@ def self_test():
         ok("drift runs isolated (-I): a planted module beside it is not imported", edit(box, tick, box) is None)
 
         stranger = t / "stranger"
-        (stranger / "bin").mkdir(parents=True)
+        (stranger / "tools" / "bin").mkdir(parents=True)
         (stranger / "docs" / "scope").mkdir(parents=True)
-        (stranger / "bin" / "claude-config.py").write_text(f"open({str(t / 'marker')!r}, 'w').write('ran')\n")
+        (stranger / "tools" / "bin" / "claude-config.py").write_text(f"open({str(t / 'marker')!r}, 'w').write('ran')\n")
         subprocess.run(["git", "-C", str(stranger), "init", "-q"], capture_output=True, check=True)
         sscope = stranger / "docs" / "scope" / "scope.md"
         ok("untrusted repo is never run", edit(box, tick, box, path=sscope) is None and not (t / "marker").exists())
@@ -326,12 +326,12 @@ def self_test():
 
         # a crafted repo whose .git file points into the trusted clone passes is_trusted but its script never runs
         crafted = t / "crafted"
-        (crafted / "bin").mkdir(parents=True)
+        (crafted / "tools" / "bin").mkdir(parents=True)
         (crafted / "docs" / "scope").mkdir(parents=True)
         (crafted / ".git").write_text(f"gitdir: {repo}/.git/worktrees/w\n")
-        (crafted / "bin" / "claude-config.py").write_text(f"open({str(t / 'marker2')!r}, 'w').write('ran')\n")
-        (crafted / "scripts").mkdir()
-        (crafted / "scripts" / "private-names.py").write_text(f"open({str(t / 'marker3')!r}, 'w').write('ran')\n")
+        (crafted / "tools" / "bin" / "claude-config.py").write_text(f"open({str(t / 'marker2')!r}, 'w').write('ran')\n")
+        (crafted / "tools" / "scripts").mkdir()
+        (crafted / "tools" / "scripts" / "private-names.py").write_text(f"open({str(t / 'marker3')!r}, 'w').write('ran')\n")
         drift("hook:\n  hooks/zz.py: differs\n", 1)
         r = edit(ibox, itick, ibox, path=crafted / "docs" / "scope" / "scope.md")
         ok("found repo's own script never runs, the trusted drift does",

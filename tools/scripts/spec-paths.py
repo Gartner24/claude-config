@@ -320,9 +320,9 @@ def self_test():
 
         # Spec 0073 AC-4: --overlap on two specs' Paths globs.
         write(fl, "docs/specs/0005-all.md", spec("0005", "Accepted", "`**`"))
-        write(fl, "docs/specs/0006-dir.md", spec("0006", "Accepted", "`bin/install.sh`, `src`"))
+        write(fl, "docs/specs/0006-dir.md", spec("0006", "Accepted", "`tools/bin/install.sh`, `src`"))
         write(fl, "docs/specs/0007-bare.md", "# 0007. Bare\n\n**Status**: Accepted\n")
-        write(fl, "docs/specs/0008-other.md", spec("0008", "Accepted", "`bin/sync.sh`, `tests/*.py`"))
+        write(fl, "docs/specs/0008-other.md", spec("0008", "Accepted", "`tools/bin/sync.sh`, `tests/*.py`"))
         check("--overlap glob meets glob", run(fl, "--overlap", "1", "2"), (1, ["overlap: lib/** meets lib/**"]))
         check("--overlap fnmatch the other way", run(fl, "--overlap", "5", "1"), (1, ["overlap: ** meets src/*.py"]))
         check("--overlap folder prefix", run(fl, "--overlap", "1", "6"), (1, ["overlap: src/*.py meets src"]))

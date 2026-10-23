@@ -1,4 +1,4 @@
-"""Spec 0048: bin/claude-config.py on temp trees. Upstreams are local git repos, so nothing reaches the network;
+"""Spec 0048: tools/bin/claude-config.py on temp trees. Upstreams are local git repos, so nothing reaches the network;
 the tool is run as a subprocess with CLAUDE_CONFIG_REPO and CLAUDE_LIVE_DIR, never against ~/.claude."""
 import datetime
 import importlib.util
@@ -14,7 +14,7 @@ from pathlib import Path
 from test_skill_scan import fake_bin, issue
 
 REAL = Path(__file__).resolve().parents[1]
-TOOL = REAL / "bin" / "claude-config.py"
+TOOL = REAL / "tools" / "bin" / "claude-config.py"
 ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1", "GIT_AUTHOR_NAME": "t",
        "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
 SKILL = "line 1\nline 2\nline 3\nline 4\nline 5\nline 6\n"
@@ -29,10 +29,10 @@ class Case(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.tmp, True)
         self.repo, self.live, self.up = self.tmp / "repo", self.tmp / "live", self.tmp / "up"
-        for d in (self.repo / "scripts", self.repo / "config", self.repo / "claude-home" / "skills",
+        for d in (self.repo / "tools" / "scripts", self.repo / "tools" / "config", self.repo / "claude-home" / "skills",
                   self.live / "skills", self.live / "private"):
             d.mkdir(parents=True)
-        shutil.copy(REAL / "scripts" / "private-names.py", self.repo / "scripts" / "private-names.py")
+        shutil.copy(REAL / "tools" / "scripts" / "private-names.py", self.repo / "tools" / "scripts" / "private-names.py")
         (self.live / "private" / "names.txt").write_text("zorblex\n")
         # update --apply runs skill-scan (spec 0054); a fake skillspector keeps the real one out
         self.ss_bin, self.ss_data = fake_bin(self.tmp)
@@ -96,7 +96,7 @@ class Case(unittest.TestCase):
         return m
 
     def manifest(self, entries=None):
-        p = self.repo / "config" / "manifest.json"
+        p = self.repo / "tools" / "config" / "manifest.json"
         if entries is None:
             return json.loads(p.read_text())
         p.write_text(json.dumps({"version": 1, "frameworks": {}, "entries": entries}))
@@ -107,8 +107,8 @@ class TestPatches(Case):
     def test_patch_written(self):
         self.install_edited()
         e = self.manifest()["entries"]["s"]
-        self.assertEqual((e["status"], e["patch"]), ("edited", "config/patches/s.patch"))
-        patch = (self.repo / "config" / "patches" / "s.patch").read_text()
+        self.assertEqual((e["status"], e["patch"]), ("edited", "tools/config/patches/s.patch"))
+        patch = (self.repo / "tools" / "config" / "patches" / "s.patch").read_text()
         self.assertIn("+line 2 mine", patch)
         self.assertIn("--- a/SKILL.md", patch)
 
@@ -117,13 +117,13 @@ class TestPatches(Case):
         e = self.manifest()["entries"]["s"]
         self.assertEqual(e["patch"], "~/.claude/private/patches/s.patch")
         self.assertTrue((self.live / "private" / "patches" / "s.patch").exists())
-        self.assertFalse((self.repo / "config" / "patches").exists())
+        self.assertFalse((self.repo / "tools" / "config" / "patches").exists())
 
     # covers: AC-8 (a patch holding a private name never enters the repo)
     def test_name_goes_private(self):
         self.install_edited(edit="line 2 Zorblex\n")
         self.assertEqual(self.manifest()["entries"]["s"]["patch"], "~/.claude/private/patches/s.patch")
-        self.assertFalse((self.repo / "config" / "patches" / "s.patch").exists())
+        self.assertFalse((self.repo / "tools" / "config" / "patches" / "s.patch").exists())
 
 
 class TestRestore(Case):
@@ -149,7 +149,7 @@ class TestRestore(Case):
                              "pinned": self.pinned, "base_hash": cc.folder_hash(base), "license": "MIT",
                              "publish": True, "patch": None, "fetch": "git", "install": "x", "framework": None}})
         self.assertEqual(self.tool("patches").returncode, 0)
-        patch = (self.repo / "config" / "patches" / "m.patch").read_text()
+        patch = (self.repo / "tools" / "config" / "patches" / "m.patch").read_text()
         self.assertEqual([ln for ln in patch.splitlines() if ln.startswith("diff --git")],
                          ["diff --git a/hooks/a.ts b/hooks/a.ts"])
         before = cc.folder_hash(m)
@@ -169,7 +169,7 @@ class TestShippedPatch(unittest.TestCase):
     # covers: spec 0078 AC-8 (the shipped assertion-guardian patch applies cleanly on upstream at pinned,
     # so restore can rebuild the mod). Needs github.com: unreachable fails, since the patch is then unchecked.
     def test_assertion_guardian_applies_on_pinned(self):
-        e = json.loads((REAL / "config" / "manifest.json").read_text())["entries"]["assertion-guardian"]
+        e = json.loads((REAL / "tools" / "config" / "manifest.json").read_text())["entries"]["assertion-guardian"]
         with tempfile.TemporaryDirectory() as tmp:
             base, _ = cc.upstream(e, e["pinned"], tmp)
             self.assertEqual(cc.folder_hash(base), e["base_hash"])
@@ -179,7 +179,7 @@ class TestShippedPatch(unittest.TestCase):
 class TestUpdate(Case):
     def state(self):
         s = self.live / "skills" / "s"
-        return cc.folder_hash(s), (self.repo / "config" / "manifest.json").read_bytes()
+        return cc.folder_hash(s), (self.repo / "tools" / "config" / "manifest.json").read_bytes()
 
     # covers: AC-10 (clean merge installs, moves pinned and base_hash, keeps your edit in the new patch)
     def test_clean(self):
@@ -196,8 +196,8 @@ class TestUpdate(Case):
         self.assertTrue((s / "new.md").exists())
         e = self.manifest()["entries"]["s"]
         self.assertEqual((e["pinned"], e["status"]), (head, "edited"))
-        self.assertIn("+line 2 mine", (self.repo / "config" / "patches" / "s.patch").read_text())
-        self.assertNotIn("+line 5 up", (self.repo / "config" / "patches" / "s.patch").read_text())
+        self.assertIn("+line 2 mine", (self.repo / "tools" / "config" / "patches" / "s.patch").read_text())
+        self.assertNotIn("+line 5 up", (self.repo / "tools" / "config" / "patches" / "s.patch").read_text())
 
     # covers: a first install (live missing, or an empty folder) installs upstream as is: no merge, no patch.
     # This used to read the missing folder as "every file deleted", install nothing and store a delete-all patch.
@@ -221,7 +221,7 @@ class TestUpdate(Case):
             self.assertNotIn("(edited)", r.stdout)
             e = self.manifest()["entries"]["s"]
             self.assertEqual((e["status"], e["patch"]), ("downloaded", None))
-            self.assertFalse((self.repo / "config" / "patches" / "s.patch").exists())
+            self.assertFalse((self.repo / "tools" / "config" / "patches" / "s.patch").exists())
 
     # covers: spec 0054 AC-7 (the merged folder is scanned against the live copy before it installs, and
     # installs even with findings)
@@ -416,7 +416,7 @@ class TestDrift(Case):
         home = self.tmp / "home"
         home.mkdir()
         self.env["HOME"] = str(home)
-        (self.repo / "config" / "drift-ignore.json").write_text(json.dumps(["skillOverrides.x"]))
+        (self.repo / "tools" / "config" / "drift-ignore.json").write_text(json.dumps(["skillOverrides.x"]))
         repo = {"model": "a", "hooks": {"Stop": cc.AUTHOR_HOME + "/.claude/hooks/h.sh"},
                 "skillOverrides": {"x": "off", "y": "on"}}
         (self.repo / "claude-home" / "settings.json").write_text(json.dumps(repo))
@@ -533,7 +533,7 @@ class TestScriptSelfChecks(unittest.TestCase):
         self.run_check("node", str(REAL / "claude-home" / "hooks" / "context-monitor.js"), "--test")
 
     def test_private_names(self):
-        self.run_check(sys.executable, "-B", str(REAL / "scripts" / "private-names.py"), "--test")
+        self.run_check(sys.executable, "-B", str(REAL / "tools" / "scripts" / "private-names.py"), "--test")
 
 
 class TestBuild(Case):
@@ -572,10 +572,10 @@ class TestBuild(Case):
         e = self.manifest()["entries"]
         self.assertEqual((e["a"]["status"], e["a"]["pinned"], e["a"]["license"], e["a"]["description"]),
                          ("downloaded", old, "MIT", "Does a."))
-        self.assertEqual((e["b"]["status"], e["b"]["pinned"], e["b"]["patch"]), ("edited", old, "config/patches/b.patch"))
-        self.assertIn("+mine", (self.repo / "config" / "patches" / "b.patch").read_text())
+        self.assertEqual((e["b"]["status"], e["b"]["pinned"], e["b"]["patch"]), ("edited", old, "tools/config/patches/b.patch"))
+        self.assertIn("+mine", (self.repo / "tools" / "config" / "patches" / "b.patch").read_text())
         self.assertEqual((e["fig"]["status"], e["fig"]["publish"]), ("unpinned", False))
-        self.assertEqual(sorted(p.name for p in (self.repo / "config" / "patches").iterdir()), ["b.patch"])
+        self.assertEqual(sorted(p.name for p in (self.repo / "tools" / "config" / "patches").iterdir()), ["b.patch"])
         self.assertTrue((self.live / "private" / "skills" / "fig" / "SKILL.md").exists())
         self.assertEqual((e["unknown"]["status"], e["unknown"]["install"]), ("source-unknown", None))
         self.assertTrue((self.live / "private" / "skills" / "unknown" / "SKILL.md").exists())
@@ -632,7 +632,7 @@ class TestBuild(Case):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("secret: private name, copied to the private store only", r.stdout)
         self.assertNotIn("secret", self.manifest()["entries"])
-        self.assertNotIn("zorblex", (self.repo / "config" / "manifest.json").read_text().lower())
+        self.assertNotIn("zorblex", (self.repo / "tools" / "config" / "manifest.json").read_text().lower())
         self.assertEqual((self.live / "private" / "skills" / "secret" / "SKILL.md").read_text(), "made for Zorblex\n")
         self.assertEqual((s / "SKILL.md").read_text(), "made for Zorblex\n")
         self.assertEqual(self.tool("drift").returncode, 0, self.tool("drift").stdout)
@@ -652,10 +652,10 @@ class TestBuild(Case):
         s = self.install_edited()
         m = self.manifest()
         m["entries"]["s"]["license"] = "Apache-2.0"
-        (self.repo / "config" / "manifest.json").write_text(json.dumps(m))
+        (self.repo / "tools" / "config" / "manifest.json").write_text(json.dumps(m))
         (s / "ref.md").write_text("ref mine\n")
         self.assertEqual(self.tool("patches").returncode, 0)
-        patch = (self.repo / "config" / "patches" / "s.patch").read_text()
+        patch = (self.repo / "tools" / "config" / "patches" / "s.patch").read_text()
         self.assertEqual(patch.splitlines()[0], "# Changed from upstream: SKILL.md, ref.md")
         shutil.rmtree(s)
         self.assertEqual(self.tool("restore").returncode, 0)
@@ -692,7 +692,7 @@ class TestPlugins(Case):
         self.assertEqual((r.returncode, r.stdout), (0, ""), r.stderr)
         plugins.write_text(json.dumps({"version": 2, "plugins": {}}))
         self.assertIn("p1@mk: missing; reinstall with: claude plugin install p1@mk", self.tool("restore").stdout)
-        shutil.copy(REAL / "scripts" / "asciify.py", self.repo / "scripts" / "asciify.py")
+        shutil.copy(REAL / "tools" / "scripts" / "asciify.py", self.repo / "tools" / "scripts" / "asciify.py")
         r = self.tool("docs")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("| `p1@mk` | o/mk | abc123 | MIT | Does p1. |",
@@ -742,7 +742,7 @@ class TestReminder(unittest.TestCase):
             (Path(tmp) / "private").mkdir()
             (Path(tmp) / "private" / "names.txt").write_text("zorblex\n")
             out = Path(tmp) / "out.json"
-            r = subprocess.run([sys.executable, str(REAL / "scripts" / "private-names.py"), "strip-settings",
+            r = subprocess.run([sys.executable, str(REAL / "tools" / "scripts" / "private-names.py"), "strip-settings",
                                 str(REAL / "claude-home" / "settings.json"), str(out), str(Path(tmp) / "frag.json")],
                                env={**os.environ, "CLAUDE_LIVE_DIR": tmp}, capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)

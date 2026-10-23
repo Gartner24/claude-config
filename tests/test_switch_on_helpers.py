@@ -12,7 +12,7 @@ class TestSwitchOnHelpers(unittest.TestCase):
     def test_self_checks(self):
         for name in ("start-gates", "spec-paths", "design-check", "issue-reread", "review-isolated"):
             with self.subTest(name=name):
-                r = subprocess.run([sys.executable, "-B", str(REPO / "scripts" / f"{name}.py"), "--test"],
+                r = subprocess.run([sys.executable, "-B", str(REPO / "tools" / "scripts" / f"{name}.py"), "--test"],
                                    capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=300)
                 self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
                 self.assertIn(f"{name} self checks: all passed", r.stdout)

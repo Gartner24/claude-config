@@ -10,7 +10,7 @@ REPO = Path(__file__).resolve().parents[1]
 class TestHandoverMemory(unittest.TestCase):
     # covers: spec 0069 AC-2, AC-6 to AC-9, AC-13 to AC-20 (quote or drop, prune, ages, close, lint, path, ids, detail files)
     def test_self_check(self):
-        r = subprocess.run([sys.executable, "-B", str(REPO / "scripts" / "handover-memory.py"), "--test"], capture_output=True,
+        r = subprocess.run([sys.executable, "-B", str(REPO / "tools" / "scripts" / "handover-memory.py"), "--test"], capture_output=True,
                            text=True, stdin=subprocess.DEVNULL, timeout=120)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("handover-memory self checks: all passed", r.stdout)
