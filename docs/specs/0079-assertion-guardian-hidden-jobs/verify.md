@@ -118,7 +118,19 @@ CAN FAIL CHECKED: 7
 - Probe: a throwaway `tests/probe.test.tsx` printing `bashSignals` count and `shellPlan(form, '/repo')` through a failing `toEqual([])`. Command: `claude plugin test /tmp/ag113/live/skills/assertion-guardian`. `S` is `sed -i '/expect/d' a.test.ts`.
 - Result before the change (signals, targets, refuseBefore): every form gave 0, `[]`, false: `bash <<< "S"`, `sh <<< "S"`, `zsh <<<"S"`, `source <(echo "S")`, `. <(echo "S")`, `bash <(echo "S")`, `sh <(echo "S")`, `echo "S" | ksh`, `| mksh`, `| ash`, `| busybox sh`, `| fish`, `echo "S" | while read x; do sh -c "$x"; done`. The four normal commands (`grep x <<< "$s"`, `diff <(sort a) <(sort b)`, `while read l; do echo "$l"; done < list.txt`, `bash <<< "echo hi"`) also 0, `[]`, false.
 - Result after the change: every row 113 form 1, `[/repo/a.test.ts]`, true. The four normal commands, `cat a.test.ts | while read l; do echo "$l"; done`, `grep expect <<< "a.test.ts"`, `wc -l <(cat a.test.ts)` and `cat <<EOF` / `x` / `EOF`: 0, `[]`, false. `bash tests/run.sh <<< y`: 1, `[/repo/tests/run.sh]`, true (same as `echo y | bash tests/run.sh` under AC-7). The probe file was removed before the patch was made.
-- Seen, not in this row: `for f in a; do S; done` gives 0, `[]`, false before and after (`do` read as the command hides the write from the compare). Left for the owner.
+- Seen in the same probe: `for f in a; do S; done` gave 0, `[]`, false (`do` read as the command hid the write from the compare). Closed in this branch by AC-17 (owner: "do the best so I'm not needed"); after it the form gives 1, `[/repo/a.test.ts]`, false (compared, not refused).
+
+### AC-17 shell keywords (same branch)
+- `claude plugin test`: 98 pass, 0 fail (89 before, 9 new: `for`, `while`/`until`, `if ... then`, `else`, `elif`, `case` branch, `!`, a `cd` after `then`, and the hook compare-and-undo of a write in a `for` loop). `claude plugin validate`: passed. Patch regenerated the same way; rebuilt in `/tmp/ag113/rebuilt2`, `diff -r` with the built mod: no output.
+- Mutants (same script, each alone, restored after; 98 pass at the end):
+  - 10 `do` not dropped: red the `for`, `while`/`until` and hook tests, and the while read loop test.
+  - 14 `then` not dropped: red the `if ... then` test and the `cd` after `then` test.
+  - 15 `else` not dropped: red the `else` test.
+  - 16 `elif` not dropped: red the `elif` test.
+  - 17 `!` not dropped: red the `!` test.
+  - 18 `)` not ending a command: red the `case` branch test (and three older tests).
+- can fail: a keyword left in front of the command hides the write again (mutants 10, 14 to 17 red); the `case` branch is pinned by mutant 18.
+CAN FAIL CHECKED: 6
 
 ### Build checks
 - `claude plugin test /tmp/ag113/live/skills/assertion-guardian`: 89 pass, 0 fail (81 before, 8 new). `claude plugin validate`: passed.
