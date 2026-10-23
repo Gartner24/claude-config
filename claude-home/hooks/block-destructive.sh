@@ -45,8 +45,8 @@ PATTERNS=(
   'git[[:space:]]+([^|;&]*[[:space:]])?reset[[:space:]]+([^|;&]*[[:space:]])?'"$Q"'--h(a(rd?)?)?'"$Q$END"
   'git[[:space:]]+([^|;&]*[[:space:]])?checkout[[:space:]]+([^|;&]*[[:space:]])?'"$TREE$END"
   # checkout -f/--force and switch -f/--discard-changes throw local changes away (long option prefixes too)
-  'git[[:space:]]+([^|;&]*[[:space:]])?checkout[[:space:]]+([^|;&]*[[:space:]])?(-[[:alnum:]]*f[[:alnum:]]*|--fo[a-z]*)'"$END"
-  'git[[:space:]]+([^|;&]*[[:space:]])?switch[[:space:]]+([^|;&]*[[:space:]])?(-[[:alnum:]]*f[[:alnum:]]*|--di[a-z-]*)'"$END"
+  'git[[:space:]]+([^|;&]*[[:space:]])?checkout[[:space:]]+([^|;&]*[[:space:]])?(-[[:alnum:]]*f[[:alnum:]]*|--f[a-z]*)'"$END"
+  'git[[:space:]]+([^|;&]*[[:space:]])?switch[[:space:]]+([^|;&]*[[:space:]])?(-[[:alnum:]]*f[[:alnum:]]*|--di[a-z-]*|--f[a-z]*)'"$END"
 )
 
 # Dangerous targets: absolute path, home, parent traversal, whole cwd, bare glob.
@@ -546,6 +546,10 @@ if [[ "${1:-}" == "--test" ]]; then
   block 'git switch -f main'
   block 'git switch --discard-changes main'
   block 'git switch --discard main'
+  block 'git switch --force main'
+  block 'git switch --fo main'
+  block 'git checkout --f main'
+  allow 'git switch --force-create fix'
   block 'git -C dir switch -f main'
   allow 'git checkout main'
   allow 'git checkout -- path/to/file'
