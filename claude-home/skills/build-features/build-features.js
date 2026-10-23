@@ -59,7 +59,7 @@ const brief = r => {
     `0. git fetch origin, then git switch -c '${branch}' 'origin/${r.base}'.`,
     `1. Run: ${mark('develop')}. Then run the skill /develop ${name}.`,
     ...CHAIN[r.tier].map(([s, cmd], i) => `${i + 2}. Run: ${mark(s)}. Then run the skill ${cmd} ${name}.`),
-    `${CHAIN[r.tier].length + 2}. Run: ${mark('pr')}.` + (r.tier === 'GA' ? ` Then run the skill /review, and /document pr for the PR body.` : ' Write the PR body with the skill /document pr.') +
+    `${CHAIN[r.tier].length + 2}. Run: ${mark('pr')}.` +  ' Write the PR body with the skill /document pr.' +
       ` Squash your commits into one Conventional Commit on '${branch}' (rules/branch-pr.md), push it with git push -u origin '${branch}' (if it hangs, retry with git -c protocol.version=0), then gh pr create --draft --base '${r.base}' --head '${branch}'.`,
   ]
   return [
