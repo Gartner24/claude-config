@@ -87,10 +87,10 @@ git_clean_is_destructive() {
 
 # --staged/-S/--worktree/-W count only before a bare `--`; after it they are pathspecs.
 restore_staged_only() {
-  local pre
-  pre="$(sed -E 's/[[:space:]]--([[:space:]].*)?$//' <<<"$1")"
+  local pre="${1#*restore}"
+  pre="$(sed -E 's/[[:space:]]--([[:space:]].*)?$//' <<<"$pre")"
   grep -Eq '[[:space:]](--staged|-S)([[:space:]]|$)' <<<"$pre" \
-    && ! grep -Eq '[[:space:]](--worktree|-W)([[:space:]]|$)' <<<"$pre"
+    && ! grep -Eq '[[:space:]](--w[a-z]*|-[[:alnum:]]*W[[:alnum:]]*)(=|[[:space:]]|$)' <<<"$pre"
 }
 
 # `git restore` of the whole tree discards work; `--staged` alone only unstages, so it is allowed.
@@ -109,23 +109,24 @@ git_restore_is_destructive() {
 # (exclude and top magic, `:/.`) or is only `.`, `/`, `*` characters (`./*`, `.//`, `..`, `../`).
 # `restore --staged` alone only unstages, so it stays allowed.
 git_pathspec_is_tree() {
-  local seg kind rest tok dd
+  local seg kind rest tok dd nopt
   local -a toks
   for kind in checkout restore; do
     while read -r seg; do
       rest="${seg#*"$kind"}"
       [[ $kind == restore ]] && restore_staged_only "$seg" && continue
       read -ra toks <<<"$rest"
-      dd=0
+      dd=0 nopt=0
       for tok in "${toks[@]}"; do
         tok="${tok//[\"\']/}"
         [[ "$tok" == -- ]] && { dd=1; continue; }
         # a `..` segment climbs to the root or above
         [[ "$tok" == :* || "$tok" =~ ^[./*]+$ || "$tok" =~ (^|/)\.\.(/|$) ]] && return 0
         # absolute, $VAR and ~ words cannot be judged as text
-        if [[ $kind == restore || $dd == 1 ]]; then
+        if [[ $kind == restore || $dd == 1 || $nopt -ge 1 ]]; then
           [[ "$tok" == /* || "$tok" == '$'* || "$tok" == '~'* ]] && return 0
         fi
+        [[ "$tok" == -* ]] || nopt=$((nopt + 1))
       done
     done < <(grep -oEi "git[[:space:]]+([^|;&]*[[:space:]])?$kind[[:space:]]+[^|;&]*" <<<"$1")
   done
@@ -635,6 +636,13 @@ if [[ "${1:-}" == "--test" ]]; then
 --hard'
   block 'git restore -- --staged .'
   allow 'git restore --staged -- --staged .'
+  block 'git checkout HEAD /home/santiago/x'
+  block 'git checkout main $HOME'
+  block 'git checkout main ~/x'
+  block 'git restore --staged --work .'
+  block 'git restore -SW .'
+  block 'git restore --staged --worktree=x .'
+  block 'git --staged restore .'
   allow 'git checkout -- src/a.ts'
   allow 'git restore --staged -- .'
   allow 'git restore . --staged'
