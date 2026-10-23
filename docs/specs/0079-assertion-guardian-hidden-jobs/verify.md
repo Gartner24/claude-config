@@ -162,3 +162,9 @@ Behavior observed through the built mod with `claude plugin test` (89 pass). Eac
 5. AC-16 upstream at pinned plus the patch equals the built mod; `TestShippedPatch` green. can fail: a hunk dropped or edited makes the apply or `diff -r` fail.
 - Live install: owed after merge; not claimed here.
 CAN FAIL CHECKED: 5
+
+### Review round on PR 222 (2026-10-23): four fixes inside AC-14, AC-15, AC-17
+- Defects found by probing the built mod (before: ALLOW, no target seen): `echo "S" | while read x; do for i in 1; do :; done; sh -c "$x"; done` (the inner `done` ended the fed outer loop); `! ! ! ! ! ! ! S` and `nice` x7 (`unwrap` stopped after 6 layers, so the write was never seen); `echo "S" | tee >(sh)` and `echo "S" > >(sh)` (a shell reading a `>(...)` body); and a false refusal: `bash tests/run.sh > >(tee out.log)` (a `>(...)` was taken as text fed to bash).
+- Fix in `hooks/analyze.ts`: a stack of open loops (`done` closes only its own), `unwrap` bound 6 -> 100, a `>(...)` body that is a shell sets the stdin flag, and only `<(...)` counts as text handed to the command.
+- `claude plugin test`: 102 pass, 0 fail (98 before, 4 new). `claude plugin validate`: passed. Patch regenerated with `claude-config.py patches` against a throwaway live folder; upstream at pinned plus the patch, `diff -r` with the built mod: no output.
+- Mutants, each alone, restored after: `done` clears all loops -> nested loop test red; `guard < 6` -> keywords/wrappers test red; `>(` shell check off -> `>( )` test red; `procsub = true` for `>(` -> output substitution test red.

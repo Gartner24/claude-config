@@ -59,10 +59,10 @@ index 83a1863..4f4f2d2 100644
  The mod collects no analytics or telemetry, and its author receives no data from it.
  
 diff --git a/hooks/analyze.ts b/hooks/analyze.ts
-index ca09408..e778f44 100644
+index ca09408..51eddc9 100644
 --- a/hooks/analyze.ts
 +++ b/hooks/analyze.ts
-@@ -501,54 +501,179 @@ export function weakening(before: string, after: string, path: string): string[]
+@@ -501,60 +501,193 @@ export function weakening(before: string, after: string, path: string): string[]
  // ---------------------------------------------------------------------------
  // Bash
  
@@ -92,7 +92,8 @@ index ca09408..e778f44 100644
    let quote: string | null = null
 +  let piped = false
 +  let procsub = false
-+  let fedLoop = false
++  // One entry per open `for`/`while`/`until`/`select`; true for a loop that is fed (or sits in one). A nested loop's `done` closes only itself.
++  const loops: boolean[] = []
    const push = () => {
      if (word !== '') words.push(word)
      word = ''
@@ -106,14 +107,14 @@ index ca09408..e778f44 100644
 +      const head = base(w[0])
 +      if (jobs !== undefined && words[0] === '{') jobs.hidden = true
 +      // Text a shell runs that the line hands it: a pipe, a `<<<` here-string or a `<(...)` file.
-+      const shell = /^(source|\.)$/.test(head) || (SHELL.test(head) && !w.some(x => /^-[a-zA-Z]*c$/.test(x)))
++      const shell = readsText(w)
 +      const here = w.indexOf('<<<')
 +      if (jobs !== undefined && shell && (piped || here >= 0 || procsub)) jobs.stdin = true
 +      if (shell && here >= 0 && w[here + 1] !== undefined) bodies.push(w[here + 1]!)
 +      // `... | while read x; do sh -c "$x"; done`: the loop hands each line it reads to a shell.
-+      if (/^(while|until)$/.test(head)) fedLoop = true
-+      if (jobs !== undefined && fedLoop && (SHELL.test(head) || /^(eval|source|\.)$/.test(head))) jobs.stdin = true
-+      if (head === 'done') fedLoop = false
++      if (/^(for|select|while|until)$/.test(head)) loops.push(/^(while|until)$/.test(head) || loops.includes(true))
++      if (jobs !== undefined && loops.includes(true) && (SHELL.test(head) || /^(eval|source|\.)$/.test(head))) jobs.stdin = true
++      if (head === 'done') loops.pop()
 +      piped = false
 +      procsub = false
 +    }
@@ -157,9 +158,12 @@ index ca09408..e778f44 100644
 +    else if ((c === '<' || c === '>') && line[i + 1] === '(') {
 +      // A `<(...)`/`>(...)` body runs on without the line waiting for it, like a `&` job.
 +      if (jobs !== undefined) jobs.hidden = true
-+      procsub = true
++      // Only `<(...)` hands its text to the command (`bash > >(tee log)` is output, not a script).
++      procsub = c === '<'
 +      push()
 +      i = substitution(i)
++      // `tee >(sh)`: the body is a shell reading what the line writes into it.
++      if (c === '>' && jobs !== undefined && commands(bodies[bodies.length - 1]!, depth + 1).some(x => readsText(unwrap(x)))) jobs.stdin = true
 +      push()
 +    }
 +    else if (c === ';' || c === '\n' || c === '&' || c === '|' || c === '(' || c === ')') {
@@ -219,6 +223,8 @@ index ca09408..e778f44 100644
  
  const base = (w: string | undefined) => (w ?? '').split('/').pop() ?? ''
 +const SHELL = /^(bash|sh|zsh|dash|ksh|mksh|ash|fish)$/
++// A shell with no -c string, or source: it runs the text it is handed.
++const readsText = (w: string[]) => /^(source|\.)$/.test(base(w[0])) || (SHELL.test(base(w[0])) && !w.some(x => /^-[a-zA-Z]*c$/.test(x)))
 +
 +// Wrappers that run the command after them: the flags that take a value, and how many operands come before the command.
 +const NO_VALUE = /^$/
@@ -254,14 +260,23 @@ index ca09408..e778f44 100644
  
  // Drops env assignments and wrappers that run another command: env, time,
  // nice, npx/bunx/pnpm exec/yarn dlx (and their flags), python -m.
-@@ -563,9 +688,15 @@ function unwrap(words: string[]): string[] {
++const KEYWORD = /^(do|then|else|elif|!)$/
+ function unwrap(words: string[]): string[] {
+   let w = words.filter(x => !/^[A-Za-z_]+=/.test(x))
+-  for (let guard = 0; guard < 6; guard += 1) {
++  // `! ! ! ! ! ! ! rm x` and `nice nice ... rm x` are valid at any depth.
++  for (let guard = 0; guard < 100; guard += 1) {
+     const head = base(w[0])
+     if (head === 'sudo' || head === 'doas') {
+       w = w.slice(1)
+@@ -563,9 +696,15 @@ function unwrap(words: string[]): string[] {
      else if (/^(npm|pnpm|yarn|bun)$/.test(head) && ['exec', 'dlx', 'x'].includes(script(w, true) ?? '')) {
        const at = w.findIndex((x, i) => i > 0 && ['exec', 'dlx', 'x'].includes(x))
        w = w.slice(at + 1).filter((x, i) => !(i === 0 && x === '--'))
 -    } else if (/^(env|time|nice|nohup|command|exec)$/.test(head)) {
 +    } else if (head === '{') w = w.slice(1)
 +    // Shell keywords before a command (`for ...; do sed ...`, `if ...; then rm ...`): left in, read as the command.
-+    else if (/^(do|then|else|elif|!)$/.test(head)) w = w.slice(1)
++    else if (KEYWORD.test(head)) w = w.slice(1)
 +    else if (WRAPPERS[head] !== undefined) {
 +      const [values, operands] = WRAPPERS[head]!
        w = w.slice(1)
@@ -272,7 +287,7 @@ index ca09408..e778f44 100644
      }
      else if (/^(npx|bunx|pnpx)$/.test(head)) w = w.slice(1).filter((x, i, all) => !(x.startsWith('-') && i < all.findIndex(y => !y.startsWith('-'))))
      else if (/^python[\d.]*$/.test(head) && w[1] === '-m') w = w.slice(2)
-@@ -625,6 +756,8 @@ export function shellWrites(words: string[]): string[] {
+@@ -625,6 +764,8 @@ export function shellWrites(words: string[]): string[] {
      if (/^(>{1,2}|&>{1,2}|>&|>\|)$/.test(x) && w[i + 1] !== undefined && isTestFile(w[i + 1]!)) hits.add(w[i + 1]!)
    })
    if (WRITERS.test(head)) operands(w.slice(1)).forEach(t => hits.add(t))
@@ -281,7 +296,7 @@ index ca09408..e778f44 100644
    if (head === 'cp' || head === 'dd' || head === 'install' || head === 'rsync') {
      const dest = head === 'dd' ? w.find(x => x.startsWith('of='))?.slice(3) : w[w.length - 1]
      if (dest !== undefined && w.length > 2 && isTestFile(dest)) hits.add(dest)
-@@ -682,17 +815,85 @@ export function shellWrites(words: string[]): string[] {
+@@ -682,17 +823,85 @@ export function shellWrites(words: string[]): string[] {
  
  export function bashSignals(command: string): string[] {
    const signals: string[] = []
@@ -728,7 +743,7 @@ index 9227632..dc25aee 100644
    await update($, blocked, cur => (cur !== null && cur.fp === which.fp ? null : cur))
  }
 diff --git a/tests/assertion-guardian.test.tsx b/tests/assertion-guardian.test.tsx
-index a9012d5..e0d0496 100644
+index a9012d5..0a9a694 100644
 --- a/tests/assertion-guardian.test.tsx
 +++ b/tests/assertion-guardian.test.tsx
 @@ -1,6 +1,7 @@
@@ -776,7 +791,7 @@ index a9012d5..e0d0496 100644
      on('fs.read', () => ({ value: SPEC }))
      on('process.run', git(run('', 128, "fatal: path 'new.test.ts' does not exist in 'HEAD'")))
      on('tool.call', () => {
-@@ -324,3 +335,704 @@ describe('hooks', () => {
+@@ -324,3 +335,728 @@ describe('hooks', () => {
      await ui.unmount()
    })
  })
@@ -1479,6 +1494,30 @@ index a9012d5..e0d0496 100644
 +    expect(ran.deny).toMatch(/assertions removed/)
 +    expect(w.disk.get(T)).toBe(SPEC)
 +    expect(w.runs).toBe(1)
++  })
++})
++
++describe('review round: nested loops, deep keywords, output substitution', () => {
++  const S = "sed -i '/expect/d' a.test.ts"
++  test('a nested loop closing does not end the fed outer loop', async () => {
++    for (const c of [`echo "${S}" | while read x; do for i in 1; do :; done; sh -c "$x"; done`, `echo "${S}" | while read x; do while false; do :; done; eval "$x"; done`]) {
++      expect([c, shellPlan(c, '/repo').refuseBefore]).toEqual([c, true])
++    }
++    expect(shellPlan(`echo "${S}" | while read x; do :; done; sh -c "echo"`, '/repo').refuseBefore).toBe(false)
++  })
++  test('keywords and wrappers stack to any depth and the write is still seen', async () => {
++    expect(shellPlan(`! ! ! ! ! ! ! ! ${S}`, '/repo').targets).toEqual(['/repo/a.test.ts'])
++    expect(shellPlan(`nice nice nice nice nice nice nice nice ${S}`, '/repo').refuseBefore).toBe(true)
++  })
++  test('text written into a >( ) shell is refused before running', async () => {
++    for (const c of [`echo "${S}" | tee >(sh)`, `echo "${S}" > >(bash)`]) {
++      expect([c, shellPlan(c, '/repo').refuseBefore]).toEqual([c, true])
++    }
++  })
++  test('output substitution on a script run is not text fed to it', async () => {
++    for (const c of ['bash tests/run.sh > >(tee out.log)', 'bash tests/run.sh 2> >(tee err.log >&2)']) {
++      expect([c, shellPlan(c, '/repo').refuseBefore, bashSignals(c)]).toEqual([c, false, []])
++    }
 +  })
 +})
 diff --git a/types/index.d.ts b/types/index.d.ts
