@@ -134,7 +134,8 @@ git_pathspec_is_tree() {
 }
 
 check() {
-  local cmd="${1//\\$'\n'/ }" p
+  # the shell drops backslash-newline entirely, so join without a space (`git re\<nl>set` is `git reset`)
+  local cmd="${1//\\$'\n'/}" p
   if git_pathspec_is_tree "$cmd"; then
     echo "git checkout/restore of a whole tree pathspec discards uncommitted work" && return 2
   fi
@@ -650,6 +651,10 @@ if [[ "${1:-}" == "--test" ]]; then
   allow 'git checkout $BRANCH'
   allow 'git status \
 --short'
+  block 'git re\
+set --hard'
+  block 'git check\
+out -- .'
   # follow-up of spec 0016: a destructive rm inside a quoted shell string
   block 'bash -c "rm -rf ~"'
   block "sh -c 'rm -rf /'"
