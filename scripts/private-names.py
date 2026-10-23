@@ -227,10 +227,14 @@ def cmd_check_range(start, end):
     for sha in git("rev-list", f"{start}..{end}").decode().split():
         head = git("log", "-1", "--format=%an%n%ae%n%cn%n%ce%n%B", sha).decode("utf-8", errors="replace")
         bad += report(f"commit {sha[:12]}", scan(head, names), names)
-        changed = git("diff-tree", "-r", "--no-commit-id", "--root", "--diff-filter=ACMR", "--name-only", "-z", sha)
-        for path in filter(None, changed.decode("utf-8", errors="replace").split("\0")):
+        # raw -z output: ":<old mode> <new mode> <old sha> <new sha> <status>\0<path>\0" per entry
+        raw = git("diff-tree", "-r", "--no-commit-id", "--root", "--diff-filter=ACMR", "-z", sha)
+        fields = raw.decode("utf-8", errors="replace").split("\0")
+        for meta, path in zip(fields[0::2], fields[1::2]):
             bad += report_path(path, names)
-            bad += check_bytes(f"commit {sha[:12]} {path}", git("show", f"{sha}:{path}"), names)
+            # a submodule (gitlink, mode 160000) has no blob here; its own repo is scanned on its own push
+            if meta.split()[1] != "160000":
+                bad += check_bytes(f"commit {sha[:12]} {path}", git("show", f"{sha}:{path}"), names)
     return 1 if bad else 0
 
 
@@ -589,6 +593,16 @@ def selftest():
         code, out = run("check-range", old, "feat/x", cwd=rng)
         ok(code == 1 and "names.txt line" in out and not leaks(out), f"spec 0026 check-range hit in a {label}")
         sh("git", "reset", "-q", "--hard", snap, cwd=rng)
+    # a submodule entry has no blob to show; the scan must step over it and still reach later commits
+    snap = sh("git", "rev-parse", "HEAD", cwd=rng).stdout.strip()
+    sh("git", "update-index", "--add", "--cacheinfo", f"160000,{old},sub", cwd=rng)
+    sh("git", "commit", "-q", "--no-verify", "-m", "add submodule", cwd=rng)
+    code, out = run("check-range", old, "feat/x", cwd=rng)
+    ok(code == 0, f"check-range steps over a submodule entry: {out.strip()}")
+    range_commit("g.txt", "Zorblex\n", "g")
+    code, out = run("check-range", old, "feat/x", cwd=rng)
+    ok(code == 1 and "g.txt" in out and not leaks(out), "check-range scans past a submodule entry")
+    sh("git", "reset", "-q", "--hard", snap, cwd=rng)
     sh("git", "checkout", "-q", "-b", "feat/zorblex-x", cwd=rng)
     code, out = run("check-range", old, "feat/zorblex-x", cwd=rng)
     ok(code == 1 and "branch name: names.txt line 3" in out and not leaks(out), "spec 0026 check-range branch name")
