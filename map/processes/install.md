@@ -5,6 +5,7 @@ A new machine, or after changing a file under `claude-home/` that the repo ships
 
 ## Steps
 1. `bin/install.sh --dry-run`: repo to `~/.claude` (copies and symlinks), then self-checks. Rerun without `--dry-run` to apply.
+   The last self-check is `python3 bin/claude-config.py hook-files`: exit 1 names each live `settings.json` hook command whose file is missing (hooks under `~/.claude/skills/` are skipped: jjstack and gstack install those).
 2. After editing `scripts/private-names.py`, rerun `bin/install.sh` so the `pre-commit` and `commit-msg` hooks are refreshed: they are copies of the checker, not links.
 
 ## Done when
