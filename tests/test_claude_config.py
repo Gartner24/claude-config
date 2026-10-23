@@ -165,6 +165,17 @@ class TestRestore(Case):
         self.assertEqual((s / "SKILL.md").read_text(), "mine only\n")
 
 
+class TestShippedPatch(unittest.TestCase):
+    # covers: spec 0078 AC-8 (the shipped assertion-guardian patch applies cleanly on upstream at pinned,
+    # so restore can rebuild the mod). Needs github.com: unreachable fails, since the patch is then unchecked.
+    def test_assertion_guardian_applies_on_pinned(self):
+        e = json.loads((REAL / "config" / "manifest.json").read_text())["entries"]["assertion-guardian"]
+        with tempfile.TemporaryDirectory() as tmp:
+            base, _ = cc.upstream(e, e["pinned"], tmp)
+            self.assertEqual(cc.folder_hash(base), e["base_hash"])
+            self.assertTrue(cc.apply_patch(base, (REAL / e["patch"]).read_bytes()), "patch does not apply on pinned")
+
+
 class TestUpdate(Case):
     def state(self):
         s = self.live / "skills" / "s"
