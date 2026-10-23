@@ -15,6 +15,7 @@ python3 claude-home/hooks/plain-panel.py --test      # panel hook: at most 3 opt
 bash claude-home/hooks/handover-start.sh --test      # handover on /clear hook (spec 0057); needs the real jjstack slot script
 claude plugin test claude-home/mods/wf-handoff       # /handoff and auto handoff mod (specs 0057, 0063, 0064); `claude plugin validate` beside it
 claude plugin test claude-home/mods/chip-dash        # band and panes (specs 0058 to 0060, 0064, 0065); `claude plugin validate` beside it
+python3 bin/claude-config.py hook-files            # every live settings.json hook command names a file that exists
 node claude-home/hooks/context-monitor.js --test     # context warning hook (spec 0037): header numbers match the code and autoCompactWindow
 bash claude-home/skills/design/scripts/test-ledger.sh  # design ledger and Stop hook
 node claude-home/skills/design/scripts/build-ramp.mjs --check

@@ -34,11 +34,16 @@ PATTERNS=(
   # EMPTY redirect onto a home path - `: > file` / `> file` can only truncate.
   # `echo x > ~/out.txt` writes content and is left alone.
   '(^|[;&|])[[:space:]]*(:|true)?[[:space:]]*>[[:space:]]*(~|\$HOME|/home/)[^[:space:]|;&]'
+  # git discarding uncommitted work: reset --hard (any git options first, the flag quoted or not),
+  # checkout of the whole tree (`.` or `./`, after any ref, -f or --)
+  'git[[:space:]]+([^|;&]*[[:space:]])?reset[[:space:]]+([^|;&]*[[:space:]])?["'"'"']?--hard["'"'"']?([[:space:]]|[;&|)]|$)'
+  'git[[:space:]]+([^|;&]*[[:space:]])?checkout[[:space:]]+([^|;&]*[[:space:]])?["'"'"']?\./?["'"'"']?([[:space:]]|[;&|)]|$)'
 )
 
 # Dangerous targets: absolute path, home, parent traversal, whole cwd, bare glob.
 # The left boundary now allows a quote, so a quoted home target is caught like a bare one.
-RM_TARGETS='(^|[[:space:]]|["'"'"'])(/|~|\$HOME|\.\.|\*|\.([[:space:]]|$)|\./([[:space:]]|$))'
+# $PWD only when it is the whole target, like `.` (also `$PWD/*`, `$PWD/.`); `$PWD/build` stays allowed.
+RM_TARGETS='(^|[[:space:]]|["'"'"'])(/|~|\$HOME|\$\{HOME\}|\.\.|\*|\.([[:space:]]|$)|\./([[:space:]]|$)|(\$PWD|\$\{PWD\})(/|/\*|/\.)?(["'"'"'[:space:];&|)]|$))'
 
 # True when the deletion is RECURSIVE, in any flag spelling: -r, -R, inside a combined
 # cluster like -rf, split across tokens as -r -f, or --recursive. Tokenized on purpose:
@@ -71,8 +76,26 @@ git_clean_is_destructive() {
   return 0
 }
 
+# `git restore` of the whole tree discards work; `--staged` alone only unstages, so it is allowed.
+git_restore_is_destructive() {
+  local seg
+  # each restore on its own: `git restore --staged x; git restore .` must not pass on the first one's flag
+  while read -r seg; do
+    grep -Eq '[[:space:]]["'"'"']?\./?["'"'"']?([[:space:]]|[;&|)]|$)' <<<"$seg" || continue
+    if grep -Eq '[[:space:]](--staged|-S)([[:space:]]|$)' <<<"$seg" \
+        && ! grep -Eq '[[:space:]](--worktree|-W)([[:space:]]|$)' <<<"$seg"; then
+      continue
+    fi
+    return 0
+  done < <(grep -oEi 'git[[:space:]]+([^|;&]*[[:space:]])?restore[[:space:]]+[^|;&]*' <<<"$1")
+  return 1
+}
+
 check() {
   local cmd="$1" p
+  if git_restore_is_destructive "$cmd"; then
+    echo "git restore of the whole tree discards uncommitted work" && return 2
+  fi
   if git_clean_is_destructive "$cmd"; then
     echo "git clean would delete untracked files (add -n/--dry-run to preview)" && return 2
   fi
@@ -434,6 +457,57 @@ if [[ "${1:-}" == "--test" ]]; then
   block 'rm -Rf /'
   block 'rm -rf "$HOME"'
   block 'rm -rf '"'"'$HOME'"'"''
+  # 2026-10-22 blind review: brace and cwd spellings, and git discarding work
+  block 'rm -rf ${HOME}'
+  block 'rm -rf "${HOME}"'
+  block 'rm -rf $PWD'
+  block 'rm -rf ${PWD}'
+  block 'rm -rf "$PWD/"'
+  block 'git reset --hard'
+  block 'git reset --hard origin/main'
+  block 'git -C /tmp/repo reset --hard'
+  block 'git checkout -- .'
+  block 'git checkout .'
+  allow 'rm -rf $PWD/build'
+  allow 'git reset --soft HEAD~1'
+  allow 'git checkout -- src/file.txt'
+  allow 'git checkout main'
+  allow_data 'git commit -m "docs: never git reset --hard"'
+  # review round 1 on the row 105 PR
+  block 'git checkout HEAD -- .'
+  block 'git checkout main -- .'
+  block 'git checkout -f .'
+  block 'git checkout --force .'
+  block 'git checkout ./'
+  block 'git checkout -- ./'
+  block 'git checkout "."'
+  block 'git -C dir checkout .'
+  block 'git restore .'
+  block 'git restore --source=HEAD --staged --worktree .'
+  block 'git --no-pager reset --hard'
+  block 'git -c a=b reset --hard'
+  block 'git -C a -C b reset --hard'
+  block "git reset '--hard'"
+  block 'git reset HEAD~1 --hard'
+  block 'rm -rf $PWD/*'
+  block 'rm -rf ${PWD}/*'
+  block 'rm -rf $PWD/.'
+  block 'rm -rf "${PWD}"'
+  block 'rm -rf ${HOME}/'
+  allow 'git checkout -b x'
+  allow 'git checkout ./file'
+  allow 'git checkout .gitignore'
+  allow 'git restore file'
+  allow 'git restore --staged .'
+  allow 'git reset --hardness'
+  # commit security scan on fc904eb: a separator right after the target, one restore per segment
+  block 'git restore --staged x; git restore .'
+  block 'git reset --hard;ls'
+  block 'git reset --hard&&ls'
+  block 'git reset --hard|cat'
+  block 'git checkout .;ls'
+  block 'rm -rf $PWD;ls'
+  allow 'git reset --hardness;ls'
   # follow-up of spec 0016: a destructive rm inside a quoted shell string
   block 'bash -c "rm -rf ~"'
   block "sh -c 'rm -rf /'"

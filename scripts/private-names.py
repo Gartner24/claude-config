@@ -728,8 +728,11 @@ def selftest():
     for d in ("claude-home/agents", "claude-home/rules", "claude-home/hooks", "claude-home/scripts", "scripts", "bin"):
         (irepo / d).mkdir(parents=True)
     shutil.copy(real_repo / "bin/install.sh", irepo / "bin/install.sh")
+    shutil.copy(real_repo / "bin/claude-config.py", irepo / "bin/claude-config.py")
     shutil.copy(SCRIPT, irepo / "scripts" / "private-names.py")
-    for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py", "hooks/context-monitor.js"):
+    # every file install.sh copies unconditionally: a missing one stops it under set -e before settings.json
+    for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py", "hooks/context-monitor.js",
+              "hooks/handover-start.sh", "hooks/no-jjstack-bar.py"):
         (irepo / "claude-home" / f).write_text("#!/bin/sh\n")
     (irepo / "claude-home" / "CLAUDE.md").write_text("# rules\n")
     (irepo / "claude-home" / "settings.json").write_text(json.dumps({"permissions": {"deny": ["Bash(rm:*)", "Read(~/x)"]}}))
