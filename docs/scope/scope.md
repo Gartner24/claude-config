@@ -315,9 +315,9 @@ Source: automated commit security review of the PR #206 build, confirmed by its 
 ### 109. restructure-check follow-ups from its first real run
 The first real run (PR #205, 2026-10-22) worked and caught 3 real breaks, but showed three gaps: the judge stage cannot write `report.md` (a subagent Write is refused, so the report only comes back as text); the head capture passed a slug fragment to `spec-paths --spec` for `NNNN-*/index.md` specs (35 false "exit 2" entries); and the own-PRs trust gate lives in the starter's prose, not in the script (automated security review, MEDIUM).
 **Done when:** a run on a real PR writes `03_judge/output/report.md`, shows no spec-paths slug entries, and the script itself refuses a head that is not a verified own ref.
-- [ ] Fix it: `/debug restructure-check follow-ups`
-- [ ] Verify it: `/check verify restructure-check follow-ups`
-- [ ] Test it: `/test restructure-check follow-ups`
+- [x] Fix it: `/debug restructure-check follow-ups` (PR open, not live yet: judge returns report text, starter writes it; spec number from folder prefix; script refuses unverified head)
+- [x] Verify it: `/check verify restructure-check follow-ups` (node arg refusal run, check.py ok, suite 191 ok; a real PR run still owed once live)
+- [x] Test it: `/test restructure-check follow-ups` (tests/test_restructure_check.py, 6 mutants red)
 Source: run 20261022-230208 on PR #205 and the automated push security review of PR #200 (2026-10-22, this chat).
 
 ### 110. Fix: install reapplies a changed patch to an edited skill
