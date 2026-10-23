@@ -48,3 +48,7 @@ Behavior observed through the built mod with `claude plugin test` (69 pass). Eac
 5. AC-4 upstream at pinned plus the patch equals the built mod; `TestShippedPatch` green in `python3 -B tests/fast.py`. can fail: a hunk dropped or edited makes the apply or `diff -r` fail.
 6. Live install: done by the parent session after merge; not claimed here.
 CAN FAIL CHECKED: 5
+
+## Review round 1 (2026-10-23, PR #214)
+- Probe on the built mod: `bash -lc`, `env`/`sudo`/`nohup`/`time` before `bash -c`, and `command eval`/`builtin eval` hid the -c or eval string, so a `&` or a test target inside it ran uncompared (`bashSignals` empty). Fixed in `commands()`: heads read through `unwrap()`, flag `-[a-zA-Z]*c`.
+- Mod test "a -c or eval string is read behind a wrapper and with combined flags": 70 pass, 0 fail. Mutant (old head and `-c` detection) red on that test only; restored, 70 pass. Patch regenerated, upstream at pinned plus patch equals the built mod (`diff -r`).
