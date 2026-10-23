@@ -1,0 +1,1 @@
+probe P3 ran from a worktree workflow agent
