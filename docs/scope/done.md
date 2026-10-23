@@ -1191,6 +1191,62 @@ A chat saved while auto handoff was off, resumed after you typed `/auto-handoff 
 - [x] Test it: `/test a resumed chat follows the folder's auto handoff setting` (2 tests; mutants: old `if off then true` line -> row 104 resumed test red; no-word guard dropped -> 4 tests red incl. the row 104 no-word test; mod tests 157 pass)
 Source: [row 95 verify](../reviews/verify-row-95-2026-10-22.md); your answer 2026-10-22 ("Make it a row").
 
+### 100. build-features workflow, shown while it runs · done
+A saved Claude Code workflow (`/build-features`) that builds every ready scope row whose questions are answered, one worktree agent each, with per row model and effort; running agents show as rows in the agent panel and as a count on the chip band. from spec 0072. Spec [0074](../specs/0074-build-features/index.md). Build only after rows 93 and 98 merge (it uses row 98's helpers and edits chip-dash).
+**Done when:** `/build-features` builds two non overlapping ready rows to draft PRs, and both places show them while they run.
+- [x] Design it (spec): `/architect build-features workflow` (spec 0074 accepted 2026-10-22 after a Sonnet cross check, 17 fixes applied; probe P1 passed: a mod sees workflow agents)
+- [x] Build it: `/develop build-features workflow`
+  - [x] Probes P2 (agent panel rows) and P3 (worktree agent builds and pushes); a P3 FAIL goes back to `/architect` (P2 FAIL, AC-11 dropped; P3 PASS; PR #199)
+  - [x] Skill: ready list, clashes, pick panel, start gates, workflow script (AC-1 to AC-8) (draft PR #201)
+  - [x] Review and merge loop (AC-9, AC-10) (draft PR #201)
+  - [x] Panel script, band count, rule line, live copy and `tools/bin/sync.sh` (AC-11 to AC-13) (panel script dropped; band count and repo rule line built; live copy done by the 2026-10-23 installs, drift none)
+- [x] Verify it: `/check verify build-features workflow` (2026-10-22: automated ACs 1, 2, 5, 6, 8, 12 pass; AC-3, 4, 9, 10 manual by reading; AC-11 dropped; AC-13 live copy after merge; CAN FAIL CHECKED: 3)
+- [x] Test it: `/test build-features workflow` (no tests added; 9 + 85 + suite 167 pass; 5 existing tests mutation checked; MUTATION CHECKED: 0 new)
+Source: [brief](../briefs/build-features.md) (probe passed); [brief](../briefs/icm-restructure.md) "Workflows" and "Running workflows show"; your messages 2026-10-22.
+
+### 105. Fix: blind review findings · done
+The outside review (average, 5/10) found cheap safety and drift bugs. Fix them; the always loaded text cut goes to row 97 phase 2.
+**Done when:** `context-monitor.js` and `CLAUDE.md` take the handoff number from one source; `block-destructive.sh` refuses `rm -rf ${HOME}`, `rm -rf $PWD`, `git reset --hard` and `git checkout -- .` with a self test each; `tools/bin/install.sh` and `claude-config.py drift` exit non zero when a hook command in `settings.json` names a missing file; `private-names.py --test` runs to the end; `enableAllProjectMcpServers` is false and the `Edit(~/.claude/CLAUDE.md)` and `Edit(~/.claude/rules/**)` allows are gone, while `gh pr merge` stays allowed; all of it is live.
+- [x] Build it: `/develop fix blind review findings` (PR #196 merged and installed live 2026-10-22; review CAUTION fixed in 2 commits; owner also chose: `Workflow` allowed, claude-config.py allows only drift, hook-files, update --plan)
+- [x] Verify it: `/check verify fix blind review findings` (suite 158 ok on the merged head; install verify all pass; drift none; live MCP switch off)
+- [x] Test it: `/test fix blind review findings` (32 mutation checks across 3 commits, each red then green)
+- [x] Sync docs: `/sync fix blind review findings`
+Source: [blind review](../reviews/blind-setup-review-2026-10-22.md) fixes 2 to 4; owner answer 2026-10-22 in chat: "MCP and rules only" (MCP auto start off, no self edit allows, merges stay automatic behind the self merge checklist).
+
+### 106. Assertion Guardian guard gaps · done
+Close the ways around the Assertion Guardian found by the 2026-10-22 security review and the 2026-10-21 leftovers.
+**Done when:** spec 0078's acceptance criteria pass with mod tests, the patch is regenerated, and it is live.
+- [x] Design it (spec): `/architect assertion guardian guard gaps` (spec [0078](../specs/0078-assertion-guardian-gaps.md), owner 2026-10-22: typed approval only, lock per test file)
+- [x] Build it: `/develop assertion guardian guard gaps` · built on feat/0078-assertion-guardian-gaps (PR #206 merged): AC-1, AC-3 to AC-7, AC-8 mod tests, regenerated patch and its apply test; AC-2 probe found no MultiEdit, nothing built ([verify](../specs/0078-assertion-guardian-gaps/verify.md)); not ticked: AC-8's live install is the box below
+- [x] Verify it: `/check verify assertion guardian guard gaps` · 7 steps pass through the built mod, each break turned red ([verify](../specs/0078-assertion-guardian-gaps/verify.md))
+- [x] Test it: `/test assertion guardian guard gaps` · 7 mutants red then restored; plugin test 56 pass, fast suite 181 ok
+- [x] Install it live after merge: move `~/.claude/skills/assertion-guardian` to the trash, `tools/bin/install.sh` (its restore rebuilds the mod from upstream plus the patch), then `python3 tools/bin/claude-config.py drift` shows nothing for it (done 2026-10-23: guardian rebuilt, 56 then 70 mod tests pass live)
+Source: [build-status brief](../briefs/build-status-2026-10-22.md) "For /architect later"; row 89 leftovers (concurrent Bash, refusal shape); owner answers 2026-10-22 in chat.
+
+### 107. Review leftovers 2026-10-22: destructive guard spellings · done
+`block-destructive.sh` (row 105) still lets through spellings git accepts: an abbreviated `git reset --har`, and whole tree pathspecs `:/`, `:(top)`, `*` for `git checkout` and `git restore`, plus `checkout -f`. Found by the push security review of PR #196, MEDIUM.
+**Done when:** each of those spellings is refused, with a self test each in `block-destructive.sh --test`, and it is live.
+- [x] Fix it: `/debug destructive guard spellings` (PR #211 merged; live 2026-10-23, drift none)
+- [x] Verify it: `/check verify destructive guard spellings` (self checks and suite green; 5 steps can fail)
+- [x] Test it: `/test destructive guard spellings` (10 mutants, each turned a new self test red)
+Source: automated push security review of PR #196 (2026-10-22, this chat).
+
+### 109. restructure-check follow-ups from its first real run · done
+The first real run (PR #205, 2026-10-22) worked and caught 3 real breaks, but showed three gaps: the judge stage cannot write `report.md` (a subagent Write is refused, so the report only comes back as text); the head capture passed a slug fragment to `spec-paths --spec` for `NNNN-*/index.md` specs (35 false "exit 2" entries); and the own-PRs trust gate lives in the starter's prose, not in the script (automated security review, MEDIUM).
+**Done when:** a run on a real PR writes `03_judge/output/report.md`, shows no spec-paths slug entries, and the script itself refuses a head that is not a verified own ref.
+- [x] Fix it: `/debug restructure-check follow-ups` (PR #212 merged; live 2026-10-23, drift none: judge returns report text, starter writes it; spec number from folder prefix; script refuses unverified head)
+- [x] Verify it: `/check verify restructure-check follow-ups` (node arg refusal run, check.py ok, suite 191 ok; a real PR run still owed once live)
+- [x] Test it: `/test restructure-check follow-ups` (tests/test_restructure_check.py, 6 mutants red)
+Source: run 20261022-230208 on PR #205 and the automated push security review of PR #200 (2026-10-22, this chat).
+
+### 110. Fix: install reapplies a changed patch to an edited skill · done
+After PR #206 changed `tools/config/patches/assertion-guardian.patch`, `tools/bin/install.sh` left the live mod on the old patch: `claude-config.py restore` only rebuilds a missing skill, so drift reported "your edit is no longer in it". Made live by hand on 2026-10-23 (old copy moved to `~/.claude/backups/skills/`, then `restore`).
+**Done when:** an install after a patch change rebuilds that skill from upstream plus the new patch when the live copy equals upstream plus the old patch, refuses and names it when the live copy has edits of its own, and drift is none after, with a test for both cases.
+- [x] Fix it: `/debug install reapplies a changed patch` - `reapply` in tools/bin/claude-config.py, branch fix/install-reapplies-changed-patch, PR #213 merged; live 2026-10-23, drift none
+- [x] Verify it: `/check verify install reapplies a changed patch` - suite 187 pass, install.sh --dry-run ok, three cases run on scratch trees; not run against real ~/.claude
+- [x] Test it: `/test install reapplies a changed patch` - TestRestoreChangedPatch, 3 mutants checked
+Source: the #206 install, 2026-10-23, this chat.
+
 ## Deferred
 
 ### 49. Fast runner · done

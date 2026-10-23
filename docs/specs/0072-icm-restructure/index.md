@@ -1,7 +1,7 @@
 # 0072. Restructure claude-config to the ICM layout, phase 1
 
 **Date**: 2026-10-22
-**Status**: In Progress
+**Status**: Accepted (phase 1 built b33f8d0, 2026-10-23)
 **Paths:** `CLAUDE.md`, `AGENTS.md`, `map/**`, `tests/**`, `_archive/**`, `tools/config/test-preferences.json`, `tools/scripts/private-names.py`, `tools/scripts/ref-check.py`, `claude-home/mods/chip-dash/plan.py`, `tools/bin/install.sh`, `README.md`
 **Amended:** 2026-10-22, owner: live-script tests copied from the archive (regression check)
 
