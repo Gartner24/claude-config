@@ -59,10 +59,10 @@ index 83a1863..6d52b55 100644
  The mod collects no analytics or telemetry, and its author receives no data from it.
  
 diff --git a/hooks/analyze.ts b/hooks/analyze.ts
-index ca09408..0561ab9 100644
+index ca09408..6cb5f39 100644
 --- a/hooks/analyze.ts
 +++ b/hooks/analyze.ts
-@@ -501,9 +501,19 @@ export function weakening(before: string, after: string, path: string): string[]
+@@ -501,9 +501,20 @@ export function weakening(before: string, after: string, path: string): string[]
  // ---------------------------------------------------------------------------
  // Bash
  
@@ -70,8 +70,11 @@ index ca09408..0561ab9 100644
 +const HEREDOC = /((?<!<)<<-?[ \t]*(['"]?)(\w+)\2[^\n]*)\n((?:[\s\S]*?\n)?)[ \t]*\3[ \t]*(?=\n|$)/g
 +
  // Splits a command line into simple commands and their words, quotes removed.
- // The string of `bash -c` / `sh -c` and backtick substitutions are split too.
- export function commands(line: string, depth = 0): string[][] {
+-// The string of `bash -c` / `sh -c` and backtick substitutions are split too.
+-export function commands(line: string, depth = 0): string[][] {
++// The string of `bash -c` / `sh -c` / `eval` and backtick substitutions are split too.
++// `jobs.found` is set by a bare `&` (a background job) in the line or any body split from it.
++export function commands(line: string, depth = 0, jobs?: { found: boolean }): string[][] {
 +  // A heredoc body is split on its own: read as part of the line, an apostrophe in it ("don't") opened a
 +  // quote that hid every later command on the line from the compare.
 +  const bodies: string[] = []
@@ -82,7 +85,7 @@ index ca09408..0561ab9 100644
    const out: string[][] = []
    let words: string[] = []
    let word = ''
-@@ -517,19 +527,38 @@ export function commands(line: string, depth = 0): string[][] {
+@@ -517,19 +528,42 @@ export function commands(line: string, depth = 0): string[][] {
      if (words.length > 0) out.push(words)
      words = []
    }
@@ -118,24 +121,51 @@ index ca09408..0561ab9 100644
      else if (c === '\\') word += line[(i += 1)] ?? ''
 -    else if (c === ';' || c === '\n' || c === '&' || c === '|' || c === '(' || c === ')' || c === '`') end()
 -    else if (c === '$' && line[i + 1] === '(') {
--      end()
++    else if (c === '`' || (c === '$' && line[i + 1] === '(')) i = substitution(i)
++    else if (c === ';' || c === '\n' || c === '&' || c === '|' || c === '(' || c === ')') {
++      // `>&`/`<&` were taken by the redirect branch; `&&`, `|&`, `&>` are not jobs.
++      if (c === '&' && jobs !== undefined && line[i - 1] !== '&' && line[i - 1] !== '|' && line[i + 1] !== '&' && line[i + 1] !== '>') jobs.found = true
+       end()
 -      i += 1
 -    } else if (c === '>' || c === '<') {
-+    else if (c === '`' || (c === '$' && line[i + 1] === '(')) i = substitution(i)
-+    else if (c === ';' || c === '\n' || c === '&' || c === '|' || c === '(' || c === ')') end()
++    }
 +    else if (c === '>' || c === '<') {
        push()
        let op = c
        while (line[i + 1] === '>' || line[i + 1] === '&') op += line[(i += 1)]
-@@ -538,6 +567,7 @@ export function commands(line: string, depth = 0): string[][] {
+@@ -538,11 +572,15 @@ export function commands(line: string, depth = 0): string[][] {
      else word += c
    }
    end()
-+  for (const body of bodies) out.push(...commands(body, depth + 1))
++  for (const body of bodies) out.push(...commands(body, depth + 1, jobs))
    if (depth < 3) {
-     for (const words of [...out]) {
+-    for (const words of [...out]) {
++    for (const all of [...out]) {
++      // Past wrappers (`env`, `sudo`, `nohup`, `command`, `builtin`) and with combined flags (`bash -lc`).
++      const words = unwrap(all)
        const head = base(words[0])
-@@ -625,6 +655,8 @@ export function shellWrites(words: string[]): string[] {
+-      const at = words.indexOf('-c')
+-      if (/^(bash|sh|zsh|dash)$/.test(head) && at > 0 && words[at + 1] !== undefined) out.push(...commands(words[at + 1]!, depth + 1))
++      const at = words.findIndex(x => /^-[a-zA-Z]*c$/.test(x))
++      if (/^(bash|sh|zsh|dash)$/.test(head) && at > 0 && words[at + 1] !== undefined) out.push(...commands(words[at + 1]!, depth + 1, jobs))
++      if (head === 'eval' && words.length > 1) out.push(...commands(words.slice(1).join(' '), depth + 1, jobs))
+     }
+   }
+   return out
+@@ -563,9 +601,10 @@ function unwrap(words: string[]): string[] {
+     else if (/^(npm|pnpm|yarn|bun)$/.test(head) && ['exec', 'dlx', 'x'].includes(script(w, true) ?? '')) {
+       const at = w.findIndex((x, i) => i > 0 && ['exec', 'dlx', 'x'].includes(x))
+       w = w.slice(at + 1).filter((x, i) => !(i === 0 && x === '--'))
+-    } else if (/^(env|time|nice|nohup|command|exec)$/.test(head)) {
++    } else if (/^(env|time|nice|nohup|command|exec|builtin)$/.test(head)) {
+       w = w.slice(1)
+-      while (w[0] !== undefined && (/^[A-Za-z_]+=/.test(w[0]) || w[0].startsWith('-'))) w = w.slice(1)
++      // env -C/--chdir and -u/--unset take a value; left in, it read as the command and hid the real one.
++      while (w[0] !== undefined && (/^[A-Za-z_]+=/.test(w[0]) || w[0].startsWith('-'))) w = w.slice(head === 'env' && /^(-[a-zA-Z]*[Cu]|--chdir|--unset)$/.test(w[0]) ? 2 : 1)
+     }
+     else if (/^(npx|bunx|pnpx)$/.test(head)) w = w.slice(1).filter((x, i, all) => !(x.startsWith('-') && i < all.findIndex(y => !y.startsWith('-'))))
+     else if (/^python[\d.]*$/.test(head) && w[1] === '-m') w = w.slice(2)
+@@ -625,6 +664,8 @@ export function shellWrites(words: string[]): string[] {
      if (/^(>{1,2}|&>{1,2}|>&|>\|)$/.test(x) && w[i + 1] !== undefined && isTestFile(w[i + 1]!)) hits.add(w[i + 1]!)
    })
    if (WRITERS.test(head)) operands(w.slice(1)).forEach(t => hits.add(t))
@@ -144,7 +174,7 @@ index ca09408..0561ab9 100644
    if (head === 'cp' || head === 'dd' || head === 'install' || head === 'rsync') {
      const dest = head === 'dd' ? w.find(x => x.startsWith('of='))?.slice(3) : w[w.length - 1]
      if (dest !== undefined && w.length > 2 && isTestFile(dest)) hits.add(dest)
-@@ -693,6 +725,64 @@ export function bashSignals(command: string): string[] {
+@@ -693,6 +734,65 @@ export function bashSignals(command: string): string[] {
    return signals
  }
  
@@ -185,13 +215,15 @@ index ca09408..0561ab9 100644
 +// `repoHasTests`: the working folder is inside a repository holding a test path (the caller asks git), so a
 +// `git apply` or `patch` there may write tests the line never names.
 +export function shellPlan(command: string, cwd?: string, repoHasTests = false): { snapshotUpdate: boolean; targets: string[]; refuseBefore: boolean } {
-+  const all = commands(command)
++  const jobs = { found: false }
++  const all = commands(command, 0, jobs)
 +  const targets = new Set<string>()
 +  let moved = false
 +  let refuseBefore = repoHasTests && appliesPatch(command).length > 0
 +  for (const words of all) {
 +    const head = base(unwrap(words)[0])
-+    if (/^(cd|pushd|popd)$/.test(head)) moved = true
++    // Folder changes the compare cannot follow: `eval` and `source`/`.` run text in this shell, `env -C` runs elsewhere.
++    if (/^(cd|pushd|popd|eval|source|\.)$/.test(head) || words.some((x, i) => base(x) === 'env' && words.slice(i + 1).some(y => /^(-[a-zA-Z]*C|--chdir)/.test(y)))) moved = true
 +    const written = shellWrites(words)
 +    if (written.length > 0 && (moved || /^(git|mv|find|ln|patch)$/.test(head))) refuseBefore = true
 +    for (const t of written) {
@@ -200,9 +232,8 @@ index ca09408..0561ab9 100644
 +      targets.add(path.startsWith('/') ? fold(path) : path)
 +    }
 +  }
-+  // A `&` job can write after the compare has run (`2>&1`, `&&`, `&>`, `|&` are not jobs).
-+  const bare = command.replace(HEREDOC, '$1').replace(/'[^']*'|"(?:\\.|[^"\\])*"/g, "''")
-+  if (targets.size > 0 && /(^|[^&>|<])&(?![&>])/.test(bare)) refuseBefore = true
++  // A `&` job, at the top or in a `-c` string, substitution or heredoc body, can write after the compare has run.
++  if (targets.size > 0 && jobs.found) refuseBefore = true
 +  return { snapshotUpdate: all.some(snapshotUpdate), targets: [...targets], refuseBefore }
 +}
 +
@@ -568,7 +599,7 @@ index 9227632..dc25aee 100644
    await update($, blocked, cur => (cur !== null && cur.fp === which.fp ? null : cur))
  }
 diff --git a/tests/assertion-guardian.test.tsx b/tests/assertion-guardian.test.tsx
-index a9012d5..6d917f7 100644
+index a9012d5..877edf1 100644
 --- a/tests/assertion-guardian.test.tsx
 +++ b/tests/assertion-guardian.test.tsx
 @@ -1,6 +1,7 @@
@@ -616,7 +647,7 @@ index a9012d5..6d917f7 100644
      on('fs.read', () => ({ value: SPEC }))
      on('process.run', git(run('', 128, "fatal: path 'new.test.ts' does not exist in 'HEAD'")))
      on('tool.call', () => {
-@@ -324,3 +335,518 @@ describe('hooks', () => {
+@@ -324,3 +335,573 @@ describe('hooks', () => {
      await ui.unmount()
    })
  })
@@ -1133,6 +1164,61 @@ index a9012d5..6d917f7 100644
 +    expect((await $.tool.call({ tool: 'Bash', command: "sed -i '/toEqual(0)/d' src/sum.test.ts" })).deny).toMatch(/assertions removed/)
 +    await $.command.run(allowRun({ kind: 'composer' }))
 +    expect(JSON.stringify(await $.command.run(allowRun({ kind: 'composer' })))).toMatch(new RegExp(`the change to ${T} is already allowed once`))
++  })
++})
++
++describe('hidden jobs and folder changes', () => {
++  const refused = (c: string) => expect([c, shellPlan(c, '/repo').refuseBefore]).toEqual([c, true])
++  test('a & job inside a -c string is refused before running', async () => {
++    refused("bash -c \"sed -i '/expect/d' a.test.ts &\"")
++  })
++  test('a & job inside a $(...) body is refused before running', async () => {
++    refused("echo \"$(sed -i '/expect/d' a.test.ts &)\"")
++  })
++  test('a & job inside a backtick body is refused before running', async () => {
++    refused("echo \"`sed -i '/expect/d' a.test.ts &`\"")
++  })
++  test('a & job inside a heredoc body is refused before running', async () => {
++    refused("bash <<'EOF'\nsed -i '/expect/d' a.test.ts &\nEOF")
++  })
++  test('a & job inside an eval string is refused before running', async () => {
++    refused("eval \"sed -i '/expect/d' a.test.ts &\"")
++  })
++  test('env -C and --chdir are refused before running, and their command is still seen', async () => {
++    for (const c of ["env -C sub sed -i '/expect/d' a.test.ts", "env -iC sub sed -i '/expect/d' a.test.ts", "env --chdir=sub sed -i '/expect/d' a.test.ts", "env --chdir sub sed -i '/expect/d' a.test.ts"]) refused(c)
++    expect(bashSignals("env -C sub sed -i '/expect/d' a.test.ts").join()).toMatch(/a\.test\.ts/)
++    expect(bashSignals("env -u HOME sed -i '/expect/d' a.test.ts").join()).toMatch(/a\.test\.ts/)
++  })
++  test('builtin cd is refused before running', async () => {
++    refused("builtin cd sub; sed -i '/expect/d' a.test.ts")
++  })
++  test('command cd is refused before running', async () => {
++    refused("command cd sub; sed -i '/expect/d' a.test.ts")
++  })
++  test('eval is a folder change, and the command it runs is seen', async () => {
++    refused("eval cd sub; sed -i '/expect/d' a.test.ts")
++    refused("eval \"sed -i '/expect/d' a.test.ts\"")
++    expect(bashSignals("eval \"sed -i '/expect/d' a.test.ts\"").join()).toMatch(/a\.test\.ts/)
++  })
++  test('source is refused before running', async () => {
++    refused("source ./go.sh; sed -i '/expect/d' a.test.ts")
++  })
++  test('. is refused before running', async () => {
++    refused(". ./go.sh; sed -i '/expect/d' a.test.ts")
++  })
++  test('the hook refuses env -C before running anything', async ($, on) => {
++    const w = world(on, { [T]: SPEC, '/repo/sub/src/sum.test.ts': SPEC })
++    expect((await $.tool.call({ tool: 'Bash', command: "env -C sub sed -i '/toEqual(0)/d' src/sum.test.ts" })).deny).toMatch(/where the change cannot be checked/)
++    expect(w.runs).toBe(0)
++  })
++  test('a -c or eval string is read behind a wrapper and with combined flags', async () => {
++    for (const c of ["bash -lc \"sed -i '/expect/d' a.test.ts &\"", "env FOO=1 bash -c \"sed -i '/expect/d' a.test.ts &\"", "sudo bash -c \"sed -i '/expect/d' a.test.ts &\"", "nohup sh -c \"sed -i '/expect/d' a.test.ts &\"", "command eval \"sed -i '/expect/d' a.test.ts &\"", "builtin eval \"sed -i '/expect/d' a.test.ts\""]) refused(c)
++    expect(bashSignals("bash -lc \"sed -i '/expect/d' a.test.ts\"").join()).toMatch(/a\.test\.ts/)
++  })
++  test('normal commands stay allowed: no job, git -C, quoted &, && and redirects', async () => {
++    for (const c of ["bash -c \"sed -i 's/a/b/' a.test.ts\"", "git -C sub status && sed -i 's/a/b/' a.test.ts", "env FOO=1 sed -i 's/a/b/' a.test.ts", "echo 'a & b' >> a.test.ts", "cat >> a.test.ts <<'EOF'\n  expect(a && b).toBe(true)\nEOF", "echo \"$(sed -i s/a/b/ a.test.ts 2>&1)\" && npm test &> out.log", "eval \"$(mise env)\" && echo ok"]) {
++      expect([c, shellPlan(c, '/repo').refuseBefore]).toEqual([c, false])
++    }
 +  })
 +})
 diff --git a/types/index.d.ts b/types/index.d.ts

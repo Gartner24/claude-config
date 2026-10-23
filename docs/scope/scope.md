@@ -128,7 +128,7 @@ Closed rows (done or dropped, no open box) live in [done.md](done.md).
 | 105 | Fix: blind review findings | Release 10 | in-progress |
 | 106 | Assertion Guardian guard gaps | Release 10 | in-progress |
 | 107 | Review leftovers 2026-10-22: destructive guard spellings | Release 10 | not started |
-| 108 | Assertion Guardian: hidden background jobs and folder changes | Release 10 | not started |
+| 108 | Assertion Guardian: hidden background jobs and folder changes | Release 10 | in-progress |
 | 109 | restructure-check follow-ups from its first real run | Release 10 | not started |
 | 110 | Fix: install reapplies a changed patch to an edited skill | Release 10 | in PR, not live yet |
 
@@ -306,10 +306,12 @@ Source: automated push security review of PR #196 (2026-10-22, this chat).
 ### 108. Assertion Guardian: hidden background jobs and folder changes
 Two ways around spec 0068's "refuse before running" rule, confirmed by a probe during the PR #206 build: a bare `&` inside a `-c` string, `$(...)` or heredoc body is not seen as a background job; and `env -C`/`--chdir`, `builtin cd`, `eval cd`, `source` change the folder unseen, so a relative test path is checked in the wrong place (`env -C sub sed ...` hides the target). HIGH by the automated security review.
 **Done when:** each of those forms makes the guard refuse before running, with a mod test each, the patch is regenerated, and it is live.
-- [ ] Design it (spec): `/architect assertion guardian hidden background and folder changes`
-- [ ] Build it: `/develop assertion guardian hidden background and folder changes`
-- [ ] Verify it: `/check verify assertion guardian hidden background and folder changes`
-- [ ] Test it: `/test assertion guardian hidden background and folder changes`
+- [x] Design it (spec): `/architect assertion guardian hidden background and folder changes` (Assumed spec [0079](../specs/0079-assertion-guardian-hidden-jobs.md), owner to confirm)
+- [x] Build it: `/develop assertion guardian hidden background and folder changes` (draft PR on fix/0079-guardian-hidden-jobs; probe and patch rebuild in [verify](../specs/0079-assertion-guardian-hidden-jobs/verify.md); not live yet)
+- [x] Verify it: `/check verify assertion guardian hidden background and folder changes` (5 steps pass through the built mod, each break turned red)
+- [x] Test it: `/test assertion guardian hidden background and folder changes` (13 new mod tests, 12 mutants red then restored; plugin test 69 pass, fast suite 184 ok)
+- [ ] Confirm the Assumed spec 0079 · waits on you · later boxes go on
+- [ ] Install it live after merge: move `~/.claude/skills/assertion-guardian` to the trash, `tools/bin/install.sh`, then `python3 tools/bin/claude-config.py drift` shows nothing for it · waits on you
 Source: automated commit security review of the PR #206 build, confirmed by its build agent (2026-10-22, this chat).
 
 ### 109. restructure-check follow-ups from its first real run
