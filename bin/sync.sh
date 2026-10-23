@@ -25,7 +25,7 @@ fail=0
   "$LIVE/hooks/block-destructive.sh" "$LIVE/hooks/review-stack-pre-push" "$LIVE/hooks/plain-panel.py" "$LIVE/hooks/context-monitor.js" || fail=1
 # Spec 0048: these may be missing from a live tree (first install, the self checks' temp trees).
 OPTIONAL=(hooks/claude-config-reminder.py hooks/workflow-start.sh hooks/handover-start.sh hooks/no-jjstack-bar.py hooks/live-tick.py
-          hooks/skill-rules.py MAP.md scripts/claude-ram-watch.sh)
+          hooks/skill-rules.py hooks/chain-catch.py MAP.md scripts/claude-ram-watch.sh)
 for f in "${OPTIONAL[@]}" rules-on-demand; do
   if [ -e "$LIVE/$f" ]; then "${NAMES[@]}" check "$LIVE/$f" || fail=1; fi
 done

@@ -22,7 +22,8 @@ class Scratch(unittest.TestCase):
         shutil.copy(REPO / "bin/install.sh", repo / "bin/install.sh")
         shutil.copy(REPO / "bin/claude-config.py", repo / "bin/claude-config.py")
         for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py",
-                  "hooks/context-monitor.js", "hooks/handover-start.sh", "hooks/no-jjstack-bar.py", "hooks/skill-rules.py"):
+                  "hooks/context-monitor.js", "hooks/handover-start.sh", "hooks/no-jjstack-bar.py", "hooks/skill-rules.py",
+                  "hooks/chain-catch.py", "hooks/live-tick.py"):
             (repo / "claude-home" / f).write_text("#!/bin/sh\n")
         (repo / "scripts" / "private-names.py").write_text(CHECKER)
         (repo / "claude-home" / "settings.json").write_text("{}")
@@ -117,6 +118,9 @@ class TestRulesOnDemand(Scratch):
         self.assertEqual((live / "rules-on-demand" / "moved.md").read_text(), "moved\n", out)
         self.assertEqual((live / "MAP.md").read_text(), "map\n", out)
         self.assertTrue((live / "hooks" / "skill-rules.py").exists(), out)
+        # drift lists these two as copied files, so install must copy them too
+        self.assertTrue((live / "hooks" / "chain-catch.py").exists(), out)
+        self.assertTrue((live / "hooks" / "live-tick.py").exists(), out)
         self.assertFalse((live / "rules" / "moved.md").exists(), out)
         self.assertFalse((live / "rules-on-demand" / "stale.md").exists(), out)
         backups = sorted(str(p.relative_to(live / "backups" / "rules")) for p in (live / "backups" / "rules").rglob("*.md"))
