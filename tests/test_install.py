@@ -84,6 +84,24 @@ class TestInstallStage(Scratch):
         self.assertEqual((self.hooks / "pre-commit").read_text(), CHECKER)
 
 
+    # covers: scope row 89 (a global core.hooksPath must not redirect the copies: they go to the git common dir's hooks)
+    def test_hooks_ignore_global_hooks_path(self):
+        cfg = self.tmp / "gitconfig"
+        cfg.write_text(f"[core]\n\thooksPath = {self.tmp}/global/hooks\n")
+        home = self.tmp / "home-g"
+        live = home / ".claude"
+        (live / "private").mkdir(parents=True)
+        (live / "private" / "names.txt").write_text("x\n")
+        env = {**os.environ, "HOME": str(home), "CLAUDE_LIVE_DIR": str(live), "GIT_CONFIG_GLOBAL": str(cfg)}
+        env.pop("WF_STAGE", None)
+        r = subprocess.run(["bash", str(self.repo / "tools/bin/install.sh")], env=env, capture_output=True, text=True,
+                           stdin=subprocess.DEVNULL, timeout=120)
+        self.assertEqual((self.hooks / "pre-commit").read_text(), CHECKER, r.stdout + r.stderr)
+        self.assertEqual((self.hooks / "commit-msg").read_text(), CHECKER, r.stdout + r.stderr)
+        self.assertFalse((self.repo / str(self.tmp).lstrip("/")).exists())
+        self.assertFalse((self.tmp / "global").exists())
+
+
 class TestWorkflowLinks(Scratch):
     # covers: spec 0076 AC-6 (each claude-home/workflows/<name> is linked to ~/.claude/workflows/<name>; a real folder
     # already there is skipped and named, never replaced)
