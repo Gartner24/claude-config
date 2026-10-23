@@ -100,7 +100,8 @@ for d in commands skills workflows; do
 done
 
 # Spec 0048 AC-7: an edited downloaded skill that is missing (a new machine) is rebuilt from upstream at
-# its pinned commit plus its patch; an installed one is never overwritten.
+# its pinned commit plus its patch; an installed one is rebuilt only when it equals upstream or upstream plus
+# the previous patch (old copy moved to backups/skills), and refused when it has edits of its own (row 110).
 if [ -f "$REPO/tools/config/manifest.json" ]; then
   echo "downloaded skills:"
   if [ "$DRY" = 1 ]; then

@@ -130,7 +130,7 @@ Closed rows (done or dropped, no open box) live in [done.md](done.md).
 | 107 | Review leftovers 2026-10-22: destructive guard spellings | Release 10 | not started |
 | 108 | Assertion Guardian: hidden background jobs and folder changes | Release 10 | in-progress |
 | 109 | restructure-check follow-ups from its first real run | Release 10 | not started |
-| 110 | Fix: install reapplies a changed patch to an edited skill | Release 10 | not started |
+| 110 | Fix: install reapplies a changed patch to an edited skill | Release 10 | in PR, not live yet |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -317,17 +317,17 @@ Source: automated commit security review of the PR #206 build, confirmed by its 
 ### 109. restructure-check follow-ups from its first real run
 The first real run (PR #205, 2026-10-22) worked and caught 3 real breaks, but showed three gaps: the judge stage cannot write `report.md` (a subagent Write is refused, so the report only comes back as text); the head capture passed a slug fragment to `spec-paths --spec` for `NNNN-*/index.md` specs (35 false "exit 2" entries); and the own-PRs trust gate lives in the starter's prose, not in the script (automated security review, MEDIUM).
 **Done when:** a run on a real PR writes `03_judge/output/report.md`, shows no spec-paths slug entries, and the script itself refuses a head that is not a verified own ref.
-- [ ] Fix it: `/debug restructure-check follow-ups`
-- [ ] Verify it: `/check verify restructure-check follow-ups`
-- [ ] Test it: `/test restructure-check follow-ups`
+- [x] Fix it: `/debug restructure-check follow-ups` (PR open, not live yet: judge returns report text, starter writes it; spec number from folder prefix; script refuses unverified head)
+- [x] Verify it: `/check verify restructure-check follow-ups` (node arg refusal run, check.py ok, suite 191 ok; a real PR run still owed once live)
+- [x] Test it: `/test restructure-check follow-ups` (tests/test_restructure_check.py, 6 mutants red)
 Source: run 20261022-230208 on PR #205 and the automated push security review of PR #200 (2026-10-22, this chat).
 
 ### 110. Fix: install reapplies a changed patch to an edited skill
 After PR #206 changed `tools/config/patches/assertion-guardian.patch`, `tools/bin/install.sh` left the live mod on the old patch: `claude-config.py restore` only rebuilds a missing skill, so drift reported "your edit is no longer in it". Made live by hand on 2026-10-23 (old copy moved to `~/.claude/backups/skills/`, then `restore`).
 **Done when:** an install after a patch change rebuilds that skill from upstream plus the new patch when the live copy equals upstream plus the old patch, refuses and names it when the live copy has edits of its own, and drift is none after, with a test for both cases.
-- [ ] Fix it: `/debug install reapplies a changed patch`
-- [ ] Verify it: `/check verify install reapplies a changed patch`
-- [ ] Test it: `/test install reapplies a changed patch`
+- [x] Fix it: `/debug install reapplies a changed patch` - `reapply` in tools/bin/claude-config.py, branch fix/install-reapplies-changed-patch, in PR, not live yet
+- [x] Verify it: `/check verify install reapplies a changed patch` - suite 187 pass, install.sh --dry-run ok, three cases run on scratch trees; not run against real ~/.claude
+- [x] Test it: `/test install reapplies a changed patch` - TestRestoreChangedPatch, 3 mutants checked
 Source: the #206 install, 2026-10-23, this chat.
 
 ## Deferred
