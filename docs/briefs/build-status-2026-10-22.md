@@ -33,7 +33,7 @@ Owner's chosen order (2026-10-22, "continue with your recommendations"):
 - restructure-check: compare behavior outputs on base and PR head; stages capture (haiku), diff (sonnet), judge (sonnet high); own PRs only; details as listed in chat ("Yes, as listed"). Draft PR #200.
 - Phase 2 (spec 0077): keep `docs/specs/`, `docs/scope/`, `claude-home/`; then move `bin/`, `scripts/`, `config/` into `tools/` ("after we finish we move held folders too, that way we finish today"); no compatibility links; rules move into skills, loaded by a skill start hook (probe passed, typed slash needs UserPromptSubmit); situation rules keep pointer lines; drop the per-message /scope reminder, keep chat-start /scope and the Stop hook; `~/.claude/MAP.md` pointer file (Claude does edit `~/.claude` directly).
 - Guard gaps (spec 0078): approval only when typed by the owner; lock per test file.
-- Row 100 built (draft PR #201): owner question open from the build agent: GA rows run /review inside the agent and again in AC-9 (double review); built as the spec says.
+- Row 100 built (draft PR #201). Owner answer 2026-10-22: a GA row built by /build-features gets /review once, at merge (AC-9); the build agent does not review it itself. Landing in PR #201 with a spec 0074 amendment.
 - Live today: row 105 merged (#196) and installed; `Workflow` allowed; claude-config.py allows narrowed to drift, hook-files, update --plan; live MCP auto start off.
 
 ## For /architect later (none blocks)
