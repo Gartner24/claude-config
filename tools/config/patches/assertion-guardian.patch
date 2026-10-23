@@ -11,7 +11,7 @@ index f33083c..33d946d 100644
  The mod collects no analytics or telemetry, and its author receives no data from it.
  
 diff --git a/README.md b/README.md
-index 83a1863..ce9317f 100644
+index 83a1863..4f4f2d2 100644
 --- a/README.md
 +++ b/README.md
 @@ -27,16 +27,26 @@ Before any Edit, Write or NotebookEdit to a test file runs, the mod works out th
@@ -20,7 +20,7 @@ index 83a1863..ce9317f 100644
  
 +A shell command that writes a test file it names (`sed -i`, `>>`, `rm`, a heredoc, `python -c`) runs. The mod reads each named test file before and after, and compares the two like an Edit. If the tests got weaker, every named test file is put back as it was before the command (a file the command created is removed), and the call is refused with the signals. Adding cases through the shell passes. The command's other effects (a build, a commit, other files) are not undone.
 +
-+Some shell shapes are still refused before they run, because putting one file back cannot undo them or the target cannot be pinned to one file: a bulk snapshot update, `git`, `mv` or `ln` on a test file, `patch` on a test file, `git apply` or `patch` anywhere in a repository that has test files (the files they change come from the patch, not the line), `find`, a glob, `~`, `$` or a backtick in the path, a folder, a `cd`/`pushd`/`popd` before the target, a background job (`&` or run in background), and a test file that cannot be read or is not UTF-8 text. So are forms that can hide a job, a folder change or the command that runs: a `{ ...; }` group or `( ... )` subshell with a test write, `env -C`, `env -S`, `builtin cd`, `eval`, `source` and `.`, a test write behind `nice`, `ionice`, `nohup`, `time`, `timeout`, `stdbuf`, `setsid`, `chrt` or `taskset`, and a line that names a test path while it pipes text into a shell (`... | sh`, `| bash`, `| zsh`, `| source /dev/stdin`) or runs a writer or a shell through `xargs`.
++Some shell shapes are still refused before they run, because putting one file back cannot undo them or the target cannot be pinned to one file: a bulk snapshot update, `git`, `mv` or `ln` on a test file, `patch` on a test file, `git apply` or `patch` anywhere in a repository that has test files (the files they change come from the patch, not the line), `find`, a glob, `~`, `$` or a backtick in the path, a folder, a `cd`/`pushd`/`popd` before the target, a background job (`&` or run in background), and a test file that cannot be read or is not UTF-8 text. So are forms that can hide a job, a folder change or the command that runs: a `{ ...; }` group or `( ... )` subshell with a test write, `env -C`, `env -S`, `builtin cd`, `eval`, `source` and `.`, a test write behind `nice`, `ionice`, `nohup`, `time`, `timeout`, `stdbuf`, `setsid`, `chrt` or `taskset`, and a line that names a test path while it pipes text into a shell (`... | sh`, `| bash`, `| zsh`, `| ksh`, `| busybox sh`, `| fish`, `| source /dev/stdin`, a `while read` loop running each line in a shell), feeds a shell a here-string (`bash <<< "..."`) or a `<(...)` file (`source <(...)`, `bash <(...)`), or runs a writer or a shell through `xargs`. A `<(...)` or `>(...)` body runs on like a background job, so a test write in one is refused too.
 +
 +Every target of an Edit, a Write or a compared shell command is first resolved through its links (for a file not there yet, its nearest existing folder), and matched, read and put back as the file it lands on. A path that resolves nowhere, such as a link that leads nowhere, is refused before it runs.
 +
@@ -37,7 +37,7 @@ index 83a1863..ce9317f 100644
  
  This is a guardrail, not a sandbox. It checks what tool calls say they'll do. A determined process could still change files some other way, such as a script that never names the test file.
  
-+Known gap: a shell command that writes a test file it does not name (a script, a glob the parser misses) is not caught. The contents of a sourced file are not read: `source` and `.` are refused before a test write on the same line, but a sourced script that writes a test file it does not name runs. Text piped into a shell or handed to `xargs` is caught only when the line names the test path; a script piped in from a file (`cat go.sh | sh`), encoded text, or a list from a command that names no test path (`git ls-files | xargs rm`) is not.
++Known gap: a shell command that writes a test file it does not name (a script, a glob the parser misses) is not caught. The contents of a sourced file are not read: `source` and `.` are refused before a test write on the same line, but a sourced script that writes a test file it does not name runs. Text piped, fed by a here-string or a `<(...)` file into a shell, or handed to `xargs` is caught only when the line names the test path; a script piped in from a file (`cat go.sh | sh`), encoded text, or a list from a command that names no test path (`git ls-files | xargs rm`) is not.
 +
  Test files are recognised by `*.test.*`, `*.spec.*`, `test_*.py`, `tests.py`, `*_test.{py,go,rb,ex,dart}`, `*_spec.rb`, `*Tests.swift`, `*Test.{kt,java,cs}`, and snapshot paths. Code files under `__tests__/`, `test/`, `tests/` or `spec/` count too, except those inside `fixtures/`, `support/`, `helpers/`, `factories/`, `__mocks__/` or `testdata/`.
  
@@ -59,10 +59,10 @@ index 83a1863..ce9317f 100644
  The mod collects no analytics or telemetry, and its author receives no data from it.
  
 diff --git a/hooks/analyze.ts b/hooks/analyze.ts
-index ca09408..95fd931 100644
+index ca09408..d62a88f 100644
 --- a/hooks/analyze.ts
 +++ b/hooks/analyze.ts
-@@ -501,35 +501,86 @@ export function weakening(before: string, after: string, path: string): string[]
+@@ -501,54 +501,179 @@ export function weakening(before: string, after: string, path: string): string[]
  // ---------------------------------------------------------------------------
  // Bash
  
@@ -91,6 +91,8 @@ index ca09408..95fd931 100644
    let word = ''
    let quote: string | null = null
 +  let piped = false
++  let procsub = false
++  let fedLoop = false
    const push = () => {
      if (word !== '') words.push(word)
      word = ''
@@ -100,11 +102,20 @@ index ca09408..95fd931 100644
 -    if (words.length > 0) out.push(words)
 +    if (words.length > 0) {
 +      out.push(words)
-+      const w = unwrap(words)
++      const w = unwrap(words[0] === 'do' ? words.slice(1) : words)
 +      const head = base(w[0])
 +      if (jobs !== undefined && words[0] === '{') jobs.hidden = true
-+      if (jobs !== undefined && piped && (/^(source|\.)$/.test(head) || (/^(bash|sh|zsh|dash)$/.test(head) && !w.some(x => /^-[a-zA-Z]*c$/.test(x))))) jobs.stdin = true
++      // Text a shell runs that the line hands it: a pipe, a `<<<` here-string or a `<(...)` file.
++      const shell = /^(source|\.)$/.test(head) || (SHELL.test(head) && !w.some(x => /^-[a-zA-Z]*c$/.test(x)))
++      const here = w.indexOf('<<<')
++      if (jobs !== undefined && shell && (piped || here >= 0 || procsub)) jobs.stdin = true
++      if (shell && here >= 0 && w[here + 1] !== undefined) bodies.push(w[here + 1]!)
++      // `... | while read x; do sh -c "$x"; done`: the loop hands each line it reads to a shell.
++      if (/^(while|until)$/.test(head)) fedLoop = true
++      if (jobs !== undefined && fedLoop && (SHELL.test(head) || /^(eval|source|\.)$/.test(head))) jobs.stdin = true
++      if (head === 'done') fedLoop = false
 +      piped = false
++      procsub = false
 +    }
      words = []
    }
@@ -143,6 +154,14 @@ index ca09408..95fd931 100644
 -    else if (c === ';' || c === '\n' || c === '&' || c === '|' || c === '(' || c === ')' || c === '`') end()
 -    else if (c === '$' && line[i + 1] === '(') {
 +    else if (c === '`' || (c === '$' && line[i + 1] === '(')) i = substitution(i)
++    else if ((c === '<' || c === '>') && line[i + 1] === '(') {
++      // A `<(...)`/`>(...)` body runs on without the line waiting for it, like a `&` job.
++      if (jobs !== undefined) jobs.hidden = true
++      procsub = true
++      push()
++      i = substitution(i)
++      push()
++    }
 +    else if (c === ';' || c === '\n' || c === '&' || c === '|' || c === '(' || c === ')') {
 +      // `>&`/`<&` were taken by the redirect branch; `&&`, `|&`, `&>` are not jobs.
 +      if (c === '&' && jobs !== undefined && line[i - 1] !== '&' && line[i - 1] !== '|' && line[i + 1] !== '&' && line[i + 1] !== '>') jobs.found = true
@@ -156,8 +175,10 @@ index ca09408..95fd931 100644
 +    else if (c === '>' || c === '<') {
        push()
        let op = c
-       while (line[i + 1] === '>' || line[i + 1] === '&') op += line[(i += 1)]
-@@ -538,11 +589,33 @@ export function commands(line: string, depth = 0): string[][] {
+-      while (line[i + 1] === '>' || line[i + 1] === '&') op += line[(i += 1)]
++      while (line[i + 1] === '>' || line[i + 1] === '&' || (c === '<' && line[i + 1] === '<')) op += line[(i += 1)]
+       words.push(op)
+     } else if (/\s/.test(c)) push()
      else word += c
    }
    end()
@@ -176,7 +197,7 @@ index ca09408..95fd931 100644
 -      const at = words.indexOf('-c')
 -      if (/^(bash|sh|zsh|dash)$/.test(head) && at > 0 && words[at + 1] !== undefined) out.push(...commands(words[at + 1]!, depth + 1))
 +      const at = words.findIndex(x => /^-[a-zA-Z]*c$/.test(x))
-+      if (/^(bash|sh|zsh|dash)$/.test(head) && at > 0 && words[at + 1] !== undefined) out.push(...commands(words[at + 1]!, depth + 1, jobs))
++      if (SHELL.test(head) && at > 0 && words[at + 1] !== undefined) out.push(...commands(words[at + 1]!, depth + 1, jobs))
 +      if (head === 'eval' && words.length > 1) out.push(...commands(words.slice(1).join(' '), depth + 1, jobs))
 +      // env -S / --split-string: the string is split into words, the words after it are its arguments.
 +      const env = all.findIndex(x => base(x) === 'env')
@@ -194,16 +215,18 @@ index ca09408..95fd931 100644
      }
    }
    return out
-@@ -550,6 +623,37 @@ export function commands(line: string, depth = 0): string[][] {
+ }
  
  const base = (w: string | undefined) => (w ?? '').split('/').pop() ?? ''
- 
++const SHELL = /^(bash|sh|zsh|dash|ksh|mksh|ash|fish)$/
++
 +// Wrappers that run the command after them: the flags that take a value, and how many operands come before the command.
 +const NO_VALUE = /^$/
 +const WRAPPERS: Record<string, [RegExp, number]> = {
 +  env: [/^(-[a-zA-Z]*[CuS]|--chdir|--unset|--split-string)$/, 0],
 +  command: [NO_VALUE, 0],
 +  builtin: [NO_VALUE, 0],
++  busybox: [NO_VALUE, 0],
 +  exec: [/^-a$/, 0],
 +  nohup: [NO_VALUE, 0],
 +  setsid: [NO_VALUE, 0],
@@ -219,7 +242,7 @@ index ca09408..95fd931 100644
 +// Wrappers that change how or when the command runs (killed mid write, detached, rescheduled): a test write behind one is refused before running.
 +const WRAPPED = /^(nice|ionice|nohup|time|timeout|stdbuf|setsid|chrt|taskset)$/
 +// What `xargs` may run on paths it reads from its input: a writer, a shell or a script.
-+const FED = /^(rm|mv|truncate|tee|unlink|shred|patch|cp|dd|install|rsync|ln|git|find|sed|perl|bash|sh|zsh|dash|python[\d.]*|node|ruby|deno|bun)$/
++const FED = /^(rm|mv|truncate|tee|unlink|shred|patch|cp|dd|install|rsync|ln|git|find|sed|perl|bash|sh|zsh|dash|ksh|mksh|ash|fish|python[\d.]*|node|ruby|deno|bun)$/
 +
 +// Test paths a line may hand to a command it does not name: through `xargs` to a writer or a shell, or as text piped
 +// into a shell. Every test path anywhere in the line counts, inside quoted words too. Empty: no such command.
@@ -228,11 +251,10 @@ index ca09408..95fd931 100644
 +  if (!stdin && !xargs) return []
 +  return [...new Set(all.flatMap(words => words.flatMap(x => x.split(/[\s;|&()<>'"`=]+/)).filter(x => x !== '' && isTestTarget(x))))]
 +}
-+
+ 
  // Drops env assignments and wrappers that run another command: env, time,
  // nice, npx/bunx/pnpm exec/yarn dlx (and their flags), python -m.
- function unwrap(words: string[]): string[] {
-@@ -563,9 +667,13 @@ function unwrap(words: string[]): string[] {
+@@ -563,9 +688,13 @@ function unwrap(words: string[]): string[] {
      else if (/^(npm|pnpm|yarn|bun)$/.test(head) && ['exec', 'dlx', 'x'].includes(script(w, true) ?? '')) {
        const at = w.findIndex((x, i) => i > 0 && ['exec', 'dlx', 'x'].includes(x))
        w = w.slice(at + 1).filter((x, i) => !(i === 0 && x === '--'))
@@ -248,7 +270,7 @@ index ca09408..95fd931 100644
      }
      else if (/^(npx|bunx|pnpx)$/.test(head)) w = w.slice(1).filter((x, i, all) => !(x.startsWith('-') && i < all.findIndex(y => !y.startsWith('-'))))
      else if (/^python[\d.]*$/.test(head) && w[1] === '-m') w = w.slice(2)
-@@ -625,6 +733,8 @@ export function shellWrites(words: string[]): string[] {
+@@ -625,6 +754,8 @@ export function shellWrites(words: string[]): string[] {
      if (/^(>{1,2}|&>{1,2}|>&|>\|)$/.test(x) && w[i + 1] !== undefined && isTestFile(w[i + 1]!)) hits.add(w[i + 1]!)
    })
    if (WRITERS.test(head)) operands(w.slice(1)).forEach(t => hits.add(t))
@@ -257,7 +279,7 @@ index ca09408..95fd931 100644
    if (head === 'cp' || head === 'dd' || head === 'install' || head === 'rsync') {
      const dest = head === 'dd' ? w.find(x => x.startsWith('of='))?.slice(3) : w[w.length - 1]
      if (dest !== undefined && w.length > 2 && isTestFile(dest)) hits.add(dest)
-@@ -682,17 +792,85 @@ export function shellWrites(words: string[]): string[] {
+@@ -682,17 +813,85 @@ export function shellWrites(words: string[]): string[] {
  
  export function bashSignals(command: string): string[] {
    const signals: string[] = []
@@ -704,7 +726,7 @@ index 9227632..dc25aee 100644
    await update($, blocked, cur => (cur !== null && cur.fp === which.fp ? null : cur))
  }
 diff --git a/tests/assertion-guardian.test.tsx b/tests/assertion-guardian.test.tsx
-index a9012d5..cd62faf 100644
+index a9012d5..582cd4e 100644
 --- a/tests/assertion-guardian.test.tsx
 +++ b/tests/assertion-guardian.test.tsx
 @@ -1,6 +1,7 @@
@@ -712,7 +734,7 @@ index a9012d5..cd62faf 100644
 +import type { TestBody } from 'claude-code/testing'
  
 -import { bashSignals, isTestFile, weakening } from '../hooks/analyze'
-+import { appliesPatch, bashSignals, isTestFile, shellPlan, weakening } from '../hooks/analyze'
++import { appliesPatch, bashSignals, commands, isTestFile, shellPlan, weakening } from '../hooks/analyze'
  
  const SPEC = `describe('sum', () => {
    it('adds', () => {
@@ -752,7 +774,7 @@ index a9012d5..cd62faf 100644
      on('fs.read', () => ({ value: SPEC }))
      on('process.run', git(run('', 128, "fatal: path 'new.test.ts' does not exist in 'HEAD'")))
      on('tool.call', () => {
-@@ -324,3 +335,629 @@ describe('hooks', () => {
+@@ -324,3 +335,666 @@ describe('hooks', () => {
      await ui.unmount()
    })
  })
@@ -1380,6 +1402,43 @@ index a9012d5..cd62faf 100644
 +      expect([c, shellPlan(c, '/repo').refuseBefore]).toEqual([c, false])
 +    }
 +    expect(shellPlan('echo $( (echo a) ) >> a.test.ts', '/repo').refuseBefore).toBe(true)
++  })
++})
++
++describe('here-strings, process substitution and other shells', () => {
++  const S = "sed -i '/expect/d' a.test.ts"
++  const refused = (c: string) => {
++    expect([c, shellPlan(c, '/repo').refuseBefore]).toEqual([c, true])
++    expect([c, bashSignals(c).join()]).toEqual([c, expect.stringMatching(/a\.test\.ts/)])
++  }
++  test('text fed to a shell by a here-string is refused before running', async () => {
++    for (const c of [`bash <<< "${S}"`, `sh <<< "${S}"`, `zsh <<<"${S}"`, `source /dev/stdin <<< "${S}"`]) refused(c)
++  })
++  test('a here-string body fed to a shell is read like other nested bodies', async () => {
++    expect(commands(`bash <<< "${S}"`)).toContainEqual(['sed', '-i', '/expect/d', 'a.test.ts'])
++  })
++  test('text fed to a shell or source by process substitution is refused before running', async () => {
++    for (const c of [`source <(echo "${S}")`, `. <(echo "${S}")`, `bash <(echo "${S}")`, `sh <(echo "${S}")`]) refused(c)
++  })
++  test('a <( ) body is read like other nested bodies and runs on like a job', async () => {
++    expect(commands(`diff <(${S}) b`)).toContainEqual(['sed', '-i', '/expect/d', 'a.test.ts'])
++    expect(shellPlan(`diff <(${S}) b`, '/repo').refuseBefore).toBe(true)
++  })
++  test('text piped into ksh, mksh, ash, busybox sh or fish is refused before running', async () => {
++    for (const c of [`echo "${S}" | ksh`, `echo "${S}" | mksh`, `echo "${S}" | ash`, `echo "${S}" | busybox sh`, `echo "${S}" | fish`]) refused(c)
++  })
++  test('a while read loop that runs each line it reads in a shell is refused before running', async () => {
++    for (const c of [`echo "${S}" | while read x; do sh -c "$x"; done`, `echo "${S}" | while read x; do eval "$x"; done`, `while read x; do bash -c "$x"; done <<< "${S}"`]) refused(c)
++  })
++  test('the hook refuses a here-string fed to a shell before running anything', async ($, on) => {
++    const w = world(on, { [T]: SPEC })
++    expect((await $.tool.call({ tool: 'Bash', command: "bash <<< \"sed -i '/toEqual(0)/d' src/sum.test.ts\"" })).deny).toMatch(/where the change cannot be checked/)
++    expect(w.runs).toBe(0)
++  })
++  test('normal commands stay allowed: here-strings, <( ) and read loops with no test path', async () => {
++    for (const c of ['grep x <<< "$s"', 'diff <(sort a) <(sort b)', 'while read l; do echo "$l"; done < list.txt', 'bash <<< "echo hi"', 'cat a.test.ts | while read l; do echo "$l"; done', 'grep expect <<< "a.test.ts"', 'wc -l <(cat a.test.ts)', 'while read l; do echo "$l"; done < list.txt; sh -c "cat a.test.ts"']) {
++      expect([c, shellPlan(c, '/repo').refuseBefore, bashSignals(c)]).toEqual([c, false, []])
++    }
 +  })
 +})
 diff --git a/types/index.d.ts b/types/index.d.ts

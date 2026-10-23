@@ -257,8 +257,9 @@ Source: gap found in the ninth chat of 2026-10-22 (handover of that chat, next a
 ### 113. Review leftovers 2026-10-23 (late): guard spellings and here-strings
 Found by the automated security reviews of PRs #217 and #218 and the #218 review, after rows 111 and 112 closed. `block-destructive.sh` (a text pattern guard with stated limits): a pathspec with `sub/..` that climbs to the root, a `git checkout`/`restore` split by a backslash line continuation, and `--staged` written after `--`. Assertion Guardian (spec 0079 lists only pipes): text fed to a shell by `bash <<< "..."`, `sh <<<`, `source <(...)`, `bash <(...)`, `| ksh`, `| busybox sh`. MEDIUM. The guardian part widens spec 0079 AC-7, so it needs a short `/architect` answer first.
 **Done when:** each form is refused (the destructive guard) or refused before running (the guardian), with a self or mod test each, and it is live; or a form is dropped with the owner's reason.
-- [ ] Design it (spec): `/architect guard leftovers here-strings` · waits on you
+- [x] Design it (spec): `/architect guard leftovers here-strings` (owner 2026-10-23: same rule, spec 0079 amended)
 - [ ] Fix it: `/debug guard leftovers here-strings`
+  - [x] Guardian part (PR #222)
 - [ ] Verify it: `/check verify guard leftovers here-strings`
 - [ ] Test it: `/test guard leftovers here-strings`
 Source: automated security reviews of PRs #217 and #218, and the PR #218 review (2026-10-23, this chat).

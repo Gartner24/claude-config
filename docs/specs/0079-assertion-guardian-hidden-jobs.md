@@ -4,6 +4,7 @@
 **Status**: Accepted (owner confirmed 2026-10-23; built in PR #214)
 **Paths:** `tools/config/patches/assertion-guardian.patch`
 **Amended**: 2026-10-23: row 112 forms (same rule)
+**Amended**: 2026-10-23: row 113 here-strings and process substitution (owner: same rule)
 **Amends:** [0068](0068-assertion-guardian-removed-checks.md) (AC-1 folder changes, AC-2 background runs)
 
 ## What you're agreeing to
@@ -11,7 +12,7 @@
 - `env -C`, `env --chdir`, `builtin cd`, `command cd`, `eval`, `source` and `.` count as folder changes, like `cd`: a test file written after one is refused before running.
 - `git -C` is not a folder change, and every command that ran before still runs.
 - When the guard is too strict, you approve the command with `/allow-test-change`.
-- Row 112, same rule: a `{ }` group or `( )` subshell, `xargs`, text piped into a shell, `env -S`, and `nice`, `timeout` and similar wrappers are refused before running when a test file is or could be the target.
+- Rows 112 and 113, same rule: a `{ }` group or `( )` subshell, `xargs`, text piped into any shell or fed to one by `<<<` or `<(...)`, `env -S`, and `nice`, `timeout` and similar wrappers are refused before running when a test file is or could be the target.
 
 ## Summary
 Scope row 108: two ways around spec 0068's "refuse before running" rule, found by the automated security review of the PR #206 build. The `&` check read only the top line with quotes and heredoc bodies blanked, so a job inside a nested body ran uncompared. `env -C sub sed -i ... a.test.ts` hid the command (`unwrap()` read `sub` as the command), and `builtin cd`, `eval`, `source`, `.` were not folder changes, so a relative test path was checked in the wrong folder. The owner was asleep and asked for the row to be finished, so the design choice is Assumed and waits for the owner.
@@ -38,6 +39,12 @@ Row 112 (amendment 2026-10-23, same rule: a form that can hide a job, a folder c
 - **AC-11** every command the mod's tests allowed before stays allowed; one more test pins `time make test`, `timeout 60 npm test`, `nice -n 10 pytest`, `echo hi | grep h`, `( cd sub && ls )`, `xargs grep`, `cat a.test.ts | bash -c "grep ..."`, `arr=(a b)` before a compared `sed`, and a heredoc test body with `(`, `{` and `| sh` text.
 - **AC-12** the patch is regenerated as in AC-4; upstream at pinned plus the patch equals the built mod; `TestShippedPatch` green.
 
+Row 113 (amendment 2026-10-23, owner: same rule, refuse before running):
+- **AC-13** (here-strings) text fed to a shell or `source` by a here-string (`bash <<< "..."`, `sh <<<`, `zsh <<<`, `source /dev/stdin <<<`) makes every test path anywhere in the line a target and refuses before running. `<<<` is one word, and the here-string body fed to a shell is read like other nested bodies. Mod test, plus one through the hook (nothing runs).
+- **AC-14** (process substitution) text fed by `source <(...)`, `. <(...)`, `bash <(...)`, `sh <(...)` refuses before running when the line names a test path. A `<(...)` or `>(...)` body is read like other nested bodies, and since it runs on without the line waiting for it, a test write in one refuses before running like a `&` job. Mod test per form.
+- **AC-15** (other shells) a pipe into `ksh`, `mksh`, `ash`, `busybox sh` (`busybox` is unwrapped) or `fish` counts like a pipe into `sh` (AC-7); these shells' `-c` strings are split like `bash -c`. A `while`/`until` loop whose body runs a shell, `eval`, `source` or `.` (`... | while read x; do sh -c "$x"; done`) is fed text too. Mod test per form.
+- **AC-16** every command the mod's tests allowed before stays allowed; one more test pins `grep x <<< "$s"`, `diff <(sort a) <(sort b)`, `while read l; do echo "$l"; done < list.txt`, `bash <<< "echo hi"`, `cat a.test.ts | while read l; do echo "$l"; done`, `grep expect <<< "a.test.ts"`, `wc -l <(cat a.test.ts)` and a shell `-c` after a loop's `done`. The patch is regenerated as in AC-4; upstream at pinned plus the patch equals the built mod; `TestShippedPatch` green.
+
 ## Decision (Assumed)
 - Strict reading: any bare `&` in any body, with a test target in the line, refuses before running. Rejected: tracking which body a target came from (more code, same outcome for the owner, who can approve with `/allow-test-change`).
 - A heredoc body is read as shell text for the `&` check, so a test body holding a bare `&` (`&self` in Rust) is refused before running. Rejected: guessing whether the heredoc reader is a shell.
@@ -45,6 +52,7 @@ Row 112 (amendment 2026-10-23, same rule: a form that can hide a job, a folder c
 - `env -C` anywhere after `env` in the simple command counts, even when a later tool owns the `-C`; refusing is the safe direction.
 - Row 112: a wrapper refuses before running even though its command is now seen (the row's Done when; `timeout` can kill a write half done, `nohup`/`setsid` detach it). `env FOO=1`, `command`, `builtin`, `exec` and `sudo` keep the compare.
 - Row 112: for `xargs` and a pipe into a shell the paths come from input the line does not split, so any test path the line names counts ("could be a target"). A line that names no test path (`git ls-files | xargs rm`, `cat go.sh | sh`) stays the known gap of spec 0068 AC-2.
+- Row 113 (owner 2026-10-23: "I just want the easiest way for you to work without me so do the best", decided: same rule): a here-string or `<(...)` is read only when a shell or `source` is fed by it; a here-string to `grep` is data. A loop counts as fed whatever its input (a pipe, `<`, `<<<`), when its body runs a shell. Running a script in a test folder with input fed to it (`bash tests/run.sh <<< y`) is refused, the same as `echo y | bash tests/run.sh` under AC-7.
 
 ## Consequences
 - **Good**: the two ways around the rule found by the review are closed.
