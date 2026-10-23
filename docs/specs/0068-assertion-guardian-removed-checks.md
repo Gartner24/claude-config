@@ -3,6 +3,7 @@
 **Date**: 2026-10-20
 **Status**: Accepted, built in d764b60
 **Paths:** `config/manifest.json`, `config/patches/assertion-guardian.patch`, `bin/claude-config.py`, `tests/test_claude_config.py`
+**Amended by:** [0078](0078-assertion-guardian-gaps.md) (approval only when typed by you, `ln`/`git apply`/`patch` refused before running, targets resolved through links, one queue per test file)
 
 ## What you're agreeing to
 - A test edit made through the shell (sed, cat >>, rm, cp, tee) is no longer refused before it runs. The command runs, the test check compares each test file before and after, and if a check got removed or looser it puts the files back and says so.
