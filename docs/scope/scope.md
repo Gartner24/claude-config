@@ -125,6 +125,7 @@ Closed rows (done or dropped, no open box) live in [done.md](done.md).
 | 102 | review-fix and restructure-check workflows | Release 10 | in-progress |
 | 103 | Fix: a manual handoff gets the "not live" facts list | Release 10 | in-progress |
 | 104 | Fix: a resumed chat follows the folder's auto handoff setting | Release 10 | done |
+| 105 | Fix: blind review findings | Release 10 | planned |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -198,7 +199,7 @@ You asked to restructure claude-config into the folder layout of RinDig's icm-ar
   - [x] Scope split (0072c; AC-11, AC-12)
 - [x] Verify it: `/check verify restructure claude-config to the icm-architect layout` (whole phase on merged main: 33 live links resolve, dry run clean, suite 150 ok, ref-check strict exit 1 on 36 dropped pointers judged not dangling, see [verify](../specs/0072-icm-restructure/verify.md))
 - [x] Test it: `/test restructure claude-config to the icm-architect layout` (no new test; suite 150 ok; mutation check 0)
-- [ ] Design phase 2 (spec): `/architect restructure claude-config phase 2` (after phase 1 is merged and reviewed). Also checks the live side (your answers 2026-10-22): first find out whether Claude ever edits `~/.claude` without the repo's map. If not, drop the `~/.claude` map with one line of reasoning in the spec; if yes, add only the smallest pointer file, shipped from `claude-home/` by `bin/install.sh` and never loaded in normal chats. `~/.claude/private/` stays live only. Right before this box, run the restructure-check interview (row 102, `/workflow-builder restructure-check`; owner 2026-10-22)
+- [ ] Design phase 2 (spec): `/architect restructure claude-config phase 2` (after phase 1 is merged and reviewed). Also checks the live side (your answers 2026-10-22): first find out whether Claude ever edits `~/.claude` without the repo's map. If not, drop the `~/.claude` map with one line of reasoning in the spec; if yes, add only the smallest pointer file, shipped from `claude-home/` by `bin/install.sh` and never loaded in normal chats. `~/.claude/private/` stays live only. Right before this box, run the restructure-check interview (row 102, `/workflow-builder restructure-check`; owner 2026-10-22). The design also cuts the always loaded text (about 18k to 25k tokens before the first message, [blind review](../reviews/blind-setup-review-2026-10-22.md) fix 1; owner 2026-10-22: fold it into phase 2)
 Source: [brief](../briefs/icm-restructure.md); [brief](../briefs/retire-runner.md) line 13; your messages 2026-10-22.
 
 ### 99. Auto handoff off by itself in plain talk chats · dropped
@@ -253,6 +254,15 @@ A manual `/rollover` then `/clear` gets no "not live" list in the handover: the 
 - [x] Test it: `/test a manual handoff gets the not live facts list` (mutants: stamp disabled -> red on `## Handoff facts`; once-guard removed -> red on the second `/handoff` adding a second block)
 - [ ] Live check: type `/rollover`, then `/clear`; the new chat's handover has a `## Handoff facts` block with the not live list · waits on you · later boxes go on
 Source: gap found in the ninth chat of 2026-10-22 (handover of that chat, next action 2).
+
+### 105. Fix: blind review findings
+The outside review (average, 5/10) found cheap safety and drift bugs. Fix them; the always loaded text cut goes to row 97 phase 2.
+**Done when:** `context-monitor.js` and `CLAUDE.md` take the handoff number from one source; `block-destructive.sh` refuses `rm -rf ${HOME}`, `rm -rf $PWD`, `git reset --hard` and `git checkout -- .` with a self test each; `bin/install.sh` and `claude-config.py drift` exit non zero when a hook command in `settings.json` names a missing file; `private-names.py --test` runs to the end; `enableAllProjectMcpServers` is false and the `Edit(~/.claude/CLAUDE.md)` and `Edit(~/.claude/rules/**)` allows are gone, while `gh pr merge` stays allowed; all of it is live.
+- [ ] Build it: `/develop fix blind review findings`
+- [ ] Verify it: `/check verify fix blind review findings`
+- [ ] Test it: `/test fix blind review findings`
+- [ ] Sync docs: `/sync fix blind review findings`
+Source: [blind review](../reviews/blind-setup-review-2026-10-22.md) fixes 2 to 4; owner answer 2026-10-22 in chat: "MCP and rules only" (MCP auto start off, no self edit allows, merges stay automatic behind the self merge checklist).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
