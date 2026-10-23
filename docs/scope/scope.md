@@ -276,9 +276,10 @@ Source: [blind review](../reviews/blind-setup-review-2026-10-22.md) fixes 2 to 4
 Close the ways around the Assertion Guardian found by the 2026-10-22 security review and the 2026-10-21 leftovers.
 **Done when:** spec 0078's acceptance criteria pass with mod tests, the patch is regenerated, and it is live.
 - [x] Design it (spec): `/architect assertion guardian guard gaps` (spec [0078](../specs/0078-assertion-guardian-gaps.md), owner 2026-10-22: typed approval only, lock per test file)
-- [ ] Build it: `/develop assertion guardian guard gaps`
+- [ ] Build it: `/develop assertion guardian guard gaps` · built on feat/0078-assertion-guardian-gaps (draft PR #PRNUM): AC-1, AC-3 to AC-7, AC-8 mod tests, regenerated patch and its apply test; AC-2 probe found no MultiEdit, nothing built ([verify](../specs/0078-assertion-guardian-gaps/verify.md)); not ticked: AC-8's live install is the box below
 - [ ] Verify it: `/check verify assertion guardian guard gaps`
 - [ ] Test it: `/test assertion guardian guard gaps`
+- [ ] Install it live after merge: move `~/.claude/skills/assertion-guardian` to the trash, `bin/install.sh` (its restore rebuilds the mod from upstream plus the patch), then `python3 bin/claude-config.py drift` shows nothing for it · waits on you
 Source: [build-status brief](../briefs/build-status-2026-10-22.md) "For /architect later"; row 89 leftovers (concurrent Bash, refusal shape); owner answers 2026-10-22 in chat.
 
 ### 107. Review leftovers 2026-10-22: destructive guard spellings

@@ -11,21 +11,29 @@ index f33083c..33d946d 100644
  The mod collects no analytics or telemetry, and its author receives no data from it.
  
 diff --git a/README.md b/README.md
-index 83a1863..166e58c 100644
+index 83a1863..6d52b55 100644
 --- a/README.md
 +++ b/README.md
-@@ -27,6 +27,10 @@ Before any Edit, Write or NotebookEdit to a test file runs, the mod works out th
+@@ -27,16 +27,26 @@ Before any Edit, Write or NotebookEdit to a test file runs, the mod works out th
  | Snapshots updated in bulk | `jest -u`, `npm test -- -u`, `--update-snapshots`, `cargo insta accept`, `INSTA_UPDATE=1`, `loki update`, `backstop approve`, `chromatic --auto-accept-changes`. Wrappers such as `env`, `npx`, `pnpm exec`, `pnpm --filter` and `python -m` are looked through |
  | Test files changed through the shell | `rm`, `mv`, `sed -i`, `perl -pi`, `>` redirects, `tee`, `git rm`, `rm -rf tests`, `find ... -delete`, `git checkout <rev> -- file`, `bash -c "..."`, one-off `python -c` / `node -e` scripts that name a test file |
  
 +A shell command that writes a test file it names (`sed -i`, `>>`, `rm`, a heredoc, `python -c`) runs. The mod reads each named test file before and after, and compares the two like an Edit. If the tests got weaker, every named test file is put back as it was before the command (a file the command created is removed), and the call is refused with the signals. Adding cases through the shell passes. The command's other effects (a build, a commit, other files) are not undone.
 +
-+Some shell shapes are still refused before they run, because putting one file back cannot undo them or the target cannot be pinned to one file: a bulk snapshot update, `git` or `mv` on a test file, `find`, a glob, `~`, `$` or a backtick in the path, a folder, a `cd`/`pushd`/`popd` before the target, a background job (`&` or run in background), and a test file that cannot be read or is not UTF-8 text.
++Some shell shapes are still refused before they run, because putting one file back cannot undo them or the target cannot be pinned to one file: a bulk snapshot update, `git`, `mv` or `ln` on a test file, `patch` on a test file, `git apply` or `patch` anywhere in a repository that has test files (the files they change come from the patch, not the line), `find`, a glob, `~`, `$` or a backtick in the path, a folder, a `cd`/`pushd`/`popd` before the target, a background job (`&` or run in background), and a test file that cannot be read or is not UTF-8 text.
++
++Every target of an Edit, a Write or a compared shell command is first resolved through its links (for a file not there yet, its nearest existing folder), and matched, read and put back as the file it lands on. A path that resolves nowhere, such as a link that leads nowhere, is refused before it runs.
++
++Two calls on the same test file in one chat (shell commands that name it, Edit, Write) run one after the other: the later one waits until the earlier one has finished its compare and any undo, so one call's undo cannot erase what the other wrote. Calls in two different chats are not serialized.
 +
  Suppose a test file has been deleted and is then written again from scratch. The new version is compared with what git last committed, so deleting the file doesn't get around the check.
  
  The refusal lists which signals fired. It tells the model to fix the code under test, or to ask you if it thinks the test itself is wrong.
-@@ -37,6 +41,8 @@ Normal refactors pass: renaming the value under test, reformatting, reordering,
+ 
+ Normal refactors pass: renaming the value under test, reformatting, reordering, moving assertions between tests, adding tests, switching quote style, swapping in stronger matchers, and changing `toBe(null)` to `toBeNull()`.
+ 
+-**Override:** a band above the prompt shows the last blocked change, with **allow once** and **dismiss** buttons. Or run `/allow-test-change`, which runs immediately, even mid-turn. An allowance is tied to that exact call (same tool, same file, same content), so the model has to retry the identical change. A different edit to the same file is checked from scratch.
++**Override:** a band above the prompt shows the last blocked change, with **allow once** and **dismiss** buttons. Or type `/allow-test-change`, which runs immediately, even mid-turn. Only the command you type yourself approves: run by the model, an agent or another mod it answers "approval must be typed by you" and allows nothing. Asked again after an approval, it says the change is already allowed once. An allowance is tied to that exact call (same tool, same file, same content), so the model has to retry the identical change. A different edit to the same file is checked from scratch.
  
  This is a guardrail, not a sandbox. It checks what tool calls say they'll do. A determined process could still change files some other way, such as a script that never names the test file.
  
@@ -34,24 +42,24 @@ index 83a1863..166e58c 100644
  Test files are recognised by `*.test.*`, `*.spec.*`, `test_*.py`, `tests.py`, `*_test.{py,go,rb,ex,dart}`, `*_spec.rb`, `*Tests.swift`, `*Test.{kt,java,cs}`, and snapshot paths. Code files under `__tests__/`, `test/`, `tests/` or `spec/` count too, except those inside `fixtures/`, `support/`, `helpers/`, `factories/`, `__mocks__/` or `testdata/`.
  
  ## Install
-@@ -63,13 +69,13 @@ Events this mod hooks, as `claude plugin validate` reads the module:
+@@ -63,13 +73,13 @@ Events this mod hooks, as `claude plugin validate` reads the module:
  - `tool.call`
  - `ui.render{component=AbovePrompt}`
  
 -Engine calls it makes: `$.command.register`, `$.fs.exists (via previous)`, `$.fs.read (via previous)`, `$.process.run (via previous)`, `$.state.get`, `$.state.set`, `$.ui.resolve`.
-+Engine calls it makes: `$.command.register`, `$.fs.exists (via previous, readText)`, `$.fs.read (via previous, readText)`, `$.fs.write (via compare)`, `$.process.run (via compare, previous, runAndCompare)`, `$.session.cwd`, `$.state.get`, `$.state.set`, `$.ui.resolve`.
++Engine calls it makes: `$.command.register`, `$.fs.exists (via previous, readText)`, `$.fs.read (via previous, readText)`, `$.fs.stat (via resolve)`, `$.fs.write (via compare)`, `$.process.run (via compare, previous, repoHasTests, runAndCompare)`, `$.session.cwd`, `$.state.get`, `$.state.set`, `$.ui.resolve`.
  
  A `tool.call` hook sits in the middle of every tool call: it can see the call, refuse it, or add context to its result. This mod uses that only for the behaviour described above.
  
  ## Privacy
  
 -It runs entirely on your machine. It sends nothing over the network. It runs `git` locally to read the previous version of a test file.
-+It runs entirely on your machine. It sends nothing over the network. It runs `git` locally to read the previous version of a test file, and `stat`, `test`, `chmod` and `rm` to put back a test file a shell command weakened.
++It runs entirely on your machine. It sends nothing over the network. It runs `git` locally to read the previous version of a test file and to list a repository's files before a patch is applied, and `stat`, `test`, `chmod` and `rm` to put back a test file a shell command weakened.
  
  The mod collects no analytics or telemetry, and its author receives no data from it.
  
 diff --git a/hooks/analyze.ts b/hooks/analyze.ts
-index ca09408..8c8a50d 100644
+index ca09408..99125e2 100644
 --- a/hooks/analyze.ts
 +++ b/hooks/analyze.ts
 @@ -501,9 +501,19 @@ export function weakening(before: string, after: string, path: string): string[]
@@ -127,11 +135,35 @@ index ca09408..8c8a50d 100644
    if (depth < 3) {
      for (const words of [...out]) {
        const head = base(words[0])
-@@ -693,6 +723,36 @@ export function bashSignals(command: string): string[] {
+@@ -625,6 +655,8 @@ export function shellWrites(words: string[]): string[] {
+     if (/^(>{1,2}|&>{1,2}|>&|>\|)$/.test(x) && w[i + 1] !== undefined && isTestFile(w[i + 1]!)) hits.add(w[i + 1]!)
+   })
+   if (WRITERS.test(head)) operands(w.slice(1)).forEach(t => hits.add(t))
++  // A link at a test path, or pointing at one: the file the next tool writes is no longer the one it names.
++  if (head === 'ln') operands(w.slice(1)).forEach(t => hits.add(t))
+   if (head === 'cp' || head === 'dd' || head === 'install' || head === 'rsync') {
+     const dest = head === 'dd' ? w.find(x => x.startsWith('of='))?.slice(3) : w[w.length - 1]
+     if (dest !== undefined && w.length > 2 && isTestFile(dest)) hits.add(dest)
+@@ -693,6 +725,53 @@ export function bashSignals(command: string): string[] {
    return signals
  }
  
-+// shortcut: `..` is folded by spelling, not through links; a link in the path is rare in a test path.
++// A `git apply` or `patch` anywhere in the line: the files it changes come from the patch, not the line.
++export function appliesPatch(command: string): boolean {
++  return commands(command).some(words => {
++    const w = unwrap(words)
++    const head = base(w[0])
++    if (head === 'patch') return true
++    if (head !== 'git') return false
++    for (let i = 1; i < w.length; i += 1) {
++      if (w[i] === '-C' || w[i] === '-c') i += 1
++      else if (!w[i]!.startsWith('-')) return w[i] === 'apply'
++    }
++    return false
++  })
++}
++
++// `..` is folded by spelling here; register.tsx resolves each target through its links before it is read.
 +const fold = (path: string) => `/${path.split('/').reduce<string[]>((out, part) => (part === '..' ? out.slice(0, -1) : part === '' || part === '.' ? out : [...out, part]), []).join('/')}`
 +
 +// The test files a command line writes, as absolute paths, and whether the
@@ -139,16 +171,18 @@ index ca09408..8c8a50d 100644
 +// to one file (unexpanded `~`, `$`, a glob, a folder, a path after a `cd`, a
 +// find pattern), or one git or mv touches, which an undo of the file alone
 +// would not put back (the index, the moved file left behind).
-+export function shellPlan(command: string, cwd?: string): { snapshotUpdate: boolean; targets: string[]; refuseBefore: boolean } {
++// `repoHasTests`: the working folder is inside a repository holding a test path (the caller asks git), so a
++// `git apply` or `patch` there may write tests the line never names.
++export function shellPlan(command: string, cwd?: string, repoHasTests = false): { snapshotUpdate: boolean; targets: string[]; refuseBefore: boolean } {
 +  const all = commands(command)
 +  const targets = new Set<string>()
 +  let moved = false
-+  let refuseBefore = false
++  let refuseBefore = repoHasTests && appliesPatch(command)
 +  for (const words of all) {
 +    const head = base(unwrap(words)[0])
 +    if (/^(cd|pushd|popd)$/.test(head)) moved = true
 +    const written = shellWrites(words)
-+    if (written.length > 0 && (moved || /^(git|mv|find)$/.test(head))) refuseBefore = true
++    if (written.length > 0 && (moved || /^(git|mv|find|ln|patch)$/.test(head))) refuseBefore = true
 +    for (const t of written) {
 +      const path = t.startsWith('/') || cwd === undefined || !cwd.startsWith('/') ? t : `${cwd}/${t}`
 +      if (!path.startsWith('/') || /[~$`*?[]/.test(path) || !isTestFile(path)) refuseBefore = true
@@ -165,7 +199,7 @@ index ca09408..8c8a50d 100644
  // Tools
  
 diff --git a/hooks/register.tsx b/hooks/register.tsx
-index 9227632..7af9536 100644
+index 9227632..bb37a78 100644
 --- a/hooks/register.tsx
 +++ b/hooks/register.tsx
 @@ -1,8 +1,8 @@
@@ -175,11 +209,22 @@ index 9227632..7af9536 100644
  
  import type { Blocked } from '../types'
 -import { applyEdit, bashSignals, isTestFile, notebookChange, weakening } from './analyze'
-+import { applyEdit, bashSignals, isTestFile, notebookChange, shellPlan, weakening } from './analyze'
++import { applyEdit, appliesPatch, bashSignals, isTestFile, notebookChange, shellPlan, weakening } from './analyze'
  
  const blocked = atom({ plugin: 'assertion-guardian', key: 'blocked' } as const, null)
  const allowed = atom({ plugin: 'assertion-guardian', key: 'allowed' } as const, [])
-@@ -92,17 +92,159 @@ async function check($: EngineInterface, e: { tool: string; [k: string]: unknown
+@@ -51,10 +51,6 @@ async function previous($: EngineInterface, path: string): Promise<string | null
+ async function check($: EngineInterface, e: { tool: string; [k: string]: unknown }): Promise<{ target: string; signals: string[] } | null> {
+   const unreadable = (target: string) => ({ target, signals: [`the earlier version of ${target} could not be read, so the change cannot be checked`] })
+ 
+-  if (e.tool === 'Bash') {
+-    const signals = bashSignals(String(e.command ?? ''))
+-    return signals.length > 0 ? { target: 'shell command', signals } : null
+-  }
+   if (e.tool === 'Edit' || e.tool === 'Write') {
+     const target = String(e.file_path)
+     if (!isTestFile(target)) return null
+@@ -92,17 +88,205 @@ async function check($: EngineInterface, e: { tool: string; [k: string]: unknown
    return null
  }
  
@@ -229,9 +274,9 @@ index 9227632..7af9536 100644
 +async function spend($: EngineInterface, fp: string): Promise<boolean> {
 +  let spent = false
 +  await update($, allowed, list => {
-+    if (!list.includes(fp)) return list
++    if (!list.some(one => one.fp === fp)) return list
 +    spent = true
-+    return list.filter(one => one !== fp)
++    return list.filter(one => one.fp !== fp)
 +  })
 +  return spent
 +}
@@ -341,12 +386,68 @@ index 9227632..7af9536 100644
 +  return { deny: undone([...before.keys()], signals, kept) }
 +}
 +
++// Where a path lands, every link followed: the file itself, or for a file not there yet its nearest existing folder
++// plus the rest of the path. `undefined`: nothing resolves, or the path is a link that leads nowhere (a write would
++// land wherever it points). A test reached through a link is then matched, read and put back as the file it is.
++async function resolve($: EngineInterface, path: string): Promise<string | undefined> {
++  const own = await $.fs.stat(path, { resolve: true }).catch(() => undefined)
++  if (own !== undefined) return own.realPath
++  const parts = path.split('/')
++  for (let cut = parts.length - 1; cut >= (path.startsWith('/') ? 1 : 0); cut -= 1) {
++    const rest = parts.slice(cut).filter(p => p !== '')
++    if (rest.some(p => p === '.' || p === '..')) return undefined
++    const dir = parts.slice(0, cut).join('/') || (path.startsWith('/') ? '/' : '.')
++    const at = await $.fs.stat(dir, { resolve: true }).catch(() => undefined)
++    if (at !== undefined) return at.realPath === undefined ? undefined : `${at.realPath.replace(/\/$/, '')}/${rest.join('/')}`
++  }
++  return undefined
++}
++
++// One queue per resolved test path in this chat: a call waits for the earlier calls on any of its paths and holds
++// them through its compare and undo, so one call's undo cannot erase what another wrote meanwhile. No file and no
++// timer: a lock file has no exclusive create in $.fs and goes stale after a crash. Two chats are not serialized.
++const queues = new Map<string, Promise<void>>()
++async function hold<T>(paths: string[], work: () => Promise<T>): Promise<T> {
++  const keys = [...new Set(paths)].sort()
++  let release = () => {}
++  const mine = new Promise<void>(done => (release = done))
++  // Taken in one step, with no await between: two calls never hold parts of each other's paths.
++  const earlier = keys.flatMap(k => (queues.has(k) ? [queues.get(k)!] : []))
++  for (const k of keys) queues.set(k, mine)
++  try {
++    await Promise.all(earlier)
++    return await work()
++  } finally {
++    release()
++    for (const k of keys) if (queues.get(k) === mine) queues.delete(k)
++  }
++}
++
++// Whether the working folder is inside a repository holding a test path, tracked or not. Unknown counts as yes.
++async function repoHasTests($: EngineInterface, cwd: string | undefined): Promise<boolean> {
++  if (cwd === undefined) return true
++  const r = await $.process.run(['git', '-C', cwd, 'ls-files', '-co', '--exclude-standard', '--full-name', '--', ':/'], { timeoutMs: 10000 }).catch(() => undefined)
++  if (r === undefined || r.isStdoutTruncated) return true
++  if (r.exitCode !== 0) return !/not a git repository/i.test(r.stderr)
++  return r.stdout.split('\n').some(line => line !== '' && isTestFile(`/${line}`))
++}
++
  export const register: Register = on => {
    on('session.start', async ($, e, next) => {
      await $.command.register({
-@@ -118,7 +260,8 @@ export const register: Register = on => {
+@@ -115,10 +299,17 @@ export const register: Register = on => {
+   })
+ 
+   on('command.run', { command: 'allow-test-change' }, async ($, e) => {
++    // Only the owner's own Enter approves: a model, an agent or another mod running the command is what the guard guards against.
++    if (e.origin?.kind !== 'composer') return { text: 'Assertion Guardian: approval must be typed by you. Nothing allowed.' }
      const last = await read($, blocked)
-     if (last === null) return { text: 'Assertion Guardian: nothing is blocked right now.' }
+-    if (last === null) return { text: 'Assertion Guardian: nothing is blocked right now.' }
++    if (last === null) {
++      const waiting = (await read($, allowed)).filter(one => typeof one === 'object').at(-1)
++      if (waiting !== undefined) return { text: `Assertion Guardian: the change to ${waiting.target} is already allowed once.` }
++      return { text: 'Assertion Guardian: nothing is blocked right now.' }
++    }
      const named = e.args.trim()
 -    if (named !== '' && last.target !== named && !last.target.endsWith(`/${named}`)) {
 +    // A shell refusal blocks the command, so a file the command names counts as the target too.
@@ -354,27 +455,14 @@ index 9227632..7af9536 100644
        return { text: `Assertion Guardian: the blocked change is to ${last.target}, not ${named}. Nothing allowed.` }
      }
      await allow($, last)
-@@ -127,19 +270,26 @@ export const register: Register = on => {
+@@ -127,20 +318,51 @@ export const register: Register = on => {
  
    on('tool.call', async ($, e, next) => {
      const call = e as { tool: string; [k: string]: unknown }
-+    let files: string[] | undefined
-+    if (call.tool === 'Bash') {
-+      const command = String(call.command ?? '')
-+      const signals = bashSignals(command)
-+      if (signals.length > 0) {
-+        const cwd = await $.session.cwd().catch(() => undefined)
-+        const plan = shellPlan(command, cwd)
-+        files = plan.targets
-+        if (!plan.snapshotUpdate && !plan.refuseBefore && call.run_in_background !== true) {
-+          return runAndCompare($, call, plan.targets, signals, () => next(e))
-+        }
-+      }
-+    }
-     const found = await check($, call)
-     if (found === null || found.signals.length === 0) return next(e)
- 
-     const fp = await fingerprint(call)
+-    const found = await check($, call)
+-    if (found === null || found.signals.length === 0) return next(e)
+-
+-    const fp = await fingerprint(call)
 -    let spent = false
 -    await update($, allowed, list => {
 -      if (!list.includes(fp)) return list
@@ -382,15 +470,66 @@ index 9227632..7af9536 100644
 -      return list.filter(one => one !== fp)
 -    })
 -    if (spent) return next(e)
-+    if (await spend($, fp)) return next(e)
++    let files: string[] | undefined
++    let found: { target: string; signals: string[] } | null = null
++    let checked = call
++    let held: string[] = []
++    if (call.tool === 'Bash') {
++      const command = String(call.command ?? '')
++      const signals = bashSignals(command)
++      const patching = appliesPatch(command)
++      if (signals.length > 0 || patching) {
++        const cwd = await $.session.cwd().catch(() => undefined)
++        const plan = shellPlan(command, cwd, patching && (await repoHasTests($, cwd)))
++        files = plan.targets
++        if (plan.refuseBefore && signals.length === 0) {
++          signals.push('a patch is applied in a repository with test files; the files it changes come from the patch, so the change cannot be checked')
++        }
++        if (signals.length > 0 && !plan.snapshotUpdate && !plan.refuseBefore && call.run_in_background !== true) {
++          const real: string[] = []
++          for (const target of plan.targets) {
++            const at = await resolve($, target)
++            if (at === undefined) return { deny: `Assertion Guardian: cannot resolve ${target}, so the change cannot be checked. Nothing ran.` }
++            real.push(at)
++          }
++          return hold(real, () => runAndCompare($, call, [...new Set(real)], signals, () => next(e)))
++        }
++      }
++      found = signals.length > 0 ? { target: 'shell command', signals } : null
++    } else {
++      if (call.tool === 'Edit' || call.tool === 'Write') {
++        const at = await resolve($, String(call.file_path))
++        if (at === undefined) return { deny: `Assertion Guardian: cannot resolve ${String(call.file_path)}, so the change cannot be checked. Nothing ran.` }
++        checked = { ...call, file_path: at }
++        if (isTestFile(at)) held = [at]
++      }
++    }
++    return hold(held, async () => {
++      if (call.tool !== 'Bash') found = await check($, checked)
++      if (found === null || found.signals.length === 0) return next(e)
  
 -    await update($, blocked, (): Blocked => ({ target: found.target, signals: found.signals, fp }))
-+    await update($, blocked, (): Blocked => ({ target: found.target, signals: found.signals, fp, files }))
-     return { deny: refusal(found.target, found.signals) }
+-    return { deny: refusal(found.target, found.signals) }
++      const fp = await fingerprint(call)
++      if (await spend($, fp)) return next(e)
++
++      const { target, signals } = found
++      await update($, blocked, (): Blocked => ({ target, signals, fp, files }))
++      return { deny: refusal(target, signals) }
++    })
    })
  
+   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+@@ -168,6 +390,6 @@ export const register: Register = on => {
+ }
+ 
+ async function allow($: EngineInterface, which: Blocked) {
+-  await update($, allowed, list => (list.includes(which.fp) ? list : [...list, which.fp]))
++  await update($, allowed, list => (list.some(one => one.fp === which.fp) ? list : [...list, { fp: which.fp, target: which.target }]))
+   await update($, blocked, cur => (cur !== null && cur.fp === which.fp ? null : cur))
+ }
 diff --git a/tests/assertion-guardian.test.tsx b/tests/assertion-guardian.test.tsx
-index a9012d5..d0d6466 100644
+index a9012d5..b3801d4 100644
 --- a/tests/assertion-guardian.test.tsx
 +++ b/tests/assertion-guardian.test.tsx
 @@ -1,6 +1,7 @@
@@ -402,7 +541,42 @@ index a9012d5..d0d6466 100644
  
  const SPEC = `describe('sum', () => {
    it('adds', () => {
-@@ -324,3 +325,350 @@ describe('hooks', () => {
+@@ -251,11 +252,18 @@ describe('bash', () => {
+ const run = (stdout: string, exitCode = 0, stderr = '') => ({ value: { exitCode, stdout, stderr, isStdoutTruncated: false, isStderrTruncated: false } })
+ // git rev-parse answers the repo root, git show answers `shown`.
+ const git = (shown: ReturnType<typeof run>) => (_$: unknown, e: { argv: readonly string[] }) => (e.argv.includes('rev-parse') ? run('/repo\n') : shown)
++// fs.stat as the engine answers it: a missing path rejects; `real` maps a path through its links.
++const stat = (exists: (p: string) => boolean, real: Map<string, string> = new Map()) => (_$: unknown, e: { path: string; resolve: boolean }) => {
++  if (!exists(e.path) && !real.has(e.path)) throw new Error(`ENOENT: no such file or directory, stat '${e.path}'`)
++  const to = real.has(e.path) ? real.get(e.path) : e.path
++  return { value: { kind: 'file' as const, size: 0, mtimeMs: 0, isLink: real.has(e.path), ...(e.resolve && to !== '' ? { realPath: to } : {}) } }
++}
+ 
+ describe('hooks', () => {
+   test('a loosening Edit is refused, then the same call is allowed once by the command', async ($, on) => {
+     let writes = 0
+     on('fs.exists', () => ({ value: true }))
++    on('fs.stat', stat(() => true))
+     on('fs.read', () => ({ value: SPEC }))
+     on('tool.call', () => {
+       writes += 1
+@@ -277,6 +285,7 @@ describe('hooks', () => {
+ 
+   test('a deleted test file is compared with what git committed', async ($, on) => {
+     on('fs.exists', (_$, e) => ({ value: e.path === '/repo' }))
++    on('fs.stat', stat(p => p === '/repo'))
+     on('process.run', git(run(SPEC)))
+     on('tool.call', () => ({ result: 'ok' }))
+     const ran = await $.tool.call({ tool: 'Write', file_path: '/repo/sum.test.ts', content: "it('x', () => {\n  expect(true).toBe(true)\n})\n" })
+@@ -286,6 +295,7 @@ describe('hooks', () => {
+   test('source files, harmless test edits and new test files run untouched', async ($, on) => {
+     let writes = 0
+     on('fs.exists', (_$, e) => ({ value: !e.path.includes('new') }))
++    on('fs.stat', stat(p => !p.includes('new')))
+     on('fs.read', () => ({ value: SPEC }))
+     on('process.run', git(run('', 128, "fatal: path 'new.test.ts' does not exist in 'HEAD'")))
+     on('tool.call', () => {
+@@ -324,3 +334,457 @@ describe('hooks', () => {
      await ui.unmount()
    })
  })
@@ -456,9 +630,13 @@ index a9012d5..d0d6466 100644
 +    log: [] as string[],
 +    // Paths `test -L` calls a symlink.
 +    links: new Set<string>(),
++    // Paths fs.stat resolves elsewhere (a link); '' for a link that leads nowhere.
++    real: new Map<string, string>(),
++    // What `git ls-files` lists from the root; null: the folder is not in a repository.
++    lsFiles: 'src/sum.test.ts\nsrc/sum.ts\n' as string | null,
 +    runs: 0,
 +    sh: (_disk: Disk): void => {},
-+    answer: (): { result: unknown } | { deny: string } => ({ result: { stdout: 'built', stderr: '', interrupted: false } }),
++    answer: (): { result: unknown } | { deny: string } | Promise<{ result: unknown }> => ({ result: { stdout: 'built', stderr: '', interrupted: false } }),
 +    // Called on every fs.read: lets another writer step in between reads.
 +    onRead: (_path: string) => {},
 +    // Called on every fs.write before it lands: throw to make the write fail.
@@ -467,6 +645,7 @@ index a9012d5..d0d6466 100644
 +  const isDir = (p: string) => p === '/' || p === '/repo' || [...w.disk.keys()].some(k => k.startsWith(`${p}/`))
 +  on('session.cwd', () => ({ value: '/repo' }))
 +  on('fs.exists', (_$, e) => ({ value: w.disk.has(e.path) || isDir(e.path) }))
++  on('fs.stat', stat(p => w.disk.has(p) || isDir(p), w.real))
 +  on('fs.read', (_$, e) => {
 +    const v = w.disk.get(e.path)
 +    // Only folders exist without an entry here; reading one fails as the OS does.
@@ -484,6 +663,7 @@ index a9012d5..d0d6466 100644
 +    const argv = e.argv
 +    if (argv[0] === 'git') {
 +      if (argv.includes('rev-parse')) return run('/repo\n')
++      if (argv.includes('ls-files')) return w.lsFiles === null ? run('', 128, 'fatal: not a git repository (or any of the parent directories): .git') : run(w.lsFiles)
 +      const rel = argv[argv.length - 1]!.slice('HEAD:'.length)
 +      return head[rel] !== undefined ? run(head[rel]!) : run('', 128, `fatal: path '${rel}' does not exist in 'HEAD'`)
 +    }
@@ -727,7 +907,7 @@ index a9012d5..d0d6466 100644
 +      d.set(T, WEAK)
 +      w.links.add(T)
 +    }
-+    const ran = await $.tool.call({ tool: 'Bash', command: "rm src/sum.test.ts && ln -s other/weak.ts src/sum.test.ts" })
++    const ran = await $.tool.call({ tool: 'Bash', command: "rm src/sum.test.ts && python3 -c \"import os; os.symlink('other/weak.ts', 'src/sum.test.ts')\"" })
 +    expect(ran.deny).toMatch(/assertions removed/)
 +    expect(ran.deny).not.toMatch(/Not put back/)
 +    expect(w.disk.get(T)).toBe(SPEC)
@@ -745,7 +925,7 @@ index a9012d5..d0d6466 100644
 +      d.delete(T)
 +      w.links.add(T)
 +    }
-+    const ran = await $.tool.call({ tool: 'Bash', command: "rm src/sum.test.ts && ln -s nowhere src/sum.test.ts" })
++    const ran = await $.tool.call({ tool: 'Bash', command: "rm src/sum.test.ts && python3 -c \"import os; os.symlink('nowhere', 'src/sum.test.ts')\"" })
 +    expect(ran.deny).toMatch(/test cases deleted/)
 +    expect(ran.deny).not.toMatch(/Not put back/)
 +    expect(w.disk.get(T)).toBe(SPEC)
@@ -753,11 +933,112 @@ index a9012d5..d0d6466 100644
 +    expect(w.log).toContain(`rm -f -- ${T}`)
 +  })
 +})
++
++// Spec 0078: the guard gaps a security review found.
++const allowRun = (origin: unknown, args = '') => ({ command: 'allow-test-change', args, origin, presentation: { isFullscreen: false, columns: 100 } }) as never
++
++describe('guard gaps', () => {
++  test('only an approval typed by the owner allows; a model, a plugin, an unclassified or a missing origin does not', async ($, on) => {
++    const w = world(on, { [T]: SPEC })
++    const edit = { tool: 'Edit' as const, file_path: T, old_string: '.toBe(3)', new_string: '.toBeTruthy()' }
++    expect((await $.tool.call(edit)).deny).toMatch(/exact matchers replaced/)
++    for (const origin of [{ kind: 'model' }, { kind: 'plugin', name: 'other' }, { kind: 'plugin', name: 'other', asUser: true }, { kind: 'unclassified' }, undefined]) {
++      const said = await $.command.run(allowRun(origin))
++      expect([origin, JSON.stringify(said)]).toEqual([origin, expect.stringContaining('approval must be typed by you. Nothing allowed.')])
++      expect((await $.tool.call(edit)).deny).toMatch(/exact matchers replaced/)
++    }
++    expect(w.runs).toBe(0)
++    expect(JSON.stringify(await $.command.run(allowRun({ kind: 'composer' })))).toMatch(/may run once/)
++    expect((await $.tool.call(edit)).deny).toBeUndefined()
++    expect(w.runs).toBe(1)
++  })
++
++  test('a second approval says the change is already allowed once, naming the file', async ($, on) => {
++    world(on, { [T]: SPEC })
++    const edit = { tool: 'Edit' as const, file_path: T, old_string: '.toBe(3)', new_string: '.toBeTruthy()' }
++    await $.tool.call(edit)
++    await $.command.run(allowRun({ kind: 'composer' }))
++    expect(JSON.stringify(await $.command.run(allowRun({ kind: 'composer' })))).toMatch(new RegExp(`the change to ${T} is already allowed once`))
++    expect((await $.tool.call(edit)).deny).toBeUndefined()
++    expect(JSON.stringify(await $.command.run(allowRun({ kind: 'composer' })))).toMatch(/nothing is blocked right now/)
++  })
++
++  test('ln, git apply and patch near test files are refused before running', async () => {
++    for (const c of ['ln -s other.ts src/a.test.ts', 'ln -sf /tmp/x tests/test_a.py', 'ln src/a.test.ts /tmp/x', 'patch src/a.test.ts < fix.diff']) {
++      expect([c, shellPlan(c, '/repo').refuseBefore]).toEqual([c, true])
++    }
++    for (const c of ['git apply fix.diff', 'git -C . apply --3way fix.diff', 'patch -p1 < fix.diff', 'npm run build && patch -p0 -i fix.diff']) {
++      expect([c, shellPlan(c, '/repo', true).refuseBefore]).toEqual([c, true])
++      expect([c, shellPlan(c, '/repo', false).refuseBefore]).toEqual([c, false])
++    }
++    expect(shellPlan('git status && git log --oneline', '/repo', true).refuseBefore).toBe(false)
++    expect(bashSignals('ln -s other.ts src/a.test.ts').join()).toMatch(/through the shell/)
++  })
++
++  test('git apply runs only where the repository has no test path', async ($, on) => {
++    const w = world(on, { [T]: SPEC })
++    const ran = await $.tool.call({ tool: 'Bash', command: 'git apply fix.diff' })
++    expect(ran.deny).toMatch(/a patch is applied in a repository with test files/)
++    expect(w.runs).toBe(0)
++    w.lsFiles = 'src/sum.ts\nREADME.md\n'
++    expect((await $.tool.call({ tool: 'Bash', command: 'git apply fix.diff' })).deny).toBeUndefined()
++    w.lsFiles = null
++    expect((await $.tool.call({ tool: 'Bash', command: 'patch -p1 < fix.diff' })).deny).toBeUndefined()
++    expect(w.runs).toBe(2)
++  })
++
++  test('a test reached through a link is checked, compared and put back as the file it is', async ($, on) => {
++    const w = world(on, { [T]: SPEC })
++    // An Edit through a name that is not a test path still lands in the test.
++    w.real.set('/repo/src/alias.ts', T)
++    expect((await $.tool.call({ tool: 'Edit', file_path: '/repo/src/alias.ts', old_string: '.toBe(3)', new_string: '.toBeTruthy()' })).deny).toMatch(/exact matchers replaced/)
++    // A shell edit through a linked test name: the real file is read before, compared and restored.
++    w.real.set('/repo/link.test.ts', T)
++    w.sh = d => d.set(T, WEAK)
++    const ran = await $.tool.call({ tool: 'Bash', command: "sed -i '/toEqual(0)/d' link.test.ts" })
++    expect(ran.deny).toMatch(new RegExp(`${T}: assertions removed`))
++    expect(w.disk.get(T)).toBe(SPEC)
++    // A new file in a linked folder: the folder is resolved and the name appended.
++    w.real.set('/repo/lnk', '/repo/tests')
++    const head = "it('x', () => {\n  expect(f()).toBe(1)\n  expect(g()).toBe(2)\n})\n"
++    w.disk.set('/repo/tests/new.ts', head)
++    expect((await $.tool.call({ tool: 'Write', file_path: '/repo/lnk/new.ts', content: "it('x', () => {})\n" })).deny).toMatch(/assertions removed/)
++    expect(w.runs).toBe(1)
++  })
++
++  test('a path that resolves nowhere is refused before running', async ($, on) => {
++    const w = world(on, { [T]: SPEC })
++    w.real.set(T, '')
++    expect((await $.tool.call({ tool: 'Edit', file_path: T, old_string: "'adds'", new_string: "'adds numbers'" })).deny).toMatch(new RegExp(`cannot resolve ${T}`))
++    expect((await $.tool.call({ tool: 'Bash', command: "sed -i 's/adds/sums/' src/sum.test.ts" })).deny).toMatch(new RegExp(`cannot resolve ${T}`))
++    expect(w.runs).toBe(0)
++  })
++
++  test('two shell calls on one test file wait for each other, so an undo cannot erase the other call\'s new test', async ($, on) => {
++    const w = world(on, { [T]: SPEC })
++    const EXTRA = "it('b', () => {\n  expect(f()).toBe(1)\n})\n"
++    let open = () => {}
++    const gate = new Promise<void>(done => (open = done))
++    w.sh = d => d.set(T, w.runs === 1 ? WEAK : `${d.get(T)}${EXTRA}`)
++    w.answer = () => (w.runs === 1 ? gate.then(() => ({ result: 'first' })) : { result: 'second' })
++    const first = $.tool.call({ tool: 'Bash', command: "sed -i '/toEqual(0)/d' src/sum.test.ts" })
++    for (let i = 0; i < 20 && w.runs === 0; i += 1) await new Promise(r => setTimeout(r, 5))
++    const second = $.tool.call({ tool: 'Bash', command: 'cat extra.ts >> src/sum.test.ts' })
++    await new Promise(r => setTimeout(r, 50))
++    // The second call has not run while the first still holds the file.
++    expect(w.runs).toBe(1)
++    open()
++    expect((await first).deny).toMatch(/assertions removed/)
++    expect((await second).deny).toBeUndefined()
++    expect(w.runs).toBe(2)
++    expect(w.disk.get(T)).toBe(`${SPEC}${EXTRA}`)
++  })
++})
 diff --git a/types/index.d.ts b/types/index.d.ts
-index 678f935..09ed580 100644
+index 678f935..f0cd51d 100644
 --- a/types/index.d.ts
 +++ b/types/index.d.ts
-@@ -1,7 +1,7 @@
+@@ -1,14 +1,14 @@
  // The last change Assertion Guardian refused, for the band and /allow-test-change.
  // `fp` fingerprints the exact call (tool, path, payload), so an allowance
  // covers that change and nothing else.
@@ -766,3 +1047,12 @@ index 678f935..09ed580 100644
  
  declare module 'claude-code' {
    interface PluginState {
+     'assertion-guardian': {
+       blocked: Blocked | null
+-      // Fingerprints of calls cleared to run once each.
+-      allowed: string[]
++      // Calls cleared to run once each, by fingerprint, with the file each one changes.
++      allowed: { fp: string; target: string }[]
+     }
+   }
+ }
