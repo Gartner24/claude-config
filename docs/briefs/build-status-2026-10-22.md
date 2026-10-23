@@ -40,7 +40,10 @@ Owner's chosen order (2026-10-22, "continue with your recommendations"):
 - Merged and installed live (drift none): #192 (private-names gitlink), #200 (restructure-check), #201 (build-features), #205 (0077 PR A, lighter chats: always loaded text 52.7k -> 16.8k chars), #206 (0078 guard gaps), #208 (install copies chain-catch.py and live-tick.py). Docs PRs #203, #204, #207.
 - Owner answers: GA rows built by /build-features get /review once, at merge. Live `~/.claude/CLAUDE.md` copied once from the repo (owner: "one time copy, but fix the risk"): checked byte equal to the pre-#205 repo copy first, backed up to `~/.claude/backups/CLAUDE.md.bak.20261023-pre205`. The three Review Rules lines stay always loaded. Guard path check: walk up to the nearest existing folder (spec 0078 AC-4 amended).
 - Old live rule files: `~/.claude/backups/rules/2026-10-23/`. Old guardian mod: `~/.claude/backups/skills/assertion-guardian.20261023-pre206` (install never reapplies a changed patch to an existing edited skill; moved live aside, then `claude-config.py restore`; row 110).
-- In progress: 0077 PR B (`tools/` move) in a worktree agent; then restructure-check, /review, verify and test, merge, install from the new path.
+- Also merged and installed live later (2026-10-23, drift none): #210 (0077 PR B, `tools/` move), #211 (destructive guard spellings), #212 (restructure-check follow-ups), #213 (install reapplies a changed patch), #214 (Assertion Guardian hidden jobs and folder changes). Rows 97 phase 2, 100, 105, 106, 107, 109, 110 closed or ticked in the docs sync; new rows 111 and 112.
+- Owner said "finish by yourself" (2026-10-23, owner asleep); the installs ran under it.
+- Assumed spec 0079 (row 108) is still to confirm by the owner.
+- In progress: none.
 - Owner boxes left: live `/architect x` fresh chat check (row 97), row 101 and 102 first real use, row 103 live rollover check.
 
 ## For /architect later (none blocks)
