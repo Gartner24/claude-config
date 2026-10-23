@@ -110,3 +110,61 @@ Behavior observed through the built mod with `claude plugin test` (80 pass). Eac
 - Dropped as a pass: AC-10 (`source`/`.` keep refusing) is pinned by the older "source is refused" and ". is refused" tests and the README gap line, not by a new mutant; not counted.
 - Live install: owed after merge; not claimed here.
 CAN FAIL CHECKED: 7
+
+## Row 113 amendment (2026-10-23, branch fix/0079-guardian-here-strings)
+
+### P3 how the mod sees each row 113 form
+- Setup: upstream `/tmp/ag112/upstream` at pinned `ae1de89f` (HEAD checked, clean); the patch on origin/main (`2116290`) applied with the same python script (`git apply` through `subprocess`) into the throwaway `/tmp/ag113/live/skills/assertion-guardian`. No settings and no live folder touched.
+- Probe: a throwaway `tests/probe.test.tsx` printing `bashSignals` count and `shellPlan(form, '/repo')` through a failing `toEqual([])`. Command: `claude plugin test /tmp/ag113/live/skills/assertion-guardian`. `S` is `sed -i '/expect/d' a.test.ts`.
+- Result before the change (signals, targets, refuseBefore): every form gave 0, `[]`, false: `bash <<< "S"`, `sh <<< "S"`, `zsh <<<"S"`, `source <(echo "S")`, `. <(echo "S")`, `bash <(echo "S")`, `sh <(echo "S")`, `echo "S" | ksh`, `| mksh`, `| ash`, `| busybox sh`, `| fish`, `echo "S" | while read x; do sh -c "$x"; done`. The four normal commands (`grep x <<< "$s"`, `diff <(sort a) <(sort b)`, `while read l; do echo "$l"; done < list.txt`, `bash <<< "echo hi"`) also 0, `[]`, false.
+- Result after the change: every row 113 form 1, `[/repo/a.test.ts]`, true. The four normal commands, `cat a.test.ts | while read l; do echo "$l"; done`, `grep expect <<< "a.test.ts"`, `wc -l <(cat a.test.ts)` and `cat <<EOF` / `x` / `EOF`: 0, `[]`, false. `bash tests/run.sh <<< y`: 1, `[/repo/tests/run.sh]`, true (same as `echo y | bash tests/run.sh` under AC-7). The probe file was removed before the patch was made.
+- Seen in the same probe: `for f in a; do S; done` gave 0, `[]`, false (`do` read as the command hid the write from the compare). Closed in this branch by AC-17 (owner: "do the best so I'm not needed"); after it the form gives 1, `[/repo/a.test.ts]`, false (compared, not refused).
+
+### AC-17 shell keywords (same branch)
+- `claude plugin test`: 98 pass, 0 fail (89 before, 9 new: `for`, `while`/`until`, `if ... then`, `else`, `elif`, `case` branch, `!`, a `cd` after `then`, and the hook compare-and-undo of a write in a `for` loop). `claude plugin validate`: passed. Patch regenerated the same way; rebuilt in `/tmp/ag113/rebuilt2`, `diff -r` with the built mod: no output.
+- Mutants (same script, each alone, restored after; 98 pass at the end):
+  - 10 `do` not dropped: red the `for`, `while`/`until` and hook tests, and the while read loop test.
+  - 14 `then` not dropped: red the `if ... then` test and the `cd` after `then` test.
+  - 15 `else` not dropped: red the `else` test.
+  - 16 `elif` not dropped: red the `elif` test.
+  - 17 `!` not dropped: red the `!` test.
+  - 18 `)` not ending a command: red the `case` branch test (and three older tests).
+- can fail: a keyword left in front of the command hides the write again (mutants 10, 14 to 17 red); the `case` branch is pinned by mutant 18.
+CAN FAIL CHECKED: 6
+
+### Build checks
+- `claude plugin test /tmp/ag113/live/skills/assertion-guardian`: 89 pass, 0 fail (81 before, 8 new). `claude plugin validate`: passed.
+- Patch regenerated with `CLAUDE_LIVE_DIR=/tmp/ag113/live python3 -B tools/bin/claude-config.py patches` (the throwaway held the built mod and a read-only copy of the private names list). Upstream at pinned plus the new patch, rebuilt in `/tmp/ag113/rebuilt` with the same python script, equals the built mod (`diff -r`, no output).
+- `python3 -B tests/fast.py`: 195 tests, 0 failed. `TestShippedPatch` run alone (`tests/fast.py test_claude_config.TestShippedPatch`): 0 failed. `bash tools/bin/install.sh --dry-run`: done, nothing written.
+
+### Mutation checks
+Script `/tmp/ag113/mutate.py`: each mutant applied alone to `hooks/analyze.ts` of the built mod (backup with `cp`), `claude plugin test` run, then restored; after the last one 89 pass, 0 fail.
+1. `<<<` not one word: red the here-string test, the here-string body test and the hook test.
+2. here-string not fed: red the here-string test and the hook test.
+3. here-string body not read: red the here-string body test.
+4. `<(...)` not fed: red the process substitution test.
+5. `<(...)` not split: red the process substitution test and the `<( )` body test.
+6. `<(...)` not a job: red the `<( )` body test.
+7. `ksh`, `mksh`, `ash`, `fish` not shells: red the other shells test.
+8. `busybox` not unwrapped: red the other shells test.
+9. loop not seen: red the while read loop test.
+10. `do` not dropped before the loop body's command: red the while read loop test.
+11. a here-string fed to any command: red "normal commands stay allowed: here-strings ..." (`grep expect <<< "a.test.ts"`).
+12. loop not ended at `done`: red the same allow test (`sh -c` after `done`).
+13. a loop with any body fed: red the same allow test (`cat a.test.ts | while read l; do echo "$l"; done`).
+
+### /check verify
+Behavior observed through the built mod with `claude plugin test` (89 pass). Each break was applied and the named test went red (mutants above).
+1. AC-13 a here-string fed to `bash`, `sh`, `zsh`, `source` is refused before running, its body is read, and through the hook nothing runs (`w.runs` 0). can fail: `<<<` split into three `<` words, or the here-string not counted as fed (mutants 1 to 3 red).
+2. AC-14 `source`, `.`, `bash`, `sh` fed by `<(...)` are refused before running; a `<(...)` body is split and a test write in it is refused. can fail: the `<(` read as a redirect and a subshell again, or not counted as a job (mutants 4 to 6 red).
+3. AC-15 pipes into `ksh`, `mksh`, `ash`, `busybox sh`, `fish`, and a `while read` loop running a shell or `eval`, are refused before running. can fail: a shell name dropped, `busybox` read as the command, or the loop body's `do` hiding the shell (mutants 7 to 10 red).
+4. AC-16 the 81 older tests still pass, and the new allow test pins the normal commands. can fail: a looser rule (mutants 11 to 13 red).
+5. AC-16 upstream at pinned plus the patch equals the built mod; `TestShippedPatch` green. can fail: a hunk dropped or edited makes the apply or `diff -r` fail.
+- Live install: owed after merge; not claimed here.
+CAN FAIL CHECKED: 5
+
+### Review round on PR 222 (2026-10-23): four fixes inside AC-14, AC-15, AC-17
+- Defects found by probing the built mod (before: ALLOW, no target seen): `echo "S" | while read x; do for i in 1; do :; done; sh -c "$x"; done` (the inner `done` ended the fed outer loop); `! ! ! ! ! ! ! S` and `nice` x7 (`unwrap` stopped after 6 layers, so the write was never seen); `echo "S" | tee >(sh)` and `echo "S" > >(sh)` (a shell reading a `>(...)` body); and a false refusal: `bash tests/run.sh > >(tee out.log)` (a `>(...)` was taken as text fed to bash).
+- Fix in `hooks/analyze.ts`: a stack of open loops (`done` closes only its own), `unwrap` bound 6 -> 100, a `>(...)` body that is a shell sets the stdin flag, and only `<(...)` counts as text handed to the command.
+- `claude plugin test`: 102 pass, 0 fail (98 before, 4 new). `claude plugin validate`: passed. Patch regenerated with `claude-config.py patches` against a throwaway live folder; upstream at pinned plus the patch, `diff -r` with the built mod: no output.
+- Mutants, each alone, restored after: `done` clears all loops -> nested loop test red; `guard < 6` -> keywords/wrappers test red; `>(` shell check off -> `>( )` test red; `procsub = true` for `>(` -> output substitution test red.
