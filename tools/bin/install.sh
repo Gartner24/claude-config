@@ -238,8 +238,10 @@ fi
 echo "private names:"
 if [ -e "$LIVE/private/names.txt" ]; then
   excl="$(git -C "$REPO" rev-parse --git-path info/exclude)"
-  hooks="$(git -C "$REPO" rev-parse --git-path hooks)"
-  case "$excl" in /*) ;; *) excl="$REPO/$excl"; hooks="$REPO/$hooks" ;; esac
+  # --git-common-dir/hooks, where the global dispatcher looks; --git-path hooks follows core.hooksPath
+  hooks="$(git -C "$REPO" rev-parse --git-common-dir)/hooks"
+  case "$excl" in /*) ;; *) excl="$REPO/$excl" ;; esac
+  case "$hooks" in /*) ;; *) hooks="$REPO/$hooks" ;; esac
   add=()
   if [ -e "$LIVE/private/gitignore" ]; then
     while IFS= read -r line || [ -n "$line" ]; do

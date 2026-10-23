@@ -109,7 +109,7 @@ Closed rows (done or dropped, no open box) live in [done.md](done.md).
 | 86 | Home-base chat runs from claude-config | Release 9 | done |
 | 87 | A live install box is ticked only when it is live | Release 9 | done |
 | 88 | Fix: auto handoff answers the question it cut off | Release 9 | done |
-| 89 | Review leftovers 2026-10-21 | Release 9 | in-progress |
+| 89 | Review leftovers 2026-10-21 | Release 9 | done |
 | 90 | Retire the runner, its features in every chat | Release 10 | done |
 | 91 | Handover memory | Release 10 | done |
 | 92 | Skills start themselves at the right moment | Release 10 | done |
@@ -171,19 +171,6 @@ When a mod calls a new `wf` subcommand, the install box copies the mod but not t
 - [ ] Test it: `/test mod install also reinstalls the runner copy`
 - [ ] Sync docs: `/sync mod install also reinstalls the runner copy`
 Source: chat 2026-10-19 (carried in the handover of that day).
-
-### 89. Review leftovers 2026-10-21
-Small bugs the Assertion Guardian review left (low severity, none blocks use).
-**Done when:** each leftover in the report is fixed with a test, or dropped with a reason.
-- [ ] Fix them: `/debug review leftovers 2026-10-21`
-  - [x] build() clones an unreachable source twice (PR #139)
-  - [x] Byte order mark refusal text, and restore skips a symlink: edit the live assertion-guardian mod, `claude plugin test`, then `tools/bin/sync.sh` regenerates `tools/config/patches/assertion-guardian.patch`
-  - [x] `/allow-test-change <file>` for a shell refusal: find the code first
-  - [x] Concurrent Bash calls undo each other's additions · skipped (owner 2026-10-22: leave it, the README names the gap; carried to the "Assertion Guardian guard gaps" design session)
-  - [x] Spec 0068 Amended line for the refusal shape: `/architect assertion guardian blocks only removed checks` · skipped (folded into row 106, spec 0078 AC-7 and AC-8)
-  - [x] chain-catch owes `/develop` for a row whose text says it builds only after other rows (row 100 on 2026-10-22, after an edit of the live `settings.json` its spec names): skip a row that still waits on unmerged rows
-  - [ ] `tools/bin/install.sh` copies the commit hooks to `<repo>/<hooksPath>` when a global `core.hooksPath` is set (dry run 2026-10-22: `mkdir -p .../claude-config//home/santiago/.config/git/hooks`); it should use `git rev-parse --git-common-dir`/hooks, where the global dispatcher looks
-Source: [review report](../reviews/review-2026-10-21.md) (P3 rows and Guardrails): a file with a byte order mark refused with generic text; restore writes through a symlink; build() clones an unreachable source twice; `/allow-test-change <file>` does nothing for a shell refusal; concurrent Bash calls can undo each other's additions; spec 0068 has no Amended line for the refusal shape.
 
 ## Release 10: one workflow in every chat, no runner
 

@@ -1296,3 +1296,16 @@ Forms spec 0079 does not cover yet: a brace group `{ ... & }`, `xargs ... sh -c`
 - [x] Test it: `/test assertion guardian remaining hidden command forms` (10 new mod tests, 80 pass; 16 mutants all red, restored green; fast.py 194 ok)
 - [x] Install it live after merge (2026-10-23: install rebuilt the guardian from the new patch by itself, row 110; 81 live mod tests pass, drift none)
 Source: PR #214 review and build (2026-10-23).
+
+### 89. Review leftovers 2026-10-21 · done
+Small bugs the Assertion Guardian review left (low severity, none blocks use).
+**Done when:** each leftover in the report is fixed with a test, or dropped with a reason.
+- [x] Fix them: `/debug review leftovers 2026-10-21`
+  - [x] build() clones an unreachable source twice (PR #139)
+  - [x] Byte order mark refusal text, and restore skips a symlink: edit the live assertion-guardian mod, `claude plugin test`, then `tools/bin/sync.sh` regenerates `tools/config/patches/assertion-guardian.patch`
+  - [x] `/allow-test-change <file>` for a shell refusal: find the code first
+  - [x] Concurrent Bash calls undo each other's additions · skipped (owner 2026-10-22: leave it, the README names the gap; carried to the "Assertion Guardian guard gaps" design session)
+  - [x] Spec 0068 Amended line for the refusal shape: `/architect assertion guardian blocks only removed checks` · skipped (folded into row 106, spec 0078 AC-7 and AC-8)
+  - [x] chain-catch owes `/develop` for a row whose text says it builds only after other rows (row 100 on 2026-10-22, after an edit of the live `settings.json` its spec names): skip a row that still waits on unmerged rows
+  - [x] `tools/bin/install.sh` copies the commit hooks to `<repo>/<hooksPath>` when a global `core.hooksPath` is set (dry run 2026-10-22: `mkdir -p .../claude-config//home/santiago/.config/git/hooks`); it should use `git rev-parse --git-common-dir`/hooks, where the global dispatcher looks (PR #220, live 2026-10-23)
+Source: [review report](../reviews/review-2026-10-21.md) (P3 rows and Guardrails): a file with a byte order mark refused with generic text; restore writes through a symlink; build() clones an unreachable source twice; `/allow-test-change <file>` does nothing for a shell refusal; concurrent Bash calls can undo each other's additions; spec 0068 has no Amended line for the refusal shape.
