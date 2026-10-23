@@ -3,6 +3,7 @@
 **Date**: 2026-10-22
 **Status**: Proposed
 **Paths:** `config/patches/assertion-guardian.patch`, `tests/test_claude_config.py`
+**Amended**: 2026-10-22: AC-4 walk-up resolution accepted (owner)
 **Amends:** [0068](0068-assertion-guardian-removed-checks.md) (approval source, shell targets, race)
 
 ## What you're agreeing to
@@ -27,7 +28,7 @@ A security review of the Assertion Guardian mod (2026-10-22, build-status brief 
 - **AC-2** (MultiEdit, probe first) Probe P1: does the host send a `tool.call` with `tool: 'MultiEdit'` to mods, and with which argument shape? If yes, MultiEdit gets the Edit check over its edits applied in order, with a test. If no, nothing is built and the probe result is recorded here.
   - P1 result (2026-10-22, Claude Code 2.1.309): no. The host has no MultiEdit tool; a logging `tool.call` hook saw only Read and Edit. Nothing built. Command and output: [verify.md](0078-assertion-guardian-gaps/verify.md).
 - **AC-3** (more writes) `shellPlan()` sets `refuseBefore` when the line has `ln` with any argument that is a test path, or `git apply` or `patch` at all while the working folder is inside a repo with any test path (their targets come from the patch, not the line). `patch` joins the `refuseBefore` regex.
-- **AC-4** (symlinks) In `register.tsx`, before `runAndCompare` and before the Edit/Write check, each target is resolved with `$.fs.stat(target, {resolve: true})`; with no `realPath` (file not there yet) the parent folder is resolved and the name appended; if neither resolves the call is refused before running ("cannot resolve <path>"). Matching and the `before` map use the resolved path. `shellPlan()` stays synchronous.
+- **AC-4** (symlinks) In `register.tsx`, before `runAndCompare` and before the Edit/Write check, each target is resolved with `$.fs.stat(target, {resolve: true})`. A path that exists resolves to its `realPath`. A path not there yet walks up to the nearest folder that exists, resolves that folder and appends the rest of the path (a `.` or `..` in the rest refuses). The call is refused before running ("cannot resolve <path>") only when nothing resolves or the path is a link that leads nowhere (a dangling link: stat answers it with no `realPath`). An Edit or Write is checked and held when either the spelled path or the resolved path is a test path; the read, the `before` map and any restore use the resolved path. `shellPlan()` stays synchronous. How `$.fs.stat` answers each case was probed: [verify.md](0078-assertion-guardian-gaps/verify.md).
 - **AC-5** (race) An in-memory queue per resolved path (a Map of promises in the mod module) serializes Bash calls with targets, Edit and Write on the same test file within one chat session: a call waits for the earlier ones on any of its paths (sorted order), holds them through compare and any undo, and releases in `finally`. No file and no timer: a call waits as long as the earlier call runs. Calls in two different chats are not serialized (accepted; stated in the README).
 - **AC-6** (message) With `blocked` null and `allowed` non empty, `/allow-test-change` answers "Assertion Guardian: the change to <file> is already allowed once." Every reply names the file or why nothing was allowed.
 - **AC-7** Spec 0068 gets `**Amended by:** 0078` (bookkeeping).
