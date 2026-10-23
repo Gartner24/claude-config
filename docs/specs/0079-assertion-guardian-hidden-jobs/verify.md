@@ -52,3 +52,61 @@ CAN FAIL CHECKED: 5
 ## Review round 1 (2026-10-23, PR #214)
 - Probe on the built mod: `bash -lc`, `env`/`sudo`/`nohup`/`time` before `bash -c`, and `command eval`/`builtin eval` hid the -c or eval string, so a `&` or a test target inside it ran uncompared (`bashSignals` empty). Fixed in `commands()`: heads read through `unwrap()`, flag `-[a-zA-Z]*c`.
 - Mod test "a -c or eval string is read behind a wrapper and with combined flags": 70 pass, 0 fail. Mutant (old head and `-c` detection) red on that test only; restored, 70 pass. Patch regenerated, upstream at pinned plus patch equals the built mod (`diff -r`).
+
+## Row 112 amendment (2026-10-23, branch fix/0079-guardian-more-forms)
+
+### P2 how the mod sees each row 112 form (before the change)
+- Setup: upstream `ccdwyer/assertion-guardian` cloned to `/tmp/ag112/upstream`, checked out at pinned `ae1de89f`; the patch on origin/main (`a815465`) applied with a small python script (`git apply` through `subprocess`, since the live guardian refuses a typed `git apply` in a repo with tests) into the throwaway `/tmp/ag112/live/skills/assertion-guardian`. No settings and no live folder touched.
+- Probe: a throwaway `tests/probe.test.tsx` printing `bashSignals` count and `shellPlan(form, '/repo')` through a failing `toEqual([])`. Command: `claude plugin test /tmp/ag112/live/skills/assertion-guardian`. `S` is `sed -i '/expect/d' a.test.ts`.
+- Result before the change (signals, targets, refuseBefore):
+  - `{ S & }`: 0, `[]`, false (the `{` read as the command hid the target)
+  - `{ S; }`: 0, `[]`, false
+  - `( S )`: 1, `[/repo/a.test.ts]`, false (compared, not refused)
+  - `ls tests | xargs sh -c 'sed -i /expect/d "$@"' _`: 0, `[]`, false
+  - `ls tests | xargs rm`: 0, `[]`, false
+  - `echo a.test.ts | xargs sed -i '/expect/d'`: 0, `[]`, false
+  - `echo "S" | sh` (also `| bash`, `| zsh`, `| source /dev/stdin`): 0, `[]`, false
+  - `nice -n 10 S`, `ionice -c 3 S`, `timeout 60 S`, `stdbuf -o L S`, `setsid S`, `chrt -f 99 S`, `taskset -c 0 S`: 0, `[]`, false (the value or operand read as the command)
+  - `nohup S`, `time S`: 1, `[/repo/a.test.ts]`, false (compared, not refused)
+  - `env -S "S"`: 0, `[]`, false
+  - `source ./go.sh; S`: 1, `[/repo/a.test.ts]`, true (already refused)
+  - `time make test`, `timeout 60 npm test`, `nice -n 10 pytest`, `echo hi | grep h`, `( cd sub && ls )`: 0, `[]`, false
+- Verdict: every row 112 form ran without a refusal before running except `source`/`.`. After the change the same probe gave 1, the target, true for every form, and 0, `[]`, false for the five normal commands. The probe file was removed before the patch was made.
+- First build run: the `(` and `{` checks also fired inside heredoc bodies (two older tests red: `cat >> a.test.ts <<'EOF'` with `expect(a && b)` and `it('negatives', () => {`). Fixed: heredoc bodies keep only their `&` jobs, and `(` counts only at the start of a command.
+
+### Build checks
+- `claude plugin test /tmp/ag112/live/skills/assertion-guardian`: 80 pass, 0 fail (70 before, 10 new). `claude plugin validate`: passed.
+- Patch regenerated with `CLAUDE_LIVE_DIR=/tmp/ag112/live python3 -B tools/bin/claude-config.py patches` (the throwaway held the built mod and a read-only copy of the private names list). Upstream at pinned plus the new patch, rebuilt in `/tmp/ag112/rebuilt` with the same python script, equals the built mod (`diff -r`, no output).
+- `python3 -B tests/fast.py`: 194 tests, 0 failed. `TestShippedPatch` run alone: ok. `bash tools/bin/install.sh --dry-run`: done, nothing written.
+
+### Mutation checks
+Script `/tmp/ag112/mutate.py`: each mutant applied alone to `hooks/analyze.ts` of the built mod (backup with `cp`), `claude plugin test` run, then restored; after the last one 80 pass, 0 fail.
+1. `{` not unwrapped: red "a { } group is read like a nested body".
+2. `{` group not hidden: red the same test.
+3. `( )` subshell not hidden: red "a ( ) subshell with a test write".
+4. `(` hidden anywhere, not only at command start: red "normal commands stay allowed: wrappers, pipes ..." (`arr=(a b)`).
+5. `xargs` not unwrapped: red both xargs tests.
+6. fed targets never found: red both xargs tests, the pipe test and the hook test.
+7. pipe into a shell not seen: red the pipe test and the hook test.
+8. pipe into `sh -c` counted as stdin: red "normal commands stay allowed" (`cat a.test.ts | bash -c "grep expect"`).
+9. wrappers not refused before: red the wrappers test.
+10. wrapper operands not skipped: red the wrappers test (`timeout 60`, `chrt -f 99`, `taskset 0x3`).
+11. wrapper flag values not skipped: red the wrappers test, both xargs tests and the two older `env -C` tests.
+12. `setsid -f` not a job: red "setsid -f forks a background job".
+13. `env -S` string not split: red the env -S test.
+14. `env -S` string not hidden: red the env -S test.
+15. heredoc body sets groups and pipes: red "normal commands stay allowed" (the heredoc data case).
+16. `xargs` counts any command: red "normal commands stay allowed" (`xargs grep`).
+
+### /check verify
+Behavior observed through the built mod with `claude plugin test` (80 pass). Each break was applied and the named test went red (mutants above).
+1. AC-5 a `{ }` group or `( )` subshell with a test write is refused before running. can fail: the `{` read as the command again, or the group flag dropped (mutants 1 to 3 red).
+2. AC-6 `xargs sh -c` and `xargs` running a writer are refused before running, with the test path from the line. can fail: xargs not unwrapped or the fed paths dropped (mutants 5, 6 red).
+3. AC-7 text piped into `sh`, `bash`, `zsh`, `source`, `.` is refused before running, and through the hook nothing runs (`w.runs` 0). can fail: the pipe flag never set (mutant 7 red, hook test included).
+4. AC-8 the nine wrappers are unwrapped and a test write behind one is refused before running; `setsid -f` is a job. can fail: a value flag or leading operand read as the command, or the wrapper rule dropped (mutants 9 to 12 red).
+5. AC-9 `env -S` and `--split-string` strings are split, read and refused before running. can fail: the string not split or not flagged (mutants 13, 14 red).
+6. AC-11 the 70 older tests still pass, and the new allow test pins the normal commands. can fail: a looser rule (mutants 4, 8, 15, 16 red).
+7. AC-12 upstream at pinned plus the patch equals the built mod; `TestShippedPatch` green. can fail: a hunk dropped or edited makes the apply or `diff -r` fail.
+- Dropped as a pass: AC-10 (`source`/`.` keep refusing) is pinned by the older "source is refused" and ". is refused" tests and the README gap line, not by a new mutant; not counted.
+- Live install: owed after merge; not claimed here.
+CAN FAIL CHECKED: 7
