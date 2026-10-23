@@ -130,6 +130,7 @@ Closed rows (done or dropped, no open box) live in [done.md](done.md).
 | 107 | Review leftovers 2026-10-22: destructive guard spellings | Release 10 | not started |
 | 108 | Assertion Guardian: hidden background jobs and folder changes | Release 10 | not started |
 | 109 | restructure-check follow-ups from its first real run | Release 10 | not started |
+| 110 | Fix: install reapplies a changed patch to an edited skill | Release 10 | not started |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -313,6 +314,14 @@ The first real run (PR #205, 2026-10-22) worked and caught 3 real breaks, but sh
 - [ ] Verify it: `/check verify restructure-check follow-ups`
 - [ ] Test it: `/test restructure-check follow-ups`
 Source: run 20261022-230208 on PR #205 and the automated push security review of PR #200 (2026-10-22, this chat).
+
+### 110. Fix: install reapplies a changed patch to an edited skill
+After PR #206 changed `config/patches/assertion-guardian.patch`, `bin/install.sh` left the live mod on the old patch: `claude-config.py restore` only rebuilds a missing skill, so drift reported "your edit is no longer in it". Made live by hand on 2026-10-23 (old copy moved to `~/.claude/backups/skills/`, then `restore`).
+**Done when:** an install after a patch change rebuilds that skill from upstream plus the new patch when the live copy equals upstream plus the old patch, refuses and names it when the live copy has edits of its own, and drift is none after, with a test for both cases.
+- [ ] Fix it: `/debug install reapplies a changed patch`
+- [ ] Verify it: `/check verify install reapplies a changed patch`
+- [ ] Test it: `/test install reapplies a changed patch`
+Source: the #206 install, 2026-10-23, this chat.
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
