@@ -18,11 +18,11 @@ Merged since the evening update: #186 (review-fix escapes `</` in data blocks), 
 Owner's chosen order (2026-10-22, "continue with your recommendations"):
 1. Row 100 (`/build-features`, spec 0074): run probes P2 and P3 first (see the spec's verify.md); a FAIL goes back to `/architect`, no code before both pass. Then build in a worktree agent, then verify, test, PR, self merge checklist.
 2. New row "Assertion Guardian guard gaps" (see "For /architect later"): enroll with `/scope`, then `/architect` with the owner (risk path: self approval of `/allow-test-change`, MultiEdit, symlinks, `ln`, `git apply`).
-3. Owner items, when they want: "scan dotfiles" before pushing the 28 local dotfiles commits; row 89 concurrent Bash leftover (leave or fix); restructure-check interview (row 102, `/workflow-builder restructure-check`).
+3. Owner answers 2026-10-22: scan dotfiles before pushing the 28 local commits (done in the next chat); row 89 concurrent Bash leftover left, moved to the guard gaps session; restructure-check interview right before row 97 phase 2.
 4. Waiting on first real use: row 101 AC-7 and AC-8 (first `/review-fix <pr> --limit 1`, first `/workflow-builder review-fix --update`); row 103 live check (first `/rollover` then `/clear` shows `## Handoff facts`).
 
 ## For /architect later (none blocks)
-- New row "Assertion Guardian guard gaps" (security review 2026-10-22): self approval of `/allow-test-change` (check the command came from the owner), MultiEdit not checked, path and symlink tricks, `ln` and `git apply` not seen as writes; also `/allow-test-change` says "nothing is blocked" while it does approve.
+- New row "Assertion Guardian guard gaps" (security review 2026-10-22): self approval of `/allow-test-change` (check the command came from the owner), MultiEdit not checked, path and symlink tricks, `ln` and `git apply` not seen as writes; also `/allow-test-change` says "nothing is blocked" while it does approve; also concurrent Bash calls can undo each other's test additions (row 89 leftover, owner 2026-10-22: leave it as a fix, add it here).
 - Row 97 phase 2 checks the `~/.claude` map: first whether Claude ever edits `~/.claude` without the repo's map; if not, drop it with one line of reasoning; if yes, only the smallest pointer file, never loaded in normal chats. `~/.claude/private/` stays live only. Nothing of quality is lost today: every behaviour file is live (owner, 2026-10-22, "lets do what you recommend"; landed in the row 97 phase 2 box).
 - Dashboard: `checks failing` and `checks pending` cut at 40 columns (a label spec 0071 AC-3 spells).
 - Row 101 spec choices: worktree branch names gain `-<n>`; the follows line only prints; `**Paths:**` misses four files.
