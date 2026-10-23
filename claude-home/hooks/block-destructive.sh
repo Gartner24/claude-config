@@ -36,14 +36,14 @@ PATTERNS=(
   '(^|[;&|])[[:space:]]*(:|true)?[[:space:]]*>[[:space:]]*(~|\$HOME|/home/)[^[:space:]|;&]'
   # git discarding uncommitted work: reset --hard (any git options first, the flag quoted or not),
   # checkout of the whole tree (`.` or `./`, after any ref, -f or --)
-  'git[[:space:]]+([^|;&]*[[:space:]])?reset[[:space:]]+([^|;&]*[[:space:]])?["'"'"']?--hard["'"'"']?([[:space:]]|$)'
-  'git[[:space:]]+([^|;&]*[[:space:]])?checkout[[:space:]]+([^|;&]*[[:space:]])?["'"'"']?\./?["'"'"']?([[:space:]]|$)'
+  'git[[:space:]]+([^|;&]*[[:space:]])?reset[[:space:]]+([^|;&]*[[:space:]])?["'"'"']?--hard["'"'"']?([[:space:]]|[;&|)]|$)'
+  'git[[:space:]]+([^|;&]*[[:space:]])?checkout[[:space:]]+([^|;&]*[[:space:]])?["'"'"']?\./?["'"'"']?([[:space:]]|[;&|)]|$)'
 )
 
 # Dangerous targets: absolute path, home, parent traversal, whole cwd, bare glob.
 # The left boundary now allows a quote, so a quoted home target is caught like a bare one.
 # $PWD only when it is the whole target, like `.` (also `$PWD/*`, `$PWD/.`); `$PWD/build` stays allowed.
-RM_TARGETS='(^|[[:space:]]|["'"'"'])(/|~|\$HOME|\$\{HOME\}|\.\.|\*|\.([[:space:]]|$)|\./([[:space:]]|$)|(\$PWD|\$\{PWD\})(/|/\*|/\.)?(["'"'"'[:space:]]|$))'
+RM_TARGETS='(^|[[:space:]]|["'"'"'])(/|~|\$HOME|\$\{HOME\}|\.\.|\*|\.([[:space:]]|$)|\./([[:space:]]|$)|(\$PWD|\$\{PWD\})(/|/\*|/\.)?(["'"'"'[:space:];&|)]|$))'
 
 # True when the deletion is RECURSIVE, in any flag spelling: -r, -R, inside a combined
 # cluster like -rf, split across tokens as -r -f, or --recursive. Tokenized on purpose:
@@ -79,13 +79,16 @@ git_clean_is_destructive() {
 # `git restore` of the whole tree discards work; `--staged` alone only unstages, so it is allowed.
 git_restore_is_destructive() {
   local seg
-  seg="$(grep -oEi 'git[[:space:]]+([^|;&]*[[:space:]])?restore[[:space:]]+[^|;&]*' <<<"$1")" || return 1
-  grep -Eq '[[:space:]]["'"'"']?\./?["'"'"']?([[:space:]]|$)' <<<"$seg" || return 1
-  if grep -Eq '[[:space:]](--staged|-S)([[:space:]]|$)' <<<"$seg" \
-      && ! grep -Eq '[[:space:]](--worktree|-W)([[:space:]]|$)' <<<"$seg"; then
-    return 1
-  fi
-  return 0
+  # each restore on its own: `git restore --staged x; git restore .` must not pass on the first one's flag
+  while read -r seg; do
+    grep -Eq '[[:space:]]["'"'"']?\./?["'"'"']?([[:space:]]|[;&|)]|$)' <<<"$seg" || continue
+    if grep -Eq '[[:space:]](--staged|-S)([[:space:]]|$)' <<<"$seg" \
+        && ! grep -Eq '[[:space:]](--worktree|-W)([[:space:]]|$)' <<<"$seg"; then
+      continue
+    fi
+    return 0
+  done < <(grep -oEi 'git[[:space:]]+([^|;&]*[[:space:]])?restore[[:space:]]+[^|;&]*' <<<"$1")
+  return 1
 }
 
 check() {
@@ -497,6 +500,14 @@ if [[ "${1:-}" == "--test" ]]; then
   allow 'git restore file'
   allow 'git restore --staged .'
   allow 'git reset --hardness'
+  # commit security scan on fc904eb: a separator right after the target, one restore per segment
+  block 'git restore --staged x; git restore .'
+  block 'git reset --hard;ls'
+  block 'git reset --hard&&ls'
+  block 'git reset --hard|cat'
+  block 'git checkout .;ls'
+  block 'rm -rf $PWD;ls'
+  allow 'git reset --hardness;ls'
   # follow-up of spec 0016: a destructive rm inside a quoted shell string
   block 'bash -c "rm -rf ~"'
   block "sh -c 'rm -rf /'"
