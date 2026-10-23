@@ -1278,3 +1278,21 @@ Spec [0043](../specs/0043-fast-runner/index.md) · Source: [brief](../../_archiv
 
 ### 11. Autopilot offer and batch design · dropped
 Covered by `rules/runner-handoff.md` (batch first: every feature that needs a decision gets its `/architect` before the hand-off to the runner) and by choosing tonight's features on the `wf` screen (spec 0020 AC-13).
+
+### 111. Review leftovers 2026-10-23: destructive guard pathspec forms · done
+`block-destructive.sh` (rows 105 and 107) still lets through whole tree pathspecs with exclude magic (`:!x`, `:^x`, `:(exclude)x`), `:(top).`-style magic plus `.` or `*`, `:/.`, `./*`, `.//`, and `..` or `../` for `git checkout` and `git restore`. MEDIUM.
+**Done when:** each of those forms is refused, with a self test each in `block-destructive.sh --test`, and it is live.
+- [x] Fix it: `/debug destructive guard pathspec forms` (git_pathspec_is_tree in block-destructive.sh refuses any checkout/restore word starting with `:` or made only of `.`, `/`, `*`; PR #217, live 2026-10-23)
+- [x] Verify it: `/check verify destructive guard pathspec forms` (`--test` all 14 new block and 5 new allow cases pass; live 2026-10-23, drift none)
+- [x] Test it: `/test destructive guard pathspec forms` (mutants: colon test removed -> 8 cases red; char-class test removed -> 6 cases red; tests/fast.py 194 ok)
+Source: automated security review of PR #211 (2026-10-23).
+
+### 112. Assertion Guardian: remaining hidden command forms · done
+Forms spec 0079 does not cover yet: a brace group `{ ... & }`, `xargs ... sh -c`, `echo ... | sh`, `nice -n`, `env -S`, and the contents of sourced files.
+**Done when:** each of those forms makes the guard refuse before running, with a mod test each, the patch is regenerated, and it is live.
+- [x] Design it (spec): `/architect assertion guardian remaining hidden command forms` (no new decision: spec 0079 amended 2026-10-23, AC-5 to AC-12, same rule)
+- [x] Build it: `/develop assertion guardian remaining hidden command forms` (PR #218 merged; review fixed arithmetic read as a subshell; probe P2 in 0079 verify.md)
+- [x] Verify it: `/check verify assertion guardian remaining hidden command forms` (CAN FAIL CHECKED: 7, 0079 verify.md)
+- [x] Test it: `/test assertion guardian remaining hidden command forms` (10 new mod tests, 80 pass; 16 mutants all red, restored green; fast.py 194 ok)
+- [x] Install it live after merge (2026-10-23: install rebuilt the guardian from the new patch by itself, row 110; 81 live mod tests pass, drift none)
+Source: PR #214 review and build (2026-10-23).
