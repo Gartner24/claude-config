@@ -42,10 +42,10 @@ this repo. Older verdicts with longer notes: `docs/research/SKILLS-EVALUATION.md
 | watch (claude-video) | plugin | 2026-10-01 | Watch videos as frames and captions | Used for course videos | chat 2026-10-01 |
 | claude-seo | plugin | 2026-07-07; off globally 2026-09-24 | SEO audits for seo-ops and /monthly-ops | Kept, enabled per project to save context; its curl-to-shell installers accepted 2026-10-15 | chat 2026-10-16 |
 | loop-guard | mod (claude-mods) | 2026-10-18 | Stops the same failing call being retried | Fired 5 times in a week, right each time | chat 2026-10-19 |
-| compact-keeper | mod (claude-mods) | 2026-10-18 | Saves a note when a chat compacts | Rarely fires (compact at 700k, handoff at 200k); owner chose to keep it | chat 2026-10-19 |
+| compact-keeper | mod (claude-mods) | 2026-10-18 | Saves a note when a chat compacts | Rarely fires (compact at 700k, handoff at 250k); owner chose to keep it | chat 2026-10-19 |
 | wf runner (`wf`, `next`) | own CLI | 2026-10-11 | Runs scope boxes in fresh sessions, opens draft PRs | The one command the owner wants. Open issue 2026-10-19: on a work repo it marked features done with no changes and took an issue outside the sprint | docs/architecture.md; chat 2026-10-19 |
 | wf-dash | own mod | 2026-10-17 | Status band, agents and runner panes; replaces the jjstack status line | Band crashed on every redraw 10-17 to 10-19, fixed in PR #113, owner confirmed | chat 2026-10-19 |
-| wf-handoff | own mod | 2026-10-18 | Auto handoff at 200k tokens | Works; handovers lose detail ("losing too much information") | chat 2026-10-19 |
+| wf-handoff | own mod | 2026-10-18 | Auto handoff at 250k tokens | Works; handovers lose detail ("losing too much information") | chat 2026-10-19 |
 | Status bar (`wf auto bar`) | own | 2026-10-19 | Bottom bar, ported from jjstack's statusline.sh | Only ours, no jjstack bar (owner) | _archive/runner/statusbar.py |
 | review-stack, spawn-review | own skills | 2026-09-02; 2026-10-16 | Heavy blind-lane review; spawned reviews | Ours, copied out of jjstack | docs/guides/SKILLS.md |
 | design, design-gate, assets, brand-system | own skills | rebuilt 2026-09-09 | Gated design pipeline with a run ledger | Kept. Weak spot: the gate opens after 3 blocks (let a run through unfinished 9 times, 2026-10-19) | docs/guides/DESIGN-PIPELINE.md; chat 2026-10-19 |

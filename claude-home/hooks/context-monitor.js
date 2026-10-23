@@ -20,7 +20,8 @@ const WARN_TOKENS = 150000;
 const AUTOCOMPACT_TOKENS = 700000;
 const CRITICAL_TOKENS = AUTOCOMPACT_TOKENS - 50000;
 // One source for the handoff line: settings.json env AUTO_HANDOFF_TOKENS, which the wf-handoff mod reads too.
-const HANDOFF_TOKENS = Number(process.env.AUTO_HANDOFF_TOKENS) || 250000;
+const envHandoff = Number(process.env.AUTO_HANDOFF_TOKENS);
+const HANDOFF_TOKENS = Number.isFinite(envHandoff) && envHandoff > 0 ? envHandoff : 250000;
 const WARN_REPEAT = 100000; // a further WARNING at 250k, 350k, ... below CRITICAL
 const TAIL_BYTES = 256 * 1024;
 
@@ -165,7 +166,9 @@ function selfTest() {
   assert.strictEqual(run([asst(650000)], { env: { WF_RUN: '1' } }), '');
   // The handoff number comes from AUTO_HANDOFF_TOKENS, default 250000.
   assert.strictEqual(run([asst(150000)], { env: { AUTO_HANDOFF_TOKENS: '300000' } }), warn(150, 300));
-  assert.strictEqual(run([asst(150000)], { env: { AUTO_HANDOFF_TOKENS: '' } }), warn(150, 250));
+  for (const bad of ['', '-5', 'Infinity', 'abc', '0']) {
+    assert.strictEqual(run([asst(150000)], { env: { AUTO_HANDOFF_TOKENS: bad } }), warn(150, 250), bad);
+  }
   // Without the guard this id would write dir/escape.json and speak.
   assert.strictEqual(run([asst(650000)], { session: 'x/../escape' }), '');  // AC-3: a read or parse error is silent, exit 0.
   for (const input of ['{not json', JSON.stringify({ session_id: 'gone', transcript_path: path.join(dir, 'none.jsonl') })]) {

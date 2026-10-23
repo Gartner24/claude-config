@@ -100,22 +100,36 @@ class TestWorkflowLinks(Scratch):
 
 
 class TestHookFiles(Scratch):
-    # covers: row 105 (verify exits non zero naming a settings.json hook command whose file is missing after install;
-    # ~ and $HOME expand, an interpreter before the path is skipped, a command that is no path is left alone)
+    # covers: row 105 (verify runs the hook file check last and exits non zero naming a settings.json hook command
+    # whose file is missing after install; ~ and $HOME expand, an interpreter before the path is skipped, a command
+    # that is no path and a hook under the live skills folder are left alone; every other self check still ran)
+    def stub_verify(self):
+        for f in ("scripts/gen-agent-index.py", "scripts/spec-paths.py", "scripts/fb-ask.py", "scripts/start-gates.py",
+                  "scripts/design-check.py", "scripts/issue-reread.py", "scripts/review-isolated.py",
+                  "claude-home/skills/design/scripts/test-ledger.sh", "claude-home/skills/design/scripts/build-ramp.mjs"):
+            (self.repo / f).parent.mkdir(parents=True, exist_ok=True)
+            (self.repo / f).write_text("")
+
     def test_missing_hook_file(self):
+        self.stub_verify()
         hooks = {"Stop": [{"hooks": [{"type": "command", "command": "bash ~/.claude/hooks/block-destructive.sh"},
                                      {"type": "command", "command": "node \"$HOME/.claude/hooks/context-monitor.js\""},
+                                     {"type": "command", "command": "~/.claude/skills/jjstack/hooks/x.sh"},
                                      {"type": "command", "command": "paplay /no/such/sound.oga"}]}]}
         (self.repo / "claude-home" / "settings.json").write_text(json.dumps({"hooks": hooks}))
         _, _, r = self.install("ok")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("hook files: every settings.json hook command names a file that exists", r.stdout,
                       r.stdout + r.stderr)
         hooks["Stop"][0]["hooks"].append({"type": "command", "command": "~/.claude/hooks/gone.sh --x"})
         (self.repo / "claude-home" / "settings.json").write_text(json.dumps({"hooks": hooks}))
         home, _, r = self.install("gone")
-        self.assertNotEqual(r.returncode, 0)
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
         self.assertIn(f"missing hook file: {home}/.claude/hooks/gone.sh", r.stderr, r.stdout + r.stderr)
+        self.assertIn("HOOK FILES MISSING", r.stderr)
+        self.assertIn("spec-paths: all self-checks passed", r.stdout)
         self.assertNotIn("sound.oga", r.stderr)
+        self.assertNotIn("jjstack", r.stderr)
 
 
 class TestDryRun(unittest.TestCase):

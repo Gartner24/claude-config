@@ -243,8 +243,15 @@ def missing_hook_files(settings_path):
 
 
 def hook_files():
-    """bin/install.sh verify: exit 1 naming each hook command in live settings.json whose file is missing."""
-    missing = missing_hook_files(LIVE / "settings.json")
+    """bin/install.sh verify: exit 1 naming each hook command in live settings.json whose file is missing, skipping
+    the live skills folder (jjstack and gstack hooks, which their own installers own); exit 2 when it does not parse."""
+    try:
+        missing = missing_hook_files(LIVE / "settings.json")
+    except ValueError as e:
+        print(f"hook-files: {LIVE / 'settings.json'} does not parse: {e}")
+        return 2
+    skills = LIVE / "skills"
+    missing = [(p, c) for p, c in missing if not Path(p).is_relative_to(skills)]
     for path, cmd in missing:
         print(f"missing hook file: {path} (command: {cmd})")
     return 1 if missing else 0

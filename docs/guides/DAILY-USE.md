@@ -50,7 +50,7 @@ Make the bot with BotFather, then run `wf telegram init` (spec 0029). With `tele
 
 Use the `/claude-config` skill (spec 0048, skill file [claude-home/skills/claude-config/SKILL.md](../../claude-home/skills/claude-config/SKILL.md)). It drives `bin/claude-config.py`. The tool never asks anything itself. The skill asks you, and nothing changes a skill without your yes on that skill.
 
-- `/claude-config drift` (also what you get with no argument): shows where the repo and `~/.claude` differ, grouped as live only, missing live, and differs. Exit 1 means drift was found, not that the tool failed. It changes nothing.
+- `/claude-config drift` (also what you get with no argument): shows where the repo and `~/.claude` differ, grouped as live only, missing live, and differs. Kind `hook` lists each live `settings.json` hook command whose file is missing. Exit 1 means drift was found, not that the tool failed. It changes nothing.
 - `/claude-config sync`: copies `~/.claude` into the repo, then shows `git status --short`. It does not commit unless you ask.
 - `/claude-config install`: runs `--dry-run` first and shows it. It runs for real only after your yes.
 - `/claude-config update`: lists every downloaded skill whose upstream moved, with changed files and line counts. You answer yes or no per entry. On a conflict nothing is installed. You get the files with `<<<<<<<` markers under `~/.claude/state/claude-config-conflicts/<entry>/`, you fix them, and the skill reruns the entry with `--resolved`. Entries marked "update by hand, not checked" are never applied by the tool. An entry whose upstream folder became a link prints "is a link to <new name>, renamed upstream": point its manifest entry at the new name by hand.

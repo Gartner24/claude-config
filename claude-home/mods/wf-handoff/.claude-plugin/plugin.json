@@ -3,7 +3,7 @@
   "version": "0.4.0",
   "description": "Hands a long chat off on its own at the token line: /rollover, clear, resume (spec 0063); /handoff by hand after /rollover (spec 0057); /auto-handoff on|off per chat",
   "userConfig": {
-    "threshold": { "type": "number", "title": "Handoff line (tokens)", "description": "Context size at which the chat hands itself off; AUTO_HANDOFF_TOKENS overrides it for one shell", "default": 200000 },
+    "threshold": { "type": "number", "title": "Handoff line (tokens)", "description": "Context size at which the chat hands itself off; AUTO_HANDOFF_TOKENS overrides it for one shell", "default": 250000 },
     "minHeadroom": { "type": "number", "title": "Headroom after a handoff (tokens)", "description": "A chat that came from a handoff grows at least this much past its starting size before it hands off again", "default": 40000 },
     "maxConsecutiveHandoffs": { "type": "number", "title": "Handoffs in a row", "description": "Handoffs with no message from you before it pauses until you type", "default": 2 },
     "sectionsTemplate": { "type": "string", "title": "Sections template", "description": "File whose text is handed to /rollover; blank means ~/.claude/auto-handoff/sections.md", "default": "" },

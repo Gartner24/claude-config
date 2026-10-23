@@ -34,15 +34,16 @@ PATTERNS=(
   # EMPTY redirect onto a home path - `: > file` / `> file` can only truncate.
   # `echo x > ~/out.txt` writes content and is left alone.
   '(^|[;&|])[[:space:]]*(:|true)?[[:space:]]*>[[:space:]]*(~|\$HOME|/home/)[^[:space:]|;&]'
-  # git discarding uncommitted work: reset --hard, checkout of the whole tree
-  'git([[:space:]]+-C[[:space:]]+[^[:space:]|;&]+)?[[:space:]]+reset[[:space:]]+([^|;&]*[[:space:]])?--hard'
-  'git([[:space:]]+-C[[:space:]]+[^[:space:]|;&]+)?[[:space:]]+checkout[[:space:]]+(--[[:space:]]+)?\.([[:space:]]|$)'
+  # git discarding uncommitted work: reset --hard (any git options first, the flag quoted or not),
+  # checkout of the whole tree (`.` or `./`, after any ref, -f or --)
+  'git[[:space:]]+([^|;&]*[[:space:]])?reset[[:space:]]+([^|;&]*[[:space:]])?["'"'"']?--hard["'"'"']?([[:space:]]|$)'
+  'git[[:space:]]+([^|;&]*[[:space:]])?checkout[[:space:]]+([^|;&]*[[:space:]])?["'"'"']?\./?["'"'"']?([[:space:]]|$)'
 )
 
 # Dangerous targets: absolute path, home, parent traversal, whole cwd, bare glob.
 # The left boundary now allows a quote, so a quoted home target is caught like a bare one.
-# $PWD only when it is the whole target, like `.`; `$PWD/build` stays allowed.
-RM_TARGETS='(^|[[:space:]]|["'"'"'])(/|~|\$HOME|\$\{HOME\}|\.\.|\*|\.([[:space:]]|$)|\./([[:space:]]|$)|(\$PWD|\$\{PWD\})/?(["'"'"'[:space:]]|$))'
+# $PWD only when it is the whole target, like `.` (also `$PWD/*`, `$PWD/.`); `$PWD/build` stays allowed.
+RM_TARGETS='(^|[[:space:]]|["'"'"'])(/|~|\$HOME|\$\{HOME\}|\.\.|\*|\.([[:space:]]|$)|\./([[:space:]]|$)|(\$PWD|\$\{PWD\})(/|/\*|/\.)?(["'"'"'[:space:]]|$))'
 
 # True when the deletion is RECURSIVE, in any flag spelling: -r, -R, inside a combined
 # cluster like -rf, split across tokens as -r -f, or --recursive. Tokenized on purpose:
@@ -75,8 +76,23 @@ git_clean_is_destructive() {
   return 0
 }
 
+# `git restore` of the whole tree discards work; `--staged` alone only unstages, so it is allowed.
+git_restore_is_destructive() {
+  local seg
+  seg="$(grep -oEi 'git[[:space:]]+([^|;&]*[[:space:]])?restore[[:space:]]+[^|;&]*' <<<"$1")" || return 1
+  grep -Eq '[[:space:]]["'"'"']?\./?["'"'"']?([[:space:]]|$)' <<<"$seg" || return 1
+  if grep -Eq '[[:space:]](--staged|-S)([[:space:]]|$)' <<<"$seg" \
+      && ! grep -Eq '[[:space:]](--worktree|-W)([[:space:]]|$)' <<<"$seg"; then
+    return 1
+  fi
+  return 0
+}
+
 check() {
   local cmd="$1" p
+  if git_restore_is_destructive "$cmd"; then
+    echo "git restore of the whole tree discards uncommitted work" && return 2
+  fi
   if git_clean_is_destructive "$cmd"; then
     echo "git clean would delete untracked files (add -n/--dry-run to preview)" && return 2
   fi
@@ -454,6 +470,33 @@ if [[ "${1:-}" == "--test" ]]; then
   allow 'git checkout -- src/file.txt'
   allow 'git checkout main'
   allow_data 'git commit -m "docs: never git reset --hard"'
+  # review round 1 on the row 105 PR
+  block 'git checkout HEAD -- .'
+  block 'git checkout main -- .'
+  block 'git checkout -f .'
+  block 'git checkout --force .'
+  block 'git checkout ./'
+  block 'git checkout -- ./'
+  block 'git checkout "."'
+  block 'git -C dir checkout .'
+  block 'git restore .'
+  block 'git restore --source=HEAD --staged --worktree .'
+  block 'git --no-pager reset --hard'
+  block 'git -c a=b reset --hard'
+  block 'git -C a -C b reset --hard'
+  block "git reset '--hard'"
+  block 'git reset HEAD~1 --hard'
+  block 'rm -rf $PWD/*'
+  block 'rm -rf ${PWD}/*'
+  block 'rm -rf $PWD/.'
+  block 'rm -rf "${PWD}"'
+  block 'rm -rf ${HOME}/'
+  allow 'git checkout -b x'
+  allow 'git checkout ./file'
+  allow 'git checkout .gitignore'
+  allow 'git restore file'
+  allow 'git restore --staged .'
+  allow 'git reset --hardness'
   # follow-up of spec 0016: a destructive rm inside a quoted shell string
   block 'bash -c "rm -rf ~"'
   block "sh -c 'rm -rf /'"

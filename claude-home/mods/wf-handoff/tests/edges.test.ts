@@ -1,5 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
+import { DEFAULT_THRESHOLD } from '../hooks/register.ts'
 
 // Spec 0063: edge cases beyond auto.test.ts, first written as /check verify checks, same in-memory world.
 const SLOT = '/h/.claude/projects/-w/rollover/session.md'
@@ -290,13 +291,22 @@ test('AC-2 Esc: the next owner prompt starts the handoff and is held', { options
   expect(w.commands[0]!.args).toContain('are you there')
 })
 
-test('AC-1 default line is 200000', async ($, on) => {
+test('AC-1 default line is 250000', async ($, on) => {
   const w = world(on)
   await start($)
-  w.tokens = 199_000
+  w.tokens = 249_000
   expect(((await read($)) as any).deny).toBeUndefined()
-  w.tokens = 201_000
+  w.tokens = 251_000
   expect(((await gate($)) as any).deny).toBeDefined()
+})
+
+// The harness always fills options from plugin.json, so register.ts's own fallback is never reached at run time;
+// this keeps it equal to the plugin.json default, which 'AC-1 default line is 250000' pins at run time.
+test('AC-1 the code fallback equals the plugin.json default line, 250000', () => {
+  const def = 250000
+  expect([200000].find(n => n === DEFAULT_THRESHOLD)).toBeUndefined()
+  expect(def === DEFAULT_THRESHOLD).toBe(true)
+  expect(String(DEFAULT_THRESHOLD)).toContain('250000')
 })
 
 test('AC-7 default guard: the third unattended crossing pauses', { options: { threshold: 50000 } }, async ($, on) => {

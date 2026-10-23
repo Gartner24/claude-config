@@ -440,6 +440,14 @@ class TestDrift(Case):
         self.assertIn(f"hook:\n  {home}/.claude/hooks/gone.py: settings.json hook command names a missing file",
                       r.stdout)
 
+    # covers: row 105 (hook-files on a live settings.json that does not parse says so and exits 2, not "missing")
+    def test_hook_files_parse_error(self):
+        (self.live / "settings.json").write_text("{not json")
+        r = self.tool("hook-files")
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn("does not parse", r.stdout)
+        self.assertNotIn("missing hook file", r.stdout)
+
     # covers: spec 0076 AC-6 (a workflow linked live is no drift; a real folder where the link belongs, a missing link
     # and a live only workflow are reported under kind workflow)
     def test_workflows(self):
