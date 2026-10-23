@@ -294,8 +294,8 @@ Source: [build-status brief](../briefs/build-status-2026-10-22.md) "For /archite
 `block-destructive.sh` (row 105) still lets through spellings git accepts: an abbreviated `git reset --har`, and whole tree pathspecs `:/`, `:(top)`, `*` for `git checkout` and `git restore`, plus `checkout -f`. Found by the push security review of PR #196, MEDIUM.
 **Done when:** each of those spellings is refused, with a self test each in `block-destructive.sh --test`, and it is live.
 - [x] Fix it: `/debug destructive guard spellings` (PR draft on fix/destructive-guard-spellings; not live yet)
-- [x] Verify it: `/check verify destructive guard spellings` (self checks and suite green; 9 steps can fail)
-- [x] Test it: `/test destructive guard spellings` (9 mutants, each turned a new self test red)
+- [x] Verify it: `/check verify destructive guard spellings` (self checks and suite green; 5 steps can fail)
+- [x] Test it: `/test destructive guard spellings` (10 mutants, each turned a new self test red)
 Source: automated push security review of PR #196 (2026-10-22, this chat).
 
 ### 108. Assertion Guardian: hidden background jobs and folder changes
