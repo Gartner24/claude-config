@@ -269,9 +269,9 @@ Source: gap found in the ninth chat of 2026-10-22 (handover of that chat, next a
 ### 111. Review leftovers 2026-10-23: destructive guard pathspec forms
 `block-destructive.sh` (rows 105 and 107) still lets through whole tree pathspecs with exclude magic (`:!x`, `:^x`, `:(exclude)x`), `:(top).`-style magic plus `.` or `*`, `:/.`, `./*`, `.//`, and `..` or `../` for `git checkout` and `git restore`. MEDIUM.
 **Done when:** each of those forms is refused, with a self test each in `block-destructive.sh --test`, and it is live.
-- [ ] Fix it: `/debug destructive guard pathspec forms`
-- [ ] Verify it: `/check verify destructive guard pathspec forms`
-- [ ] Test it: `/test destructive guard pathspec forms`
+- [x] Fix it: `/debug destructive guard pathspec forms` (git_pathspec_is_tree in block-destructive.sh refuses any checkout/restore word starting with `:` or made only of `.`, `/`, `*`; draft PR, not live yet)
+- [x] Verify it: `/check verify destructive guard pathspec forms` (`--test` all 14 new block and 5 new allow cases pass; not live yet)
+- [x] Test it: `/test destructive guard pathspec forms` (mutants: colon test removed -> 8 cases red; char-class test removed -> 6 cases red; tests/fast.py 194 ok; not live yet)
 Source: automated security review of PR #211 (2026-10-23).
 
 ### 112. Assertion Guardian: remaining hidden command forms
