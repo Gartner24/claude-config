@@ -125,7 +125,8 @@ Closed rows (done or dropped, no open box) live in [done.md](done.md).
 | 102 | review-fix and restructure-check workflows | Release 10 | in-progress |
 | 103 | Fix: a manual handoff gets the "not live" facts list | Release 10 | in-progress |
 | 104 | Fix: a resumed chat follows the folder's auto handoff setting | Release 10 | done |
-| 105 | Fix: blind review findings | Release 10 | planned |
+| 105 | Fix: blind review findings | Release 10 | in-progress |
+| 106 | Assertion Guardian guard gaps | Release 10 | in-progress |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -172,7 +173,7 @@ Small bugs the Assertion Guardian review left (low severity, none blocks use).
   - [x] Byte order mark refusal text, and restore skips a symlink: edit the live assertion-guardian mod, `claude plugin test`, then `bin/sync.sh` regenerates `config/patches/assertion-guardian.patch`
   - [x] `/allow-test-change <file>` for a shell refusal: find the code first
   - [x] Concurrent Bash calls undo each other's additions · skipped (owner 2026-10-22: leave it, the README names the gap; carried to the "Assertion Guardian guard gaps" design session)
-  - [ ] Spec 0068 Amended line for the refusal shape: `/architect assertion guardian blocks only removed checks`
+  - [x] Spec 0068 Amended line for the refusal shape: `/architect assertion guardian blocks only removed checks` · skipped (folded into row 106, spec 0078 AC-7 and AC-8)
   - [x] chain-catch owes `/develop` for a row whose text says it builds only after other rows (row 100 on 2026-10-22, after an edit of the live `settings.json` its spec names): skip a row that still waits on unmerged rows
   - [ ] `bin/install.sh` copies the commit hooks to `<repo>/<hooksPath>` when a global `core.hooksPath` is set (dry run 2026-10-22: `mkdir -p .../claude-config//home/santiago/.config/git/hooks`); it should use `git rev-parse --git-common-dir`/hooks, where the global dispatcher looks
 Source: [review report](../reviews/review-2026-10-21.md) (P3 rows and Guardrails): a file with a byte order mark refused with generic text; restore writes through a symlink; build() clones an unreachable source twice; `/allow-test-change <file>` does nothing for a shell refusal; concurrent Bash calls can undo each other's additions; spec 0068 has no Amended line for the refusal shape.
@@ -199,7 +200,13 @@ You asked to restructure claude-config into the folder layout of RinDig's icm-ar
   - [x] Scope split (0072c; AC-11, AC-12)
 - [x] Verify it: `/check verify restructure claude-config to the icm-architect layout` (whole phase on merged main: 33 live links resolve, dry run clean, suite 150 ok, ref-check strict exit 1 on 36 dropped pointers judged not dangling, see [verify](../specs/0072-icm-restructure/verify.md))
 - [x] Test it: `/test restructure claude-config to the icm-architect layout` (no new test; suite 150 ok; mutation check 0)
-- [ ] Design phase 2 (spec): `/architect restructure claude-config phase 2` (after phase 1 is merged and reviewed). Also checks the live side (your answers 2026-10-22): first find out whether Claude ever edits `~/.claude` without the repo's map. If not, drop the `~/.claude` map with one line of reasoning in the spec; if yes, add only the smallest pointer file, shipped from `claude-home/` by `bin/install.sh` and never loaded in normal chats. `~/.claude/private/` stays live only. Right before this box, run the restructure-check interview (row 102, `/workflow-builder restructure-check`; owner 2026-10-22). The design also cuts the always loaded text (about 18k to 25k tokens before the first message, [blind review](../reviews/blind-setup-review-2026-10-22.md) fix 1; owner 2026-10-22: fold it into phase 2)
+- [x] Design phase 2 (spec): `/architect restructure claude-config phase 2` (spec [0077](../specs/0077-restructure-phase-2/index.md) accepted 2026-10-22 after a Sonnet cross check, 12 gaps fixed; probes P1 and P2 passed, P3 owed at build step 1)
+- [ ] Build phase 2 PR A: `/develop restructure claude-config phase 2` (0077a lighter chats, AC-1 to AC-9)
+- [ ] Live check: a fresh chat with `/architect x` gets the rules, a plain question chat does not · waits on you · later boxes go on
+- [ ] Build phase 2 PR B: `/develop restructure claude-config phase 2` (0077b tools folder, AC-10 to AC-15, after PR A merges)
+- [ ] Verify it: `/check verify restructure claude-config phase 2`
+- [ ] Test it: `/test restructure claude-config phase 2`
+- Earlier note on this box (after phase 1 is merged and reviewed). Also checks the live side (your answers 2026-10-22): first find out whether Claude ever edits `~/.claude` without the repo's map. If not, drop the `~/.claude` map with one line of reasoning in the spec; if yes, add only the smallest pointer file, shipped from `claude-home/` by `bin/install.sh` and never loaded in normal chats. `~/.claude/private/` stays live only. Right before this box, run the restructure-check interview (row 102, `/workflow-builder restructure-check`; owner 2026-10-22). The design also cuts the always loaded text (about 18k to 25k tokens before the first message, [blind review](../reviews/blind-setup-review-2026-10-22.md) fix 1; owner 2026-10-22: fold it into phase 2)
 Source: [brief](../briefs/icm-restructure.md); [brief](../briefs/retire-runner.md) line 13; your messages 2026-10-22.
 
 ### 99. Auto handoff off by itself in plain talk chats · dropped
@@ -214,9 +221,9 @@ A saved Claude Code workflow (`/build-features`) that builds every ready scope r
 **Done when:** `/build-features` builds two non overlapping ready rows to draft PRs, and both places show them while they run.
 - [x] Design it (spec): `/architect build-features workflow` (spec 0074 accepted 2026-10-22 after a Sonnet cross check, 17 fixes applied; probe P1 passed: a mod sees workflow agents)
 - [ ] Build it: `/develop build-features workflow`
-  - [ ] Probes P2 (agent panel rows) and P3 (worktree agent builds and pushes); a P3 FAIL goes back to `/architect`
-  - [ ] Skill: ready list, clashes, pick panel, start gates, workflow script (AC-1 to AC-8)
-  - [ ] Review and merge loop (AC-9, AC-10)
+  - [x] Probes P2 (agent panel rows) and P3 (worktree agent builds and pushes); a P3 FAIL goes back to `/architect` (P2 FAIL, AC-11 dropped; P3 PASS; PR #199)
+  - [x] Skill: ready list, clashes, pick panel, start gates, workflow script (AC-1 to AC-8) (draft PR #201)
+  - [x] Review and merge loop (AC-9, AC-10) (draft PR #201)
   - [ ] Panel script, band count, rule line, live copy and `bin/sync.sh` (AC-11 to AC-13)
 - [ ] Verify it: `/check verify build-features workflow`
 - [ ] Test it: `/test build-features workflow`
@@ -242,7 +249,7 @@ Source: [brief](../briefs/workflow-builder.md); [brief](../briefs/icm-restructur
 The two workflows you asked to be reminded of: `review-fix` (fix a PR's review findings) and `restructure-check` (the nothing broke check as one command). Built with the row 101 builder. from spec 0072. No separate spec (your answer 2026-10-22): the builder's interview is their design, seeded by the stage outlines in the [research brief](../briefs/workflow-templates.md) section 2. Starts after row 101 is built.
 **Done when:** both run as `/review-fix` and `/restructure-check` on a real PR.
 - [x] Design and build review-fix: `/workflow-builder review-fix` (row 101's proof step)
-- [ ] Design and build restructure-check: `/workflow-builder restructure-check` (interview right before row 97 phase 2 design, owner 2026-10-22)
+- [x] Design and build restructure-check: `/workflow-builder restructure-check` (interview 2026-10-22: capture, diff, judge; own PRs only; draft PR #200, check.py ok)
 - [ ] Run both on a real PR · waits on you
 Source: [brief](../briefs/icm-restructure.md) "Workflows"; your messages 2026-10-22.
 
@@ -258,11 +265,20 @@ Source: gap found in the ninth chat of 2026-10-22 (handover of that chat, next a
 ### 105. Fix: blind review findings
 The outside review (average, 5/10) found cheap safety and drift bugs. Fix them; the always loaded text cut goes to row 97 phase 2.
 **Done when:** `context-monitor.js` and `CLAUDE.md` take the handoff number from one source; `block-destructive.sh` refuses `rm -rf ${HOME}`, `rm -rf $PWD`, `git reset --hard` and `git checkout -- .` with a self test each; `bin/install.sh` and `claude-config.py drift` exit non zero when a hook command in `settings.json` names a missing file; `private-names.py --test` runs to the end; `enableAllProjectMcpServers` is false and the `Edit(~/.claude/CLAUDE.md)` and `Edit(~/.claude/rules/**)` allows are gone, while `gh pr merge` stays allowed; all of it is live.
-- [ ] Build it: `/develop fix blind review findings`
-- [ ] Verify it: `/check verify fix blind review findings`
-- [ ] Test it: `/test fix blind review findings`
+- [x] Build it: `/develop fix blind review findings` (PR #196 merged and installed live 2026-10-22; review CAUTION fixed in 2 commits; owner also chose: `Workflow` allowed, claude-config.py allows only drift, hook-files, update --plan)
+- [x] Verify it: `/check verify fix blind review findings` (suite 158 ok on the merged head; install verify all pass; drift none; live MCP switch off)
+- [x] Test it: `/test fix blind review findings` (32 mutation checks across 3 commits, each red then green)
 - [ ] Sync docs: `/sync fix blind review findings`
 Source: [blind review](../reviews/blind-setup-review-2026-10-22.md) fixes 2 to 4; owner answer 2026-10-22 in chat: "MCP and rules only" (MCP auto start off, no self edit allows, merges stay automatic behind the self merge checklist).
+
+### 106. Assertion Guardian guard gaps · in-progress
+Close the ways around the Assertion Guardian found by the 2026-10-22 security review and the 2026-10-21 leftovers.
+**Done when:** spec 0078's acceptance criteria pass with mod tests, the patch is regenerated, and it is live.
+- [x] Design it (spec): `/architect assertion guardian guard gaps` (spec [0078](../specs/0078-assertion-guardian-gaps.md), owner 2026-10-22: typed approval only, lock per test file)
+- [ ] Build it: `/develop assertion guardian guard gaps`
+- [ ] Verify it: `/check verify assertion guardian guard gaps`
+- [ ] Test it: `/test assertion guardian guard gaps`
+Source: [build-status brief](../briefs/build-status-2026-10-22.md) "For /architect later"; row 89 leftovers (concurrent Bash, refusal shape); owner answers 2026-10-22 in chat.
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
