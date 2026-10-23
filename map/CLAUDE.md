@@ -7,7 +7,7 @@ Open the card for the part you change; nothing else needs loading. How to walk t
 |---|---|
 | [install](objects/install.md) | copied, linked, downloaded and live-only files; `bin/install.sh` |
 | [mods](objects/mods.md) | `wf-handoff`, `chip-dash` |
-| [rules](objects/rules.md) | `claude-home/rules/`, hooks, `fb-ask` |
+| [rules](objects/rules.md) | `claude-home/rules/`, `claude-home/rules-on-demand/`, hooks (skill rules hook), `fb-ask` |
 | [skills](objects/skills.md) | skills, agents, manifest, generated SKILLS.md |
 | [specs](objects/specs.md) | `docs/specs/`, `**Paths:**`, `spec-paths` |
 | [scope](objects/scope.md) | `docs/scope/`, the plan format |

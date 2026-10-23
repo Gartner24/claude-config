@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-22
 **Status**: Proposed
-**Paths:** `claude-home/skills/build-features/**`, `claude-home/hooks/subagent-statusline.py`, `claude-home/settings.json`, `claude-home/mods/chip-dash/**`, `claude-home/rules/when-to-switch-on.md`, `bin/claude-config.py`
+**Paths:** `claude-home/skills/build-features/**`, `claude-home/hooks/subagent-statusline.py`, `claude-home/settings.json`, `claude-home/mods/chip-dash/**`, `claude-home/rules-on-demand/when-to-switch-on.md`, `bin/claude-config.py`
 
 ## What you're agreeing to
 - You type `/build-features` in a repo. It lists the rows ready to build, with clashes and a proposed model per row; you tick which to start.

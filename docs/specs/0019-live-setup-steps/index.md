@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-13
 **Status**: Accepted
-**Paths:** `_archive/runner/finish.py`, `_archive/runner/wf.py`, `bin/install.sh`, `scripts/private-names.py`, `claude-home/rules/scope-contract.md`, `claude-home/rules/runner-handoff.md`
+**Paths:** `_archive/runner/finish.py`, `_archive/runner/wf.py`, `bin/install.sh`, `scripts/private-names.py`, `claude-home/rules-on-demand/scope-contract.md`, `claude-home/rules-on-demand/runner-handoff.md`
 **Amends**: [0003](../0003-scope-contract/index.md) (new ` · live` tag), [0012](../0012-waiting-boxes-owed-to-you/index.md) (a live box is still a waiting box for `wf run`), architecture invariant 7 (`wf finish`, run by you, ticks boxes, writes verify.md and commits).
 
 ## Summary

@@ -10,7 +10,7 @@ Stop hook (no flag): reads the hook JSON on stdin (`session_id`, `transcript_pat
 - a `/scope` row for an edited file no spec names (AC-19, only when nothing else is owed).
 At most 3 blocks per turn (AC-9); the 4th stop passes with a `systemMessage`. Any error lets the
 turn end and writes one line to ~/.claude/state/chain-catch/errors.log (AC-11). Exit 0 always.
-`--prompt` is the UserPromptSubmit reminder (AC-16). `--test` runs the self checks.
+`--test` runs the self checks. The `--prompt` reminder (AC-16) was removed by spec 0077 AC-5.
 Python 3 stdlib only; external commands through argument lists.
 """
 import json
@@ -28,8 +28,6 @@ TEST_WORDS = ("pytest", "npm test", "pnpm test", "bun test", "go test", "cargo t
               "claude plugin test", "python3 -m unittest")
 HANDOFF_SKILLS = {"rollover", "handoff", "save-and-clear", "resume-from-clear"}
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
-REMINDER = ("If this message describes new work that is not a row in the scope, run `/scope <item>` "
-            "for each feature first, one row each, before any other step.")
 GONE = {"done", "dropped", "existing"}
 NEEDS = "needs a decision"
 PLAN_DIRS = ("docs/scope/", "docs/specs/", "docs/briefs/", "docs/reviews/")
@@ -488,13 +486,6 @@ def stop(data):
     return {"decision": "block", "reason": "\n".join([HEADER, *shown])}
 
 
-def prompt(data):
-    text = str(data.get("prompt") or "")
-    if text.startswith("/") or not gated_off(data.get("cwd") or os.getcwd()):
-        return None
-    return {"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": REMINDER}}
-
-
 def self_test():
     import shutil
     failures = []
@@ -788,7 +779,6 @@ def self_test():
             check(f"AC-10 {next(iter(env))} passes", run(t, env=env), None)
         shutil.move(f"{repo}/docs/scope", f"{tmp}/scope-away")
         check("AC-10 a repo with no scope passes", run(t), None)
-        check("AC-16 not in a repo with no scope", run(T(), "--prompt", stdin={"session_id": "S1", "cwd": repo, "prompt": "hi"}), None)
         shutil.move(f"{tmp}/scope-away", f"{repo}/docs/scope")
         # a folder with a scope that is not a git repo (a hub folder)
         nogit = os.path.join(tmp, "nogit")
@@ -820,14 +810,6 @@ def self_test():
         fresh()
         check("AC-15 an owner typed /handoff passes", run(T().owner("x").edit("src/a.py").command("handoff")), None)
         fresh()
-
-        # AC-16
-        p = {"session_id": "S1", "cwd": repo, "prompt": "add a dark mode"}
-        check("AC-16 the line is added in a scope repo", run(T(), "--prompt", stdin=p),
-              {"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": REMINDER}})
-        check("AC-16 not outside one", run(T(), "--prompt", stdin={**p, "cwd": nogit}), None)
-        check("AC-16 not on a slash command", run(T(), "--prompt", stdin={**p, "prompt": "/scope dark mode"}), None)
-        check("AC-16 not in a worker", run(T(), "--prompt", stdin=p, env={"TM_WORKER_NAME": "w"}), None)
 
         # AC-17
         decide = "### 9. New · needs a decision\n- [{x}] Design it: `/architect new`\n- [ ] Build: `/develop new`\n\n"
@@ -904,10 +886,10 @@ def main(argv):
         return self_test()
     try:
         data = json.load(sys.stdin)
-        out = prompt(data) if argv[:1] == ["--prompt"] else stop(data)
+        out = stop(data)
     except Exception as err:  # AC-11: never block because the hook broke
         try:
-            log_line("errors.log", f"{'prompt' if argv[:1] == ['--prompt'] else 'stop'}: {type(err).__name__}: {err}")
+            log_line("errors.log", f"stop: {type(err).__name__}: {err}")
         except OSError:
             pass
         return 0

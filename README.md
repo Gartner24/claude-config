@@ -2,7 +2,7 @@
 
 For you, the owner of this Claude Code setup. Claude Code reads its setup from `~/.claude` (the
 **live dir**). This repo keeps your own parts of that folder, names every downloaded skill, plugin and
-framework with where it came from, and holds `wf`, a runner that builds queued features for you. An AI
+framework with where it came from, and keeps the retired `wf` runner as history in `_archive/runner/`. An AI
 working here reads [AGENTS.md](AGENTS.md) instead.
 
 ## Where things live
@@ -12,10 +12,10 @@ overwritten.
 
 | Kind | Repo folder | Live path | Source of truth | Who writes it | What moves it |
 |------|-------------|-----------|-----------------|---------------|---------------|
-| Copied (`CLAUDE.md`, `settings*.json`, `agents/`, `rules/`, your hooks and scripts) | `claude-home/` | `~/.claude/<same path>` | live wins | you, in `~/.claude` | `bin/sync.sh` copies live into the repo; `bin/install.sh` copies back on a new machine |
+| Copied (`CLAUDE.md`, `settings*.json`, `agents/`, `rules/`, `rules-on-demand/`, `MAP.md`, your hooks and scripts) | `claude-home/` | `~/.claude/<same path>` | live wins | you, in `~/.claude` | `bin/sync.sh` copies live into the repo; `bin/install.sh` copies back on a new machine |
 | Linked (`skills/`, `commands/` you wrote) | `claude-home/skills/`, `claude-home/commands/` | `~/.claude/skills/<name>` is a symlink (a pointer) into the repo | repo wins | you, in the repo | `bin/install.sh` makes the links |
 | Downloaded (skills from GitHub and packages) | `config/manifest.json`, your edits in `config/patches/` | `~/.claude/skills/<name>` | upstream plus your patch | their installer, then you | `/claude-config update`, after your yes per skill |
-| Runner (`wf`, `next`) | `_archive/runner/` | `~/.local/share/wf/<fp>/`, linked from `~/.local/bin/wf` | repo wins | you, in the repo | `bin/install.sh` copies it out |
+| Runner (`wf`, `next`, retired 2026-10-21) | `_archive/runner/` | none: it was copied to `~/.local/share/wf/` until it retired | repo wins | nobody; kept as history | nothing |
 | Repo tools | `bin/`, `scripts/` | none (a few are linked into `~/.local/bin`) | repo wins | you, in the repo | nothing |
 | Frameworks (gstack, jjstack, ECC commands, the JSM skills, plugins) | named in `config/manifest.json` | their own folders in `~/.claude` | their installer wins | their installer | their own installer; never copied here |
 | Private (names, work rules, settings fragments, private skills and patches) | none | `~/.claude/private/` | live only | you | nothing; never in any repo |
@@ -29,7 +29,7 @@ notices in [docs/NOTICE.md](docs/NOTICE.md).
 **Rules for one place only.** Rules for this repo only go
 in [CLAUDE.md](CLAUDE.md), the entry file; `AGENTS.md` is a symlink to it, so a session in this repo
 loads the global instructions once and the entry file once. The home chat opens in `~/claude-config`;
-its private runner rules are in `CLAUDE.local.md` (git ignored, spec 0067).
+its private rules are in `CLAUDE.local.md` (git ignored, spec 0067).
 
 ## One session, start to finish
 
@@ -42,12 +42,9 @@ claude starts in a folder
   +-- hooks ............. scripts settings.json names, run on events
   |                       (SessionStart, PreToolUse, Stop, ...)
   +-- skills ............ ~/.claude/skills/<name>/SKILL.md: only the one line description
-                          loads; the body loads when the skill is invoked (/name or by match)
-
-wf run (the runner)
-  reads docs/scope/ of a trusted repo -> picks the next unticked box -> starts
-  `claude -p "<the box's command>"` (one headless session per step) in a sandbox
-  -> records the result, ticks the box or asks you on your phone
+  |                       loads; the body loads when the skill is invoked (/name or by match)
+  +-- skill rules ....... when a skill starts, hooks/skill-rules.py adds its files from
+                          ~/.claude/rules-on-demand/ (map.json); nothing else loads them
 ```
 
 - **User memory** loads in every session. **Project memory** loads only in that folder.
@@ -63,13 +60,13 @@ wf run (the runner)
 | Guide | Kind | What it covers |
 |-------|------|----------------|
 | [SETUP.md](docs/guides/SETUP.md) | how to | Install, restore on a new machine, frameworks, downloaded skills, plugins, MCP servers, keeping it current |
-| [DAILY-USE.md](docs/guides/DAILY-USE.md) | how to | The workflow chain, every `wf` command, `/claude-config`, picking a skill |
+| [DAILY-USE.md](docs/guides/DAILY-USE.md) | how to | The workflow chain, `/claude-config`, picking a skill, and the retired `wf` commands |
 | [SKILLS.md](docs/guides/SKILLS.md) | reference | Every skill with its source and license, plus the routing table (generated) |
 | [HOOKS.md](docs/guides/HOOKS.md) | reference | Each hook script, where it comes from, the settings it relies on |
 | [DESIGN-PIPELINE.md](docs/guides/DESIGN-PIPELINE.md) | how to | Setting up and running the design pipeline |
 
-Also: [docs/architecture.md](docs/architecture.md) (how the runner and the setup sync work, and the
-spec list) and [docs/research/](docs/research/) (skills tried and kept or dropped, reviews).
+Also: [docs/architecture.md](docs/architecture.md) (how the chat workflow, hooks, mods, workflows and the setup
+sync work) and [docs/research/](docs/research/) (skills tried and kept or dropped, reviews).
 
 ## Rules earned the hard way
 

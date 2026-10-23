@@ -202,6 +202,9 @@ You asked to restructure claude-config into the folder layout of RinDig's icm-ar
 - [x] Test it: `/test restructure claude-config to the icm-architect layout` (no new test; suite 150 ok; mutation check 0)
 - [x] Design phase 2 (spec): `/architect restructure claude-config phase 2` (spec [0077](../specs/0077-restructure-phase-2/index.md) accepted 2026-10-22 after a Sonnet cross check, 12 gaps fixed; probes P1 and P2 passed, P3 owed at build step 1)
 - [ ] Build phase 2 PR A: `/develop restructure claude-config phase 2` (0077a lighter chats, AC-1 to AC-9)
+  - [x] Built on feat/0077-lighter-chats · draft PR #205: probe P3 passed (no mod change), always loaded text 52,699 to 16,325 characters, 14 rule files and 3 CLAUDE.md sections moved word for word to `rules-on-demand/`, `skill-rules.py` hook, reminder removed, `MAP.md`, install, drift and sync, docs; suite 167 ok, 21 mutants caught, see [verify](../specs/0077-restructure-phase-2/verify.md)
+  - [ ] Real install and the live AC-1 measure · waits on you
+  - [ ] `/restructure-check` on the PR (AC-9; not installed yet, row 102) · waits on you
 - [ ] Live check: a fresh chat with `/architect x` gets the rules, a plain question chat does not · waits on you · later boxes go on
 - [ ] Build phase 2 PR B: `/develop restructure claude-config phase 2` (0077b tools folder, AC-10 to AC-15, after PR A merges)
 - [ ] Verify it: `/check verify restructure claude-config phase 2`

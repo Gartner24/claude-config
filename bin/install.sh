@@ -34,18 +34,36 @@ for f in settings.json settings.local.json; do
   fi
 done
 
-for d in agents rules hooks scripts commands skills workflows; do
+for d in agents rules rules-on-demand hooks scripts commands skills workflows; do
   run mkdir -p "$LIVE/$d"
 done
 
 # Copied: these are files the harness reads directly.
 echo "copy:"
-for d in agents rules; do
+for d in agents rules rules-on-demand; do
+  [ -d "$REPO/claude-home/$d" ] || continue
   note "$d/ ($(find "$REPO/claude-home/$d" -type f | wc -l) files)"
   run cp -a "$REPO/claude-home/$d/." "$LIVE/$d/"
 done
+# Spec 0077 AC-7: cp -a never deletes, so a rule moved out of rules/ kept auto loading live. A live file in either
+# folder with no repo source is moved to a dated backup folder, and named here.
+stamp="$(date +%Y-%m-%d)"
+for d in rules rules-on-demand; do
+  [ -d "$LIVE/$d" ] || continue
+  while IFS= read -r rel; do
+    [ -e "$REPO/claude-home/$d/$rel" ] && continue
+    note "live only: $d/$rel -> backups/rules/$stamp/$d/$rel"
+    run mkdir -p "$(dirname "$LIVE/backups/rules/$stamp/$d/$rel")"
+    run mv "$LIVE/$d/$rel" "$LIVE/backups/rules/$stamp/$d/$rel"
+  done < <(cd "$LIVE/$d" && find . -type f -printf '%P\n')
+done
+# Spec 0077 AC-6: the pointer back to this repo; never auto loaded.
+if [ -e "$REPO/claude-home/MAP.md" ]; then
+  note "MAP.md"
+  run cp "$REPO/claude-home/MAP.md" "$LIVE/MAP.md"
+fi
 for f in hooks/block-destructive.sh hooks/review-stack-pre-push hooks/plain-panel.py hooks/context-monitor.js \
-         hooks/handover-start.sh hooks/no-jjstack-bar.py; do
+         hooks/handover-start.sh hooks/no-jjstack-bar.py hooks/skill-rules.py; do
   note "$f"
   run cp -a "$REPO/claude-home/$f" "$LIVE/$f"
   run chmod +x "$LIVE/$f"
@@ -276,6 +294,9 @@ else
   bash "$LIVE/hooks/handover-start.sh" --test >/dev/null 2>&1 \
     && note "handover hook: all self-checks passed" \
     || { echo "  HANDOVER HOOK SELF-CHECK FAILED - run: bash ~/.claude/hooks/handover-start.sh --test" >&2; exit 1; }
+  python3 "$LIVE/hooks/skill-rules.py" --test >/dev/null 2>&1 \
+    && note "skill rules hook: all self-checks passed" \
+    || { echo "  SKILL RULES HOOK SELF-CHECK FAILED - run: python3 ~/.claude/hooks/skill-rules.py --test" >&2; exit 1; }
   python3 "$REPO/scripts/gen-agent-index.py" --check >/dev/null \
     && note "agent index: matches claude-home/agents/" || note "agent index: DRIFTED (regenerate)"
   bash "$REPO/claude-home/skills/design/scripts/test-ledger.sh" >/dev/null 2>&1 \
