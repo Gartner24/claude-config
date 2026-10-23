@@ -5,7 +5,7 @@ Records the behavior outputs of one side (`base` or `head`) of the restructure i
 Model: haiku low
 
 `<run>` below is `<repo>/.workflow/runs/restructure-check/<run id>`; the prompt gives you both values, your side
-(`base` or `head`) and the ref to check out.
+(`base` or `head`) and the full sha to check out (use the sha, not a branch name).
 
 ## Inputs
 - The ref the prompt names, checked out in a scratch worktree. No docs are loaded.
@@ -39,8 +39,9 @@ Model: haiku low
    - Head side only: `python3 tools/scripts/ref-check.py verify --repo <tree> --home <run>/01_capture/head/emptyhome <run>/01_capture/output/base/snapshot.json --map-from-git <base ref>`
      (make the empty home dir first; the base ref is the one the prompt names; the base side has already finished,
      so the snapshot exists; when it is missing, save that error as the command's file).
-   - For every file `docs/specs/NNNN-*.md` or `docs/specs/NNNN-*/index.md`: `python3 tools/scripts/spec-paths.py --spec NNNN`
-     (one file per spec, slug includes the number).
+   - For every spec top file, `docs/specs/NNNN-*.md` or `docs/specs/NNNN-*/index.md`: take NNNN as the first 4 digits
+     of the file name or, for `index.md`, of its folder name (never a fragment of `index`), then run
+     `python3 tools/scripts/spec-paths.py --spec NNNN` (one file per spec, slug includes the number).
    - `live-links.txt`: every link target `tools/bin/install.sh --dry-run` would make, one `link -> target` per line, copied from
      that dry run's output.
 3. `git -C <repo> worktree remove --force <run>/01_capture/<side>/tree`, then write the outputs below and return the
