@@ -14,6 +14,12 @@
 # no `set -e`: check() returns 2 on purpose, which would trip it
 set -uo pipefail
 
+# Whole-tree pathspecs git accepts: `.`, `./`, `:/`, `:(top)`, `:/*`, `*`, quoted or not.
+# `:[(_]top[)_]` because the scanner blanks the parens inside quotes to `_`.
+Q='["'"'"']?'
+TREE="$Q(\\.|\\./|:/|:[(_]top[)_]|:/\\*|\\*)$Q"
+END='([[:space:]]|[;&|)]|$)'
+
 # Non-rm destructive patterns (extended regex, matched case-insensitively). Any match blocks.
 PATTERNS=(
   # whole-disk / filesystem destroyers
@@ -36,8 +42,11 @@ PATTERNS=(
   '(^|[;&|])[[:space:]]*(:|true)?[[:space:]]*>[[:space:]]*(~|\$HOME|/home/)[^[:space:]|;&]'
   # git discarding uncommitted work: reset --hard (any git options first, the flag quoted or not),
   # checkout of the whole tree (`.` or `./`, after any ref, -f or --)
-  'git[[:space:]]+([^|;&]*[[:space:]])?reset[[:space:]]+([^|;&]*[[:space:]])?["'"'"']?--hard["'"'"']?([[:space:]]|[;&|)]|$)'
-  'git[[:space:]]+([^|;&]*[[:space:]])?checkout[[:space:]]+([^|;&]*[[:space:]])?["'"'"']?\./?["'"'"']?([[:space:]]|[;&|)]|$)'
+  'git[[:space:]]+([^|;&]*[[:space:]])?reset[[:space:]]+([^|;&]*[[:space:]])?'"$Q"'--h(a(rd?)?)?'"$Q$END"
+  'git[[:space:]]+([^|;&]*[[:space:]])?checkout[[:space:]]+([^|;&]*[[:space:]])?'"$TREE$END"
+  # checkout -f/--force and switch -f/--discard-changes throw local changes away (long option prefixes too)
+  'git[[:space:]]+([^|;&]*[[:space:]])?checkout[[:space:]]+([^|;&]*[[:space:]])?(-[[:alnum:]]*f[[:alnum:]]*|--fo[a-z]*)'"$END"
+  'git[[:space:]]+([^|;&]*[[:space:]])?switch[[:space:]]+([^|;&]*[[:space:]])?(-[[:alnum:]]*f[[:alnum:]]*|--di[a-z-]*)'"$END"
 )
 
 # Dangerous targets: absolute path, home, parent traversal, whole cwd, bare glob.
@@ -81,7 +90,7 @@ git_restore_is_destructive() {
   local seg
   # each restore on its own: `git restore --staged x; git restore .` must not pass on the first one's flag
   while read -r seg; do
-    grep -Eq '[[:space:]]["'"'"']?\./?["'"'"']?([[:space:]]|[;&|)]|$)' <<<"$seg" || continue
+    grep -Eq "[[:space:]]$TREE$END" <<<"$seg" || continue
     if grep -Eq '[[:space:]](--staged|-S)([[:space:]]|$)' <<<"$seg" \
         && ! grep -Eq '[[:space:]](--worktree|-W)([[:space:]]|$)' <<<"$seg"; then
       continue
@@ -508,6 +517,46 @@ if [[ "${1:-}" == "--test" ]]; then
   block 'git checkout .;ls'
   block 'rm -rf $PWD;ls'
   allow 'git reset --hardness;ls'
+  # row 107: spellings git accepts. Long option prefixes of --hard, other whole tree pathspecs, -f
+  block 'git reset --h'
+  block 'git reset --ha'
+  block 'git reset --har'
+  block 'git reset --har HEAD~1'
+  block "git reset '--har'"
+  block 'git checkout :/'
+  block 'git checkout -- :/'
+  block 'git checkout :(top)'
+  block "git checkout -- ':(top)'"
+  block 'git checkout :/*'
+  block 'git checkout *'
+  block 'git checkout -- "*"'
+  block "git checkout HEAD -- '*'"
+  block 'git restore :/'
+  block 'git restore :(top)'
+  block "git restore ':(top)'"
+  block 'git restore :/*'
+  block 'git restore *'
+  block "git restore '*'"
+  block 'git restore --source=HEAD *'
+  block 'git checkout -f'
+  block 'git checkout -f main'
+  block 'git checkout --force main'
+  block 'git checkout --forc main'
+  block 'git checkout main -f'
+  block 'git switch -f main'
+  block 'git switch --discard-changes main'
+  block 'git switch --discard main'
+  block 'git -C dir switch -f main'
+  allow 'git checkout main'
+  allow 'git checkout -- path/to/file'
+  allow 'git checkout -b feature/force-push-docs'
+  allow 'git restore src/a.ts'
+  allow 'git restore --staged :/'
+  allow 'git restore src/*.ts'
+  allow 'git switch feature'
+  allow 'git switch -c fix'
+  allow 'git switch --detach main'
+  allow 'git reset --help'
   # follow-up of spec 0016: a destructive rm inside a quoted shell string
   block 'bash -c "rm -rf ~"'
   block "sh -c 'rm -rf /'"
