@@ -15,6 +15,7 @@ Linked from `claude-home/skills/`; editing the repo copy is live.
 | `assets` | Sources, generates, codes and edits imagery for a design - photos, icons, illustrations, blobs, patterns, grain, logos, background removal and the optimization ladder. |
 | `astro-patterns` | Astro static-site patterns for the freelance client stack (Astro + React islands + Tailwind + shadcn on Cloudflare). |
 | `brand-system` | Produces a client's brand system as a self-contained, contract-validated HTML brand board - the canonical binding source the build follows. |
+| `build-features` | Build the ready scope rows you pick in parallel, one worktree agent each, to draft PRs; then review each PR and merge the safe ones (spec 0074). |
 | `business-analyzer` | Produce rigorous, data-backed business and strategy analysis - SWOT, B2B and B2C analysis, market and competitive analysis, pricing/go-to-market, financial projections, and country/jurisdiction context - for a NEW idea or an EXISTING business, grounded in CURRENT real-world data via web search. |
 | `claude-config` | Sync ~/.claude and the claude-config repo both ways, show drift between them, and update downloaded skills from upstream after a yes per skill (spec 0048). |
 | `content-ops` | Write website copy and blog content for clients that gets them FOUND in Google and AI answers - not generic AI slop. |
@@ -25,6 +26,7 @@ Linked from `claude-home/skills/`; editing the repo copy is live.
 | `lead-finder` | Given a city and a trade, list 10 to 20 local businesses with weak web presence (no website, no booking, stale blog, another agency's credit) with the evidence for each. |
 | `nano-banana` | Generate hyper-realistic, tightly-controlled images (product shots, hero frames, brand imagery, blog images) using Google's Nano Banana (Gemini image model) via structured JSON prompting that neutralizes the plastic "AI look." Use in /brand-system (mascot/logo/imagery - replaces the manual step) and for /new-site + content-ops assets. |
 | `reaction-tester` | Up to 12 simulated customers react to an idea, offer or page, after one plain baseline answer to compare. |
+| `restructure-check` | Prove a restructure PR changes no behavior by capturing outputs on base and head, diffing them and judging the differences. |
 | `review-fix` | Fix the confirmed findings of a review on a PR with a test and mutation check each, then run suite, verify and test. |
 | `review-stack` | Run the multi-agent pre-ship review stack over local changes OR someone else's pull request - dispatch regression-hunter + pr-intent-verifier + security-reviewer + database-reviewer + the matching language reviewer + code-reviewer as parallel subagents, then synthesize findings by severity. |
 | `seo-ops` | Run recurring SEO/AEO for a live client site - monthly audit, page-2 internal-link lifts, GSC language mining, structured-data upkeep, and re-indexing (IndexNow). |

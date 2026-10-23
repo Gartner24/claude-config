@@ -127,6 +127,7 @@ Closed rows (done or dropped, no open box) live in [done.md](done.md).
 | 104 | Fix: a resumed chat follows the folder's auto handoff setting | Release 10 | done |
 | 105 | Fix: blind review findings | Release 10 | in-progress |
 | 106 | Assertion Guardian guard gaps | Release 10 | in-progress |
+| 107 | Review leftovers 2026-10-22: destructive guard spellings | Release 10 | not started |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -227,9 +228,9 @@ A saved Claude Code workflow (`/build-features`) that builds every ready scope r
   - [x] Probes P2 (agent panel rows) and P3 (worktree agent builds and pushes); a P3 FAIL goes back to `/architect` (P2 FAIL, AC-11 dropped; P3 PASS; PR #199)
   - [x] Skill: ready list, clashes, pick panel, start gates, workflow script (AC-1 to AC-8) (draft PR #201)
   - [x] Review and merge loop (AC-9, AC-10) (draft PR #201)
-  - [ ] Panel script, band count, rule line, live copy and `bin/sync.sh` (AC-11 to AC-13)
-- [ ] Verify it: `/check verify build-features workflow`
-- [ ] Test it: `/test build-features workflow`
+  - [ ] Panel script, band count, rule line, live copy and `bin/sync.sh` (AC-11 to AC-13) (panel script dropped; band count and repo rule line built; live copy and `bin/sync.sh` not run yet)
+- [x] Verify it: `/check verify build-features workflow` (2026-10-22: automated ACs 1, 2, 5, 6, 8, 12 pass; AC-3, 4, 9, 10 manual by reading; AC-11 dropped; AC-13 live copy after merge; CAN FAIL CHECKED: 3)
+- [x] Test it: `/test build-features workflow` (no tests added; 9 + 85 + suite 167 pass; 5 existing tests mutation checked; MUTATION CHECKED: 0 new)
 Source: [brief](../briefs/build-features.md) (probe passed); [brief](../briefs/icm-restructure.md) "Workflows" and "Running workflows show"; your messages 2026-10-22.
 
 ### 101. Workflow templates research and a workflow builder skill · in-progress
@@ -282,6 +283,14 @@ Close the ways around the Assertion Guardian found by the 2026-10-22 security re
 - [ ] Verify it: `/check verify assertion guardian guard gaps`
 - [ ] Test it: `/test assertion guardian guard gaps`
 Source: [build-status brief](../briefs/build-status-2026-10-22.md) "For /architect later"; row 89 leftovers (concurrent Bash, refusal shape); owner answers 2026-10-22 in chat.
+
+### 107. Review leftovers 2026-10-22: destructive guard spellings
+`block-destructive.sh` (row 105) still lets through spellings git accepts: an abbreviated `git reset --har`, and whole tree pathspecs `:/`, `:(top)`, `*` for `git checkout` and `git restore`, plus `checkout -f`. Found by the push security review of PR #196, MEDIUM.
+**Done when:** each of those spellings is refused, with a self test each in `block-destructive.sh --test`, and it is live.
+- [ ] Fix it: `/debug destructive guard spellings`
+- [ ] Verify it: `/check verify destructive guard spellings`
+- [ ] Test it: `/test destructive guard spellings`
+Source: automated push security review of PR #196 (2026-10-22, this chat).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
