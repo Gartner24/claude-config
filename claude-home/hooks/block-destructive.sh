@@ -100,8 +100,34 @@ git_restore_is_destructive() {
   return 1
 }
 
+# Fail closed on pathspec shapes TREE does not list: any checkout/restore word that starts with `:`
+# (exclude and top magic, `:/.`) or is only `.`, `/`, `*` characters (`./*`, `.//`, `..`, `../`).
+# `restore --staged` alone only unstages, so it stays allowed.
+git_pathspec_is_tree() {
+  local seg kind rest tok
+  local -a toks
+  for kind in checkout restore; do
+    while read -r seg; do
+      rest="${seg#*"$kind"}"
+      if [[ $kind == restore ]] && grep -Eq '[[:space:]](--staged|-S)([[:space:]]|$)' <<<"$seg" \
+          && ! grep -Eq '[[:space:]](--worktree|-W)([[:space:]]|$)' <<<"$seg"; then
+        continue
+      fi
+      read -ra toks <<<"$rest"
+      for tok in "${toks[@]}"; do
+        tok="${tok//[\"\']/}"
+        [[ "$tok" == :* || "$tok" =~ ^[./*]+$ ]] && return 0
+      done
+    done < <(grep -oEi "git[[:space:]]+([^|;&]*[[:space:]])?$kind[[:space:]]+[^|;&]*" <<<"$1")
+  done
+  return 1
+}
+
 check() {
   local cmd="$1" p
+  if git_pathspec_is_tree "$cmd"; then
+    echo "git checkout/restore of a whole tree pathspec discards uncommitted work" && return 2
+  fi
   if git_restore_is_destructive "$cmd"; then
     echo "git restore of the whole tree discards uncommitted work" && return 2
   fi
@@ -561,6 +587,26 @@ if [[ "${1:-}" == "--test" ]]; then
   allow 'git switch -c fix'
   allow 'git switch --detach main'
   allow 'git reset --help'
+  # row 111: pathspec forms that still meant the whole tree
+  block 'git checkout -- :!x'
+  block 'git checkout :^x'
+  block 'git restore :(exclude)x'
+  block 'git restore ":(top,exclude)x"'
+  block "git checkout -- ':(top).'"
+  block 'git restore :/.'
+  block 'git checkout :/.'
+  block 'git checkout ./*'
+  block 'git restore ./*'
+  block 'git checkout .//'
+  block 'git restore .//'
+  block 'git checkout ..'
+  block 'git restore ../'
+  block 'git restore --staged --worktree :!x'
+  allow 'git checkout v1.2.3'
+  allow 'git checkout v1.2'
+  allow 'git checkout -- ./src/a.ts'
+  allow 'git -C .. checkout main'
+  allow 'git restore --staged :!x'
   # follow-up of spec 0016: a destructive rm inside a quoted shell string
   block 'bash -c "rm -rf ~"'
   block "sh -c 'rm -rf /'"
