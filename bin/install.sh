@@ -301,6 +301,15 @@ else
     [ -f "$real" ] || missing=$((missing + 1))
   done < <(grep -hoE '^@~/[^ ]+' "$REPO"/claude-home/rules/ecc/*/index.md)
   [ "$missing" -eq 0 ] && note "rule imports: all resolve" || note "rule imports: $missing dangling"
+  # Last, so every check above still runs. A hook command naming a missing file fails on every event it is
+  # wired to. Hooks under the live skills folder belong to jjstack/gstack, installed by their own tools.
+  rc=0
+  python3 "$REPO/bin/claude-config.py" hook-files >&2 || rc=$?
+  case "$rc" in
+    0) note "hook files: every settings.json hook command names a file that exists" ;;
+    1) echo "  HOOK FILES MISSING (above) - those hooks fail on every call" >&2; exit 1 ;;
+    *) echo "  HOOK FILES CHECK FAILED (above) - settings.json was not checked" >&2; exit 1 ;;
+  esac
 fi
 
 cat <<EOF

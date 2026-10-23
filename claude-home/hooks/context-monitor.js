@@ -8,7 +8,7 @@
 // numbers. This one reads the transcript, and `--test` fails when the numbers drift.
 //
 // Thresholds (tokens used):
-//   WARN_TOKENS          150000   info only: the wf-handoff mod hands off at 200k, so no /rollover here
+//   WARN_TOKENS          150000   info only: the wf-handoff mod hands off at AUTO_HANDOFF_TOKENS, so no /rollover here
 //   AUTOCOMPACT_TOKENS   700000   settings.json autoCompactWindow
 //   CRITICAL_TOKENS      650000   50k before autocompact
 
@@ -19,6 +19,9 @@ const path = require('path');
 const WARN_TOKENS = 150000;
 const AUTOCOMPACT_TOKENS = 700000;
 const CRITICAL_TOKENS = AUTOCOMPACT_TOKENS - 50000;
+// One source for the handoff line: settings.json env AUTO_HANDOFF_TOKENS, which the wf-handoff mod reads too.
+const envHandoff = Number(process.env.AUTO_HANDOFF_TOKENS);
+const HANDOFF_TOKENS = Number.isFinite(envHandoff) && envHandoff > 0 ? envHandoff : 250000;
 const WARN_REPEAT = 100000; // a further WARNING at 250k, 350k, ... below CRITICAL
 const TAIL_BYTES = 256 * 1024;
 
@@ -59,9 +62,9 @@ function messageFor(used) {
     return `Context: ${k}k tokens used; autocompact (lossy) runs at ${AUTOCOMPACT_TOKENS / 1000}k. ` +
       'Do not start new work: finish this step and `/rollover` now.';
   }
-  // The wf-handoff mod hands off at 200k; telling the model to roll over here made chats hand off at 150k.
+  // The wf-handoff mod hands off at HANDOFF_TOKENS; telling the model to roll over here made chats hand off at 150k.
   return `Context: ${k}k tokens used. Rule (\`~/.claude/CLAUDE.md\` Context): the wf-handoff mod hands off by itself ` +
-    'at 200k; do not run `/rollover` for size unless it says auto handoff is paused or off.';
+    `at ${Math.floor(HANDOFF_TOKENS / 1000)}k; do not run \`/rollover\` for size unless it says auto handoff is paused or off.`;
 }
 
 function main(input) {
@@ -120,6 +123,7 @@ function selfTest() {
     fs.writeFileSync(t, lines.join('\n') + (opts.noNewline ? '' : '\n'));
     const env = Object.assign({}, process.env, { TMPDIR: dir });
     delete env.WF_RUN;
+    delete env.AUTO_HANDOFF_TOKENS;
     Object.assign(env, opts.env || {});
     const r = spawnSync(process.execPath, [__filename], {
       input: JSON.stringify({ session_id: opts.session || `s${seq}`, transcript_path: t }), env, encoding: 'utf8',
@@ -127,7 +131,7 @@ function selfTest() {
     assert.strictEqual(r.status, 0, r.stderr);
     return r.stdout ? JSON.parse(r.stdout).hookSpecificOutput.additionalContext : '';
   };
-  const warn = (k) => `Context: ${k}k tokens used. Rule (\`~/.claude/CLAUDE.md\` Context): the wf-handoff mod hands off by itself at 200k; do not run \`/rollover\` for size unless it says auto handoff is paused or off.`;
+  const warn = (k, h = 250) => `Context: ${k}k tokens used. Rule (\`~/.claude/CLAUDE.md\` Context): the wf-handoff mod hands off by itself at ${h}k; do not run \`/rollover\` for size unless it says auto handoff is paused or off.`;
   const crit = (k) => `Context: ${k}k tokens used; autocompact (lossy) runs at 700k. Do not start new work: finish this step and \`/rollover\` now.`;
 
   assert.strictEqual(run([userLine, asst(149999)]), '');
@@ -160,6 +164,11 @@ function selfTest() {
   // Only the last 256 KB is read.
   assert.strictEqual(run([asst(200000), ...Array(3000).fill(userLine.replace('hi', 'x'.repeat(100)))]), '');
   assert.strictEqual(run([asst(650000)], { env: { WF_RUN: '1' } }), '');
+  // The handoff number comes from AUTO_HANDOFF_TOKENS, default 250000.
+  assert.strictEqual(run([asst(150000)], { env: { AUTO_HANDOFF_TOKENS: '300000' } }), warn(150, 300));
+  for (const bad of ['', '-5', 'Infinity', 'abc', '0']) {
+    assert.strictEqual(run([asst(150000)], { env: { AUTO_HANDOFF_TOKENS: bad } }), warn(150, 250), bad);
+  }
   // Without the guard this id would write dir/escape.json and speak.
   assert.strictEqual(run([asst(650000)], { session: 'x/../escape' }), '');  // AC-3: a read or parse error is silent, exit 0.
   for (const input of ['{not json', JSON.stringify({ session_id: 'gone', transcript_path: path.join(dir, 'none.jsonl') })]) {
@@ -171,6 +180,10 @@ function selfTest() {
   const src = fs.readFileSync(__filename, 'utf8');
   const settings = fs.readFileSync(path.join(__dirname, '..', 'settings.json'), 'utf8');
   assert.deepStrictEqual(driftFindings(src, settings), []);
+  // CLAUDE.md states the same handoff number settings.json sets.
+  const handoff = Number(JSON.parse(settings).env.AUTO_HANDOFF_TOKENS);
+  const claudeMd = fs.readFileSync(path.join(__dirname, '..', 'CLAUDE.md'), 'utf8');
+  assert.ok(claudeMd.includes(`hands a chat off by itself at ${handoff / 1000}k tokens`), `CLAUDE.md must say ${handoff / 1000}k`);
   assert.strictEqual(driftFindings(src.replace(/(\/\/\s+WARN_TOKENS\s+)150000/, '$1140000'), settings).length, 1);
   assert.strictEqual(driftFindings(src.replace(/(\/\/\s+CRITICAL_TOKENS\s+)650000/, '$1600000'), settings).length, 1);
   assert.strictEqual(driftFindings(src.replace(/(\/\/\s+AUTOCOMPACT_TOKENS\s+)700000/, '$1800000'), settings).length, 1);

@@ -420,6 +420,34 @@ class TestDrift(Case):
         self.assertEqual(r.returncode, 1)
         self.assertIn("setting:\n  settings.json: model: differs\n  settings.json: skillOverrides: differs", r.stdout)
 
+    # covers: row 105 (a live settings.json hook command naming a missing file is drift, named by its path)
+    def test_missing_hook_file(self):
+        home = self.tmp / "home"
+        (home / ".claude" / "hooks").mkdir(parents=True)
+        (home / ".claude" / "hooks" / "here.sh").write_text("#!/bin/sh\n")
+        self.env["HOME"] = str(home)
+        cmds = ["bash ~/.claude/hooks/here.sh", "paplay /no/such.oga"]
+        live = {"hooks": {"Stop": [{"hooks": [{"type": "command", "command": c} for c in cmds]}]}}
+        (self.repo / "claude-home" / "settings.json").write_text(json.dumps(live))
+        (self.live / "settings.json").write_text(json.dumps(live))
+        r = self.tool("drift")
+        self.assertEqual((r.returncode, r.stdout.strip()), (0, "drift: none"), r.stdout + r.stderr)
+        live["hooks"]["Stop"][0]["hooks"].append({"type": "command", "command": "python3 $HOME/.claude/hooks/gone.py"})
+        (self.repo / "claude-home" / "settings.json").write_text(json.dumps(live))
+        (self.live / "settings.json").write_text(json.dumps(live))
+        r = self.tool("drift")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn(f"hook:\n  {home}/.claude/hooks/gone.py: settings.json hook command names a missing file",
+                      r.stdout)
+
+    # covers: row 105 (hook-files on a live settings.json that does not parse says so and exits 2, not "missing")
+    def test_hook_files_parse_error(self):
+        (self.live / "settings.json").write_text("{not json")
+        r = self.tool("hook-files")
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn("does not parse", r.stdout)
+        self.assertNotIn("missing hook file", r.stdout)
+
     # covers: spec 0076 AC-6 (a workflow linked live is no drift; a real folder where the link belongs, a missing link
     # and a live only workflow are reported under kind workflow)
     def test_workflows(self):
