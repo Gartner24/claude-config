@@ -1,6 +1,6 @@
 # Skills that keep their description in every session (spec 0050).
 # One name per line: a skill folder name, or a command file name without .md.
-# Every other installed own skill and command is set to name only by scripts/skill-keep.py.
+# Every other installed own skill and command is set to name only by tools/scripts/skill-keep.py.
 design-gate
 impeccable
 rollover

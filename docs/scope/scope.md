@@ -137,7 +137,7 @@ Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules ev
 ## Existing
 
 ### A. Sync and install · existing
-`bin/sync.sh` pulls live `~/.claude` into the repo, `bin/install.sh` puts it back with self checks. code in `bin/sync.sh`, `bin/install.sh`
+`tools/bin/sync.sh` pulls live `~/.claude` into the repo, `tools/bin/install.sh` puts it back with self checks. code in `tools/bin/sync.sh`, `tools/bin/install.sh`
 
 ### B. Design pipeline and gate · existing
 Run ledger, Stop hook, font and colour scripts behind `design`, `brand-system`, `design-gate`. code in `skills/design/`, `skills/design-gate/`
@@ -146,7 +146,7 @@ Run ledger, Stop hook, font and colour scripts behind `design`, `brand-system`, 
 Multi agent pre ship review with a blind lane and a pre push receipt hook. code in `skills/review-stack/`, `hooks/review-stack-pre-push`
 
 ### D. Skill routing · existing
-`config/routing.md` routing table and its regression check (the intent router was removed 2026-10-19). code in `scripts/check-routing.py`
+`tools/config/routing.md` routing table and its regression check (the intent router was removed 2026-10-19). code in `tools/scripts/check-routing.py`
 
 ## Release 7: clean branches and the tool review
 The clean branches feature and the October 2026 tool review plan ([brief](../briefs/tool-review-2026-10.md)).
@@ -174,12 +174,12 @@ Small bugs the Assertion Guardian review left (low severity, none blocks use).
 **Done when:** each leftover in the report is fixed with a test, or dropped with a reason.
 - [ ] Fix them: `/debug review leftovers 2026-10-21`
   - [x] build() clones an unreachable source twice (PR #139)
-  - [x] Byte order mark refusal text, and restore skips a symlink: edit the live assertion-guardian mod, `claude plugin test`, then `bin/sync.sh` regenerates `config/patches/assertion-guardian.patch`
+  - [x] Byte order mark refusal text, and restore skips a symlink: edit the live assertion-guardian mod, `claude plugin test`, then `tools/bin/sync.sh` regenerates `tools/config/patches/assertion-guardian.patch`
   - [x] `/allow-test-change <file>` for a shell refusal: find the code first
   - [x] Concurrent Bash calls undo each other's additions · skipped (owner 2026-10-22: leave it, the README names the gap; carried to the "Assertion Guardian guard gaps" design session)
   - [x] Spec 0068 Amended line for the refusal shape: `/architect assertion guardian blocks only removed checks` · skipped (folded into row 106, spec 0078 AC-7 and AC-8)
   - [x] chain-catch owes `/develop` for a row whose text says it builds only after other rows (row 100 on 2026-10-22, after an edit of the live `settings.json` its spec names): skip a row that still waits on unmerged rows
-  - [ ] `bin/install.sh` copies the commit hooks to `<repo>/<hooksPath>` when a global `core.hooksPath` is set (dry run 2026-10-22: `mkdir -p .../claude-config//home/santiago/.config/git/hooks`); it should use `git rev-parse --git-common-dir`/hooks, where the global dispatcher looks
+  - [ ] `tools/bin/install.sh` copies the commit hooks to `<repo>/<hooksPath>` when a global `core.hooksPath` is set (dry run 2026-10-22: `mkdir -p .../claude-config//home/santiago/.config/git/hooks`); it should use `git rev-parse --git-common-dir`/hooks, where the global dispatcher looks
 Source: [review report](../reviews/review-2026-10-21.md) (P3 rows and Guardrails): a file with a byte order mark refused with generic text; restore writes through a symlink; build() clones an unreachable source twice; `/allow-test-change <file>` does nothing for a shell refusal; concurrent Bash calls can undo each other's additions; spec 0068 has no Amended line for the refusal shape.
 
 ## Release 10: one workflow in every chat, no runner
@@ -195,7 +195,7 @@ Source: [brief](../briefs/retire-runner.md) ("Decisions 2026-10-22 (third chat)"
 
 ### 97. Restructure claude-config to the icm-architect folder layout · in-progress
 You asked to restructure claude-config into the folder layout of RinDig's icm-architect repo. Phase 1: [0072](../specs/0072-icm-restructure/index.md); phase 2 is designed after phase 1 lands.
-**Done when:** the repo follows the agreed layout, `bin/install.sh --dry-run` and the suite pass, and every live link still resolves.
+**Done when:** the repo follows the agreed layout, `tools/bin/install.sh --dry-run` and the suite pass, and every live link still resolves.
 - [x] Run icm-architect read only: skillspector scan of RinDig/icm-architect, install it, run its restructure mode steps 1 to 5 only (inventory, form, roles, reference report, proposed tree and migration map, nothing moved); save its output in [brief](../briefs/icm-research.md) and show the owner its tree next to ours
 - [x] Design it (spec): `/architect restructure claude-config to the icm-architect layout` (spec 0072, phase 1; answers in [brief](../briefs/icm-restructure.md))
 - [x] Build it: `/develop restructure claude-config to the icm-architect layout`
@@ -211,11 +211,14 @@ You asked to restructure claude-config into the folder layout of RinDig's icm-ar
   - [ ] `/restructure-check` on the PR (AC-9; not installed yet, row 102) · waits on you
 - [ ] Live check: a fresh chat with `/architect x` gets the rules, a plain question chat does not · waits on you · later boxes go on
 - [ ] Build phase 2 PR B: `/develop restructure claude-config phase 2` (0077b tools folder, AC-10 to AC-15, after PR A merges)
+  - [x] Built on feat/0077-tools-folder · draft PR #210: the bin, scripts and config folders moved with `git mv` under `tools/`, every live referrer moved (settings, install links and self checks, sync, hooks, mods, workflow stage, rules, skills, map, tests, docs, spec Paths lines), root finders two folders up, `tests/test_tools_folder.py` (AC-10, AC-12, AC-13); ref-check verify left only history, live-only and non-repo pointers; 25 mutants caught, see [verify](../specs/0077-restructure-phase-2/verify.md)
+  - [ ] Real install from the new path, then `drift: none` and `hook-files` clean · waits on you
+  - [ ] `/restructure-check` on the PR (AC-15) · waits on you
 - [ ] Verify it: `/check verify restructure claude-config phase 2`
   - [x] PR A (AC-1 to AC-9): throwaway install shows 16,834 always loaded characters, the skill rules hook loads 9 architect files for a Skill start and a typed `/architect x` and nothing for a plain prompt, moved live rules backed up not deleted, restructure-check run 20261022-230208 cited; see [verify](../specs/0077-restructure-phase-2/verify.md)
 - [ ] Test it: `/test restructure claude-config phase 2`
   - [x] PR A: suite 180 ok, wf-handoff mod 158 pass, dry run clean, no test added or changed in this pass (builder's 21 mutants stand), mutation check 0
-- Earlier note on this box (after phase 1 is merged and reviewed). Also checks the live side (your answers 2026-10-22): first find out whether Claude ever edits `~/.claude` without the repo's map. If not, drop the `~/.claude` map with one line of reasoning in the spec; if yes, add only the smallest pointer file, shipped from `claude-home/` by `bin/install.sh` and never loaded in normal chats. `~/.claude/private/` stays live only. Right before this box, run the restructure-check interview (row 102, `/workflow-builder restructure-check`; owner 2026-10-22). The design also cuts the always loaded text (about 18k to 25k tokens before the first message, [blind review](../reviews/blind-setup-review-2026-10-22.md) fix 1; owner 2026-10-22: fold it into phase 2)
+- Earlier note on this box (after phase 1 is merged and reviewed). Also checks the live side (your answers 2026-10-22): first find out whether Claude ever edits `~/.claude` without the repo's map. If not, drop the `~/.claude` map with one line of reasoning in the spec; if yes, add only the smallest pointer file, shipped from `claude-home/` by `tools/bin/install.sh` and never loaded in normal chats. `~/.claude/private/` stays live only. Right before this box, run the restructure-check interview (row 102, `/workflow-builder restructure-check`; owner 2026-10-22). The design also cuts the always loaded text (about 18k to 25k tokens before the first message, [blind review](../reviews/blind-setup-review-2026-10-22.md) fix 1; owner 2026-10-22: fold it into phase 2)
 Source: [brief](../briefs/icm-restructure.md); [brief](../briefs/retire-runner.md) line 13; your messages 2026-10-22.
 
 ### 99. Auto handoff off by itself in plain talk chats · dropped
@@ -233,7 +236,7 @@ A saved Claude Code workflow (`/build-features`) that builds every ready scope r
   - [x] Probes P2 (agent panel rows) and P3 (worktree agent builds and pushes); a P3 FAIL goes back to `/architect` (P2 FAIL, AC-11 dropped; P3 PASS; PR #199)
   - [x] Skill: ready list, clashes, pick panel, start gates, workflow script (AC-1 to AC-8) (draft PR #201)
   - [x] Review and merge loop (AC-9, AC-10) (draft PR #201)
-  - [ ] Panel script, band count, rule line, live copy and `bin/sync.sh` (AC-11 to AC-13) (panel script dropped; band count and repo rule line built; live copy and `bin/sync.sh` not run yet)
+  - [ ] Panel script, band count, rule line, live copy and `tools/bin/sync.sh` (AC-11 to AC-13) (panel script dropped; band count and repo rule line built; live copy and `tools/bin/sync.sh` not run yet)
 - [x] Verify it: `/check verify build-features workflow` (2026-10-22: automated ACs 1, 2, 5, 6, 8, 12 pass; AC-3, 4, 9, 10 manual by reading; AC-11 dropped; AC-13 live copy after merge; CAN FAIL CHECKED: 3)
 - [x] Test it: `/test build-features workflow` (no tests added; 9 + 85 + suite 167 pass; 5 existing tests mutation checked; MUTATION CHECKED: 0 new)
 Source: [brief](../briefs/build-features.md) (probe passed); [brief](../briefs/icm-restructure.md) "Workflows" and "Running workflows show"; your messages 2026-10-22.
@@ -273,7 +276,7 @@ Source: gap found in the ninth chat of 2026-10-22 (handover of that chat, next a
 
 ### 105. Fix: blind review findings
 The outside review (average, 5/10) found cheap safety and drift bugs. Fix them; the always loaded text cut goes to row 97 phase 2.
-**Done when:** `context-monitor.js` and `CLAUDE.md` take the handoff number from one source; `block-destructive.sh` refuses `rm -rf ${HOME}`, `rm -rf $PWD`, `git reset --hard` and `git checkout -- .` with a self test each; `bin/install.sh` and `claude-config.py drift` exit non zero when a hook command in `settings.json` names a missing file; `private-names.py --test` runs to the end; `enableAllProjectMcpServers` is false and the `Edit(~/.claude/CLAUDE.md)` and `Edit(~/.claude/rules/**)` allows are gone, while `gh pr merge` stays allowed; all of it is live.
+**Done when:** `context-monitor.js` and `CLAUDE.md` take the handoff number from one source; `block-destructive.sh` refuses `rm -rf ${HOME}`, `rm -rf $PWD`, `git reset --hard` and `git checkout -- .` with a self test each; `tools/bin/install.sh` and `claude-config.py drift` exit non zero when a hook command in `settings.json` names a missing file; `private-names.py --test` runs to the end; `enableAllProjectMcpServers` is false and the `Edit(~/.claude/CLAUDE.md)` and `Edit(~/.claude/rules/**)` allows are gone, while `gh pr merge` stays allowed; all of it is live.
 - [x] Build it: `/develop fix blind review findings` (PR #196 merged and installed live 2026-10-22; review CAUTION fixed in 2 commits; owner also chose: `Workflow` allowed, claude-config.py allows only drift, hook-files, update --plan)
 - [x] Verify it: `/check verify fix blind review findings` (suite 158 ok on the merged head; install verify all pass; drift none; live MCP switch off)
 - [x] Test it: `/test fix blind review findings` (32 mutation checks across 3 commits, each red then green)
@@ -287,7 +290,7 @@ Close the ways around the Assertion Guardian found by the 2026-10-22 security re
 - [ ] Build it: `/develop assertion guardian guard gaps` · built on feat/0078-assertion-guardian-gaps (draft PR #206): AC-1, AC-3 to AC-7, AC-8 mod tests, regenerated patch and its apply test; AC-2 probe found no MultiEdit, nothing built ([verify](../specs/0078-assertion-guardian-gaps/verify.md)); not ticked: AC-8's live install is the box below
 - [x] Verify it: `/check verify assertion guardian guard gaps` · 7 steps pass through the built mod, each break turned red ([verify](../specs/0078-assertion-guardian-gaps/verify.md))
 - [x] Test it: `/test assertion guardian guard gaps` · 7 mutants red then restored; plugin test 56 pass, fast suite 181 ok
-- [ ] Install it live after merge: move `~/.claude/skills/assertion-guardian` to the trash, `bin/install.sh` (its restore rebuilds the mod from upstream plus the patch), then `python3 bin/claude-config.py drift` shows nothing for it · waits on you
+- [ ] Install it live after merge: move `~/.claude/skills/assertion-guardian` to the trash, `tools/bin/install.sh` (its restore rebuilds the mod from upstream plus the patch), then `python3 tools/bin/claude-config.py drift` shows nothing for it · waits on you
 Source: [build-status brief](../briefs/build-status-2026-10-22.md) "For /architect later"; row 89 leftovers (concurrent Bash, refusal shape); owner answers 2026-10-22 in chat.
 
 ### 107. Review leftovers 2026-10-22: destructive guard spellings
@@ -316,7 +319,7 @@ The first real run (PR #205, 2026-10-22) worked and caught 3 real breaks, but sh
 Source: run 20261022-230208 on PR #205 and the automated push security review of PR #200 (2026-10-22, this chat).
 
 ### 110. Fix: install reapplies a changed patch to an edited skill
-After PR #206 changed `config/patches/assertion-guardian.patch`, `bin/install.sh` left the live mod on the old patch: `claude-config.py restore` only rebuilds a missing skill, so drift reported "your edit is no longer in it". Made live by hand on 2026-10-23 (old copy moved to `~/.claude/backups/skills/`, then `restore`).
+After PR #206 changed `tools/config/patches/assertion-guardian.patch`, `tools/bin/install.sh` left the live mod on the old patch: `claude-config.py restore` only rebuilds a missing skill, so drift reported "your edit is no longer in it". Made live by hand on 2026-10-23 (old copy moved to `~/.claude/backups/skills/`, then `restore`).
 **Done when:** an install after a patch change rebuilds that skill from upstream plus the new patch when the live copy equals upstream plus the old patch, refuses and names it when the live copy has edits of its own, and drift is none after, with a test for both cases.
 - [ ] Fix it: `/debug install reapplies a changed patch`
 - [ ] Verify it: `/check verify install reapplies a changed patch`

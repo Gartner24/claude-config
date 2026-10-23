@@ -6,27 +6,27 @@ This page is for you, setting up or restoring this Claude Code setup on a machin
 ## Install on this machine
 
 1. Clone the repo. The clone lives at `~/dotfiles/claude-config`, and `~/claude-config` is a link to it.
-2. Preview the install: `bin/install.sh --dry-run`.
-3. Run it for real: `bin/install.sh`. It copies and links the repo into `~/.claude`, rebuilds edited downloaded skills, then runs the self-checks.
-4. Before every commit, go the other way: `bin/sync.sh` copies `~/.claude` into the repo, then read `git diff`.
+2. Preview the install: `tools/bin/install.sh --dry-run`.
+3. Run it for real: `tools/bin/install.sh`. It copies and links the repo into `~/.claude`, rebuilds edited downloaded skills, then runs the self-checks.
+4. Before every commit, go the other way: `tools/bin/sync.sh` copies `~/.claude` into the repo, then read `git diff`.
 
 ## Land changes only through PRs (spec 0051)
 
 Each of your own repos gets the same GitHub settings: squash merge only, branches deleted on merge, and a ruleset named "main only through a PR".
 
-1. Set them once per repo: `bin/repo-settings.sh <owner/repo>`. Then `bin/repo-settings.sh --check <owner/repo>` must exit 0.
+1. Set them once per repo: `tools/bin/repo-settings.sh <owner/repo>`. Then `tools/bin/repo-settings.sh --check <owner/repo>` must exit 0.
 2. To let small, low risk runner PRs merge themselves once green, add the repo to `~/.claude/private/pr.json`, for example `"Gartner24/claude-config": {"merge": true, "auto_merge": true}`. Only you write that file. `merge: true` alone keeps the "merge now" question and no self merge.
-3. Docs only commits made in a session go out with `bin/docs-pr.sh <slug>` from the repo, which opens and squash merges a small PR. Afterwards, check that `git diff HEAD origin/main` is empty, then type `! git reset --hard origin/main` yourself: `block-destructive.sh` blocks it for Claude (the script does not realign local main yet, plan item E3).
+3. Docs only commits made in a session go out with `tools/bin/docs-pr.sh <slug>` from the repo, which opens and squash merges a small PR. Afterwards, check that `git diff HEAD origin/main` is empty, then type `! git reset --hard origin/main` yourself: `block-destructive.sh` blocks it for Claude (the script does not realign local main yet, plan item E3).
 
 ## Restore on a new machine
 
 Do the steps in order. Hook paths in `settings.json` are hardcoded to the old home folder, so step 7 matters.
 
-1. Clone the repo (see above) and run `bin/install.sh --dry-run`, then `bin/install.sh`. It also rebuilds edited downloaded skills from upstream plus their patch, through `bin/claude-config.py restore`.
+1. Clone the repo (see above) and run `tools/bin/install.sh --dry-run`, then `tools/bin/install.sh`. It also rebuilds edited downloaded skills from upstream plus their patch, through `tools/bin/claude-config.py restore`.
 2. Install jjstack. It installs gstack and creates the hook symlinks. See [Frameworks](#frameworks).
 3. Install the plugins in the [Plugins](#plugins) table.
-4. Reinstall the downloaded skills. Run each manifest entry's `install` command from `config/manifest.json`, or use the `/claude-config` skill.
-5. Merge `config/mcp-config.json` into `~/.claude.json` (see [MCP servers](#mcp-servers)). Put your own key in `API_KEY`.
+4. Reinstall the downloaded skills. Run each manifest entry's `install` command from `tools/config/manifest.json`, or use the `/claude-config` skill.
+5. Merge `tools/config/mcp-config.json` into `~/.claude.json` (see [MCP servers](#mcp-servers)). Put your own key in `API_KEY`.
 6. In Claude Code settings, go to MCP and enable the context7 connector.
 7. Copy `settings.json` and change the old home folder paths to match the new username and home folder.
 8. Copy `settings.local.json` as it is.
@@ -84,7 +84,7 @@ cd ~/.claude/skills/packshot && python3 -m venv .venv && ./.venv/bin/pip install
 
 ## Frameworks
 
-Frameworks are full systems with many sub-skills. Their own installer wins, and none of them is copied into this repo. Each has an entry under `frameworks` in [`../../config/manifest.json`](../../config/manifest.json) with its source, pinned commit, license and install command.
+Frameworks are full systems with many sub-skills. Their own installer wins, and none of them is copied into this repo. Each has an entry under `frameworks` in [`../../tools/config/manifest.json`](../../tools/config/manifest.json) with its source, pinned commit, license and install command.
 
 | Framework | Source | Install |
 |-----------|--------|---------|
@@ -116,7 +116,7 @@ Known jjstack 0.36.0 bug, left unpatched on purpose:
 
 - The ECC cherry-pick is deliberately frozen. Upstream has 41 more agents and 15 more language rule folders than we have.
 - The local rules carry hand-earned additions. Re-copying upstream would overwrite them. Adopt ECC changes selectively by hand, or not at all.
-- Install method: manual cherry-pick, not `bin/install.sh`. The manifest `ecc` entry owns the copied commands and records no single pin, because the installed copies match several upstream commits.
+- Install method: manual cherry-pick, not `tools/bin/install.sh`. The manifest `ecc` entry owns the copied commands and records no single pin, because the installed copies match several upstream commits.
 - Not installed: `hooks/`, `scripts/`, `settings.json`, MCP configs, `configure-ecc`, the `security-scan` agent, the instinct system and continuous-learning. They conflict with jjstack.
 - Agents and rules come from this repo (`claude-home/agents/`, `claude-home/rules/ecc/`), and the ECC skills and commands come from upstream (see [Restore on a new machine](#restore-on-a-new-machine)).
 
@@ -164,7 +164,7 @@ rm -rf /tmp/ecc
 
 ## Downloaded skills
 
-Every skill that came from outside this repo is listed in [`../../config/manifest.json`](../../config/manifest.json). The file records, per skill:
+Every skill that came from outside this repo is listed in [`../../tools/config/manifest.json`](../../tools/config/manifest.json). The file records, per skill:
 
 - the source (a GitHub repo, or private),
 - the pinned commit (some are unpinned, which means they follow the upstream default branch),
@@ -174,12 +174,12 @@ Every skill that came from outside this repo is listed in [`../../config/manifes
 
 Rules for the manifest:
 
-- Edited skills are rebuilt from upstream at the pin plus their patch. `bin/install.sh` does this for you with `bin/claude-config.py restore`.
+- Edited skills are rebuilt from upstream at the pin plus their patch. `tools/bin/install.sh` does this for you with `tools/bin/claude-config.py restore`.
 - A skill that was never copied into this repo is cited by its manifest entry only.
 - A skill with an unknown source, and any private one, lives only under `~/.claude/private/skills/`. Back it up before you wipe a machine.
 - The list of every skill with its source, status, license and description is generated into [SKILLS.md](SKILLS.md).
 
-To update downloaded skills, use the `/claude-config` skill. It runs `python3 bin/claude-config.py update --plan`, shows what changed upstream for each skill, and asks yes or no per skill before it applies anything. For daily use, see [DAILY-USE.md](DAILY-USE.md).
+To update downloaded skills, use the `/claude-config` skill. It runs `python3 tools/bin/claude-config.py update --plan`, shows what changed upstream for each skill, and asks yes or no per skill before it applies anything. For daily use, see [DAILY-USE.md](DAILY-USE.md).
 
 Some skills were first installed as a set. The notes below say what each set is and how it was installed. Where the manifest and an older note disagree, the manifest wins: skills that older notes called "not installed" or "undocumented" are listed there as downloaded or unpinned, with a working `install` command.
 
@@ -333,7 +333,7 @@ Two MCP servers are active. `magic` is configured by hand in `~/.claude.json`. `
 - Package: `@21st-dev/magic@latest`. Type: stdio through npx.
 - It generates UI components from the 21st.dev library. Use it when you want a production-quality component as a starting point.
 - Get an API key at https://21st.dev.
-- Add this to `~/.claude.json` under `mcpServers` (the same block is in `config/mcp-config.json`):
+- Add this to `~/.claude.json` under `mcpServers` (the same block is in `tools/config/mcp-config.json`):
 
 ```json
 {
@@ -358,7 +358,7 @@ Edit `~/.claude.json` directly and add the server under `mcpServers`, or use the
 
 ## Keep it current
 
-Versions below were last verified on 2026-09-02. The pinned commits in [`../../config/manifest.json`](../../config/manifest.json) are the current truth for downloaded skills and frameworks.
+Versions below were last verified on 2026-09-02. The pinned commits in [`../../tools/config/manifest.json`](../../tools/config/manifest.json) are the current truth for downloaded skills and frameworks.
 
 | Thing | Version | Update with |
 |-------|---------|-------------|
@@ -394,4 +394,4 @@ claude plugin update <plugin>@<marketplace>
 
 Restart Claude Code afterwards. Updates are staged, not applied live.
 
-Downloaded skills: run `/claude-config`, or `python3 bin/claude-config.py update --plan`, and answer yes or no per skill. The clone-and-copy sets have no pin, so re-clone them to update.
+Downloaded skills: run `/claude-config`, or `python3 tools/bin/claude-config.py update --plan`, and answer yes or no per skill. The clone-and-copy sets have no pin, so re-clone them to update.

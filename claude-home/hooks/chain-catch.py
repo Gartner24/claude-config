@@ -491,11 +491,11 @@ def self_test():
     failures = []
     me = os.path.realpath(__file__)
     real_home = os.path.expanduser("~")
-    tool = next((p for p in (os.path.join(os.path.dirname(me), "..", "..", "scripts", "spec-paths.py"),
+    tool = next((p for p in (os.path.join(os.path.dirname(me), "..", "..", "tools", "scripts", "spec-paths.py"),
                              shutil.which("spec-paths") or "", os.path.join(real_home, ".local", "bin", "spec-paths"))
                  if p and os.path.exists(p)), None)
     if not tool:
-        print("FAIL spec-paths not found (scripts/spec-paths.py beside the repo, or spec-paths on PATH)")
+        print("FAIL spec-paths not found (tools/scripts/spec-paths.py beside the repo, or spec-paths on PATH)")
         return 1
 
     def check(name, got, want):

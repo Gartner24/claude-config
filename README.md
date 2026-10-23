@@ -12,17 +12,17 @@ overwritten.
 
 | Kind | Repo folder | Live path | Source of truth | Who writes it | What moves it |
 |------|-------------|-----------|-----------------|---------------|---------------|
-| Copied (`CLAUDE.md`, `settings*.json`, `agents/`, `rules/`, `rules-on-demand/`, `MAP.md`, your hooks and scripts) | `claude-home/` | `~/.claude/<same path>` | live wins | you, in `~/.claude` | `bin/sync.sh` copies live into the repo; `bin/install.sh` copies back on a new machine |
-| Linked (`skills/`, `commands/` you wrote) | `claude-home/skills/`, `claude-home/commands/` | `~/.claude/skills/<name>` is a symlink (a pointer) into the repo | repo wins | you, in the repo | `bin/install.sh` makes the links |
-| Downloaded (skills from GitHub and packages) | `config/manifest.json`, your edits in `config/patches/` | `~/.claude/skills/<name>` | upstream plus your patch | their installer, then you | `/claude-config update`, after your yes per skill |
+| Copied (`CLAUDE.md`, `settings*.json`, `agents/`, `rules/`, `rules-on-demand/`, `MAP.md`, your hooks and scripts) | `claude-home/` | `~/.claude/<same path>` | live wins | you, in `~/.claude` | `tools/bin/sync.sh` copies live into the repo; `tools/bin/install.sh` copies back on a new machine |
+| Linked (`skills/`, `commands/` you wrote) | `claude-home/skills/`, `claude-home/commands/` | `~/.claude/skills/<name>` is a symlink (a pointer) into the repo | repo wins | you, in the repo | `tools/bin/install.sh` makes the links |
+| Downloaded (skills from GitHub and packages) | `tools/config/manifest.json`, your edits in `tools/config/patches/` | `~/.claude/skills/<name>` | upstream plus your patch | their installer, then you | `/claude-config update`, after your yes per skill |
 | Runner (`wf`, `next`, retired 2026-10-21) | `_archive/runner/` | none: it was copied to `~/.local/share/wf/` until it retired | repo wins | nobody; kept as history | nothing |
-| Repo tools | `bin/`, `scripts/` | none (a few are linked into `~/.local/bin`) | repo wins | you, in the repo | nothing |
-| Frameworks (gstack, jjstack, ECC commands, the JSM skills, plugins) | named in `config/manifest.json` | their own folders in `~/.claude` | their installer wins | their installer | their own installer; never copied here |
+| Repo tools | `tools/bin/`, `tools/scripts/` | none (a few are linked into `~/.local/bin`) | repo wins | you, in the repo | nothing |
+| Frameworks (gstack, jjstack, ECC commands, the JSM skills, plugins) | named in `tools/config/manifest.json` | their own folders in `~/.claude` | their installer wins | their installer | their own installer; never copied here |
 | Private (names, work rules, settings fragments, private skills and patches) | none | `~/.claude/private/` | live only | you | nothing; never in any repo |
 | Claude Code state (`projects/`, `sessions/`, `history.jsonl`, caches) | none | `~/.claude/...` | Claude Code only | Claude Code | nothing; never synced |
 
 `claude-home/` mirrors `~/.claude`: `claude-home/rules/x.md` installs to `~/.claude/rules/x.md`.
-`config/` holds the manifest, patches, the routing table and the MCP config. Guides live in
+`tools/config/` holds the manifest, patches, the routing table and the MCP config. Guides live in
 `docs/guides/`, specs (one per decision) in `docs/specs/`, the plan in `docs/scope/`, third party
 notices in [docs/NOTICE.md](docs/NOTICE.md).
 
@@ -52,7 +52,7 @@ claude starts in a folder
   from frameworks and downloads, all listed in [docs/guides/SKILLS.md](docs/guides/SKILLS.md).
 - A **hook** is a script Claude Code runs on an event; it can block a tool call. See
   [docs/guides/HOOKS.md](docs/guides/HOOKS.md).
-- **Private** files hold work and client names. `bin/sync.sh` and the commit hooks refuse any of
+- **Private** files hold work and client names. `tools/bin/sync.sh` and the commit hooks refuse any of
   them reaching this public repo.
 
 ## Guides
@@ -88,18 +88,18 @@ says how to load one per project.
 
 ```
 Languages          Markdown (skills, agents, rules), Bash, Python 3 stdlib, one Node ESM script
-Key dependencies   jq (bin/sync.sh), fontTools (design font scripts), culori (build-ramp.mjs,
+Key dependencies   jq (tools/bin/sync.sh), fontTools (design font scripts), culori (build-ramp.mjs,
                    node_modules committed on purpose); no package manager at the root
 Plugins            frontend-design, code-review, feature-dev,
                    code-simplifier, ralph-loop, clangd-lsp, ponytail, security-guidance
 Skill frameworks   gstack, then jjstack on top;
                    ECC commands; the JSM skills; sentry skills; anthropic security review
-Downloaded skills  about 175, each with its source and license in config/manifest.json
+Downloaded skills  about 175, each with its source and license in tools/config/manifest.json
 MCP servers        context7 (library docs), plus the design MCPs in DESIGN-PIPELINE.md
 ```
 
 ## Restore on a new machine
 
-1. Clone this repo and run `bin/install.sh --dry-run`, then `bin/install.sh`.
+1. Clone this repo and run `tools/bin/install.sh --dry-run`, then `tools/bin/install.sh`.
 2. Install the frameworks, plugins and downloaded skills as [SETUP.md](docs/guides/SETUP.md#restore-on-a-new-machine) says.
-3. Merge [config/mcp-config.json](config/mcp-config.json) into `~/.claude.json`.
+3. Merge [tools/config/mcp-config.json](tools/config/mcp-config.json) into `~/.claude.json`.

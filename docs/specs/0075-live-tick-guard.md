@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-22
 **Status**: Accepted
-**Paths:** `claude-home/hooks/live-tick.py`, `claude-home/settings.json`, `bin/claude-config.py`
+**Paths:** `claude-home/hooks/live-tick.py`, `claude-home/settings.json`, `tools/bin/claude-config.py`
 
 ## What you're agreeing to
 - In claude-config, an edit that ticks a scope box ending ` · live` is refused until `claude-config drift` shows that box's files are live and equal.

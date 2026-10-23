@@ -1,8 +1,8 @@
 # Routing table
 
 The hand written source of skill routing (spec 0048 moved it here from `docs/guides/USAGE.md`).
-`bin/claude-config.py docs` copies it into `docs/guides/SKILLS.md` under `## Routing`; check an edit
-with `python3 scripts/check-routing.py`. The intent-router skill that scored prompts against it was
+`tools/bin/claude-config.py docs` copies it into `docs/guides/SKILLS.md` under `## Routing`; check an edit
+with `python3 tools/scripts/check-routing.py`. The intent-router skill that scored prompts against it was
 removed on 2026-10-19 (never invoked); the table stays as a reference of which skill fits which task.
 `TRIGGERS`, `BLOCKS` and `PRIORITY` are what the check scores; `WHAT` and `EXAMPLE` are human-facing.
 

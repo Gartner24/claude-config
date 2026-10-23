@@ -1,4 +1,4 @@
-"""bin/repo-settings.sh (spec 0051 AC-10): copied from the archived runner suite, which no longer runs."""
+"""tools/bin/repo-settings.sh (spec 0051 AC-10): copied from the archived runner suite, which no longer runs."""
 import json
 import os
 import shutil
@@ -8,8 +8,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-BIN = Path(__file__).resolve().parents[1] / "bin"
-# gh for bin/repo-settings.sh: reads answer from settings.json by API path (the --jq result), writes are logged.
+BIN = Path(__file__).resolve().parents[1] / "tools" / "bin"
+# gh for tools/bin/repo-settings.sh: reads answer from settings.json by API path (the --jq result), writes are logged.
 SETTINGS_GH = f"""#!{sys.executable}
 import json, os, sys
 d = os.environ["FAKE_DIR"]

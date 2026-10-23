@@ -13,7 +13,7 @@ outputs after the run; nothing asks mid run. Files go in the repo `~/claude-conf
 - Without `--update`, refuse when the name is already taken, and say where:
   `~/claude-config/claude-home/workflows/<name>`, `~/claude-config/claude-home/skills/<name>`,
   `~/.claude/skills/<name>`, `~/.claude/workflows/<name>` (`ls -d` each), or an entry in
-  `~/claude-config/config/manifest.json` (`python3 -c "import json,sys; sys.exit(sys.argv[1] in json.load(open(sys.argv[2]))['entries'])" <name> ~/claude-config/config/manifest.json` exits 1 when taken).
+  `~/claude-config/tools/config/manifest.json` (`python3 -c "import json,sys; sys.exit(sys.argv[1] in json.load(open(sys.argv[2]))['entries'])" <name> ~/claude-config/tools/config/manifest.json` exits 1 when taken).
 - With `--update`, the folder `claude-home/workflows/<name>/` must exist; go to section 5.
 
 ## 2. The interview
@@ -53,8 +53,8 @@ From the templates, never from icm-architect's files. Strip the first line (`<!-
 ## 4. Check, link, offer a dry run
 1. Run `python3 ~/.claude/skills/workflow-builder/check.py <name>`. Fix every line it prints and run it again until
    it prints `ok`. Never report the workflow as built before that.
-2. `python3 ~/claude-config/bin/claude-config.py docs` (the new starter skill changes `docs/guides/SKILLS.md`).
-3. Link it live: show `python3 ~/claude-config/bin/claude-config.py install --dry-run`, and run it without
+2. `python3 ~/claude-config/tools/bin/claude-config.py docs` (the new starter skill changes `docs/guides/SKILLS.md`).
+3. Link it live: show `python3 ~/claude-config/tools/bin/claude-config.py install --dry-run`, and run it without
    `--dry-run` only on the owner's yes. It links `~/.claude/workflows/<name>` and `~/.claude/skills/<name>`.
 4. Offer one dry run: `/<name> --limit 1` (one item of the fan out stage; a workflow with no fan out runs in full).
    Say that a run spends usage. Start it only on the owner's yes, then show each stage's outputs and human check.

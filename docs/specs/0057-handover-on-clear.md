@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-17
 **Status**: Accepted
-**Paths:** `claude-home/hooks/handover-start.sh`, `claude-home/hooks/workflow-start.sh`, `claude-home/settings.json`, `bin/install.sh`, `bin/sync.sh`, `claude-home/CLAUDE.md`, `claude-home/mods/wf-handoff/**`
+**Paths:** `claude-home/hooks/handover-start.sh`, `claude-home/hooks/workflow-start.sh`, `claude-home/settings.json`, `tools/bin/install.sh`, `tools/bin/sync.sh`, `claude-home/CLAUDE.md`, `claude-home/mods/wf-handoff/**`
 **Amended by:** [0063](0063-auto-handoff.md) (AC-10: the mod also fires on its own at the handoff line)
 
 ## What you're agreeing to

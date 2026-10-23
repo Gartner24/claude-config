@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-20
 **Status**: Accepted, built in d764b60
-**Paths:** `config/manifest.json`, `config/patches/assertion-guardian.patch`, `bin/claude-config.py`, `tests/test_claude_config.py`
+**Paths:** `tools/config/manifest.json`, `tools/config/patches/assertion-guardian.patch`, `tools/bin/claude-config.py`, `tests/test_claude_config.py`
 **Amended by:** [0078](0078-assertion-guardian-gaps.md) (approval only when typed by you, `ln`/`git apply`/`patch` refused before running, targets resolved through links, one queue per test file)
 
 ## What you're agreeing to

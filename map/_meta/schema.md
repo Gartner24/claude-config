@@ -9,7 +9,7 @@ The rules every card in the map folder follows (spec 0072). Cards are short on p
 
 ## Rules
 - A card is at most about 60 lines and says what to do, not why (the why lives in the spec the card names).
-- Every `path` or `path:line` a card cites in backticks or a link must exist. `python3 scripts/ref-check.py check <card files>` lists the ones that do not.
+- Every `path` or `path:line` a card cites in backticks or a link must exist. `python3 tools/scripts/ref-check.py check <card files>` lists the ones that do not.
 - Old `AGENTS.md` lines and where each went: [line-homes.md](line-homes.md).
 - A rule appears in one card only. Other cards link to it.
 - ASCII only, same as the rest of the repo markdown.

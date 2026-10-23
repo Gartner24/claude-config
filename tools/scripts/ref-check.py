@@ -21,7 +21,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-TOP = ("bin", "config", "claude-home", "runner", "scripts", "docs", "tests", "map", "_archive")
+TOP = ("bin", "config", "claude-home", "runner", "scripts", "tools", "docs", "tests", "map", "_archive")
 # The fourth is how ~/.claude/settings.json really names the repo (the ~/claude-config link, expanded).
 SPELLINGS = ("~/claude-config/", "$HOME/claude-config/", "/home/santiago/dotfiles/claude-config/",
              "/home/santiago/claude-config/")
@@ -211,13 +211,16 @@ def mapped(target, moves):
         if old.startswith(lit):
             tail = old[len(lit):]
             if new.endswith(tail):
-                return new[:len(new) - len(tail)] + t[len(lit):] + suffix
+                # a folder token keeps its slash, so `bin/` maps to `tools/bin/`, the token the referrer now holds
+                return new[:len(new) - len(tail)] + t[len(lit):] + ("/" if target.endswith("/") else "") + suffix
     return None
 
 
 def _token(text, path):
-    """path appears as a whole path in text: not inside a longer path, and not as path:line of another pointer."""
-    return re.search(r"(?<![\w./-])" + re.escape(path) + r"(?![\w/-]|:\d)", text) is not None
+    """path appears as a whole path in text, bare or after a home spelling (`~/claude-config/<path>`): not inside a
+    longer path, and not as path:line of another pointer."""
+    lead = "".join("|(?<=" + re.escape(s) + ")" for s in SPELLINGS)
+    return re.search(r"(?:(?<![\w./-])" + lead + ")" + re.escape(path) + r"(?![\w/-]|:\d)", text) is not None
 
 
 def verify(snap, moves, repo):
@@ -385,6 +388,26 @@ def selftest():
         expect("check exit 1", rc == 1)
         expect("check lists both missing citations", "bin/nope.sh" in body and "bin/tool.sh:99" in body)
         expect("check lists only the missing", "docs/card.md: bin/tool.sh\n" not in body)
+
+        # spec 0077 AC-14: a whole folder moves one level down; a home spelled token and a folder token follow it
+        r2 = tmp / "repo2"
+        (r2 / "bin").mkdir(parents=True)
+        (r2 / "bin/t.sh").write_text("echo\n")
+        (r2 / "docs").mkdir()
+        (r2 / "docs/h.md").write_text("Run `~/claude-config/bin/t.sh` from `bin/`.\n")
+        _git(r2, "init", "-q")
+        _git(r2, "add", ".")
+        _git(r2, "commit", "-qm", "base")
+        snap2 = tmp / "snap2.json"
+        _out(snapshot, r2, tmp / "nohome", r2, snap2)
+        (r2 / "tools").mkdir()
+        _git(r2, "mv", "bin", "tools/bin")
+        moves2 = {"bin/t.sh": "tools/bin/t.sh"}
+        rc, body = _out(verify, snap2, moves2, r2)
+        expect("folder move: stale home and folder tokens reported",
+               rc == 1 and "-> bin/t.sh" in body and "-> bin/ (moved to tools/bin/)" in body)
+        (r2 / "docs/h.md").write_text("Run `~/claude-config/tools/bin/t.sh` from `tools/bin/`.\n")
+        expect("folder move: home spelled and folder tokens naming the new path pass", verify(snap2, moves2, r2) == 0)
     for f in fails:
         print("FAIL", f)
     print("ref-check self check:", "FAILED" if fails else "ok")
@@ -399,7 +422,7 @@ def main(argv):
     sub = ap.add_subparsers(dest="cmd", required=True)
     for name in ("snapshot", "verify", "check"):
         s = sub.add_parser(name)
-        s.add_argument("--repo", default=str(Path(__file__).resolve().parent.parent))
+        s.add_argument("--repo", default=str(Path(__file__).resolve().parents[2]))
         s.add_argument("--home", default=str(Path.home()))
         if name == "snapshot":
             s.add_argument("--out", required=True)

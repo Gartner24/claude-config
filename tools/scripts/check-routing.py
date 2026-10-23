@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regression check for config/routing.md skill routing.
+"""Regression check for tools/config/routing.md skill routing.
 
 Simulates the scoring of the removed intent-router skill (2026-10-19):
     score = (count of TRIGGERS substrings present in prompt, case-insensitive) x PRIORITY
@@ -11,7 +11,7 @@ Three checks:
   2. self-route- every block's own EXAMPLE should route back to that block.
   3. canonical - hand-picked prompts must reach a specific skill.
 
-Run after editing config/routing.md:  python3 scripts/check-routing.py
+Run after editing tools/config/routing.md:  python3 tools/scripts/check-routing.py
 Exit 0 = no regressions. SELF_ROUTE_BASELINE is the known pre-existing failure count;
 lower it as those get fixed, never raise it.
 """
@@ -19,7 +19,7 @@ import re
 import sys
 import pathlib
 
-USAGE = pathlib.Path(__file__).resolve().parent.parent / "config" / "routing.md"
+USAGE = pathlib.Path(__file__).resolve().parents[2] / "tools" / "config" / "routing.md"
 SELF_ROUTE_BASELINE = 0
 
 # (prompt, substring that must appear in the winning block's name)

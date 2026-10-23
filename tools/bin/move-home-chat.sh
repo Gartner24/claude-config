@@ -2,7 +2,7 @@
 # Spec 0067: move the ~/.claude home chat (chats, memory, runner rules, approvals) into claude-config's
 # live chat folder, after a full backup, and link the two old folder names to it.
 # Run it yourself, once, in a plain terminal with every Claude chat and wf closed:
-#   bash ~/claude-config/bin/move-home-chat.sh
+#   bash ~/claude-config/tools/bin/move-home-chat.sh
 # Every path is built from $HOME, so the tests run it against a fake home.
 set -euo pipefail
 shopt -s dotglob nullglob

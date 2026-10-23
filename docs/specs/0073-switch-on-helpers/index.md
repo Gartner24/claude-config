@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-22
 **Status**: Accepted
-**Paths:** `scripts/start-gates.py`, `scripts/design-check.py`, `scripts/issue-reread.py`, `scripts/review-isolated.py`, `scripts/spec-paths.py`, `claude-home/mods/chip-dash/plan.py`, `claude-home/mods/chip-dash/test_plan.py`, `bin/install.sh`, `claude-home/rules-on-demand/when-to-switch-on.md`
+**Paths:** `tools/scripts/start-gates.py`, `tools/scripts/design-check.py`, `tools/scripts/issue-reread.py`, `tools/scripts/review-isolated.py`, `tools/scripts/spec-paths.py`, `claude-home/mods/chip-dash/plan.py`, `claude-home/mods/chip-dash/test_plan.py`, `tools/bin/install.sh`, `claude-home/rules-on-demand/when-to-switch-on.md`
 
 ## What you're agreeing to
 - Six small helpers replace the "Needs a script" list in `rules/when-to-switch-on.md`, each with its own self check.

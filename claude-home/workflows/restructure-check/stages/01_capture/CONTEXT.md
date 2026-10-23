@@ -17,28 +17,31 @@ Model: haiku low
    `<run>/01_capture/output/<side>/<command-slug>.txt` (slug: the command with every run of non letters and digits as
    `-`; first line of the file `exit: <code>`). A command that fails or is missing still gets its file, with its error.
    Never retry and never fix anything.
-   - `bin/install.sh --dry-run`
-   - `python3 bin/claude-config.py drift`
-   - `python3 bin/claude-config.py docs`, then `git status --porcelain` (saved as its own file, slug `git-status-after-docs`).
+   A tree with no `tools/` folder (a ref from before the tools folder move) has the same files one level up: run
+   each `tools/bin/...` and `tools/scripts/...` command below without the `tools/` prefix, and keep the slug the
+   `tools/` spelling gives, so both sides' files pair up.
+   - `tools/bin/install.sh --dry-run`
+   - `python3 tools/bin/claude-config.py drift`
+   - `python3 tools/bin/claude-config.py docs`, then `git status --porcelain` (saved as its own file, slug `git-status-after-docs`).
      Leave the scratch tree as it is; never `git checkout -- .`.
    - Self checks, each `--test`:
-     `python3 scripts/design-check.py --test`, `scripts/fb-ask.py`, `scripts/start-gates.py`,
-     `scripts/handover-memory.py`, `scripts/issue-reread.py`, `scripts/private-names.py`, `scripts/ref-check.py`,
-     `scripts/review-isolated.py`, `scripts/spec-paths.py` (same form), then
+     `python3 tools/scripts/design-check.py --test`, `tools/scripts/fb-ask.py`, `tools/scripts/start-gates.py`,
+     `tools/scripts/handover-memory.py`, `tools/scripts/issue-reread.py`, `tools/scripts/private-names.py`, `tools/scripts/ref-check.py`,
+     `tools/scripts/review-isolated.py`, `tools/scripts/spec-paths.py` (same form), then
      `python3 claude-home/hooks/chain-catch.py --test`, `live-tick.py`, `plain-panel.py`, `no-jjstack-bar.py`,
      `node claude-home/hooks/context-monitor.js --test`, and `bash claude-home/hooks/block-destructive.sh --test`,
      `handover-start.sh`, `workflow-start.sh` (same form). Then run
-     `grep -lE -e '--test' scripts/*.py claude-home/hooks/*` and, for any file that is in that list but not above,
+     `grep -lE -e '--test' tools/scripts/*.py claude-home/hooks/*` and, for any file that is in that list but not above,
      run it the same way (python3 for `.py`, node for `.js`, bash for `.sh`) and note it in the summary.
    - `python3 tests/fast.py`
-   - Base side only: `python3 scripts/ref-check.py snapshot --repo <tree> --home <run>/01_capture/base/emptyhome --out <run>/01_capture/base/snapshot.json`
+   - Base side only: `python3 tools/scripts/ref-check.py snapshot --repo <tree> --home <run>/01_capture/base/emptyhome --out <run>/01_capture/base/snapshot.json`
      (make the empty home dir first), then copy `snapshot.json` into the output folder.
-   - Head side only: `python3 scripts/ref-check.py verify --repo <tree> --home <run>/01_capture/head/emptyhome <run>/01_capture/output/base/snapshot.json --map-from-git <base ref>`
+   - Head side only: `python3 tools/scripts/ref-check.py verify --repo <tree> --home <run>/01_capture/head/emptyhome <run>/01_capture/output/base/snapshot.json --map-from-git <base ref>`
      (make the empty home dir first; the base ref is the one the prompt names; the base side has already finished,
      so the snapshot exists; when it is missing, save that error as the command's file).
-   - For every file `docs/specs/NNNN-*.md` or `docs/specs/NNNN-*/index.md`: `python3 scripts/spec-paths.py --spec NNNN`
+   - For every file `docs/specs/NNNN-*.md` or `docs/specs/NNNN-*/index.md`: `python3 tools/scripts/spec-paths.py --spec NNNN`
      (one file per spec, slug includes the number).
-   - `live-links.txt`: every link target `bin/install.sh --dry-run` would make, one `link -> target` per line, copied from
+   - `live-links.txt`: every link target `tools/bin/install.sh --dry-run` would make, one `link -> target` per line, copied from
      that dry run's output.
 3. `git -C <repo> worktree remove --force <run>/01_capture/<side>/tree`, then write the outputs below and return the
    schema the prompt names.

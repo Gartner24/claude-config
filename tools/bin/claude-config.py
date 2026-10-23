@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """Keep this repo and ~/.claude in step (spec 0048). The /claude-config skill drives it.
 
-  sync              ~/.claude -> repo for the copied kinds (bin/sync.sh does the copy)
-  install [--dry-run]  repo -> ~/.claude (bin/install.sh does the copy and the links)
+  sync              ~/.claude -> repo for the copied kinds (tools/bin/sync.sh does the copy)
+  install [--dry-run]  repo -> ~/.claude (tools/bin/install.sh does the copy and the links)
   drift             every item in one place and not the other, or different, by kind; exit 1 when any
-  hook-files        exit 1 naming each live settings.json hook command whose file is missing (bin/install.sh)
+  hook-files        exit 1 naming each live settings.json hook command whose file is missing (tools/bin/install.sh)
   update --plan     every git entry whose upstream moved, with its changed files; asks nothing
   update --apply <entry> [--resolved]
                     install upstream now for one entry, your patch merged in; exit 2 on a conflict
-  restore           rebuild missing edited skills from upstream at pinned plus their patch (bin/install.sh)
-  patches           (re)write the patch of every edited downloaded skill (bin/sync.sh)
+  restore           rebuild missing edited skills from upstream at pinned plus their patch (tools/bin/install.sh)
+  patches           (re)write the patch of every edited downloaded skill (tools/bin/sync.sh)
   build             manifest entries for every downloaded skill folder: lock file, traced brief, history walk
-  docs              write docs/guides/SKILLS.md from the manifest, claude-home/ front matter and config/routing.md
+  docs              write docs/guides/SKILLS.md from the manifest, claude-home/ front matter and tools/config/routing.md
   hash <folder>     the folder hash the manifest's base_hash uses
 
 CLAUDE_LIVE_DIR and CLAUDE_CONFIG_REPO point it at temp trees, for the self checks only.
@@ -29,12 +29,12 @@ import sys
 import tempfile
 from pathlib import Path
 
-REPO = Path(os.environ.get("CLAUDE_CONFIG_REPO") or Path(__file__).resolve().parent.parent)
+REPO = Path(os.environ.get("CLAUDE_CONFIG_REPO") or Path(__file__).resolve().parents[2])
 LIVE = Path(os.environ.get("CLAUDE_LIVE_DIR") or Path.home() / ".claude")
 HOME_DIR = REPO / "claude-home"
-MANIFEST = REPO / "config" / "manifest.json"
-IGNORE = REPO / "config" / "drift-ignore.json"
-# The hand written hooks and scripts bin/sync.sh copies; every other live hook belongs to a framework
+MANIFEST = REPO / "tools" / "config" / "manifest.json"
+IGNORE = REPO / "tools" / "config" / "drift-ignore.json"
+# The hand written hooks and scripts tools/bin/sync.sh copies; every other live hook belongs to a framework
 # or has a manifest entry.
 COPIED_FILES = ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py",
                 "hooks/context-monitor.js", "hooks/claude-config-reminder.py",
@@ -44,7 +44,7 @@ COPIED_FILES = ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "ho
 # .in_use/<pid> is a marker Claude Code drops in a plugin folder per running session; it used to make 10
 # of 12 plugin base_hash values go stale as soon as any session started.
 SKIP = {".git", "__pycache__", "node_modules", ".plugin-version", ".in_use"}
-# The home path settings.json is committed with; bin/install.sh swaps it for $HOME.
+# The home path settings.json is committed with; tools/bin/install.sh swaps it for $HOME.
 AUTHOR_HOME = "/home/santiago"
 
 
@@ -187,9 +187,9 @@ def drop(d, dotted):
 
 
 def settings(out):
-    """AC-9: live settings after the same transform bin/sync.sh applies, against the repo copy."""
+    """AC-9: live settings after the same transform tools/bin/sync.sh applies, against the repo copy."""
     ignore = json.loads(IGNORE.read_text()) if IGNORE.exists() else []
-    checker = REPO / "scripts" / "private-names.py"
+    checker = REPO / "tools" / "scripts" / "private-names.py"
     for f in ("settings.json", "settings.local.json"):
         repo_f, live_f = HOME_DIR / f, LIVE / f
         if not live_f.exists() or not repo_f.exists():
@@ -243,7 +243,7 @@ def missing_hook_files(settings_path):
 
 
 def hook_files():
-    """bin/install.sh verify: exit 1 naming each hook command in live settings.json whose file is missing, skipping
+    """tools/bin/install.sh verify: exit 1 naming each hook command in live settings.json whose file is missing, skipping
     the live skills folder (jjstack and gstack hooks, which their own installers own); exit 2 when it does not parse."""
     try:
         missing = missing_hook_files(LIVE / "settings.json")
@@ -415,7 +415,7 @@ def private_name_hit(blob):
     with tempfile.NamedTemporaryFile(suffix=".patch") as f:
         f.write(blob)
         f.flush()
-        r = subprocess.run([sys.executable, str(REPO / "scripts" / "private-names.py"), "check", f.name],
+        r = subprocess.run([sys.executable, str(REPO / "tools" / "scripts" / "private-names.py"), "check", f.name],
                            capture_output=True, env=dict(os.environ, CLAUDE_LIVE_DIR=str(LIVE)))
     return r.returncode != 0
 
@@ -432,13 +432,13 @@ def store_patch(name, entry, blob):
     """AC-7, AC-8: the patch goes public only for a publish: true entry with no private name in it."""
     blob = with_header(entry, blob)
     public = entry.get("publish") and not private_name_hit(blob)
-    path = (REPO / "config" / "patches" if public else PRIVATE_PATCHES) / f"{name}.patch"
-    for old in (REPO / "config" / "patches" / f"{name}.patch", PRIVATE_PATCHES / f"{name}.patch"):
+    path = (REPO / "tools" / "config" / "patches" if public else PRIVATE_PATCHES) / f"{name}.patch"
+    for old in (REPO / "tools" / "config" / "patches" / f"{name}.patch", PRIVATE_PATCHES / f"{name}.patch"):
         if old != path and old.exists():
             old.unlink()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(blob)
-    entry["patch"] = f"config/patches/{name}.patch" if public else f"~/.claude/private/patches/{name}.patch"
+    entry["patch"] = f"tools/config/patches/{name}.patch" if public else f"~/.claude/private/patches/{name}.patch"
 
 
 def patch_path(entry):
@@ -520,7 +520,7 @@ def install_folder(src, dst):
 
 def scan(name, live, folder):
     """Spec 0054 AC-7: print what skillspector finds new in the folder about to go live. Never blocks."""
-    tool = Path(__file__).resolve().parent.parent / "scripts" / "skill-scan.py"
+    tool = Path(__file__).resolve().parents[2] / "tools" / "scripts" / "skill-scan.py"
     r = subprocess.run([sys.executable, str(tool), "--against", str(live), str(folder)],
                        capture_output=True, text=True)
     lines = (r.stdout + r.stderr).strip().splitlines() or [f"exit {r.returncode}, no output"]
@@ -886,10 +886,10 @@ def legal_texts(repo, commit, source, license):
 def write_notice(m, texts):
     """AC-6: one block per source with a public patch, and every cite only or unlicensed entry named."""
     lines = [NOTICE_START, "", "## Downloaded skills with a public patch", "",
-             "Written by `bin/claude-config.py build` from `config/manifest.json`; edit the manifest, not this part.", ""]
+             "Written by `tools/bin/claude-config.py build` from `tools/config/manifest.json`; edit the manifest, not this part.", ""]
     by_source = {}
     for n, e in sorted(m["entries"].items()):
-        if e.get("patch", "") and e["patch"].startswith("config/"):
+        if e.get("patch", "") and e["patch"].startswith("tools/config/"):
             by_source.setdefault(e["source"], []).append(n)
     for src, names in sorted(by_source.items()):
         license_text, notice = texts.get(src, (None, None))
@@ -913,7 +913,7 @@ def write_notice(m, texts):
 
 
 def build():
-    """Write config/manifest.json entries for every real downloaded skill folder in ~/.claude/skills."""
+    """Write tools/config/manifest.json entries for every real downloaded skill folder in ~/.claude/skills."""
     m = load_manifest()
     fw = framework_dirs(m)
     fw_by_source = {f.get("source"): k for k, f in m.get("frameworks", {}).items()}
@@ -969,7 +969,7 @@ def build():
                 if commit and base != folder_hash(p):
                     e["status"] = "edited"
                     store_patch(name, e, make_patch(export(repo, commit, path, tmp), p, tmp))
-                    if e["patch"].startswith("config/"):
+                    if e["patch"].startswith("tools/config/"):
                         texts[src["source"]] = legal_texts(repo, commit, src["source"], e["license"])
             if not e["publish"] and e["status"] in ("edited", "unpinned"):
                 to_private(name, p)  # cite only: no public files, so the private store keeps your copy
@@ -979,7 +979,7 @@ def build():
     # no license text and the notice said "not reached at build".
     for name, e in sorted(m["entries"].items()):
         # A source the main loop already reported unreachable is not cloned and reported a second time.
-        if e.get("fetch") == "git" and (e.get("patch") or "").startswith("config/") and e.get("pinned") \
+        if e.get("fetch") == "git" and (e.get("patch") or "").startswith("tools/config/") and e.get("pinned") \
                 and e["source"] not in texts and name not in gone:
             try:
                 texts[e["source"]] = legal_texts(clone(e["source"]), e["pinned"], e["source"], e["license"])
@@ -1002,13 +1002,13 @@ def build():
 # ---------------------------------------------------------------- docs (AC-13)
 
 SKILLS_DOC = REPO / "docs" / "guides" / "SKILLS.md"
-ROUTING = REPO / "config" / "routing.md"
+ROUTING = REPO / "tools" / "config" / "routing.md"
 
 
 def ascii_text(text):
-    """The house ASCII rule on text copied from upstream front matter (scripts/asciify.py's table)."""
+    """The house ASCII rule on text copied from upstream front matter (tools/scripts/asciify.py's table)."""
     import importlib.util
-    spec = importlib.util.spec_from_file_location("asciify", REPO / "scripts" / "asciify.py")
+    spec = importlib.util.spec_from_file_location("asciify", REPO / "tools" / "scripts" / "asciify.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod.convert(text)[0]
@@ -1020,12 +1020,12 @@ def cell(text):
 
 def docs_text():
     """docs/guides/SKILLS.md from the manifest, claude-home/skills/ and claude-home/commands/ front
-    matter and config/routing.md only: no read of ~/.claude, so the committed file is reproducible."""
+    matter and tools/config/routing.md only: no read of ~/.claude, so the committed file is reproducible."""
     m = load_manifest()
     out = ["# Skills", "Type: reference", "",
            "Every skill and command in this setup: your own, the frameworks, and every downloaded one with its",
-           "source and license. Generated by `python3 bin/claude-config.py docs` from `config/manifest.json`,",
-           "the front matter in `claude-home/` and `config/routing.md`; edit those, never this file.", ""]
+           "source and license. Generated by `python3 tools/bin/claude-config.py docs` from `tools/config/manifest.json`,",
+           "the front matter in `claude-home/` and `tools/config/routing.md`; edit those, never this file.", ""]
     out += ["## Your own skills", "", "Linked from `claude-home/skills/`; editing the repo copy is live.", "",
             "| Skill | What it does |", "|---|---|"]
     for d in sorted(p for p in (HOME_DIR / "skills").iterdir() if (p / "SKILL.md").is_file()):
@@ -1063,9 +1063,9 @@ def docs_text():
             out.append(f"| `{name}` | {status} | {cell(e.get('description'))} |")
         out.append("")
     out += ["## Routing", "",
-            "Copied from `config/routing.md`, the reference of which skill fits which task. Typing a skill's name",
+            "Copied from `tools/config/routing.md`, the reference of which skill fits which task. Typing a skill's name",
             "always wins; routing is for a task described in plain words. Check edits with",
-            "`python3 scripts/check-routing.py`.", ""]
+            "`python3 tools/scripts/check-routing.py`.", ""]
     routing = ROUTING.read_text().splitlines() if ROUTING.exists() else []
     out += routing[1:] if routing[:1] and routing[0].startswith("# ") else routing
     return ascii_text("\n".join(out).rstrip("\n") + "\n")
@@ -1084,9 +1084,9 @@ def main(argv):
         return 0 if argv else 2
     cmd, rest = argv[0], argv[1:]
     if cmd == "sync" and not rest:
-        return subprocess.run(["bash", str(REPO / "bin" / "sync.sh")]).returncode
+        return subprocess.run(["bash", str(REPO / "tools" / "bin" / "sync.sh")]).returncode
     if cmd == "install" and rest in ([], ["--dry-run"]):
-        return subprocess.run(["bash", str(REPO / "bin" / "install.sh"), *rest]).returncode
+        return subprocess.run(["bash", str(REPO / "tools" / "bin" / "install.sh"), *rest]).returncode
     if cmd == "drift" and not rest:
         return drift()
     if cmd == "hook-files" and not rest:

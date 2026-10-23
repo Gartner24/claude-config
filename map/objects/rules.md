@@ -14,7 +14,7 @@ The rule files every chat loads (`~/.claude/rules/`), the rules loaded only when
 ## Rules
 - Always loaded text (`CLAUDE.md` plus `rules/*.md`) stays at most 20,000 characters; a rule moved to `rules-on-demand/` keeps its text word for word, and needs a `map.json` key or a pointer line (`tests/test_rules_on_demand.py`).
 - A figure the user gives replaces the old one in the skill's files; a figure with no source is a bracket placeholder (spec 0056, `claude-home/rules/new-number-replaces-old.md`; pinned by `tests/test_borrowed_ideas.py`).
-- Cheap worker tier: `fb-ask <task> [--local] [--file PATH] < input` sends one text job to the free claude-fb models (spec 0023; `--local` = laptop model fb-local, client text allowed, spec 0053): summarize|triage|extract|classify|commit-msg. Exit 3 or 4 means do it yourself (`claude-home/rules-on-demand/cheap-worker.md`). `fb-ask --test` runs its self checks; `bin/install.sh` links it to `~/.local/bin`.
+- Cheap worker tier: `fb-ask <task> [--local] [--file PATH] < input` sends one text job to the free claude-fb models (spec 0023; `--local` = laptop model fb-local, client text allowed, spec 0053): summarize|triage|extract|classify|commit-msg. Exit 3 or 4 means do it yourself (`claude-home/rules-on-demand/cheap-worker.md`). `fb-ask --test` runs its self checks; `tools/bin/install.sh` links it to `~/.local/bin`.
 - Do not edit vendored trees ([skills](skills.md)).
 
 ## Also moves

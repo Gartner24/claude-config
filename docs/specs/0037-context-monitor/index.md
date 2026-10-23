@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-14
 **Status**: Accepted
-**Paths:** `claude-home/hooks/context-monitor.js` (new, a copied file like `claude-home/hooks/block-destructive.sh`), `claude-home/settings.json`, `bin/sync.sh`, `bin/install.sh`, `AGENTS.md`
+**Paths:** `claude-home/hooks/context-monitor.js` (new, a copied file like `claude-home/hooks/block-destructive.sh`), `claude-home/settings.json`, `tools/bin/sync.sh`, `tools/bin/install.sh`, `AGENTS.md`
 
 ## What you're agreeing to
 - The context warning follows your own rule in `~/.claude/CLAUDE.md`: a nudge once a session passes about 150k tokens (finish the step, then `/rollover` or `/save-and-clear`), and a stronger one 50k tokens before autocompact at 700k.

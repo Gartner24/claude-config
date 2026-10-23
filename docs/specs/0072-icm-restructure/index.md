@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-22
 **Status**: In Progress
-**Paths:** `CLAUDE.md`, `AGENTS.md`, `map/**`, `tests/**`, `_archive/**`, `config/test-preferences.json`, `scripts/private-names.py`, `scripts/ref-check.py`, `claude-home/mods/chip-dash/plan.py`, `bin/install.sh`, `README.md`
+**Paths:** `CLAUDE.md`, `AGENTS.md`, `map/**`, `tests/**`, `_archive/**`, `tools/config/test-preferences.json`, `tools/scripts/private-names.py`, `tools/scripts/ref-check.py`, `claude-home/mods/chip-dash/plan.py`, `tools/bin/install.sh`, `README.md`
 **Amended:** 2026-10-22, owner: live-script tests copied from the archive (regression check)
 
 ## What you're agreeing to

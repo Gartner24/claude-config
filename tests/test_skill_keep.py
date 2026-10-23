@@ -11,7 +11,7 @@ from pathlib import Path
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
-SCRIPT = ROOT / "scripts" / "skill-keep.py"
+SCRIPT = ROOT / "tools" / "scripts" / "skill-keep.py"
 
 spec = importlib.util.spec_from_file_location("skill_keep", SCRIPT)
 sk = importlib.util.module_from_spec(spec)
@@ -87,7 +87,7 @@ class KeepListFile(unittest.TestCase):
             self.skipTest("no names.txt")
         # covers: AC-9. Checks the one file: a whole repo check used to stop on sandbox masked
         # dotfiles, so asserting only on its output passed without ever reading the list.
-        p = subprocess.run([sys.executable, str(ROOT / "scripts" / "private-names.py"), "check",
+        p = subprocess.run([sys.executable, str(ROOT / "tools" / "scripts" / "private-names.py"), "check",
                             str(sk.KEEP)], cwd=ROOT, capture_output=True, text=True)
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
 
@@ -113,7 +113,7 @@ class Overrides(unittest.TestCase):
         self.assertIn("name-only: fresh", out)
         self.assertIn("name-only: cmd", out)
         self.assertNotIn("name-only: free", out)
-        self.assertEqual(out[-1], "next: run bin/sync.sh now, before any bin/install.sh")
+        self.assertEqual(out[-1], "next: run tools/bin/sync.sh now, before any tools/bin/install.sh")
 
     def test_no_overrides_key_appended_last(self):
         live = Live(self, {"a": 1, "b": 2}, skills=["x"])
@@ -129,7 +129,7 @@ class Overrides(unittest.TestCase):
         self.assertEqual(live.path.read_text(), before)
         self.assertEqual(live.backups(), [])
         self.assertEqual(out[:3], ["kept as off: frozen", "described: kept", "name-only: other"])
-        self.assertNotIn("next: run bin/sync.sh now, before any bin/install.sh", out)
+        self.assertNotIn("next: run tools/bin/sync.sh now, before any tools/bin/install.sh", out)
 
     def test_backup_mode_and_format(self):
         live = Live(self, {"skillOverrides": {}, "note": "café"}, skills=["x"])

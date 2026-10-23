@@ -7,7 +7,7 @@ set -euo pipefail
 
 GH="${GH:-gh}"
 NAME="main only through a PR"
-usage() { echo "usage: bin/repo-settings.sh [--check] <owner/repo>" >&2; exit 2; }
+usage() { echo "usage: tools/bin/repo-settings.sh [--check] <owner/repo>" >&2; exit 2; }
 
 check=0
 repo=""

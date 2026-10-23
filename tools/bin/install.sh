@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install this config into ~/.claude. The counterpart to bin/sync.sh, which only ever
+# Install this config into ~/.claude. The counterpart to tools/bin/sync.sh, which only ever
 # ran the other direction (live -> repo), so "restore on a new machine" was a claim
 # the repo could not actually deliver.
 #
@@ -7,12 +7,12 @@
 # and the Claude Code plugins. They manage themselves and are not vendored here -
 # docs/guides/SETUP.md documents how to install each. Run this first, then those.
 #
-#   bin/install.sh            install
-#   bin/install.sh --dry-run  print what would happen, touch nothing
+#   tools/bin/install.sh            install
+#   tools/bin/install.sh --dry-run  print what would happen, touch nothing
 set -euo pipefail
 
-# Spec 0048 AC-1: this script lives in bin/, the repo is one folder up.
-REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Spec 0048 AC-1, 0077 AC-12: this script lives in tools/bin/, the repo is two folders up.
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # CLAUDE_LIVE_DIR is for the self checks only: they install into a temp live tree.
 LIVE="${CLAUDE_LIVE_DIR:-$HOME/.claude}"
 DRY=0
@@ -101,12 +101,12 @@ done
 
 # Spec 0048 AC-7: an edited downloaded skill that is missing (a new machine) is rebuilt from upstream at
 # its pinned commit plus its patch; an installed one is never overwritten.
-if [ -f "$REPO/config/manifest.json" ]; then
+if [ -f "$REPO/tools/config/manifest.json" ]; then
   echo "downloaded skills:"
   if [ "$DRY" = 1 ]; then
-    note "would: python3 bin/claude-config.py restore"
+    note "would: python3 tools/bin/claude-config.py restore"
   else
-    python3 "$REPO/bin/claude-config.py" restore || { echo "  a missing edited skill was not rebuilt (above)" >&2; exit 1; }
+    python3 "$REPO/tools/bin/claude-config.py" restore || { echo "  a missing edited skill was not rebuilt (above)" >&2; exit 1; }
   fi
 fi
 
@@ -125,30 +125,30 @@ run mkdir -p "$BIN"
 if [ -e "$BIN/spec-paths" ] && ! [ -L "$BIN/spec-paths" ]; then
   note "SKIP spec-paths (a real file is already at $BIN/spec-paths)"
 else
-  note "spec-paths -> scripts/spec-paths.py"
-  run ln -sfn "$REPO/scripts/spec-paths.py" "$BIN/spec-paths"
+  note "spec-paths -> tools/scripts/spec-paths.py"
+  run ln -sfn "$REPO/tools/scripts/spec-paths.py" "$BIN/spec-paths"
 fi
 # Spec 0023 AC-13: the cheap worker tier.
 if [ -e "$BIN/fb-ask" ] && ! [ -L "$BIN/fb-ask" ]; then
   note "SKIP fb-ask (a real file is already at $BIN/fb-ask)"
 else
-  note "fb-ask -> scripts/fb-ask.py"
-  run ln -sfn "$REPO/scripts/fb-ask.py" "$BIN/fb-ask"
+  note "fb-ask -> tools/scripts/fb-ask.py"
+  run ln -sfn "$REPO/tools/scripts/fb-ask.py" "$BIN/fb-ask"
 fi
 # Spec 0054 AC-10: skillspector over every skill and plugin, only new serious findings.
 if [ -e "$BIN/skill-scan" ] && ! [ -L "$BIN/skill-scan" ]; then
   note "SKIP skill-scan (a real file is already at $BIN/skill-scan)"
 else
-  note "skill-scan -> scripts/skill-scan.py"
-  run ln -sfn "$REPO/scripts/skill-scan.py" "$BIN/skill-scan"
+  note "skill-scan -> tools/scripts/skill-scan.py"
+  run ln -sfn "$REPO/tools/scripts/skill-scan.py" "$BIN/skill-scan"
 fi
 # Spec 0073 AC-14: the helpers the switch-on rules call.
 for name in start-gates design-check issue-reread review-isolated; do
   if [ -e "$BIN/$name" ] && ! [ -L "$BIN/$name" ]; then
     note "SKIP $name (a real file is already at $BIN/$name)"
   else
-    note "$name -> scripts/$name.py"
-    run ln -sfn "$REPO/scripts/$name.py" "$BIN/$name"
+    note "$name -> tools/scripts/$name.py"
+    run ln -sfn "$REPO/tools/scripts/$name.py" "$BIN/$name"
   fi
 done
 # Spec 0036 AC-6: the missed skill hook matches messages against this index, which jjstack setup
@@ -211,10 +211,10 @@ for f in settings.json settings.local.json; do
   if [ ! -e "$frag" ]; then
     note "$f: no private settings fragment, private entries not installed"
   elif [ "$DRY" = 1 ]; then
-    note "would: python3 scripts/private-names.py merge-settings $LIVE/$f $frag (paths swapped to \$HOME)"
+    note "would: python3 tools/scripts/private-names.py merge-settings $LIVE/$f $frag (paths swapped to \$HOME)"
   else
     note "$f: merging $frag"
-    sed "s|/home/santiago|$HOME|g" "$frag" | python3 "$REPO/scripts/private-names.py" merge-settings "$LIVE/$f" -
+    sed "s|/home/santiago|$HOME|g" "$frag" | python3 "$REPO/tools/scripts/private-names.py" merge-settings "$LIVE/$f" -
   fi
 done
 if [ -n "$keep_auto" ] && [ "$DRY" = 0 ]; then
@@ -255,7 +255,7 @@ if [ -e "$LIVE/private/names.txt" ]; then
   fi
   # Copies, never links: a wf run call may edit the tracked checker, and a linked hook
   # used to run that edit outside the sandbox at the next commit (spec 0013 AC-7).
-  checker="$REPO/scripts/private-names.py"
+  checker="$REPO/tools/scripts/private-names.py"
   [ -n "${WF_STAGE:-}" ] || run mkdir -p "$hooks"
   for h in pre-commit commit-msg; do
     [ -n "${WF_STAGE:-}" ] && break
@@ -313,7 +313,7 @@ print(sum(len(open(f, encoding="utf-8").read()) for f in files if __import__("os
   [ "$total" -le 20000 ] \
     && note "live always loaded text: $total characters (limit 20000)" \
     || { echo "  LIVE ALWAYS LOADED TEXT IS $total CHARACTERS, over the 20000 limit" >&2; exit 1; }
-  python3 "$REPO/scripts/gen-agent-index.py" --check >/dev/null \
+  python3 "$REPO/tools/scripts/gen-agent-index.py" --check >/dev/null \
     && note "agent index: matches claude-home/agents/" || note "agent index: DRIFTED (regenerate)"
   bash "$REPO/claude-home/skills/design/scripts/test-ledger.sh" >/dev/null 2>&1 \
     && note "design ledger + Stop hook: 37 assertions pass" \
@@ -321,16 +321,16 @@ print(sum(len(open(f, encoding="utf-8").read()) for f in files if __import__("os
   node "$REPO/claude-home/skills/design/scripts/build-ramp.mjs" --check >/dev/null 2>&1 \
     && note "colour ramp: solver targets and emitted pairs meet AA" \
     || { echo "  RAMP SELF-CHECK FAILED - generated palettes may ship below AA" >&2; exit 1; }
-  python3 "$REPO/scripts/spec-paths.py" --test >/dev/null 2>&1 \
+  python3 "$REPO/tools/scripts/spec-paths.py" --test >/dev/null 2>&1 \
     && note "spec-paths: all self-checks passed" \
-    || { echo "  SPEC-PATHS SELF-CHECK FAILED - run: python3 scripts/spec-paths.py --test" >&2; exit 1; }
-  python3 "$REPO/scripts/fb-ask.py" --test </dev/null >/dev/null 2>&1 \
+    || { echo "  SPEC-PATHS SELF-CHECK FAILED - run: python3 tools/scripts/spec-paths.py --test" >&2; exit 1; }
+  python3 "$REPO/tools/scripts/fb-ask.py" --test </dev/null >/dev/null 2>&1 \
     && note "fb-ask: all self-checks passed" \
-    || { echo "  FB-ASK SELF-CHECK FAILED - run: python3 scripts/fb-ask.py --test" >&2; exit 1; }
+    || { echo "  FB-ASK SELF-CHECK FAILED - run: python3 tools/scripts/fb-ask.py --test" >&2; exit 1; }
   for name in start-gates design-check issue-reread review-isolated; do
-    python3 "$REPO/scripts/$name.py" --test </dev/null >/dev/null 2>&1 \
+    python3 "$REPO/tools/scripts/$name.py" --test </dev/null >/dev/null 2>&1 \
       && note "$name: all self-checks passed" \
-      || { echo "  ${name^^} SELF-CHECK FAILED - run: python3 scripts/$name.py --test" >&2; exit 1; }
+      || { echo "  ${name^^} SELF-CHECK FAILED - run: python3 tools/scripts/$name.py --test" >&2; exit 1; }
   done
   missing=0
   while read -r imp; do
@@ -341,7 +341,7 @@ print(sum(len(open(f, encoding="utf-8").read()) for f in files if __import__("os
   # Last, so every check above still runs. A hook command naming a missing file fails on every event it is
   # wired to. Hooks under the live skills folder belong to jjstack/gstack, installed by their own tools.
   rc=0
-  python3 "$REPO/bin/claude-config.py" hook-files >&2 || rc=$?
+  python3 "$REPO/tools/bin/claude-config.py" hook-files >&2 || rc=$?
   case "$rc" in
     0) note "hook files: every settings.json hook command names a file that exists" ;;
     1) echo "  HOOK FILES MISSING (above) - those hooks fail on every call" >&2; exit 1 ;;

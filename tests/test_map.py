@@ -55,7 +55,9 @@ class TestLineHomes(unittest.TestCase):
         for n, line in old_lines().items():
             home = texts.setdefault(have[n], (REPO / have[n]).read_text())
             for tok in re.findall(r"`([^`]+)`", line):
-                if (n, tok) not in PARAPHRASED and tok not in home:
+                # spec 0077 AC-10: the tool folders moved under tools/, so a card cites the new spelling
+                moved = re.sub(r"(?<![\w./-])(bin|scripts|config)/", r"tools/\1/", tok)
+                if (n, tok) not in PARAPHRASED and tok not in home and moved not in home:
                     missing.append(f"{n}: `{tok}` not in {have[n]}")
         self.assertEqual(missing, [], f"{len(missing)} tokens lost:\n" + "\n".join(missing))
 
@@ -77,7 +79,7 @@ class TestCards(unittest.TestCase):
     # covers: AC-10 (every path or path:line a card cites exists, by the same checker the PR runs)
     def test_citations_exist(self):
         cards = sorted(str(p.relative_to(REPO)) for p in (REPO / "map").rglob("*.md"))
-        r = subprocess.run(["python3", str(REPO / "scripts/ref-check.py"), "check", *cards], cwd=REPO,
+        r = subprocess.run(["python3", str(REPO / "tools/scripts/ref-check.py"), "check", *cards], cwd=REPO,
                            capture_output=True, text=True, stdin=subprocess.DEVNULL)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 

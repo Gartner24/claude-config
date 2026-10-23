@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-22
 **Status**: Proposed
-**Paths:** `claude-home/skills/workflow-builder/**`, `claude-home/workflows/**`, `bin/install.sh`, `bin/claude-config.py`, `config/manifest.json`, `tests/test_claude_config.py`
+**Paths:** `claude-home/skills/workflow-builder/**`, `claude-home/workflows/**`, `tools/bin/install.sh`, `tools/bin/claude-config.py`, `tools/config/manifest.json`, `tests/test_claude_config.py`
 
 ## What you're agreeing to
 - `/workflow-builder <name>` interviews you, then writes an ICM pipeline: numbered stage folders with a contract each, one Workflow script that runs them straight through, and a thin `/<name>` command that starts it.

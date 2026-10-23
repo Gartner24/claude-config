@@ -22,9 +22,9 @@ you change, not all of them. The runner's design is in [docs/architecture.md](do
 
 ```bash
 python3 tests/fast.py          # the suite: only tests for live code
-bin/install.sh --dry-run       # repo -> ~/.claude (copies + symlinks), then self-checks
-bin/sync.sh                    # ~/.claude -> repo; run before every commit, then git diff
-python3 bin/claude-config.py drift   # exits 1 when the repo and ~/.claude differ
+tools/bin/install.sh --dry-run       # repo -> ~/.claude (copies + symlinks), then self-checks
+tools/bin/sync.sh                    # ~/.claude -> repo; run before every commit, then git diff
+python3 tools/bin/claude-config.py drift   # exits 1 when the repo and ~/.claude differ
 ```
 
 Every other command: [checks](map/processes/checks.md), [sync](map/processes/sync.md),

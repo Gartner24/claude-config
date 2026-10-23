@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-22
 **Status**: Proposed
-**Paths:** `config/patches/assertion-guardian.patch`, `tests/test_claude_config.py`
+**Paths:** `tools/config/patches/assertion-guardian.patch`, `tests/test_claude_config.py`
 **Amended**: 2026-10-22: AC-4 walk-up resolution accepted (owner)
 **Amends:** [0068](0068-assertion-guardian-removed-checks.md) (approval source, shell targets, race)
 

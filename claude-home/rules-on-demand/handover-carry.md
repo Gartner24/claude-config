@@ -1,7 +1,7 @@
 # Handover carry (beats skill text)
 
 Source: handoff-loss-audit.md, fix 6; spec 0069 (handover memory). The script is
-`python3 ~/claude-config/scripts/handover-memory.py`; `<script> path` prints this chat's index (the
+`python3 ~/claude-config/tools/scripts/handover-memory.py`; `<script> path` prints this chat's index (the
 feature's brief, `docs/briefs/general.md` with no feature, `~/.claude/state/handover/<project>/index.md`
 outside a repo).
 

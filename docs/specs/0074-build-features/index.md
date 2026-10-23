@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-22
 **Status**: In Progress
-**Paths:** `claude-home/skills/build-features/**`, `claude-home/hooks/subagent-statusline.py`, `claude-home/settings.json`, `claude-home/mods/chip-dash/**`, `claude-home/rules-on-demand/when-to-switch-on.md`, `bin/claude-config.py`
+**Paths:** `claude-home/skills/build-features/**`, `claude-home/hooks/subagent-statusline.py`, `claude-home/settings.json`, `claude-home/mods/chip-dash/**`, `claude-home/rules-on-demand/when-to-switch-on.md`, `tools/bin/claude-config.py`
 **Amended**: 2026-10-22: GA rows reviewed once, at merge (owner)
 
 ## What you're agreeing to

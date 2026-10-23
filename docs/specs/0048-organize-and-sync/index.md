@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-15
 **Status**: Accepted
-**Paths:** `README.md`, `AGENTS.md`, `CLAUDE.md`, `LICENSE`, `claude-home/**`, `bin/**`, `config/**`, `scripts/**`, `_archive/runner/finish.py`, `_archive/runner/run.py`, `_archive/runner/e2e/run.py`, `_archive/runner/tests/**`
+**Paths:** `README.md`, `AGENTS.md`, `CLAUDE.md`, `LICENSE`, `claude-home/**`, `tools/bin/**`, `tools/config/**`, `tools/scripts/**`, `_archive/runner/finish.py`, `_archive/runner/run.py`, `_archive/runner/e2e/run.py`, `_archive/runner/tests/**`
 **Amended**: 2026-10-15, after the research review ([docs/research/organize-and-sync-review-2026-10-15.md](../../research/organize-and-sync-review-2026-10-15.md)): edited skills are a pin plus a patch, nothing untraceable or unlicensed enters the public repo, AGENTS.md shrinks under 200 lines.
 **Amends**: [0035](../0035-readable-layout/index.md) (AC-3 repo shape: `live/` becomes `claude-home/`, and the top level holds only four files plus folders) and [0003](../0003-scope-contract/index.md) as carried in `rules/scope-contract.md` (the live step shapes: `./install.sh` becomes `bin/install.sh`, and the `cp` shape drops a leading `claude-home/` instead of `live/`).
 **Amended by**: [0054](../0054-skill-scan-script.md) (AC-10: `update --apply` scans what it installs).

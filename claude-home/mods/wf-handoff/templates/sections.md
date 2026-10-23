@@ -4,9 +4,9 @@ This chat's transcript is {{transcript}}: name it as the previous transcript, do
 {{/transcript}}
 
 Step 1, the handover memory (spec 0069). What the fresh chat needs lives in the feature's index file, not in the handover.
-1. Find the index: `python3 ~/claude-config/scripts/handover-memory.py path --cwd <this chat's folder> --transcript <previous transcript>` prints its path.
+1. Find the index: `python3 ~/claude-config/tools/scripts/handover-memory.py path --cwd <this chat's folder> --transcript <previous transcript>` prints its path.
 2. Start ONE writer agent with the Agent tool (model sonnet, effort low). Its prompt is the "Writer prompt" block below, with the transcript path, the session id (the transcript's file name without `.jsonl`) and the index path filled in. It runs in the background: write no handover yet and wait for its result. The mod waits for it too.
-3. When it returns, run `python3 ~/claude-config/scripts/handover-memory.py check <index> --transcript <previous transcript>`, then `... prune <index>`.
+3. When it returns, run `python3 ~/claude-config/tools/scripts/handover-memory.py check <index> --transcript <previous transcript>`, then `... prune <index>`.
 4. If the writer failed, or `check` exits 1, put the line `memory not written: <reason>` in the handover and go on with step 2. The handoff never stops for it.
 
 Step 2, the handover. It holds only these, nothing else; the contract's other sections are left out:
@@ -33,7 +33,7 @@ Once the slot is written, end the turn with one short line: the chat is cleared 
 
 Writer prompt:
 ---
-You write the handover memory of a chat that is being handed off. Transcript: <transcript>. Session id: <session id>. Index: <index path>. The script is `python3 ~/claude-config/scripts/handover-memory.py`.
+You write the handover memory of a chat that is being handed off. Transcript: <transcript>. Session id: <session id>. Index: <index path>. The script is `python3 ~/claude-config/tools/scripts/handover-memory.py`.
 Read the chat only through `<script> messages <transcript>`: it prints the owner's messages and the text shown to the owner, nothing else. Read the index if it exists.
 Keep four kinds of item, nothing else:
 - Q: a question put to the owner, or a decision the owner still owes, with no answer later in the chat.

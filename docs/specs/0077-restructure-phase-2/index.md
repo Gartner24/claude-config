@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-22
 **Status**: Proposed
-**Paths:** `claude-home/CLAUDE.md`, `claude-home/rules/**`, `claude-home/rules-on-demand/**`, `claude-home/hooks/skill-rules.py`, `claude-home/hooks/chain-catch.py`, `claude-home/settings.json`, `claude-home/MAP.md`, `claude-home/mods/**`, `tools/**`, `bin/**`, `scripts/**`, `config/**`, `map/**`, `tests/**`, `.gitignore`, `README.md`, `CLAUDE.md`
+**Paths:** `claude-home/CLAUDE.md`, `claude-home/rules/**`, `claude-home/rules-on-demand/**`, `claude-home/hooks/skill-rules.py`, `claude-home/hooks/chain-catch.py`, `claude-home/settings.json`, `claude-home/MAP.md`, `claude-home/mods/**`, `tools/**`, `tools/bin/**`, `tools/scripts/**`, `tools/config/**`, `map/**`, `tests/**`, `.gitignore`, `README.md`, `CLAUDE.md`
 **Amended**: 2026-10-22: rule map widened by the PR #205 review
 **Amends:** [0072](../0072-icm-restructure/index.md) Follow-up "Phase 2"; [0070](../0070-skills-start-themselves.md) AC-12, AC-16, AC-21 (per-message reminder removed); [0073](../0073-switch-on-helpers/index.md) AC-14 (helper link sources move to `tools/scripts/`)
 

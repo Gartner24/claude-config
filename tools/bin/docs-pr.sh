@@ -33,9 +33,9 @@ outside="$(git log -m --format= --name-only --no-renames "$range" | grep -v -e '
 # PYTHONPATH) can stand in for them.
 trusted="$(mktemp -d)"
 trap 'rm -rf "$trusted"' EXIT
-src="$(git -C "$HERE/.." symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/main)"
-git -C "$HERE/.." archive "$src" _archive/runner scripts/private-names.py | tar -x -C "$trusted" || die "cannot read the scanners from $src"
-python3 -I "$trusted/scripts/private-names.py" check-range "origin/$default" "$old" >&2 || die "private names scan hit"
+src="$(git -C "$HERE/../.." symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/main)"
+git -C "$HERE/../.." archive "$src" _archive/runner tools/scripts/private-names.py | tar -x -C "$trusted" || die "cannot read the scanners from $src"
+python3 -I "$trusted/tools/scripts/private-names.py" check-range "origin/$default" "$old" >&2 || die "private names scan hit"
 python3 -I - "$trusted/_archive/runner" "origin/$default" "$old" <<'EOF' || die "attribution scan hit"
 import subprocess, sys
 sys.path.insert(0, sys.argv[1])

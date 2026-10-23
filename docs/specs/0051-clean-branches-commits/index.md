@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-15
 **Status**: Accepted
-**Paths:** `_archive/runner/pr.py`, `_archive/runner/run.py`, `_archive/runner/wf.py`, `_archive/runner/plain.py`, `_archive/runner/report.py`, `_archive/runner/tests/test_pr.py`, `_archive/runner/tests/test_clean_branches.py`, `_archive/runner/context.py`, `bin/docs-pr.sh`, `bin/repo-settings.sh`, `claude-home/rules-on-demand/branch-pr.md`
+**Paths:** `_archive/runner/pr.py`, `_archive/runner/run.py`, `_archive/runner/wf.py`, `_archive/runner/plain.py`, `_archive/runner/report.py`, `_archive/runner/tests/test_pr.py`, `_archive/runner/tests/test_clean_branches.py`, `_archive/runner/context.py`, `tools/bin/docs-pr.sh`, `tools/bin/repo-settings.sh`, `claude-home/rules-on-demand/branch-pr.md`
 **Amends**: [0026](../0026-branch-pr-flow/index.md) (standard rules 4 for unstacked branches, 5 and 6; AC-8, AC-9, AC-11), [0031](../0031-adopt-open-prs/index.md) (AC-9: two more merge paths), [0043](../0043-fast-runner/index.md) (AC-2 text, AC-3 removed, AC-6 plan commits now land by AC-15), and architecture invariants 1, 5 and 6.
 **Amended**: 2026-10-17 (plan D1 and E4): AC-3 risk list grows, AC-4 waits for a first check, AC-12 dates the branch from its own first commit, Paths adds `runner/context.py`.
 

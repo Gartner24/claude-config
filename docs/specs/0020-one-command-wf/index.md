@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-13
 **Status**: Accepted
-**Paths:** `_archive/runner/wf.py`, `_archive/runner/run.py`, `_archive/runner/finish.py`, `_archive/runner/report.py`, `_archive/runner/e2e/run.py`, `bin/install.sh`, `claude-home/rules-on-demand/runner-handoff.md`, `claude-home/rules-on-demand/scope-contract.md`
+**Paths:** `_archive/runner/wf.py`, `_archive/runner/run.py`, `_archive/runner/finish.py`, `_archive/runner/report.py`, `_archive/runner/e2e/run.py`, `tools/bin/install.sh`, `claude-home/rules-on-demand/runner-handoff.md`, `claude-home/rules-on-demand/scope-contract.md`
 **Amends**: [0004](../../../_archive/runner/docs/specs/0004-headless-step-loop/index.md) AC-9 (every lock holder writes its line), [0007](../0007-push-guard/index.md) AC-7 (a swap made by `wf` is taken, not a stop), [0011](../0011-build-decision-queue/index.md) AC-3 (parks are taken back by what changed), [0017](../../../_archive/runner/docs/specs/0017-several-repos-at-once/index.md) AC-1 (a repo a run holds is skipped, not refused), [0018](../0018-morning-report/index.md) AC-2, AC-6 (texts say `wf`), [0019](../0019-live-setup-steps/index.md) AC-3, AC-4 (no repo locks, no refusal for a run, staged swap, live dir).
 **Amended by**: [0040](../../../_archive/runner/docs/specs/0040-runs-adapt-to-setup-changes/index.md) - AC-6: a `denied` park whose path the run's own guard denied is taken back by the run itself once the current setup no longer denies that path, with its open question; no setup stamp needed.
 **Amended by**: [0061](../0061-runner-improves-itself/index.md) - adds `wf insights`: read past runs, print baselines and repeating problems.
