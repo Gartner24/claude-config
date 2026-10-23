@@ -1231,6 +1231,17 @@ Source: [build-status brief](../briefs/build-status-2026-10-22.md) "For /archite
 - [x] Test it: `/test destructive guard spellings` (10 mutants, each turned a new self test red)
 Source: automated push security review of PR #196 (2026-10-22, this chat).
 
+### 108. Assertion Guardian: hidden background jobs and folder changes · done
+Two ways around spec 0068's "refuse before running" rule, confirmed by a probe during the PR #206 build: a bare `&` inside a `-c` string, `$(...)` or heredoc body is not seen as a background job; and `env -C`/`--chdir`, `builtin cd`, `eval cd`, `source` change the folder unseen, so a relative test path is checked in the wrong place (`env -C sub sed ...` hides the target). HIGH by the automated security review.
+**Done when:** each of those forms makes the guard refuse before running, with a mod test each, the patch is regenerated, and it is live.
+- [x] Design it (spec): `/architect assertion guardian hidden background and folder changes` (spec [0079](../specs/0079-assertion-guardian-hidden-jobs.md), confirmed by the owner 2026-10-23)
+- [x] Build it: `/develop assertion guardian hidden background and folder changes` (PR #214 merged; probe and patch rebuild in [verify](../specs/0079-assertion-guardian-hidden-jobs/verify.md); live 2026-10-23)
+- [x] Verify it: `/check verify assertion guardian hidden background and folder changes` (5 steps pass through the built mod, each break turned red)
+- [x] Test it: `/test assertion guardian hidden background and folder changes` (13 new mod tests, 12 mutants red then restored; plugin test 69 pass, fast suite 184 ok)
+- [x] Confirm the Assumed spec 0079 (owner confirmed 2026-10-23)
+- [x] Install it live after merge: move `~/.claude/skills/assertion-guardian` to the trash, `tools/bin/install.sh`, then `python3 tools/bin/claude-config.py drift` shows nothing for it (done 2026-10-23, under the owner's "finish by yourself")
+Source: automated commit security review of the PR #206 build, confirmed by its build agent (2026-10-22, this chat).
+
 ### 109. restructure-check follow-ups from its first real run · done
 The first real run (PR #205, 2026-10-22) worked and caught 3 real breaks, but showed three gaps: the judge stage cannot write `report.md` (a subagent Write is refused, so the report only comes back as text); the head capture passed a slug fragment to `spec-paths --spec` for `NNNN-*/index.md` specs (35 false "exit 2" entries); and the own-PRs trust gate lives in the starter's prose, not in the script (automated security review, MEDIUM).
 **Done when:** a run on a real PR writes `03_judge/output/report.md`, shows no spec-paths slug entries, and the script itself refuses a head that is not a verified own ref.
