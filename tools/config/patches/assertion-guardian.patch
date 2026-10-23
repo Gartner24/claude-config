@@ -11,7 +11,7 @@ index f33083c..33d946d 100644
  The mod collects no analytics or telemetry, and its author receives no data from it.
  
 diff --git a/README.md b/README.md
-index 83a1863..6d52b55 100644
+index 83a1863..ce9317f 100644
 --- a/README.md
 +++ b/README.md
 @@ -27,16 +27,26 @@ Before any Edit, Write or NotebookEdit to a test file runs, the mod works out th
@@ -20,7 +20,7 @@ index 83a1863..6d52b55 100644
  
 +A shell command that writes a test file it names (`sed -i`, `>>`, `rm`, a heredoc, `python -c`) runs. The mod reads each named test file before and after, and compares the two like an Edit. If the tests got weaker, every named test file is put back as it was before the command (a file the command created is removed), and the call is refused with the signals. Adding cases through the shell passes. The command's other effects (a build, a commit, other files) are not undone.
 +
-+Some shell shapes are still refused before they run, because putting one file back cannot undo them or the target cannot be pinned to one file: a bulk snapshot update, `git`, `mv` or `ln` on a test file, `patch` on a test file, `git apply` or `patch` anywhere in a repository that has test files (the files they change come from the patch, not the line), `find`, a glob, `~`, `$` or a backtick in the path, a folder, a `cd`/`pushd`/`popd` before the target, a background job (`&` or run in background), and a test file that cannot be read or is not UTF-8 text.
++Some shell shapes are still refused before they run, because putting one file back cannot undo them or the target cannot be pinned to one file: a bulk snapshot update, `git`, `mv` or `ln` on a test file, `patch` on a test file, `git apply` or `patch` anywhere in a repository that has test files (the files they change come from the patch, not the line), `find`, a glob, `~`, `$` or a backtick in the path, a folder, a `cd`/`pushd`/`popd` before the target, a background job (`&` or run in background), and a test file that cannot be read or is not UTF-8 text. So are forms that can hide a job, a folder change or the command that runs: a `{ ...; }` group or `( ... )` subshell with a test write, `env -C`, `env -S`, `builtin cd`, `eval`, `source` and `.`, a test write behind `nice`, `ionice`, `nohup`, `time`, `timeout`, `stdbuf`, `setsid`, `chrt` or `taskset`, and a line that names a test path while it pipes text into a shell (`... | sh`, `| bash`, `| zsh`, `| source /dev/stdin`) or runs a writer or a shell through `xargs`.
 +
 +Every target of an Edit, a Write or a compared shell command is first resolved through its links (for a file not there yet, its nearest existing folder), and matched, read and put back as the file it lands on. A path that resolves nowhere, such as a link that leads nowhere, is refused before it runs.
 +
@@ -37,7 +37,7 @@ index 83a1863..6d52b55 100644
  
  This is a guardrail, not a sandbox. It checks what tool calls say they'll do. A determined process could still change files some other way, such as a script that never names the test file.
  
-+Known gap: a shell command that writes a test file it does not name (a script, a glob the parser misses) is not caught.
++Known gap: a shell command that writes a test file it does not name (a script, a glob the parser misses) is not caught. The contents of a sourced file are not read: `source` and `.` are refused before a test write on the same line, but a sourced script that writes a test file it does not name runs. Text piped into a shell or handed to `xargs` is caught only when the line names the test path; a script piped in from a file (`cat go.sh | sh`), encoded text, or a list from a command that names no test path (`git ls-files | xargs rm`) is not.
 +
  Test files are recognised by `*.test.*`, `*.spec.*`, `test_*.py`, `tests.py`, `*_test.{py,go,rb,ex,dart}`, `*_spec.rb`, `*Tests.swift`, `*Test.{kt,java,cs}`, and snapshot paths. Code files under `__tests__/`, `test/`, `tests/` or `spec/` count too, except those inside `fixtures/`, `support/`, `helpers/`, `factories/`, `__mocks__/` or `testdata/`.
  
@@ -59,10 +59,10 @@ index 83a1863..6d52b55 100644
  The mod collects no analytics or telemetry, and its author receives no data from it.
  
 diff --git a/hooks/analyze.ts b/hooks/analyze.ts
-index ca09408..6cb5f39 100644
+index ca09408..a812843 100644
 --- a/hooks/analyze.ts
 +++ b/hooks/analyze.ts
-@@ -501,9 +501,20 @@ export function weakening(before: string, after: string, path: string): string[]
+@@ -501,35 +501,83 @@ export function weakening(before: string, after: string, path: string): string[]
  // ---------------------------------------------------------------------------
  // Bash
  
@@ -73,8 +73,11 @@ index ca09408..6cb5f39 100644
 -// The string of `bash -c` / `sh -c` and backtick substitutions are split too.
 -export function commands(line: string, depth = 0): string[][] {
 +// The string of `bash -c` / `sh -c` / `eval` and backtick substitutions are split too.
-+// `jobs.found` is set by a bare `&` (a background job) in the line or any body split from it.
-+export function commands(line: string, depth = 0, jobs?: { found: boolean }): string[][] {
++// `jobs.found` is set by a bare `&` (a background job) in the line or any body split from it, `jobs.hidden` by a form
++// that hides what runs (a `{ ...; }` group, a `( ... )` subshell, an `env -S` string, `setsid -f`), `jobs.stdin` by a
++// pipe into a shell or `source`, which runs text the line never splits.
++export type Seen = { found: boolean; hidden?: boolean; stdin?: boolean }
++export function commands(line: string, depth = 0, jobs?: Seen): string[][] {
 +  // A heredoc body is split on its own: read as part of the line, an apostrophe in it ("don't") opened a
 +  // quote that hid every later command on the line from the compare.
 +  const bodies: string[] = []
@@ -82,11 +85,27 @@ index ca09408..6cb5f39 100644
 +    bodies.push(body)
 +    return head
 +  })
++  const heredocs = bodies.length
    const out: string[][] = []
    let words: string[] = []
    let word = ''
-@@ -517,19 +528,42 @@ export function commands(line: string, depth = 0): string[][] {
-     if (words.length > 0) out.push(words)
+   let quote: string | null = null
++  let piped = false
+   const push = () => {
+     if (word !== '') words.push(word)
+     word = ''
+   }
+   const end = () => {
+     push()
+-    if (words.length > 0) out.push(words)
++    if (words.length > 0) {
++      out.push(words)
++      const w = unwrap(words)
++      const head = base(w[0])
++      if (jobs !== undefined && words[0] === '{') jobs.hidden = true
++      if (jobs !== undefined && piped && (/^(source|\.)$/.test(head) || (/^(bash|sh|zsh|dash)$/.test(head) && !w.some(x => /^-[a-zA-Z]*c$/.test(x))))) jobs.stdin = true
++      piped = false
++    }
      words = []
    }
 +  // A substitution stays in its word as `$`, so a target built from one (a path that starts with a backtick) is refused
@@ -125,19 +144,26 @@ index ca09408..6cb5f39 100644
 +    else if (c === ';' || c === '\n' || c === '&' || c === '|' || c === '(' || c === ')') {
 +      // `>&`/`<&` were taken by the redirect branch; `&&`, `|&`, `&>` are not jobs.
 +      if (c === '&' && jobs !== undefined && line[i - 1] !== '&' && line[i - 1] !== '|' && line[i + 1] !== '&' && line[i + 1] !== '>') jobs.found = true
++      if (c === '(' && jobs !== undefined && word === '' && words.length === 0) jobs.hidden = true
        end()
 -      i += 1
 -    } else if (c === '>' || c === '<') {
++      if (c === '|' && line[i - 1] !== '|' && line[i + 1] !== '|') piped = true
 +    }
 +    else if (c === '>' || c === '<') {
        push()
        let op = c
        while (line[i + 1] === '>' || line[i + 1] === '&') op += line[(i += 1)]
-@@ -538,11 +572,15 @@ export function commands(line: string, depth = 0): string[][] {
+@@ -538,11 +586,33 @@ export function commands(line: string, depth = 0): string[][] {
      else word += c
    }
    end()
-+  for (const body of bodies) out.push(...commands(body, depth + 1, jobs))
++  bodies.forEach((body, k) => {
++    // A heredoc body is often data (a test with `(` and `{` lines): only its `&` jobs count, not groups or pipes.
++    const data: Seen = { found: false }
++    out.push(...commands(body, depth + 1, k < heredocs && jobs !== undefined ? data : jobs))
++    if (data.found && jobs !== undefined) jobs.found = true
++  })
    if (depth < 3) {
 -    for (const words of [...out]) {
 +    for (const all of [...out]) {
@@ -149,23 +175,77 @@ index ca09408..6cb5f39 100644
 +      const at = words.findIndex(x => /^-[a-zA-Z]*c$/.test(x))
 +      if (/^(bash|sh|zsh|dash)$/.test(head) && at > 0 && words[at + 1] !== undefined) out.push(...commands(words[at + 1]!, depth + 1, jobs))
 +      if (head === 'eval' && words.length > 1) out.push(...commands(words.slice(1).join(' '), depth + 1, jobs))
++      // env -S / --split-string: the string is split into words, the words after it are its arguments.
++      const env = all.findIndex(x => base(x) === 'env')
++      for (let i = env + 1; env >= 0 && i < all.length; i += 1) {
++        const m = /^(?:-[iv0]*S|--split-string=?)(.*)$/.exec(all[i]!)
++        if (m === null) continue
++        const split = m[1] !== '' ? i + 1 : i + 2
++        if (jobs !== undefined) jobs.hidden = true
++        out.push(...commands([m[1] !== '' ? m[1] : (all[i + 1] ?? ''), ...all.slice(split)].join(' '), depth + 1, jobs))
++        break
++      }
++      // setsid -f forks: the command runs on as a background job.
++      const setsid = all.findIndex(x => base(x) === 'setsid')
++      for (let k = setsid + 1; setsid >= 0 && jobs !== undefined && all[k]?.startsWith('-'); k += 1) if (/^(-[a-zA-Z]*f|--fork)$/.test(all[k]!)) jobs.found = true
      }
    }
    return out
-@@ -563,9 +601,10 @@ function unwrap(words: string[]): string[] {
+@@ -550,6 +620,37 @@ export function commands(line: string, depth = 0): string[][] {
+ 
+ const base = (w: string | undefined) => (w ?? '').split('/').pop() ?? ''
+ 
++// Wrappers that run the command after them: the flags that take a value, and how many operands come before the command.
++const NO_VALUE = /^$/
++const WRAPPERS: Record<string, [RegExp, number]> = {
++  env: [/^(-[a-zA-Z]*[CuS]|--chdir|--unset|--split-string)$/, 0],
++  command: [NO_VALUE, 0],
++  builtin: [NO_VALUE, 0],
++  exec: [/^-a$/, 0],
++  nohup: [NO_VALUE, 0],
++  setsid: [NO_VALUE, 0],
++  time: [/^(-f|--format|-o|--output)$/, 0],
++  nice: [/^(-n|--adjustment)$/, 0],
++  ionice: [/^(-[cnpPu]|--class|--classdata|--pid|--pgid|--uid)$/, 0],
++  stdbuf: [/^(-[ioe]|--input|--output|--error)$/, 0],
++  timeout: [/^(-s|--signal|-k|--kill-after)$/, 1],
++  chrt: [/^(-[TPD]|--sched-runtime|--sched-period|--sched-deadline)$/, 1],
++  taskset: [NO_VALUE, 1],
++  xargs: [/^(-[IdEsaLnP]|--arg-file|--delimiter|--eof|--max-args|--max-lines|--max-procs|--max-chars|--process-slot-var)$/, 0],
++}
++// Wrappers that change how or when the command runs (killed mid write, detached, rescheduled): a test write behind one is refused before running.
++const WRAPPED = /^(nice|ionice|nohup|time|timeout|stdbuf|setsid|chrt|taskset)$/
++// What `xargs` may run on paths it reads from its input: a writer, a shell or a script.
++const FED = /^(rm|mv|truncate|tee|unlink|shred|patch|cp|dd|install|rsync|ln|git|find|sed|perl|bash|sh|zsh|dash|python[\d.]*|node|ruby|deno|bun)$/
++
++// Test paths a line may hand to a command it does not name: through `xargs` to a writer or a shell, or as text piped
++// into a shell. Every test path anywhere in the line counts, inside quoted words too. Empty: no such command.
++function fedTargets(all: string[][], stdin: boolean): string[] {
++  const xargs = all.some(words => words.some(x => base(x) === 'xargs') && FED.test(base(unwrap(words)[0])))
++  if (!stdin && !xargs) return []
++  return [...new Set(all.flatMap(words => words.flatMap(x => x.split(/[\s;|&()<>'"`=]+/)).filter(x => x !== '' && isTestTarget(x))))]
++}
++
+ // Drops env assignments and wrappers that run another command: env, time,
+ // nice, npx/bunx/pnpm exec/yarn dlx (and their flags), python -m.
+ function unwrap(words: string[]): string[] {
+@@ -563,9 +664,13 @@ function unwrap(words: string[]): string[] {
      else if (/^(npm|pnpm|yarn|bun)$/.test(head) && ['exec', 'dlx', 'x'].includes(script(w, true) ?? '')) {
        const at = w.findIndex((x, i) => i > 0 && ['exec', 'dlx', 'x'].includes(x))
        w = w.slice(at + 1).filter((x, i) => !(i === 0 && x === '--'))
 -    } else if (/^(env|time|nice|nohup|command|exec)$/.test(head)) {
-+    } else if (/^(env|time|nice|nohup|command|exec|builtin)$/.test(head)) {
++    } else if (head === '{') w = w.slice(1)
++    else if (WRAPPERS[head] !== undefined) {
++      const [values, operands] = WRAPPERS[head]!
        w = w.slice(1)
 -      while (w[0] !== undefined && (/^[A-Za-z_]+=/.test(w[0]) || w[0].startsWith('-'))) w = w.slice(1)
-+      // env -C/--chdir and -u/--unset take a value; left in, it read as the command and hid the real one.
-+      while (w[0] !== undefined && (/^[A-Za-z_]+=/.test(w[0]) || w[0].startsWith('-'))) w = w.slice(head === 'env' && /^(-[a-zA-Z]*[Cu]|--chdir|--unset)$/.test(w[0]) ? 2 : 1)
++      // A flag's value (env -C dir, nice -n 10) or a leading operand (timeout 60), left in, read as the command and hid the real one.
++      while (w[0] !== undefined && (/^[A-Za-z_]+=/.test(w[0]) || w[0].startsWith('-'))) w = w.slice(values.test(w[0]) ? 2 : 1)
++      w = w.slice(operands)
      }
      else if (/^(npx|bunx|pnpx)$/.test(head)) w = w.slice(1).filter((x, i, all) => !(x.startsWith('-') && i < all.findIndex(y => !y.startsWith('-'))))
      else if (/^python[\d.]*$/.test(head) && w[1] === '-m') w = w.slice(2)
-@@ -625,6 +664,8 @@ export function shellWrites(words: string[]): string[] {
+@@ -625,6 +730,8 @@ export function shellWrites(words: string[]): string[] {
      if (/^(>{1,2}|&>{1,2}|>&|>\|)$/.test(x) && w[i + 1] !== undefined && isTestFile(w[i + 1]!)) hits.add(w[i + 1]!)
    })
    if (WRITERS.test(head)) operands(w.slice(1)).forEach(t => hits.add(t))
@@ -174,7 +254,21 @@ index ca09408..6cb5f39 100644
    if (head === 'cp' || head === 'dd' || head === 'install' || head === 'rsync') {
      const dest = head === 'dd' ? w.find(x => x.startsWith('of='))?.slice(3) : w[w.length - 1]
      if (dest !== undefined && w.length > 2 && isTestFile(dest)) hits.add(dest)
-@@ -693,6 +734,65 @@ export function bashSignals(command: string): string[] {
+@@ -682,17 +789,85 @@ export function shellWrites(words: string[]): string[] {
+ 
+ export function bashSignals(command: string): string[] {
+   const signals: string[] = []
+-  const all = commands(command)
++  const seen: Seen = { found: false }
++  const all = commands(command, 0, seen)
+   if (all.some(snapshotUpdate)) {
+     signals.push('bulk snapshot update: every failing snapshot is rewritten to match the current output')
+   }
+-  const written = [...new Set(all.flatMap(shellWrites))]
++  const written = [...new Set([...all.flatMap(shellWrites), ...fedTargets(all, seen.stdin === true)])]
+   if (written.length > 0) {
+     signals.push(`test files changed through the shell, where the change cannot be checked: ${written.slice(0, 3).join(', ')}`)
+   }
    return signals
  }
  
@@ -215,25 +309,33 @@ index ca09408..6cb5f39 100644
 +// `repoHasTests`: the working folder is inside a repository holding a test path (the caller asks git), so a
 +// `git apply` or `patch` there may write tests the line never names.
 +export function shellPlan(command: string, cwd?: string, repoHasTests = false): { snapshotUpdate: boolean; targets: string[]; refuseBefore: boolean } {
-+  const jobs = { found: false }
++  const jobs: Seen = { found: false }
 +  const all = commands(command, 0, jobs)
 +  const targets = new Set<string>()
 +  let moved = false
 +  let refuseBefore = repoHasTests && appliesPatch(command).length > 0
++  const add = (t: string) => {
++    const path = t.startsWith('/') || cwd === undefined || !cwd.startsWith('/') ? t : `${cwd}/${t}`
++    if (!path.startsWith('/') || /[~$`*?[]/.test(path) || !isTestFile(path)) refuseBefore = true
++    targets.add(path.startsWith('/') ? fold(path) : path)
++  }
 +  for (const words of all) {
-+    const head = base(unwrap(words)[0])
++    const w = unwrap(words)
++    const head = base(w[0])
 +    // Folder changes the compare cannot follow: `eval` and `source`/`.` run text in this shell, `env -C` runs elsewhere.
 +    if (/^(cd|pushd|popd|eval|source|\.)$/.test(head) || words.some((x, i) => base(x) === 'env' && words.slice(i + 1).some(y => /^(-[a-zA-Z]*C|--chdir)/.test(y)))) moved = true
 +    const written = shellWrites(words)
-+    if (written.length > 0 && (moved || /^(git|mv|find|ln|patch)$/.test(head))) refuseBefore = true
-+    for (const t of written) {
-+      const path = t.startsWith('/') || cwd === undefined || !cwd.startsWith('/') ? t : `${cwd}/${t}`
-+      if (!path.startsWith('/') || /[~$`*?[]/.test(path) || !isTestFile(path)) refuseBefore = true
-+      targets.add(path.startsWith('/') ? fold(path) : path)
-+    }
++    const wrapped = words.slice(0, words.length - w.length).some(x => WRAPPED.test(base(x)))
++    if (written.length > 0 && (moved || wrapped || /^(git|mv|find|ln|patch)$/.test(head))) refuseBefore = true
++    written.forEach(add)
 +  }
-+  // A `&` job, at the top or in a `-c` string, substitution or heredoc body, can write after the compare has run.
-+  if (targets.size > 0 && jobs.found) refuseBefore = true
++  // Paths handed on through xargs or a pipe into a shell: what runs on them is never seen.
++  const fed = fedTargets(all, jobs.stdin === true)
++  fed.forEach(add)
++  if (fed.length > 0) refuseBefore = true
++  // A `&` job, at the top or in a `-c` string, substitution or heredoc body, can write after the compare has run; a
++  // `{ }` group, `( )` subshell or `env -S` string can hide where and how its body runs.
++  if (targets.size > 0 && (jobs.found || jobs.hidden === true)) refuseBefore = true
 +  return { snapshotUpdate: all.some(snapshotUpdate), targets: [...targets], refuseBefore }
 +}
 +
@@ -599,7 +701,7 @@ index 9227632..dc25aee 100644
    await update($, blocked, cur => (cur !== null && cur.fp === which.fp ? null : cur))
  }
 diff --git a/tests/assertion-guardian.test.tsx b/tests/assertion-guardian.test.tsx
-index a9012d5..877edf1 100644
+index a9012d5..4d8472f 100644
 --- a/tests/assertion-guardian.test.tsx
 +++ b/tests/assertion-guardian.test.tsx
 @@ -1,6 +1,7 @@
@@ -647,7 +749,7 @@ index a9012d5..877edf1 100644
      on('fs.read', () => ({ value: SPEC }))
      on('process.run', git(run('', 128, "fatal: path 'new.test.ts' does not exist in 'HEAD'")))
      on('tool.call', () => {
-@@ -324,3 +335,573 @@ describe('hooks', () => {
+@@ -324,3 +335,623 @@ describe('hooks', () => {
      await ui.unmount()
    })
  })
@@ -1219,6 +1321,56 @@ index a9012d5..877edf1 100644
 +    for (const c of ["bash -c \"sed -i 's/a/b/' a.test.ts\"", "git -C sub status && sed -i 's/a/b/' a.test.ts", "env FOO=1 sed -i 's/a/b/' a.test.ts", "echo 'a & b' >> a.test.ts", "cat >> a.test.ts <<'EOF'\n  expect(a && b).toBe(true)\nEOF", "echo \"$(sed -i s/a/b/ a.test.ts 2>&1)\" && npm test &> out.log", "eval \"$(mise env)\" && echo ok"]) {
 +      expect([c, shellPlan(c, '/repo').refuseBefore]).toEqual([c, false])
 +    }
++  })
++})
++
++describe('more hidden forms', () => {
++  const S = "sed -i '/expect/d' a.test.ts"
++  const refused = (c: string) => {
++    expect([c, shellPlan(c, '/repo').refuseBefore]).toEqual([c, true])
++    expect([c, bashSignals(c).join()]).toEqual([c, expect.stringMatching(/through the shell/)])
++  }
++  test('a { } group is read like a nested body and refused before running', async () => {
++    for (const c of [`{ ${S} & }`, `{ ${S}; }`, `{ ls; } > a.test.ts`]) refused(c)
++  })
++  test('a ( ) subshell with a test write is refused before running', async () => {
++    for (const c of [`( ${S} )`, `ls && (${S})`]) refused(c)
++  })
++  test('xargs running a shell is refused before running, with the test path in its input', async () => {
++    for (const c of ["ls tests | xargs sh -c 'sed -i /expect/d \"$@\"' _", 'echo a.test.ts | xargs -I {} bash -c "sed -i /expect/d {}"']) refused(c)
++  })
++  test('xargs running a writer is refused before running', async () => {
++    for (const c of ['ls tests | xargs rm', "echo a.test.ts | xargs sed -i '/expect/d'", "find . -name '*.test.ts' | xargs -n 1 rm", 'xargs -a list rm a.test.ts']) refused(c)
++  })
++  test('text piped into a shell or source is refused before running', async () => {
++    for (const c of [`echo "${S}" | sh`, `echo "${S}" | bash`, `echo "${S}" | zsh`, `echo "${S}" | source /dev/stdin`, `printf '%s' "${S}" | . /dev/stdin`, `cat <<'EOF' | sh\n${S}\nEOF`]) refused(c)
++  })
++  test('nice, ionice, nohup, time, timeout, stdbuf, setsid, chrt and taskset are unwrapped and refused before running', async () => {
++    for (const c of [`nice -n 10 ${S}`, `nice ${S}`, `ionice -c 3 ${S}`, `nohup ${S}`, `time ${S}`, `time -f %e ${S}`, `timeout 60 ${S}`, `timeout -s KILL 60 ${S}`, `stdbuf -o L ${S}`, `setsid ${S}`, `chrt -f 99 ${S}`, `taskset -c 0 ${S}`, `taskset 0x3 ${S}`, `FOO=1 nice -n 5 timeout 9 ${S}`]) refused(c)
++    expect(shellPlan(`timeout 60 ${S}`, '/repo').targets).toEqual(['/repo/a.test.ts'])
++    expect(shellPlan('timeout 60 npx jest -u', '/repo').snapshotUpdate).toBe(true)
++  })
++  test('setsid -f forks a background job', async () => {
++    expect(shellPlan(`echo a.test.ts && setsid -f bash -c "${S}"`, '/repo').refuseBefore).toBe(true)
++    expect(shellPlan(`setsid -f ${S}`, '/repo').refuseBefore).toBe(true)
++  })
++  test('env -S and --split-string are split and read, and refused before running', async () => {
++    for (const c of [`env -S "${S}"`, `env --split-string="${S}"`, `env -iS "${S}"`, "env -S 'sed -i /expect/d' a.test.ts"]) refused(c)
++  })
++  test('the hook refuses text piped into a shell before running anything', async ($, on) => {
++    const w = world(on, { [T]: SPEC })
++    expect((await $.tool.call({ tool: 'Bash', command: "echo \"sed -i '/toEqual(0)/d' src/sum.test.ts\" | sh" })).deny).toMatch(/where the change cannot be checked/)
++    expect(w.runs).toBe(0)
++  })
++  test('normal commands stay allowed: wrappers, pipes and subshells with no test target, heredoc data', async () => {
++    for (const c of ['time make test', 'timeout 60 npm test', 'nice -n 10 pytest', 'echo hi | grep h', '( cd sub && ls )', 'ls tests | xargs grep -l expect', 'cat a.test.ts | grep expect', 'git log | sh -c "cat"', 'cat a.test.ts | bash -c "grep expect"']) {
++      expect([c, shellPlan(c, '/repo').refuseBefore, bashSignals(c)]).toEqual([c, false, []])
++    }
++    // An array assignment's ( is not a subshell: the sed after it is compared, not refused.
++    expect(shellPlan("arr=(a b); sed -i 's/a/b/' a.test.ts", '/repo').refuseBefore).toBe(false)
++    // A heredoc writing a test is data: its ( and { lines and a | sh in its text are not groups or pipes.
++    const heredoc = "cat >> a.test.ts <<'EOF'\n(function () {\n  {\n    it('x', () => expect(run('a | sh')).toBe(1))\n  }\n})()\nEOF"
++    expect(shellPlan(heredoc, '/repo')).toEqual({ snapshotUpdate: false, targets: ['/repo/a.test.ts'], refuseBefore: false })
 +  })
 +})
 diff --git a/types/index.d.ts b/types/index.d.ts

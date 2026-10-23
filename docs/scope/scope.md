@@ -132,7 +132,7 @@ Closed rows (done or dropped, no open box) live in [done.md](done.md).
 | 109 | restructure-check follow-ups from its first real run | Release 10 | done |
 | 110 | Fix: install reapplies a changed patch to an edited skill | Release 10 | done |
 | 111 | Review leftovers 2026-10-23: destructive guard pathspec forms | Release 10 | not started |
-| 112 | Assertion Guardian: remaining hidden command forms | Release 10 | not started |
+| 112 | Assertion Guardian: remaining hidden command forms | Release 10 | in-progress |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -277,10 +277,10 @@ Source: automated security review of PR #211 (2026-10-23).
 ### 112. Assertion Guardian: remaining hidden command forms
 Forms spec 0079 does not cover yet: a brace group `{ ... & }`, `xargs ... sh -c`, `echo ... | sh`, `nice -n`, `env -S`, and the contents of sourced files.
 **Done when:** each of those forms makes the guard refuse before running, with a mod test each, the patch is regenerated, and it is live.
-- [ ] Design it (spec): `/architect assertion guardian remaining hidden command forms`
-- [ ] Build it: `/develop assertion guardian remaining hidden command forms`
-- [ ] Verify it: `/check verify assertion guardian remaining hidden command forms`
-- [ ] Test it: `/test assertion guardian remaining hidden command forms`
+- [x] Design it (spec): `/architect assertion guardian remaining hidden command forms` (no new decision: spec 0079 amended 2026-10-23, AC-5 to AC-12, same rule)
+- [x] Build it: `/develop assertion guardian remaining hidden command forms` (branch fix/0079-guardian-more-forms, draft PR, not live yet; probe P2 in 0079 verify.md)
+- [x] Verify it: `/check verify assertion guardian remaining hidden command forms` (CAN FAIL CHECKED: 7, 0079 verify.md; not live)
+- [x] Test it: `/test assertion guardian remaining hidden command forms` (10 new mod tests, 80 pass; 16 mutants all red, restored green; fast.py 194 ok)
 - [ ] Install it live after merge: move `~/.claude/skills/assertion-guardian` to the trash, `tools/bin/install.sh`, then `python3 tools/bin/claude-config.py drift` shows nothing for it · waits on you
 Source: PR #214 review and build (2026-10-23).
 
