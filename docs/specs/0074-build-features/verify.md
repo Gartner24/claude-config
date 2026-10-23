@@ -23,14 +23,14 @@ On a scratch GitHub repo of the owner: one `agent()` with `isolation: 'worktree'
 # Verify: build-features · spec 0074 · updated 2026-10-22
 _Steps derived from the acceptance criteria. `/check verify` runs these; `/test` locks the durable ones._
 ## Commands
-- [ ] `python3 tests/fast.py test_build_features` -> 7 ok (ready list, clashes, own PR, failed PR list, script fan out, results, bad args) -> AC-1, AC-2, AC-5, AC-6, AC-8
-- [ ] `claude plugin test claude-home/mods/chip-dash` -> the two `build` band tests and the register count test pass -> AC-12
-- [ ] From the main checkout: `python3 ~/.claude/skills/build-features/ready.py` -> this repo's ready rows; a row whose `feat/NNNN-*` branch exists says `already in progress` -> AC-1, AC-2
-## UI / manual
-- [ ] `/build-features` with two non overlapping ready rows: the pick panel passes `plain-panel.py`; ticking both starts one Workflow run; the band shows `build 2`, then `build 1`, then nothing -> AC-3, AC-5, AC-12
-- [ ] `start-gates` saying `wait:` lists the later rows as `not started` -> AC-4
-- [ ] An APPROVE PR with every checklist item merges; a CAUTION one stays a draft and is listed -> AC-9; a work origin lists the PRs with no review -> AC-10
-- [ ] `rules/when-to-switch-on.md` row 31 says to run `/build-features`, live copy equal to the repo copy -> AC-13
+- [x] `python3 -B tests/fast.py test_build_features` -> 9 ok -> AC-1, AC-2, AC-5, AC-6, AC-8. can fail: a script without `isolation: 'worktree'` (KeyError, red), ready.py offering a `needs a decision` row (test_ready_list red) or ignoring an existing `feat/NNNN-*` branch (test_clashes red); run 2026-10-22
+- [x] `claude plugin test claude-home/mods/chip-dash` -> 85 pass incl. the `build` band tests and the register count test -> AC-12. can fail: never dropping a workflow agent after 2 hours (band test red), or counting a plain subagent (register test red); run 2026-10-22
+- [x] `python3 -B tests/fast.py` -> 167 ok, whole suite -> regression. can fail: any suite test broken by this diff; run 2026-10-22
+## UI / manual (not run: a real run builds against live repos; read SKILL.md and build-features.js instead)
+- [ ] `/build-features` with two non overlapping ready rows: pick panel, one Workflow run, band `build 2` then nothing -> AC-3, AC-5, AC-12 (manual)
+- [ ] `start-gates` saying `wait:` lists the later rows as `not started` -> AC-4 (manual; SKILL.md step 4 matches the spec text)
+- [ ] An APPROVE PR with every checklist item merges; a CAUTION one stays a draft -> AC-9; a work origin lists the PRs with no review -> AC-10 (manual; SKILL.md step 6 matches the spec text)
+- [ ] `rules/when-to-switch-on.md` row 31 says to run `/build-features` -> AC-13: repo copy done (line 7); live copy and `bin/sync.sh` run after merge, by design
 ## Value sourcing
 - ready rows: a `needs a design` row and a `· needs a decision` tagged row are left out (test_ready_list)
 - clashes: `spec-paths --overlap` exit 1 shows the pair (test_clashes); a failed `gh pr list` says so on each row (test_pr_list_failed)

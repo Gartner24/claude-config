@@ -226,8 +226,8 @@ A saved Claude Code workflow (`/build-features`) that builds every ready scope r
   - [x] Skill: ready list, clashes, pick panel, start gates, workflow script (AC-1 to AC-8) (draft PR #201)
   - [x] Review and merge loop (AC-9, AC-10) (draft PR #201)
   - [ ] Panel script, band count, rule line, live copy and `bin/sync.sh` (AC-11 to AC-13) (panel script dropped; band count and repo rule line built; live copy and `bin/sync.sh` not run yet)
-- [ ] Verify it: `/check verify build-features workflow`
-- [ ] Test it: `/test build-features workflow`
+- [x] Verify it: `/check verify build-features workflow` (2026-10-22: automated ACs 1, 2, 5, 6, 8, 12 pass; AC-3, 4, 9, 10 manual by reading; AC-11 dropped; AC-13 live copy after merge; CAN FAIL CHECKED: 3)
+- [x] Test it: `/test build-features workflow` (no tests added; 9 + 85 + suite 167 pass; 5 existing tests mutation checked; MUTATION CHECKED: 0 new)
 Source: [brief](../briefs/build-features.md) (probe passed); [brief](../briefs/icm-restructure.md) "Workflows" and "Running workflows show"; your messages 2026-10-22.
 
 ### 101. Workflow templates research and a workflow builder skill · in-progress
