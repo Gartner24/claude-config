@@ -20,15 +20,15 @@ because the LICENSE covers only the parts authored here.
 | `claude-home/skills/workflow-builder/`, `claude-home/workflows/` | `/workflow-builder`: ICM style stage folders and one Workflow script per workflow; its templates are written here and only name the icm-architect commit they follow (spec 0076) |
 | `claude-home/skills/auto/` | `/auto on`, `/auto off`: autonomous mode, the session drives `wf` (spec 0030) |
 | `claude-home/skills/improve-my-system/` | Weekly review of your own session history, redacted before any model reads it (spec 0061) |
-| `claude-home/rules/scope-contract.md` | The scope format the runner reads and the skills write (spec 0003) |
-| `claude-home/rules/spec-gate.md` | Spec gate: the agreeing section, probe before accept, small change fast path, `docs/architecture.md` |
-| `claude-home/rules/handoff.md` | Handoff override: replaces the skills' bare "/clear" line with `/rollover` or `/save-and-clear` |
-| `claude-home/rules/standing-answers.md` | Standing answers: skill questions answered the same way every time in interactive sessions |
+| `claude-home/rules-on-demand/scope-contract.md` | The scope format the runner reads and the skills write (spec 0003) |
+| `claude-home/rules-on-demand/spec-gate.md` | Spec gate: the agreeing section, probe before accept, small change fast path, `docs/architecture.md` |
+| `claude-home/rules-on-demand/handoff.md` | Handoff override: replaces the skills' bare "/clear" line with `/rollover` or `/save-and-clear` |
+| `claude-home/rules-on-demand/standing-answers.md` | Standing answers: skill questions answered the same way every time in interactive sessions |
 | `claude-home/rules/plain-questions.md` | Plain words: everything said to you in plain words, a "Learn this first" option on every panel, and an explanation from zero on request (spec 0028) |
-| `claude-home/rules/skill-map.md` | Skill map: which skill fits each situation, its rough cost, and who starts it |
-| `claude-home/rules/check-gates.md` | Check gates: verify steps and tests that can fail, `**Paths:**` on every spec with `/sync` stale warnings, cross checks against the brief (spec 0015) |
-| `claude-home/rules/review-fix.md` | After a review: which findings are fixed without asking, which are asked, and the two round stopping point |
-| `claude-home/rules/cheap-worker.md` | Cheap worker tier: which text jobs go to `fb-ask`, the never list, and what exit 3 or 4 means (spec 0023) |
+| `claude-home/rules-on-demand/skill-map.md` | Skill map: which skill fits each situation, its rough cost, and who starts it |
+| `claude-home/rules-on-demand/check-gates.md` | Check gates: verify steps and tests that can fail, `**Paths:**` on every spec with `/sync` stale warnings, cross checks against the brief (spec 0015) |
+| `claude-home/rules-on-demand/review-fix.md` | After a review: which findings are fixed without asking, which are asked, and the two round stopping point |
+| `claude-home/rules-on-demand/cheap-worker.md` | Cheap worker tier: which text jobs go to `fb-ask`, the never list, and what exit 3 or 4 means (spec 0023) |
 | `claude-home/rules/new-number-replaces-old.md`, `claude-home/skills/lead-finder/`, `claude-home/skills/reaction-tester/` | Ideas borrowed from Harvey, MiroFish and claude-skills-founder, written here from scratch (spec 0056) |
 | `claude-home/rules/ecc/*/index.md` (7 files) | Per-language rule indexes - authored here, not upstream. They only `@import` the files below. |
 | `bin/sync.sh`, `claude-home/CLAUDE.md`, `claude-home/rules/ecc/common/{code-review,testing}.md` additions | Setup and the hand-earned rules |

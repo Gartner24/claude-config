@@ -16,6 +16,10 @@ PARAPHRASED = {
     (43, "claude-home/mods/<name>/"),  # <name> placeholder: ref-check rejects <> in a cited path; the card names each mod
     (49, "~/claude-config"),         # spelling: CLAUDE.md names the home chat's folder as "home chat" rules in CLAUDE.local.md
     (66, "_archive/runner/wf.py"),   # path: the scope card says "the plan parser" and cites chip-dash plan.py, the live reader
+    # spec 0077 AC-3 moved these rule files to claude-home/rules-on-demand/; the cards cite the new path
+    (35, "claude-home/rules/cheap-worker.md"),
+    (54, "claude-home/rules/check-gates.md"),
+    (66, "claude-home/rules/scope-contract.md"),
 }
 
 

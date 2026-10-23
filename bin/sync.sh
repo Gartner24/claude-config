@@ -24,8 +24,9 @@ fail=0
 "${NAMES[@]}" check "$LIVE/CLAUDE.md" "$LIVE/agents" "$LIVE/rules" \
   "$LIVE/hooks/block-destructive.sh" "$LIVE/hooks/review-stack-pre-push" "$LIVE/hooks/plain-panel.py" "$LIVE/hooks/context-monitor.js" || fail=1
 # Spec 0048: these may be missing from a live tree (first install, the self checks' temp trees).
-OPTIONAL=(hooks/claude-config-reminder.py hooks/workflow-start.sh hooks/handover-start.sh hooks/no-jjstack-bar.py hooks/live-tick.py scripts/claude-ram-watch.sh)
-for f in "${OPTIONAL[@]}"; do
+OPTIONAL=(hooks/claude-config-reminder.py hooks/workflow-start.sh hooks/handover-start.sh hooks/no-jjstack-bar.py hooks/live-tick.py
+          hooks/skill-rules.py MAP.md scripts/claude-ram-watch.sh)
+for f in "${OPTIONAL[@]}" rules-on-demand; do
   if [ -e "$LIVE/$f" ]; then "${NAMES[@]}" check "$LIVE/$f" || fail=1; fi
 done
 if [ "$fail" = 1 ]; then
@@ -44,6 +45,11 @@ mv "$tmp/settings.local.json"   "$REPO/claude-home/settings.local.json"
 mkdir -p "$REPO/claude-home/agents" "$REPO/claude-home/rules"
 cp -a "$LIVE/agents/." "$REPO/claude-home/agents/"
 cp -a "$LIVE/rules/."  "$REPO/claude-home/rules/"
+# Spec 0077 AC-7: the rules a skill or a pointer line loads; missing before the first install after 0077.
+if [ -d "$LIVE/rules-on-demand" ]; then
+  mkdir -p "$REPO/claude-home/rules-on-demand"
+  cp -a "$LIVE/rules-on-demand/." "$REPO/claude-home/rules-on-demand/"
+fi
 
 # Hooks + scripts that are real files here (the rest are framework symlinks).
 mkdir -p "$REPO/claude-home/hooks" "$REPO/claude-home/scripts"
@@ -63,7 +69,8 @@ done
 # with no signal at all - which for a public repo means a file removed because it became
 # sensitive would remain published. Name the orphans instead of trusting git status.
 orphans=0
-for d in agents rules; do
+for d in agents rules rules-on-demand; do
+  [ -d "$REPO/claude-home/$d" ] || continue
   while IFS= read -r rel; do
     [ -e "$LIVE/$d/$rel" ] && continue
     orphans=$((orphans + 1))

@@ -63,7 +63,7 @@ function messageFor(used) {
       'Do not start new work: finish this step and `/rollover` now.';
   }
   // The wf-handoff mod hands off at HANDOFF_TOKENS; telling the model to roll over here made chats hand off at 150k.
-  return `Context: ${k}k tokens used. Rule (\`~/.claude/CLAUDE.md\` Context): the wf-handoff mod hands off by itself ` +
+  return `Context: ${k}k tokens used. Rule (\`~/.claude/rules-on-demand/workflow.md\` Context): the wf-handoff mod hands off by itself ` +
     `at ${Math.floor(HANDOFF_TOKENS / 1000)}k; do not run \`/rollover\` for size unless it says auto handoff is paused or off.`;
 }
 
@@ -131,7 +131,7 @@ function selfTest() {
     assert.strictEqual(r.status, 0, r.stderr);
     return r.stdout ? JSON.parse(r.stdout).hookSpecificOutput.additionalContext : '';
   };
-  const warn = (k, h = 250) => `Context: ${k}k tokens used. Rule (\`~/.claude/CLAUDE.md\` Context): the wf-handoff mod hands off by itself at ${h}k; do not run \`/rollover\` for size unless it says auto handoff is paused or off.`;
+  const warn = (k, h = 250) => `Context: ${k}k tokens used. Rule (\`~/.claude/rules-on-demand/workflow.md\` Context): the wf-handoff mod hands off by itself at ${h}k; do not run \`/rollover\` for size unless it says auto handoff is paused or off.`;
   const crit = (k) => `Context: ${k}k tokens used; autocompact (lossy) runs at 700k. Do not start new work: finish this step and \`/rollover\` now.`;
 
   assert.strictEqual(run([userLine, asst(149999)]), '');
@@ -180,10 +180,10 @@ function selfTest() {
   const src = fs.readFileSync(__filename, 'utf8');
   const settings = fs.readFileSync(path.join(__dirname, '..', 'settings.json'), 'utf8');
   assert.deepStrictEqual(driftFindings(src, settings), []);
-  // CLAUDE.md states the same handoff number settings.json sets.
+  // rules-on-demand/workflow.md states the same handoff number settings.json sets.
   const handoff = Number(JSON.parse(settings).env.AUTO_HANDOFF_TOKENS);
-  const claudeMd = fs.readFileSync(path.join(__dirname, '..', 'CLAUDE.md'), 'utf8');
-  assert.ok(claudeMd.includes(`hands a chat off by itself at ${handoff / 1000}k tokens`), `CLAUDE.md must say ${handoff / 1000}k`);
+  const claudeMd = fs.readFileSync(path.join(__dirname, "..", "rules-on-demand", "workflow.md"), 'utf8');
+  assert.ok(claudeMd.includes(`hands a chat off by itself at ${handoff / 1000}k tokens`), `workflow.md must say ${handoff / 1000}k`);
   assert.strictEqual(driftFindings(src.replace(/(\/\/\s+WARN_TOKENS\s+)150000/, '$1140000'), settings).length, 1);
   assert.strictEqual(driftFindings(src.replace(/(\/\/\s+CRITICAL_TOKENS\s+)650000/, '$1600000'), settings).length, 1);
   assert.strictEqual(driftFindings(src.replace(/(\/\/\s+AUTOCOMPACT_TOKENS\s+)700000/, '$1800000'), settings).length, 1);

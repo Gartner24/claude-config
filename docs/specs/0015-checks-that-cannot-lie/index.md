@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-13
 **Status**: Accepted
-**Paths:** `claude-home/rules/check-gates.md`, `scripts/spec-paths.py`, `bin/install.sh`, `_archive/runner/run.py`
+**Paths:** `claude-home/rules-on-demand/check-gates.md`, `scripts/spec-paths.py`, `bin/install.sh`, `_archive/runner/run.py`
 **Amends**: [0008](../../../_archive/runner/docs/specs/0008-failure-park-policy/index.md) (classification order gains rule 11a, the `unchecked` park), [0011](../0011-build-decision-queue/index.md) (AC-9 park set gains `unchecked`).
 
 ## Summary

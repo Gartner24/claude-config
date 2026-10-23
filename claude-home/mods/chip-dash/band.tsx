@@ -52,6 +52,14 @@ function meterSeg(id: string, label: string, value: number | null, reset = ''): 
   return seg(id, runs)
 }
 
+// spec 0074 AC-12: workflow agents still running, by agentId -> spawn time. One with no turn.complete for 2 hours is
+// dropped (a cancelled run may never send one).
+export const BUILD_STALE_MS = 2 * 60 * 60 * 1000
+export function liveBuilds(running: Map<string, number>, now: number) {
+  for (const [id, at] of running) if (now - at > BUILD_STALE_MS) running.delete(id)
+  return running.size
+}
+
 // `rich` adds the reset times and the context tokens; the band drops them before it drops a segment.
 // `compact` is for a column too narrow for the chip and the full handoff segment (the ~31 cells beside the docked
 // dashboard).
@@ -81,6 +89,8 @@ export function segments(f: Facts, now = Date.now(), rich = true, compact = fals
     meterSeg('5h', '5h', f.fiveHour, rich ? resetIn(f.fiveHourReset, now) : ''),
     meterSeg('week', 'week', f.week, rich ? resetIn(f.weekReset, now) : ''),
   )
+  // spec 0074 AC-12: running /build-features workflow agents; nothing at 0
+  if ((f.build ?? 0) > 0) left.push(seg('build', [{ text: `build ${f.build}`, color: color.text, bold: true }]))
   // spec 0071 AC-7: the steps this chat owes, drawn just before the handoff segment; nothing at 0 or when the file
   // could not be read (never `owed 0`, never `owed ?`). Kept in the left list so fit() counts it, last to drop.
   const owed = f.owed?.lines?.length ?? 0
@@ -105,7 +115,7 @@ export function segments(f: Facts, now = Date.now(), rich = true, compact = fals
 // count (drawn on the right) is the last to go: it outlasts the model and stays in the compact band beside the docked
 // dashboard (spec 0071 AC-7), where it is 2 cells too wide beside `on 200k`, so past the model nothing more leaves and
 // the handoff state truncates at its end instead.
-const DROP = ['folder', 'git', 'week', '5h', 'via', 'ctx', 'model']
+const DROP = ['folder', 'git', 'week', '5h', 'via', 'ctx', 'build', 'model']
 // the segments drawn at the left: every kept one but the owed count
 const leftOf = (kept: Seg[]) => kept.filter(s => s.id !== 'owed')
 

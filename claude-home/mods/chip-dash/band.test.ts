@@ -1,5 +1,5 @@
 import { expect, test } from 'claude-code/testing'
-import { fit, segments } from './band.tsx'
+import { BUILD_STALE_MS, fit, liveBuilds, segments } from './band.tsx'
 import { space } from './tokens.ts'
 
 const facts = {
@@ -78,4 +78,20 @@ test('a repo whose counts were skipped shows its branch only, never clean', () =
 test('unknown effort is left out of the band, never guessed', () => {
   const { left } = segments({ ...facts, effort: null }, 0, false)
   expect(words(left.find(s => s.id === 'model')!)).toBe('Opus 5.5')
+})
+
+// covers: spec 0074 AC-12 (build <n> when n is above 0, nothing at 0 or unknown)
+test('the band shows build <n> only while workflow agents run', () => {
+  const ids = (f: any) => segments(f, 0, false).left.map(s => s.id)
+  expect(words(segments({ ...facts, build: 2 }, 0, false).left.find(s => s.id === 'build')!)).toBe('build 2')
+  expect(ids({ ...facts, build: 0 })).not.toContain('build')
+  expect(ids(facts)).not.toContain('build')
+})
+
+// covers: spec 0074 AC-12 (an entry with no turn.complete for 2 hours is dropped)
+test('a workflow agent with no end for 2 hours is no longer counted', () => {
+  const running = new Map([['old', 0], ['new', BUILD_STALE_MS]])
+  expect(liveBuilds(running, BUILD_STALE_MS)).toBe(2)
+  expect(liveBuilds(running, BUILD_STALE_MS + 1)).toBe(1)
+  expect([...running.keys()]).toEqual(['new'])
 })

@@ -8,7 +8,7 @@ Model: sonnet low
 
 ## Inputs
 - `<run>/input/findings.md`: the findings to sort
-- `~/.claude/rules/review-fix.md`: the rule that defines the groups and the stopping point
+- `~/.claude/rules-on-demand/review-fix.md`: the rule that defines the groups and the stopping point
 
 ## Process
 1. Read only the cited lines of each finding. Drop a finding with no `file:line` and count it.

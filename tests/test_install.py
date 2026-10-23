@@ -22,7 +22,7 @@ class Scratch(unittest.TestCase):
         shutil.copy(REPO / "bin/install.sh", repo / "bin/install.sh")
         shutil.copy(REPO / "bin/claude-config.py", repo / "bin/claude-config.py")
         for f in ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py",
-                  "hooks/context-monitor.js", "hooks/handover-start.sh", "hooks/no-jjstack-bar.py"):
+                  "hooks/context-monitor.js", "hooks/handover-start.sh", "hooks/no-jjstack-bar.py", "hooks/skill-rules.py"):
             (repo / "claude-home" / f).write_text("#!/bin/sh\n")
         (repo / "scripts" / "private-names.py").write_text(CHECKER)
         (repo / "claude-home" / "settings.json").write_text("{}")
@@ -97,6 +97,53 @@ class TestWorkflowLinks(Scratch):
         self.assertEqual(link.resolve(), (self.repo / "claude-home" / "workflows" / "a").resolve())
         self.assertFalse((live / "workflows" / "b").is_symlink())
         self.assertIn("SKIP workflows/b (a real file is already there)", r.stdout)
+
+
+class TestRulesOnDemand(Scratch):
+    # covers: spec 0077 AC-6 (MAP.md is copied live), AC-7 (rules-on-demand/ and skill-rules.py are copied; a live file
+    # in rules/ or rules-on-demand/ with no repo source moves to backups/rules/<date>/ and is named in the output)
+    def test_moved_rules_stop_loading(self):
+        (self.repo / "claude-home" / "rules" / "kept.md").write_text("kept\n")
+        (self.repo / "claude-home" / "rules-on-demand").mkdir()
+        (self.repo / "claude-home" / "rules-on-demand" / "moved.md").write_text("moved\n")
+        (self.repo / "claude-home" / "MAP.md").write_text("map\n")
+        live = self.tmp / "home-rules" / ".claude"
+        for rel in ("rules/kept.md", "rules/moved.md", "rules-on-demand/stale.md"):
+            (live / rel).parent.mkdir(parents=True, exist_ok=True)
+            (live / rel).write_text("old\n")
+        _, live, r = self.install("rules")
+        out = r.stdout + r.stderr
+        self.assertEqual((live / "rules" / "kept.md").read_text(), "kept\n", out)
+        self.assertEqual((live / "rules-on-demand" / "moved.md").read_text(), "moved\n", out)
+        self.assertEqual((live / "MAP.md").read_text(), "map\n", out)
+        self.assertTrue((live / "hooks" / "skill-rules.py").exists(), out)
+        self.assertFalse((live / "rules" / "moved.md").exists(), out)
+        self.assertFalse((live / "rules-on-demand" / "stale.md").exists(), out)
+        backups = sorted(str(p.relative_to(live / "backups" / "rules")) for p in (live / "backups" / "rules").rglob("*.md"))
+        self.assertEqual([b.split("/", 1)[1] for b in backups], ["rules-on-demand/stale.md", "rules/moved.md"], out)
+        self.assertIn("live only: rules/moved.md -> backups/rules/", r.stdout, out)
+        self.assertIn("live only: rules-on-demand/stale.md -> backups/rules/", r.stdout, out)
+
+
+    # covers: PR 205 review (a second same-day backup of the same path keeps the first one under a numbered name)
+    def test_backup_not_overwritten(self):
+        (self.repo / "claude-home" / "rules-on-demand").mkdir()
+        live = self.tmp / "home-bak" / ".claude"
+        for text in ("first\n", "second\n"):
+            (live / "rules").mkdir(parents=True, exist_ok=True)
+            (live / "rules" / "gone.md").write_text(text)
+            self.install("bak")
+        found = sorted(p.read_text() for p in (live / "backups" / "rules").rglob("gone.md*"))
+        self.assertEqual(found, ["first\n", "second\n"])
+
+    # covers: spec 0077 AC-1 live measure (verify sums live CLAUDE.md plus rules/*.md and fails over 20000, printing it)
+    def test_live_size_check(self):
+        _, _, r = self.install("small")
+        self.assertIn("live always loaded text: 4 characters (limit 20000)", r.stdout, r.stdout + r.stderr)
+        (self.repo / "claude-home" / "rules" / "big.md").write_text("x" * 20000)
+        _, _, r = self.install("big")
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertIn("IS 20004 CHARACTERS", r.stderr)
 
 
 class TestHookFiles(Scratch):

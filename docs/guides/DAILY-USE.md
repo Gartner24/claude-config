@@ -5,7 +5,7 @@ This is for you, using this setup day to day. It shows the workflow chain, the `
 
 ## The workflow chain
 
-The full rules are in [claude-home/CLAUDE.md](../../claude-home/CLAUDE.md) under `## Workflow`, and the skill table is in [claude-home/rules/skill-map.md](../../claude-home/rules/skill-map.md). This is the short version for a person.
+The full rules are in [claude-home/rules-on-demand/workflow.md](../../claude-home/rules-on-demand/workflow.md) (the one line version is the `## Routing` block of [claude-home/CLAUDE.md](../../claude-home/CLAUDE.md)), and the skill table is in [claude-home/rules-on-demand/skill-map.md](../../claude-home/rules-on-demand/skill-map.md). This is the short version for a person.
 
 1. Start a session in a repo: run `/scope` with no argument. It tells you where things stand. If the repo has no `AGENTS.md`, run `/audit` first. If it has no `docs/scope/`, run `/scope` before any feature work.
 2. A big choice is not made yet (stack, data model, provider, page design, how a feature behaves): run `/architect`. It writes a spec. Never decide it inside a build.

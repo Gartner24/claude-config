@@ -79,3 +79,31 @@ test('the band above the prompt draws, with and without a handoff line', async (
   expect(await ui.find({ type: 'Text', text: /chip-dash: reading status/ })).toBeDefined()
   await ui.unmount()
 })
+
+// covers: spec 0074 AC-12 (workflow agents counted from agent.spawn and turn.complete: spawn, spawn, complete gives
+// build 1; a plain subagent is not counted; one with no end for 2 hours is dropped)
+test('the band counts running workflow agents: spawn, spawn, complete gives build 1', async ($, on) => {
+  const { state, clock } = host(on, () => ({ exitCode: 0, stdout: JSON.stringify({ folder: 'w', git: null, via: null }) }))
+  let n = 0
+  on('agent.spawn', () => ({ model: 'haiku', agentId: `a${++n}` }))
+  on('turn.complete', () => ({ text: '' }))
+  const spawn = (workflow: boolean) => $.agent.spawn({ prompt: 'p', description: 'd', ...(workflow ? { workflow: { runId: 'wf_1', agentIndex: n + 1 } } : {}) } as any)
+  const complete = (agentId: string) => $.turn.complete({ answer: '', durationMs: 1, isAborted: false, turnId: 't', agentId, reason: 'answer' } as any)
+  // a1 never ends: 2 hours on, before the session's ticks start, the next count drops it
+  await spawn(true)
+  await clock.set(2 * 60 * 60 * 1000 + 1)
+  await spawn(true)
+  await spawn(true)
+  await spawn(false)
+  expect(state['build']).toBe(2)
+  await complete('a2')
+  expect(state['build']).toBe(1)
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/w' } as any)
+  await clock.advance(10)
+  const props = { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 200 }
+  const ui = await $.ui.mount({ plugin: 'chip-dash', surface: 'terminal', component: 'AbovePrompt', props } as never)
+  expect(await ui.find({ type: 'Text', text: /^build 1$/ })).toBeDefined()
+  await ui.unmount()
+  await complete('a3')
+  expect(state['build']).toBe(0)
+})

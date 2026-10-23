@@ -38,7 +38,7 @@ class TestNotDownloaded(Case):
 class TestStatic(unittest.TestCase):
     # covers: AC-9 (typed only, never marked for wf in the skill map)
     def test_typed_only(self):
-        rows = (REAL / "claude-home" / "rules" / "skill-map.md").read_text().splitlines()
+        rows = (REAL / "claude-home" / "rules-on-demand" / "skill-map.md").read_text().splitlines()
         for n in ("lead-finder", "reaction-tester"):
             meta, text = front(n)
             self.assertEqual(meta["disable-model-invocation"], "true", n)

@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-22
 **Status**: Accepted
-**Paths:** `scripts/spec-paths.py`, `claude-home/hooks/chain-catch.py`, `claude-home/hooks/workflow-start.sh`, `claude-home/settings.json`, `claude-home/mods/wf-handoff/hooks/register.ts`, `claude-home/mods/wf-handoff/tests/**`, `claude-home/rules/skill-map.md`, `claude-home/rules/handoff.md`, `claude-home/rules/check-gates.md`, `claude-home/rules/scope-contract.md`, `claude-home/CLAUDE.md`, `bin/claude-config.py`
+**Paths:** `scripts/spec-paths.py`, `claude-home/hooks/chain-catch.py`, `claude-home/hooks/workflow-start.sh`, `claude-home/settings.json`, `claude-home/mods/wf-handoff/hooks/register.ts`, `claude-home/mods/wf-handoff/tests/**`, `claude-home/rules-on-demand/skill-map.md`, `claude-home/rules-on-demand/handoff.md`, `claude-home/rules-on-demand/check-gates.md`, `claude-home/rules-on-demand/scope-contract.md`, `claude-home/CLAUDE.md`, `bin/claude-config.py`
 **Amended**: 2026-10-22, AC-16 to AC-21 added (the whole chain from new work, document repos; owner: "Amend with scope chain"); cross check fixes to AC-9, AC-12, AC-16 to AC-21, the data model (`nagged`) and build steps 1 and 5 (owner: "Apply all eight")
 **Amended:** 2026-10-22, owner: workflow-start.sh applies the mod's rule itself (probe F1 showed the hook runs before the mod)
 **Amended:** 2026-10-22, owner: chain-catch counts only this turn's edits; a worktree agent naming the spec releases its row (repeat blocks seen live)

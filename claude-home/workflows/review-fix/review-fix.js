@@ -2,7 +2,7 @@
 // agent's phase, model and effort match stages/NN_<stage>/ and its `Model:` line (check.py compares them).
 export const meta = {
   name: 'review-fix',
-  description: 'Sort review findings by rules/review-fix.md, fix the fix-now ones with a test and mutation check, then run suite, verify and test. Never pushes.',
+  description: 'Sort review findings by rules-on-demand/review-fix.md, fix the fix-now ones with a test and mutation check, then run suite, verify and test. Never pushes.',
   phases: [
     { title: '01_sort', detail: 'Put every finding in one group and split the fix now ones into file groups' },
     { title: '02_fix', detail: 'Fix one file group with a test and a mutation check' },

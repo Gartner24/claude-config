@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-13
 **Status**: Accepted
-**Paths:** `_archive/runner/report.py`, `_archive/runner/ntfy.py`, `_archive/runner/run.py`, `_archive/runner/wf.py`, `_archive/runner/e2e/run.py`, `claude-home/settings.json`, `claude-home/rules/runner-handoff.md`
+**Paths:** `_archive/runner/report.py`, `_archive/runner/ntfy.py`, `_archive/runner/run.py`, `_archive/runner/wf.py`, `_archive/runner/e2e/run.py`, `claude-home/settings.json`, `claude-home/rules-on-demand/runner-handoff.md`
 **Amends**: [0005](../../../_archive/runner/docs/specs/0005-decision-parking-phone-pings/index.md) and architecture invariant 4 (one report note at the end of every run joins the question pings), [0017](../../../_archive/runner/docs/specs/0017-several-repos-at-once/index.md) (the parent sends one note for all its children). Uses the `· live` tag of [0019](../0019-live-setup-steps/index.md).
 **Amended by**: [0061](../0061-runner-improves-itself/index.md) - the session start report line gains a `wf proposals: N new` count with the inbox path.
 

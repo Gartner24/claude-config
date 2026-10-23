@@ -2,7 +2,7 @@
 
 **Date**: 2026-10-17
 **Status**: Accepted
-**Paths:** `claude-home/agents/*.md`, `claude-home/rules/lessons.md`, `claude-home/rules/cheap-worker.md`, `_archive/runner/run.py`, `_archive/runner/report.py`, `_archive/runner/tests/test_model_split.py`
+**Paths:** `claude-home/agents/*.md`, `claude-home/rules/lessons.md`, `claude-home/rules-on-demand/cheap-worker.md`, `_archive/runner/run.py`, `_archive/runner/report.py`, `_archive/runner/tests/test_model_split.py`
 **Amends**: [0014](0014-runner-resilience/index.md) (each call record gains a `models` field)
 
 ## What you're agreeing to

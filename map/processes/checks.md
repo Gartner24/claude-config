@@ -13,6 +13,7 @@ python3 scripts/private-names.py --test              # private names checker and
 bash claude-home/hooks/block-destructive.sh --test   # guard hook self-checks
 python3 claude-home/hooks/plain-panel.py --test      # panel hook: at most 3 options, first "(Recommended)", short labels, no internal codes
 bash claude-home/hooks/handover-start.sh --test      # handover on /clear hook (spec 0057); needs the real jjstack slot script
+python3 claude-home/hooks/skill-rules.py --test      # skill rules hook (spec 0077 AC-4): loads rules-on-demand/ files per map.json
 claude plugin test claude-home/mods/wf-handoff       # /handoff and auto handoff mod (specs 0057, 0063, 0064); `claude plugin validate` beside it
 claude plugin test claude-home/mods/chip-dash        # band and panes (specs 0058 to 0060, 0064, 0065); `claude plugin validate` beside it
 python3 bin/claude-config.py hook-files            # every live settings.json hook command names a file that exists

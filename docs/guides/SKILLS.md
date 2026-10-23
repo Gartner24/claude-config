@@ -15,6 +15,7 @@ Linked from `claude-home/skills/`; editing the repo copy is live.
 | `assets` | Sources, generates, codes and edits imagery for a design - photos, icons, illustrations, blobs, patterns, grain, logos, background removal and the optimization ladder. |
 | `astro-patterns` | Astro static-site patterns for the freelance client stack (Astro + React islands + Tailwind + shadcn on Cloudflare). |
 | `brand-system` | Produces a client's brand system as a self-contained, contract-validated HTML brand board - the canonical binding source the build follows. |
+| `build-features` | Build the ready scope rows you pick in parallel, one worktree agent each, to draft PRs; then review each PR and merge the safe ones (spec 0074). |
 | `business-analyzer` | Produce rigorous, data-backed business and strategy analysis - SWOT, B2B and B2C analysis, market and competitive analysis, pricing/go-to-market, financial projections, and country/jurisdiction context - for a NEW idea or an EXISTING business, grounded in CURRENT real-world data via web search. |
 | `claude-config` | Sync ~/.claude and the claude-config repo both ways, show drift between them, and update downloaded skills from upstream after a yes per skill (spec 0048). |
 | `content-ops` | Write website copy and blog content for clients that gets them FOUND in Google and AI answers - not generic AI slop. |
