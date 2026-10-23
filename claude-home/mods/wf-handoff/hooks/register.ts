@@ -41,7 +41,9 @@ const AGENT_POLL_MS = 5000
 const NO_MEMORY = 'memory not written: the handover names no index (the writer did not run, or its result was not written)'
 
 let opts: PluginOptions = {}
-let threshold = 200000
+// The harness fills options.threshold from plugin.json; this fallback must equal that default (edges.test.ts).
+export const DEFAULT_THRESHOLD = 250000
+let threshold = DEFAULT_THRESHOLD
 let headroom = 40000
 let maxInRow = 2
 let ignoreFiles = ''
@@ -562,7 +564,7 @@ async function startSkills($: EngineInterface, id: string, cwd: string) {
 // Spec 0063: the same mod also hands off on its own at the token line (AC-1 to AC-12).
 export const register: Register = (on, options) => {
   opts = options
-  threshold = Number(options.threshold ?? 200000)
+  threshold = Number(options.threshold ?? DEFAULT_THRESHOLD)
   headroom = Number(options.minHeadroom ?? 40000)
   maxInRow = Number(options.maxConsecutiveHandoffs ?? 2)
   ignoreFiles = String(options.ignoreFiles ?? '')

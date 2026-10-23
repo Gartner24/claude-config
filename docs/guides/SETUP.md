@@ -16,7 +16,7 @@ Each of your own repos gets the same GitHub settings: squash merge only, branche
 
 1. Set them once per repo: `bin/repo-settings.sh <owner/repo>`. Then `bin/repo-settings.sh --check <owner/repo>` must exit 0.
 2. To let small, low risk runner PRs merge themselves once green, add the repo to `~/.claude/private/pr.json`, for example `"Gartner24/claude-config": {"merge": true, "auto_merge": true}`. Only you write that file. `merge: true` alone keeps the "merge now" question and no self merge.
-3. Docs only commits made in a session go out with `bin/docs-pr.sh <slug>` from the repo, which opens and squash merges a small PR. Afterwards, check that `git diff HEAD origin/main` is empty, then `git reset --hard origin/main` (the script does not realign local main yet, plan item E3).
+3. Docs only commits made in a session go out with `bin/docs-pr.sh <slug>` from the repo, which opens and squash merges a small PR. Afterwards, check that `git diff HEAD origin/main` is empty, then type `! git reset --hard origin/main` yourself: `block-destructive.sh` blocks it for Claude (the script does not realign local main yet, plan item E3).
 
 ## Restore on a new machine
 

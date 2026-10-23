@@ -4,6 +4,7 @@
   sync              ~/.claude -> repo for the copied kinds (bin/sync.sh does the copy)
   install [--dry-run]  repo -> ~/.claude (bin/install.sh does the copy and the links)
   drift             every item in one place and not the other, or different, by kind; exit 1 when any
+  hook-files        exit 1 naming each live settings.json hook command whose file is missing (bin/install.sh)
   update --plan     every git entry whose upstream moved, with its changed files; asks nothing
   update --apply <entry> [--resolved]
                     install upstream now for one entry, your patch merged in; exit 2 on a conflict
@@ -21,6 +22,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -213,6 +215,48 @@ def settings(out):
                             else ("live only" if key in live else "missing live")))
 
 
+INTERPRETERS = {"bash", "sh", "zsh", "python", "python3", "node"}
+
+
+def missing_hook_files(settings_path):
+    """Each hook command in settings.json whose script path (after `~`/`$HOME`) does not exist, as (path, command).
+    A command that does not start with a path, or an interpreter and a path, is skipped."""
+    if not settings_path.exists():
+        return []
+    out = []
+    for groups in (json.loads(settings_path.read_text()).get("hooks") or {}).values():
+        for g in groups if isinstance(groups, list) else []:
+            for c in g.get("hooks") or [] if isinstance(g, dict) else []:
+                cmd = c.get("command") if isinstance(c, dict) else None
+                try:
+                    words = shlex.split(cmd) if isinstance(cmd, str) else []
+                except ValueError:
+                    continue
+                if len(words) > 1 and os.path.basename(words[0]) in INTERPRETERS:
+                    words = words[1:]
+                if not words:
+                    continue
+                path = re.sub(r"^(~|\$HOME|\$\{HOME\})(?=/)", lambda m: str(Path.home()), words[0])
+                if path.startswith("/") and not Path(path).exists():
+                    out.append((path, cmd))
+    return out
+
+
+def hook_files():
+    """bin/install.sh verify: exit 1 naming each hook command in live settings.json whose file is missing, skipping
+    the live skills folder (jjstack and gstack hooks, which their own installers own); exit 2 when it does not parse."""
+    try:
+        missing = missing_hook_files(LIVE / "settings.json")
+    except ValueError as e:
+        print(f"hook-files: {LIVE / 'settings.json'} does not parse: {e}")
+        return 2
+    skills = LIVE / "skills"
+    missing = [(p, c) for p, c in missing if not Path(p).is_relative_to(skills)]
+    for path, cmd in missing:
+        print(f"missing hook file: {path} (command: {cmd})")
+    return 1 if missing else 0
+
+
 TEMPLATES = HOME_DIR / "skills" / "workflow-builder" / "templates"
 
 
@@ -246,6 +290,8 @@ def drift():
     # Spec 0076 AC-6: workflows have no manifest entries; a real folder where a link belongs is reported.
     linked_kind("workflows", manifest, fw, out)
     settings(out)
+    for path, _ in missing_hook_files(LIVE / "settings.json"):
+        out.append(("hook", path, "settings.json hook command names a missing file"))
     last = None
     for kind, name, why in sorted(out):
         if kind != last:
@@ -1043,6 +1089,8 @@ def main(argv):
         return subprocess.run(["bash", str(REPO / "bin" / "install.sh"), *rest]).returncode
     if cmd == "drift" and not rest:
         return drift()
+    if cmd == "hook-files" and not rest:
+        return hook_files()
     if cmd == "update" and rest == ["--plan"]:
         return update_plan()
     if cmd == "update" and len(rest) in (2, 3) and rest[0] == "--apply" and rest[2:] in ([], ["--resolved"]):
