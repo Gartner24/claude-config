@@ -270,6 +270,10 @@ echo "verify:"
 if [ "$DRY" = 1 ]; then
   note "skipped (dry run)"
 else
+  # A hook command naming a missing file fails on every event it is wired to; refuse it here.
+  python3 "$REPO/bin/claude-config.py" hook-files >&2 \
+    && note "hook files: every settings.json hook command names a file that exists" \
+    || { echo "  HOOK FILES MISSING (above) - those hooks fail on every call" >&2; exit 1; }
   bash "$LIVE/hooks/block-destructive.sh" --test >/dev/null \
     && note "guard hook: all self-checks passed" \
     || { echo "  guard hook SELF-CHECK FAILED - do not rely on it" >&2; exit 1; }

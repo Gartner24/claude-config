@@ -34,11 +34,15 @@ PATTERNS=(
   # EMPTY redirect onto a home path - `: > file` / `> file` can only truncate.
   # `echo x > ~/out.txt` writes content and is left alone.
   '(^|[;&|])[[:space:]]*(:|true)?[[:space:]]*>[[:space:]]*(~|\$HOME|/home/)[^[:space:]|;&]'
+  # git discarding uncommitted work: reset --hard, checkout of the whole tree
+  'git([[:space:]]+-C[[:space:]]+[^[:space:]|;&]+)?[[:space:]]+reset[[:space:]]+([^|;&]*[[:space:]])?--hard'
+  'git([[:space:]]+-C[[:space:]]+[^[:space:]|;&]+)?[[:space:]]+checkout[[:space:]]+(--[[:space:]]+)?\.([[:space:]]|$)'
 )
 
 # Dangerous targets: absolute path, home, parent traversal, whole cwd, bare glob.
 # The left boundary now allows a quote, so a quoted home target is caught like a bare one.
-RM_TARGETS='(^|[[:space:]]|["'"'"'])(/|~|\$HOME|\.\.|\*|\.([[:space:]]|$)|\./([[:space:]]|$))'
+# $PWD only when it is the whole target, like `.`; `$PWD/build` stays allowed.
+RM_TARGETS='(^|[[:space:]]|["'"'"'])(/|~|\$HOME|\$\{HOME\}|\.\.|\*|\.([[:space:]]|$)|\./([[:space:]]|$)|(\$PWD|\$\{PWD\})/?(["'"'"'[:space:]]|$))'
 
 # True when the deletion is RECURSIVE, in any flag spelling: -r, -R, inside a combined
 # cluster like -rf, split across tokens as -r -f, or --recursive. Tokenized on purpose:
@@ -434,6 +438,22 @@ if [[ "${1:-}" == "--test" ]]; then
   block 'rm -Rf /'
   block 'rm -rf "$HOME"'
   block 'rm -rf '"'"'$HOME'"'"''
+  # 2026-10-22 blind review: brace and cwd spellings, and git discarding work
+  block 'rm -rf ${HOME}'
+  block 'rm -rf "${HOME}"'
+  block 'rm -rf $PWD'
+  block 'rm -rf ${PWD}'
+  block 'rm -rf "$PWD/"'
+  block 'git reset --hard'
+  block 'git reset --hard origin/main'
+  block 'git -C /tmp/repo reset --hard'
+  block 'git checkout -- .'
+  block 'git checkout .'
+  allow 'rm -rf $PWD/build'
+  allow 'git reset --soft HEAD~1'
+  allow 'git checkout -- src/file.txt'
+  allow 'git checkout main'
+  allow_data 'git commit -m "docs: never git reset --hard"'
   # follow-up of spec 0016: a destructive rm inside a quoted shell string
   block 'bash -c "rm -rf ~"'
   block "sh -c 'rm -rf /'"

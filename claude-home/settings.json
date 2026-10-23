@@ -19,9 +19,7 @@
       "Bash(python3 /home/santiago/claude-config/scripts/skill-keep.py *)",
       "Bash(bash /home/santiago/.claude/conductor/lastsaid.sh)",
       "Bash(bash /home/santiago/.claude/conductor/lastsaid.sh *)",
-      "Read(~/.claude/projects/**)",
-      "Edit(~/.claude/CLAUDE.md)",
-      "Edit(~/.claude/rules/**)"
+      "Read(~/.claude/projects/**)"
     ],
     "deny": [
       "Bash(fdisk *)",
