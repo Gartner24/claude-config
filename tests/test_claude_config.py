@@ -165,6 +165,58 @@ class TestRestore(Case):
         self.assertEqual((s / "SKILL.md").read_text(), "mine only\n")
 
 
+class TestRestoreChangedPatch(Case):
+    """Scope row 110: install reapplies a changed patch to an installed edited skill."""
+
+    def changed_patch(self):
+        """Patch v1 committed in the repo and live built from it; then patch v2 (adds a line 4 edit) committed."""
+        s = self.install_edited()
+        self.git(self.repo, "init", "-q", "-b", "main")
+        self.git(self.repo, "add", "-A")
+        self.git(self.repo, "commit", "-q", "-m", "v1")
+        v2 = self.tmp / "v2"
+        shutil.copytree(s, v2)
+        (v2 / "SKILL.md").write_text(SKILL.replace("line 2\n", "line 2 mine\n").replace("line 4\n", "line 4 mine\n"))
+        base = self.tmp / "base"
+        (self.repo / "tools" / "config" / "patches" / "s.patch").write_bytes(cc.make_patch(base, v2, self.tmp))
+        self.git(self.repo, "add", "-A")
+        self.git(self.repo, "commit", "-q", "-m", "v2")
+        return s, v2
+
+    def backups(self):
+        return list((self.live / "backups" / "skills").glob("s.*"))
+
+    def test_old_patch_rebuilt(self):
+        s, v2 = self.changed_patch()
+        self.assertIn("your edit is no longer in it", self.tool("drift").stdout)
+        r = self.tool("restore")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("old copy moved to", r.stdout)
+        self.assertEqual(cc.folder_hash(s), cc.folder_hash(v2))
+        self.assertEqual(len(self.backups()), 1)
+        self.assertIn("line 2 mine", (self.backups()[0] / "SKILL.md").read_text())
+        self.assertNotIn("your edit is no longer in it", self.tool("drift").stdout)
+
+    def test_own_edits_refused(self):
+        s, _ = self.changed_patch()
+        (s / "SKILL.md").write_text("mine only\n")
+        r = self.tool("restore")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("REFUSED s: live copy has edits not in any patch; run sync first", r.stdout)
+        self.assertEqual((s / "SKILL.md").read_text(), "mine only\n")
+        self.assertEqual(self.backups(), [])
+
+    def test_current_untouched(self):
+        s, v2 = self.changed_patch()
+        shutil.rmtree(s)
+        shutil.copytree(v2, s)
+        r = self.tool("restore")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(r.stdout.strip(), "")
+        self.assertEqual(cc.folder_hash(s), cc.folder_hash(v2))
+        self.assertEqual(self.backups(), [])
+
+
 class TestShippedPatch(unittest.TestCase):
     # covers: spec 0078 AC-8 (the shipped assertion-guardian patch applies cleanly on upstream at pinned,
     # so restore can rebuild the mod). Needs github.com: unreachable fails, since the patch is then unchecked.

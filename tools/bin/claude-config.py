@@ -8,7 +8,7 @@
   update --plan     every git entry whose upstream moved, with its changed files; asks nothing
   update --apply <entry> [--resolved]
                     install upstream now for one entry, your patch merged in; exit 2 on a conflict
-  restore           rebuild missing edited skills from upstream at pinned plus their patch (tools/bin/install.sh)
+  restore           rebuild missing edited skills from upstream at pinned plus their patch; reapply a changed patch (tools/bin/install.sh)
   patches           (re)write the patch of every edited downloaded skill (tools/bin/sync.sh)
   build             manifest entries for every downloaded skill folder: lock file, traced brief, history walk
   docs              write docs/guides/SKILLS.md from the manifest, claude-home/ front matter and tools/config/routing.md
@@ -17,6 +17,7 @@
 CLAUDE_LIVE_DIR and CLAUDE_CONFIG_REPO point it at temp trees, for the self checks only.
 Python 3 standard library only.
 """
+import datetime
 import fnmatch
 import hashlib
 import json
@@ -630,14 +631,70 @@ def patches():
     return bad
 
 
+def previous_patch(e):
+    """The patch as of the last commit that changed it to something other than the current text, or None."""
+    cur = patch_path(e)
+    try:
+        rel = cur.relative_to(REPO).as_posix()
+    except ValueError:
+        return None  # a private patch has no history
+    now = cur.read_bytes() if cur.exists() else None
+    for sha in git("log", "-n", "2", "--format=%H", "--", rel, cwd=REPO, check=False).stdout.decode().split():
+        r = git("show", f"{sha}:{rel}", cwd=REPO, check=False)
+        if r.returncode == 0 and r.stdout != now:
+            return r.stdout
+    return None
+
+
+def with_patch(base, tmp, patch):
+    """A copy of base with patch applied; None when it does not apply."""
+    folder = Path(tempfile.mkdtemp(dir=tmp)) / "f"
+    shutil.copytree(base, folder)
+    return folder if apply_patch(folder, patch) else None
+
+
+def reapply(name, e, live, tmp):
+    """Live exists: equal to upstream plus the current patch stays; equal to plain upstream or to upstream plus
+    the previous patch is moved to backups/skills and rebuilt; anything else is refused. Returns 1 on a failure."""
+    try:
+        base, _ = upstream(e, e["pinned"], tmp)
+    except Gone as err:
+        print(f"  {name}: skipped, upstream not reached: {err}")
+        return 0
+    cur = with_patch(base, tmp, patch_path(e).read_bytes())
+    if cur is None:
+        print(f"  {name}: REFUSED, its patch does not apply to upstream at {e['pinned'][:12]}")
+        return 1
+    have = folder_hash(live)
+    if have == folder_hash(cur):
+        return 0
+    old = previous_patch(e)
+    prev = with_patch(base, tmp, old) if old is not None else None
+    if have != folder_hash(base) and not (prev is not None and have == folder_hash(prev)):
+        print(f"  REFUSED {name}: live copy has edits not in any patch; run sync first")
+        return 0
+    backup = LIVE / "backups" / "skills" / f"{name}.{datetime.datetime.now().strftime('%Y%m%d-%H%M%S-%f')}"
+    backup.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(live), str(backup))
+    install_folder(cur, live)
+    print(f"  {name}: rebuilt from upstream {e['pinned'][:12]} plus its current patch; old copy moved to {backup}")
+    return 0
+
+
 def restore():
-    """AC-7: rebuild a missing edited skill from upstream at pinned plus its patch; never overwrite one."""
+    """AC-7: rebuild a missing edited skill from upstream at pinned plus its patch. An installed one is rebuilt
+    only when it equals upstream or upstream plus the previous patch (moved to backups first), never otherwise."""
     m = load_manifest()
     bad = 0
     with tempfile.TemporaryDirectory() as tmp:
         for name, e in sorted(m["entries"].items()):
             live = installed(e, name)
-            if live.exists() or live.is_symlink() or e.get("framework"):
+            if e.get("framework"):
+                continue
+            if live.exists() or live.is_symlink():
+                if e["status"] == "edited" and e.get("patch") and live.is_dir() and not live.is_symlink() \
+                        and patch_path(e).exists():
+                    bad |= reapply(name, e, live, tmp)
                 continue
             if e["status"] == "edited":
                 try:
