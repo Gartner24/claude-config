@@ -1,5 +1,5 @@
 import type { Register } from 'claude-code'
-import { Band, HandoffRow, type Facts } from '../band.tsx'
+import { Band, HandoffRow, liveBuilds, type Facts } from '../band.tsx'
 import { handoffLine } from '../handoff.ts'
 import { parseOwed, parsePrs, prArgv } from '../now.ts'
 import { DEFAULT_VIEW, Dashboard, safeStep } from '../panes.tsx'
@@ -16,6 +16,7 @@ const PLAN = { plugin: 'chip-dash', key: 'plan' } as const
 const VIEW = { plugin: 'chip-dash', key: 'view' } as const
 const HANDOFF = { plugin: 'chip-dash', key: 'handoff' } as const
 const PRS = { plugin: 'chip-dash', key: 'prs' } as const
+const BUILD = { plugin: 'chip-dash', key: 'build' } as const
 const PANE = 'chip-dash'
 // P9: a prompt submitted from inside the confirming hook does not start a turn; from the clock after it returns, it does.
 // The host refuses $.prompt.submit of a text starting with "/" (it would run a command as the user), so the step goes
@@ -28,6 +29,14 @@ const LEVEL = /^[a-z]{1,20}$/
 let isOpen = false
 let loadPanes = async (_force = false) => {}
 let loadPrs = async (_force = false) => {}
+// spec 0074 AC-12: running workflow agents, agentId -> spawn time, from agent.spawn and turn.complete. shortcut: a
+// module value, so a mod reload starts the count at 0 ($.agent.list() leaves workflow agents out); accepted in the spec
+const building = new Map<string, number>()
+
+async function countBuilds($: any) {
+  const n = liveBuilds(building, await $.clock.now())
+  if ((await $.state.get(BUILD)).value !== n) await $.state.set(BUILD, n)
+}
 
 function clock(ms: number) {
   const d = new Date(ms)
@@ -232,7 +241,7 @@ export const register: Register = on => {
     }
 
     void refresh()
-    $.clock.every(time.bandTick, () => void refresh())
+    $.clock.every(time.bandTick, () => { void refresh(); void countBuilds($).catch(() => {}) })
     $.clock.every(time.planTick, () => { void loadPanes(); void loadPrs() })
     // the spinner turns only while a handoff step runs, and stays on its first frame under reduced motion, as the host's does
     $.clock.every(time.spin, async () => {
@@ -263,6 +272,25 @@ export const register: Register = on => {
     return next(e)
   })
 
+  // spec 0074 AC-12: probe P1 saw agent.spawn carry e.workflow for each workflow agent and turn.complete its agentId
+  on('agent.spawn', async ($, e, next) => {
+    const r = await next(e)
+    // never in the way of a spawn: a failed count only leaves the band behind
+    try {
+      const id = e.workflow && r && !('deny' in r) ? (r as any).agentId : null
+      if (id) {
+        building.set(id, await $.clock.now())
+        await countBuilds($)
+      }
+    } catch {}
+    return r
+  })
+
+  on('turn.complete', async ($, e, next) => {
+    if (e.agentId && building.delete(e.agentId)) await countBuilds($).catch(() => {})
+    return next(e)
+  })
+
   // The real effort rides on every main-loop model request; the band shows it from the first reply on.
   on('turn.step', async function* ($, e, next) {
     if (!e.agentId && e.effort !== undefined) {
@@ -281,9 +309,10 @@ export const register: Register = on => {
     const { value: facts } = await $.state.get(FACTS)
     const { value: level } = await $.state.get(EFFORT)
     const { value: handoff } = await $.state.get(HANDOFF)
+    const { value: build } = await $.state.get(BUILD)
     const line = handoff ? handoffLine(handoff, Date.now()) : null
     // the latest main loop request's level first, then the settings' one; unknown stays out
-    const value = facts && { ...facts, effort: level || facts.effort, ...(handoff && 'auto' in handoff ? { handoff: handoff.auto ?? null } : {}) }
+    const value = facts && { ...facts, build: build ?? 0, effort: level || facts.effort, ...(handoff && 'auto' in handoff ? { handoff: handoff.auto ?? null } : {}) }
     const band = value
       ? <Band Box={Box} Text={Text} Button={Button} facts={value} columns={e.props.bodyColumns ?? (e.viewport?.columns ?? width.viewport) - space.hostReserve} onOpen={() => void openDashboard($)} />
       : (

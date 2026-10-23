@@ -18,6 +18,8 @@ export type WfDashFacts = {
   handoff?: WfDashAuto | null
   // spec 0071 AC-7: this chat's owed steps from the catch state file; undefined before the first read
   owed?: WfDashOwed
+  // spec 0074 AC-12: running /build-features workflow agents
+  build?: number
 }
 
 // spec 0071 AC-2: ~/.claude/state/chain-catch/<session>.json (spec 0070) as the mod reads it. `installed` false: no
@@ -88,6 +90,7 @@ declare module 'claude-code' {
       }
       handoff: WfDashHandoff
       prs: WfDashLoaded<WfDashPrs>
+      build: number
     }
   }
 }
