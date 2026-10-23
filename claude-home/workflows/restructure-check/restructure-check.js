@@ -10,7 +10,7 @@ export const meta = {
   ],
 }
 
-// The named args, filled by the starter skill before the run. limit is null unless --limit.
+// The named args, filled by the starter skill before the run.
 for (const key of ['repo', 'runId', 'head', 'base']) {
   if (args == null || args[key] === undefined || args[key] === null || args[key] === '') {
     throw new Error(`missing arg: ${key}`)
@@ -52,18 +52,19 @@ const brief = (stage, before, extra) => [
 
 const stages = []
 
-// Fan out: one agent per side. They run the checked out code (own PRs only, see the starter) but never edit the repo. The items are built here, so no stage feeds them.
+// Base first, then head: the head's ref-check verify reads the base snapshot. They run the checked out code (own PRs only, see the starter) but never edit the repo.
 phase('01_capture')
-const all = [`base ${args.base}`, `head ${args.head}`]
-const items = args.limit ? all.slice(0, args.limit) : all
-if (items.length < all.length) log(`--limit ${args.limit}: ${all.length - items.length} of ${all.length} item(s) not run`)
-const fan = await pipeline(items, (item, _, i) => agent(brief('01_capture', null, [
-  `Your side and ref: ${item}`,
-  `Use the side name as <side> in every path.`,
-].join('\n')), {
-  label: `01_capture ${item.split(' ')[0]}`, phase: '01_capture', model: 'haiku', effort: 'low', schema: STAGE,
-}))
-const ok = fan.filter(Boolean)
+const items = [`base ${args.base}`, `head ${args.head}`]
+const ok = []
+for (const item of items) {
+  const r = await agent(brief('01_capture', null, [
+    `Your side and ref: ${item}`,
+    `Use the side name as <side> in every path.`,
+  ].join('\n')), {
+    label: `01_capture ${item.split(' ')[0]}`, phase: '01_capture', model: 'haiku', effort: 'low', schema: STAGE,
+  })
+  if (r) ok.push(r)
+}
 if (ok.length < items.length) log(`01_capture: ${items.length - ok.length} of ${items.length} item(s) failed`)
 stages.push({
   stage: '01_capture',

@@ -31,9 +31,11 @@ Model: haiku low
      `grep -lE -e '--test' scripts/*.py claude-home/hooks/*` and, for any file that is in that list but not above,
      run it the same way (python3 for `.py`, node for `.js`, bash for `.sh`) and note it in the summary.
    - `python3 tests/fast.py`
-   - `python3 scripts/ref-check.py snapshot --repo <tree> --home <run>/01_capture/<side>/emptyhome --out <run>/01_capture/<side>/snapshot.json`
-     (make the empty home dir first), copy `snapshot.json` into the output folder, then
-     `python3 scripts/ref-check.py verify --repo <tree> --home <run>/01_capture/<side>/emptyhome <run>/01_capture/<side>/snapshot.json --map-from-git <ref>`.
+   - Base side only: `python3 scripts/ref-check.py snapshot --repo <tree> --home <run>/01_capture/base/emptyhome --out <run>/01_capture/base/snapshot.json`
+     (make the empty home dir first), then copy `snapshot.json` into the output folder.
+   - Head side only: `python3 scripts/ref-check.py verify --repo <tree> --home <run>/01_capture/head/emptyhome <run>/01_capture/output/base/snapshot.json --map-from-git <base ref>`
+     (make the empty home dir first; the base ref is the one the prompt names; the base side has already finished,
+     so the snapshot exists; when it is missing, save that error as the command's file).
    - For every file `docs/specs/NNNN-*.md` or `docs/specs/NNNN-*/index.md`: `python3 scripts/spec-paths.py --spec NNNN`
      (one file per spec, slug includes the number).
    - `live-links.txt`: every link target `bin/install.sh --dry-run` would make, one `link -> target` per line, copied from
@@ -42,7 +44,7 @@ Model: haiku low
    schema the prompt names.
 
 ## Outputs
-- `<run>/01_capture/output/<side>/<command-slug>.txt`: one file per command, plus `live-links.txt` and `snapshot.json`
+- `<run>/01_capture/output/<side>/<command-slug>.txt`: one file per command, plus `live-links.txt` and (base only) `snapshot.json`
 - `<run>/01_capture/output/<side>/index.md`: one line per command: slug, exit code, ok or failed
 
 ## Human check
