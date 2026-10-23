@@ -67,7 +67,7 @@ if [ -e "$REPO/claude-home/MAP.md" ]; then
   run cp "$REPO/claude-home/MAP.md" "$LIVE/MAP.md"
 fi
 for f in hooks/block-destructive.sh hooks/review-stack-pre-push hooks/plain-panel.py hooks/context-monitor.js \
-         hooks/handover-start.sh hooks/no-jjstack-bar.py hooks/skill-rules.py; do
+         hooks/handover-start.sh hooks/no-jjstack-bar.py hooks/skill-rules.py hooks/chain-catch.py hooks/live-tick.py; do
   note "$f"
   run cp -a "$REPO/claude-home/$f" "$LIVE/$f"
   run chmod +x "$LIVE/$f"
