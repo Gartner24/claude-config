@@ -117,13 +117,13 @@ Closed rows (done or dropped, no open box) live in [done.md](done.md).
 | 94 | Three numbers for the switch-on rules | Release 10 | done |
 | 95 | Fix: auto handoff fires after /auto-handoff off | Release 10 | done |
 | 96 | Rename the dashboard mod to chip-dash | Release 10 | done |
-| 97 | Restructure claude-config to the icm-architect layout | Release 10 | in-progress |
+| 97 | Restructure claude-config to the icm-architect layout | Release 10 | done |
 | 98 | Helper scripts the switch-on rules still lack | Release 10 | done |
 | 99 | Auto handoff off by itself in plain talk chats | Release 10 | dropped |
 | 100 | build-features workflow, shown while it runs | Release 10 | done |
 | 101 | Workflow templates research and a workflow builder skill | Release 10 | in-progress |
 | 102 | review-fix and restructure-check workflows | Release 10 | in-progress |
-| 103 | Fix: a manual handoff gets the "not live" facts list | Release 10 | in-progress |
+| 103 | Fix: a manual handoff gets the "not live" facts list | Release 10 | done |
 | 104 | Fix: a resumed chat follows the folder's auto handoff setting | Release 10 | done |
 | 105 | Fix: blind review findings | Release 10 | done |
 | 106 | Assertion Guardian guard gaps | Release 10 | done |
@@ -183,36 +183,6 @@ The `wf` runner is retired live. What it did for some chats is now a rule in eve
 - [x] Try `fb-ask review` on the next risky review (ran on PRs #206, #214, #218 on 2026-10-22/23: 29 findings, 0 confirmed, all dropped against the code)
 Source: [brief](../briefs/retire-runner.md) ("Decisions 2026-10-22 (third chat)") and [brief](../briefs/context-trim-and-all-chats.md).
 
-### 97. Restructure claude-config to the icm-architect folder layout · in-progress
-You asked to restructure claude-config into the folder layout of RinDig's icm-architect repo. Phase 1: [0072](../specs/0072-icm-restructure/index.md); phase 2 is designed after phase 1 lands.
-**Done when:** the repo follows the agreed layout, `tools/bin/install.sh --dry-run` and the suite pass, and every live link still resolves.
-- [x] Run icm-architect read only: skillspector scan of RinDig/icm-architect, install it, run its restructure mode steps 1 to 5 only (inventory, form, roles, reference report, proposed tree and migration map, nothing moved); save its output in [brief](../briefs/icm-research.md) and show the owner its tree next to ours
-- [x] Design it (spec): `/architect restructure claude-config to the icm-architect layout` (spec 0072, phase 1; answers in [brief](../briefs/icm-restructure.md))
-- [x] Build it: `/develop restructure claude-config to the icm-architect layout`
-  - [x] Reference check, tests split, runner archive (0072a; AC-1 to AC-5, AC-13) · PR #165: ref-check clean, suite 139 ok (5 live-script tests copied from the archive, your call after the regression check), /review APPROVE with 2 P3s fixed, see [verify](../specs/0072-icm-restructure/verify.md)
-  - [x] Map cards, CLAUDE.md entry, AGENTS.md link (0072b; AC-6 to AC-10) · built on feat/0072-map-and-entry: suite 143 ok, ref-check clean, AC-9 probe commit and hook refresh left for after merge, see [verify](../specs/0072-icm-restructure/verify.md)
-  - [x] Scope split (0072c; AC-11, AC-12)
-- [x] Verify it: `/check verify restructure claude-config to the icm-architect layout` (whole phase on merged main: 33 live links resolve, dry run clean, suite 150 ok, ref-check strict exit 1 on 36 dropped pointers judged not dangling, see [verify](../specs/0072-icm-restructure/verify.md))
-- [x] Test it: `/test restructure claude-config to the icm-architect layout` (no new test; suite 150 ok; mutation check 0)
-- [x] Design phase 2 (spec): `/architect restructure claude-config phase 2` (spec [0077](../specs/0077-restructure-phase-2/index.md) accepted 2026-10-22 after a Sonnet cross check, 12 gaps fixed; probes P1 and P2 passed, P3 owed at build step 1)
-- [x] Build phase 2 PR A: `/develop restructure claude-config phase 2` (0077a lighter chats, AC-1 to AC-9)
-  - [x] Built on feat/0077-lighter-chats · PR #205 merged: probe P3 passed (no mod change), always loaded text 52,699 to 16,325 characters, 14 rule files and 3 CLAUDE.md sections moved word for word to `rules-on-demand/`, `skill-rules.py` hook, reminder removed, `MAP.md`, install, drift and sync, docs; suite 167 ok, 21 mutants caught, see [verify](../specs/0077-restructure-phase-2/verify.md)
-  - [x] Real install and the live AC-1 measure (installed 2026-10-23, drift none)
-  - [x] `/restructure-check` on the PR (AC-9): run 20261022-230208 on #205, cited in [verify](../specs/0077-restructure-phase-2/verify.md)
-- [ ] Live check: a fresh chat with `/architect x` gets the rules, a plain question chat does not · waits on you · later boxes go on
-- [x] Build phase 2 PR B: `/develop restructure claude-config phase 2` (0077b tools folder, AC-10 to AC-15, after PR A merges)
-  - [x] Built on feat/0077-tools-folder · PR #210 merged: the bin, scripts and config folders moved with `git mv` under `tools/`, every live referrer moved (settings, install links and self checks, sync, hooks, mods, workflow stage, rules, skills, map, tests, docs, spec Paths lines), root finders two folders up, `tests/test_tools_folder.py` (AC-10, AC-12, AC-13); ref-check verify left only history, live-only and non-repo pointers; 25 mutants caught, see [verify](../specs/0077-restructure-phase-2/verify.md)
-  - [x] Real install from the new path, then `drift: none` and `hook-files` clean (installed 2026-10-23, drift none)
-  - [x] `/restructure-check` on the PR (AC-15): hand recapture on head with `tools/` paths, run 20261023-014032, verdict pass, needs a look 0; see [verify](../specs/0077-restructure-phase-2/verify.md) PR B
-- [x] Verify it: `/check verify restructure claude-config phase 2`
-  - [x] PR B (AC-10 to AC-15): 8 steps with can-fail notes (install dry run, live links, docs, self checks, 55 spec-paths, ref-check verify, drift, suite 184 ok); see [verify](../specs/0077-restructure-phase-2/verify.md)
-  - [x] PR A (AC-1 to AC-9): throwaway install shows 16,834 always loaded characters, the skill rules hook loads 9 architect files for a Skill start and a typed `/architect x` and nothing for a plain prompt, moved live rules backed up not deleted, restructure-check run 20261022-230208 cited; see [verify](../specs/0077-restructure-phase-2/verify.md)
-- [x] Test it: `/test restructure claude-config phase 2`
-  - [x] PR B: suite 184 ok after merging main dc66fdb, no test added or changed in this pass (builder's 25 mutants stand), mutation check 0
-  - [x] PR A: suite 180 ok, wf-handoff mod 158 pass, dry run clean, no test added or changed in this pass (builder's 21 mutants stand), mutation check 0
-- Earlier note on this box (after phase 1 is merged and reviewed). Also checks the live side (your answers 2026-10-22): first find out whether Claude ever edits `~/.claude` without the repo's map. If not, drop the `~/.claude` map with one line of reasoning in the spec; if yes, add only the smallest pointer file, shipped from `claude-home/` by `tools/bin/install.sh` and never loaded in normal chats. `~/.claude/private/` stays live only. Right before this box, run the restructure-check interview (row 102, `/workflow-builder restructure-check`; owner 2026-10-22). The design also cuts the always loaded text (about 18k to 25k tokens before the first message, [blind review](../reviews/blind-setup-review-2026-10-22.md) fix 1; owner 2026-10-22: fold it into phase 2)
-Source: [brief](../briefs/icm-restructure.md); [brief](../briefs/retire-runner.md) line 13; your messages 2026-10-22.
-
 ### 99. Auto handoff off by itself in plain talk chats · dropped
 You asked that auto handoff be off in chats that are only talk (no build), besides the on/off switch.
 Dropped 2026-10-22 (your answer, tenth chat): your third chat decision stands, "Handoff in talk chats: manual only, the owner types /auto-handoff off. Nothing to build" ([brief](../briefs/retire-runner.md) line 81); row 95 makes that off hold per folder.
@@ -244,15 +214,6 @@ The two workflows you asked to be reminded of: `review-fix` (fix a PR's review f
 - [x] Run restructure-check on a real PR (PRs #205 and #210, 2026-10-22 and 2026-10-23)
 - [ ] Run review-fix on a real PR (still owed: your first `/review-fix <pr>` on a real review) · waits on you
 Source: [brief](../briefs/icm-restructure.md) "Workflows"; your messages 2026-10-22.
-
-### 103. Fix: a manual handoff gets the "not live" facts list
-A manual `/rollover` then `/clear` gets no "not live" list in the handover: the wf-handoff mod adds it only on its auto path (`claude-home/mods/wf-handoff/hooks/register.ts:371`, `notLiveNow`). The PR #152 fix has never had a real test.
-**Done when:** a handover written by a manual `/rollover` names every changed file that is not live yet, the same as the auto path, with a mod test red on the old code.
-- [x] Fix it: `/debug a manual handoff gets the not live facts list` (root cause: `finishRollover` was the only caller of `notLiveNow`, so `/handoff` after a manual `/rollover` only cleared; now `gatherFacts` is shared and `/handoff` stamps the slot once)
-- [x] Verify it: `/check verify a manual handoff gets the not live facts list` (can fail: `/handoff` leaves the slot without a `## Handoff facts` block; mod test red with the stamp off)
-- [x] Test it: `/test a manual handoff gets the not live facts list` (mutants: stamp disabled -> red on `## Handoff facts`; once-guard removed -> red on the second `/handoff` adding a second block)
-- [ ] Live check: type `/rollover`, then `/clear`; the new chat's handover has a `## Handoff facts` block with the not live list · waits on you · later boxes go on
-Source: gap found in the ninth chat of 2026-10-22 (handover of that chat, next action 2).
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
