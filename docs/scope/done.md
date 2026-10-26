@@ -1359,3 +1359,12 @@ A manual `/rollover` then `/clear` gets no "not live" list in the handover: the 
 - [x] Test it: `/test a manual handoff gets the not live facts list` (mutants: stamp disabled -> red on `## Handoff facts`; once-guard removed -> red on the second `/handoff` adding a second block)
 - [x] Live check: type `/rollover`, then `/clear`; the new chat's handover has a `## Handoff facts` block with the not live list (passed 2026-10-25: three owner-typed `/rollover` handovers, two in Sistemas Distribuidos and one in Inteligencia Artificial, each carry the block; outside a GitHub repo the list says "unknown, check by hand" instead of none)
 Source: gap found in the ninth chat of 2026-10-22 (handover of that chat, next action 2).
+
+### 90. Retire the runner, its features in every chat · done
+The `wf` runner is retired live. What it did for some chats is now a rule in every chat, the loaded text is trimmed, and risky reviews get a second claude-fb pass.
+**Done when:** no `wf` link, rule or allow entry is live; the kept features switch on by condition (`rules/when-to-switch-on.md`); the changes are merged and copied live.
+- [x] Build it: PRs #126 to #135, #137, #138 (retire live, `/auto-handoff` switch, 250k handoff line, allow rules, three small rules, question format, wf leftovers, handoff fixes, briefs, all chats rules, trim, fb second review); dotfiles PR #1 (global commit-msg hook)
+- [x] Copy live: rules, `CLAUDE.md`, hooks, settings (17 wf rules removed by your script), `~/.config/wf` trashed
+- [x] Push the local dotfiles main (one merge commit, plus the AGENTS.md trim) (owner pushed 2026-10-26, fff60e7..69053a9)
+- [x] Try `fb-ask review` on the next risky review (ran on PRs #206, #214, #218 on 2026-10-22/23: 29 findings, 0 confirmed, all dropped against the code)
+Source: [brief](../briefs/retire-runner.md) ("Decisions 2026-10-22 (third chat)") and [brief](../briefs/context-trim-and-all-chats.md).

@@ -174,15 +174,6 @@ Source: chat 2026-10-19 (carried in the handover of that day).
 
 ## Release 10: one workflow in every chat, no runner
 
-### 90. Retire the runner, its features in every chat · done
-The `wf` runner is retired live. What it did for some chats is now a rule in every chat, the loaded text is trimmed, and risky reviews get a second claude-fb pass.
-**Done when:** no `wf` link, rule or allow entry is live; the kept features switch on by condition (`rules/when-to-switch-on.md`); the changes are merged and copied live.
-- [x] Build it: PRs #126 to #135, #137, #138 (retire live, `/auto-handoff` switch, 250k handoff line, allow rules, three small rules, question format, wf leftovers, handoff fixes, briefs, all chats rules, trim, fb second review); dotfiles PR #1 (global commit-msg hook)
-- [x] Copy live: rules, `CLAUDE.md`, hooks, settings (17 wf rules removed by your script), `~/.config/wf` trashed
-- [ ] Push the local dotfiles main (one merge commit, plus the AGENTS.md trim) · waits on you · later boxes go on
-- [x] Try `fb-ask review` on the next risky review (ran on PRs #206, #214, #218 on 2026-10-22/23: 29 findings, 0 confirmed, all dropped against the code)
-Source: [brief](../briefs/retire-runner.md) ("Decisions 2026-10-22 (third chat)") and [brief](../briefs/context-trim-and-all-chats.md).
-
 ### 99. Auto handoff off by itself in plain talk chats · dropped
 You asked that auto handoff be off in chats that are only talk (no build), besides the on/off switch.
 Dropped 2026-10-22 (your answer, tenth chat): your third chat decision stands, "Handoff in talk chats: manual only, the owner types /auto-handoff off. Nothing to build" ([brief](../briefs/retire-runner.md) line 81); row 95 makes that off hold per folder.
