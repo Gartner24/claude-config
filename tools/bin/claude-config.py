@@ -1302,10 +1302,24 @@ def changed_lines(live_text, repo_text):
     return add, rem
 
 
+def sha(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def settings_sha(d, ignore):
+    d = json.loads(json.dumps(d))
+    for key in ignore:
+        drop(d, key)
+    return hashlib.sha256(json.dumps(d, sort_keys=True).encode()).hexdigest()
+
+
 def overwrite(out):
-    """AC-5: every live file the staged build would change, and every live rule it would not write. Exit 3 when any."""
+    """AC-5: every live file the staged build would change, and every live rule it would not write. Exit 3 when any.
+    A live file still as the last install wrote it (its hash in state/profile.json `installed`) is not a live change:
+    without that, every profile switch listed the old profile's own rules and settings."""
     out = Path(out)
     ignore = json.loads(IGNORE.read_text()) if IGNORE.exists() else []
+    installed = (read_state() or {}).get("installed") or {}
     items = []
     for f in sorted(p for p in out.rglob("*") if p.is_file()):
         rel = f.relative_to(out).as_posix()
@@ -1319,26 +1333,34 @@ def overwrite(out):
                 # spec 0019 AC-9: an unreadable live file holds nothing sync could carry; install warns and goes on
                 print(f"overwrite: live {rel} does not parse; it is replaced")
                 continue
+            if installed.get(rel) == settings_sha(a, ignore):
+                continue
             for key in ignore:
                 drop(a, key)
                 drop(b, key)
             if a != b:
                 add, rem = changed_lines(json.dumps(a, indent=2, sort_keys=True), json.dumps(b, indent=2, sort_keys=True))
                 items.append(f"overwrite: changed {rel} +{add}/-{rem}")
-        elif live.read_bytes() != f.read_bytes():
+        elif live.read_bytes() != f.read_bytes() and installed.get(rel) != sha(live):
             add, rem = changed_lines(live.read_text(errors="replace"), f.read_text(errors="replace"))
             items.append(f"overwrite: changed {rel} +{add}/-{rem}")
     for d in ("rules", "rules-on-demand"):
         for rel in sorted(tree_files(LIVE / d)):
-            if not (out / d / rel).exists():
+            if not (out / d / rel).exists() and installed.get(f"{d}/{rel}") != sha(LIVE / d / rel):
                 items.append(f"overwrite: lost {d}/{rel}")
     print("\n".join(items) if items else "overwrite: nothing to lose")
     return 3 if items else 0
 
 
-def write_state(name):
-    """AC-2: the active profile file plus the repo's path, written atomically."""
+def write_state(name, out=None):
+    """AC-2: the active profile file plus the repo's path, written atomically, and the hash of every file the install
+    just wrote (`out`, the staging folder) so the next overwrite check can tell a live edit from its own files."""
     s = dict(load_profile(name), repo=str(REPO.resolve()))
+    if out:
+        ignore = json.loads(IGNORE.read_text()) if IGNORE.exists() else []
+        files = [p.relative_to(out).as_posix() for p in Path(out).rglob("*") if p.is_file()]
+        s["installed"] = {rel: settings_sha(json.loads((LIVE / rel).read_text()), ignore) if rel == "settings.json"
+                          else sha(LIVE / rel) for rel in sorted(files) if (LIVE / rel).is_file()}
     PROFILE_STATE.parent.mkdir(parents=True, exist_ok=True)
     tmp = PROFILE_STATE.with_name(PROFILE_STATE.name + ".tmp")
     tmp.write_text(json.dumps(s, indent=2) + "\n")
@@ -1441,8 +1463,8 @@ def main(argv):
         return stage(*rest)
     if cmd == "overwrite" and len(rest) == 1:
         return overwrite(rest[0])
-    if cmd == "write-state" and len(rest) == 1:
-        return write_state(rest[0])
+    if cmd == "write-state" and len(rest) in (1, 2):
+        return write_state(*rest)
     if cmd == "profile-owner" and not rest:
         p = current_profile()
         if p is None or p.get("owner") is True:

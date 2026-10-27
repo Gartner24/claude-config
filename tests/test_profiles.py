@@ -197,6 +197,33 @@ class TestInstallProfile(Scratch):
         self.assertFalse((live / "rules" / "extra.md").exists())
 
 
+class TestSwitch(Scratch):
+    # covers: AC-7 (switching profiles and back needs no --accept-overwrite: the files the last install wrote are not
+    # live changes; a switch back gives the first build again), AC-5 (an edit after the switch is still listed)
+    def test_switch_and_back(self):
+        (self.repo / "claude-home" / "rules" / "core.md").write_text("core\n")
+        self.profile(skills={"a": "on"})
+        self.profile("creator", owner=False, skills={"a": "name-only"})
+        (self.repo / "profiles" / "creator" / "rules" / "own.md").write_text("own\n")
+        home = self.tmp / "h"
+        run = lambda *a: TestInstallProfile.run_install(self, home, *a)
+        live, r = run("--profile", "engineer")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        first = {p.relative_to(live).as_posix(): p.read_bytes() for p in (live / "rules").rglob("*") if p.is_file()}
+        first_s = json.loads((live / "settings.json").read_text())
+        for name in ("creator", "engineer"):
+            live, r = run("--profile", name)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertIn("overwrite: nothing to lose", r.stdout)
+        self.assertEqual({p.relative_to(live).as_posix(): p.read_bytes() for p in (live / "rules").rglob("*") if p.is_file()},
+                         first)
+        self.assertEqual(json.loads((live / "settings.json").read_text()), first_s)
+        (live / "rules" / "core.md").write_text("mine\n")
+        _, r = run("--profile", "creator")
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+        self.assertIn("overwrite: changed rules/core.md", r.stdout)
+
+
 class TestSyncProfile(Scratch):
     def setUp(self):
         super().setUp()
