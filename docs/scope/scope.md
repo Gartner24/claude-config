@@ -133,6 +133,8 @@ Closed rows (done or dropped, no open box) live in [done.md](done.md).
 | 110 | Fix: install reapplies a changed patch to an edited skill | Release 10 | done |
 | 111 | Review leftovers 2026-10-23: destructive guard pathspec forms | Release 10 | done |
 | 113 | Review leftovers 2026-10-23 (late): guard spellings and here-strings | Release 10 | done |
+| 114 | watch-reels skill: whole posts, sound, and batches | Release 10 | in-progress |
+| 115 | Fix review-isolated with a full /tmp | Release 10 | planned |
 | 112 | Assertion Guardian: remaining hidden command forms | Release 10 | done |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
@@ -205,6 +207,23 @@ The two workflows you asked to be reminded of: `review-fix` (fix a PR's review f
 - [x] Run restructure-check on a real PR (PRs #205 and #210, 2026-10-22 and 2026-10-23)
 - [ ] Run review-fix on a real PR (still owed: your first `/review-fix <pr>` on a real review) · waits on you
 Source: [brief](../briefs/icm-restructure.md) "Workflows"; your messages 2026-10-22.
+
+### 114. watch-reels skill: whole posts, sound, and batches
+Install the watch-reels skill from your zip, make it hear the audio, see every photo of a carousel, and run a big list of links. No spec (your request names every behavior; the brief records each one).
+**Done when:** a reel gives a transcript and key frames, a carousel gives every slide, and a list of links runs with resume, a polite delay and a stop after 3 failures in a row.
+- [x] Build: `/develop watch-reels skill` (fetch.sh whole posts, post.py, batch.py, Whisper via ffmpeg audio)
+- [x] Verify it: `/check verify watch-reels skill` (live batch 2026-10-26: reel and 9 slide carousel done, bad link failed with its reason, rerun skipped both, no .mp4 left)
+- [x] Test it: `/test watch-reels skill` (24 skill tests run by the suite, 219 ok; 24 mutants red over two rounds)
+- [x] Review: `/review` (4 lenses, 13 findings fixed, 1 owner question; second pass 10 dropped)
+- [ ] Sync: `/sync`
+Source: [brief](../briefs/watch-reels.md); your message 2026-10-26.
+
+### 115. Fix review-isolated with a full /tmp
+`tools/scripts/review-isolated.py` writes two Read denies per entry of /tmp into one `--settings` argument. At about 1,900 entries that argument passes the kernel's 128 KB limit for one argument, `claude` never starts ("Argument list too long"), and its self-test in the suite goes red. Seen 2026-10-26 with 1,904 entries.
+**Done when:** a review drafts with 5,000 entries in /tmp, and the self-test proves it.
+- [ ] Fix: `/debug review-isolated full tmp`
+- [ ] Test it: `/test review-isolated full tmp`
+Source: suite failure 2026-10-26 (row 114 landing); `tools/scripts/review-isolated.py` `tmp_siblings`.
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
