@@ -64,6 +64,7 @@ A skill's own rules load when it starts (`hooks/skill-rules.py`). The rest are i
 - Reviewing code or a PR in plain chat, no review skill: read ~/.claude/rules-on-demand/reviewers.md
 - In a moved rule, `rules/<name>.md` means `~/.claude/rules-on-demand/<name>.md`, except the five files still in rules/.
 - Writing a scope box from any skill: read ~/.claude/rules-on-demand/scope-contract.md.
+- Designing a workflow, playbook, pipeline or folder layout: read ~/.claude/rules-on-demand/icm-current.md.
 
 Bot-reviewed repos (which orgs, which bot, what to run there) are defined in the private file:
 
