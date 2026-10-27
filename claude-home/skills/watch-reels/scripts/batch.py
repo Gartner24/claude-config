@@ -64,7 +64,12 @@ def index(rows, out_dir):
          "| Link | Status | Page | Comment offer |", "|---|---|---|---|"]
     for u, s, d in rows:
         page = os.path.join(d, "post.md")
-        has = os.path.isfile(page) and "## Comment offer" in open(page, encoding="utf-8").read()
+        has = False
+        if os.path.isfile(page):
+            with open(page, encoding="utf-8") as f:
+                text = f.read()
+            # only after our own last "## Slides" heading: the caption sits above it and could fake the section
+            has = "\n## Comment offer" in text[text.rfind("\n## Slides\n"):]
         L.append(f"| {u} | {s} | {os.path.relpath(page, out_dir) if s in ('done', 'skipped') else ''} | {'yes' if has else ''} |")
     return "\n".join(L) + "\n"
 

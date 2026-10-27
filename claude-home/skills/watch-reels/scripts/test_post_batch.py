@@ -101,11 +101,15 @@ class Batch(unittest.TestCase):
 
     def test_index_flags_offers(self):
         def post_(fd, out):
-            open(os.path.join(out, "post.md"), "w").write("# Post\n" + ("## Comment offer\n" if "W1" in out else ""))
+            with open(os.path.join(out, "post.md"), "w") as f:
+                f.write("# Post\n\n## Slides\n\n- 01 photo\n" + ("\n## Comment offer\n" if "W1" in out else ""))
             return ok()
         rows = self.run_(["https://www.instagram.com/p/W1/", "https://www.instagram.com/p/W2/"],
                          fetch=lambda u, d: (os.makedirs(d, exist_ok=True), ok())[1], post_=post_)
         index = batch.index(rows, self.out)
+        fake = os.path.join(self.out, "W2", "post.md")  # a caption that writes the heading itself, fenced above our Slides
+        open(fake, "w").write("# Post\n\n## Caption\n\n```text\n## Comment offer\n```\n\n## Slides\n\n- 01 photo\n")
+        self.assertIn("| https://www.instagram.com/p/W2/ | done | W2/post.md |  |", batch.index(rows, self.out))
         self.assertIn("| https://www.instagram.com/p/W1/ | done | W1/post.md | yes |", index)
         self.assertIn("| https://www.instagram.com/p/W2/ | done | W2/post.md |  |", index)
 
@@ -125,6 +129,10 @@ class Offers(unittest.TestCase):
 
     def test_no_offer(self):
         for t in ["Comment below what you think", "comment and share", "I read every comment", "", None]:
+            self.assertEqual(post.offers(t), [], t)
+
+    def test_pronoun_is_not_a_keyword(self):
+        for t in ["put it in the comments", "write this in the comments", "leave me in the comments"]:
             self.assertEqual(post.offers(t), [], t)
 
     def test_once_each(self):

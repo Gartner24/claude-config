@@ -9,6 +9,7 @@ import breakdown as B  # noqa: E402
 SHEET_W = 360  # px, width of one photo on the photo contact sheet
 VERB = r"(?i:comment|type|drop|write|reply|leave|put|dm(?: me)?)\s+(?i:the word\s+)?"
 # "comment X and I'll send it" offers: a quoted word, an ALL CAPS word, or a word put "in the comments"
+NOT_A_KEYWORD = {"it", "this", "that", "me", "them", "us", "something", "anything", "yours", "one"}  # "put it in the comments"
 OFFER = re.compile(VERB + r"(?:[\"'“‘]([\w-]{2,30})[\"'”’]|([A-Z0-9][A-Z0-9-]{1,29})\b|([\w-]{2,30})\s+(?i:in(?:to)? the comments?))")
 
 
@@ -17,6 +18,8 @@ def offers(text):
     seen, out = set(), []
     for m in OFFER.finditer(text or ""):
         word = next(g for g in m.groups() if g)
+        if word.lower() in NOT_A_KEYWORD:
+            continue
         if word.lower() not in seen:
             seen.add(word.lower())
             out.append(word)
