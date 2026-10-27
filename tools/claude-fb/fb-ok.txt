@@ -1,0 +1,3 @@
+# Repos whose text may go to the free claude-fb models (spec 0023). Your own repos only, never client or work.
+github.com/Gartner24/claude-config
+github.com/Gartner24/dotfiles

@@ -25,6 +25,7 @@ Linked from `claude-home/skills/`; editing the repo copy is live.
 | `improve-my-system` | Weekly review of your own session history. |
 | `lead-finder` | Given a city and a trade, list 10 to 20 local businesses with weak web presence (no website, no booking, stale blog, another agency's credit) with the evidence for each. |
 | `nano-banana` | Generate hyper-realistic, tightly-controlled images (product shots, hero frames, brand imagery, blog images) using Google's Nano Banana (Gemini image model) via structured JSON prompting that neutralizes the plastic "AI look." Use in /brand-system (mascot/logo/imagery - replaces the manual step) and for /new-site + content-ops assets. |
+| `project-finder` | Use when the user needs to find, choose, or validate a topic for a thesis, capstone, degree project, or research proposal - topic open or undecided, ideas discarded, "what should I do my thesis on", "is this idea original", "does this already exist", "will this be accepted as a thesis". |
 | `reaction-tester` | Up to 12 simulated customers react to an idea, offer or page, after one plain baseline answer to compare. |
 | `restructure-check` | Prove a restructure PR changes no behavior by capturing outputs on base and head, diffing them and judging the differences. |
 | `review-fix` | Fix the confirmed findings of a review on a PR with a test and mutation check each, then run suite, verify and test. |
@@ -374,9 +375,9 @@ License: unknown.
 
 | Skill | Status | What it does |
 |---|---|---|
-| `high-end-visual-design` | edited, cite only | Teaches the AI to design like a high-end agency. |
-| `industrial-brutalist-ui` | edited, cite only | Raw mechanical interfaces fusing Swiss typographic print with military terminal aesthetics. |
-| `minimalist-ui` | edited, cite only | Clean editorial-style interfaces. |
+| `high-end-visual-design` | edited | Teaches the AI to design like a high-end agency. |
+| `industrial-brutalist-ui` | edited | Raw mechanical interfaces fusing Swiss typographic print with military terminal aesthetics. |
+| `minimalist-ui` | edited | Clean editorial-style interfaces. |
 
 ### lombiq/tailwind-agent-skills
 
@@ -425,7 +426,6 @@ License: unknown.
 | Skill | Status | What it does |
 |---|---|---|
 | `packshot` | source-unknown, cite only | Run when the user wants to generate a packshot, clean product image, ghost mannequin shot, flat-lay, or studio product photography, or use the /packshot command. |
-| `project-finder` | source-unknown, cite only | Use when the user needs to find, choose, or validate a topic for a thesis, capstone, degree project, or research proposal - topic open or undecided, ideas discarded, "what should I do my thesis on", "is this idea original", "does this already exist", "will this be accepted as a thesis". |
 
 ## Routing
 
