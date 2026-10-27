@@ -59,7 +59,9 @@
       "Read(//home/santiago/.aws/**)",
       "Read(//home/santiago/.claude/.credentials.json)",
       "Read(//home/santiago/.claude/anthropic_api_key)",
-      "Read(//home/santiago/.ssh/**)"
+      "Read(//home/santiago/.ssh/**)",
+      "Edit(//home/santiago/.config/claude-fb/keys.env)",
+      "Read(//home/santiago/.config/claude-fb/keys.env)"
     ],
     "defaultMode": "auto"
   },
