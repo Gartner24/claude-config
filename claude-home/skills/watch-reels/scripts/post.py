@@ -8,12 +8,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import breakdown as B  # noqa: E402
 
 SHEET_W = 360  # px, width of one photo on the photo contact sheet
-VERB = (r"(?i:comment|type|drop|write|reply|leave|put|dm(?: me)?|"
+VERB = (r"(?<!\w)(?i:comment|type|drop|write|reply|leave|put|dm(?: me)?|"
         r"comenta|comentá|escribe|escribí|deja|dejá|pon|poné|m[aá]ndame|env[ií]ame)\s+(?i:the word\s+|la palabra\s+)?")
 # "comment X and I'll send it" offers: a quoted word, an ALL CAPS word, or a word put "in the comments"
 NOT_A_KEYWORD = {"it", "this", "that", "me", "them", "us", "something", "anything", "yours", "one",
                  "lo", "esto", "eso", "algo", "un", "una"}  # "put it in the comments", "déjalo en los comentarios"
-OFFER = re.compile(VERB + r"(?:[\"'“‘]([\w-]{2,30})[\"'”’]|([A-Z0-9][A-Z0-9-]{1,29})\b|"
+OFFER = re.compile(VERB + r"(?:[\"'“‘]([\w-]{2,30})[\"'”’]|([A-Z\u00c1\u00c9\u00cd\u00d3\u00da\u00d1\u00dc0-9][A-Z\u00c1\u00c9\u00cd\u00d3\u00da\u00d1\u00dc0-9-]{1,29})\b|"
                    r"([\w-]{2,30})\s+(?i:in(?:to)? the comments?|en (?:los )?comentarios))")
 BIO = re.compile(r"(?i)\blink (?:is )?in (?:my |the )?bio\b|\b(?:link|enlace) en (?:mi |la )?bio\b")
 # a domain ending counts only in lower case and as a whole word: OCR runs words together ("effects.Netflix")

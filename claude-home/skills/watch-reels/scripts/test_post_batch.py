@@ -113,6 +113,13 @@ class Batch(unittest.TestCase):
         self.assertIn("| https://www.instagram.com/p/W1/ | done | W1/post.md | yes |", index)
         self.assertIn("| https://www.instagram.com/p/W2/ | done | W2/post.md |  |", index)
 
+    def test_same_post_twice_fetched_once(self):
+        calls = []
+        rows = self.run_(["https://www.instagram.com/p/D1/", "https://www.instagram.com/reel/D1/?igsh=x"],
+                         fetch=lambda u, d: (calls.append(u), ok())[1])
+        self.assertEqual(len(calls), 1)
+        self.assertEqual([s for _, s, _ in rows], ["done", "skipped"])
+
     def test_page_failures_do_not_stop_the_batch(self):
         rows = self.run_([f"https://www.instagram.com/p/P{i}/" for i in range(5)], post_=bad)
         self.assertEqual([s.split(":")[0] for _, s, _ in rows], ["failed"] * 5)
@@ -154,6 +161,13 @@ class Offers(unittest.TestCase):
         got = post.mentions("Repo: github.com/calesthio/OpenMontage. Site https://openmontage.dev/start! "
                             "Follow @sebastianhardy_ and @SEBASTIANHARDY_ effects.Netflix")
         self.assertEqual(got, ["github.com/calesthio/OpenMontage", "https://openmontage.dev/start", "@sebastianhardy_"])
+
+    def test_verb_inside_a_word_is_not_an_offer(self):
+        for t in ["use this coupon CODE", "the input FILE", "a prototype DEMO"]:
+            self.assertEqual(post.offers(t), [], t)
+
+    def test_accented_capitals(self):
+        self.assertEqual(post.offers("comenta GUÍA y te la mando"), ["GUÍA"])
 
     def test_domain_ending_lower_case_whole_word(self):
         self.assertEqual(post.mentions("on Netflix.com, effects.Net, effects.Netflix"), ["Netflix.com"])

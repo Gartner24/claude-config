@@ -1,6 +1,6 @@
 """Watch a list of public posts one after another: fetch.sh, then post.py, then delete the videos.
 links.txt: one link per line (blank lines and # lines skipped). Rerun the same command to resume: done links are skipped.
-Stops after 3 failures in a row (a rate limit or login wall is the usual cause). Writes OUT_DIR/index.md.
+Stops after 3 failed downloads in a row (a rate limit or login wall is the usual cause). Writes OUT_DIR/index.md.
 Usage: python3 batch.py LINKS_TXT OUT_DIR"""
 import concurrent.futures, hashlib, os, random, re, subprocess, sys, time
 
@@ -49,7 +49,7 @@ def run(urls, out_dir, fetch=fetch, post=post, sleep=time.sleep):
     """[(url, status, folder)]; status is done, skipped (done before), failed: <why>, or not run.
     Downloads stay one at a time with the pause between them; each post's page is built in a worker thread
     meanwhile, so the pause costs no extra time. Only failed downloads count toward the stop (a rate limit)."""
-    rows, fails, first = [], 0, True
+    rows, fails, first, queued = [], 0, True, set()
 
     def page(url, fd, d):
         r = post(fd, d)
@@ -59,9 +59,11 @@ def run(urls, out_dir, fetch=fetch, post=post, sleep=time.sleep):
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
         for url in urls:
             d = os.path.join(out_dir, slug(url))
-            if os.path.isfile(os.path.join(d, "post.md")):
+            # a post listed twice (/p/X and /reel/X, ?igsh= variants) is skipped even while its page is still building
+            if d in queued or os.path.isfile(os.path.join(d, "post.md")):
                 rows.append((url, "skipped", d))
                 continue
+            queued.add(d)
             if fails >= MAX_FAILS:
                 rows.append((url, "not run", d))
                 continue
