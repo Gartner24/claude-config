@@ -138,6 +138,8 @@ Closed rows (done or dropped, no open box) live in [done.md](done.md).
 | 116 | watch-reels: "comment X" offers without commenting | Release 10 | done |
 | 117 | watch-reels: on-screen text, Spanish offers, faster batches | Release 10 | done |
 | 112 | Assertion Guardian: remaining hidden command forms | Release 10 | done |
+| 118 | Profiles: named profiles over one shared core | Release 11 | planned |
+| 119 | Mac support: claude-config on macOS and Linux | Release 11 | planned |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -216,6 +218,21 @@ Source: [brief](../briefs/icm-restructure.md) "Workflows"; your messages 2026-10
 - [ ] Fix: `/debug review-isolated full tmp`
 - [ ] Test it: `/test review-isolated full tmp`
 Source: suite failure 2026-10-26 (row 114 landing); `tools/scripts/review-isolated.py` `tmp_siblings`.
+
+## Release 11: profiles for other people
+claude-config shared with a partner who makes videos, with the same quality bar and a different set of switches.
+
+### 118. Profiles: named profiles over one shared core · needs a decision
+Every skill, rule, hook and the design pipeline stay one shared core. A named profile picks which skills fire on their own, which owner only rules load, how much Claude asks, and what its user may edit; you switch profiles on one machine (for example a `chip-profile` command), and `/claude-config update` updates only your own profile.
+**Done when:** your profile behaves exactly as today; a second profile installs on a fresh machine with fewer owner only rules and fewer questions at the same quality bar; that profile cannot edit locked core files, and editing one of its rules creates a new `custom-profile-<id>` instead of changing it; switching profiles on one machine works and switches back.
+- [ ] Design it (spec): `/architect profiles`
+Source: [brief](../briefs/profiles.md) (D1 to D14); your messages 2026-10-27.
+
+### 119. Mac support: claude-config on macOS and Linux · needs a decision
+Your partner uses a Mac. Install, sync, hooks and the scripts they call must run on macOS as well as Linux (old bash 3.2, BSD `sed -i` and `readlink -f`, no `bwrap`).
+**Done when:** `tools/bin/install.sh` and the suite run green on a Mac, and every Linux only part either has a macOS path or says plainly that it is Linux only.
+- [ ] Design it (spec): `/architect mac support`
+Source: [brief](../briefs/profiles.md) D11; your message 2026-10-27.
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
