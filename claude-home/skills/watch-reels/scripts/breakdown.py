@@ -99,10 +99,20 @@ def extract(video, times, out_dir):
     os.makedirs(os.path.join(out_dir, "frames"), exist_ok=True)
     names = []
     for t in times:
-        name = f"frames/{t:07.2f}s.jpg"
-        run(["ffmpeg", "-loglevel", "error", "-y", "-ss", str(t), "-i", video, "-frames:v", "1",
-             "-vf", f"scale='if(gt(iw,ih),{FRAME_W},-2)':'if(gt(iw,ih),-2,{FRAME_W})'", os.path.join(out_dir, name)])
-        names.append(name)
+        # the picture track can end before the sound (container duration): step back until a picture exists, else skip
+        for s in (t, t - 0.5, t - 1.5, t - 3):
+            if s < 0:
+                break
+            name = f"frames/{s:07.2f}s.jpg"
+            r = subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-ss", str(s), "-i", video, "-frames:v", "1",
+                                "-vf", f"scale='if(gt(iw,ih),{FRAME_W},-2)':'if(gt(iw,ih),-2,{FRAME_W})'",
+                                os.path.join(out_dir, name)], capture_output=True)
+            if r.returncode == 0 and os.path.isfile(os.path.join(out_dir, name)):
+                if name not in names:
+                    names.append(name)
+                break
+    if not names:
+        raise SystemExit(f"no frame could be taken from {video}")
     cols = 4 if len(names) > 6 else 3
     rows = math.ceil(len(names) / cols)
     run(["ffmpeg", "-loglevel", "error", "-y", "-pattern_type", "glob", "-i", os.path.join(out_dir, "frames", "*.jpg"),
