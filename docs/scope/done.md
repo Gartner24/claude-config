@@ -1368,3 +1368,13 @@ The `wf` runner is retired live. What it did for some chats is now a rule in eve
 - [x] Push the local dotfiles main (one merge commit, plus the AGENTS.md trim) (owner pushed 2026-10-26, fff60e7..69053a9)
 - [x] Try `fb-ask review` on the next risky review (ran on PRs #206, #214, #218 on 2026-10-22/23: 29 findings, 0 confirmed, all dropped against the code)
 Source: [brief](../briefs/retire-runner.md) ("Decisions 2026-10-22 (third chat)") and [brief](../briefs/context-trim-and-all-chats.md).
+
+### 114. watch-reels skill: whole posts, sound, and batches · done
+Install the watch-reels skill from your zip, make it hear the audio, see every photo of a carousel, and run a big list of links. No spec (your request names every behavior; the brief records each one).
+**Done when:** a reel gives a transcript and key frames, a carousel gives every slide, and a list of links runs with resume, a polite delay and a stop after 3 failures in a row.
+- [x] Build: `/develop watch-reels skill` (fetch.sh whole posts, post.py, batch.py, Whisper via ffmpeg audio)
+- [x] Verify it: `/check verify watch-reels skill` (live batch 2026-10-26: reel and 9 slide carousel done, bad link failed with its reason, rerun skipped both, no .mp4 left)
+- [x] Test it: `/test watch-reels skill` (24 skill tests run by the suite, 219 ok; 24 mutants red over two rounds)
+- [x] Review: `/review` (4 lenses, 13 findings fixed, 1 owner question; second pass 10 dropped)
+- [x] Sync: `/sync` (PR #227 merged and installed 2026-10-26, drift none)
+Source: `docs/briefs/watch-reels.md` @ 9891171 (closed); your message 2026-10-26.
