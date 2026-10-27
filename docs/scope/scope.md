@@ -135,6 +135,7 @@ Closed rows (done or dropped, no open box) live in [done.md](done.md).
 | 113 | Review leftovers 2026-10-23 (late): guard spellings and here-strings | Release 10 | done |
 | 114 | watch-reels skill: whole posts, sound, and batches | Release 10 | done |
 | 115 | Fix review-isolated with a full /tmp | Release 10 | planned |
+| 116 | watch-reels: "comment X" offers without commenting | Release 10 | done |
 | 112 | Assertion Guardian: remaining hidden command forms | Release 10 | done |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).

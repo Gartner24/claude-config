@@ -99,10 +99,44 @@ class Batch(unittest.TestCase):
         urls = [f"https://www.instagram.com/p/F{i}/" for i in range(3)] + ["https://www.instagram.com/p/NEW/", "https://www.instagram.com/p/DONE/"]
         self.assertEqual([s.split(":")[0] for _, s, _ in self.run_(urls, fetch=bad)], ["failed"] * 3 + ["not run", "skipped"])
 
+    def test_index_flags_offers(self):
+        def post_(fd, out):
+            with open(os.path.join(out, "post.md"), "w") as f:
+                f.write("# Post\n\n## Slides\n\n- 01 photo\n" + ("\n## Comment offer\n" if "W1" in out else ""))
+            return ok()
+        rows = self.run_(["https://www.instagram.com/p/W1/", "https://www.instagram.com/p/W2/"],
+                         fetch=lambda u, d: (os.makedirs(d, exist_ok=True), ok())[1], post_=post_)
+        index = batch.index(rows, self.out)
+        fake = os.path.join(self.out, "W2", "post.md")  # a caption that writes the heading itself, fenced above our Slides
+        open(fake, "w").write("# Post\n\n## Caption\n\n```text\n## Comment offer\n```\n\n## Slides\n\n- 01 photo\n")
+        self.assertIn("| https://www.instagram.com/p/W2/ | done | W2/post.md |  |", batch.index(rows, self.out))
+        self.assertIn("| https://www.instagram.com/p/W1/ | done | W1/post.md | yes |", index)
+        self.assertIn("| https://www.instagram.com/p/W2/ | done | W2/post.md |  |", index)
+
     def test_links_file(self):
         p = os.path.join(self.out, "links.txt")
         open(p, "w").write("# mine\n\nhttps://a/p/1/\n  https://a/p/2/  \n  # later\n")
         self.assertEqual(batch.links(p), ["https://a/p/1/", "https://a/p/2/"])
+
+
+class Offers(unittest.TestCase):
+    def test_real_captions_and_speech(self):
+        self.assertEqual(post.offers("Comment “OPEN” and I’ll send you the link. \U0001f447"), ["OPEN"])
+        self.assertEqual(post.offers("Drop open in the comments and I'll send you the link."), ["open"])
+        self.assertEqual(post.offers("Comment “REALIZE” and I’ll send you every link"), ["REALIZE"])
+        self.assertEqual(post.offers("DM me GUIDE"), ["GUIDE"])
+        self.assertEqual(post.offers("type 'prompt' below"), ["prompt"])
+
+    def test_no_offer(self):
+        for t in ["Comment below what you think", "comment and share", "I read every comment", "", None]:
+            self.assertEqual(post.offers(t), [], t)
+
+    def test_pronoun_is_not_a_keyword(self):
+        for t in ["put it in the comments", "write this in the comments", "leave me in the comments"]:
+            self.assertEqual(post.offers(t), [], t)
+
+    def test_once_each(self):
+        self.assertEqual(post.offers('Comment "AI". Again: comment AI!'), ["AI"])
 
 
 class Page(unittest.TestCase):
@@ -123,6 +157,19 @@ class Page(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(out, "photos", "slide02.jpg")))
         self.assertTrue(os.path.isfile(os.path.join(out, "photos.jpg")))
         self.assertTrue(os.path.isfile(os.path.join(out, "slide01", "breakdown.md")))
+        self.assertNotIn("## Comment offer", md)
+
+    def test_offer_section(self):
+        d, out = tempfile.mkdtemp(), tempfile.mkdtemp()
+        subprocess.run(["ffmpeg", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=red:s=1080x1350", "-frames:v", "1",
+                        os.path.join(d, "slide01.jpg")], check=True)
+        open(os.path.join(d, "caption.txt"), "w").write("Comment “OPEN” and I’ll send you the link.")
+        subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "post.py"), d, out],
+                       check=True, capture_output=True)
+        md = open(os.path.join(out, "post.md"), encoding="utf-8").read()
+        self.assertIn("## Comment offer", md)
+        self.assertIn("- `OPEN` in the caption", md)
+        self.assertIn("ask the owner to paste the pinned comment", md)
 
 
 class Fetch(unittest.TestCase):
