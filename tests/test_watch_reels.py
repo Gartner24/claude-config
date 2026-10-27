@@ -26,3 +26,7 @@ class Fetch(TP.Fetch): pass
 
 
 class Offers(TP.Offers): pass
+
+
+@needs_ffmpeg
+class Build(TP.Build): pass

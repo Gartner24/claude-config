@@ -62,9 +62,12 @@ class T(unittest.TestCase):
         fake.WhisperModel = Model
         saved = {k: sys.modules.get(k) for k in ("faster_whisper", "mlx_whisper")}
         sys.modules["faster_whisper"], sys.modules["mlx_whisper"] = fake, None
+        cached = list(B._MODEL)
+        B._MODEL.clear()  # a model cached by an earlier call would skip the stand-in
         try:
             words = B.transcript(self.video)
         finally:
+            B._MODEL[:] = cached
             for k, v in saved.items():
                 if v is None:
                     sys.modules.pop(k, None)
