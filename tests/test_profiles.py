@@ -152,6 +152,20 @@ class TestInstallProfile(Scratch):
         self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
         self.assertIn("unknown profile: nobody; known: creator, engineer", r.stderr)
         self.assertFalse(live.exists())
+        live, r = self.run_install(self.tmp / "h", "--profile")
+        self.assertEqual((r.returncode, r.stderr.strip()), (2, "install.sh: --profile needs a name"))
+        self.assertFalse(live.exists())
+
+    # covers: AC-2 (a required hook missing from the repo stops the build before anything is written live; PR 239 review)
+    def test_missing_hook_writes_nothing(self):
+        home = self.tmp / "h"
+        (home / ".claude" / "rules").mkdir(parents=True)
+        (home / ".claude" / "rules" / "old.md").write_text("old\n")
+        (self.repo / "claude-home" / "hooks" / "plain-panel.py").unlink()
+        live, r = self.run_install(home, "--accept-overwrite")
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn("claude-home/hooks/plain-panel.py is missing", r.stderr)
+        self.assertEqual(sorted(p.relative_to(live).as_posix() for p in live.rglob("*")), ["rules", "rules/old.md"])
 
     # covers: AC-5 (a second install lists nothing and exits 0; a live edit and a live only rule are listed, nothing is
     # written and it exits 3; a dry run lists and writes nothing; --accept-overwrite writes)
@@ -223,6 +237,15 @@ class TestSyncProfile(Scratch):
         self.assertEqual(r.stdout.strip(), "sync: creator is not an owner profile; changes reach the repo through a PR")
         self.assertEqual(self.tree(), before)
         self.assertFalse((self.live / "private" / "settings.json").exists())
+
+    # covers: PR 239 review (an active profile that cannot be read fails the sync loudly, never a silent exit 0)
+    def test_unreadable_profile(self):
+        (self.repo / "profiles" / "engineer" / "profile.json").write_text("{not json")
+        before = self.tree()
+        r = self.sync("engineer")
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertIn("sync refused: the active profile could not be read", r.stderr)
+        self.assertEqual(self.tree(), before)
 
     # covers: AC-6 (owner: skillOverrides into the profile, not the core settings; a core rule back to the core, the
     # profile's own rule back to its folder; a new live rule to the core and the profile's list)

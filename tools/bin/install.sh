@@ -24,7 +24,9 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY=1 ;;
     --accept-overwrite) ACCEPT=1 ;;
-    --profile) PROFILE="${2:-}"; [ $# -gt 1 ] && shift ;;
+    --profile)
+      [ $# -gt 1 ] || { echo "install.sh: --profile needs a name" >&2; exit 2; }
+      PROFILE="$2"; shift ;;
     --profile=*) PROFILE="${1#*=}" ;;
     *) echo "install.sh: unknown option: $1" >&2; exit 2 ;;
   esac
@@ -148,10 +150,8 @@ done
 for f in MAP.md hooks/block-destructive.sh hooks/review-stack-pre-push hooks/plain-panel.py hooks/context-monitor.js \
          hooks/handover-start.sh hooks/no-jjstack-bar.py hooks/skill-rules.py hooks/chain-catch.py hooks/live-tick.py \
          hooks/claude-config-reminder.py hooks/workflow-start.sh scripts/claude-ram-watch.sh; do
-  case "$f" in
-    MAP.md|hooks/claude-config-reminder.py|hooks/workflow-start.sh|scripts/claude-ram-watch.sh) [ -e "$STAGE/$f" ] || continue ;;
-    *) [ -e "$STAGE/$f" ] || { echo "refused: claude-home/$f is missing" >&2; exit 1; } ;;
-  esac
+  # the stage step refused a missing required one; the others may be absent from a scratch copy
+  [ -e "$STAGE/$f" ] || continue
   note "$f"
   run cp -a "$STAGE/$f" "$LIVE/$f"
   [ "$f" = MAP.md ] || run chmod +x "$LIVE/$f"

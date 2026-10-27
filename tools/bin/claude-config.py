@@ -1159,6 +1159,10 @@ def docs():
 
 PROFILES = REPO / "profiles"
 PROFILE_STATE = LIVE / "state" / "profile.json"
+# the copied files every install needs; the rest of COPIED_FILES may be absent from a scratch copy (the self checks)
+REQUIRED_FILES = ("CLAUDE.md", "settings.json", "hooks/block-destructive.sh", "hooks/review-stack-pre-push",
+                  "hooks/plain-panel.py", "hooks/context-monitor.js", "hooks/handover-start.sh", "hooks/no-jjstack-bar.py",
+                  "hooks/skill-rules.py", "hooks/chain-catch.py", "hooks/live-tick.py")
 PROFILE_FIELDS = {"name": str, "description": str, "owner": bool, "base": str, "skills": dict, "rules": list,
                   "hooks_off": list, "editable": list}
 
@@ -1266,6 +1270,11 @@ def stage(name, out):
     problems = profile_problems(name)
     if problems:
         print("\n".join(problems), file=sys.stderr)
+        return 2
+    # a missing one used to stop install half way through the copy; here it stops before anything is written
+    missing = [rel for rel in REQUIRED_FILES if not (HOME_DIR / rel).exists()]
+    if missing:
+        print("\n".join(f"claude-home/{rel} is missing" for rel in missing), file=sys.stderr)
         return 2
     p = load_profile(name)
     shutil.copy2(HOME_DIR / "CLAUDE.md", out / "CLAUDE.md")
@@ -1439,7 +1448,7 @@ def main(argv):
         if p is None or p.get("owner") is True:
             return 0
         print(f"sync: {p['name']} is not an owner profile; changes reach the repo through a PR")
-        return 1
+        return 3
     if cmd == "sync-profile" and len(rest) == 1:
         return sync_profile(rest[0])
     if cmd == "drift" and not rest:

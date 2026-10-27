@@ -14,8 +14,12 @@ CONFIG=(python3 "$REPO/tools/bin/claude-config.py")
 # this script with no tool (the spec 0013 self checks) syncs as before profiles.
 HAS_CONFIG=0
 [ -f "$REPO/tools/bin/claude-config.py" ] && HAS_CONFIG=1
-if [ "$HAS_CONFIG" = 1 ] && ! "${CONFIG[@]}" profile-owner; then
-  exit 0
+if [ "$HAS_CONFIG" = 1 ]; then
+  rc=0
+  "${CONFIG[@]}" profile-owner || rc=$?
+  # 3: not an owner, said why; any other failure must not pass for a sync that ran
+  [ "$rc" = 3 ] && exit 0
+  [ "$rc" = 0 ] || { echo "sync refused: the active profile could not be read (above); nothing was copied" >&2; exit 1; }
 fi
 
 # Spec 0013: private names (~/.claude/private/names.txt) never reach this public repo.
