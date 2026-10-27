@@ -1,0 +1,19 @@
+# Names Whisper is told to expect (its starting prompt), one per line. Blank and # lines are skipped.
+# Keep it under about 150 names: Whisper reads only about 224 tokens of the prompt.
+Claude
+Claude Code
+Anthropic
+Seedance
+Higgsfield
+Remotion
+HyperFrames
+MCP
+GitHub
+Blender
+Kling
+ElevenLabs
+CapCut
+n8n
+Cursor
+Opus
+Sonnet
