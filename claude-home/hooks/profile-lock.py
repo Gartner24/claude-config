@@ -2,7 +2,7 @@
 """PreToolUse on Edit, Write, MultiEdit, NotebookEdit (spec 0081 AC-10, AC-11, AC-14): the active profile's edit list.
 
 The target path is resolved through links. Outside the repo and outside ~/.claude: allowed (your own projects).
-Under ~/.claude: Claude's own working folders are allowed; live copies of core files, state/ and private/ are denied;
+Under ~/.claude: Claude's own working folders are allowed; everything else (core copies, state/, private/) is denied;
 a path that resolves into the repo is judged as a repo path, one in a framework folder (jjstack, gstack) is denied.
 Inside the repo: allowed when it matches the profile's `editable`. A profile.json is written only through
 claude-config.py commands (unless the profile may edit everything), and a profile that is not an owner never writes
@@ -19,10 +19,9 @@ import sys
 import tempfile
 from pathlib import Path
 
-# live paths install writes or owns: a write there is a live copy of the core, gone at the next install
-CORE_LIVE = {"CLAUDE.md", "MAP.md", "settings.json", "agents", "rules", "rules-on-demand", "hooks", "scripts", "skills",
-             "commands", "workflows", "state", "private"}
-OWN_LIVE = {"projects", "plans", "todos"}
+# Claude's own working folders under ~/.claude (memory, plans, todos, background job scratch). Everything else there is
+# denied: many live files run code (settings.local.json hooks, plugins/, a status line script), so a deny list leaks.
+OWN_LIVE = {"projects", "plans", "todos", "jobs"}
 
 
 def under(path, root):
@@ -71,9 +70,9 @@ def decide(data, live, state):
         return judge_repo(real.relative_to(repo).as_posix(), state)
     if under(real, live):
         top = real.relative_to(live).parts[0] if real != live else ""
-        if top in OWN_LIVE or top not in CORE_LIVE:
+        if top in OWN_LIVE:
             return None
-        return f"locked core (profile {state.get('name')}): {real} is a live copy; change the repo and run install"
+        return f"locked core (profile {state.get('name')}): {real} is live config; change the repo and run install"
     if any(under(real, d) for d in framework_dirs(repo)):
         return f"locked core (profile {state.get('name')}): {real} belongs to a framework"
     return None
@@ -131,9 +130,12 @@ def selftest():
         check("link into the repo judged", decide(
             {"tool_name": "Edit", "tool_input": {"file_path": "x.md"}, "cwd": str(live / "skills/design")}, live,
             dict(creator, editable=[])), "locked core (profile creator)")
-        check("live copy denied", decide(w(live / "settings.json"), live, engineer), "is a live copy")
-        check("state denied", decide(w(live / "state/profile.json"), live, engineer), "is a live copy")
+        check("live copy denied", decide(w(live / "settings.json"), live, engineer), "is live config")
+        check("state denied", decide(w(live / "state/profile.json"), live, engineer), "is live config")
+        check("local settings denied", decide(w(live / "settings.local.json"), live, creator), "is live config")
+        check("plugins denied", decide(w(live / "plugins/p/hooks/h.json"), live, creator), "is live config")
         check("memory allowed", decide(w(live / "projects/x/memory/m.md"), live, creator), None)
+        check("job scratch allowed", decide(w(live / "jobs/j1/tmp/a.py"), live, creator), None)
         check("notebook", decide({"tool_name": "NotebookEdit", "tool_input": {"notebook_path": str(repo / "tools/n.ipynb")}},
                                  live, creator), "locked core")
         check("state missing in live", decide(w(live / "projects/m.md"), live, None), "profile state missing: run install")
