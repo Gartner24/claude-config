@@ -23,3 +23,6 @@ class Page(TP.Page): pass
 
 
 class Fetch(TP.Fetch): pass
+
+
+class Offers(TP.Offers): pass

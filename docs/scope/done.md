@@ -1378,3 +1378,12 @@ Install the watch-reels skill from your zip, make it hear the audio, see every p
 - [x] Review: `/review` (4 lenses, 13 findings fixed, 1 owner question; second pass 10 dropped)
 - [x] Sync: `/sync` (PR #227 merged and installed 2026-10-26, drift none)
 Source: `docs/briefs/watch-reels.md` @ 9891171 (closed); your message 2026-10-26.
+
+### 116. watch-reels: "comment X" offers without commenting · done
+You asked that the skill read comments when needed, and for "comment X and I'll send it" posts check whether the thing is already in the video, the caption or a pinned comment, so you need not write to the poster. Comments need a login (Instagram sends none logged out; yt-dlp turns comment reading off without one). Your answer 2026-10-26: no login.
+**Done when:** a post with an offer is flagged with where it was found, and the skill says either what the thing is and where it is shown, or asks you to paste the pinned comment.
+- [x] Build: `/develop watch-reels comment offers` (post.py finds offers in the caption and speech; batch index.md has a "Comment offer" column; SKILL.md step 3)
+- [x] Verify it: `/check verify watch-reels comment offers` (live 2026-10-26: reel flagged `OPEN` in the caption and `open` said at 29.0 s; carousel flagged `REALIZE`)
+- [x] Test it: `/test watch-reels comment offers` (5 tests, 8 mutants red; suite 225 ok)
+- [x] Sync: `/sync`
+Source: your messages 2026-10-26 (comments, then "No login").
