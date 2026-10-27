@@ -113,6 +113,15 @@ class Batch(unittest.TestCase):
         self.assertIn("| https://www.instagram.com/p/W1/ | done | W1/post.md | yes |", index)
         self.assertIn("| https://www.instagram.com/p/W2/ | done | W2/post.md |  |", index)
 
+    def test_page_failures_do_not_stop_the_batch(self):
+        rows = self.run_([f"https://www.instagram.com/p/P{i}/" for i in range(5)], post_=bad)
+        self.assertEqual([s.split(":")[0] for _, s, _ in rows], ["failed"] * 5)
+
+    def test_in_process_page_reports_errors(self):
+        r = batch.post(tempfile.mkdtemp(), tempfile.mkdtemp())
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("no slides", r.stderr)
+
     def test_links_file(self):
         p = os.path.join(self.out, "links.txt")
         open(p, "w").write("# mine\n\nhttps://a/p/1/\n  https://a/p/2/  \n  # later\n")
@@ -135,8 +144,61 @@ class Offers(unittest.TestCase):
         for t in ["put it in the comments", "write this in the comments", "leave me in the comments"]:
             self.assertEqual(post.offers(t), [], t)
 
+    def test_spanish(self):
+        self.assertEqual(post.offers("Comenta “GUIA” y te la mando"), ["GUIA"])
+        self.assertEqual(post.offers("escribe prompt en los comentarios"), ["prompt"])
+        self.assertEqual(post.offers("mándame RECURSOS por DM"), ["RECURSOS"])
+        self.assertEqual(post.offers("déjalo en los comentarios"), [])
+
+    def test_mentions(self):
+        got = post.mentions("Repo: github.com/calesthio/OpenMontage. Site https://openmontage.dev/start! "
+                            "Follow @sebastianhardy_ and @SEBASTIANHARDY_ effects.Netflix")
+        self.assertEqual(got, ["github.com/calesthio/OpenMontage", "https://openmontage.dev/start", "@sebastianhardy_"])
+
+    def test_domain_ending_lower_case_whole_word(self):
+        self.assertEqual(post.mentions("on Netflix.com, effects.Net, effects.Netflix"), ["Netflix.com"])
+        self.assertEqual(post.mentions("the.company plan, my.devices"), [])
+
     def test_once_each(self):
         self.assertEqual(post.offers('Comment "AI". Again: comment AI!'), ["AI"])
+
+
+class Build(unittest.TestCase):
+    """post.build in this process, with stand-ins for Whisper and the OCR engine."""
+
+    def setUp(self):
+        import test_breakdown
+        self.d, self.out = tempfile.mkdtemp(), tempfile.mkdtemp()
+        test_breakdown.synth(os.path.join(self.d, "slide01.mp4"))
+        subprocess.run(["ffmpeg", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=red:s=1080x1350", "-frames:v", "1",
+                        os.path.join(self.d, "slide02.jpg")], check=True)
+        with open(os.path.join(self.d, "caption.txt"), "w") as f:
+            f.write("New tool, link in bio")
+        speech = [(0.0, "Someone just open sourced a tool."), (4.0, "It's called OpenMontage."), (6.5, "Drop open in"), (7.0, "the comments.")]
+        real = (post.B.transcript, list(post._OCR))
+        post.B.transcript = lambda v: speech
+        # every frame shows the same headline plus one changing line; the photo has the offer on screen
+        post._OCR[:] = [lambda img: ([(0, "COMMENT", 1), (0, "REALIZE", 1)] if img.endswith("slide02.jpg") else
+                                     [(0, "BIG HEADLINE", 1), (0, f"line {os.path.basename(img)}", 1)], 0)]
+        try:
+            post.build(self.d, self.out)
+        finally:
+            post.B.transcript, post._OCR[:] = real[0], real[1]
+        with open(os.path.join(self.out, "post.md"), encoding="utf-8") as f:
+            self.md = f.read()
+
+    def test_offer_found_where_it_starts(self):
+        self.assertIn("- `open` said in slide 01 at 6.5 s", self.md)
+
+    def test_offer_on_screen(self):
+        self.assertIn("- `REALIZE` on screen, slide 02 photo", self.md)
+
+    def test_link_in_bio(self):
+        self.assertIn("the link is in the bio", self.md)
+
+    def test_screen_lines_once(self):
+        self.assertEqual(self.md.count("BIG HEADLINE"), 1)
+        self.assertEqual(self.md.count("line 0"), len([l for l in self.md.splitlines() if l.startswith("slide 01 at")]))
 
 
 class Page(unittest.TestCase):

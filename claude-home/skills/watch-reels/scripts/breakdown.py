@@ -7,6 +7,7 @@ SCENE = 0.30          # ffmpeg scene-change score that counts as a cut
 MIN_GAP = 0.25        # s, cuts closer than this are one cut (flashes, dissolves)
 MIN_FRAMES, MAX_FRAMES = 6, 12
 FRAME_W = 540         # px, long side of a key frame
+_MODEL = []           # the faster-whisper model, loaded on first use
 
 
 def run(args, text=True):
@@ -71,7 +72,9 @@ def transcript(video):
     pcm = run(["ffmpeg", "-loglevel", "error", "-i", video, "-vn", "-ac", "1", "-ar", "16000", "-f", "f32le", "-"],
               text=False).stdout
     try:
-        segs, _ = WhisperModel("small", compute_type="int8").transcribe(np.frombuffer(pcm, np.float32))
+        if not _MODEL:  # loaded once per process: a batch runs every post in one process
+            _MODEL.append(WhisperModel("small", compute_type="int8"))
+        segs, _ = _MODEL[0].transcribe(np.frombuffer(pcm, np.float32))
         return [(s.start, s.text.strip()) for s in segs]
     except Exception as e:  # first run offline (model download) must not cost the whole page
         print(f"transcript skipped: {e}", file=sys.stderr)
