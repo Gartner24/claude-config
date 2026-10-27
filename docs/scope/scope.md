@@ -138,8 +138,8 @@ Closed rows (done or dropped, no open box) live in [done.md](done.md).
 | 116 | watch-reels: "comment X" offers without commenting | Release 10 | done |
 | 117 | watch-reels: on-screen text, Spanish offers, faster batches | Release 10 | done |
 | 112 | Assertion Guardian: remaining hidden command forms | Release 10 | done |
-| 118 | Profiles: named profiles over one shared core | Release 11 | planned |
-| 119 | Mac support: claude-config on macOS and Linux | Release 11 | planned |
+| 118 | Profiles: named profiles over one shared core | Release 11 | in-progress |
+| 119 | Mac support: claude-config on macOS and Linux | Release 11 | in-progress |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -222,17 +222,31 @@ Source: suite failure 2026-10-26 (row 114 landing); `tools/scripts/review-isolat
 ## Release 11: profiles for other people
 claude-config shared with a partner who makes videos, with the same quality bar and a different set of switches.
 
-### 118. Profiles: named profiles over one shared core · needs a decision
+### 118. Profiles: named profiles over one shared core · in-progress
 Every skill, rule, hook and the design pipeline stay one shared core. A named profile picks which skills fire on their own, which owner only rules load, how much Claude asks, and what its user may edit; you switch profiles on one machine (for example a `chip-profile` command), and `/claude-config update` updates only your own profile.
 **Done when:** your profile behaves exactly as today; a second profile installs on a fresh machine with fewer owner only rules and fewer questions at the same quality bar; that profile cannot edit locked core files, and editing one of its rules creates a new `custom-profile-<id>` instead of changing it; switching profiles on one machine works and switches back.
-- [ ] Design it (spec): `/architect profiles`
-Source: [brief](../briefs/profiles.md) (D1 to D14); your messages 2026-10-27.
+- [x] Design it (spec): `/architect profiles` (spec [0081](../specs/0081-profiles/index.md), 2026-10-27, Sonnet cross check, 18 fixes applied)
+- [ ] Build it: `/develop profiles`
+  - [ ] PR A: profile files, install builds from core plus profile, overwrite check (AC-1 to AC-5)
+  - [ ] PR A: sync routing, `/claude-config profile` switch and update, band name (AC-6 to AC-9b)
+  - [ ] PR B: lock hook, `creator` profile, automatic custom profiles (AC-10 to AC-14)
+  - [ ] PR C: CODEOWNERS and the main branch rule set, with probe PRs (AC-15) · waits on you
+- [ ] Verify it: `/check verify profiles`
+- [ ] Test it: `/test profiles`
+Source: [brief](../briefs/profiles.md) (D1 to D24); your messages 2026-10-27.
 
-### 119. Mac support: claude-config on macOS and Linux · needs a decision
+### 119. Mac support: claude-config on macOS and Linux · in-progress
 Your partner uses a Mac. Install, sync, hooks and the scripts they call must run on macOS as well as Linux (old bash 3.2, BSD `sed -i` and `readlink -f`, no `bwrap`).
 **Done when:** `tools/bin/install.sh` and the suite run green on a Mac, and every Linux only part either has a macOS path or says plainly that it is Linux only.
-- [ ] Design it (spec): `/architect mac support`
-Source: [brief](../briefs/profiles.md) D11; your message 2026-10-27.
+- [x] Design it (spec): `/architect mac support` (spec [0082](../specs/0082-mac-support.md), 2026-10-27, Sonnet cross check, 11 fixes applied)
+- [ ] Build it: `/develop mac support`
+  - [ ] PR A: advisory Mac and Linux CI job, portable shell, portability grep test (AC-0 to AC-3b)
+  - [ ] PR B1: RAM watcher, start-gates, review-isolated, Python 3.10 check (AC-4 to AC-6, AC-11)
+  - [ ] PR B2: mod, sound, key store, home paths; both jobs green (AC-7 to AC-10, AC-12)
+  - [ ] Make the Mac job a required check (AC-13) · waits on you
+- [ ] Verify it: `/check verify mac support`
+- [ ] Test it: `/test mac support`
+Source: [brief](../briefs/profiles.md) D11, D25, D26; your messages 2026-10-27.
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.

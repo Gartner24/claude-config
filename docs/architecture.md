@@ -46,14 +46,17 @@ so the start skill gets its rules the same way a typed one does.
 1. **One source of truth per kind.** Copied files (`CLAUDE.md`, `settings*.json`, `agents/`, `rules/`,
    `rules-on-demand/`, the listed hooks, `MAP.md`): live wins, edit in `~/.claude`, then `tools/bin/sync.sh`. Linked files
    (`skills/`, `commands/`, `workflows/<name>/`) and mods: repo wins. Downloaded skills: upstream plus a patch.
-   Private files: `~/.claude/private/`, live only.
+   Private files: `~/.claude/private/`, live only. Spec 0081 (once built): files a profile builds (`rules/`,
+   `settings.json` `skillOverrides`) are repo wins, from core plus `profiles/<name>/`; install lists live changes it
+   would overwrite and stops first.
 2. **Downloaded skills are never patched for our rules.** A rule a workflow skill must follow lives in
    `rules-on-demand/` and reaches the skill through `map.json` and the skill rules hook, or in an always loaded file.
 3. **State lives in repo files**, never only in chat: the scope, the specs, the briefs, `AGENTS.md`.
 4. **Nothing pushes, merges, posts or bills without the owner's yes**, except the self merge checklist in own repos
    (`rules-on-demand/when-to-switch-on.md`).
 5. **Hooks fail open.** A hook that breaks (bad input, missing file) prints nothing and exits 0, so a broken hook
-   never stops a chat; its `--test` self check runs in install verify.
+   never stops a chat; its `--test` self check runs in install verify. One exception (spec 0081 AC-14): the profile
+   lock hook denies core writes when its state file is missing, since allowing would unlock the core.
 6. **The repo is public.** No client or employer names, keys or machine state; the commit hooks and `tools/bin/sync.sh`
    refuse a private name.
 
