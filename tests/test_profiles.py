@@ -317,6 +317,85 @@ class TestProfileCommand(Scratch):
         self.assertIn("profile: creator (from --profile)", r.stdout)
 
 
+HOOK = REPO / "claude-home" / "hooks" / "profile-lock.py"
+
+
+class TestLockHook(unittest.TestCase):
+    # covers: AC-14 (the self check: allowed outside, editable, denied core and own shared profile, owner, links)
+    def test_self_check(self):
+        r = subprocess.run([sys.executable, str(HOOK), "--test"], capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("profile-lock: all self-checks passed", r.stdout)
+
+    # covers: AC-10 (wired on the four file tools in settings like the other core hooks, copied by install)
+    def test_wired(self):
+        pre = json.loads((REPO / "claude-home/settings.json").read_text())["hooks"]["PreToolUse"]
+        groups = [g for g in pre if any("hooks/profile-lock.py" in c["command"] for c in g["hooks"])]
+        self.assertEqual([g["matcher"] for g in groups], ["Edit|Write|MultiEdit|NotebookEdit"])
+        tool = load_tool(REPO, Path(tempfile.gettempdir()) / "no-live")
+        self.assertIn("hooks/profile-lock.py", tool.COPIED_FILES)
+        self.assertIn("hooks/profile-lock.py", (REPO / "tools/bin/install.sh").read_text())
+        self.assertIn("hooks/profile-lock.py", (REPO / "tools/bin/sync.sh").read_text())
+
+    # covers: AC-13 (creator's edit list is the spec's, engineer may edit everything)
+    def test_creator_editable(self):
+        cre = json.loads((REPO / "profiles/creator/profile.json").read_text())
+        skills = ["design", "assets", "brand-system", "nano-banana", "video-to-website", "voice-dna", "content-ops",
+                  "anti-ai-writing", "watch-reels"]
+        patches = ["high-end-visual-design", "minimalist-ui", "industrial-brutalist-ui"]
+        self.assertEqual(cre["editable"], [f"claude-home/skills/{s}/**" for s in skills]
+                         + [f"tools/config/patches/{p}.patch" for p in patches] + ["profiles/custom-*/**"])
+        self.assertEqual(cre["owner"], False)
+
+
+class TestCustomProfile(Scratch):
+    def setUp(self):
+        super().setUp()
+        (self.repo / "claude-home" / "hooks" / "profile-lock.py").write_text(HOOK.read_text())
+        self.profile("creator", owner=False, editable=["claude-home/skills/design/**", "profiles/custom-*/**"])
+        self.live = self.tmp / "home-c" / ".claude"
+
+    def tool(self, *args):
+        env = {**os.environ, "HOME": str(self.live.parent), "CLAUDE_LIVE_DIR": str(self.live), "GIT_CONFIG_GLOBAL": "/dev/null"}
+        env.pop("WF_STAGE", None)
+        return subprocess.run([sys.executable, str(self.repo / "tools/bin/claude-config.py"), *args], env=env,
+                              capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=120)
+
+    def write(self, rel):
+        data = {"tool_name": "Write", "tool_input": {"file_path": str(self.repo / rel)}}
+        return subprocess.run([sys.executable, str(self.live / "hooks" / "profile-lock.py")], input=json.dumps(data),
+                              capture_output=True, text=True, env={**os.environ, "CLAUDE_LIVE_DIR": str(self.live)})
+
+    # covers: AC-10 (as creator, core denied, an editable skill allowed), AC-11 (its own shared folder denied with the
+    # custom hint), AC-12 (custom copy: name, base, owner, edit list, switched; its rules writable, its profile.json
+    # not; a bad or taken name exits 2; a copy made from a custom profile records it as base)
+    def test_custom_flow(self):
+        self.assertEqual(self.tool("profile", "creator").returncode, 0)
+        r = self.write("tools/bin/install.sh")
+        self.assertEqual((r.returncode, r.stderr.strip()),
+                         (2, "locked core (profile creator): ask the owner to change tools/bin/install.sh"))
+        self.assertEqual(self.write("claude-home/skills/design/SKILL.md").returncode, 0)
+        r = self.write("profiles/creator/rules/x.md")
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("creator is shared. Make the person's own copy now", r.stderr)
+        r = self.tool("profile", "custom", "ana")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("profile custom-ana active: open a new chat", r.stdout)
+        p = json.loads((self.repo / "profiles/custom-ana/profile.json").read_text())
+        self.assertEqual((p["name"], p["base"], p["owner"]), ("custom-ana", "creator", True))
+        self.assertEqual(p["editable"], ["claude-home/skills/design/**", "profiles/custom-*/**",
+                                         "profiles/custom-ana/rules/**"])
+        self.assertEqual(json.loads((self.live / "state/profile.json").read_text())["name"], "custom-ana")
+        self.assertEqual(self.write("profiles/custom-ana/rules/x.md").returncode, 0)
+        self.assertEqual(self.write("profiles/custom-ana/profile.json").returncode, 2)
+        self.assertEqual(self.write("tools/bin/install.sh").returncode, 2)
+        for bad in ("Ana", "a" * 31, "ana"):
+            with self.subTest(bad=bad):
+                self.assertEqual(self.tool("profile", "custom", bad).returncode, 2)
+        self.assertEqual(self.tool("profile", "custom", "bo").returncode, 0)
+        self.assertEqual(json.loads((self.repo / "profiles/custom-bo/profile.json").read_text())["base"], "custom-ana")
+
+
 class TestPortableShell(unittest.TestCase):
     # covers: AC-9b (no GNU only construct in the shell this spec adds or changes; the lines listed are older and
     # row 119 removes them)

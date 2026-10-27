@@ -4,8 +4,9 @@
   sync              ~/.claude -> repo for the copied kinds (tools/bin/sync.sh does the copy)
   install [--profile <name>] [--accept-overwrite] [--dry-run]
                     repo -> ~/.claude (tools/bin/install.sh does the copy and the links)
-  profile [<name> | update]
-                    list the profiles, switch to one (install, then open a new chat), or pull and reinstall the active one
+  profile [<name> | update | custom <short>]
+                    list the profiles, switch to one (install, then open a new chat), pull and reinstall the active one,
+                    or make your own copy of the active one and switch to it
   profile-resolve, stage, overwrite, write-state, profile-owner, sync-profile
                     steps tools/bin/install.sh and tools/bin/sync.sh call (spec 0081)
   drift             every item in one place and not the other, or different, by kind; exit 1 when any
@@ -46,7 +47,7 @@ IGNORE = REPO / "tools" / "config" / "drift-ignore.json"
 COPIED_FILES = ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py",
                 "hooks/context-monitor.js", "hooks/claude-config-reminder.py",
                 "hooks/workflow-start.sh", "hooks/handover-start.sh", "hooks/no-jjstack-bar.py", "hooks/chain-catch.py",
-                "hooks/live-tick.py", "hooks/skill-rules.py", "MAP.md",
+                "hooks/live-tick.py", "hooks/skill-rules.py", "hooks/profile-lock.py", "MAP.md",
                 "scripts/claude-ram-watch.sh")
 # .in_use/<pid> is a marker Claude Code drops in a plugin folder per running session; it used to make 10
 # of 12 plugin base_hash values go stale as soon as any session started.
@@ -1381,6 +1382,8 @@ def profile_cmd(rest):
             print(f"profile update: git pull failed, nothing installed:\n{(r.stdout + r.stderr).decode().strip()}")
             return 1
         return install("--profile", active_profile(), *accept)
+    if len(rest) == 2 and rest[0] == "custom":
+        return custom_profile(rest[1], accept)
     if len(rest) == 1:
         if rest[0] not in profile_names():
             print(f"unknown profile: {rest[0]}; known: {', '.join(profile_names())}", file=sys.stderr)
@@ -1391,6 +1394,30 @@ def profile_cmd(rest):
         return rc
     print(f"claude-config: unknown command: profile {' '.join(rest)}", file=sys.stderr)
     return 2
+
+
+def custom_profile(short, accept):
+    """AC-12: the person's own copy of the active profile, profiles/custom-<short>/, then switched to it. It is an owner
+    profile limited to its base's edit list plus its own rules; its profile.json changes only through this tool."""
+    if not re.fullmatch(r"[a-z0-9-]{1,30}", short):
+        print(f"profile custom: {short!r} is not 1 to 30 of a-z, 0-9 and -; pick another name", file=sys.stderr)
+        return 2
+    name = f"custom-{short}"
+    dst = PROFILES / name
+    if dst.exists():
+        print(f"profile custom: {name} exists; pick another name", file=sys.stderr)
+        return 2
+    base = active_profile()
+    shutil.copytree(PROFILES / base, dst)
+    p = load_profile(base)
+    p.update(name=name, base=base, owner=True, editable=p["editable"] + [f"profiles/{name}/rules/**"],
+             description=f"{short}'s own copy of {base}")
+    (dst / "profile.json").write_text(json.dumps(p, indent=2) + "\n")
+    print(f"made {dst.relative_to(REPO)} from {base}")
+    rc = install("--profile", name, *accept)
+    if rc == 0:
+        print(f"profile {name} active: open a new chat")
+    return rc
 
 
 def sync_profile(stripped):

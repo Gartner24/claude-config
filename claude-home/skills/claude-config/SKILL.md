@@ -17,6 +17,10 @@ Drive `~/claude-config/tools/bin/claude-config.py`. It never asks anything itsel
 - `profile`: run `python3 ~/claude-config/tools/bin/claude-config.py profile` and show the list; the active one has a `*`.
 - `profile <name>`: run `python3 ~/claude-config/tools/bin/claude-config.py profile <name>`. On exit 0, say the profile
   is active in a new chat. Exit 2 names the known profiles.
+- `profile custom <short>` (spec 0081 AC-11, AC-12): when the lock hook says a profile "is shared", do it yourself:
+  propose a short name (a-z, 0-9, -, up to 30), let the person change it, run
+  `python3 ~/claude-config/tools/bin/claude-config.py profile custom <short>`, then make the change they asked for in
+  `profiles/custom-<short>/rules/`. Exit 2: the name is taken or not allowed; ask for another.
 - `update`: run `python3 ~/claude-config/tools/bin/claude-config.py update --plan`. For each entry it lists, ask the user yes or no, one question per entry, showing its changed files and line counts. For each yes, run `update --apply <entry>`:
   - exit 0: installed; say so. Show its `skill scan` lines too: new serious findings skillspector saw in what was installed. They never block; the user decides whether to look closer.
   - exit 2: a conflict. Nothing was installed. Show the files under `~/.claude/state/claude-config-conflicts/<entry>/` with their `<<<<<<<` markers, help the user fix them, then run `update --apply <entry> --resolved`.
