@@ -1,0 +1,17 @@
+# Spec 0081 AC-15: the owner reviews every change, except the paths the creator profile may edit
+# (profiles/creator/profile.json `editable`). A pattern with no owner below clears the owner for those paths.
+# tests/test_profiles.py fails when this list and the profile disagree.
+* @Gartner24
+/claude-home/skills/design/**
+/claude-home/skills/assets/**
+/claude-home/skills/brand-system/**
+/claude-home/skills/nano-banana/**
+/claude-home/skills/video-to-website/**
+/claude-home/skills/voice-dna/**
+/claude-home/skills/content-ops/**
+/claude-home/skills/anti-ai-writing/**
+/claude-home/skills/watch-reels/**
+/tools/config/patches/high-end-visual-design.patch
+/tools/config/patches/minimalist-ui.patch
+/tools/config/patches/industrial-brutalist-ui.patch
+/profiles/custom-*/**
