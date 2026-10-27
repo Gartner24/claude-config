@@ -179,7 +179,7 @@ else
 fi
 # Spec 0081 AC-2: the active profile, read by the band, sync and the lock hook.
 note "state/profile.json: $PROFILE"
-run "${CONFIG[@]}" write-state "$PROFILE"
+run "${CONFIG[@]}" write-state "$PROFILE" "$STAGE"
 
 # Symlinked: editing the live file edits the repo, so there is one copy of the
 # truth. This is how the existing install is already wired. Spec 0076 AC-6: workflows/<name> the same way.
