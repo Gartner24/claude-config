@@ -1,0 +1,31 @@
+diff --git a/SKILL.md b/SKILL.md
+index d319ad9..01c883a 100644
+--- a/SKILL.md
++++ b/SKILL.md
+@@ -3,6 +3,26 @@ name: minimalist-ui
+ description: Clean editorial-style interfaces. Warm monochrome palette, typographic contrast, flat bento grids, muted pastels. No gradients, no heavy shadows.
+ ---
+ 
++> ## LOCAL OVERRIDE (2026-09-09) - read this before the font, colour and imagery sections
++>
++> This skill supplies **spacing rules, restraint and layout logic**. It does NOT
++> supply the typeface, the palette, or the images.
++>
++> - **Fonts:** `SF Pro Display` and `Helvetica Neue` are Apple/Linotype licensed and
++>   cannot legally be self-hosted as webfonts, which contradicts the self-hosting [P0] in
++>   BRAND-SYSTEM-GUIDE sec. 4.5. (The skill is right to ban Inter/Roboto/Open Sans.)
++> - **Palette:** the pale-pastel hex list is one hardcoded palette. Generate the ramp.
++> - **Imagery:** never ship `picsum.photos`. It is random stock, it is a placeholder that
++>   reaches production, and it is exactly the stock-photo tell. Use `/assets`.
++>
++> `python3 ~/.claude/skills/design/scripts/fontsearch.py --adjectives calm --category Serif --seed <client>`
++> `node ~/.claude/skills/design/scripts/build-ramp.mjs --hue <deg> --sat 0.35`
++>
++> Keep: the whitespace scale, the border restraint, the scroll-entry timing, the
++> "colour is a scarce resource" principle. Those are the value here.
++
++
++
+ # Protocol: Premium Utilitarian Minimalism UI Architect
+ 
+ ## 1. Protocol Overview

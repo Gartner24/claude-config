@@ -1,0 +1,32 @@
+diff --git a/SKILL.md b/SKILL.md
+index f5375b9..1997e00 100644
+--- a/SKILL.md
++++ b/SKILL.md
+@@ -3,6 +3,27 @@ name: industrial-brutalist-ui
+ description: Raw mechanical interfaces fusing Swiss typographic print with military terminal aesthetics. Rigid grids, extreme type scale contrast, utilitarian color, analog degradation effects. For data-heavy dashboards, portfolios, or editorial sites that need to feel like declassified blueprints.
+ ---
+ 
++> ## LOCAL OVERRIDE (2026-09-09) - read this before the font and colour sections below
++>
++> This skill supplies **composition, attitude and restraint**. It does NOT supply the
++> typeface or the palette. Ignore every specific font name and hex code in it:
++>
++> - **Fonts (sec. "Optimal Web Fonts", both variants):** Inter and Roboto Flex are
++>   popularity 5 and 2 - the two most-used typefaces on the web, and the single fastest
++>   generic tell. Neue Haas Grotesk and Monument Extended are commercial and cannot be
++>   self-hosted. Playfair Display is popularity 25 and Times New Roman is a system font.
++> - **Palette:** `#E61919` / `#FF2A2A` Aviation Red is one hardcoded accent applied to
++>   every brutalist project ever built from this skill. That is the repetition problem.
++>
++> Get faces and hue from the search instead:
++> `python3 ~/.claude/skills/design/scripts/fontsearch.py --adjectives loud active --anti calm --category Display --seed <client> --top 8`
++> `node ~/.claude/skills/design/scripts/build-ramp.mjs --hue <deg> --sat 0.9`
++>
++> Keep: the grid logic, the hairline rules, the data/telemetry motifs, the density, the
++> restraint on the second accent. Those are what the skill is actually for.
++
++
++
+ # SKILL: Industrial Brutalism & Tactical Telemetry UI
+ 
+ ## 1. Skill Meta
