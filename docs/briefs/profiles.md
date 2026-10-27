@@ -1,6 +1,6 @@
 # Profiles: brief and handover memory
 **Feature:** profiles
-**Updated:** 2026-10-27 01:44 by session_
+**Updated:** 2026-10-27 02:23 by session_
 
 ## Open questions
 - none
@@ -9,21 +9,32 @@
 - none
 
 ## Agreed so far, do not ask again
-- D1 | open | 2026-10-27 | Skills are shared core; a profile changes only the active skill set (what triggers or is always on) | owner session_ "the skills part is shared, thats part of the core of claude-config" | -
-- D2 | open | 2026-10-27 | The design pipeline is shared core | owner session_ "the design pipeline, can be shared too I thjink thats part of the core of claude-config too" | -
-- D3 | open | 2026-10-27 | Owner-only parts stay in claude-config, separated into named profiles | owner session_ "there are some mine only but that still are part of claude-config, just separated on different named profiles" | -
-- D4 | open | 2026-10-27 | Quality bar is the same in every profile; a profile changes how much the owner is asked | owner session_ "Quality bar: Yes!" | -
+- D1 | done | 2026-10-27 | Skills are shared core; a profile changes only the active skill set (what triggers or is always on) | owner session_ "the skills part is shared, thats part of the core of claude-config" | landed: docs/specs/0081-profiles/index.md
+- D2 | done | 2026-10-27 | The design pipeline is shared core | owner session_ "the design pipeline, can be shared too I thjink thats part of the core of claude-config too" | landed: docs/specs/0081-profiles/index.md
+- D3 | done | 2026-10-27 | Owner-only parts stay in claude-config, separated into named profiles | owner session_ "there are some mine only but that still are part of claude-config, just separated on different named profiles" | landed: docs/specs/0081-profiles/index.md
+- D4 | done | 2026-10-27 | Quality bar is the same in every profile; a profile changes how much the owner is asked | owner session_ "Quality bar: Yes!" | landed: docs/specs/0081-profiles/index.md
 - D5 | open | 2026-10-27 | The partner's existing ask-less configs get adapted to the same quality bar and wired in when they arrive | owner session_ "he already has a lot of configurations for that, when we get them we need just to adapt them with his same quallity but wire it to claude-config" | -
 - D6 | open | 2026-10-27 | Video-only profile part is built later, when the partner's configs arrive | owner session_ "I do want still that part, but I will activate it when it is here" | -
-- D7 | open | 2026-10-27 | Updates go through the existing /claude-config skill | owner session_ "needs a simple way to update, meaby with the existing claude-config skill" | -
-- D8 | open | 2026-10-27 | An update touches only the installing person's own profile | owner session_ "the things that get updated for me are the ones for my profile" | -
-- D9 | open | 2026-10-27 | Profiles are a standard that works for anyone, not partner-specific | owner session_ "we need to standarize this then and make it work for anyone" | -
-- D10 | open | 2026-10-27 | Profile can be switched on the same machine, e.g. a chip-profile | owner session_ "about when I want to make videos I will change it lets say with chip-profile" | -
-- D11 | open | 2026-10-27 | claude-config must work on macOS and Linux | owner session_ "He is ussing mac we need to make claude-config work for mac and linux too" | -
-- D12 | open | 2026-10-27 | The partner is a collaborator on the same claude-config repo and will change skills | owner session_ "he will also change skills, we will share the repo he will be a collaborator on it" | -
-- D13 | open | 2026-10-27 | A profile limits what its user may edit: core engineering skills and configs are locked; design skills and rules of thei | owner session_ "that profile shouldnt be able to edit really important skills or configurations within claude, but he can edit design skills and things like that, or rules that" | -
-- D14 | open | 2026-10-27 | Editing a rule of a profile never changes that profile; it creates a new custom-profile-[id] with a custom name | owner session_ "he wont edit his profile it will create automatically a custom-profile-[id], this way we can have custom profiles with a custom profile name and dont destroy ex" | -
+- D7 | done | 2026-10-27 | Updates go through the existing /claude-config skill | owner session_ "needs a simple way to update, meaby with the existing claude-config skill" | landed: docs/specs/0081-profiles/index.md
+- D8 | done | 2026-10-27 | An update touches only the installing person's own profile | owner session_ "the things that get updated for me are the ones for my profile" | landed: docs/specs/0081-profiles/index.md
+- D9 | done | 2026-10-27 | Profiles are a standard that works for anyone, not partner-specific | owner session_ "we need to standarize this then and make it work for anyone" | landed: docs/specs/0081-profiles/index.md
+- D10 | done | 2026-10-27 | Profile can be switched on the same machine, e.g. a chip-profile | owner session_ "about when I want to make videos I will change it lets say with chip-profile" | landed: docs/specs/0081-profiles/index.md
+- D11 | done | 2026-10-27 | claude-config must work on macOS and Linux | owner session_ "He is ussing mac we need to make claude-config work for mac and linux too" | landed: docs/specs/0082-mac-support.md
+- D12 | done | 2026-10-27 | The partner is a collaborator on the same claude-config repo and will change skills | owner session_ "he will also change skills, we will share the repo he will be a collaborator on it" | landed: docs/specs/0081-profiles/index.md
+- D13 | done | 2026-10-27 | A profile limits what its user may edit: core engineering skills and configs are locked; design skills and rules of thei | owner session_ "that profile shouldnt be able to edit really important skills or configurations within claude, but he can edit design skills and things like that, or rules that" | landed: docs/specs/0081-profiles/index.md
+- D14 | done | 2026-10-27 | Editing a rule of a profile never changes that profile; it creates a new custom-profile-[id] with a custom name | owner session_ "he wont edit his profile it will create automatically a custom-profile-[id], this way we can have custom profiles with a custom profile name and dont destroy ex" | landed: docs/specs/0081-profiles/index.md
 - D15 | done | 2026-10-27 | claude-fb and its fb-ask config are shared in the repo (PR 233); the two claude-fb keys.env entries left names.txt; pack | owner session_ "fb-ask.conf, fb-ok.txt - this could be on claude-config, including claude-fb no problem on sharing that" | landed: tools/claude-fb/ (PR 233)
+- D16 | done | 2026-10-27 | Repo wins for profile built files; install first lists what it would overwrite or lose, then fixes it or asks | owner session_ "Priority repo, if live will be overwritten check what is gonna get overwritten check what's gonna get missing and fix it or ask to fix it" | landed: docs/specs/0081-profiles/index.md
+- D17 | done | 2026-10-27 | The first two profiles are engineer and creator | owner session_ "engineer and creator (Recommended)" | landed: docs/specs/0081-profiles/index.md
+- D18 | done | 2026-10-27 | Lock the core with both a Claude hook and GitHub code owners | owner session_ "Hook and GitHub (Recommended)" | landed: docs/specs/0081-profiles/index.md
+- D19 | done | 2026-10-27 | creator may edit the design and content skills, the taste patches and its own custom profiles, not design-gate | owner session_ "List minus design-gate (Recommended)" | landed: docs/specs/0081-profiles/index.md
+- D20 | done | 2026-10-27 | Only non owner profiles get a custom-<name> copy on a rule edit; engineer is edited directly | owner session_ "Non-owner profiles only (Recommended)" | landed: docs/specs/0081-profiles/index.md
+- D21 | done | 2026-10-27 | Switch with /claude-config profile <name>; the band shows the active profile | owner session_ "/claude-config profile (Recommended)" | landed: docs/specs/0081-profiles/index.md
+- D22 | done | 2026-10-27 | creator asks the same questions as engineer until the partner's configs arrive | owner session_ "Wait for his configs" | landed: docs/specs/0081-profiles/index.md
+- D23 | done | 2026-10-27 | Profile data model approved: name, description, owner, base, skills, rules, hooks_off, editable | owner session_ "It matches (Recommended)" | landed: docs/specs/0081-profiles/index.md
+- D24 | done | 2026-10-27 | Cross check fixes applied to spec 0081; custom profiles are created automatically by Claude, which proposes the name | owner session_ "Automatic (Recommended); Apply all (Recommended)" | landed: docs/specs/0081-profiles/index.md
+- D25 | done | 2026-10-27 | Mac support: portable code (no GNU tools required) proven by a macOS and Linux GitHub Actions job on every PR | owner session_ "Portable code (Recommended); Mac CI job (Recommended)" | landed: docs/specs/0082-mac-support.md
+- D26 | done | 2026-10-27 | Mac CI job lands first as advisory, becomes required after the last fix; all 11 cross check fixes applied to spec 0082 | owner session_ "First, advisory (Recommended); Apply all (Recommended)" | landed: docs/specs/0082-mac-support.md
 
 ## Live state
 - none
