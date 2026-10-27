@@ -276,5 +276,24 @@
     "tools/config/patches/minimalist-ui.patch",
     "tools/config/patches/industrial-brutalist-ui.patch",
     "profiles/custom-*/**"
-  ]
+  ],
+  "settings": {
+    "model": "opus[1m]",
+    "env": {
+      "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet",
+      "PONYTAIL_DEFAULT_MODE": "lite"
+    },
+    "enabledPlugins": {
+      "ponytail@ponytail": true
+    },
+    "extraKnownMarketplaces": {
+      "ponytail": {
+        "source": {
+          "source": "github",
+          "repo": "DietrichGebert/ponytail",
+          "ref": "09c434ab73ca43761c5d8b0c5d341926c2fba710"
+        }
+      }
+    }
+  }
 }

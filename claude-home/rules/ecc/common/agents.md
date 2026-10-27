@@ -13,6 +13,7 @@ Located in `~/.claude/agents/`:
 | a11y-architect | Accessibility Architect specializing in WCAG 2.2 compliance for Web and Native platforms |
 | architect | System-level architecture: boundaries, data flow, scalability, and technology choices for a system that... |
 | build-error-resolver | Build and TypeScript error resolution specialist |
+| careful-worker | Routine code work that needs care but not taste - bug fixes with tests, mutation checks, golden replays,... |
 | chief-of-staff | Personal communication chief of staff that triages email, Slack, LINE, and Messenger |
 | code-architect | Feature blueprints grounded in THIS codebase - reads the existing patterns and conventions first, then... |
 | code-explorer | Deeply analyzes existing codebase features by tracing execution paths, mapping architecture layers, and... |
@@ -26,6 +27,7 @@ Located in `~/.claude/agents/`:
 | java-build-resolver | Java/Maven/Gradle build, compilation, and dependency error resolution specialist |
 | java-reviewer | Expert Java code reviewer for Spring Boot and Quarkus projects |
 | loop-operator | Operate autonomous agent loops, monitor progress, and intervene safely when loops stall |
+| mechanical-worker | Mechanical, repeatable steps with a clear recipe - batch checks, log parsing, counting, file listings,... |
 | performance-optimizer | Performance analysis and optimization specialist |
 | planner | Expert planning specialist for complex features and refactoring |
 | pr-intent-verifier | Verify a pull request actually does what it claims - map the PR body and its linked issues to a... |
