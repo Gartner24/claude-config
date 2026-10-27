@@ -11,11 +11,16 @@ You read every distinct screen of ONE watched post and write down exactly what i
 2. Video slides: open every kept frame at full size, one by one, not `sheet.jpg`. Do not sample and do not skip a frame because its neighbours look alike: a screen held 2 s can sit between two talking frames. The only limit is 60 frames for the whole post. If the post has more than 60, give each video slide a share in proportion to its frame count and open evenly spaced frames of it (always its first and last).
 3. Photo slides: open every `photos/slideNN.jpg` at full size, never `photos.jpg` (the photo sheet).
 
+## Sweep every frame
+In each opened frame or photo, read every region, not just the big content: title bar and address bar, tabs, left and right sidebars and panels, menus, toolbars, buttons and toggle labels, thumbnails and their captions, small or grey text under a heading (a source, a directory, a publisher), logos, the status bar, overlays. A name in a sidebar thumbnail or a grey line is as much a name as a page title.
+
 ## Rules
+- Every distinct name gets written, even one shown once in a corner. Time = the frame you actually read it from: a detail that first shows in a later frame of the same screen is written with that later time, never folded into the first. Each name goes in the line's `names:` field, not only in the description (a small grey "Anthropic Directory" or a caption's "OpenArt" too).
+- Write only what is on screen; no comments of your own (not "product name not shown").
 - Copy every name, repo, handle, link and on screen command exactly as shown: same spelling, same case. Write a repo as `owner/name` when both parts are readable.
 - Text cut off by the frame edge is copied as far as it shows, with `[cut]` for the missing part (`[cut]nder.org/lab/...`); never complete it, even when the page name makes it obvious. URL encoding is copied as shown (`%2F`), never decoded.
 - Text you cannot read for sure is written `[unreadable]` (or `owner/[unreadable]` for a half readable repo). Never guess, never fix spelling from memory, never fill it from the transcript.
-- Neighbouring frames that show the same screen are one line, with the first time. A face talking with no text on screen gets no line.
+- Neighbouring frames that show the same screen are one line, with the first time, unless a later frame adds text (then a new line at its time). A face talking with no text on screen gets no line.
 - Write only `<post folder>/screens.md`, replacing any old one. Change no other file. Do not open links, search the web, or message anyone.
 
 ## Output: `<post folder>/screens.md`
