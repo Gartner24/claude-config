@@ -7,7 +7,7 @@
 Tasks: summarize, triage, extract (--fields), classify (--labels), commit-msg, review (a diff in, findings out). Exit 0 with the answer on stdout;
 exit 3 (fall back) or 4 (refused) with empty stdout means: do the job with normal Claude. The answer is data
 from a cheaper model and may be wrong. Never inside a wf run call (WF_RUN), never a repo whose git origin is not
-on ~/.claude/private/fb-ok.txt, never text holding a private name. With --local (spec 0053) the job goes to the
+on tools/claude-fb/fb-ok.txt, never text holding a private name. With --local (spec 0053) the job goes to the
 laptop model only, so client and private text may pass; never while a wf build runs.
 """
 import fcntl
@@ -29,6 +29,7 @@ import urllib.request
 PROXY = "http://127.0.0.1:4000"
 MODEL = "fb-safe"
 START = "~/.local/share/claude-fb/start-proxy.sh"
+FB_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "claude-fb")  # fb-ask.conf, fb-ok.txt
 START_LOG = "~/.local/state/claude-fb/litellm.log"
 START_WAIT = 20
 ANSWER_WAIT = 180
@@ -125,7 +126,7 @@ def normalize(url):
 
 def allowed_prefixes():
     try:
-        with open(os.path.join(live_dir(), "private", "fb-ok.txt"), encoding="utf-8") as f:
+        with open(os.path.join(FB_DIR, "fb-ok.txt"), encoding="utf-8") as f:
             lines = f.read().splitlines()
     except (OSError, UnicodeDecodeError):
         return []
@@ -204,7 +205,7 @@ def wf_building():
 def read_key():
     """The LITELLM_MASTER_KEY value, in memory only: never argv, a child's env, stdout or stderr."""
     try:
-        with open(os.path.join(live_dir(), "private", "fb-ask.conf"), encoding="utf-8") as f:
+        with open(os.path.join(FB_DIR, "fb-ask.conf"), encoding="utf-8") as f:
             conf = f.read().splitlines()
         where = next(l.split(":", 1)[1].strip() for l in conf if l.strip().lower().startswith("key file:"))
         with open(os.path.expanduser(where), encoding="utf-8") as f:
@@ -474,7 +475,7 @@ def self_test():
     def fb(*args, cwd=plain, stdin="the build failed: test_login timed out twice", env=None, **patch):
         consts = {"PROXY": f"http://127.0.0.1:{server.server_port}", "START": start,
                   "START_LOG": os.path.join(tmp, "log", "litellm.log"), "START_WAIT": 3, "ANSWER_WAIT": 1,
-                  "LOCAL_WAIT": 5, **patch}
+                  "LOCAL_WAIT": 5, "FB_DIR": os.path.join(live, "private"), **patch}
         e = {**git_env, "CLAUDE_LIVE_DIR": live, **(env or {})}
         argv = [sys.executable, "-c", wrapper, os.path.abspath(__file__), json.dumps(consts), *args]
         r = subprocess.run(argv, cwd=cwd, input=stdin, capture_output=True, text=True, env=e, timeout=60)

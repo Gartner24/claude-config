@@ -1,0 +1,37 @@
+# claude-fb proxy. Same model_name = one group; lower `order` is tried first, and the
+# router escalates to the next order on 429 / 402 / 5xx / timeouts (LiteLLM routing docs).
+# fb-safe: providers that do not train on prompts. fb-any: adds Gemini free + Mistral free,
+# which DO use prompts for training/review by default. Do not send client code through fb-any.
+# Model IDs below are unverified against each provider's live catalog; check after adding keys.
+model_list:
+  - model_name: fb-safe
+    litellm_params: {model: ollama_chat/gpt-oss:120b-cloud, api_base: "http://localhost:11434", order: 1}
+  - model_name: fb-safe
+    litellm_params: {model: groq/openai/gpt-oss-120b, api_key: os.environ/GROQ_API_KEY, order: 2}
+  - model_name: fb-safe
+    litellm_params: {model: ollama_chat/gemma4:31b-cloud, api_base: "http://localhost:11434", order: 3}
+
+  - model_name: fb-any
+    litellm_params: {model: ollama_chat/gpt-oss:120b-cloud, api_base: "http://localhost:11434", order: 1}
+  - model_name: fb-any
+    litellm_params: {model: groq/openai/gpt-oss-120b, api_key: os.environ/GROQ_API_KEY, order: 2}
+  - model_name: fb-any
+    litellm_params: {model: ollama_chat/gemma4:31b-cloud, api_base: "http://localhost:11434", order: 3}
+  - model_name: fb-any
+    litellm_params: {model: gemini/gemini-flash-latest, api_key: os.environ/GEMINI_API_KEY, order: 4}
+  - model_name: fb-any
+    litellm_params: {model: mistral/codestral-latest, api_key: os.environ/MISTRAL_API_KEY, order: 5}
+
+  # fb-local: on this laptop only, nothing leaves the machine. Opt-in, never a fallback (plan A7, 2026-10-17).
+  - model_name: fb-local
+    litellm_params: {model: ollama_chat/qwen2.5-coder:14b, api_base: "http://localhost:11434", keep_alive: "2m"}
+
+litellm_settings:
+  drop_params: true
+  telemetry: false
+router_settings:
+  num_retries: 1
+  allowed_fails: 1
+  cooldown_time: 1800
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY

@@ -125,6 +125,8 @@ class TestRulesOnDemand(unittest.TestCase):
                     line = EDITED[line]
                 # spec 0077 AC-11: the tool folders moved under tools/, so a moved line names the new path
                 line = re.sub(r"(~/claude-config/|`)(bin|scripts)/", r"\1tools/\2/", line)
+                # fb-ok.txt moved from the private folder into the repo (2026-10-27)
+                line = line.replace("`~/.claude/private/fb-ok.txt`", "`tools/claude-fb/fb-ok.txt` in claude-config")
                 if line not in now:
                     lost.append(f"{rel}:{n}: {line[:80]}")
         self.assertEqual(lost, [], f"{len(lost)} old lines with no home:\n" + "\n".join(lost))

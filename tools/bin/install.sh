@@ -152,6 +152,17 @@ for name in start-gates design-check issue-reread review-isolated; do
     run ln -sfn "$REPO/tools/scripts/$name.py" "$BIN/$name"
   fi
 done
+# claude-fb: the proxy start script and its model list; keys.env stays out of every repo.
+for pair in "start-proxy.sh:$HOME/.local/share/claude-fb" "litellm.yaml:$HOME/.config/claude-fb"; do
+  f="${pair%%:*}" dir="${pair#*:}"
+  if [ -e "$dir/$f" ] && ! [ -L "$dir/$f" ]; then
+    note "SKIP claude-fb $f (a real file is already at $dir/$f)"
+  else
+    note "claude-fb $f -> tools/claude-fb/$f"
+    run mkdir -p "$dir"
+    run ln -sfn "$REPO/tools/claude-fb/$f" "$dir/$f"
+  fi
+done
 # Spec 0036 AC-6: the missed skill hook matches messages against this index, which jjstack setup
 # builds once; without a rebuild it misses every skill added since.
 triggers="$LIVE/skills/jjstack/bin/jjstack-extract-triggers"
