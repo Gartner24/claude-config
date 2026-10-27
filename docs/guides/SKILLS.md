@@ -33,6 +33,7 @@ Linked from `claude-home/skills/`; editing the repo copy is live.
 | `spawn-review` | Start a SECOND Claude session on an isolated git worktree, so a review can run on another branch or PR while you keep coding on yours. |
 | `video-to-website` | Turn a video into a premium scroll-driven animated hero/section for a client Astro site - ffmpeg frame extraction bound to scroll on a canvas, with GSAP + Lenis choreography (multiple animation types, not one repeated effect). |
 | `voice-dna` | Build a reusable voice profile from ~20 of a person's real posts/transcripts so Claude writes in that specific voice (a client's, or your own). |
+| `watch-reels` | Watch public Instagram / TikTok / YouTube posts from links and break them down for a video editor - cuts and pacing, key frames, captions, sound, transcript, and every photo of an Instagram carousel - then write a "study this style" card or a "learn this trick" note. |
 | `workflow-builder` | Build or update an ICM style workflow - numbered stage folders with a contract each, one Workflow script that runs them straight through, and a /<name> command that starts it (spec 0076). |
 
 ## Your own commands
