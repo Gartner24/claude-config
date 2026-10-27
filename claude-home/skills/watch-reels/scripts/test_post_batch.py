@@ -1,5 +1,8 @@
 """Tests for post.slides() and batch.run(). Run: python3 test_post_batch.py"""
 import os, random, subprocess, sys, tempfile, unittest
+# every mkdtemp() below lands in this one folder, removed when the test process exits
+_TMP = tempfile.TemporaryDirectory(prefix="watch-reels-test-")
+tempfile.tempdir = _TMP.name
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import batch, post  # noqa: E402
@@ -62,6 +65,10 @@ class Batch(unittest.TestCase):
         rows = self.run_(urls, fetch=bad)
         self.assertEqual([s.split(":")[0] for _, s, _ in rows], ["failed"] * 3 + ["not run"] * 2)
         self.assertIn("login required", rows[0][1])
+
+    def test_error_text_cannot_leave_its_code_span(self):
+        rows = self.run_(["https://www.instagram.com/p/E1/"], fetch=lambda *a: subprocess.CompletedProcess([], 1, "", "x ` | y\n"))
+        self.assertEqual(rows[0][1], "failed: `x ' / y`")
 
     def test_success_resets_fail_count(self):
         calls = iter([bad, bad, ok, bad, bad, ok])

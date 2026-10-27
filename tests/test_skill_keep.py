@@ -25,6 +25,8 @@ KEEP_37 = [
     "assets", "brand-system", "animate", "animation-vocabulary", "review-animations", "gsap-scrolltrigger",
     "write", "polish", "new-site",
 ]
+# Names you added after the first 37 (AC-1 pins only the first content).
+ADDED = ["watch-reels"]  # owner 2026-10-26, row 114
 
 
 class Live:
@@ -74,7 +76,7 @@ class Live:
 
 class KeepListFile(unittest.TestCase):
     def test_real_list_is_the_37_names(self):
-        self.assertEqual(sk.read_keep(), KEEP_37)
+        self.assertEqual(sk.read_keep(), KEEP_37 + ADDED)
 
     def test_comments_and_blanks_ignored(self):
         with tempfile.TemporaryDirectory() as t:

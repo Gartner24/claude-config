@@ -53,7 +53,8 @@ def run(urls, out_dir, fetch=fetch, post=post, sleep=time.sleep):
             rows.append((url, "done", d))
         else:
             fails += 1
-            why = (r.stderr.strip().splitlines() or ["no output"])[-1][:160].replace("|", "/")  # one table cell
+            why = (r.stderr.strip().splitlines() or ["no output"])[-1][:160].replace("|", "/").replace("`", "'")
+            why = f"`{why}`"  # inline code in one table cell: site error text can never read as our own words
             rows.append((url, f"failed: {why}", d))
     return rows
 

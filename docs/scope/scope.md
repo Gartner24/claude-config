@@ -134,6 +134,7 @@ Closed rows (done or dropped, no open box) live in [done.md](done.md).
 | 111 | Review leftovers 2026-10-23: destructive guard pathspec forms | Release 10 | done |
 | 113 | Review leftovers 2026-10-23 (late): guard spellings and here-strings | Release 10 | done |
 | 114 | watch-reels skill: whole posts, sound, and batches | Release 10 | in-progress |
+| 115 | Fix review-isolated with a full /tmp | Release 10 | planned |
 | 112 | Assertion Guardian: remaining hidden command forms | Release 10 | done |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
@@ -216,6 +217,13 @@ Install the watch-reels skill from your zip, make it hear the audio, see every p
 - [x] Review: `/review` (4 lenses, 13 findings fixed, 1 owner question; second pass 10 dropped)
 - [ ] Sync: `/sync`
 Source: [brief](../briefs/watch-reels.md); your message 2026-10-26.
+
+### 115. Fix review-isolated with a full /tmp
+`tools/scripts/review-isolated.py` writes two Read denies per entry of /tmp into one `--settings` argument. At about 1,900 entries that argument passes the kernel's 128 KB limit for one argument, `claude` never starts ("Argument list too long"), and its self-test in the suite goes red. Seen 2026-10-26 with 1,904 entries.
+**Done when:** a review drafts with 5,000 entries in /tmp, and the self-test proves it.
+- [ ] Fix: `/debug review-isolated full tmp`
+- [ ] Test it: `/test review-isolated full tmp`
+Source: suite failure 2026-10-26 (row 114 landing); `tools/scripts/review-isolated.py` `tmp_siblings`.
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.

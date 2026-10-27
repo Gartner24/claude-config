@@ -1,6 +1,9 @@
 """Tests for breakdown.py: a synthetic video with 3 known cuts (ffmpeg colour clips), plus the frame-count rules.
 Run: python3 test_breakdown.py"""
 import os, subprocess, sys, tempfile, unittest
+# every mkdtemp() below lands in this one folder, removed when the test process exits
+_TMP = tempfile.TemporaryDirectory(prefix="watch-reels-test-")
+tempfile.tempdir = _TMP.name
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import breakdown as B  # noqa: E402
