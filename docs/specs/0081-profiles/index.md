@@ -2,14 +2,15 @@
 
 **Date**: 2026-10-27
 **Status**: Proposed
-**Paths:** `profiles/**`, `tools/bin/install.sh`, `tools/bin/sync.sh`, `tools/bin/claude-config.py`, `claude-home/hooks/profile-lock.py`, `claude-home/settings.json`, `claude-home/skills/claude-config/SKILL.md`, `claude-home/mods/chip-dash/**`, `.github/CODEOWNERS`, `tests/**`
+**Paths:** `profiles/**`, `tools/bin/install.sh`, `tools/bin/sync.sh`, `tools/bin/claude-config.py`, `claude-home/hooks/profile-lock.py`, `claude-home/settings.json`, `claude-home/skills/claude-config/SKILL.md`, `claude-home/mods/chip-dash/**`, `claude-home/agents/careful-worker.md`, `claude-home/agents/mechanical-worker.md`, `claude-home/skills/instagram-reels-design/**`, `claude-home/skills/lemo-opuscar/**`, `tools/config/manifest.json`, `.github/CODEOWNERS`, `tests/**`
+**Amended**: 2026-10-27, PR D (0081d): `creator` built from your partner's setup (D27 to D31)
 
 ## What you're agreeing to
 - Everything stays one shared core. A profile is a small file in the repo that says which skills fire on their own, which rules load, which hooks run and what its user may edit. Two profiles to start: `engineer` (exactly your setup today) and `creator` (for your partner).
 - Install builds `~/.claude` from the core plus the chosen profile, and the repo wins. Before it overwrites anything in `~/.claude`, it lists what would change or be lost, and stops so the change is carried into the repo or you decide.
 - `/claude-config profile <name>` switches profiles on one machine (it takes effect in the next chat), and the band shows the active profile.
 - In `creator`, Claude can edit only the design and content skills (not `design-gate`) and that person's own custom profiles; a core PR needs your approval on GitHub. Asking a change to a `creator` rule makes a copy, `custom-<name>`, instead.
-- `creator` starts as a copy of your skills and rules with the lock on; it asks the same questions as `engineer` until your partner's own configs arrive. The video part and Mac support are separate rows.
+- `creator` is your partner's setup on your core: your newer skills and guards, his video skills, his model choices, Spanish accents allowed, and `/scope` and `/audit` still running but quiet. His private work (his studio repo, Telegram and boss rules, notes, his two guards) stays on his Mac only. Mac support is a separate row.
 
 ## Summary
 claude-config becomes shareable. The core (skills, rules, hooks, design pipeline) stays one copy in the repo; a profile is a named set of switches over it. Install builds `~/.claude` from core plus profile and checks first what it would overwrite. A profile that is not the owner's cannot edit the locked core: a hook stops Claude, and GitHub code owners stop a hand edit from merging.
@@ -45,6 +46,49 @@ claude-config becomes shareable. The core (skills, rules, hooks, design pipeline
 ### PR C (0081c): the GitHub lock
 - **AC-15** `.github/CODEOWNERS` names the owner for every path outside the `creator` editable list; a test derives the expected owned paths from `profiles/creator/profile.json` and fails when the two disagree. The branch ruleset on `main` blocks direct pushes and requires a code owner review, with the repository admin role as a bypass actor so your own PRs still merge under the self merge checklist (`gh pr merge --admin`). A probe PR by a non-admin account touching `tools/` is blocked; one touching only `claude-home/skills/design/` is not. The ruleset change runs only on your yes. · waits on you
 
+### PR D (0081d): creator from your partner's setup (amendment, D27 to D31, cross check fixes applied)
+Built after PR B merges (it fills the `creator` profile PR B creates). Source material: the partner's zip received 2026-10-27 (not in the repo); every file taken from it passes the private name check before it is staged. AC-3 ("engineer is exactly today") is judged at the end of PR B; PR D changes `engineer` only as AC-22 says, checked by AC-26.
+- **AC-16** Before any file from the zip is added, the partner's private names go into the owner's `~/.claude/private/names.txt`, each read from a named place: his first name and Mac user name from the zip's `README.md` title and `claude-home/settings.json` paths; his colleague's name from `README.md` (PRIVATE section); his studio folder name from the zip's top folder; every creator folder name from the studio folder's `reels/creators/` in the zip (all but `_schema`). The build prints the count added, then runs `private-names.py` over every staged file, the spec, its rationale, the brief and the PR's commit messages; the result must be 0 hits. Each hit is read before it blocks (the check matches inside words, so a short name can hit an ordinary word); a hit that is an ordinary word is reported to you, never silenced by editing `names.txt`.
+- **AC-17** Profile data model gains `settings` (optional, missing means `{}`): a JSON object whose keys may only be `env`, `model`, `enabledPlugins`, `extraKnownMarketplaces`. The AC-1 validator fails on any other key and names it (so `hooks` and `permissions` never come from a profile). The full build order of `settings.json`, in one place:
+  1. the core `claude-home/settings.json`;
+  2. `skillOverrides` from the profile's `skills`;
+  3. the profile's `settings`: `env`, `enabledPlugins` and `extraKnownMarketplaces` merged key by key, `model` replaced;
+  4. hook commands in `hooks_off` removed (empty groups dropped);
+  5. live `autoMode` kept, as install does today;
+  6. the private fragment, its `/home/santiago` paths rewritten to `$HOME` as today, merged by `private-names.py merge-settings` (objects key by key, lists joined, a scalar replaced), so a private `model` or `env` value wins over the profile's.
+  Install records the profile owned keys it wrote (for example `env.PONYTAIL_DEFAULT_MODE`, `model`) in `state/profile.json` as `settings_keys`. AC-5 compares those keys like any repo owned key; a switch to a profile without them removes exactly those keys and keeps every other live key. Tests: a temp profile's `settings` land in the built file; `settings.hooks` fails validation; a private `model` beats the profile `model`; `creator` then `engineer` leaves no `PONYTAIL_DEFAULT_MODE` behind.
+- **AC-18** `profiles/creator/profile.json` gets `settings`: `model` `opus[1m]`; `env` `CLAUDE_CODE_SUBAGENT_MODEL=sonnet`, `PONYTAIL_DEFAULT_MODE=lite`; `enabledPlugins` `ponytail@ponytail: true`; `extraKnownMarketplaces` `ponytail` from GitHub `DietrichGebert/ponytail` pinned to one commit (`ref`), read at build time and written in the PR text. The Telegram plugin and his `statusLine` are not in it (one person's chat and Mac paths; they go in that person's private fragment).
+- **AC-19** `profiles/creator/rules/creator-overlay.md` (loads only in `creator`; says it beats `CLAUDE.md` and skill text on these points, nothing else):
+  - ASCII: accented letters and Spanish punctuation (vowels with an acute accent, n with a tilde, u with a diaeresis, the inverted question and exclamation marks) are allowed in text written for people outside the claude-config repo; `/polish` keeps them there. Code, commands, and every file inside the claude-config repo stay ASCII (the repo rule holds for everyone, and the overlay file itself is ASCII).
+  - `/scope` and `/audit` still start by themselves when a chat opens in a repo, but stay quiet: one plain line on where things stand plus the next step, no long readout, a question only for a real decision (D28). This is best effort: the vendored skills keep their own text, and the `chain-catch.py` Stop hook still owes planned steps as for everyone.
+  - Free tools only: no paid service or API is added without the person's yes.
+  - Test: after `install.sh --profile creator` on a temp live tree the file is in `rules/` and `skill-rules.py` lists it for `/scope`; after `--profile engineer` it is not there. "Quiet" itself has no automated test.
+- **AC-20** `profiles/creator/rules/model-routing.md` is a rewrite, not a copy (his `rules/work/` is private by his README). It keeps only the generic lines: Opus main session for creative and taste work; `careful-worker` (Sonnet) for routine code, tests and docs; `mechanical-worker` (Haiku) for batch checks, counting and file moves; `researcher` for web legs; the main session rechecks every helper result against the gates; a cheap result that fails is redone on Opus and noted. Dropped: his paths, his quality lock and sandbox lines, his dated decisions. In `rules` of `creator` only.
+- **AC-21** `claude-home/agents/careful-worker.md` and `claude-home/agents/mechanical-worker.md` are added to the core agents from the zip, unchanged apart from removing any private name or path; `web-researcher` is not added (`researcher` covers it). Every profile gets them, since `agents/` installs whole.
+- **AC-22** Skills, 15 in all:
+  - 13 official Remotion skills (`remotion-best-practices` and the 12 `remotion-*` it routes to, names as in the zip) as `downloaded` manifest entries, `source` `github:remotion-dev/skills`, `pinned` to the commit fetched at build time, `path` per skill from that repo.
+  - `lemo-opuscar` as a manifest entry for its own repo with source, license and `pinned` commit; its `setup.sh` clones the library at that pinned commit, not the moving head.
+  - `instagram-reels-design` copied under `claude-home/skills/` (repo owned, after AC-16), with a manifest row naming its MIT starter kit file as the license of its `scripts/`.
+  - License rule: only MIT and Apache-2.0 pass (the set `claude-config.py` knows). Any other license, or none found, stops the build for that skill and asks you; the others go on.
+  - In `creator` these 15 are `on`; in `engineer` they are `name-only`. `creator`'s `editable` (AC-13) gains `claude-home/skills/{instagram-reels-design,lemo-opuscar}/**`.
+  - `watch-reels`, `anti-ai-writing`, `deep-research` and `block-destructive.sh` keep the repo version (newer than the zip copies; his Mac patch is row 119's job).
+- **AC-23** Private layer, read by install from `~/.claude/private/` on the person's machine (D29). The staged `rules/` is built in this order: core rules the profile lists, the profile's own `rules/`, then `private/rules/**/*.md` with subfolders kept (or flattened, AC-25). A private file whose staged path equals a core or profile rule is refused: install names it and exits 2, nothing is written. Install records every private origin path in `state/profile.json` as `private_rules`; AC-5 never lists them as `lost`; AC-6 sync skips them, so a private rule never reaches the repo. The 20,000 character check counts every rule file that loads (subfolders included when AC-25 shows they load). The rules step drops `find -printf` for a portable listing (AC-9b). Hook scripts in `private/hooks/` are never copied; install warns `private hook missing: <path>` for each hook command in the private fragment whose file does not exist. Tests on a temp tree: a private rule lands and a second install lists nothing; sync with an owner profile does not copy it; a name clash exits 2; a missing private hook prints the warning.
+- **AC-24** `docs/guides/creator-setup.md` (ASCII, public, no private names): how a creator installs (`install.sh --profile creator`) and what goes in the person's own private layer: the settings fragment (Telegram plugin, their own hooks, a SessionStart check, statusLine, their `permissions.allow` lines), `private/rules/`, `private/hooks/`, and links in `~/.claude/skills/` to skills kept in their own private repo (for the partner: perfume-reel, perfume-learn, perfume-sync). It carries the table below and the AC-25 probe result.
+- **AC-25** Probe before build (spec gate): on a real Claude Code, a rule in `~/.claude/rules/work/x.md` (a subfolder) is loaded in a new chat. The command and result go in `verify.md`. Loaded: subfolders kept. Not loaded: the named fallback applies with no further question, `private/rules/a/b.md` installs as `rules/private-a-b.md`.
+- **AC-26** After PR D, `install.sh --profile engineer` on a temp tree built from today's files differs from the PR B result only by: the 15 `name-only` entries in `skillOverrides`, the two new agents, and the new skill folders. A test asserts that exact list.
+
+His README's "Rules the profile must keep", mapped (goes into the AC-24 guide):
+
+| His rule | Where it lives |
+|---|---|
+| Confirm before push, send, new channels; nothing deleted without a list and undo | core (`CLAUDE.md`, `block-destructive.sh`) |
+| Telegram only to his chat; boss rules; Gmail send asks first | his private layer (`private/rules/`, `work-guard` in `private/hooks/`) |
+| Free tools only, no Gemini | creator overlay (AC-19) |
+| Model routing | creator rule (AC-20) |
+| Test imports the real module, mutation check | core (`rules/lessons.md`) |
+| Perfume gate must pass | his studio repo's own `CLAUDE.md` (private) |
+| No auto /scope and /audit chains; Spanish accents | changed by you: chains stay but quiet; accents outside the repo (AC-19) |
+
 ## Decision
 
 **Chosen option**: Option 1: Repo built profiles with an overwrite check (see rationale.md).
@@ -65,6 +109,7 @@ Install composes `~/.claude` from the shared core and one profile file; the repo
 | `rules` | list of core `rules/*.md` file names | yes | always loaded core rules; the profile's own `rules/` folder loads too |
 | `hooks_off` | list of hook script names | yes, may be empty | core hooks left out of settings |
 | `editable` | list of repo relative patterns | yes | where Claude may write in the repo and `~/.claude` (D13) |
+| `settings` | object, keys only `env`, `model`, `enabledPlugins`, `extraKnownMarketplaces` | no, missing means `{}` | merged into `settings.json` before the private fragment (D30, approved 2026-10-27, AC-17) |
 
 Relationships: a custom profile has exactly one `base` (base 1 to N custom). A machine has exactly one active profile, recorded in `~/.claude/state/profile.json` (the profile file plus `repo`).
 
@@ -91,9 +136,16 @@ Relationships: a custom profile has exactly one `base` (base 1 to N custom). A m
 | custom | new profile name | the person, asked by `/claude-config` |
 | band | profile name | `state/profile.json` `name` |
 | CODEOWNERS | owner account | the repo owner, `Gartner24` |
+| install | profile `settings` values for `creator` | the partner's zip `claude-home/settings.json` (`model`, `env`, ponytail plugin and marketplace); the ponytail commit read at build time (AC-18) |
+| install | a person's own rules and hooks | `~/.claude/private/rules/**`, `~/.claude/private/hooks/` plus their private settings fragment (AC-23) |
+| overlay rule | what creator changes | the partner README "Not wanted here" list, D27, D28 (AC-19) |
+| routing rule | which helper runs what | a rewrite keeping only the generic lines of the partner's routing rule, D31 (AC-20) |
+| manifest | Remotion and lemo-opuscar pins and licenses | their source repos, commit and license read at build time; only MIT and Apache-2.0 pass (AC-22) |
+| state | `settings_keys`, `private_rules` | written by install (AC-17, AC-23) |
+| names.txt | partner's private names | the named places in AC-16 |
 
 **Key invariants**:
-- `engineer` reproduces today's live setup exactly (AC-3).
+- `engineer` reproduces today's live setup exactly (AC-3) up to PR B; after PR D it differs only as AC-26 lists.
 - A base profile with `owner: false` never changes through Claude; its user's rule changes live in `custom-*` profiles.
 - Install never overwrites a live change silently (AC-5).
 - Profiles never hold private names or keys; `~/.claude/private/` stays per person.
@@ -116,6 +168,7 @@ Skateboard: each PR is usable alone. One branch per PR, `feat/0081a-profiles`, t
 4. PR A: sync routing, `profile`, `profile update`, band name, satisfies **AC-6** to **AC-9b**.
 5. PR B: `profile-lock.py` with its self check and settings entry; `creator` profile; `profile custom`, satisfies **AC-10** to **AC-14**.
 6. PR C: CODEOWNERS and the ruleset, after your yes, with the probe PRs, satisfies **AC-15**.
+7. PR D (`feat/0081d-profiles`, after PR B merges): the rules subfolder probe first (**AC-25**); partner names into `names.txt` (**AC-16**); `settings` field, validator and merge (**AC-17**, **AC-23**); creator settings, overlay and routing rules (**AC-18** to **AC-20**); core agents and skills, Remotion manifest entries (**AC-21**, **AC-22**); the creator setup guide (**AC-24**); the engineer check (**AC-26**). If it grows past about 400 lines, the skills and agents part (AC-21, AC-22) splits into its own PR.
 
 ## Consequences
 **Positive**: two people share one repo without overwriting each other; a new person picks a profile instead of copying your setup.
@@ -130,7 +183,9 @@ Skateboard: each PR is usable alone. One branch per PR, `feat/0081a-profiles`, t
 **Neutral**: invariant 1 in `docs/architecture.md` gains "profile built files: repo wins"; `skillOverrides` moves into the profile file.
 
 ## Follow-up
-- [ ] When your partner's configs arrive (D5, D6): adapt them into `creator` (fewer questions, the video skills) as an amendment.
+- [x] When your partner's configs arrive (D5, D6): adapt them into `creator` (fewer questions, the video skills) as an amendment. Done 2026-10-27 as PR D (AC-16 to AC-25).
+- [ ] The partner's `engineering.md` is not taken: core `rules/lessons.md` already holds its test and review rules.
+- [ ] His two guards (`work-guard`, `install-guard`) stay in his private layer (D29). If you want the Gmail send prompt yourself later, that is a new row for a generic core hook.
 - [ ] Row 119 (Mac support) covers the new scripts too; keep them Python stdlib and POSIX shell.
 
 ## Rationale

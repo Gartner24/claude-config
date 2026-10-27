@@ -230,10 +230,11 @@ Every skill, rule, hook and the design pipeline stay one shared core. A named pr
   - [ ] PR A: profile files, install builds from core plus profile, overwrite check (AC-1 to AC-5)
   - [ ] PR A: sync routing, `/claude-config profile` switch and update, band name (AC-6 to AC-9b)
   - [ ] PR B: lock hook, `creator` profile, automatic custom profiles (AC-10 to AC-14)
-  - [ ] PR C: CODEOWNERS and the main branch rule set, with probe PRs (AC-15) · waits on you
+  - [ ] PR C: CODEOWNERS and the main branch rule set, with probe PRs (AC-15) · waits on you · later boxes go on
+  - [ ] PR D: `creator` from your partner's setup: settings field, overlay and routing rules, private layer, video skills (AC-16 to AC-26; amended 2026-10-27, Sonnet cross check, 15 fixes applied)
 - [ ] Verify it: `/check verify profiles`
 - [ ] Test it: `/test profiles`
-Source: [brief](../briefs/profiles.md) (D1 to D24); your messages 2026-10-27.
+Source: [brief](../briefs/profiles.md) (D1 to D31); your messages 2026-10-27.
 
 ### 119. Mac support: claude-config on macOS and Linux · in-progress
 Your partner uses a Mac. Install, sync, hooks and the scripts they call must run on macOS as well as Linux (old bash 3.2, BSD `sed -i` and `readlink -f`, no `bwrap`).

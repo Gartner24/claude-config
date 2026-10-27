@@ -1,6 +1,6 @@
 # Profiles: brief and handover memory
 **Feature:** profiles
-**Updated:** 2026-10-27 02:23 by session_
+**Updated:** 2026-10-27 02:59 by daea8db3
 
 ## Open questions
 - none
@@ -13,8 +13,8 @@
 - D2 | done | 2026-10-27 | The design pipeline is shared core | owner session_ "the design pipeline, can be shared too I thjink thats part of the core of claude-config too" | landed: docs/specs/0081-profiles/index.md
 - D3 | done | 2026-10-27 | Owner-only parts stay in claude-config, separated into named profiles | owner session_ "there are some mine only but that still are part of claude-config, just separated on different named profiles" | landed: docs/specs/0081-profiles/index.md
 - D4 | done | 2026-10-27 | Quality bar is the same in every profile; a profile changes how much the owner is asked | owner session_ "Quality bar: Yes!" | landed: docs/specs/0081-profiles/index.md
-- D5 | open | 2026-10-27 | The partner's existing ask-less configs get adapted to the same quality bar and wired in when they arrive | owner session_ "he already has a lot of configurations for that, when we get them we need just to adapt them with his same quallity but wire it to claude-config" | -
-- D6 | open | 2026-10-27 | Video-only profile part is built later, when the partner's configs arrive | owner session_ "I do want still that part, but I will activate it when it is here" | -
+- D5 | done | 2026-10-27 | The partner's existing ask-less configs get adapted to the same quality bar and wired in when they arrive | owner session_ "he already has a lot of configurations for that, when we get them we need just to adapt them with his same quallity but wire it to claude-config" | landed: docs/specs/0081-profiles/index.md (PR D)
+- D6 | done | 2026-10-27 | Video-only profile part is built later, when the partner's configs arrive | owner session_ "I do want still that part, but I will activate it when it is here" | landed: docs/specs/0081-profiles/index.md (PR D)
 - D7 | done | 2026-10-27 | Updates go through the existing /claude-config skill | owner session_ "needs a simple way to update, meaby with the existing claude-config skill" | landed: docs/specs/0081-profiles/index.md
 - D8 | done | 2026-10-27 | An update touches only the installing person's own profile | owner session_ "the things that get updated for me are the ones for my profile" | landed: docs/specs/0081-profiles/index.md
 - D9 | done | 2026-10-27 | Profiles are a standard that works for anyone, not partner-specific | owner session_ "we need to standarize this then and make it work for anyone" | landed: docs/specs/0081-profiles/index.md
@@ -35,6 +35,11 @@
 - D24 | done | 2026-10-27 | Cross check fixes applied to spec 0081; custom profiles are created automatically by Claude, which proposes the name | owner session_ "Automatic (Recommended); Apply all (Recommended)" | landed: docs/specs/0081-profiles/index.md
 - D25 | done | 2026-10-27 | Mac support: portable code (no GNU tools required) proven by a macOS and Linux GitHub Actions job on every PR | owner session_ "Portable code (Recommended); Mac CI job (Recommended)" | landed: docs/specs/0082-mac-support.md
 - D26 | done | 2026-10-27 | Mac CI job lands first as advisory, becomes required after the last fix; all 11 cross check fixes applied to spec 0082 | owner session_ "First, advisory (Recommended); Apply all (Recommended)" | landed: docs/specs/0082-mac-support.md
+- D27 | done | 2026-10-27 | Creator turns off the ASCII rule and changes /scope and /audit behavior with a creator rule overlay that beats CLAUDE.md | owner daea8db3 "Rule overlay, but I think scope and audit is really important, so would be like still ussing them but stopping or changing their behavours" | landed: docs/specs/0081-profiles/index.md (PR D)
+- D28 | done | 2026-10-27 | In creator, /scope and /audit still auto-start each chat but stay quiet: one plain next step, ask only real decisions | owner daea8db3 "Start, but quiet (Recommended)" | landed: docs/specs/0081-profiles/index.md (PR D)
+- D29 | done | 2026-10-27 | Partner's private parts (his studio repo, work rules, memory, registry, work-guard and install-guard) live in his own ~ | owner daea8db3 "His private layer (Recommended)" | landed: docs/specs/0081-profiles/index.md (PR D)
+- D30 | done | 2026-10-27 | Profiles gain an optional settings field (env, model, enabledPlugins, extraKnownMarketplaces) merged before the private  | owner daea8db3 "New profile field (Recommended); It matches (Recommended)" | landed: docs/specs/0081-profiles/index.md (PR D)
+- D31 | done | 2026-10-27 | careful-worker and mechanical-worker join the core agents (web-researcher dropped); his model routing rule loads only in | owner daea8db3 "Agents core, rule creator (Recommended)" | landed: docs/specs/0081-profiles/index.md (PR D)
 
 ## Live state
-- none
+- L1 | open | 2026-10-27 | Partner zip received 2026-10-27 (extracted to the job tmp, not in the repo); our watch | claude daea8db3 "we recieved the setup from my partner" | -
