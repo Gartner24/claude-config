@@ -1,9 +1,10 @@
 # Profiles: brief and handover memory
 **Feature:** profiles
-**Updated:** 2026-10-27 02:59 by daea8db3
+**Updated:** 2026-10-27 03:53 by 56988615
 
 ## Open questions
-- none
+- Q1 | open | 2026-10-27 | AC-22: remotion-dev/skills has no license (no LICENSE file, GitHub reports none). Install the 12 Remotion skills anyway, | claude 56988615 "if something actually needs my answer wait till Im back" | -
+- Q2 | open | 2026-10-27 | Merging #239, #241, #243, #244: the self merge checklist needs the feature's verify and test boxes ticked, and those cov | claude 56988615 "if something actually needs my answer wait till Im back" | -
 
 ## Shown to the owner, still needed
 - none
