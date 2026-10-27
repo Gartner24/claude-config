@@ -152,6 +152,18 @@ for name in start-gates design-check issue-reread review-isolated; do
     run ln -sfn "$REPO/tools/scripts/$name.py" "$BIN/$name"
   fi
 done
+# claude-fb: fb-ask's repo allowlist and key pointer stay in the private folder agents cannot write;
+# the repo copies only seed a new machine and never overwrite yours.
+for f in fb-ask.conf fb-ok.txt; do
+  [ -e "$REPO/tools/claude-fb/$f" ] || continue  # a scratch copy of this repo (the self checks) may lack it
+  if [ -e "$LIVE/private/$f" ]; then
+    note "claude-fb $f: kept (private copy exists)"
+  else
+    note "claude-fb $f -> private/$f (seeded from tools/claude-fb)"
+    run mkdir -p "$LIVE/private"
+    run cp "$REPO/tools/claude-fb/$f" "$LIVE/private/$f"
+  fi
+done
 # claude-fb: the proxy start script and its model list; keys.env stays out of every repo.
 for pair in "start-proxy.sh:$HOME/.local/share/claude-fb" "litellm.yaml:$HOME/.config/claude-fb"; do
   f="${pair%%:*}" dir="${pair#*:}"
