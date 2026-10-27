@@ -53,5 +53,19 @@ class Alone(unittest.TestCase):
             self.assertEqual(set(out), {"folder", "git", "via"})
 
 
+class Profile(unittest.TestCase):
+    # covers: spec 0081 AC-9 (the name from state/profile.json under CLAUDE_LIVE_DIR is printed; no key when the file
+    # is missing)
+    def test_profile_name(self):
+        with tempfile.TemporaryDirectory() as d, tempfile.TemporaryDirectory() as live:
+            env = {"PATH": os.environ["PATH"], "CLAUDE_LIVE_DIR": live}
+            run = lambda: json.loads(subprocess.run([sys.executable, "-I", facts.__file__, d], capture_output=True,
+                                                    text=True, env=env, check=True).stdout)
+            self.assertNotIn("profile", run())
+            Path(live, "state").mkdir()
+            Path(live, "state", "profile.json").write_text(json.dumps({"name": "creator", "owner": False}))
+            self.assertEqual(run()["profile"], "creator")
+
+
 if __name__ == "__main__":
     unittest.main()
