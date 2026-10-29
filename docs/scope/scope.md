@@ -140,6 +140,8 @@ Closed rows (done or dropped, no open box) live in [done.md](done.md).
 | 112 | Assertion Guardian: remaining hidden command forms | Release 10 | done |
 | 118 | Profiles: named profiles over one shared core | Release 11 | in-progress |
 | 119 | Mac support: claude-config on macOS and Linux | Release 11 | in-progress |
+| 120 | Rule: design workflows from the current icm-architect | Release 11 | planned |
+| 121 | Bump the icm-architect pin to upstream HEAD | Release 11 | planned |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -248,6 +250,20 @@ Your partner uses a Mac. Install, sync, hooks and the scripts they call must run
 - [ ] Verify it: `/check verify mac support`
 - [ ] Test it: `/test mac support`
 Source: [brief](../briefs/profiles.md) D11, D25, D26; your messages 2026-10-27.
+
+### 120. Rule: design workflows from the current icm-architect · planned
+Before Claude designs a workflow, playbook, pipeline or folder layout (`/architect`, `/workflow-builder`, or plain chat), it compares the installed `icm-architect` pin with upstream HEAD, reads the upstream version when they differ, says what changed, and bases the design on it. Seen 2026-10-27: a "runner" command was proposed for a business project without checking the ICM layout adopted in specs 0072, 0076 and 0077.
+**Done when:** `claude-home/rules-on-demand/icm-current.md` exists, `architect` and `workflow-builder` load it from `map.json`, a Routing line in `claude-home/CLAUDE.md` names it for plain chat, and the suite is green.
+- [x] Write the rule and wire it: `claude-home/rules-on-demand/icm-current.md`, `map.json`, Routing line, tests
+- [ ] Verify it: `/check verify icm current`
+Source: your message 2026-10-27 ("this kind of updates need to be based on ICM structure (the updated structure, they update that a lot)"); specs 0072, 0076 AC-10, 0077.
+
+### 121. Bump the icm-architect pin to upstream HEAD · planned
+`tools/config/manifest.json` pins `icm-architect` at `e16cafe6a664dcf6d787a726b452adba77d913f4`; upstream HEAD on 2026-10-27 is `8bc2f5610d3843b3ffa31a142effe6b6337fef3c`. Needs the normal path: read what changed, skillspector scan, manifest edit, install, and a check that the workflow-builder templates still follow it (spec 0076 AC-10).
+**Done when:** the manifest pin equals upstream HEAD at bump time, the scan is clean, and the suite is green.
+- [ ] Read the upstream diff and scan it: skillspector
+- [ ] Bump the pin and reinstall: `/develop icm pin bump`
+Source: your message 2026-10-27; row 120.
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.

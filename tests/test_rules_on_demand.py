@@ -20,7 +20,8 @@ KEYS = {"scope", "architect", "develop", "check", "test", "sync", "audit", "debu
         "write", "pr"}
 # The situation pointer lines of AC-2: each file must be named by a "read ~/.claude/rules-on-demand/<file>" line.
 POINTED = {"when-to-switch-on.md", "review-fix.md", "branch-pr.md", "handoff.md", "handover-carry.md",
-           "second-review.md", "cheap-worker.md", "skill-map.md", "scope-contract.md", "workflow.md", "reviewers.md"}
+           "second-review.md", "cheap-worker.md", "skill-map.md", "scope-contract.md", "workflow.md", "reviewers.md",
+           "icm-current.md"}
 # AC-5 removed the per-message reminder; the one old line that cited it, and what it became.
 EDITED = {
     "| Session start in a repo, or plan / replan / enroll a feature | `/scope` | low | session | mod start at chat open; "
