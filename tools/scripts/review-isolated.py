@@ -137,16 +137,18 @@ def isolated_env(environ):
     return env
 
 
-def claude_argv(binary, folder):
+def claude_argv(binary, settings_file):
+    # a file, not the JSON itself: one /tmp deny pair per entry passes the 128 KB limit of one argument at about
+    # 1,900 entries, and claude never starts (row 115)
     return [binary, "-p", PROMPT, "--output-format", "text", "--model", "sonnet", "--tools", "Read,Grep,Glob",
             "--permission-mode", "dontAsk",
             "--setting-sources", "user", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
-            "--settings", settings(folder)]
+            "--settings", settings_file]
 
 
-def call_claude(binary, folder, timeout):
+def call_claude(binary, folder, settings_file, timeout):
     try:
-        p = subprocess.Popen(claude_argv(binary, folder), cwd=folder, env=isolated_env(os.environ),
+        p = subprocess.Popen(claude_argv(binary, settings_file), cwd=folder, env=isolated_env(os.environ),
                              stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
                              errors="replace", start_new_session=True)
     except OSError as e:
@@ -190,14 +192,19 @@ def main(argv, run=subprocess.run, binary="claude", timeout=TIMEOUT, drafts=None
         print("usage: review-isolated <pr URL or owner/repo#n> | --test", file=sys.stderr)
         return 2
     drafts = drafts or os.path.join(os.path.expanduser("~"), ".claude", "state", "reviews")
-    folder = None
+    folder = conf = None
     try:
         owner, name, n = parse_pr(argv[0])
         text = pr_text(owner, name, n, gh(run, "view", owner, name, n), gh(run, "diff", owner, name, n))
+        # made before folder's settings are built, so its own /tmp deny covers it
+        conf = tempfile.mkdtemp(prefix="review-isolated-settings-", dir=TMP)
         folder = tempfile.mkdtemp(prefix="review-isolated-", dir=TMP)
         with open(os.path.join(folder, "pr.md"), "w", encoding="utf-8") as f:
             f.write(text)
-        answer = call_claude(binary, folder, timeout)
+        settings_file = os.path.join(conf, "settings.json")
+        with open(settings_file, "w", encoding="utf-8") as f:
+            f.write(settings(folder))
+        answer = call_claude(binary, folder, settings_file, timeout)
         if secret_hit(answer):
             raise NotDrafted("answer holds a secret or local path")
         os.makedirs(drafts, mode=0o700, exist_ok=True)
@@ -208,8 +215,9 @@ def main(argv, run=subprocess.run, binary="claude", timeout=TIMEOUT, drafts=None
         print(f"review not drafted: {e}")
         return 1
     finally:
-        if folder:
-            shutil.rmtree(folder, ignore_errors=True)
+        for d in (folder, conf):
+            if d:
+                shutil.rmtree(d, ignore_errors=True)
     verdict = VERDICT.findall(answer)
     print(path)
     print(f"verdict: {verdict[-1].lower()}" if verdict else "no verdict line in the answer")
@@ -217,6 +225,7 @@ def main(argv, run=subprocess.run, binary="claude", timeout=TIMEOUT, drafts=None
 
 
 def self_test():
+    global TMP
     import contextlib
     import io
     import time
@@ -250,7 +259,8 @@ def self_test():
 import json, os, subprocess, sys, time
 child = subprocess.Popen(["sleep", "60"]) if {sleep} else None
 json.dump({{"argv": sys.argv[1:], "cwd": os.getcwd(), "env": dict(os.environ), "pgid": os.getpgid(0),
-           "files": sorted(os.listdir(".")), "pr": open("pr.md").read(), "child": child and child.pid}},
+           "files": sorted(os.listdir(".")), "pr": open("pr.md").read(), "child": child and child.pid,
+           "settings": open(sys.argv[-1]).read()}},
           open({record!r}, "w"))
 time.sleep({sleep})
 sys.stdout.write({answer!r})
@@ -282,8 +292,13 @@ sys.exit({code})
             "-p", PROMPT, "--output-format", "text", "--model", "sonnet", "--tools", "Read,Grep,Glob",
             "--permission-mode", "dontAsk", "--setting-sources", "user", "--strict-mcp-config", "--mcp-config",
             '{"mcpServers":{}}', "--settings"])
-        got = json.loads(rec["argv"][-1])
+        conf = os.path.dirname(rec["argv"][-1])
+        check("settings file in its own /tmp folder", (os.path.dirname(conf), os.path.basename(rec["argv"][-1])),
+              ("/tmp", "settings.json"))
+        check("settings folder removed", os.path.exists(conf), False)
+        got = json.loads(rec["settings"])
         perms = got.pop("permissions")
+        check("settings folder denied", f"Read(//tmp/{os.path.basename(conf)}/**)" in perms["deny"], True)
         check("settings", got, {"disableAllHooks": True,
                                 "sandbox": {"enabled": True, "failIfUnavailable": True, "allowUnsandboxedCommands": False,
                                             "network": {"allowedDomains": [], "strictAllowlist": True},
@@ -325,6 +340,17 @@ sys.exit({code})
             check("gh_argv refuses other kinds", "no error", "ValueError")
         except ValueError:
             pass
+        # row 115: a /tmp of 5,000 entries made the inline settings too long for one argument
+        crowded, old_tmp = tempfile.mkdtemp(dir=tmp), TMP
+        for i in range(5000):
+            open(os.path.join(crowded, f"e{i}"), "w").close()
+        TMP = crowded
+        try:
+            code, out = go(["o/r#8"], fake_claude(good))
+        finally:
+            TMP = old_tmp
+        check("drafts with 5,000 /tmp entries", (code, len(json.loads(json.load(open(record))["settings"])
+                                                           ["permissions"]["deny"]) > 10000), (0, True))
         # a rerun overwrites; owner-repo-n keeps two repos apart
         go(["o/r#7"], fake_claude("second\nverdict: approve\n"))
         check("rerun overwrites", open(draft).read(), "second\nverdict: approve\n")
