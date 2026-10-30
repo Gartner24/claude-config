@@ -8,11 +8,11 @@ _Steps derived from spec 0081 acceptance criteria. `/check verify` runs these; `
   `TANGERINE-4417`. Result: loaded, so private rule subfolders are kept. Probe file and folder removed.
 
 ## Commands
-- [ ] `tools/bin/install.sh --dry-run --profile engineer` on the real machine lists no overwrite item but the
-  `settings.json` order of two `permissions.deny` lines -> AC-3, AC-5
-- [ ] `python3 tests/fast.py` passes apart from the `review-isolated` jail failure -> AC-1 to AC-26
-- [ ] `claude plugin test claude-home/mods/chip-dash` passes -> AC-9
-- [ ] `python3 claude-home/hooks/profile-lock.py --test` passes -> AC-10, AC-14
+- [x] `tools/bin/install.sh --dry-run --profile engineer` on the real machine lists no overwrite item but the
+  `settings.json` order of two `permissions.deny` lines -> AC-3, AC-5 (2026-10-30: "overwrite: nothing to lose", profile engineer)
+- [x] `python3 tests/fast.py` passes apart from the `review-isolated` jail failure -> AC-1 to AC-26 (2026-10-30 on main: 281 tests, 0 failed)
+- [x] `claude plugin test claude-home/mods/chip-dash` passes -> AC-9 (2026-10-30: 86 pass, 0 fail, incl. "the band shows the active profile")
+- [x] `python3 claude-home/hooks/profile-lock.py --test` passes -> AC-10, AC-14 (2026-10-30: "all self-checks passed", creator refused on `tools/bin/install.sh`)
 
 ## Acceptance-criteria coverage
 - AC-1 to AC-9b: tests/test_profiles.py (validator, install, overwrite, sync, profile command, GNU grep), tests/test_install.py,

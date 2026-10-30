@@ -1405,3 +1405,30 @@ Source: your message 2026-10-26 ("Any gaps in the skill? ... optimize the skill 
 - [x] Bump the pin: manifest at `8bc2f56` (PR #240, merged)
 - [x] Install it live (installed 2026-10-29 from `git archive 8bc2f56`, hash equals the manifest; `update --apply` wrote a wrong patch after the merged pin bump, undone; drift: none)
 Source: your message 2026-10-27; row 120. The template check this row named moved to row 123.
+
+### 120. Rule: design workflows from the current icm-architect · done
+Before Claude designs a workflow, playbook, pipeline or folder layout (`/architect`, `/workflow-builder`, or plain chat), it compares the installed `icm-architect` pin with upstream HEAD, reads the upstream version when they differ, says what changed, and bases the design on it. Seen 2026-10-27: a "runner" command was proposed for a business project without checking the ICM layout adopted in specs 0072, 0076 and 0077.
+**Done when:** `claude-home/rules-on-demand/icm-current.md` exists, `architect` and `workflow-builder` load it from `map.json`, a Routing line in `claude-home/CLAUDE.md` names it for plain chat, and the suite is green.
+- [x] Write the rule and wire it: `claude-home/rules-on-demand/icm-current.md`, `map.json`, Routing line, tests (PR #238, merged)
+- [x] Install it live: pull main into your checkout, then `tools/bin/install.sh` (installed 2026-10-29 with profiles; `icm-current.md` live, wired in `map.json` and `CLAUDE.md`)
+- [x] Verify it: `/check verify icm current` (2026-10-30: the live `skill-rules.py` adds the rule for `architect` and `workflow-builder`, not for `test`; `CLAUDE.md` Routing names it; pin `8bc2f56` equals upstream HEAD)
+Source: your message 2026-10-27 ("this kind of updates need to be based on ICM structure (the updated structure, they update that a lot)"); specs 0072, 0076 AC-10, 0077.
+
+### 122. watch-reels sees the whole video · done
+Dense full size frames, a bigger speech model with a name list, and a Sonnet screen pass that writes `screens.md`, so names and links shown between cuts are not lost.
+**Done when:** spec 0080 AC-1 to AC-11 hold in the live skill.
+- [x] Design it (spec): `/architect watch-reels full watch` (spec [0080](../specs/0080-watch-reels-full-watch.md), accepted 2026-10-27)
+- [x] Build it: `/develop watch-reels full watch` (PR #242, merged 2026-10-29; live try on DegVQaYOnqU read the Blender MCP screens)
+- [x] Test it: AC-9 tests landed with the build (`test_watch_reels` 56 of 56; the mlx path was not run)
+- [x] Install it live: pull main into your checkout, then `tools/bin/install.sh` (installed 2026-10-29; `vocabulary.txt` is live)
+- [x] Verify it: `/check verify watch-reels full watch` (2026-10-30, live skill on reel DegVQaYOnqU: 40 frames at 1080x1920 incl. cut and last frames, sheet 16 of 40, speech `large-v3-turbo`, on-screen text read; Sonnet screen pass wrote 27 lines and read "Seedance 2.5" and the Blender MCP links where speech said "C-Dance". Not exercised live: a photo slide, `--keep-video`, `--redo`, the small model fallback; those are covered by the 56 tests)
+Known gap: speech still writes "Seedance" as "C-Dance 2.5" even with the name list (PR #242). spec 0080 · code in `claude-home/skills/watch-reels/`
+Source: spec 0080; PR #242.
+
+### 123. Port the workflow-builder templates to icm-architect 8bc2f56 · done
+The four workflow-builder templates still say they follow `e16cafe`. Upstream `8bc2f56` renamed "Human check" to "Check", added a `check.md` pass rule and changed the pipeline table, and `tools/check.py` enforces the old shape. Porting is your call (spec 0076 AC-10).
+**Done when:** every template's follows line names the pinned icm-architect, `check.py` enforces the new shape, and review-fix and restructure-check still pass it; or you decide to stay on `e16cafe` and the reason is written in spec 0076.
+- [x] Design it (spec): [0076 amendment 2026-10-30](../specs/0076-workflow-builder.md) (your answer 2026-10-29: port them; brief general D8)
+- [x] Build it: templates follow `8bc2f56`, `Check` section, `Stage | Job` table, stop on a missing input; `check.py` (31 self checks, mutant red); review-fix and restructure-check rewritten, both `ok`; suite 281 ok
+- [x] Install it live and see drift drop the template line (PR #248 merged 2026-10-30; the skill is linked live; drift: none)
+Source: PR #240 "Not in this PR"; row 121.
