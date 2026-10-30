@@ -439,12 +439,20 @@ if not force and any(os.path.basename(w) in EXEC for w in words + firsts):
 sys.stdout.buffer.write(''.join(out).encode('utf-8', 'surrogateescape'))
 PY
 
+# Spec 0082 AC-2: the Mac has no `timeout`; Homebrew coreutils names it gtimeout, else the command runs alone.
+# Standard input still reaches the command (blank_data pipes into it).
+with_timeout() {
+  if command -v timeout >/dev/null 2>&1; then timeout "$@"
+  elif command -v gtimeout >/dev/null 2>&1; then gtimeout "$@"
+  else shift; "$@"; fi
+}
+
 # Prints the text check() should scan: the blanked command, or the raw command on any doubt.
 blank_data() {
   local cmd="$1" out
   if [[ "$cmd" != *[\'\"]* && "$cmd" != *'<<'* ]]; then
     printf '%s' "$cmd"
-  elif out="$(printf '%s' "$cmd" | timeout 2 python3 -I -c "$SCANNER" 2>/dev/null)" && [[ -n "$out" ]]; then
+  elif out="$(printf '%s' "$cmd" | with_timeout 2 python3 -I -c "$SCANNER" 2>/dev/null)" && [[ -n "$out" ]]; then
     printf '%s' "$out"
   else
     printf '%s' "$cmd"
@@ -791,6 +799,10 @@ mkfs.ext4 /dev/sdb1'
   # no python3 means the raw scan, as before (AC-4)
   [[ "$(PATH=/nonexistent blank_data 'echo "rm -rf /"' 2>/dev/null)" == 'echo "rm -rf /"' ]] \
     || { echo "FAIL missing python3 did not fall back to raw"; fail=1; }
+  # spec 0082 AC-2: with neither timeout nor gtimeout (a stock Mac) the command runs alone and still gets stdin
+  echo_stdin() { local l; IFS= read -r l; printf '%s' "$l"; }
+  [[ "$(printf 'x\n' | PATH=/nonexistent with_timeout 2 echo_stdin)" == x ]] \
+    || { echo "FAIL with_timeout fallback did not run the command with its stdin"; fail=1; }
   [[ $fail -eq 0 ]] && echo "all self-checks passed" || exit 1
   exit 0
 fi

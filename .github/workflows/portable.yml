@@ -1,0 +1,62 @@
+# Spec 0082 AC-0, AC-12: the suite and a real install on a Mac and on Linux for every pull request.
+# Advisory for now: AC-13 makes it a required check once both jobs are green, on the owner's yes.
+name: portable
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  portable:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: System bash and tools first on PATH
+        # /bin:/usr/bin ahead of Homebrew, so the Mac runs its own bash 3.2 and BSD tools. Only the two pinned
+        # interpreter folders stay ahead of them: /usr/bin/python3 is 3.9 on the Mac and would replace 3.10.
+        run: echo "PATH=$(dirname "$(command -v python3)"):$(dirname "$(command -v node)"):/bin:/usr/bin:$PATH" >> "$GITHUB_ENV"
+
+      - name: bash --version
+        run: |
+          command -v bash
+          bash --version | head -n 1
+          python3 --version
+          node --version
+          if [ "$RUNNER_OS" = macOS ]; then
+            bash --version | head -n 1 | grep -q 'version 3\.2\.' || { echo "the Mac job must run the system bash 3.2"; exit 1; }
+          fi
+
+      - name: Suite
+        run: python3 tests/fast.py
+
+      - name: TypeScript mod tests
+        # They import claude-code/testing, which only the claude CLI provides (`claude plugin test`), and node 18
+        # cannot load .ts files; neither is on the runner, so this step reports without failing the job.
+        continue-on-error: true
+        run: node --test claude-home/mods/*/*.test.ts claude-home/mods/*/tests/*.test.ts
+
+      - name: Real install into temporary folders
+        # jjstack is private and not on the runner: its four hooks in ~/.claude/hooks (docs/guides/HOOKS.md) are
+        # stubbed so the hook file check passes, and the handover fixtures that need its slot script skip.
+        run: |
+          home="$(mktemp -d)"
+          mkdir -p "$home/.claude/hooks"
+          for f in error-detector.sh injection-guard.sh permission-floor.py auto-approve-safe.sh; do
+            : > "$home/.claude/hooks/$f"
+          done
+          HOME="$home" CLAUDE_LIVE_DIR="$home/.claude" tools/bin/install.sh

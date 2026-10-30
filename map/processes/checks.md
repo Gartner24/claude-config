@@ -23,6 +23,8 @@ node claude-home/skills/design/scripts/build-ramp.mjs --check
 ```
 `tools/scripts/ref-check.py`: snapshot before a move, `verify SNAP --map-from-git BASE` after.
 
+Every PR also runs `.github/workflows/portable.yml` (spec 0082 AC-12): the suite, the mod tests and a real install into temporary folders, on macOS (system bash 3.2) and Ubuntu. Advisory until AC-13 makes it required.
+
 ## Done when
 - Each command exits 0.
 

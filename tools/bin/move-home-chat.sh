@@ -24,7 +24,10 @@ moved=0 skipped=0 notes=0 appended=0 added=0
 
 die() { echo "move-home-chat: $*" >&2; exit 1; }
 tmp=""
-trap 'rm -f "$tmp"' EXIT
+# Spec 0082 AC-2: a mkdir lock, since the Mac has no flock; a new name, as an old flock run left a file at the old one.
+LOCK="$HOME/.claude/move-home-chat.lock.d"
+locked=0
+trap 'rm -f "$tmp"; ((locked)) && rmdir "$LOCK"' EXIT
 # A source folder is merged only while it is a real folder; once it is a link it is done.
 is_src() { [[ -d "$1" && ! -L "$1" ]]; }
 is_link() { [[ -L "$1" && "$(readlink "$1")" == "$LIVE" ]]; }
@@ -32,13 +35,13 @@ rules_text() { printf '%s\n' "$HEADER"; tail -n +2 "$RSRC"; }
 
 # ---- checks (AC-1): nothing is written before all of them pass, except the lock file
 missing=()
-for t in pgrep flock jq tar cmp; do
+for t in pgrep jq tar cmp; do
   command -v "$t" >/dev/null 2>&1 || missing+=("$t")
 done
 ((${#missing[@]} == 0)) || die "missing tools: ${missing[*]}"
 
-exec 9>"$HOME/.claude/move-home-chat.lock"
-flock -n 9 || die "another copy holds $HOME/.claude/move-home-chat.lock"
+mkdir "$LOCK" 2>/dev/null || die "another copy holds $LOCK (remove it if no copy runs)"
+locked=1
 
 busy=()
 for pid in $(pgrep -x claude || true); do

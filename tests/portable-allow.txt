@@ -1,0 +1,14 @@
+# Spec 0082 AC-3: excuses for tests/test_portable.py, one per line: path | pattern | reason
+# path is the repo path, pattern a regular expression the hit line must match. Lines naming PR B1 or B2 go
+# when that PR fixes the code; an excuse that matches nothing fails the test.
+claude-home/hooks/block-destructive.sh | ^\s*(block|allow|allow_data|force_block) ['"] | --test cases: command text the guard judges, never run
+tools/scripts/private-names.py | lcommit\("sed -i | --test fixture: a commit message, never run
+tools/scripts/private-names.py | zorblex|swapped to \$HOME | --test fixture: install rewrites this home prefix
+tools/scripts/review-isolated.py | Read\(//proc/ | a deny rule for the review sandbox, not a read
+tools/scripts/review-isolated.py | /proc/\{pid\}/stat | PR B1 (AC-6) checks the process with ps
+tools/scripts/start-gates.py | /proc/meminfo|sched_getaffinity | PR B1 (AC-5) adds the Darwin reader; the Linux reader keeps /proc/meminfo
+claude-home/scripts/claude-ram-watch.sh | /proc/ | Linux only RAM watcher; PR B1 (AC-4) exits 0 on Darwin before it
+claude-home/scripts/claude-ram-watch.sh | /home/santiago | PR B1 (AC-4) uses $HOME
+tools/bin/claude-config.py | AUTHOR_HOME = "/home/santiago" | PR B2 (AC-10) takes the home prefix from settings.json or $HOME
+tools/bin/install.sh | /home/santiago | PR B2 (AC-10) takes the home prefix from settings.json or $HOME
+tools/scripts/ref-check.py | /home/santiago | PR B2 (AC-10) matches /home/<user> and /Users/<user>

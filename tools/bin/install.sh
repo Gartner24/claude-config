@@ -36,6 +36,8 @@ CONFIG=(python3 "$REPO/tools/bin/claude-config.py")
 
 run() { if [ "$DRY" = 1 ]; then echo "  would: $*"; else "$@"; fi; }
 note() { echo "  $*"; }
+# Spec 0082 AC-2: GNU readlink's resolve flag is missing on older Macs; python3 is there (install needs it anyway).
+realp() { python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$1"; }
 
 # Spec 0081 AC-2, AC-4: an unknown profile exits 2 before anything is written.
 read -r PROFILE from < <("${CONFIG[@]}" profile-resolve ${PROFILE:+"$PROFILE"}) || exit 2
@@ -215,7 +217,7 @@ for d in commands skills workflows; do
     dst="$LIVE/$d/$name"
     # Spec 0048 AC-15: a link through the old "live" folder resolves to the same file while the
     # compatibility link exists, but breaks once it is removed, so it is relinked too.
-    [ -L "$dst" ] && [ "$(readlink -f "$dst")" = "$(readlink -f "$src")" ] \
+    [ -L "$dst" ] && [ "$(realp "$dst")" = "$(realp "$src")" ] \
       && [[ "$(readlink "$dst")" != */live/* ]] && continue
     [ -e "$dst" ] && ! [ -L "$dst" ] && { note "SKIP $d/$name (a real file is already there)"; continue; }
     note "$d/$name"
@@ -345,7 +347,7 @@ if [ -e "$LIVE/private/names.txt" ]; then
     dst="$hooks/$h"
     act=""
     if [ -L "$dst" ]; then
-      [ "$(readlink -f "$dst")" = "$(readlink -f "$checker")" ] && act=refreshed
+      [ "$(realp "$dst")" = "$(realp "$checker")" ] && act=refreshed
     elif [ -f "$dst" ] && [ -x "$dst" ] && cmp -s "$dst" "$checker"; then
       note "$h: up to date"
       continue
@@ -378,9 +380,15 @@ else
   bash "$LIVE/hooks/block-destructive.sh" --test >/dev/null \
     && note "guard hook: all self-checks passed" \
     || { echo "  guard hook SELF-CHECK FAILED - do not rely on it" >&2; exit 1; }
-  bash "$LIVE/hooks/handover-start.sh" --test >/dev/null 2>&1 \
-    && note "handover hook: all self-checks passed" \
-    || { echo "  HANDOVER HOOK SELF-CHECK FAILED - run: bash ~/.claude/hooks/handover-start.sh --test" >&2; exit 1; }
+  # Spec 0082 AC-12: its fixtures need jjstack's slot script, which a new machine (or CI) gets only after this
+  # install; the hook itself does nothing without it.
+  if [ ! -x "$HOME/.claude/skills/jjstack/bin/jjstack-rollover-slot" ]; then
+    note "handover hook: self-checks skipped (jjstack not installed yet)"
+  else
+    bash "$LIVE/hooks/handover-start.sh" --test >/dev/null 2>&1 \
+      && note "handover hook: all self-checks passed" \
+      || { echo "  HANDOVER HOOK SELF-CHECK FAILED - run: bash ~/.claude/hooks/handover-start.sh --test" >&2; exit 1; }
+  fi
   python3 "$LIVE/hooks/skill-rules.py" --test >/dev/null 2>&1 \
     && note "skill rules hook: all self-checks passed" \
     || { echo "  SKILL RULES HOOK SELF-CHECK FAILED - run: python3 ~/.claude/hooks/skill-rules.py --test" >&2; exit 1; }
