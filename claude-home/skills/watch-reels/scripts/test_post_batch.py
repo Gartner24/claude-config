@@ -1,5 +1,5 @@
 """Tests for post.slides() and batch.run(). Run: python3 test_post_batch.py"""
-import os, random, subprocess, sys, tempfile, unittest
+import os, random, subprocess, sys, tempfile, threading, time, unittest
 # every mkdtemp() below lands in this one folder, removed when the test process exits
 _TMP = tempfile.TemporaryDirectory(prefix="watch-reels-test-")
 tempfile.tempdir = _TMP.name
@@ -48,8 +48,8 @@ class Batch(unittest.TestCase):
         self.out = tempfile.mkdtemp()
         self.sleeps = []
 
-    def run_(self, urls, fetch=ok, post_=ok):
-        return batch.run(urls, self.out, fetch=fetch, post=post_, sleep=self.sleeps.append)
+    def run_(self, urls, fetch=ok, post_=ok, **kw):
+        return batch.run(urls, self.out, fetch=fetch, post=post_, sleep=self.sleeps.append, **kw)
 
     def test_slug(self):
         self.assertEqual(batch.slug("https://www.instagram.com/p/De-LGwIkzE9/"), "De-LGwIkzE9")
@@ -86,6 +86,40 @@ class Batch(unittest.TestCase):
             return ok()
         self.run_(["https://www.instagram.com/p/V1/"], fetch=fetch)
         self.assertEqual(os.listdir(os.path.join(self.out, "V1", "fetch")), ["slide01.jpg"])
+
+    def test_video_kept_with_keep_video(self):
+        def fetch(url, d):
+            touch(d, "slide01.mp4", "slide01.jpg", "slide01.mp4.part")
+            return ok()
+        self.run_(["https://www.instagram.com/p/K1/"], fetch=fetch, keep_video=True)
+        self.assertEqual(sorted(os.listdir(os.path.join(self.out, "K1", "fetch"))), ["slide01.jpg", "slide01.mp4"])
+
+    def test_redo_builds_done_links_again(self):
+        touch(os.path.join(self.out, "R1"), "post.md")
+        built = []
+        rows = self.run_(["https://www.instagram.com/p/R1/"], post_=lambda fd, d: (built.append(d), ok())[1], redo=True)
+        self.assertEqual(built, [os.path.join(self.out, "R1")])
+        self.assertEqual([s for _, s, _ in rows], ["done"])
+        self.assertIn("| https://www.instagram.com/p/R1/ | done | R1/post.md |", batch.index(rows, self.out))
+
+    def test_at_most_two_builds_queued(self):
+        lock, fetched, built, seen = threading.Lock(), [0], [0], []
+
+        def fetch(url, d):
+            with lock:
+                seen.append(fetched[0] - built[0])  # builds queued or running when this download starts
+                fetched[0] += 1
+            return ok()
+
+        def slow(fd, d):
+            time.sleep(.15)
+            with lock:
+                built[0] += 1
+            return ok()
+        rows = self.run_([f"https://www.instagram.com/p/Q{i}/" for i in range(5)], fetch=fetch, post_=slow)
+        self.assertEqual([s for _, s, _ in rows], ["done"] * 5)
+        self.assertLess(max(seen), batch.MAX_QUEUED, seen)
+        self.assertEqual(batch.MAX_QUEUED, 2)
 
     def test_video_parts_deleted_on_failure(self):
         def fetch(url, d):
@@ -190,7 +224,7 @@ class Build(unittest.TestCase):
             f.write("New tool, link in bio")
         speech = [(0.0, "Someone just open sourced a tool."), (4.0, "It's called OpenMontage."), (6.5, "Drop open in"), (7.0, "the comments.")]
         real = (post.B.transcript, list(post._OCR))
-        post.B.transcript = lambda v: speech
+        post.B.transcript = lambda v: (speech, "Transcript model: large-v3-turbo")
         # every frame shows the same headline plus one changing line; the photo has the offer on screen
         post._OCR[:] = [lambda img: ([(0, "COMMENT", 1), (0, "REALIZE", 1)] if img.endswith("slide02.jpg") else
                                      [(0, "BIG HEADLINE", 1), (0, f"line {os.path.basename(img)}", 1)], 0)]
@@ -215,7 +249,41 @@ class Build(unittest.TestCase):
         self.assertEqual(self.md.count("line 0"), len([l for l in self.md.splitlines() if l.startswith("slide 01 at")]))
 
 
+    def test_short_and_near_repeat_lines_dropped(self):
+        kept = []
+        self.assertEqual(post.new_lines("Blender MCP / ok / Blender MCP. / Install extension", kept), ["Blender MCP", "Install extension"])
+        self.assertEqual(post.new_lines("Blendr MCP / lnstall extension / github.com/ahujasid/blender-mcp", kept),
+                         ["github.com/ahujasid/blender-mcp"])
+
+
 class Page(unittest.TestCase):
+    def test_redo_rebuilds_without_stale_files(self):
+        """a rebuilt post (batch --redo) keeps no old 540 px frame, old photo or old screens.md"""
+        import test_breakdown
+        out = tempfile.mkdtemp()
+        d = os.path.join(out, "R2")
+        touch(d, "post.md", "screens.md")
+        touch(os.path.join(d, "slide01", "frames"), "0003.15s.jpg")
+        touch(os.path.join(d, "photos"), "slide09.jpg")
+
+        def fetch(url, fd):
+            os.makedirs(fd, exist_ok=True)
+            test_breakdown.synth(os.path.join(fd, "slide01.mp4"))
+            return ok()
+        real = post.B.transcript
+        post.B.transcript = lambda v: (None, None)
+        try:
+            rows = batch.run(["https://www.instagram.com/p/R2/"], out, fetch=fetch, sleep=lambda s: None, redo=True)
+        finally:
+            post.B.transcript = real
+        self.assertEqual([s for _, s, _ in rows], ["done"])
+        self.assertNotIn("0003.15s.jpg", os.listdir(os.path.join(d, "slide01", "frames")))
+        self.assertEqual(os.listdir(os.path.join(d, "photos")), [])
+        self.assertFalse(os.path.exists(os.path.join(d, "screens.md")))
+        with open(os.path.join(d, "post.md"), encoding="utf-8") as f:
+            self.assertIn("- 01 video 8.0 s", f.read())
+        self.assertNotIn("slide01.mp4", os.listdir(os.path.join(d, "fetch")))
+
     def test_post_page(self):
         import test_breakdown
         d, out = tempfile.mkdtemp(), tempfile.mkdtemp()

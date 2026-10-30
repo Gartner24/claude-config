@@ -140,6 +140,10 @@ Closed rows (done or dropped, no open box) live in [done.md](done.md).
 | 112 | Assertion Guardian: remaining hidden command forms | Release 10 | done |
 | 118 | Profiles: named profiles over one shared core | Release 11 | in-progress |
 | 119 | Mac support: claude-config on macOS and Linux | Release 11 | in-progress |
+| 120 | Rule: design workflows from the current icm-architect | Release 11 | in-progress |
+| 121 | Bump the icm-architect pin to upstream HEAD | Release 11 | in-progress |
+| 122 | watch-reels sees the whole video | Release 11 | in-progress |
+| 123 | Port the workflow-builder templates to icm-architect 8bc2f56 | Release 11 | planned |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -234,6 +238,7 @@ Every skill, rule, hook and the design pipeline stay one shared core. A named pr
   - [ ] PR D: `creator` from your partner's setup: settings field, overlay and routing rules, private layer, video skills (AC-16 to AC-26; amended 2026-10-27, Sonnet cross check, 15 fixes applied)
 - [ ] Verify it: `/check verify profiles`
 - [ ] Test it: `/test profiles`
+Open draft PRs on 2026-10-29: A #239, B #241, D #243, C #244.
 Source: [brief](../briefs/profiles.md) (D1 to D31); your messages 2026-10-27.
 
 ### 119. Mac support: claude-config on macOS and Linux · in-progress
@@ -248,6 +253,39 @@ Your partner uses a Mac. Install, sync, hooks and the scripts they call must run
 - [ ] Verify it: `/check verify mac support`
 - [ ] Test it: `/test mac support`
 Source: [brief](../briefs/profiles.md) D11, D25, D26; your messages 2026-10-27.
+
+### 120. Rule: design workflows from the current icm-architect · in-progress
+Before Claude designs a workflow, playbook, pipeline or folder layout (`/architect`, `/workflow-builder`, or plain chat), it compares the installed `icm-architect` pin with upstream HEAD, reads the upstream version when they differ, says what changed, and bases the design on it. Seen 2026-10-27: a "runner" command was proposed for a business project without checking the ICM layout adopted in specs 0072, 0076 and 0077.
+**Done when:** `claude-home/rules-on-demand/icm-current.md` exists, `architect` and `workflow-builder` load it from `map.json`, a Routing line in `claude-home/CLAUDE.md` names it for plain chat, and the suite is green.
+- [x] Write the rule and wire it: `claude-home/rules-on-demand/icm-current.md`, `map.json`, Routing line, tests (PR #238, merged)
+- [ ] Install it live: pull main into your checkout, then `tools/bin/install.sh` (on 2026-10-29 `~/.claude` still had the old copy)
+- [ ] Verify it: `/check verify icm current`
+Source: your message 2026-10-27 ("this kind of updates need to be based on ICM structure (the updated structure, they update that a lot)"); specs 0072, 0076 AC-10, 0077.
+
+### 121. Bump the icm-architect pin to upstream HEAD · in-progress
+`tools/config/manifest.json` pins `icm-architect` at `e16cafe6a664dcf6d787a726b452adba77d913f4`; upstream HEAD on 2026-10-27 is `8bc2f5610d3843b3ffa31a142effe6b6337fef3c`. Needs the normal path: read what changed, skillspector scan, manifest edit, install, and a check that the workflow-builder templates still follow it (spec 0076 AC-10).
+**Done when:** the manifest pin equals upstream HEAD at bump time, the scan is clean, and the suite is green.
+- [x] Read the upstream diff and scan it: skillspector (no new findings, PR #240)
+- [x] Bump the pin: manifest at `8bc2f56` (PR #240, merged)
+- [ ] Install it live: `python3 ~/claude-config/tools/bin/claude-config.py update --apply icm-architect` after your checkout has main (on 2026-10-29 `~/.claude` still had the e16cafe files)
+Source: your message 2026-10-27; row 120. The template check this row named moved to row 123.
+
+### 122. watch-reels sees the whole video · in-progress
+Dense full size frames, a bigger speech model with a name list, and a Sonnet screen pass that writes `screens.md`, so names and links shown between cuts are not lost.
+**Done when:** spec 0080 AC-1 to AC-11 hold in the live skill.
+- [x] Design it (spec): `/architect watch-reels full watch` (spec [0080](../specs/0080-watch-reels-full-watch.md), accepted 2026-10-27)
+- [x] Build it: `/develop watch-reels full watch` (PR #242, merged 2026-10-29; live try on DegVQaYOnqU read the Blender MCP screens)
+- [x] Test it: AC-9 tests landed with the build (`test_watch_reels` 56 of 56; the mlx path was not run)
+- [ ] Install it live: pull main into your checkout, then `tools/bin/install.sh` (on 2026-10-29 `~/.claude/skills/watch-reels` had no `vocabulary.txt`)
+- [ ] Verify it: `/check verify watch-reels full watch`
+Known gap: speech still writes "Seedance" as "C-Dance 2.5" even with the name list (PR #242). spec 0080 · code in `claude-home/skills/watch-reels/`
+Source: spec 0080; PR #242.
+
+### 123. Port the workflow-builder templates to icm-architect 8bc2f56 · needs a decision
+The four workflow-builder templates still say they follow `e16cafe`. Upstream `8bc2f56` renamed "Human check" to "Check", added a `check.md` pass rule and changed the pipeline table, and `tools/check.py` enforces the old shape. Porting is your call (spec 0076 AC-10).
+**Done when:** every template's follows line names the pinned icm-architect, `check.py` enforces the new shape, and review-fix and restructure-check still pass it; or you decide to stay on `e16cafe` and the reason is written in spec 0076.
+- [ ] Design it (spec): `/architect workflow-builder templates to icm 8bc2f56`
+Source: PR #240 "Not in this PR"; row 121.
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.
