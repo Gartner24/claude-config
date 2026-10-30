@@ -22,7 +22,7 @@ One question at a time, each with your recommended answer first (`rules/plain-qu
 2. One real run walked through, start to end.
 3. The stages. Recommend 3 to 5: "three real stages beat seven imagined ones".
 4. Per stage: the exact input paths (an earlier stage's output is `<run>/NN_<stage>/output/<file>`), the process,
-   the one output, the one human check, what not to load, and model and effort. Recommend by the rule: haiku for
+   the one output, the one check (who checks: the owner, a script or a small model), what not to load, and model and effort. Recommend by the rule: haiku for
    lookup, sonnet for edits and review, opus for design and hard work; effort low to high.
 5. Which stage fans out, and over what items (the earlier stage returns them as `items`). Recommend worktree
    isolation only when those agents edit files.
@@ -36,10 +36,12 @@ instead of a workflow (ICM: "if the whole job fits in one saved prompt, don't bu
 ## 3. Write the files
 From the templates, never from icm-architect's files. Strip the first line (`<!-- follows icm-architect ... -->` or
 `// follows icm-architect ...`) from every file you write, and fill every `{{...}}`:
-- `claude-home/workflows/<name>/CONTEXT.md` from `templates/CONTEXT.md`: the pipeline table (stage, job, input,
-  output, human check; the first cell is the stage folder name in backticks), how to start, where runs write.
+- `claude-home/workflows/<name>/CONTEXT.md` from `templates/CONTEXT.md`: the pipeline table (stage, job; the first
+  cell is the stage folder name in backticks), how to start, where runs write.
 - `claude-home/workflows/<name>/stages/NN_<stage>/CONTEXT.md` from `templates/stage-CONTEXT.md`, one per stage:
-  `Inputs`, `Process`, `Outputs`, `Human check` (exactly one line), `Do NOT load`, and `Model: <model> <effort>`.
+  `Inputs`, `Process` (step 1 stops on a missing or empty input), `Outputs`, `Check` (exactly one line; a check
+  that is not a person writes `check.md`, first line `pass` or `fail: <why>`), `Do NOT load`, and
+  `Model: <model> <effort>`.
   Add `stages/NN_<stage>/references/` only when the stage has reference files.
 - `claude-home/workflows/<name>/<name>.js` from `templates/workflow.js`: meta phase titles equal to the stage folder
   names in order, one `phase()` per stage, and on every `agent()` the `label`, the stage's `model` and `effort`
@@ -57,7 +59,7 @@ From the templates, never from icm-architect's files. Strip the first line (`<!-
 3. Link it live: show `python3 ~/claude-config/tools/bin/claude-config.py install --dry-run`, and run it without
    `--dry-run` only on the owner's yes. It links `~/.claude/workflows/<name>` and `~/.claude/skills/<name>`.
 4. Offer one dry run: `/<name> --limit 1` (one item of the fan out stage; a workflow with no fan out runs in full).
-   Say that a run spends usage. Start it only on the owner's yes, then show each stage's outputs and human check.
+   Say that a run spends usage. Start it only on the owner's yes, then show each stage's outputs and check.
 
 ## 5. Update mode (`--update`)
 Reread `claude-home/workflows/<name>/` (root and stage `CONTEXT.md`, `<name>.js`) and

@@ -35,6 +35,19 @@ Research: [workflow-templates.md](../briefs/workflow-templates.md). Owner answer
 - **AC-9** (icm-architect installed): first, a scan and install step: `skillspector scan --no-llm` of a fresh clone, then a full `config/manifest.json` entry like the others (`source` `github:RinDig/icm-architect`, `kind` `skill`, `fetch` `git`, `path` and `install` as the clone shows them, `license`, `pinned` commit, `base_hash`, `status` `downloaded`, `publish`, `description`), added through `/claude-config`; `bin/claude-config.py build` installs it (run by the owner with `!` when the sandbox denies GitHub).
 - **AC-10** (upstream check): every template file of the builder starts with a follows line, `<!-- follows icm-architect <commit> -->` (`// follows icm-architect <commit>` in the `.js` template), the commit reviewed last; the builder strips that line from every file it writes. A check run by both `bin/claude-config.py drift` and `update --plan` (separate from the upstream hash check, so it stays until the review) compares each follows commit with the manifest `pinned` commit and prints `review workflow-builder templates: they follow icm-architect <old>, the pin is <new>`; with no `icm-architect` entry it prints `icm-architect not installed, templates not compared`. After the review the follows lines are updated. Test in `tests/test_claude_config.py`.
 
+## Amendment 2026-10-30: port to icm-architect 8bc2f56 (row 123)
+Owner answer 2026-10-29: port the templates, do not stay on `e16cafe` (brief general D8). The owner asked to finish without him, so the four choices below are the recommended ones. Paths: `claude-home/skills/workflow-builder/**`, `claude-home/workflows/**`, `tests/test_claude_config.py`.
+
+What you're agreeing to:
+- Every template's follows line names `8bc2f5610d3843b3ffa31a142effe6b6337fef3c`, so drift stops saying "review workflow-builder templates".
+- The stage section `Human check` becomes `Check`: one line naming who checks (a person, a script or a small model). A check that is not a person writes `check.md` whose first line is `pass` or `fail: <why>`; this is wording in the template only, the script does not gate on it.
+- The root pipeline table becomes `Stage | Job`; inputs and outputs stay in each stage's CONTEXT.md.
+- Each stage's Process starts with "If an input is missing or empty, stop and say which."
+- `Do NOT load` stays its own section (upstream moved it into Inputs; ours keeps it separate so `check.py` can require it).
+- Not taken: upstream's AGENTS.md entry file, scripts folder and examples.
+
+Changed criteria: **AC-1** asks for "the one check" (who checks) instead of "the one human check". **AC-2** root table `Stage | Job`; stage sections `Inputs`, `Process`, `Outputs`, `Check` (exactly one line), `Do NOT load`, `Model:`. **AC-4** lists each stage's check line. **AC-5** "other than one `Check` line"; the root table check reads the `Stage` column. review-fix and restructure-check are rewritten to the new shape and pass `check.py`.
+
 ## Decision
 **Chosen option**: our own builder skill with ICM stage folders and one Workflow script per workflow, linked live from `claude-home/workflows/`, with icm-architect installed beside it for upstream comparison.
 

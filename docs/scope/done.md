@@ -1397,3 +1397,11 @@ You asked for the gaps people's usual posts expose, then a faster skill with not
 - [x] Test it: `/test watch-reels gaps and speed` (12 tests added, 13 mutants red; suite 235 ok)
 - [x] Sync: `/sync`
 Source: your message 2026-10-26 ("Any gaps in the skill? ... optimize the skill so we dont loose anything").
+
+### 121. Bump the icm-architect pin to upstream HEAD · done
+`tools/config/manifest.json` pinned `icm-architect` at `e16cafe6a664dcf6d787a726b452adba77d913f4`; upstream HEAD on 2026-10-27 was `8bc2f5610d3843b3ffa31a142effe6b6337fef3c`.
+**Done when:** the manifest pin equals upstream HEAD at bump time, the scan is clean, and the suite is green.
+- [x] Read the upstream diff and scan it: skillspector (no new findings, PR #240)
+- [x] Bump the pin: manifest at `8bc2f56` (PR #240, merged)
+- [x] Install it live (installed 2026-10-29 from `git archive 8bc2f56`, hash equals the manifest; `update --apply` wrote a wrong patch after the merged pin bump, undone; drift: none)
+Source: your message 2026-10-27; row 120. The template check this row named moved to row 123.

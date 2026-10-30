@@ -134,16 +134,16 @@ Closed rows (done or dropped, no open box) live in [done.md](done.md).
 | 111 | Review leftovers 2026-10-23: destructive guard pathspec forms | Release 10 | done |
 | 113 | Review leftovers 2026-10-23 (late): guard spellings and here-strings | Release 10 | done |
 | 114 | watch-reels skill: whole posts, sound, and batches | Release 10 | done |
-| 115 | Fix review-isolated with a full /tmp | Release 10 | planned |
+| 115 | Fix review-isolated with a full /tmp | Release 10 | in-progress |
 | 116 | watch-reels: "comment X" offers without commenting | Release 10 | done |
 | 117 | watch-reels: on-screen text, Spanish offers, faster batches | Release 10 | done |
 | 112 | Assertion Guardian: remaining hidden command forms | Release 10 | done |
 | 118 | Profiles: named profiles over one shared core | Release 11 | in-progress |
 | 119 | Mac support: claude-config on macOS and Linux | Release 11 | in-progress |
 | 120 | Rule: design workflows from the current icm-architect | Release 11 | in-progress |
-| 121 | Bump the icm-architect pin to upstream HEAD | Release 11 | in-progress |
+| 121 | Bump the icm-architect pin to upstream HEAD | Release 11 | done |
 | 122 | watch-reels sees the whole video | Release 11 | in-progress |
-| 123 | Port the workflow-builder templates to icm-architect 8bc2f56 | Release 11 | planned |
+| 123 | Port the workflow-builder templates to icm-architect 8bc2f56 | Release 11 | in-progress |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -216,11 +216,11 @@ The two workflows you asked to be reminded of: `review-fix` (fix a PR's review f
 - [ ] Run review-fix on a real PR (still owed: your first `/review-fix <pr>` on a real review) · waits on you
 Source: [brief](../briefs/icm-restructure.md) "Workflows"; your messages 2026-10-22.
 
-### 115. Fix review-isolated with a full /tmp
+### 115. Fix review-isolated with a full /tmp · in-progress
 `tools/scripts/review-isolated.py` writes two Read denies per entry of /tmp into one `--settings` argument. At about 1,900 entries that argument passes the kernel's 128 KB limit for one argument, `claude` never starts ("Argument list too long"), and its self-test in the suite goes red. Seen 2026-10-26 with 1,904 entries.
 **Done when:** a review drafts with 5,000 entries in /tmp, and the self-test proves it.
-- [ ] Fix: `/debug review-isolated full tmp`
-- [ ] Test it: `/test review-isolated full tmp`
+- [ ] Fix: `/debug review-isolated full tmp` (draft PR #246, 2026-10-29: settings passed as a file; not merged)
+- [ ] Test it: `/test review-isolated full tmp` (in PR #246: self test drafts with 5,000 entries, mutant red, suite 251 ok; not merged)
 Source: suite failure 2026-10-26 (row 114 landing); `tools/scripts/review-isolated.py` `tmp_siblings`.
 
 ## Release 11: profiles for other people
@@ -238,7 +238,7 @@ Every skill, rule, hook and the design pipeline stay one shared core. A named pr
   - [x] PR D: `creator` from your partner's setup: settings field, overlay and routing rules, private layer, video skills (AC-16 to AC-26; amended 2026-10-27, Sonnet cross check, 15 fixes applied). The Remotion skills have no license; you said install anyway (2026-10-29). There are 12, so 14 video skills in all, not 15
 - [ ] Verify it: `/check verify profiles`
 - [ ] Test it: `/test profiles`
-Open draft PRs on 2026-10-29: A #239, B #241, D #243, C #244.
+Merged 2026-10-29: A #239, B #241, D #243, C's CODEOWNERS #244; installed live (#247).
 Source: [brief](../briefs/profiles.md) (D1 to D31); your messages 2026-10-27.
 
 ### 119. Mac support: claude-config on macOS and Linux · in-progress
@@ -262,14 +262,6 @@ Before Claude designs a workflow, playbook, pipeline or folder layout (`/archite
 - [ ] Verify it: `/check verify icm current`
 Source: your message 2026-10-27 ("this kind of updates need to be based on ICM structure (the updated structure, they update that a lot)"); specs 0072, 0076 AC-10, 0077.
 
-### 121. Bump the icm-architect pin to upstream HEAD · in-progress
-`tools/config/manifest.json` pins `icm-architect` at `e16cafe6a664dcf6d787a726b452adba77d913f4`; upstream HEAD on 2026-10-27 is `8bc2f5610d3843b3ffa31a142effe6b6337fef3c`. Needs the normal path: read what changed, skillspector scan, manifest edit, install, and a check that the workflow-builder templates still follow it (spec 0076 AC-10).
-**Done when:** the manifest pin equals upstream HEAD at bump time, the scan is clean, and the suite is green.
-- [x] Read the upstream diff and scan it: skillspector (no new findings, PR #240)
-- [x] Bump the pin: manifest at `8bc2f56` (PR #240, merged)
-- [x] Install it live: `python3 ~/claude-config/tools/bin/claude-config.py update --apply icm-architect` after your checkout has main (installed 2026-10-29 from `git archive 8bc2f56`, hash equals the manifest; `update --apply` wrote a wrong patch after the merged pin bump, undone; drift: none)
-Source: your message 2026-10-27; row 120. The template check this row named moved to row 123.
-
 ### 122. watch-reels sees the whole video · in-progress
 Dense full size frames, a bigger speech model with a name list, and a Sonnet screen pass that writes `screens.md`, so names and links shown between cuts are not lost.
 **Done when:** spec 0080 AC-1 to AC-11 hold in the live skill.
@@ -281,10 +273,12 @@ Dense full size frames, a bigger speech model with a name list, and a Sonnet scr
 Known gap: speech still writes "Seedance" as "C-Dance 2.5" even with the name list (PR #242). spec 0080 · code in `claude-home/skills/watch-reels/`
 Source: spec 0080; PR #242.
 
-### 123. Port the workflow-builder templates to icm-architect 8bc2f56 · needs a decision
+### 123. Port the workflow-builder templates to icm-architect 8bc2f56 · in-progress
 The four workflow-builder templates still say they follow `e16cafe`. Upstream `8bc2f56` renamed "Human check" to "Check", added a `check.md` pass rule and changed the pipeline table, and `tools/check.py` enforces the old shape. Porting is your call (spec 0076 AC-10).
 **Done when:** every template's follows line names the pinned icm-architect, `check.py` enforces the new shape, and review-fix and restructure-check still pass it; or you decide to stay on `e16cafe` and the reason is written in spec 0076.
-- [ ] Design it (spec): `/architect workflow-builder templates to icm 8bc2f56`
+- [x] Design it (spec): [0076 amendment 2026-10-30](../specs/0076-workflow-builder.md) (your answer 2026-10-29: port them; brief general D8)
+- [x] Build it: templates follow `8bc2f56`, `Check` section, `Stage | Job` table, stop on a missing input; `check.py` (31 self checks, mutant red); review-fix and restructure-check rewritten, both `ok`; suite 281 ok
+- [ ] Install it live and see drift drop the template line
 Source: PR #240 "Not in this PR"; row 121.
 
 ## Deferred

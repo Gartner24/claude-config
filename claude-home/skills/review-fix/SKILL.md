@@ -23,7 +23,7 @@ Start the `review-fix` workflow (spec 0076). Its stages and their checks: `~/.cl
 4. Call the Workflow tool with `scriptPath` `~/.claude/workflows/review-fix/review-fix.js` and `args`
    `{repo, runId, limit, pr, branch, round, suite}`: `limit` is `1` when the user typed `--limit 1`, else `null`.
 5. After the run, for each stage show its output folder `<repo>/.workflow/runs/review-fix/<run id>/NN_<stage>/output/`,
-   the line under `## Human check` in `~/.claude/workflows/review-fix/stages/NN_<stage>/CONTEXT.md`, and any `wf/...`
+   the line under `## Check` in `~/.claude/workflows/review-fix/stages/NN_<stage>/CONTEXT.md`, and any `wf/...`
    branches the run returned. Say any stage marked `failed`. Count the folders in `<repo>/.workflow/runs/review-fix/` and
    say "<n> run folders kept until you delete them".
 6. After the run: show `03_check/output/report.md`. In round 2, write the leftovers from `sorted.md` into the review
