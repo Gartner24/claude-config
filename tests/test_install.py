@@ -33,8 +33,21 @@ class Scratch(unittest.TestCase):
         self.hooks.mkdir(exist_ok=True)
         for h in self.hooks.iterdir():
             h.unlink()
+        self.profile()
 
-    def install(self, name, staged=False, *args):
+    def profile(self, name="engineer", **over):
+        """spec 0081: the scratch repo's profile lists every core rule it holds, so a rule a test adds installs."""
+        rules = sorted(p.name for p in (self.repo / "claude-home" / "rules").glob("*.md"))
+        p = {"name": name, "description": "d", "owner": True, "base": "", "skills": {}, "rules": rules, "hooks_off": [],
+             "editable": ["**"], **over}
+        (self.repo / "profiles" / name / "rules").mkdir(parents=True, exist_ok=True)
+        (self.repo / "profiles" / name / "profile.json").write_text(json.dumps(p))
+
+    def install(self, name, staged=False, *args, accept=True):
+        # spec 0081 AC-5: these installs go over a live tree on purpose; the overwrite check has its own tests
+        if accept:
+            args = ("--accept-overwrite", *args)
+        self.profile()
         home = self.tmp / f"home-{name}"
         live = home / ".claude"
         (live / "private").mkdir(parents=True, exist_ok=True)

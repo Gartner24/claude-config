@@ -1,7 +1,7 @@
 # 0081. Profiles: named switch sets over one shared core
 
 **Date**: 2026-10-27
-**Status**: Proposed
+**Status**: In Progress
 **Paths:** `profiles/**`, `tools/bin/install.sh`, `tools/bin/sync.sh`, `tools/bin/claude-config.py`, `claude-home/hooks/profile-lock.py`, `claude-home/settings.json`, `claude-home/skills/claude-config/SKILL.md`, `claude-home/mods/chip-dash/**`, `claude-home/agents/careful-worker.md`, `claude-home/agents/mechanical-worker.md`, `claude-home/skills/instagram-reels-design/**`, `claude-home/skills/lemo-opuscar/**`, `tools/config/manifest.json`, `.github/CODEOWNERS`, `tests/**`
 **Amended**: 2026-10-27, PR D (0081d): `creator` built from your partner's setup (D27 to D31)
 

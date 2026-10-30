@@ -231,8 +231,8 @@ Every skill, rule, hook and the design pipeline stay one shared core. A named pr
 **Done when:** your profile behaves exactly as today; a second profile installs on a fresh machine with fewer owner only rules and fewer questions at the same quality bar; that profile cannot edit locked core files, and editing one of its rules creates a new `custom-profile-<id>` instead of changing it; switching profiles on one machine works and switches back.
 - [x] Design it (spec): `/architect profiles` (spec [0081](../specs/0081-profiles/index.md), 2026-10-27, Sonnet cross check, 18 fixes applied)
 - [ ] Build it: `/develop profiles`
-  - [ ] PR A: profile files, install builds from core plus profile, overwrite check (AC-1 to AC-5)
-  - [ ] PR A: sync routing, `/claude-config profile` switch and update, band name (AC-6 to AC-9b)
+  - [x] PR A: profile files, install builds from core plus profile, overwrite check (AC-1 to AC-5)
+  - [x] PR A: sync routing, `/claude-config profile` switch and update, band name (AC-6 to AC-9b)
   - [ ] PR B: lock hook, `creator` profile, automatic custom profiles (AC-10 to AC-14)
   - [ ] PR C: CODEOWNERS and the main branch rule set, with probe PRs (AC-15) · waits on you · later boxes go on
   - [ ] PR D: `creator` from your partner's setup: settings field, overlay and routing rules, private layer, video skills (AC-16 to AC-26; amended 2026-10-27, Sonnet cross check, 15 fixes applied)

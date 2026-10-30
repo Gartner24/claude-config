@@ -68,6 +68,8 @@ export function segments(f: Facts, now = Date.now(), rich = true, compact = fals
   const model: Run[] = [{ text: prettyModel(f.model), color: color.text }]
   if (f.effort) model.push({ text: ' ' + f.effort, color: (effort as Record<string, string>)[f.effort] ?? color.dim })
   left.push(seg('model', model))
+  // spec 0081 AC-9: the active profile; nothing when no state file names one
+  if (f.profile) left.push(seg('profile', [{ text: f.profile, color: color.dim }]))
   left.push(seg('folder', [{ text: f.folder ?? glyph.unknown, color: color.text }]))
   if (f.git) {
     const g = f.git
@@ -115,7 +117,7 @@ export function segments(f: Facts, now = Date.now(), rich = true, compact = fals
 // count (drawn on the right) is the last to go: it outlasts the model and stays in the compact band beside the docked
 // dashboard (spec 0071 AC-7), where it is 2 cells too wide beside `on 200k`, so past the model nothing more leaves and
 // the handoff state truncates at its end instead.
-const DROP = ['folder', 'git', 'week', '5h', 'via', 'ctx', 'build', 'model']
+const DROP = ['profile', 'folder','git', 'week', '5h', 'via', 'ctx', 'build', 'model']
 // the segments drawn at the left: every kept one but the owed count
 const leftOf = (kept: Seg[]) => kept.filter(s => s.id !== 'owed')
 

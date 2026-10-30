@@ -12,6 +12,8 @@ export type WfDashFacts = {
   week: number | null
   weekReset: string | null
   via: string | null
+  // spec 0081 AC-9: the active profile from state/profile.json; null when there is none
+  profile?: string | null
   staleSince: string | null
   // the auto handoff segment on the right: undefined before the first read; null when no chain file names this chat
   // ("handoff ?", never a guessed on or off)
