@@ -149,7 +149,7 @@ done
 # and your own hooks, which a scratch copy of this script (the self checks) may lack.
 for f in MAP.md hooks/block-destructive.sh hooks/review-stack-pre-push hooks/plain-panel.py hooks/context-monitor.js \
          hooks/handover-start.sh hooks/no-jjstack-bar.py hooks/skill-rules.py hooks/chain-catch.py hooks/live-tick.py \
-         hooks/claude-config-reminder.py hooks/workflow-start.sh scripts/claude-ram-watch.sh; do
+         hooks/claude-config-reminder.py hooks/workflow-start.sh scripts/claude-ram-watch.sh hooks/profile-lock.py; do
   # the stage step refused a missing required one; the others may be absent from a scratch copy
   [ -e "$STAGE/$f" ] || continue
   note "$f"
@@ -360,6 +360,12 @@ else
   python3 "$LIVE/hooks/skill-rules.py" --test >/dev/null 2>&1 \
     && note "skill rules hook: all self-checks passed" \
     || { echo "  SKILL RULES HOOK SELF-CHECK FAILED - run: python3 ~/.claude/hooks/skill-rules.py --test" >&2; exit 1; }
+  # Spec 0081 AC-14: the profile lock; a scratch copy of this repo (the self checks) may lack it.
+  if [ -e "$LIVE/hooks/profile-lock.py" ]; then
+    python3 "$LIVE/hooks/profile-lock.py" --test >/dev/null 2>&1 \
+      && note "profile lock hook: all self-checks passed" \
+      || { echo "  PROFILE LOCK HOOK SELF-CHECK FAILED - run: python3 ~/.claude/hooks/profile-lock.py --test" >&2; exit 1; }
+  fi
   # Spec 0077 AC-1: the always loaded text of the live folder, CLAUDE.md plus rules/*.md (not rules/ecc/).
   if ! total=$(python3 -c '
 import glob, sys

@@ -233,7 +233,7 @@ Every skill, rule, hook and the design pipeline stay one shared core. A named pr
 - [ ] Build it: `/develop profiles`
   - [x] PR A: profile files, install builds from core plus profile, overwrite check (AC-1 to AC-5)
   - [x] PR A: sync routing, `/claude-config profile` switch and update, band name (AC-6 to AC-9b)
-  - [ ] PR B: lock hook, `creator` profile, automatic custom profiles (AC-10 to AC-14)
+  - [x] PR B: lock hook, `creator` profile, automatic custom profiles (AC-10 to AC-14)
   - [ ] PR C: CODEOWNERS and the main branch rule set, with probe PRs (AC-15) · waits on you · later boxes go on
   - [ ] PR D: `creator` from your partner's setup: settings field, overlay and routing rules, private layer, video skills (AC-16 to AC-26; amended 2026-10-27, Sonnet cross check, 15 fixes applied)
 - [ ] Verify it: `/check verify profiles`

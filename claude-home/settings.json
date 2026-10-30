@@ -151,6 +151,16 @@
         ]
       },
       {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /home/santiago/.claude/hooks/profile-lock.py",
+            "timeout": 5
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Write|MultiEdit",
         "hooks": [
           {
