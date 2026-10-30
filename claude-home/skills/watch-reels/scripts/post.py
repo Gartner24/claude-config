@@ -2,7 +2,7 @@
 (breakdown.py), the photo slides with a contact sheet, the text shown on screen (OCR), and any "comment X" offer with
 the links and handles the post mentions. Needs python3 + ffmpeg; Whisper and OCR optional (see SKILL.md).
 Usage: python3 post.py FETCH_DIR OUT_DIR"""
-import os, re, shutil, sys
+import difflib, os, re, shutil, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import breakdown as B  # noqa: E402
@@ -58,6 +58,20 @@ def screen_text(image):
     return " / ".join(r[1] for r in res or [])
 
 
+def new_lines(text, kept):
+    """The lines of one OCR text worth listing: 3 characters or more, and not a near repeat (difflib ratio 0.8 or
+    more) of a line already in kept, which they are added to. Garbled variants of one headline stack up otherwise."""
+    out = []
+    for x in text.split(" / "):
+        x = x.strip()
+        if len(x) < 3 or any(m.real_quick_ratio() >= .8 and m.quick_ratio() >= .8 and m.ratio() >= .8
+                             for m in (difflib.SequenceMatcher(None, x, k) for k in kept)):
+            continue
+        kept.append(x)
+        out.append(x)
+    return out
+
+
 def slides(fetch_dir):
     """[(number, 'video'|'photo', path)] in slide order; a video slide's .jpg is only its poster."""
     found = {}
@@ -92,7 +106,11 @@ def build(fetch_dir, out_dir):
     items = slides(fetch_dir)
     if not items:
         raise SystemExit(f"no slides in {fetch_dir}")
-    os.makedirs(os.path.join(out_dir, "photos"), exist_ok=True)
+    # a rebuild starts clean: old photos and an old screen pass never mix with the new build (slide frames: extract())
+    shutil.rmtree(os.path.join(out_dir, "photos"), ignore_errors=True)
+    if os.path.isfile(os.path.join(out_dir, "screens.md")):
+        os.remove(os.path.join(out_dir, "screens.md"))
+    os.makedirs(os.path.join(out_dir, "photos"))
     cap_path = os.path.join(fetch_dir, "caption.txt")
     caption = open(cap_path, encoding="utf-8").read().strip() if os.path.isfile(cap_path) else ""
     L = ["# Post", "", f"- {len(items)} slide(s): {sum(k == 'video' for _, k, _ in items)} video, "
@@ -105,25 +123,25 @@ def build(fetch_dir, out_dir):
             dest = os.path.join(out_dir, "photos", f"slide{n:02d}.jpg")
             shutil.copyfile(path, dest)
             photos.append(dest)
-            screen.append((f"slide {n:02d} photo", screen_text(dest)))
+            t = screen_text(dest)
+            screen.append((f"slide {n:02d} photo", t if t is None else " / ".join(new_lines(t, []))))
             L.append(f"- {n:02d} photo: photos/slide{n:02d}.jpg (its text is under On-screen text; open it for layout and design)")
             continue
         sub = os.path.join(out_dir, f"slide{n:02d}")
         info = B.probe(path)
         c = B.cuts(path)
-        words = B.transcript(path) if info["audio"] else None
-        frames = B.extract(path, B.frame_times(c, info["duration"]), sub)
-        md = B.report(info, c, B.shot_stats(c, info["duration"]), B.loudness(path) if info["audio"] else None, words, frames)
+        words, note = B.transcript(path) if info["audio"] else (None, None)
+        frames = B.extract(path, B.frame_times(c, info["duration"], B.seconds(path)), sub)
+        md = B.report(info, c, B.shot_stats(c, info["duration"]), B.loudness(path) if info["audio"] else None, words, frames, note)
         open(os.path.join(sub, "breakdown.md"), "w", encoding="utf-8").write(md)
-        shown = set()
-        for f in frames:  # frames/0009.49s.jpg
+        shown = []
+        for f in frames:  # frames/0009.49s.jpg, the full size kept frames only
             t = screen_text(os.path.join(sub, f))
             if t is None:
                 screen.append((f"slide {n:02d}", None))
                 break
             # a headline held over many frames is listed once: each frame shows only the lines not seen before
-            new = [x for x in t.split(" / ") if x and x not in shown]
-            shown.update(new)
+            new = new_lines(t, shown)
             if new:
                 screen.append((f"slide {n:02d} at {float(f[7:-5]):.1f} s", " / ".join(new)))
         if words:
