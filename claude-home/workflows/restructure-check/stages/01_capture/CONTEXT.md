@@ -11,9 +11,10 @@ Model: haiku low
 - The ref the prompt names, checked out in a scratch worktree. No docs are loaded.
 
 ## Process
-1. `git -C <repo> worktree add --detach <run>/01_capture/<side>/tree <ref>`. Work only inside that tree. Do not
+1. If an input is missing or empty, stop and say which.
+2. `git -C <repo> worktree add --detach <run>/01_capture/<side>/tree <ref>`. Work only inside that tree. Do not
    change HOME. Do not run install without `--dry-run`.
-2. Run each command below from the tree root, in this order, and save its stdout, stderr and exit code to
+3. Run each command below from the tree root, in this order, and save its stdout, stderr and exit code to
    `<run>/01_capture/output/<side>/<command-slug>.txt` (slug: the command with every run of non letters and digits as
    `-`; first line of the file `exit: <code>`). A command that fails or is missing still gets its file, with its error.
    Never retry and never fix anything.
@@ -44,14 +45,14 @@ Model: haiku low
      `python3 tools/scripts/spec-paths.py --spec NNNN` (one file per spec, slug includes the number).
    - `live-links.txt`: every link target `tools/bin/install.sh --dry-run` would make, one `link -> target` per line, copied from
      that dry run's output.
-3. `git -C <repo> worktree remove --force <run>/01_capture/<side>/tree`, then write the outputs below and return the
+4. `git -C <repo> worktree remove --force <run>/01_capture/<side>/tree`, then write the outputs below and return the
    schema the prompt names.
 
 ## Outputs
 - `<run>/01_capture/output/<side>/<command-slug>.txt`: one file per command, plus `live-links.txt` and (base only) `snapshot.json`
 - `<run>/01_capture/output/<side>/index.md`: one line per command: slug, exit code, ok or failed
 
-## Human check
+## Check
 Every command has an output file on both sides or a recorded failure.
 
 ## Do NOT load

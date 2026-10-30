@@ -1,4 +1,4 @@
-// follows icm-architect e16cafe6a664dcf6d787a726b452adba77d913f4
+// follows icm-architect 8bc2f5610d3843b3ffa31a142effe6b6337fef3c
 // Spec 0076 AC-3. Fill every {{...}}. One phase per stage folder, in order: the meta titles, the phase() calls and each
 // agent's phase, model and effort must match stages/NN_<stage>/ and its `Model:` line (check.py compares them).
 // Copy the single agent block for each sequential stage; keep the fan out block only for the stage that fans out.

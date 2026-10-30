@@ -19,7 +19,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 HOME_DIR = Path(os.environ.get("CLAUDE_HOME_DIR") or HERE.parents[1])
 LIVE = Path(os.environ.get("CLAUDE_LIVE_DIR") or Path.home() / ".claude")
-SECTIONS = ("Inputs", "Process", "Outputs", "Human check", "Do NOT load")
+SECTIONS = ("Inputs", "Process", "Outputs", "Check", "Do NOT load")
 # ICM's 2,000 to 8,000 tokens a stage; the root plus the largest stage must fit, references/ left out on purpose
 TOKEN_CAP = 8000
 STAGE = re.compile(r"^\d\d_[a-z0-9][a-z0-9-]*$")
@@ -107,8 +107,8 @@ def check(name):
         for s in SECTIONS:
             if s not in sec:
                 problems.append(f"stages/{f}/CONTEXT.md: no `## {s}` section")
-        if "Human check" in sec and len(sec["Human check"]) != 1:
-            problems.append(f"stages/{f}/CONTEXT.md: Human check has {len(sec['Human check'])} lines, not exactly one")
+        if "Check" in sec and len(sec["Check"]) != 1:
+            problems.append(f"stages/{f}/CONTEXT.md: Check has {len(sec['Check'])} lines, not exactly one")
         models[f] = model_line(text)
         if models[f] is None:
             problems.append(f"stages/{f}/CONTEXT.md: no `Model: <model> <effort>` line")
@@ -155,10 +155,10 @@ GOOD_ROOT = """# demo
 Demo job.
 
 ## Pipeline
-| Stage | Job | Input | Output | Human check |
-|---|---|---|---|---|
-| `01_find` | find items | the repo | items.md | items look right |
-| `02_fix` | fix each item | items.md | fixes.md | fixes are small |
+| Stage | Job |
+|---|---|
+| `01_find` | find items |
+| `02_fix` | fix each item |
 
 ## How to start
 `/demo`
@@ -182,7 +182,7 @@ Model: {model} {effort}
 ## Outputs
 - `<run>/{stage}/output/out.md`
 
-## Human check
+## Check
 The output reads right.
 
 ## Do NOT load
@@ -271,9 +271,10 @@ CASES = [
      "demo.js:18: model and effort sonnet medium differ from stages/02_fix/CONTEXT.md `Model: opus medium`"),
     ("no Model line", edit(STAGE2, "Model: sonnet medium\n", ""), "no `Model: <model> <effort>` line"),
     ("missing section", edit(STAGE2, "## Do NOT load", "## Never load"), "02_fix/CONTEXT.md: no `## Do NOT load` section"),
-    ("two Human check lines", edit(STAGE2, "The output reads right.", "One.\nTwo."),
-     "Human check has 2 lines, not exactly one"),
-    ("no Human check line", edit(STAGE2, "The output reads right.\n", ""), "Human check has 0 lines, not exactly one"),
+    ("two Check lines", edit(STAGE2, "The output reads right.", "One.\nTwo."),
+     "Check has 2 lines, not exactly one"),
+    ("no Check line", edit(STAGE2, "The output reads right.\n", ""), "Check has 0 lines, not exactly one"),
+    ("old Human check section", edit(STAGE2, "## Check", "## Human check"), "02_fix/CONTEXT.md: no `## Check` section"),
     ("input under claude-home missing", edit(STAGE2, "claude-home/rules/x.md", "claude-home/rules/gone.md"),
      "input claude-home/rules/gone.md does not exist"),
     ("input under ~/.claude missing", edit(STAGE2, "~/.claude/rules/live.md", "~/.claude/rules/gone.md"),
