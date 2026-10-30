@@ -51,8 +51,13 @@ class TestProfileFiles(unittest.TestCase):
                 self.assertEqual(tool.profile_problems(name), [])
         eng, cre = tool.load_profile("engineer"), tool.load_profile("creator")
         self.assertEqual((eng["owner"], eng["editable"]), (True, ["**"]))
+        # AC-22: the video skills are on in creator and name-only in engineer; every other switch is engineer's
+        video = {n for n, e in json.loads((REPO / "tools/config/manifest.json").read_text())["entries"].items()
+                 if e.get("source") == "github:remotion-dev/skills"} | {"lemo-opuscar", "instagram-reels-design"}
+        self.assertEqual(len(video), 14)
+        self.assertEqual({s: eng["skills"][s] for s in video}, dict.fromkeys(video, "name-only"))
         self.assertEqual((cre["owner"], cre["skills"], cre["rules"], cre["hooks_off"]),
-                         (False, eng["skills"], eng["rules"], []))
+                         (False, {**eng["skills"], **dict.fromkeys(video, "on")}, eng["rules"], []))
 
     # covers: AC-3 (skillOverrides moved out of the core settings into engineer; engineer lists every core rule, so
     # its rules/ is byte for byte the core's)
@@ -379,7 +384,9 @@ class TestLockHook(unittest.TestCase):
     def test_creator_editable(self):
         cre = json.loads((REPO / "profiles/creator/profile.json").read_text())
         skills = ["design", "assets", "brand-system", "nano-banana", "video-to-website", "voice-dna", "content-ops",
-                  "anti-ai-writing", "watch-reels"]
+                  "anti-ai-writing", "watch-reels",
+                  # AC-22
+                  "instagram-reels-design", "lemo-opuscar"]
         patches = ["high-end-visual-design", "minimalist-ui", "industrial-brutalist-ui"]
         self.assertEqual(cre["editable"], [f"claude-home/skills/{s}/**" for s in skills]
                          + [f"tools/config/patches/{p}.patch" for p in patches] + ["profiles/custom-*/**"])
@@ -432,6 +439,180 @@ class TestCustomProfile(Scratch):
                 self.assertEqual(self.tool("profile", "custom", bad).returncode, 2)
         self.assertEqual(self.tool("profile", "custom", "bo").returncode, 0)
         self.assertEqual(json.loads((self.repo / "profiles/custom-bo/profile.json").read_text())["base"], "custom-ana")
+
+
+class TestProfileSettings(Scratch):
+    def setUp(self):
+        super().setUp()
+        (self.repo / "claude-home" / "settings.json").write_text(json.dumps({"model": "core-m", "env": {"A": "1"}}))
+        self.profile("creator", owner=False, settings={"model": "p-m", "env": {"B": "2"},
+                                                       "enabledPlugins": {"x@y": True}})
+        self.home = self.tmp / "h"
+
+    def run_install(self, *args):
+        return TestInstallProfile.run_install(self, self.home, *args)
+
+    # covers: AC-17 (the profile's settings land in the built file, model replaced, env merged; install records the
+    # keys it wrote)
+    def test_settings_land(self):
+        live, r = self.run_install("--profile", "creator")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        s = json.loads((live / "settings.json").read_text())
+        self.assertEqual((s["model"], s["env"], s["enabledPlugins"]), ("p-m", {"A": "1", "B": "2"}, {"x@y": True}))
+        state = json.loads((live / "state" / "profile.json").read_text())
+        self.assertEqual(state["settings_keys"], ["model", "env.B", "enabledPlugins.x@y"])
+
+    # covers: AC-17 (a settings key other than the four fails the validator, naming it; nothing is written)
+    def test_hooks_refused(self):
+        self.profile("creator", owner=False, settings={"hooks": {}})
+        live, r = self.run_install("--profile", "creator")
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn("creator: settings key hooks is not one of model, env, enabledPlugins, extraKnownMarketplaces",
+                      r.stderr)
+        self.assertFalse((live / "settings.json").exists())
+
+    # covers: AC-17 (a private model beats the profile's)
+    def test_private_wins(self):
+        (self.home / ".claude" / "private").mkdir(parents=True)
+        (self.home / ".claude" / "private" / "settings.json").write_text(json.dumps({"model": "priv"}))
+        shutil.copy(REPO / "tools/scripts/private-names.py", self.repo / "tools/scripts/private-names.py")
+        live, r = self.run_install("--profile", "creator")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(json.loads((live / "settings.json").read_text())["model"], "priv")
+
+    # covers: AC-17 (creator then engineer leaves none of creator's keys and stops on no overwrite item for them)
+    def test_switch_back(self):
+        live, r = self.run_install("--profile", "creator")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        live, r = self.run_install("--profile", "engineer")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("overwrite: changed settings.json", r.stdout)
+        s = json.loads((live / "settings.json").read_text())
+        self.assertEqual((s["model"], s["env"], "enabledPlugins" in s), ("core-m", {"A": "1"}, False))
+        self.assertEqual(json.loads((live / "state" / "profile.json").read_text())["settings_keys"], [])
+        # with another live change too, the line counts only that change, not the keys creator owned: one key added,
+        # its line plus the comma the line before it gains
+        live, r = self.run_install("--profile", "creator")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        s = json.loads((live / "settings.json").read_text())
+        s["theme"] = "dark"
+        (live / "settings.json").write_text(json.dumps(s))
+        _, r = self.run_install("--profile", "engineer")
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+        self.assertIn("overwrite: changed settings.json +2/-1", r.stdout)
+        # a live edit of a key the profile owned is still a change the check lists
+        live, r = self.run_install("--profile", "creator", "--accept-overwrite")
+        s = json.loads((live / "settings.json").read_text())
+        s["model"] = "mine"
+        (live / "settings.json").write_text(json.dumps(s))
+        _, r = self.run_install("--profile", "engineer")
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+        self.assertIn("overwrite: changed settings.json", r.stdout)
+
+
+class TestPrivateLayer(Scratch):
+    def setUp(self):
+        super().setUp()
+        self.home = self.tmp / "h"
+        self.private = self.home / ".claude" / "private"
+        (self.private / "rules" / "work").mkdir(parents=True)
+        (self.private / "rules" / "work" / "mine.md").write_text("mine\n")
+
+    def run_install(self, *args):
+        return TestInstallProfile.run_install(self, self.home, *args)
+
+    # covers: AC-23 (a private rule lands with its subfolder, is recorded, and a second install lists nothing)
+    def test_private_rule(self):
+        live, r = self.run_install()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual((live / "rules" / "work" / "mine.md").read_text(), "mine\n")
+        self.assertEqual(json.loads((live / "state" / "profile.json").read_text())["private_rules"], ["rules/work/mine.md"])
+        live, r = self.run_install()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("overwrite: changed", r.stdout)
+        self.assertNotIn("overwrite: lost", r.stdout)
+
+    # covers: AC-23 (a private rule named like a core rule exits 2 naming it; nothing is written)
+    def test_clash(self):
+        (self.repo / "claude-home" / "rules" / "core.md").write_text("core\n")
+        self.profile()
+        (self.private / "rules" / "core.md").write_text("x\n")
+        live, r = self.run_install()
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn(f"private rule {live}/private/rules/core.md has the same name", r.stderr)
+        self.assertFalse((live / "rules" / "work").exists())
+
+    # covers: AC-23 (a private hook command whose file is missing is named)
+    def test_missing_private_hook(self):
+        frag = {"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "python3 ~/.claude/private/hooks/guard.py"}]}]}}
+        (self.private / "settings.json").write_text(json.dumps(frag))
+        shutil.copy(REPO / "tools/scripts/private-names.py", self.repo / "tools/scripts/private-names.py")
+        _, r = self.run_install()
+        self.assertIn(f"private hook missing: {self.home}/.claude/private/hooks/guard.py", r.stdout, r.stdout + r.stderr)
+        (self.private / "hooks").mkdir()
+        (self.private / "hooks" / "guard.py").write_text("")
+        _, r = self.run_install()
+        self.assertNotIn("private hook missing", r.stdout)
+
+    # covers: AC-23 (the always loaded size check counts a rule in a subfolder, private ones included)
+    def test_size_counts_subfolders(self):
+        (self.private / "rules" / "work" / "mine.md").write_text("x" * 20000)
+        _, r = self.run_install()
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertIn("IS 20004 CHARACTERS", r.stderr)
+
+
+class TestPrivateSync(TestSyncProfile):
+    # covers: AC-23 (sync with an owner profile never copies a private rule, and its names do not stop the sync)
+    def test_private_not_synced(self):
+        (self.live / "rules" / "work").mkdir()
+        (self.live / "rules" / "work" / "mine.md").write_text("ask zorblexq first\n")
+        (self.live / "state" / "profile.json").write_text(json.dumps({"name": "engineer",
+                                                                       "private_rules": ["rules/work/mine.md"]}))
+        env = {**os.environ, "CLAUDE_LIVE_DIR": str(self.live), "GIT_CONFIG_GLOBAL": "/dev/null"}
+        r = subprocess.run(["bash", str(self.repo / "tools/bin/sync.sh")], env=env, capture_output=True, text=True,
+                           stdin=subprocess.DEVNULL, timeout=120)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertFalse((self.repo / "claude-home" / "rules" / "work").exists())
+        self.assertNotIn("work/mine.md", json.loads((self.repo / "profiles/engineer/profile.json").read_text())["rules"])
+
+    test_owner = test_not_owner = test_unreadable_profile = None
+
+
+class TestCreatorFiles(unittest.TestCase):
+    def build(self, name):
+        out = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, out)
+        live = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, live)
+        self.assertEqual(load_tool(REPO, live).stage(name, out), 0)
+        return out
+
+    # covers: AC-19, AC-20 (the overlay and routing rules install only with creator), AC-18 (creator's settings)
+    def test_creator_rules_and_settings(self):
+        cre, eng = self.build("creator"), self.build("engineer")
+        for rule in ("creator-overlay.md", "model-routing.md"):
+            self.assertTrue((cre / "rules" / rule).is_file(), rule)
+            self.assertFalse((eng / "rules" / rule).exists(), rule)
+            self.assertTrue((cre / "rules" / rule).read_text().isascii(), rule)
+        s = json.loads((cre / "settings.json").read_text())
+        self.assertEqual((s["model"], s["env"]["CLAUDE_CODE_SUBAGENT_MODEL"], s["env"]["PONYTAIL_DEFAULT_MODE"]),
+                         ("opus[1m]", "sonnet", "lite"))
+        self.assertEqual(s["enabledPlugins"]["ponytail@ponytail"], True)
+        self.assertRegex(s["extraKnownMarketplaces"]["ponytail"]["source"]["ref"], r"^[0-9a-f]{40}$")
+        self.assertNotIn("telegram@claude-plugins-official", s["enabledPlugins"])
+
+    # covers: AC-26 (engineer takes nothing from the creator work: no profile settings, every core rule and only those)
+    def test_engineer_unchanged(self):
+        eng = self.build("engineer")
+        core = json.loads((REPO / "claude-home/settings.json").read_text().replace("/home/santiago", str(Path.home())))
+        built = json.loads((eng / "settings.json").read_text())
+        self.assertNotIn("settings", json.loads((REPO / "profiles/engineer/profile.json").read_text()))
+        built.pop("skillOverrides")
+        self.assertEqual(built, core)
+        core_rules = {f"{p.relative_to(REPO / 'claude-home').as_posix()}" for p in (REPO / "claude-home/rules").rglob("*")
+                      if p.is_file()}
+        self.assertEqual({p.relative_to(eng).as_posix() for p in (eng / "rules").rglob("*") if p.is_file()}, core_rules)
 
 
 class TestPortableShell(unittest.TestCase):

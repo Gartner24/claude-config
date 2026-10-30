@@ -106,7 +106,9 @@ class TestReadme(unittest.TestCase):
             self.assertEqual(rows.get(kind), truth, kind)
 
 
-GUIDES = {"SETUP.md", "DAILY-USE.md", "SKILLS.md", "HOOKS.md", "DESIGN-PIPELINE.md"}
+GUIDES = {"SETUP.md", "DAILY-USE.md", "SKILLS.md", "HOOKS.md", "DESIGN-PIPELINE.md",
+          # spec 0081 AC-24
+          "creator-setup.md"}
 TYPES = {"Type: tutorial", "Type: how to", "Type: reference", "Type: explanation"}
 REWRITTEN = ["README.md", "AGENTS.md", "docs/architecture.md", "tools/config/routing.md"] + [f"docs/guides/{g}" for g in GUIDES]
 

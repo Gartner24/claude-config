@@ -1,9 +1,10 @@
 # Profiles: brief and handover memory
 **Feature:** profiles
-**Updated:** 2026-10-27 02:59 by daea8db3
+**Updated:** 2026-10-29 19:20 by 56988615
 
 ## Open questions
-- none
+- Q1 | done | 2026-10-27 | AC-22: remotion-dev/skills has no license (no LICENSE file, GitHub reports none). Install the 12 Remotion skills anyway, | claude 56988615 "if something actually needs my answer wait till Im back" | owner 2026-10-29: install anyway; landed: tools/config/manifest.json
+- Q2 | done | 2026-10-27 | Merging #239, #241, #243, #244: the self merge checklist needs the feature's verify and test boxes ticked, and those cov | claude 56988615 "if something actually needs my answer wait till Im back" | owner 2026-10-29: merge now; #239 #241 #244 merged, #243 next
 
 ## Shown to the owner, still needed
 - none
@@ -40,6 +41,7 @@
 - D29 | done | 2026-10-27 | Partner's private parts (his studio repo, work rules, memory, registry, work-guard and install-guard) live in his own ~ | owner daea8db3 "His private layer (Recommended)" | landed: docs/specs/0081-profiles/index.md (PR D)
 - D30 | done | 2026-10-27 | Profiles gain an optional settings field (env, model, enabledPlugins, extraKnownMarketplaces) merged before the private  | owner daea8db3 "New profile field (Recommended); It matches (Recommended)" | landed: docs/specs/0081-profiles/index.md (PR D)
 - D31 | done | 2026-10-27 | careful-worker and mechanical-worker join the core agents (web-researcher dropped); his model routing rule loads only in | owner daea8db3 "Agents core, rule creator (Recommended)" | landed: docs/specs/0081-profiles/index.md (PR D)
+- D32 | open | 2026-10-29 | GitHub branch rule (AC-15) waits: turn it on the day the partner gets push access to claude-config. | owner 56988615 "Later (Recommended)" | -
 
 ## Live state
 - L1 | open | 2026-10-27 | Partner zip received 2026-10-27 (extracted to the job tmp, not in the repo); our watch | claude daea8db3 "we recieved the setup from my partner" | -

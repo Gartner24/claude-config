@@ -31,9 +31,15 @@ fi
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 fail=0
+# Spec 0081 AC-23: a private rule (from ~/.claude/private/rules/) holds private names on purpose and is never synced
+RULES=("$LIVE/rules")
+if [ "$HAS_CONFIG" = 1 ]; then
+  RULES=()
+  while IFS= read -r f; do [ -n "$f" ] && RULES+=("$f"); done < <("${CONFIG[@]}" public-rules)
+fi
 "${NAMES[@]}" strip-settings "$LIVE/settings.json" "$tmp/settings.json" "$tmp/private-settings.json" || fail=1
 "${NAMES[@]}" strip-settings "$LIVE/settings.local.json" "$tmp/settings.local.json" "$tmp/private-settings.local.json" || fail=1
-"${NAMES[@]}" check "$LIVE/CLAUDE.md" "$LIVE/agents" "$LIVE/rules" \
+"${NAMES[@]}" check "$LIVE/CLAUDE.md" "$LIVE/agents" ${RULES[@]+"${RULES[@]}"} \
   "$LIVE/hooks/block-destructive.sh" "$LIVE/hooks/review-stack-pre-push" "$LIVE/hooks/plain-panel.py" "$LIVE/hooks/context-monitor.js" || fail=1
 # Spec 0048: these may be missing from a live tree (first install, the self checks' temp trees).
 OPTIONAL=(hooks/claude-config-reminder.py hooks/workflow-start.sh hooks/handover-start.sh hooks/no-jjstack-bar.py hooks/live-tick.py

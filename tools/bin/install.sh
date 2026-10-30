@@ -67,18 +67,8 @@ trap 'rm -rf "$STAGE"' EXIT
 echo "settings.json:"
 n=$(grep -c '/home/santiago' "$REPO/claude-home/settings.json" || true)
 note "rewriting $n hardcoded path(s) to \$HOME"
-# Spec 0013: sync.sh strips name bearing entries out of both settings files into
-# ~/.claude/private/. Merging them back is what keeps a reinstall from silently dropping
-# the private deny rules. A public reader has no fragment and gets the public settings.
-frag="$LIVE/private/settings.json"
-if [ -e "$frag" ]; then
-  note "merging $frag into the built file (private-names.py merge-settings, paths swapped to \$HOME)"
-  sed "s|/home/santiago|$HOME|g" "$frag" | python3 "$REPO/tools/scripts/private-names.py" merge-settings "$STAGE/settings.json" -
-else
-  note "no private settings fragment, private entries not installed"
-fi
 # Spec 0019 AC-9: sync.sh strips autoMode from the repo copy, so every install used to
-# drop yours. It is read from the live file and written into the built one, after the private merge.
+# drop yours. It is read from the live file and written into the built one, before the private merge (AC-17).
 if [ -e "$LIVE/settings.json" ]; then
   if ! msg=$(python3 -c '
 import json, os, sys
@@ -103,6 +93,40 @@ if isinstance(d, dict) and "autoMode" in d:
   elif [ -n "$msg" ]; then
     note "$msg"
   fi
+fi
+
+# Spec 0013: sync.sh strips name bearing entries out of both settings files into
+# ~/.claude/private/. Merging them back is what keeps a reinstall from silently dropping
+# the private deny rules. A public reader has no fragment and gets the public settings.
+frag="$LIVE/private/settings.json"
+if [ -e "$frag" ]; then
+  note "merging $frag into the built file (private-names.py merge-settings, paths swapped to \$HOME)"
+  sed "s|/home/santiago|$HOME|g" "$frag" | python3 "$REPO/tools/scripts/private-names.py" merge-settings "$STAGE/settings.json" -
+else
+  note "no private settings fragment, private entries not installed"
+fi
+# Spec 0081 AC-23: hook scripts in private/hooks/ are never copied; a private hook whose file is missing is named.
+if [ -e "$frag" ]; then
+  python3 - "$frag" "$HOME" <<'PY' || true
+import json, os, shlex, sys
+home = sys.argv[2]
+try:
+    d = json.loads(open(sys.argv[1]).read().replace("/home/santiago", home))
+except (OSError, ValueError):
+    sys.exit(0)
+for groups in (d.get("hooks") or {}).values():
+    for g in groups if isinstance(groups, list) else []:
+        for c in (g.get("hooks") or []) if isinstance(g, dict) else []:
+            try:
+                words = shlex.split(c.get("command", "")) if isinstance(c, dict) else []
+            except ValueError:
+                continue
+            if len(words) > 1 and os.path.basename(words[0]) in ("bash", "sh", "zsh", "python", "python3", "node"):
+                words = words[1:]
+            path = os.path.expanduser(words[0].replace("$HOME", home)) if words else ""
+            if path.startswith("/") and not os.path.exists(path):
+                print(f"  private hook missing: {path}")
+PY
 fi
 
 # Spec 0081 AC-5: never overwrite a live change silently. Every live file the build would change, and every live rule
@@ -366,12 +390,18 @@ else
       && note "profile lock hook: all self-checks passed" \
       || { echo "  PROFILE LOCK HOOK SELF-CHECK FAILED - run: python3 ~/.claude/hooks/profile-lock.py --test" >&2; exit 1; }
   fi
-  # Spec 0077 AC-1: the always loaded text of the live folder, CLAUDE.md plus rules/*.md (not rules/ecc/).
+  # Spec 0077 AC-1: the always loaded text of the live folder, CLAUDE.md plus the rules. Spec 0081 AC-23, AC-25: a rule in a
+  # subfolder loads too (private ones included); settings.json claudeMdExcludes (rules/ecc/) is left out.
   if ! total=$(python3 -c '
-import glob, sys
+import fnmatch, glob, json, os, sys
 live = sys.argv[1]
-files = [live + "/CLAUDE.md"] + sorted(glob.glob(live + "/rules/*.md"))
-print(sum(len(open(f, encoding="utf-8").read()) for f in files if __import__("os").path.isfile(f)))
+try:
+    skip = json.load(open(live + "/settings.json")).get("claudeMdExcludes") or []
+except (OSError, ValueError):
+    skip = []
+files = [live + "/CLAUDE.md"] + sorted(glob.glob(live + "/rules/**/*.md", recursive=True))
+files = [f for f in files if os.path.isfile(f) and not any(fnmatch.fnmatch(f, p) for p in skip)]
+print(sum(len(open(f, encoding="utf-8").read()) for f in files))
 ' "$LIVE"); then
     echo "  LIVE SIZE CHECK FAILED - could not measure $LIVE" >&2; exit 1
   fi
