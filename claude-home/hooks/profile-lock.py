@@ -48,8 +48,11 @@ def judge_repo(rel, s):
     return f"locked core (profile {name}): ask the owner to change {rel}"
 
 
-def decide(data, live, state):
-    """The reason to deny the write, or None to allow it. `state` is the parsed state file, or None when missing."""
+def decide(data, live, state, fold=None):
+    """The reason to deny the write, or None to allow it. `state` is the parsed state file, or None when missing.
+    On macOS the file system ignores case and realpath keeps the case it was given, so `~/.CLAUDE/x` names the same file
+    as `~/.claude/x`: every path and pattern is compared in lower case there (`fold`)."""
+    fold = fold or (str.lower if sys.platform == "darwin" else str)
     ti = data.get("tool_input") or {}
     raw = ti.get("file_path") or ti.get("notebook_path")
     if not isinstance(raw, str) or not raw:
@@ -57,15 +60,18 @@ def decide(data, live, state):
     p = Path(os.path.expanduser(raw))
     if not p.is_absolute():
         p = Path(data.get("cwd") or os.getcwd()) / p
-    real = Path(os.path.realpath(p))
-    live = Path(os.path.realpath(live))
+    real = Path(fold(os.path.realpath(p)))
+    live = Path(fold(os.path.realpath(live)))
+    if isinstance(state, dict):
+        state = dict(state, repo=fold(os.path.realpath(state.get("repo") or "/nonexistent")),
+                     name=fold(str(state.get("name"))), editable=[fold(e) for e in state.get("editable") or []])
     if not isinstance(state, dict):
         guess = live / "skills" / "claude-config"
-        repo = Path(os.path.realpath(guess)).parents[2] if guess.is_symlink() else None
+        repo = Path(fold(os.path.realpath(guess))).parents[2] if guess.is_symlink() else None
         if under(real, live) or (repo and under(real, repo)):
             return "profile state missing: run install"
         return None
-    repo = Path(os.path.realpath(state.get("repo") or "/nonexistent"))
+    repo = Path(state["repo"])
     if under(real, repo):
         return judge_repo(real.relative_to(repo).as_posix(), state)
     if under(real, live):
@@ -73,7 +79,7 @@ def decide(data, live, state):
         if top in OWN_LIVE:
             return None
         return f"locked core (profile {state.get('name')}): {real} is live config; change the repo and run install"
-    if any(under(real, d) for d in framework_dirs(repo)):
+    if any(under(real, Path(fold(str(d)))) for d in framework_dirs(repo)):
         return f"locked core (profile {state.get('name')}): {real} belongs to a framework"
     return None
 
@@ -141,6 +147,13 @@ def selftest():
         check("state missing in live", decide(w(live / "projects/m.md"), live, None), "profile state missing: run install")
         check("state missing in repo", decide(w(repo / "README.md"), live, None), "profile state missing: run install")
         check("state missing outside", decide(w(own / "a.txt"), live, None), None)
+        # macOS: a path in another case names the same file
+        low = str.lower
+        check("mac: core in other case", decide(w(repo / "TOOLS/BIN/install.sh"), live, creator, low), "locked core")
+        check("mac: live in other case", decide(w(live / "SETTINGS.json"), live, creator, low), "is live config")
+        check("mac: profile file in other case", decide(w(repo / "profiles/custom-ana/PROFILE.json"), live, creator, low),
+              "a profile file changes only")
+        check("mac: editable in other case", decide(w(repo / "Claude-Home/skills/Design/SKILL.md"), live, creator, low), None)
         assert main_text("{not json", live) == 0
         assert main_text(json.dumps({"tool_input": "x"}), live) == 0
         (live / "state" / "profile.json").write_text(json.dumps(creator))

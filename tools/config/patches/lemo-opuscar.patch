@@ -1,0 +1,37 @@
+diff --git a/scripts/setup.sh b/scripts/setup.sh
+index 16b9f00..b1edc91 100644
+--- a/scripts/setup.sh
++++ b/scripts/setup.sh
+@@ -5,10 +5,12 @@
+ #                                  install packages: core = Node packages, headless browser, Python core tier;
+ #                                  voice = TTS and speech check (+ the English voice model); music = pluck.py (numba)
+ #   sh setup.sh demo <slug>        add one style's demo source and poster to the library (reference only)
+-# The library is a sparse clone of the main branch: guides, core/ tools and every STYLE.md. Big assets: tools/fetch.sh.
++# The library is a sparse clone of the pinned commit (REF): guides, core/ tools and every STYLE.md. Big assets: tools/fetch.sh.
+ # LEMO_OPUSCAR_HOME = where the library lives (default: the clone you stand in, else ~/lemo-opuscar).
+ set -e
+ REPO=${LEMO_OPUSCAR_REPO:-https://github.com/lemomo-ai/lemo-opuscar.git}
++# claude-config pins the library to the commit this skill was taken from (spec 0081 AC-22)
++REF=${LEMO_OPUSCAR_REF:-413a6bd6d78ebd3bdd5abaec9538a26867f890df}
+ 
+ # 1. Which library: $LEMO_OPUSCAR_HOME, else the clone we are standing in, else ~/lemo-opuscar
+ is_lib() { [ -f "$1/AGENTS.md" ] && [ -d "$1/core/render" ]; }
+@@ -27,15 +29,16 @@ apply_sparse() {
+ }
+ 
+ if [ "$(git -C "$LIB" config --get lemo.managed 2>/dev/null)" = true ]; then
+-  # our own clone (nothing of the user's lives in it): match main, whatever happened upstream
++  # our own clone (nothing of the user's lives in it): match the pinned commit
+   [ "$(git -C "$LIB" remote get-url origin 2>/dev/null)" = "$REPO" ] || git -C "$LIB" remote set-url origin "$REPO"
+-  if err=$(git -C "$LIB" fetch --quiet --depth 1 origin main 2>&1 && git -C "$LIB" reset --quiet --hard FETCH_HEAD 2>&1); then apply_sparse
++  if err=$(git -C "$LIB" fetch --quiet --depth 1 origin "$REF" 2>&1 && git -C "$LIB" reset --quiet --hard FETCH_HEAD 2>&1); then apply_sparse
+   else echo "! could not update $LIB (offline?); using the local copy. git: $err" | head -3; fi
+ elif ! is_lib "$LIB"; then
+   [ -e "$LIB" ] && [ -n "$(ls -A "$LIB" 2>/dev/null)" ] && { echo "✗ $LIB exists but is not the Lemo-Opuscar library. Set LEMO_OPUSCAR_HOME to another folder."; exit 1; }
+   command -v git >/dev/null || { echo "✗ git is needed to download the library"; exit 1; }
+   echo "↓ downloading the style library into $LIB"
+   git clone --quiet --depth 1 --filter=blob:none --sparse --branch main "$REPO" "$LIB" || { rm -rf "$LIB"; echo "✗ download failed (offline?)"; exit 1; }
++  git -C "$LIB" fetch --quiet --depth 1 origin "$REF" && git -C "$LIB" reset --quiet --hard FETCH_HEAD || { rm -rf "$LIB"; echo "✗ pinned commit $REF not found"; exit 1; }
+   apply_sparse
+   git -C "$LIB" config lemo.managed true
+ fi

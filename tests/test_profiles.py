@@ -51,8 +51,13 @@ class TestProfileFiles(unittest.TestCase):
                 self.assertEqual(tool.profile_problems(name), [])
         eng, cre = tool.load_profile("engineer"), tool.load_profile("creator")
         self.assertEqual((eng["owner"], eng["editable"]), (True, ["**"]))
+        # AC-22: the video skills are on in creator and name-only in engineer; every other switch is engineer's
+        video = {n for n, e in json.loads((REPO / "tools/config/manifest.json").read_text())["entries"].items()
+                 if e.get("source") == "github:remotion-dev/skills"} | {"lemo-opuscar", "instagram-reels-design"}
+        self.assertEqual(len(video), 14)
+        self.assertEqual({s: eng["skills"][s] for s in video}, dict.fromkeys(video, "name-only"))
         self.assertEqual((cre["owner"], cre["skills"], cre["rules"], cre["hooks_off"]),
-                         (False, eng["skills"], eng["rules"], []))
+                         (False, {**eng["skills"], **dict.fromkeys(video, "on")}, eng["rules"], []))
 
     # covers: AC-3 (skillOverrides moved out of the core settings into engineer; engineer lists every core rule, so
     # its rules/ is byte for byte the core's)
@@ -379,7 +384,9 @@ class TestLockHook(unittest.TestCase):
     def test_creator_editable(self):
         cre = json.loads((REPO / "profiles/creator/profile.json").read_text())
         skills = ["design", "assets", "brand-system", "nano-banana", "video-to-website", "voice-dna", "content-ops",
-                  "anti-ai-writing", "watch-reels"]
+                  "anti-ai-writing", "watch-reels",
+                  # AC-22
+                  "instagram-reels-design", "lemo-opuscar"]
         patches = ["high-end-visual-design", "minimalist-ui", "industrial-brutalist-ui"]
         self.assertEqual(cre["editable"], [f"claude-home/skills/{s}/**" for s in skills]
                          + [f"tools/config/patches/{p}.patch" for p in patches] + ["profiles/custom-*/**"])

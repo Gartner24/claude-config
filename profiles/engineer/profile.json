@@ -252,7 +252,21 @@
     "smart-context7": "name-only",
     "tailwind-4-docs": "name-only",
     "troubleshooting": "name-only",
-    "verify-before-done": "name-only"
+    "verify-before-done": "name-only",
+    "remotion-best-practices": "name-only",
+    "remotion-captions": "name-only",
+    "remotion-create": "name-only",
+    "remotion-docs": "name-only",
+    "remotion-interactivity": "name-only",
+    "remotion-maps": "name-only",
+    "remotion-markup": "name-only",
+    "remotion-multimedia": "name-only",
+    "remotion-render": "name-only",
+    "remotion-saas": "name-only",
+    "remotion-studio": "name-only",
+    "remotion-upgrade": "name-only",
+    "lemo-opuscar": "name-only",
+    "instagram-reels-design": "name-only"
   },
   "rules": [
     "lessons.md",
