@@ -355,7 +355,7 @@ class TestCodeOwners(unittest.TestCase):
         self.assertEqual(cleared, ["/" + p for p in editable])
 
 
-HOOK =REPO / "claude-home" / "hooks" / "profile-lock.py"
+HOOK = REPO / "claude-home" / "hooks" / "profile-lock.py"
 
 
 class TestLockHook(unittest.TestCase):
