@@ -258,7 +258,7 @@ Source: [brief](../briefs/profiles.md) D11, D25, D26; your messages 2026-10-27.
 Before Claude designs a workflow, playbook, pipeline or folder layout (`/architect`, `/workflow-builder`, or plain chat), it compares the installed `icm-architect` pin with upstream HEAD, reads the upstream version when they differ, says what changed, and bases the design on it. Seen 2026-10-27: a "runner" command was proposed for a business project without checking the ICM layout adopted in specs 0072, 0076 and 0077.
 **Done when:** `claude-home/rules-on-demand/icm-current.md` exists, `architect` and `workflow-builder` load it from `map.json`, a Routing line in `claude-home/CLAUDE.md` names it for plain chat, and the suite is green.
 - [x] Write the rule and wire it: `claude-home/rules-on-demand/icm-current.md`, `map.json`, Routing line, tests (PR #238, merged)
-- [ ] Install it live: pull main into your checkout, then `tools/bin/install.sh` (on 2026-10-29 `~/.claude` still had the old copy)
+- [x] Install it live: pull main into your checkout, then `tools/bin/install.sh` (installed 2026-10-29 with profiles; `icm-current.md` live, wired in `map.json` and `CLAUDE.md`)
 - [ ] Verify it: `/check verify icm current`
 Source: your message 2026-10-27 ("this kind of updates need to be based on ICM structure (the updated structure, they update that a lot)"); specs 0072, 0076 AC-10, 0077.
 
@@ -267,7 +267,7 @@ Source: your message 2026-10-27 ("this kind of updates need to be based on ICM s
 **Done when:** the manifest pin equals upstream HEAD at bump time, the scan is clean, and the suite is green.
 - [x] Read the upstream diff and scan it: skillspector (no new findings, PR #240)
 - [x] Bump the pin: manifest at `8bc2f56` (PR #240, merged)
-- [ ] Install it live: `python3 ~/claude-config/tools/bin/claude-config.py update --apply icm-architect` after your checkout has main (on 2026-10-29 `~/.claude` still had the e16cafe files)
+- [x] Install it live: `python3 ~/claude-config/tools/bin/claude-config.py update --apply icm-architect` after your checkout has main (installed 2026-10-29 from `git archive 8bc2f56`, hash equals the manifest; `update --apply` wrote a wrong patch after the merged pin bump, undone; drift: none)
 Source: your message 2026-10-27; row 120. The template check this row named moved to row 123.
 
 ### 122. watch-reels sees the whole video · in-progress
@@ -276,7 +276,7 @@ Dense full size frames, a bigger speech model with a name list, and a Sonnet scr
 - [x] Design it (spec): `/architect watch-reels full watch` (spec [0080](../specs/0080-watch-reels-full-watch.md), accepted 2026-10-27)
 - [x] Build it: `/develop watch-reels full watch` (PR #242, merged 2026-10-29; live try on DegVQaYOnqU read the Blender MCP screens)
 - [x] Test it: AC-9 tests landed with the build (`test_watch_reels` 56 of 56; the mlx path was not run)
-- [ ] Install it live: pull main into your checkout, then `tools/bin/install.sh` (on 2026-10-29 `~/.claude/skills/watch-reels` had no `vocabulary.txt`)
+- [x] Install it live: pull main into your checkout, then `tools/bin/install.sh` (installed 2026-10-29; `vocabulary.txt` is live)
 - [ ] Verify it: `/check verify watch-reels full watch`
 Known gap: speech still writes "Seedance" as "C-Dance 2.5" even with the name list (PR #242). spec 0080 · code in `claude-home/skills/watch-reels/`
 Source: spec 0080; PR #242.
