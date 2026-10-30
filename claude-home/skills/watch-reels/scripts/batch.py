@@ -1,7 +1,8 @@
 """Watch a list of public posts one after another: fetch.sh, then post.py, then delete the videos.
 links.txt: one link per line (blank lines and # lines skipped). Rerun the same command to resume: done links are skipped.
 Stops after 3 failed downloads in a row (a rate limit or login wall is the usual cause). Writes OUT_DIR/index.md.
-Usage: python3 batch.py LINKS_TXT OUT_DIR"""
+--redo builds done links again (fetched again, old frames cleared). --keep-video keeps <post>/fetch/slideNN.mp4.
+Usage: python3 batch.py [--redo] [--keep-video] LINKS_TXT OUT_DIR"""
 import concurrent.futures, hashlib, os, random, re, subprocess, sys, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -9,6 +10,7 @@ sys.path.insert(0, HERE)
 import post as P  # noqa: E402
 MAX_FAILS = 3
 DELAY = (8, 15)  # seconds between posts, so the batch looks like a person, not a scraper
+MAX_QUEUED = 2   # builds waiting or running; the next download waits below this, so downloads never run far ahead
 
 
 def slug(url):
@@ -33,10 +35,10 @@ def post(fetch_dir, out):
         return subprocess.CompletedProcess([], 1, "", str(e) or type(e).__name__)
 
 
-def clean(fd):
+def clean(fd, keep_video=False):
     if os.path.isdir(fd):  # every video and audio part goes, finished or not (.part, .m4a, .webm)
         for name in os.listdir(fd):
-            if not name.endswith((".jpg", ".txt", ".log")):
+            if not name.endswith((".jpg", ".txt", ".log") + ((".mp4",) if keep_video else ())):
                 os.remove(os.path.join(fd, name))
 
 
@@ -45,28 +47,33 @@ def failed(r):
     return f"failed: `{why}`"  # inline code in one table cell: site error text can never read as our own words
 
 
-def run(urls, out_dir, fetch=fetch, post=post, sleep=time.sleep):
+def run(urls, out_dir, fetch=fetch, post=post, sleep=time.sleep, redo=False, keep_video=False):
     """[(url, status, folder)]; status is done, skipped (done before), failed: <why>, or not run.
     Downloads stay one at a time with the pause between them; each post's page is built in a worker thread
-    meanwhile, so the pause costs no extra time. Only failed downloads count toward the stop (a rate limit)."""
+    meanwhile, at most MAX_QUEUED builds ahead. Only failed downloads count toward the stop (a rate limit).
+    redo: links whose post.md exists are fetched and built again instead of skipped."""
     rows, fails, first, queued = [], 0, True, set()
 
     def page(url, fd, d):
         r = post(fd, d)
-        clean(fd)
+        clean(fd, keep_video)
         return (url, "done", d) if r.returncode == 0 else (url, failed(r), d)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
         for url in urls:
             d = os.path.join(out_dir, slug(url))
             # a post listed twice (/p/X and /reel/X, ?igsh= variants) is skipped even while its page is still building
-            if d in queued or os.path.isfile(os.path.join(d, "post.md")):
+            if d in queued or (not redo and os.path.isfile(os.path.join(d, "post.md"))):
                 rows.append((url, "skipped", d))
                 continue
             queued.add(d)
             if fails >= MAX_FAILS:
                 rows.append((url, "not run", d))
                 continue
+            pending = [f for f in rows if isinstance(f, concurrent.futures.Future) and not f.done()]
+            while len(pending) >= MAX_QUEUED:
+                concurrent.futures.wait(pending, return_when=concurrent.futures.FIRST_COMPLETED)
+                pending = [f for f in pending if not f.done()]
             if not first:
                 sleep(random.uniform(*DELAY))
             first = False
@@ -98,11 +105,13 @@ def index(rows, out_dir):
 
 
 def main():
-    if len(sys.argv) != 3:
+    flags = {a for a in sys.argv[1:] if a.startswith("--")}
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    if len(args) != 2 or flags - {"--redo", "--keep-video"}:
         raise SystemExit(__doc__)
-    out_dir = sys.argv[2]
+    out_dir = args[1]
     os.makedirs(out_dir, exist_ok=True)
-    rows = run(links(sys.argv[1]), out_dir)
+    rows = run(links(args[0]), out_dir, redo="--redo" in flags, keep_video="--keep-video" in flags)
     open(os.path.join(out_dir, "index.md"), "w", encoding="utf-8").write(index(rows, out_dir))
     print(f"{os.path.join(out_dir, 'index.md')}: " + ", ".join(f"{sum(s.startswith(k) for _, s, _ in rows)} {k}" for k in ("done", "skipped", "failed", "not run")))
     if any(s == "not run" for _, s, _ in rows):
