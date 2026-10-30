@@ -10,8 +10,8 @@ REPO = Path(__file__).resolve().parents[1]
 # Spec 0048 AC-1: four files plus folders. `live` is allowed only as the temporary link to claude-home (AC-15).
 TOP = {"README.md", "AGENTS.md", "CLAUDE.md", "LICENSE", "tools", "claude-home", "docs",
        ".claude", ".gitignore", "tests", "map", "_archive",
-       # spec 0081: the profiles over the shared core
-       "profiles"}
+       # spec 0081: the profiles over the shared core, and the code owners file (AC-15)
+       "profiles", ".github"}
 # Spec 0048 AC-3: the old paths, outside the doc folders that record history.
 OLD = re.compile(r"(?<![\w./~-])live[/]|(?<![\w/.-])\.[/](install|sync)\.sh\b|(?<![\w/.-])(mcp-config|test-preferences)\.json")
 HISTORY = ("docs/specs/", "docs/reviews/", "docs/briefs/", "_archive/")
