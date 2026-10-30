@@ -344,6 +344,17 @@ class TestProfileCommand(Scratch):
         self.assertIn("profile: creator (from --profile)", r.stdout)
 
 
+class TestCodeOwners(unittest.TestCase):
+    # covers: AC-15 (CODEOWNERS names the owner for every path and clears it exactly for creator's editable paths)
+    def test_matches_creator(self):
+        lines = [l for l in (REPO / ".github/CODEOWNERS").read_text().splitlines() if l and not l.startswith("#")]
+        self.assertEqual(lines[0], "* @Gartner24")
+        cleared = lines[1:]
+        self.assertTrue(all(len(l.split()) == 1 for l in cleared), cleared)
+        editable = json.loads((REPO / "profiles/creator/profile.json").read_text())["editable"]
+        self.assertEqual(cleared, ["/" + p for p in editable])
+
+
 HOOK = REPO / "claude-home" / "hooks" / "profile-lock.py"
 
 
