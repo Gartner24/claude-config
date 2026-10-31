@@ -1,7 +1,10 @@
 """Spec 0082 AC-3: no Linux only or bash 4 construct in live shell and Python code, so it runs on a stock Mac.
 Known test data is excused by tests/portable-allow.txt (path | pattern | reason), one line per excuse."""
+import os
 import re
+import shutil
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -20,6 +23,7 @@ BANNED = {
     "touch -d": r"\btouch\s+(-\w+\s+)*-\w*d\b",
     "sed -i without suffix": r"\bsed\s+(-\w+\s+)*-\w*i(\s|$)",
     "date -d": r"\bdate\s+(-\w+\s+)*-\w*d\b",
+    "date %N": r"\bdate\s+[^|;]*%\d*N",
     "stat -c": r"\bstat\s+(-\w+\s+)*-\w*c\b",
     "grep -P": r"\bgrep\s+(-\w+\s+)*-\w*P",
     "xargs -r": r"\bxargs\s+(-\w+\s+)*-\w*r\b",
@@ -90,7 +94,7 @@ class TestPortable(unittest.TestCase):
             "bash 4 case change": 'n="${name^^}"', "declare -A": "declare -A M=(", "find -printf": "find . -printf '%P'",
             "readlink -f": 'readlink -f "$x"', "realpath command": 'd="$(realpath "$0")"',
             "flock command": "flock -n 9", "timeout command": "timeout 2 cmd", "touch -d": "touch -d @1 f",
-            "sed -i without suffix": "sed -i 's/a/b/' f", "date -d": "date -d yesterday", "stat -c": "stat -c %Y f",
+            "sed -i without suffix": "sed -i 's/a/b/' f", "date -d": "date -d yesterday", "date %N": "date -u +%H:%M:%S.%3NZ", "stat -c": "stat -c %Y f",
             "grep -P": "grep -oP 'x'", "xargs -r": "xargs -r rm", "base64 -w": "base64 -w0 f",
             "/proc/": "cat /proc/meminfo", "sched_getaffinity": "os.sched_getaffinity(0)",
             "/home/santiago": "/home/santiago/x",
@@ -102,6 +106,36 @@ class TestPortable(unittest.TestCase):
                  "gtimeout 2 cmd", 'with_timeout 2 "$@"', "touch f", "date +%s"]
         wrong = [s for s in clean for k, rx in BANNED.items() if re.search(rx, s)]
         self.assertEqual(wrong, [])
+
+
+class TestRamWatch(unittest.TestCase):
+    """Spec 0082 AC-4: claude-ram-watch.sh exits 0 at its start on Darwin and logs under $HOME."""
+    SCRIPT = REPO / "claude-home" / "scripts" / "claude-ram-watch.sh"
+
+    def run_watch(self, system, *args):
+        tmp = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, tmp)
+        (tmp / "bin").mkdir()
+        (tmp / "bin" / "uname").write_text(f"#!/bin/sh\necho {system}\n")
+        (tmp / "bin" / "uname").chmod(0o755)
+        env = {**os.environ, "HOME": str(tmp / "home"), "PATH": f"{tmp / 'bin'}{os.pathsep}{os.environ['PATH']}",
+               "DRY_RUN": "1"}
+        for k in ("LOG", "UNITDIR"):
+            env.pop(k, None)
+        r = subprocess.run(["bash", str(self.SCRIPT), *args], env=env, capture_output=True, text=True, timeout=20,
+                           stdin=subprocess.DEVNULL)
+        return tmp / "home", r
+
+    def test_darwin_exits_at_start(self):
+        # no --once: past the check it would watch forever, so the timeout fails the test
+        home, r = self.run_watch("Darwin")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertFalse(home.exists())
+
+    def test_log_under_home(self):
+        home, r = self.run_watch("Linux", "--once")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue((home / ".claude" / "logs").is_dir())
 
 
 if __name__ == "__main__":

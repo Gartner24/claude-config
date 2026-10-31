@@ -13,6 +13,12 @@
 #   tools/bin/install.sh --dry-run           print what would happen, touch nothing
 set -euo pipefail
 
+# Spec 0082 AC-11: claude-config.py and the hooks need 3.10; an older python3 failed later, halfway through.
+if ! python3 -c 'import sys; sys.exit(sys.version_info < (3, 10))' 2>/dev/null; then
+  echo "python3 3.10+ needed (on a Mac: brew install python)" >&2
+  exit 1
+fi
+
 # Spec 0048 AC-1, 0077 AC-12: this script lives in tools/bin/, the repo is two folders up.
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # CLAUDE_LIVE_DIR is for the self checks only: they install into a temp live tree.
