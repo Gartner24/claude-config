@@ -17,6 +17,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # tests/test_map.py reads AGENTS.md at an old pinned commit
 
       - uses: actions/setup-python@v5
         with:
@@ -45,12 +47,14 @@ jobs:
         run: python3 tests/fast.py
 
       - name: TypeScript mod tests
+        if: ${{ !cancelled() }}
         # They import claude-code/testing, which only the claude CLI provides (`claude plugin test`), and node 18
         # cannot load .ts files; neither is on the runner, so this step reports without failing the job.
         continue-on-error: true
         run: node --test claude-home/mods/*/*.test.ts claude-home/mods/*/tests/*.test.ts
 
       - name: Real install into temporary folders
+        if: ${{ !cancelled() }}  # runs after a red suite too, so each run shows every failure
         # jjstack is private and not on the runner: its four hooks in ~/.claude/hooks (docs/guides/HOOKS.md) are
         # stubbed so the hook file check passes, and the handover fixtures that need its slot script skip.
         run: |
