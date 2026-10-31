@@ -246,12 +246,12 @@ Your partner uses a Mac. Install, sync, hooks and the scripts they call must run
 **Done when:** `tools/bin/install.sh` and the suite run green on a Mac, and every Linux only part either has a macOS path or says plainly that it is Linux only.
 - [x] Design it (spec): `/architect mac support` (spec [0082](../specs/0082-mac-support.md), 2026-10-27, Sonnet cross check, 11 fixes applied)
 - [ ] Build it: `/develop mac support`
-  - [ ] PR A: advisory Mac and Linux CI job, portable shell, portability grep test (AC-0 to AC-3b)
-  - [ ] PR B1: RAM watcher, start-gates, review-isolated, Python 3.10 check (AC-4 to AC-6, AC-11)
-  - [ ] PR B2: mod, sound, key store, home paths; both jobs green (AC-7 to AC-10, AC-12)
-  - [ ] Make the Mac job a required check (AC-13) · waits on you
-- [ ] Verify it: `/check verify mac support`
-- [ ] Test it: `/test mac support`
+  - [x] PR A: advisory Mac and Linux CI job, portable shell, portability grep test (AC-0 to AC-3b) (#250, merged 2026-10-30; mod tests left out of CI and the pinned Python kept first on PATH, both stated in the PR)
+  - [x] PR B1: RAM watcher, start-gates, review-isolated, Python 3.10 check (AC-4 to AC-6, AC-11) (#251, merged 2026-10-30; also a safe tar fallback for Python 3.10.11)
+  - [x] PR B2: mod, sound, key store, home paths; both jobs green (AC-7 to AC-10, AC-12) (#252, merged 2026-10-30)
+  - [ ] Make the Mac job a required check (AC-13) · waits on you · later boxes go on
+- [x] Verify it: `/check verify mac support` (2026-10-30: CI run on #252 green on macos-latest with bash 3.2, the suite and a real install; live install here still rewrites 34 paths, every self check passes, drift: none. Not tried: a real Mac with Homebrew Python, the Keychain prompt)
+- [x] Test it: `/test mac support` (tests landed with each PR, every one mutation checked: A 16, B1 24, B2 16 mutants red; suite 302 ok)
 Source: [brief](../briefs/profiles.md) D11, D25, D26; your messages 2026-10-27.
 
 ## Deferred
