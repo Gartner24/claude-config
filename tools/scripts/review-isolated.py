@@ -332,7 +332,8 @@ sys.exit({code})
         for d in ("var/folders/T/review-x", "var/folders/T/other", "var/db", "etc"):
             os.makedirs(os.path.join(top, d))
         saved = TMP, ROOTS
-        globals().update(TMP=os.path.join(top, "var", "folders", "T"), ROOTS=ROOTS + (top,))
+        # first: on a Mac this tree is itself under the real /private, which would match first
+        globals().update(TMP=os.path.join(top, "var", "folders", "T"), ROOTS=(top,) + ROOTS)
         try:
             deny = json.loads(settings(os.path.join(top, "var", "folders", "T", "review-x")))["permissions"]["deny"]
         finally:
