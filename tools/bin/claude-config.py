@@ -11,6 +11,7 @@
                     steps tools/bin/install.sh and tools/bin/sync.sh call (spec 0081)
   drift             every item in one place and not the other, or different, by kind; exit 1 when any
   hook-files        exit 1 naming each live settings.json hook command whose file is missing (tools/bin/install.sh)
+  author-home       the home path the repo settings.json hooks are committed with, else $HOME (tools/bin/install.sh)
   update --plan     every git entry whose upstream moved, with its changed files; asks nothing
   update --apply <entry> [--resolved]
                     install upstream now for one entry, your patch merged in; exit 2 on a conflict
@@ -47,13 +48,28 @@ IGNORE = REPO / "tools" / "config" / "drift-ignore.json"
 COPIED_FILES = ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py",
                 "hooks/context-monitor.js", "hooks/claude-config-reminder.py",
                 "hooks/workflow-start.sh", "hooks/handover-start.sh", "hooks/no-jjstack-bar.py", "hooks/chain-catch.py",
-                "hooks/live-tick.py", "hooks/skill-rules.py", "hooks/profile-lock.py", "MAP.md",
+                "hooks/live-tick.py", "hooks/skill-rules.py", "hooks/profile-lock.py", "hooks/notify-sound.sh", "MAP.md",
                 "scripts/claude-ram-watch.sh")
 # .in_use/<pid> is a marker Claude Code drops in a plugin folder per running session; it used to make 10
 # of 12 plugin base_hash values go stale as soon as any session started.
 SKIP = {".git", "__pycache__", "node_modules", ".plugin-version", ".in_use"}
-# The home path settings.json is committed with; tools/bin/install.sh swaps it for $HOME.
-AUTHOR_HOME = "/home/santiago"
+
+
+def author_home():
+    """The home path settings.json is committed with; tools/bin/install.sh swaps it for $HOME. Spec 0082 AC-10: read
+    from its hook paths (/home/<user> or /Users/<user>), then any other home path in it, else $HOME, so a repo synced
+    on a Mac installs too."""
+    try:
+        d = json.loads((HOME_DIR / "settings.json").read_text())
+        hooks = json.dumps(d.get("hooks") or {})
+    except (OSError, ValueError, AttributeError):
+        return str(Path.home())
+    m = (re.search(r"(/(?:home|Users)/[^/\s\"'\\]+)/\.claude/", hooks)
+         or re.search(r"(/(?:home|Users)/[^/\s\"'\\]+)/", json.dumps(d)))
+    return m.group(1) if m else str(Path.home())
+
+
+AUTHOR_HOME = author_home()
 
 
 def folder_hash(path):
@@ -1609,6 +1625,9 @@ def main(argv):
         return drift()
     if cmd == "hook-files" and not rest:
         return hook_files()
+    if cmd == "author-home" and not rest:
+        print(AUTHOR_HOME)
+        return 0
     if cmd == "update" and rest == ["--plan"]:
         return update_plan()
     if cmd == "update" and len(rest) in (2, 3) and rest[0] == "--apply" and rest[2:] in ([], ["--resolved"]):

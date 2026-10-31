@@ -205,7 +205,8 @@ async function startServer($: EngineInterface) {
     }
     if (info.bind === bind) return // another session serves already
     // Tailscale came up (or went): stop the old server, but only a process that is ours.
-    const cmd = await $.fs.read(`/proc/${Number(info.pid)}/cmdline`).catch(() => '')
+    // spec 0082 AC-7: ps, not /proc/<pid>/cmdline, which a Mac does not have
+    const cmd = (await $.process.run(['ps', '-o', 'command=', '-p', String(Number(info.pid))], { timeoutMs: 2000 }).catch(() => null))?.stdout ?? ''
     if (!/wf-handoff\/server\.py/.test(cmd)) { await log($, `server on ${host}:${port} is not this mod's; left alone`); return }
     await $.process.run(['kill', String(Number(info.pid))]).catch(() => null)
     await log($, `stopped the server on ${info.bind}, now ${bind}`)

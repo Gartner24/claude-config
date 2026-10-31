@@ -735,7 +735,9 @@ def selftest():
               "hooks/handover-start.sh", "hooks/no-jjstack-bar.py", "hooks/skill-rules.py", "hooks/chain-catch.py", "hooks/live-tick.py"):
         (irepo / "claude-home" / f).write_text("#!/bin/sh\n")
     (irepo / "claude-home" / "CLAUDE.md").write_text("# rules\n")
-    (irepo / "claude-home" / "settings.json").write_text(json.dumps({"permissions": {"deny": ["Bash(rm:*)", "Read(~/x)"]}}))
+    # spec 0082 AC-10: install swaps the home path the repo settings.json is committed with, read from it (this one)
+    (irepo / "claude-home" / "settings.json").write_text(json.dumps({"permissions": {"deny": ["Bash(rm:*)", "Read(~/x)"]},
+                                                                     "env": {"ZORBLEX_LOG": "/home/santiago/zorblex.log"}}))
     hooks = irepo / ".git" / "hooks"
     hooks.mkdir(exist_ok=True)
     ichecker = irepo / "tools" / "scripts" / "private-names.py"
