@@ -228,6 +228,87 @@ class TestShippedPatch(unittest.TestCase):
             self.assertTrue(cc.apply_patch(base, (REAL / e["patch"]).read_bytes()), "patch does not apply on pinned")
 
 
+class TestOldTarfile(Case):
+    # covers: spec 0082 AC-11 (a Python without filter="data", 3.10.11 on the Mac runner, still exports, through
+    # safe_extract, which refuses what the data filter refuses)
+    def test_export_without_data_filter(self):
+        import tarfile
+        import types
+        from unittest import mock
+        old = types.SimpleNamespace(**{k: v for k, v in vars(tarfile).items() if k != "data_filter"})
+        with mock.patch.dict(sys.modules, {"tarfile": old}), \
+                mock.patch.object(cc, "safe_extract", wraps=cc.safe_extract) as spy:
+            got = cc.export(self.up, self.pinned, "skills/s", self.tmp)
+        self.assertEqual(spy.call_count, 1)
+        self.assertEqual((got / "SKILL.md").read_text(), SKILL)
+        self.assertEqual((got / "ref.md").read_text(), "ref\n")
+
+    def extract(self, *members, modes=None):
+        """members: (name, kind, linkname) with kind file, dir, sym, lnk or fifo, {out} standing for the target
+        folder and {name} for its name; extracted as an old Python would. modes: name -> mode written in the archive."""
+        import io
+        import tarfile
+        out = Path(tempfile.mkdtemp(dir=self.tmp)).resolve()
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w") as t:
+            for name, kind, link in members:
+                m = tarfile.TarInfo(name.format(out=out, name=out.name))
+                m.type = {"file": tarfile.REGTYPE, "dir": tarfile.DIRTYPE, "sym": tarfile.SYMTYPE,
+                          "lnk": tarfile.LNKTYPE, "fifo": tarfile.FIFOTYPE}[kind]
+                m.linkname = link.format(out=out, name=out.name)
+                m.mode = (modes or {}).get(name, 0o4777 if kind == "file" else 0o755)
+                t.addfile(m, io.BytesIO(b"") if kind == "file" else None)
+        buf.seek(0)
+        with tarfile.open(fileobj=buf) as t:
+            if hasattr(tarfile, "fully_trusted_filter"):
+                # a newer Python would refuse on its own; trust everything, as 3.10.11 does
+                t.extraction_filter = tarfile.fully_trusted_filter
+            cc.safe_extract(t, out)
+        return out
+
+    def test_safe_members_extracted(self):
+        out = self.extract(("d", "dir", ""), ("d/a", "file", ""), ("d/l", "sym", "a"), ("d/h", "lnk", "d/a"), ("m", "file", ""))
+        self.assertTrue((out / "d" / "a").is_file())
+        self.assertEqual(os.readlink(out / "d" / "l"), "a")
+        self.assertTrue((out / "d" / "h").is_file())
+        # written 4777: no setuid and no group or other write after
+        self.assertEqual((out / "m").stat().st_mode & 0o7777, 0o755)
+
+    def test_owner_keeps_write(self):
+        # PR 251 review: a 0o500 folder with a child still extracts; owner rwx on folders, rw on files, as the data filter
+        out = self.extract(("r", "dir", ""), ("r/c", "file", ""), ("f", "file", ""), ("g", "dir", ""),
+                           modes={"r": 0o500, "r/c": 0o400, "f": 0o4444, "g": 0o3777})
+        self.assertTrue((out / "r" / "c").is_file())
+        self.assertEqual((out / "r").stat().st_mode & 0o7777, 0o700)
+        self.assertEqual((out / "r" / "c").stat().st_mode & 0o7777, 0o600)
+        self.assertEqual((out / "f").stat().st_mode & 0o7777, 0o644)
+        self.assertEqual((out / "g").stat().st_mode & 0o7777, 0o755)
+
+    def test_unsafe_members_refused(self):
+        import tarfile
+        cases = {
+            "absolute name": [("/abs", "file", "")],
+            "absolute name inside": [("{out}/x", "file", "")],
+            "dot dot name": [("d/../../x", "file", "")],
+            "dot dot name inside": [("d", "dir", ""), ("d/../x", "file", "")],
+            "link outside": [("l", "sym", "../../x")],
+            "absolute link": [("l", "sym", "/etc/passwd")],
+            "absolute link inside": [("x", "file", ""), ("l", "sym", "{out}/x")],
+            "hard link outside": [("h", "lnk", "../x")],
+            "fifo": [("f", "fifo", "")],
+            "link chain outside": [("d", "dir", ""), ("d/l", "sym", ".."), ("d/l/m", "sym", "..")],
+            # p is inside when made; the later link q turns p into the folder above
+            "file under a moved link": [("p", "sym", "q/x/../.."), ("q", "sym", "."), ("p/evil", "file", "")],
+            "file onto a moved link": [("p", "sym", "q/x/../.."), ("q", "sym", "."), ("p", "file", "")],
+            # the link would sit outside, pointing back in
+            "link under a moved link": [("p", "sym", "q/x/../.."), ("q", "sym", "."), ("p/l", "sym", "{name}/y")],
+        }
+        for why, members in cases.items():
+            with self.subTest(why):
+                with self.assertRaisesRegex(tarfile.TarError, "unsafe entry in the archive"):
+                    self.extract(*members)
+
+
 class TestUpdate(Case):
     def state(self):
         s = self.live / "skills" / "s"

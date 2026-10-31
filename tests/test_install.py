@@ -231,6 +231,29 @@ class TestHookFiles(Scratch):
         self.assertNotIn("jjstack", r.stderr)
 
 
+class TestPythonVersion(Scratch):
+    # covers: spec 0082 AC-11 (a python3 older than 3.10 stops install first: exit 1, the brew hint, nothing written)
+    def test_old_python_refused(self):
+        fake = self.tmp / "bin"
+        fake.mkdir()
+        real = shutil.which("python3")
+        # the version check is the one `python3 -c` holding version_info; every other call runs the real python3
+        (fake / "python3").write_text(f'#!/bin/sh\ncase "$2" in *version_info*) exit 1 ;; esac\nexec {real} "$@"\n')
+        (fake / "python3").chmod(0o755)
+        home = self.tmp / "home-old"
+        env = {**os.environ, "HOME": str(home), "CLAUDE_LIVE_DIR": str(home / ".claude"), "GIT_CONFIG_GLOBAL": "/dev/null",
+               "PATH": f"{fake}{os.pathsep}{os.environ['PATH']}"}
+        r = subprocess.run(["bash", str(self.repo / "tools/bin/install.sh"), "--dry-run"], env=env, capture_output=True,
+                           text=True, stdin=subprocess.DEVNULL, timeout=120)
+        self.assertEqual((r.returncode, r.stderr.strip(), r.stdout), (1, "python3 3.10+ needed (on a Mac: brew install python)", ""))
+        self.assertFalse(home.exists())
+
+    def test_current_python_passes(self):
+        home, live, r = self.install("py-ok")
+        self.assertNotIn("python3 3.10+ needed", r.stderr)
+        self.assertIn("installing", r.stdout)
+
+
 class TestDryRun(unittest.TestCase):
     # covers: spec 0020 AC-12, retired 2026-10-22 (the real install.sh --dry-run exits 0, no longer copies or links
     # the runner, and writes nothing under the home folder)

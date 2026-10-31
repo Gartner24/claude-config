@@ -28,9 +28,11 @@ chk(){ if [ "$2" = "$3" ]; then ok "$1"; else no "$1 (got '$2', want '$3')"; fi;
 # like Claude Code's own: an assistant record holding a Skill tool_use. Millisecond stamps,
 # because init records a float start time and a whole-second stamp can land before it.
 PROJ="$HOME/.claude/projects/p"; mkdir -p "$PROJ"
+# python3, not `date +%3N`: BSD date prints the 3N literally (spec 0082)
+now(){ python3 -c 'import datetime as d; print(d.datetime.now(d.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z")'; }
 invoke(){  # invoke <session[/subagents/x]> <skill> [args] [iso-timestamp]
   printf '{"type":"assistant","timestamp":"%s","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"%s","args":"%s"}}]}}\n' \
-    "${4:-$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)}" "$2" "${3:-}" >> "$PROJ/$1.jsonl"
+    "${4:-$(now)}" "$2" "${3:-}" >> "$PROJ/$1.jsonl"
 }
 invoke_all(){
   for s in minimalist-ui ui-ux-pro-max frontend-design impeccable assets animate design-gate review-animations cro; do invoke "$1" $s; done
@@ -38,7 +40,7 @@ invoke_all(){
 }
 say(){  # say <session> <text> - a user record, as a person typing it
   printf '{"type":"user","timestamp":"%s","message":{"role":"user","content":"%s"}}\n' \
-    "$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)" "$2" >> "$PROJ/$1.jsonl"
+    "$(now)" "$2" >> "$PROJ/$1.jsonl"
 }
 critique(){  # critique <target> <total> [mtime offset s] - a report shaped like impeccable's own
   mkdir -p "$1/.impeccable/critique"
@@ -316,7 +318,7 @@ invoke inv-1 frontend-design:frontend-design
 bash $LED set assemble RAN ev >/dev/null 2>&1;   chk "plugin-namespaced invocation counts" "$?" "0"
 bash $LED set conversion RAN ev >/dev/null 2>&1; chk "an invocation from before init does not count" "$?" "1"
 printf '{"type":"user","timestamp":"%s","message":{"content":"<command-name>/cro</command-name>\\n<command-args></command-args>"}}\n' \
-  "$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)" >> "$PROJ/inv-1.jsonl"
+  "$(now)" >> "$PROJ/inv-1.jsonl"
 bash $LED set conversion RAN ev >/dev/null 2>&1; chk "the user typing the slash command counts" "$?" "0"
 invoke inv-1 minimalist-ui
 bash $LED set direction RAN ev 2>&1 | grep -q '`design-dna`' \

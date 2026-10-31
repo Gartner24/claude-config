@@ -358,6 +358,31 @@ def fetch(source, ref, tmp):
     return repo, git("rev-parse", "FETCH_HEAD", cwd=repo).stdout.decode().strip()
 
 
+def safe_extract(t, out):
+    """filter="data" by hand, for a Python without it (3.10.11 on the Mac runner, spec 0082 AC-11): refuse an absolute
+    or `..` name, a link pointing outside out, and anything but a file, folder or link. Checked member by member as
+    it is written, so a link an earlier member made is followed. Modes keep the owner bits."""
+    import tarfile
+    root = os.path.realpath(out)
+
+    def inside(p):
+        p = os.path.realpath(p)
+        return p == root or p.startswith(root + os.sep)
+
+    for m in t.getmembers():
+        dest = os.path.join(root, m.name)
+        link = m.issym() or m.islnk()
+        target = os.path.join(os.path.dirname(dest) if m.issym() else root, m.linkname) if link else dest
+        # target is dest itself for a file or folder: realpath follows a link an earlier member left in the way
+        if (not (m.isfile() or m.isdir() or link) or os.path.isabs(m.name) or ".." in m.name.split("/")
+                or (link and os.path.isabs(m.linkname)) or not inside(os.path.dirname(dest)) or not inside(target)):
+            raise tarfile.TarError(f"unsafe entry in the archive: {m.name}")
+        # as the data filter: no setuid, setgid, sticky or group and other write bits; the owner keeps rwx on a
+        # folder (so its children can be written) and rw on a file
+        m.mode = (m.mode & 0o755) | (0o700 if m.isdir() else 0o600)
+        t.extract(m, root)
+
+
 def export(repo, commit, path, tmp):
     """The folder `path` at commit, copied out with the standard library (no checkout)."""
     import io
@@ -367,7 +392,10 @@ def export(repo, commit, path, tmp):
     if r.returncode:
         raise Gone(f"{path} is not in {commit[:12]}")
     with tarfile.open(fileobj=io.BytesIO(r.stdout)) as t:
-        t.extractall(out, filter="data")
+        if hasattr(tarfile, "data_filter"):
+            t.extractall(out, filter="data")
+        else:
+            safe_extract(t, out)
     if (out / path).is_symlink():
         raise Gone(f"{path} is a link to {os.readlink(out / path)} in {commit[:12]}, renamed upstream")
     return out / path
