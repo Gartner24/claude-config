@@ -46,12 +46,8 @@ jobs:
       - name: Suite
         run: python3 tests/fast.py
 
-      - name: TypeScript mod tests
-        if: ${{ !cancelled() }}
-        # They import claude-code/testing, which only the claude CLI provides (`claude plugin test`), and node 18
-        # cannot load .ts files; neither is on the runner, so this step reports without failing the job.
-        continue-on-error: true
-        run: node --test claude-home/mods/*/*.test.ts claude-home/mods/*/tests/*.test.ts
+      # No mod test step: the mod tests import claude-code/testing, which only the claude CLI provides, and the spec
+      # keeps claude off the runner. They run locally with `claude plugin test` (owner's decision, 2026-10-30).
 
       - name: Real install into temporary folders
         if: ${{ !cancelled() }}  # runs after a red suite too, so each run shows every failure

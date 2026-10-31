@@ -27,7 +27,15 @@ tmp=""
 # Spec 0082 AC-2: a mkdir lock, since the Mac has no flock; a new name, as an old flock run left a file at the old one.
 LOCK="$HOME/.claude/move-home-chat.lock.d"
 locked=0
-trap 'rm -f "$tmp"; ((locked)) && rmdir "$LOCK"' EXIT
+trap 'rm -f "$tmp"; ((locked)) && rm -f "$LOCK/pid" && rmdir "$LOCK"' EXIT
+take_lock() { mkdir "$LOCK" 2>/dev/null && echo "$$" >"$LOCK/pid"; }
+# A kill -9 or power loss leaves the lock behind: it is stale when its pid is not running, or, with no pid
+# file (a copy between mkdir and writing it), when the folder is over a minute old.
+lock_is_stale() {
+  local pid
+  pid="$(cat "$LOCK/pid" 2>/dev/null || true)"
+  if [[ -n "$pid" ]]; then ! kill -0 "$pid" 2>/dev/null; else [[ -n "$(find "$LOCK" -maxdepth 0 -mmin +1)" ]]; fi
+}
 # A source folder is merged only while it is a real folder; once it is a link it is done.
 is_src() { [[ -d "$1" && ! -L "$1" ]]; }
 is_link() { [[ -L "$1" && "$(readlink "$1")" == "$LIVE" ]]; }
@@ -40,7 +48,11 @@ for t in pgrep jq tar cmp; do
 done
 ((${#missing[@]} == 0)) || die "missing tools: ${missing[*]}"
 
-mkdir "$LOCK" 2>/dev/null || die "another copy holds $LOCK (remove it if no copy runs)"
+if ! take_lock; then
+  # one takeover, no loop: a second copy racing for the same stale lock loses at mkdir and refuses
+  lock_is_stale && rm -f "$LOCK/pid" && rmdir "$LOCK" && take_lock \
+    || die "another copy holds $LOCK (remove it if no copy runs)"
+fi
 locked=1
 
 busy=()

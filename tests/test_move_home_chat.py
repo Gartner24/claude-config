@@ -172,6 +172,23 @@ class Refusals(Case):  # AC-1
         self.assertIn("another copy holds", r.stderr)
         self.assertTrue(lock.is_dir())
 
+    def test_lock_of_a_live_pid_refuses(self):
+        lock = self.home / ".claude" / "move-home-chat.lock.d"
+        lock.mkdir()
+        (lock / "pid").write_text(f"{os.getpid()}\n")
+        r = self.refuses()
+        self.assertIn("another copy holds", r.stderr)
+        self.assertEqual((lock / "pid").read_text(), f"{os.getpid()}\n")
+
+    def test_stale_lock_of_a_dead_pid_is_taken_over(self):
+        # a kill -9 or power loss leaves the lock behind; its pid no longer runs
+        p = subprocess.run(["sh", "-c", "echo $$"], capture_output=True, text=True)
+        lock = self.home / ".claude" / "move-home-chat.lock.d"
+        lock.mkdir()
+        (lock / "pid").write_text(p.stdout)
+        self.ok()
+        self.assertFalse(lock.exists())
+
     def test_lock_released_after_a_run(self):
         self.ok()
         self.assertFalse((self.home / ".claude" / "move-home-chat.lock.d").exists())
