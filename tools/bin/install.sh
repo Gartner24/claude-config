@@ -39,6 +39,9 @@ while [ $# -gt 0 ]; do
   shift
 done
 CONFIG=(python3 "$REPO/tools/bin/claude-config.py")
+# Spec 0082 AC-10: the home path the repo settings.json hooks are committed with (/home/<user> or /Users/<user>), else
+# $HOME; every rewrite below swaps it for $HOME.
+AUTHOR_HOME="$("${CONFIG[@]}" author-home)"
 
 run() { if [ "$DRY" = 1 ]; then echo "  would: $*"; else "$@"; fi; }
 note() { echo "  $*"; }
@@ -73,7 +76,7 @@ trap 'rm -rf "$STAGE"' EXIT
 # settings.json hardcodes absolute paths to hook scripts. Substituting $HOME is
 # what makes this repo installable by anyone, not just its author (the stage step does it).
 echo "settings.json:"
-n=$(grep -c '/home/santiago' "$REPO/claude-home/settings.json" || true)
+n=$(grep -cF "$AUTHOR_HOME" "$REPO/claude-home/settings.json" || true)
 note "rewriting $n hardcoded path(s) to \$HOME"
 # Spec 0019 AC-9: sync.sh strips autoMode from the repo copy, so every install used to
 # drop yours. It is read from the live file and written into the built one, before the private merge (AC-17).
@@ -109,17 +112,17 @@ fi
 frag="$LIVE/private/settings.json"
 if [ -e "$frag" ]; then
   note "merging $frag into the built file (private-names.py merge-settings, paths swapped to \$HOME)"
-  sed "s|/home/santiago|$HOME|g" "$frag" | python3 "$REPO/tools/scripts/private-names.py" merge-settings "$STAGE/settings.json" -
+  sed "s|$AUTHOR_HOME|$HOME|g" "$frag" | python3 "$REPO/tools/scripts/private-names.py" merge-settings "$STAGE/settings.json" -
 else
   note "no private settings fragment, private entries not installed"
 fi
 # Spec 0081 AC-23: hook scripts in private/hooks/ are never copied; a private hook whose file is missing is named.
 if [ -e "$frag" ]; then
-  python3 - "$frag" "$HOME" <<'PY' || true
+  python3 - "$frag" "$HOME" "$AUTHOR_HOME" <<'PY' || true
 import json, os, shlex, sys
 home = sys.argv[2]
 try:
-    d = json.loads(open(sys.argv[1]).read().replace("/home/santiago", home))
+    d = json.loads(open(sys.argv[1]).read().replace(sys.argv[3], home))
 except (OSError, ValueError):
     sys.exit(0)
 for groups in (d.get("hooks") or {}).values():
@@ -181,7 +184,8 @@ done
 # and your own hooks, which a scratch copy of this script (the self checks) may lack.
 for f in MAP.md hooks/block-destructive.sh hooks/review-stack-pre-push hooks/plain-panel.py hooks/context-monitor.js \
          hooks/handover-start.sh hooks/no-jjstack-bar.py hooks/skill-rules.py hooks/chain-catch.py hooks/live-tick.py \
-         hooks/claude-config-reminder.py hooks/workflow-start.sh scripts/claude-ram-watch.sh hooks/profile-lock.py; do
+         hooks/claude-config-reminder.py hooks/workflow-start.sh scripts/claude-ram-watch.sh hooks/profile-lock.py \
+         hooks/notify-sound.sh; do
   # the stage step refused a missing required one; the others may be absent from a scratch copy
   [ -e "$STAGE/$f" ] || continue
   note "$f"
@@ -207,7 +211,7 @@ elif [ "$DRY" = 1 ]; then
   note "would: python3 tools/scripts/private-names.py merge-settings $LIVE/settings.local.json $frag (paths swapped to \$HOME)"
 else
   note "settings.local.json: merging $frag"
-  sed "s|/home/santiago|$HOME|g" "$frag" | python3 "$REPO/tools/scripts/private-names.py" merge-settings "$LIVE/settings.local.json" -
+  sed "s|$AUTHOR_HOME|$HOME|g" "$frag" | python3 "$REPO/tools/scripts/private-names.py" merge-settings "$LIVE/settings.local.json" -
 fi
 # Spec 0081 AC-2: the active profile, read by the band, sync and the lock hook.
 note "state/profile.json: $PROFILE"

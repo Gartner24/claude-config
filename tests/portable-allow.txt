@@ -7,6 +7,3 @@ tools/scripts/private-names.py | zorblex|swapped to \$HOME | --test fixture: ins
 tools/scripts/review-isolated.py | Read\(//proc/ | a deny rule for the review sandbox, not a read
 tools/scripts/start-gates.py | /proc/meminfo|sched_getaffinity | the Linux reader; Darwin reads sysctl and vm_stat and has no sched_getaffinity (AC-5)
 claude-home/scripts/claude-ram-watch.sh | /proc/ | Linux only RAM watcher; it exits 0 on Darwin before any of it (AC-4)
-tools/bin/claude-config.py | AUTHOR_HOME = "/home/santiago" | PR B2 (AC-10) takes the home prefix from settings.json or $HOME
-tools/bin/install.sh | /home/santiago | PR B2 (AC-10) takes the home prefix from settings.json or $HOME
-tools/scripts/ref-check.py | /home/santiago | PR B2 (AC-10) matches /home/<user> and /Users/<user>

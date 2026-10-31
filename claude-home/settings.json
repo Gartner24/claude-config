@@ -257,7 +257,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "paplay /usr/share/sounds/ocean/stereo/outcome-success.oga",
+            "command": "bash ~/.claude/hooks/notify-sound.sh",
             "timeout": 5
           }
         ]

@@ -1,5 +1,6 @@
 """Spec 0082 AC-3: no Linux only or bash 4 construct in live shell and Python code, so it runs on a stock Mac.
 Known test data is excused by tests/portable-allow.txt (path | pattern | reason), one line per excuse."""
+import json
 import os
 import re
 import shutil
@@ -136,6 +137,87 @@ class TestRamWatch(unittest.TestCase):
         home, r = self.run_watch("Linux", "--once")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertTrue((home / ".claude" / "logs").is_dir())
+
+
+def stub_bin(test, system, *tools):
+    """A temp bin folder: uname prints system, each tool logs its argv to calls.log. (bin, calls.log)"""
+    tmp = Path(tempfile.mkdtemp()).resolve()
+    test.addCleanup(shutil.rmtree, tmp)
+    (tmp / "bin").mkdir()
+    log = tmp / "calls.log"
+    (tmp / "bin" / "uname").write_text(f"#!/bin/sh\necho {system}\n")
+    for t in tools:
+        (tmp / "bin" / t).write_text(f'#!/bin/sh\necho "{t} $*" >> "{log}"\n')
+    for f in (tmp / "bin").iterdir():
+        f.chmod(0o755)
+    return tmp / "bin", log
+
+
+def calls(log):
+    return log.read_text().splitlines() if log.exists() else []
+
+
+class TestNotifySound(unittest.TestCase):
+    """Spec 0082 AC-8: notify-sound.sh plays afplay Glass.aiff on Darwin, the paplay file on Linux, exit 0 without."""
+    SCRIPT = REPO / "claude-home" / "hooks" / "notify-sound.sh"
+    SOUNDS = {"Darwin": ("afplay", "/System/Library/Sounds/Glass.aiff"),
+              "Linux": ("paplay", "/usr/share/sounds/ocean/stereo/outcome-success.oga")}
+
+    def run_hook(self, system, *players):
+        # PATH is the stub folder only, so a real afplay or paplay is never found
+        b, log = stub_bin(self, system, *players)
+        r = subprocess.run([shutil.which("bash"), str(self.SCRIPT)], env={**os.environ, "PATH": str(b)},
+                           capture_output=True, text=True, timeout=20, input="{}")
+        return r, calls(log)
+
+    def test_player_per_system(self):
+        # the sound file is the real one: played where it exists (Glass.aiff on a Mac), else nothing and exit 0
+        for system, (player, sound) in self.SOUNDS.items():
+            r, ran = self.run_hook(system, "afplay", "paplay")
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertEqual(ran, [f"{player} {sound}"] if os.path.exists(sound) else [], system)
+
+    def test_no_player_exits_0(self):
+        for system in self.SOUNDS:
+            r, _ = self.run_hook(system)
+            self.assertEqual((r.returncode, r.stderr), (0, ""), system)
+
+    def test_wired(self):
+        cmds = [h["command"] for g in json.loads((REPO / "claude-home/settings.json").read_text())["hooks"]["Notification"]
+                for h in g["hooks"]]
+        self.assertIn("bash ~/.claude/hooks/notify-sound.sh", cmds)
+        self.assertEqual([c for c in cmds if "paplay" in c], [])
+
+
+class TestGeminiKey(unittest.TestCase):
+    """Spec 0082 AC-9: gemini-key.sh uses the macOS security tool on Darwin, secret-tool on Linux, and checks for
+    gnome-keyring only on Linux."""
+    SCRIPT = REPO / "claude-home" / "skills" / "assets" / "scripts" / "gemini-key.sh"
+
+    def run_key(self, system, *args):
+        b, log = stub_bin(self, system, "security", "secret-tool", "pgrep")
+        env = {**os.environ, "PATH": f"{b}{os.pathsep}{os.environ['PATH']}"}
+        env.pop("GEMINI_API_KEY", None)
+        r = subprocess.run([shutil.which("bash"), str(self.SCRIPT), *args], env=env, capture_output=True, text=True,
+                           timeout=20, stdin=subprocess.DEVNULL)
+        return r, calls(log)
+
+    def test_darwin(self):
+        r, ran = self.run_key("Darwin", "get")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(ran, ["security find-generic-password -s gemini -a api -w"])
+        r, ran = self.run_key("Darwin", "set")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(ran, ["security add-generic-password -U -l Gemini API key -s gemini -a api -w"])
+        r, ran = self.run_key("Darwin", "rm")
+        self.assertEqual(ran, ["security delete-generic-password -s gemini -a api"])
+
+    def test_linux(self):
+        r, ran = self.run_key("Linux", "get")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(ran, ["pgrep -x gnome-keyring-d", "secret-tool lookup service gemini key api"])
+        r, ran = self.run_key("Linux", "rm")
+        self.assertEqual(ran, ["secret-tool clear service gemini key api"])
 
 
 if __name__ == "__main__":

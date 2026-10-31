@@ -564,6 +564,28 @@ class TestDrift(Case):
         self.assertEqual(r.returncode, 1)
         self.assertIn("setting:\n  settings.json: model: differs\n  settings.json: skillOverrides: differs", r.stdout)
 
+    # covers: spec 0082 AC-10 (the home path to swap comes from the repo settings.json hook paths, a Mac one too,
+    # else $HOME; install.sh reads it through author-home)
+    def test_author_home(self):
+        home = self.tmp / "home"
+        home.mkdir()
+        self.env["HOME"] = str(home)
+        repo = {"model": "a", "env": {"LOG": "/home/bob/x.log"}, "hooks": {"Stop": [{"hooks": [
+            {"type": "command", "command": "bash ~/.claude/hooks/g.sh"},
+            {"type": "command", "command": "bash /Users/ann/.claude/hooks/h.sh"}]}]}}
+        (self.repo / "claude-home" / "settings.json").write_text(json.dumps(repo))
+        r = self.tool("author-home")
+        self.assertEqual((r.returncode, r.stdout), (0, "/Users/ann\n"), r.stderr)
+        live = json.loads(json.dumps(repo).replace("/Users/ann", str(home)))
+        (self.live / "settings.json").write_text(json.dumps(live))
+        (home / ".claude" / "hooks").mkdir(parents=True)
+        for f in ("g.sh", "h.sh"):
+            (home / ".claude" / "hooks" / f).write_text("")
+        r = self.tool("drift")
+        self.assertEqual((r.returncode, r.stdout.strip()), (0, "drift: none"), r.stdout + r.stderr)
+        (self.repo / "claude-home" / "settings.json").write_text(json.dumps({"model": "a"}))
+        self.assertEqual(self.tool("author-home").stdout, f"{home}\n")
+
     # covers: row 105 (a live settings.json hook command naming a missing file is drift, named by its path)
     def test_missing_hook_file(self):
         home = self.tmp / "home"

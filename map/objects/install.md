@@ -19,6 +19,7 @@
 - Private (`~/.claude/private/`): live only, never in any repo.
 - Claude Code state (`projects/`, `sessions/`, `history.jsonl`, caches): Claude Code only, never synced.
 - Scripts hardcode `~/.claude/skills/...` paths: they run through the symlink, not from the repo path.
+- `claude-home/settings.json` hook paths carry the home of whoever synced it (`/home/<user>` or `/Users/<user>`); install swaps that prefix for `$HOME`, read by `tools/bin/claude-config.py author-home` (spec 0082 AC-10).
 
 ## Also moves
 - A moved path that `~/.claude`, `~/.local/bin` or `settings.json` points at: run `tools/scripts/ref-check.py` ([checks](../processes/checks.md)).
