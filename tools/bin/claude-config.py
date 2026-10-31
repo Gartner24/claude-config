@@ -377,7 +377,9 @@ def safe_extract(t, out):
         if (not (m.isfile() or m.isdir() or link) or os.path.isabs(m.name) or ".." in m.name.split("/")
                 or (link and os.path.isabs(m.linkname)) or not inside(os.path.dirname(dest)) or not inside(target)):
             raise tarfile.TarError(f"unsafe entry in the archive: {m.name}")
-        m.mode &= 0o755  # as the data filter: no setuid, setgid, sticky or group and other write bits
+        # as the data filter: no setuid, setgid, sticky or group and other write bits; the owner keeps rwx on a
+        # folder (so its children can be written) and rw on a file
+        m.mode = (m.mode & 0o755) | (0o700 if m.isdir() else 0o600)
         t.extract(m, root)
 
 

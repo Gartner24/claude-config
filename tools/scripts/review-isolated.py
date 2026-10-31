@@ -43,9 +43,10 @@ SECRET = re.compile(r"(gh[pousr]_[A-Za-z0-9]{20,}|github_pat_\w{20,}|sk-[A-Za-z0
 # PR 172 review: an encoded secret is a long base64 run (mixed case and a digit) or a long hex run
 BASE64_RUN = re.compile(r"[A-Za-z0-9+/]{40,}={0,2}")
 HEX_RUN = re.compile(r"(?<![0-9A-Za-z])[0-9a-fA-F]{32,}(?![0-9A-Za-z])")
-# The call may read only its own folder: these roots are denied besides ~ and every other temp entry. Resolved,
-# since the call's own folder shows resolved (a Mac's /tmp and $TMPDIR are under /private, spec 0082 AC-6).
-TMP = os.path.realpath(tempfile.gettempdir())
+# The call may read only its own folder: these roots are denied besides ~ and every other temp entry. On a Mac the
+# resolved $TMPDIR, since the call's own folder shows resolved (it is under /private, spec 0082 AC-6). On Linux /tmp
+# whatever $TMPDIR says: a TMPDIR inside /tmp, or under /var, would leave the rest readable (PR 251 review).
+TMP = os.path.realpath(tempfile.gettempdir()) if sys.platform == "darwin" else "/tmp"
 ROOTS = ("/etc", "/proc", "/sys", "/run", "/var", "/dev", "/home") + (("/Users", "/private") if sys.platform == "darwin" else ())
 LOCAL_PATH = re.compile(r"(^|[\s'\"`(=:])(/home/|/Users/|/root/|/etc/|/var/|/tmp/|~/|\$HOME)")
 VERDICT = re.compile(r"^\W*verdict:\W*(approve|comment|request changes)\W*$", re.I | re.M)
@@ -318,7 +319,20 @@ sys.exit({code})
         check("own folder never denied", [r for r in perms["deny"] if os.path.basename(folder) in r], [])
         check("only /tmp entries after the roots", all(r.startswith(f"Read(/{temp_top()}/") for r in rest), True)
         check("temp folder under /tmp", os.path.dirname(folder), TMP)
-        check("TMP is the resolved temp folder", TMP, os.path.realpath(tempfile.gettempdir()))
+        check("TMP is the resolved temp folder", TMP,
+              os.path.realpath(tempfile.gettempdir()) if sys.platform == "darwin" else "/tmp")
+        if sys.platform != "darwin":
+            # PR 251 review: on Linux $TMPDIR never moves the temp root off /tmp
+            for tmpdir in (os.path.join("/tmp", os.path.basename(sibling)), "/var/tmp"):
+                code = ("import importlib.util, sys; s = importlib.util.spec_from_file_location('r', sys.argv[1]); "
+                        "m = importlib.util.module_from_spec(s); s.loader.exec_module(m); "
+                        "print(m.settings('/tmp/review-isolated-none'))")
+                p = subprocess.run([sys.executable, "-B", "-c", code, os.path.abspath(__file__)], capture_output=True,
+                                   text=True, env={**os.environ, "TMPDIR": tmpdir})
+                deny = json.loads(p.stdout)["permissions"]["deny"]
+                check(f"TMPDIR={tmpdir}: /var still denied", "Read(//var/**)" in deny, True)
+                check(f"TMPDIR={tmpdir}: other /tmp entries denied",
+                      [f"Read(//tmp/{name})", f"Read(//tmp/{name}/**)"] == [r for r in deny if name in r], True)
         check("folder holds only pr.md", rec["files"], ["pr.md"])
         check("own process group", rec["pgid"] != os.getpgid(0), True)
         allowed = set(ISOLATED_ENV) | {"ENABLE_CLAUDEAI_MCP_SERVERS"}

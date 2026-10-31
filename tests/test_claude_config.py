@@ -243,9 +243,9 @@ class TestOldTarfile(Case):
         self.assertEqual((got / "SKILL.md").read_text(), SKILL)
         self.assertEqual((got / "ref.md").read_text(), "ref\n")
 
-    def extract(self, *members):
+    def extract(self, *members, modes=None):
         """members: (name, kind, linkname) with kind file, dir, sym, lnk or fifo, {out} standing for the target
-        folder and {name} for its name; extracted as an old Python would."""
+        folder and {name} for its name; extracted as an old Python would. modes: name -> mode written in the archive."""
         import io
         import tarfile
         out = Path(tempfile.mkdtemp(dir=self.tmp)).resolve()
@@ -256,7 +256,7 @@ class TestOldTarfile(Case):
                 m.type = {"file": tarfile.REGTYPE, "dir": tarfile.DIRTYPE, "sym": tarfile.SYMTYPE,
                           "lnk": tarfile.LNKTYPE, "fifo": tarfile.FIFOTYPE}[kind]
                 m.linkname = link.format(out=out, name=out.name)
-                m.mode = 0o4777 if kind == "file" else 0o755
+                m.mode = (modes or {}).get(name, 0o4777 if kind == "file" else 0o755)
                 t.addfile(m, io.BytesIO(b"") if kind == "file" else None)
         buf.seek(0)
         with tarfile.open(fileobj=buf) as t:
@@ -273,6 +273,16 @@ class TestOldTarfile(Case):
         self.assertTrue((out / "d" / "h").is_file())
         # written 4777: no setuid and no group or other write after
         self.assertEqual((out / "m").stat().st_mode & 0o7777, 0o755)
+
+    def test_owner_keeps_write(self):
+        # PR 251 review: a 0o500 folder with a child still extracts; owner rwx on folders, rw on files, as the data filter
+        out = self.extract(("r", "dir", ""), ("r/c", "file", ""), ("f", "file", ""), ("g", "dir", ""),
+                           modes={"r": 0o500, "r/c": 0o400, "f": 0o4444, "g": 0o3777})
+        self.assertTrue((out / "r" / "c").is_file())
+        self.assertEqual((out / "r").stat().st_mode & 0o7777, 0o700)
+        self.assertEqual((out / "r" / "c").stat().st_mode & 0o7777, 0o600)
+        self.assertEqual((out / "f").stat().st_mode & 0o7777, 0o644)
+        self.assertEqual((out / "g").stat().st_mode & 0o7777, 0o755)
 
     def test_unsafe_members_refused(self):
         import tarfile
