@@ -165,7 +165,15 @@ check() {
 # or when it cannot parse the command. Blanking only turns characters into `_`, so it
 # can hide a match but never create one; that is why every doubt goes back to raw.
 read -r -d '' SCANNER <<'PY' || true
-import os, re, sys
+import os, re, signal, sys
+
+# Spec 0082: on a Mac with neither timeout nor gtimeout nothing else bounds this scan. The alarm exits 124 like
+# timeout does, so blank_data falls back to the raw text; a slow scan is never skipped.
+signal.signal(signal.SIGALRM, lambda *_: os._exit(124))
+signal.alarm(2)
+if os.environ.get('BD_TEST_SCAN_SLEEP'):  # --test only: a scan slower than the limit
+    import time
+    time.sleep(float(os.environ['BD_TEST_SCAN_SLEEP']))
 
 EXEC = {'sh', 'bash', 'zsh', 'dash', 'ksh', 'fish', 'csh', 'tcsh', 'busybox', 'eval',
         'exec', 'source', '.', 'ssh', 'su', 'xargs', 'watch', 'tmux', 'screen', 'script',
@@ -803,6 +811,13 @@ mkfs.ext4 /dev/sdb1'
   echo_stdin() { local l; IFS= read -r l; printf '%s' "$l"; }
   [[ "$(printf 'x\n' | PATH=/nonexistent with_timeout 2 echo_stdin)" == x ]] \
     || { echo "FAIL with_timeout fallback did not run the command with its stdin"; fail=1; }
+  # spec 0082: there, a scan slower than 2 s still ends and the raw text is checked (this case blocks only raw)
+  pyonly="$(mktemp -d)"
+  ln -s "$(command -v python3)" "$pyonly/python3"
+  slow="echo 'mkfs.ext4 x'"
+  check "$(PATH="$pyonly" BD_TEST_SCAN_SLEEP=5 blank_data "$slow")" >/dev/null 2>&1
+  [[ $? -eq 2 ]] || { echo "FAIL a slow scan with no timeout command was not bounded back to the raw scan: $slow"; fail=1; }
+  rm -rf "$pyonly"
   [[ $fail -eq 0 ]] && echo "all self-checks passed" || exit 1
   exit 0
 fi
