@@ -525,6 +525,7 @@ def self_test():
         return f"# T: brief and handover memory\n**Feature:** none\n**Updated:** -\n{body}"
 
     with tempfile.TemporaryDirectory() as tmp:
+        tmp = os.path.realpath(tmp)  # on a Mac /var links to /private/var (spec 0082 AC-3b)
         tr = os.path.join(tmp, "3f2a1b9c-0000.jsonl")
         write(tr, jl(
             user("Finished items are deleted\n  14 days after they are done | ok"),

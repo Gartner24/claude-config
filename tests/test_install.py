@@ -130,6 +130,23 @@ class TestWorkflowLinks(Scratch):
         self.assertFalse((live / "workflows" / "b").is_symlink())
         self.assertIn("SKIP workflows/b (a real file is already there)", r.stdout)
 
+    # covers: spec 0082 AC-2 (the realpath compare that replaced readlink -f: a link spelled through another path
+    # to the same folder is left alone; a link elsewhere is relinked)
+    def test_same_target_link_left_alone(self):
+        for name in ("a", "b"):
+            (self.repo / "claude-home" / "workflows" / name).mkdir(parents=True)
+        alias = self.tmp / "alias"
+        alias.symlink_to(self.repo)
+        wf = self.tmp / "home-same" / ".claude" / "workflows"
+        wf.mkdir(parents=True)
+        (wf / "a").symlink_to(alias / "claude-home" / "workflows" / "a")
+        (wf / "b").symlink_to(self.tmp)
+        _, _, r = self.install("same")
+        self.assertNotIn("  workflows/a\n", r.stdout, r.stdout + r.stderr)
+        self.assertEqual(os.readlink(wf / "a"), str(alias / "claude-home" / "workflows" / "a"))
+        self.assertIn("  workflows/b\n", r.stdout, r.stdout + r.stderr)
+        self.assertEqual((wf / "b").resolve(), (self.repo / "claude-home" / "workflows" / "b").resolve())
+
 
 class TestRulesOnDemand(Scratch):
     # covers: spec 0077 AC-6 (MAP.md is copied live), AC-7 (rules-on-demand/ and skill-rules.py are copied; a live file

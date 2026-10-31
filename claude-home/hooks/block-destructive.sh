@@ -165,7 +165,15 @@ check() {
 # or when it cannot parse the command. Blanking only turns characters into `_`, so it
 # can hide a match but never create one; that is why every doubt goes back to raw.
 read -r -d '' SCANNER <<'PY' || true
-import os, re, sys
+import os, re, signal, sys
+
+# Spec 0082: on a Mac with neither timeout nor gtimeout nothing else bounds this scan. The alarm exits 124 like
+# timeout does, so blank_data falls back to the raw text; a slow scan is never skipped.
+signal.signal(signal.SIGALRM, lambda *_: os._exit(124))
+signal.alarm(2)
+if os.environ.get('BD_TEST_SCAN_SLEEP'):  # --test only: a scan slower than the limit
+    import time
+    time.sleep(float(os.environ['BD_TEST_SCAN_SLEEP']))
 
 EXEC = {'sh', 'bash', 'zsh', 'dash', 'ksh', 'fish', 'csh', 'tcsh', 'busybox', 'eval',
         'exec', 'source', '.', 'ssh', 'su', 'xargs', 'watch', 'tmux', 'screen', 'script',
@@ -439,12 +447,20 @@ if not force and any(os.path.basename(w) in EXEC for w in words + firsts):
 sys.stdout.buffer.write(''.join(out).encode('utf-8', 'surrogateescape'))
 PY
 
+# Spec 0082 AC-2: the Mac has no `timeout`; Homebrew coreutils names it gtimeout, else the command runs alone.
+# Standard input still reaches the command (blank_data pipes into it).
+with_timeout() {
+  if command -v timeout >/dev/null 2>&1; then timeout "$@"
+  elif command -v gtimeout >/dev/null 2>&1; then gtimeout "$@"
+  else shift; "$@"; fi
+}
+
 # Prints the text check() should scan: the blanked command, or the raw command on any doubt.
 blank_data() {
   local cmd="$1" out
   if [[ "$cmd" != *[\'\"]* && "$cmd" != *'<<'* ]]; then
     printf '%s' "$cmd"
-  elif out="$(printf '%s' "$cmd" | timeout 2 python3 -I -c "$SCANNER" 2>/dev/null)" && [[ -n "$out" ]]; then
+  elif out="$(printf '%s' "$cmd" | with_timeout 2 python3 -I -c "$SCANNER" 2>/dev/null)" && [[ -n "$out" ]]; then
     printf '%s' "$out"
   else
     printf '%s' "$cmd"
@@ -791,6 +807,17 @@ mkfs.ext4 /dev/sdb1'
   # no python3 means the raw scan, as before (AC-4)
   [[ "$(PATH=/nonexistent blank_data 'echo "rm -rf /"' 2>/dev/null)" == 'echo "rm -rf /"' ]] \
     || { echo "FAIL missing python3 did not fall back to raw"; fail=1; }
+  # spec 0082 AC-2: with neither timeout nor gtimeout (a stock Mac) the command runs alone and still gets stdin
+  echo_stdin() { local l; IFS= read -r l; printf '%s' "$l"; }
+  [[ "$(printf 'x\n' | PATH=/nonexistent with_timeout 2 echo_stdin)" == x ]] \
+    || { echo "FAIL with_timeout fallback did not run the command with its stdin"; fail=1; }
+  # spec 0082: there, a scan slower than 2 s still ends and the raw text is checked (this case blocks only raw)
+  pyonly="$(mktemp -d)"
+  ln -s "$(command -v python3)" "$pyonly/python3"
+  slow="echo 'mkfs.ext4 x'"
+  check "$(PATH="$pyonly" BD_TEST_SCAN_SLEEP=5 blank_data "$slow")" >/dev/null 2>&1
+  [[ $? -eq 2 ]] || { echo "FAIL a slow scan with no timeout command was not bounded back to the raw scan: $slow"; fail=1; }
+  rm -rf "$pyonly"
   [[ $fail -eq 0 ]] && echo "all self-checks passed" || exit 1
   exit 0
 fi

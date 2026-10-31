@@ -616,12 +616,9 @@ class TestCreatorFiles(unittest.TestCase):
 
 
 class TestPortableShell(unittest.TestCase):
-    # covers: AC-9b (no GNU only construct in the shell this spec adds or changes; the lines listed are older and
-    # row 119 removes them)
-    KNOWN = {
-        ("tools/bin/install.sh", '    [ -L "$dst" ] && [ "$(readlink -f "$dst")" = "$(readlink -f "$src")" ] \\'),
-        ("tools/bin/install.sh", '      [ "$(readlink -f "$dst")" = "$(readlink -f "$checker")" ] && act=refreshed'),
-    }
+    # covers: AC-9b (no GNU only construct in the shell this spec adds or changes; spec 0082 removed the older
+    # readlink -f lines, and tests/test_portable.py now checks every live script)
+    KNOWN = set()
     GNU = re.compile(r"find .*-printf|readlink -f|sed -i(\s|$)|\$\{\w+\^\^\}|declare -A|(^|[\s;(])timeout\s")
 
     def test_no_gnu_only(self):

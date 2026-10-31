@@ -8,7 +8,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 OLD = ("bin", "scripts", "config")
 # AC-13: the folders and files whose path uses must name tools/.
-SCANNED = ("claude-home/", "map/", "tests/", "tools/", "docs/guides/")
+SCANNED = ("claude-home/", "map/", "tests/", "tools/", "docs/guides/", ".github/")
 SCANNED_FILES = ("CLAUDE.md", "README.md")
 # Upstream trees: their bin/ and scripts/ are their own, not this repo's.
 VENDORED = ("claude-home/agents/", "claude-home/rules/ecc/", "claude-home/skills/anti-ai-writing/", "node_modules/")
