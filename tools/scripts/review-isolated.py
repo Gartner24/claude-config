@@ -307,11 +307,11 @@ sys.exit({code})
             '{"mcpServers":{}}', "--settings"])
         conf = os.path.dirname(rec["argv"][-1])
         check("settings file in its own /tmp folder", (os.path.dirname(conf), os.path.basename(rec["argv"][-1])),
-              ("/tmp", "settings.json"))
+              (TMP, "settings.json"))
         check("settings folder removed", os.path.exists(conf), False)
         got = json.loads(rec["settings"])
         perms = got.pop("permissions")
-        check("settings folder denied", f"Read(//tmp/{os.path.basename(conf)}/**)" in perms["deny"], True)
+        check("settings folder denied", f"Read(/{TMP}/{os.path.basename(conf)}/**)" in perms["deny"], True)
         check("settings", got, {"disableAllHooks": True,
                                 "sandbox": {"enabled": True, "failIfUnavailable": True, "allowUnsandboxedCommands": False,
                                             "network": {"allowedDomains": [], "strictAllowlist": True},
