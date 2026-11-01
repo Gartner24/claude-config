@@ -1432,3 +1432,38 @@ The four workflow-builder templates still say they follow `e16cafe`. Upstream `8
 - [x] Build it: templates follow `8bc2f56`, `Check` section, `Stage | Job` table, stop on a missing input; `check.py` (31 self checks, mutant red); review-fix and restructure-check rewritten, both `ok`; suite 281 ok
 - [x] Install it live and see drift drop the template line (PR #248 merged 2026-10-30; the skill is linked live; drift: none)
 Source: PR #240 "Not in this PR"; row 121.
+
+### 59. Memory tool: claude-mem, MemPalace, graphify or NotebookLM · done
+Pick the memory tool (MemPalace or NotebookLM as a second brain; graphify was removed and claude-mem's data deleted 2026-10-19), weighing usage, token cost, memory quality and code memory.
+**Done when:** one memory setup is chosen with its reasons and installed, or each option is rejected with a reason.
+- [x] Research and compare: `/deep-research memory for Claude Code: claude-mem, MemPalace, graphify, NotebookLM` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
+- [x] Design it (spec): `/architect memory tool` · skipped (trial review 2026-11-01: the `mp` search was last used 2026-10-22, never wired in, results crowded by memory files and old handovers; the report's rule was to adopt only if the trial earns it. Decision: no new memory tool, keep auto memory, briefs and handovers. NotebookLM and claude-mem rejected in the report. Undo: the `mempalace-data` Docker volume and `~/.local/share/mempalace-trial` are kept; delete them with `docker volume rm mempalace-data` when you are sure)
+Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
+
+### 118. Profiles: named profiles over one shared core · done
+Every skill, rule, hook and the design pipeline stay one shared core. A named profile picks which skills fire on their own, which owner only rules load, how much Claude asks, and what its user may edit; you switch profiles on one machine (for example a `chip-profile` command), and `/claude-config update` updates only your own profile.
+**Done when:** your profile behaves exactly as today; a second profile installs on a fresh machine with fewer owner only rules and fewer questions at the same quality bar; that profile cannot edit locked core files, and editing one of its rules creates a new `custom-profile-<id>` instead of changing it; switching profiles on one machine works and switches back.
+- [x] Design it (spec): `/architect profiles` (spec [0081](../specs/0081-profiles/index.md), 2026-10-27, Sonnet cross check, 18 fixes applied)
+- [x] Build it: `/develop profiles`
+  - [x] PR A: profile files, install builds from core plus profile, overwrite check (AC-1 to AC-5)
+  - [x] PR A: sync routing, `/claude-config profile` switch and update, band name (AC-6 to AC-9b)
+  - [x] PR B: lock hook, `creator` profile, automatic custom profiles (AC-10 to AC-14)
+  - [x] PR C: CODEOWNERS and the main branch rule set, with probe PRs (AC-15). CODEOWNERS merged (#244); rule set "code owner review (spec 0081 AC-15)" on 2026-11-01 (your "just finish"): a code owner review is required, the admin role bypasses it. The probe by a non admin account waits until your partner has an account with push access
+  - [x] PR D: `creator` from your partner's setup: settings field, overlay and routing rules, private layer, video skills (AC-16 to AC-26; amended 2026-10-27, Sonnet cross check, 15 fixes applied). The Remotion skills have no license; you said install anyway (2026-10-29). There are 12, so 14 video skills in all, not 15
+- [x] Verify it: `/check verify profiles` (2026-10-30: all 4 verify.md commands pass on main; AC-15's rule set stays with the PR C box)
+- [x] Test it: `/test profiles` (tests landed with each PR, every one mutation checked there: PR D 13 mutants red; suite 281 ok on main)
+Merged 2026-10-29: A #239, B #241, D #243, C's CODEOWNERS #244; installed live (#247).
+Source: [brief](../briefs/profiles.md) (D1 to D31); your messages 2026-10-27.
+
+### 119. Mac support: claude-config on macOS and Linux · done
+Your partner uses a Mac. Install, sync, hooks and the scripts they call must run on macOS as well as Linux (old bash 3.2, BSD `sed -i` and `readlink -f`, no `bwrap`).
+**Done when:** `tools/bin/install.sh` and the suite run green on a Mac, and every Linux only part either has a macOS path or says plainly that it is Linux only.
+- [x] Design it (spec): `/architect mac support` (spec [0082](../specs/0082-mac-support.md), 2026-10-27, Sonnet cross check, 11 fixes applied)
+- [x] Build it: `/develop mac support`
+  - [x] PR A: advisory Mac and Linux CI job, portable shell, portability grep test (AC-0 to AC-3b) (#250, merged 2026-10-30; mod tests left out of CI and the pinned Python kept first on PATH, both stated in the PR)
+  - [x] PR B1: RAM watcher, start-gates, review-isolated, Python 3.10 check (AC-4 to AC-6, AC-11) (#251, merged 2026-10-30; also a safe tar fallback for Python 3.10.11)
+  - [x] PR B2: mod, sound, key store, home paths; both jobs green (AC-7 to AC-10, AC-12) (#252, merged 2026-10-30)
+  - [x] Make the Mac job a required check (AC-13) (2026-11-01, your "just finish": `portable (macos-latest)` and `portable (ubuntu-latest)` required in the rule set "main only through a PR", which has no bypass)
+- [x] Verify it: `/check verify mac support` (2026-10-30: CI run on #252 green on macos-latest with bash 3.2, the suite and a real install; live install here still rewrites 34 paths, every self check passes, drift: none. Not tried: a real Mac with Homebrew Python, the Keychain prompt)
+- [x] Test it: `/test mac support` (tests landed with each PR, every one mutation checked: A 16, B1 24, B2 16 mutants red; suite 302 ok)
+Source: [brief](../briefs/profiles.md) D11, D25, D26; your messages 2026-10-27.
