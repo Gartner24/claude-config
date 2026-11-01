@@ -342,7 +342,7 @@ sys.exit({code})
                 code = ("import importlib.util, sys; s = importlib.util.spec_from_file_location('r', sys.argv[1]); "
                         "m = importlib.util.module_from_spec(s); s.loader.exec_module(m); "
                         "print(m.settings('/tmp/review-isolated-none'))")
-                p = subprocess.run([sys.executable, "-B", "-c", code, os.path.abspath(__file__)], capture_output=True,
+                p = subprocess.run([sys.executable, "-B", "-c", code, os.path.realpath(__file__)], capture_output=True,
                                    text=True, env={**os.environ, "TMPDIR": tmpdir})
                 deny = json.loads(p.stdout)["permissions"]["deny"]
                 check(f"TMPDIR={tmpdir}: /var still denied", "Read(//var/**)" in deny, True)
