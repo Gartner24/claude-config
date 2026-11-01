@@ -7,21 +7,53 @@
 # and the Claude Code plugins. They manage themselves and are not vendored here -
 # docs/guides/SETUP.md documents how to install each. Run this first, then those.
 #
-#   tools/bin/install.sh            install
-#   tools/bin/install.sh --dry-run  print what would happen, touch nothing
+#   tools/bin/install.sh                     install the active profile (state/profile.json, else engineer)
+#   tools/bin/install.sh --profile <name>    install that profile (spec 0081)
+#   tools/bin/install.sh --accept-overwrite  overwrite the live changes the check lists
+#   tools/bin/install.sh --dry-run           print what would happen, touch nothing
 set -euo pipefail
+
+# Spec 0082 AC-11: claude-config.py and the hooks need 3.10; an older python3 failed later, halfway through.
+if ! python3 -c 'import sys; sys.exit(sys.version_info < (3, 10))' 2>/dev/null; then
+  echo "python3 3.10+ needed (on a Mac: brew install python)" >&2
+  exit 1
+fi
 
 # Spec 0048 AC-1, 0077 AC-12: this script lives in tools/bin/, the repo is two folders up.
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # CLAUDE_LIVE_DIR is for the self checks only: they install into a temp live tree.
 LIVE="${CLAUDE_LIVE_DIR:-$HOME/.claude}"
 DRY=0
-[ "${1:-}" = "--dry-run" ] && DRY=1
+ACCEPT=0
+PROFILE=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --dry-run) DRY=1 ;;
+    --accept-overwrite) ACCEPT=1 ;;
+    --profile)
+      [ $# -gt 1 ] || { echo "install.sh: --profile needs a name" >&2; exit 2; }
+      PROFILE="$2"; shift ;;
+    --profile=*) PROFILE="${1#*=}" ;;
+    *) echo "install.sh: unknown option: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+CONFIG=(python3 "$REPO/tools/bin/claude-config.py")
+# Spec 0082 AC-10: the home path the repo settings.json hooks are committed with (/home/<user> or /Users/<user>), else
+# $HOME; every rewrite below swaps it for $HOME.
+AUTHOR_HOME="$("${CONFIG[@]}" author-home)"
 
 run() { if [ "$DRY" = 1 ]; then echo "  would: $*"; else "$@"; fi; }
 note() { echo "  $*"; }
+# Spec 0082 AC-2: GNU readlink's resolve flag is missing on older Macs; python3 is there (install needs it anyway).
+realp() { python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$1"; }
+
+# Spec 0081 AC-2, AC-4: an unknown profile exits 2 before anything is written.
+read -r PROFILE from < <("${CONFIG[@]}" profile-resolve ${PROFILE:+"$PROFILE"}) || exit 2
+[ -n "$PROFILE" ] || exit 2
 
 echo "installing $REPO -> $LIVE"
+echo "profile: $PROFILE (from $from)"
 [ "$DRY" = 1 ] && echo "(dry run)"
 
 # Spec 0036 AC-4: a dry run used to pass a settings file that does not parse; only the real
@@ -34,24 +66,111 @@ for f in settings.json settings.local.json; do
   fi
 done
 
+# Spec 0081 AC-2: the profile is built whole in a staging folder first, so a failed build never leaves half a profile
+# live. It holds every file install copies: CLAUDE.md, agents/, rules/, rules-on-demand/, the copied hooks, MAP.md
+# and settings.json.
+STAGE="$(mktemp -d)"
+trap 'rm -rf "$STAGE"' EXIT
+"${CONFIG[@]}" stage "$PROFILE" "$STAGE" || { echo "refused: profile $PROFILE did not build (above)" >&2; exit 2; }
+
+# settings.json hardcodes absolute paths to hook scripts. Substituting $HOME is
+# what makes this repo installable by anyone, not just its author (the stage step does it).
+echo "settings.json:"
+n=$(grep -cF "$AUTHOR_HOME" "$REPO/claude-home/settings.json" || true)
+note "rewriting $n hardcoded path(s) to \$HOME"
+# Spec 0019 AC-9: sync.sh strips autoMode from the repo copy, so every install used to
+# drop yours. It is read from the live file and written into the built one, before the private merge (AC-17).
+if [ -e "$LIVE/settings.json" ]; then
+  if ! msg=$(python3 -c '
+import json, os, sys
+try:
+    d = json.load(open(sys.argv[1]))
+except (OSError, ValueError) as e:
+    print(e)
+    sys.exit(1)
+if isinstance(d, dict) and "autoMode" in d:
+    p = sys.argv[2]
+    s = json.load(open(p))
+    s["autoMode"] = d["autoMode"]
+    with open(p + ".tmp", "w") as f:
+        json.dump(s, f, indent=2)
+        f.write("\n")
+    os.replace(p + ".tmp", p)
+    print("kept your autoMode")
+' "$LIVE/settings.json" "$STAGE/settings.json"); then
+    note "autoMode not kept: $msg"
+  elif [ -n "$msg" ] && [ "$DRY" = 1 ]; then
+    note "would keep autoMode"
+  elif [ -n "$msg" ]; then
+    note "$msg"
+  fi
+fi
+
+# Spec 0013: sync.sh strips name bearing entries out of both settings files into
+# ~/.claude/private/. Merging them back is what keeps a reinstall from silently dropping
+# the private deny rules. A public reader has no fragment and gets the public settings.
+frag="$LIVE/private/settings.json"
+if [ -e "$frag" ]; then
+  note "merging $frag into the built file (private-names.py merge-settings, paths swapped to \$HOME)"
+  sed "s|$AUTHOR_HOME|$HOME|g" "$frag" | python3 "$REPO/tools/scripts/private-names.py" merge-settings "$STAGE/settings.json" -
+else
+  note "no private settings fragment, private entries not installed"
+fi
+# Spec 0081 AC-23: hook scripts in private/hooks/ are never copied; a private hook whose file is missing is named.
+if [ -e "$frag" ]; then
+  python3 - "$frag" "$HOME" "$AUTHOR_HOME" <<'PY' || true
+import json, os, shlex, sys
+home = sys.argv[2]
+try:
+    d = json.loads(open(sys.argv[1]).read().replace(sys.argv[3], home))
+except (OSError, ValueError):
+    sys.exit(0)
+for groups in (d.get("hooks") or {}).values():
+    for g in groups if isinstance(groups, list) else []:
+        for c in (g.get("hooks") or []) if isinstance(g, dict) else []:
+            try:
+                words = shlex.split(c.get("command", "")) if isinstance(c, dict) else []
+            except ValueError:
+                continue
+            if len(words) > 1 and os.path.basename(words[0]) in ("bash", "sh", "zsh", "python", "python3", "node"):
+                words = words[1:]
+            path = os.path.expanduser(words[0].replace("$HOME", home)) if words else ""
+            if path.startswith("/") and not os.path.exists(path):
+                print(f"  private hook missing: {path}")
+PY
+fi
+
+# Spec 0081 AC-5: never overwrite a live change silently. Every live file the build would change, and every live rule
+# it would not write, is listed; with any, nothing is written unless --accept-overwrite (a dry run only lists them).
+echo "overwrite check:"
+rc=0
+"${CONFIG[@]}" overwrite "$STAGE" || rc=$?
+if [ "$rc" = 3 ] && [ "$DRY" = 0 ] && [ "$ACCEPT" = 0 ]; then
+  echo "refused: live changes above would be overwritten; carry them into the repo (sync) or rerun with --accept-overwrite" >&2
+  exit 3
+fi
+[ "$rc" = 0 ] || [ "$rc" = 3 ] || { echo "refused: the overwrite check failed (above)" >&2; exit 1; }
+
 for d in agents rules rules-on-demand hooks scripts commands skills workflows; do
   run mkdir -p "$LIVE/$d"
 done
 
-# Copied: these are files the harness reads directly.
+# Copied: these are files the harness reads directly. Spec 0081 AC-2: CLAUDE.md is always installed now.
 echo "copy:"
+note "CLAUDE.md"
+run cp "$STAGE/CLAUDE.md" "$LIVE/CLAUDE.md"
 for d in agents rules rules-on-demand; do
-  [ -d "$REPO/claude-home/$d" ] || continue
-  note "$d/ ($(find "$REPO/claude-home/$d" -type f | wc -l) files)"
-  run cp -a "$REPO/claude-home/$d/." "$LIVE/$d/"
+  [ -d "$STAGE/$d" ] || continue
+  note "$d/ ($(find "$STAGE/$d" -type f | wc -l | tr -d ' ') files)"
+  run cp -a "$STAGE/$d/." "$LIVE/$d/"
 done
 # Spec 0077 AC-7: cp -a never deletes, so a rule moved out of rules/ kept auto loading live. A live file in either
-# folder with no repo source is moved to a dated backup folder, and named here.
+# folder the build did not write is moved to a dated backup folder, and named here.
 stamp="$(date +%Y-%m-%d)"
 for d in rules rules-on-demand; do
   [ -d "$LIVE/$d" ] || continue
   while IFS= read -r rel; do
-    [ -e "$REPO/claude-home/$d/$rel" ] && continue
+    [ -e "$STAGE/$d/$rel" ] && continue
     note "live only: $d/$rel -> backups/rules/$stamp/$d/$rel"
     dest="$LIVE/backups/rules/$stamp/$d/$rel"
     # an earlier same-day backup of this path is kept: the next one gets a numbered suffix
@@ -59,27 +178,44 @@ for d in rules rules-on-demand; do
     while [ -e "$dest" ]; do n=$((n + 1)); dest="$LIVE/backups/rules/$stamp/$d/$rel.$n"; done
     run mkdir -p "$(dirname "$dest")"
     run mv "$LIVE/$d/$rel" "$dest"
-  done < <(cd "$LIVE/$d" && find . -type f -printf '%P\n')
+  done < <(cd "$LIVE/$d" && find . -type f | sed 's|^\./||')
 done
-# Spec 0077 AC-6: the pointer back to this repo; never auto loaded.
-if [ -e "$REPO/claude-home/MAP.md" ]; then
-  note "MAP.md"
-  run cp "$REPO/claude-home/MAP.md" "$LIVE/MAP.md"
+# Spec 0077 AC-6: MAP.md, the pointer back to this repo, never auto loaded. Spec 0048 AC-11 and AC-5: the reminder
+# and your own hooks, which a scratch copy of this script (the self checks) may lack.
+for f in MAP.md hooks/block-destructive.sh hooks/review-stack-pre-push hooks/plain-panel.py hooks/context-monitor.js \
+         hooks/handover-start.sh hooks/no-jjstack-bar.py hooks/skill-rules.py hooks/chain-catch.py hooks/live-tick.py \
+         hooks/claude-config-reminder.py hooks/workflow-start.sh scripts/claude-ram-watch.sh hooks/profile-lock.py \
+         hooks/notify-sound.sh; do
+  # the stage step refused a missing required one; the others may be absent from a scratch copy
+  [ -e "$STAGE/$f" ] || continue
+  note "$f"
+  run cp -a "$STAGE/$f" "$LIVE/$f"
+  [ "$f" = MAP.md ] || run chmod +x "$LIVE/$f"
+done
+if [ -e "$LIVE/settings.json" ] && [ "$DRY" = 0 ]; then
+  # Spec 0035 AC-7: backups used to pile up as settings.json.bak.* at the top of the live dir.
+  mkdir -p "$LIVE/backups/settings"
+  bak="$LIVE/backups/settings/settings.json.bak.$(date +%Y%m%d-%H%M%S)"
+  cp "$LIVE/settings.json" "$bak"
+  note "settings.json: backed up existing -> backups/settings/$(basename "$bak")"
 fi
-for f in hooks/block-destructive.sh hooks/review-stack-pre-push hooks/plain-panel.py hooks/context-monitor.js \
-         hooks/handover-start.sh hooks/no-jjstack-bar.py hooks/skill-rules.py hooks/chain-catch.py hooks/live-tick.py; do
-  note "$f"
-  run cp -a "$REPO/claude-home/$f" "$LIVE/$f"
-  run chmod +x "$LIVE/$f"
-done
-# Spec 0048 AC-11: the weekly upstream reminder; AC-5: your own hooks that used to be live only.
-# A scratch copy of this script (the self checks) may lack them.
-for f in hooks/claude-config-reminder.py hooks/workflow-start.sh scripts/claude-ram-watch.sh; do
-  [ -e "$REPO/claude-home/$f" ] || continue
-  note "$f"
-  run cp -a "$REPO/claude-home/$f" "$LIVE/$f"
-  run chmod +x "$LIVE/$f"
-done
+note "settings.json"
+if [ "$DRY" = 0 ]; then
+  cp "$STAGE/settings.json" "$LIVE/settings.json.tmp"
+  mv "$LIVE/settings.json.tmp" "$LIVE/settings.json"
+fi
+frag="$LIVE/private/settings.local.json"
+if [ ! -e "$frag" ]; then
+  note "settings.local.json: no private settings fragment, private entries not installed"
+elif [ "$DRY" = 1 ]; then
+  note "would: python3 tools/scripts/private-names.py merge-settings $LIVE/settings.local.json $frag (paths swapped to \$HOME)"
+else
+  note "settings.local.json: merging $frag"
+  sed "s|$AUTHOR_HOME|$HOME|g" "$frag" | python3 "$REPO/tools/scripts/private-names.py" merge-settings "$LIVE/settings.local.json" -
+fi
+# Spec 0081 AC-2: the active profile, read by the band, sync and the lock hook.
+note "state/profile.json: $PROFILE"
+run "${CONFIG[@]}" write-state "$PROFILE" "$STAGE"
 
 # Symlinked: editing the live file edits the repo, so there is one copy of the
 # truth. This is how the existing install is already wired. Spec 0076 AC-6: workflows/<name> the same way.
@@ -91,7 +227,7 @@ for d in commands skills workflows; do
     dst="$LIVE/$d/$name"
     # Spec 0048 AC-15: a link through the old "live" folder resolves to the same file while the
     # compatibility link exists, but breaks once it is removed, so it is relinked too.
-    [ -L "$dst" ] && [ "$(readlink -f "$dst")" = "$(readlink -f "$src")" ] \
+    [ -L "$dst" ] && [ "$(realp "$dst")" = "$(realp "$src")" ] \
       && [[ "$(readlink "$dst")" != */live/* ]] && continue
     [ -e "$dst" ] && ! [ -L "$dst" ] && { note "SKIP $d/$name (a real file is already there)"; continue; }
     note "$d/$name"
@@ -188,73 +324,6 @@ if [ -x "$triggers" ]; then
 fi
 fi
 
-# settings.json hardcodes absolute paths to hook scripts. Substituting $HOME is
-# what makes this repo installable by anyone, not just its author.
-echo "settings.json:"
-# Spec 0019 AC-9: sync.sh strips autoMode from the repo copy, so every install used to
-# drop yours. Read it before the file is replaced, write it back after the private merge.
-keep_auto=""
-if [ -e "$LIVE/settings.json" ]; then
-  if ! keep_auto=$(python3 -c '
-import json, sys
-try:
-    d = json.load(open(sys.argv[1]))
-except (OSError, ValueError) as e:
-    print(e)
-    sys.exit(1)
-if isinstance(d, dict) and "autoMode" in d:
-    print(json.dumps(d["autoMode"]))
-' "$LIVE/settings.json"); then
-    note "autoMode not kept: $keep_auto"
-    keep_auto=""
-  fi
-fi
-[ -n "$keep_auto" ] && [ "$DRY" = 1 ] && note "would keep autoMode"
-if [ -e "$LIVE/settings.json" ] && [ "$DRY" = 0 ]; then
-  # Spec 0035 AC-7: backups used to pile up as settings.json.bak.* at the top of the live dir.
-  mkdir -p "$LIVE/backups/settings"
-  bak="$LIVE/backups/settings/settings.json.bak.$(date +%Y%m%d-%H%M%S)"
-  cp "$LIVE/settings.json" "$bak"
-  note "backed up existing -> backups/settings/$(basename "$bak")"
-fi
-n=$(grep -c '/home/santiago' "$REPO/claude-home/settings.json" || true)
-note "rewriting $n hardcoded path(s) to \$HOME"
-if [ "$DRY" = 0 ]; then
-  sed "s|/home/santiago|$HOME|g" "$REPO/claude-home/settings.json" > "$LIVE/settings.json.tmp"
-  python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$LIVE/settings.json.tmp"
-  mv "$LIVE/settings.json.tmp" "$LIVE/settings.json"
-fi
-[ -e "$LIVE/CLAUDE.md" ] || run cp "$REPO/claude-home/CLAUDE.md" "$LIVE/CLAUDE.md"
-
-# Spec 0013: sync.sh strips name bearing entries out of both settings files into
-# ~/.claude/private/. Merging them back is what keeps a reinstall from silently dropping
-# the private deny rules. A public reader has no fragment and gets the public settings.
-echo "private settings:"
-for f in settings.json settings.local.json; do
-  frag="$LIVE/private/$f"
-  if [ ! -e "$frag" ]; then
-    note "$f: no private settings fragment, private entries not installed"
-  elif [ "$DRY" = 1 ]; then
-    note "would: python3 tools/scripts/private-names.py merge-settings $LIVE/$f $frag (paths swapped to \$HOME)"
-  else
-    note "$f: merging $frag"
-    sed "s|/home/santiago|$HOME|g" "$frag" | python3 "$REPO/tools/scripts/private-names.py" merge-settings "$LIVE/$f" -
-  fi
-done
-if [ -n "$keep_auto" ] && [ "$DRY" = 0 ]; then
-  python3 -c '
-import json, os, sys
-p = sys.argv[1]
-d = json.load(open(p))
-d["autoMode"] = json.loads(sys.argv[2])
-with open(p + ".tmp", "w") as f:
-    json.dump(d, f, indent=2)
-    f.write("\n")
-os.replace(p + ".tmp", p)
-' "$LIVE/settings.json" "$keep_auto"
-  note "kept your autoMode"
-fi
-
 # The names list exists only on the author's machine, so this part is this repo only:
 # private ignore lines go to .git/info/exclude (never the public .gitignore) and the
 # commit hooks refuse any commit that would bring a name back.
@@ -288,7 +357,7 @@ if [ -e "$LIVE/private/names.txt" ]; then
     dst="$hooks/$h"
     act=""
     if [ -L "$dst" ]; then
-      [ "$(readlink -f "$dst")" = "$(readlink -f "$checker")" ] && act=refreshed
+      [ "$(realp "$dst")" = "$(realp "$checker")" ] && act=refreshed
     elif [ -f "$dst" ] && [ -x "$dst" ] && cmp -s "$dst" "$checker"; then
       note "$h: up to date"
       continue
@@ -321,18 +390,36 @@ else
   bash "$LIVE/hooks/block-destructive.sh" --test >/dev/null \
     && note "guard hook: all self-checks passed" \
     || { echo "  guard hook SELF-CHECK FAILED - do not rely on it" >&2; exit 1; }
-  bash "$LIVE/hooks/handover-start.sh" --test >/dev/null 2>&1 \
-    && note "handover hook: all self-checks passed" \
-    || { echo "  HANDOVER HOOK SELF-CHECK FAILED - run: bash ~/.claude/hooks/handover-start.sh --test" >&2; exit 1; }
+  # Spec 0082 AC-12: its fixtures need jjstack's slot script, which a new machine (or CI) gets only after this
+  # install; the hook itself does nothing without it.
+  if [ ! -x "$HOME/.claude/skills/jjstack/bin/jjstack-rollover-slot" ]; then
+    note "handover hook: self-checks skipped (jjstack not installed yet)"
+  else
+    bash "$LIVE/hooks/handover-start.sh" --test >/dev/null 2>&1 \
+      && note "handover hook: all self-checks passed" \
+      || { echo "  HANDOVER HOOK SELF-CHECK FAILED - run: bash ~/.claude/hooks/handover-start.sh --test" >&2; exit 1; }
+  fi
   python3 "$LIVE/hooks/skill-rules.py" --test >/dev/null 2>&1 \
     && note "skill rules hook: all self-checks passed" \
     || { echo "  SKILL RULES HOOK SELF-CHECK FAILED - run: python3 ~/.claude/hooks/skill-rules.py --test" >&2; exit 1; }
-  # Spec 0077 AC-1: the always loaded text of the live folder, CLAUDE.md plus rules/*.md (not rules/ecc/).
+  # Spec 0081 AC-14: the profile lock; a scratch copy of this repo (the self checks) may lack it.
+  if [ -e "$LIVE/hooks/profile-lock.py" ]; then
+    python3 "$LIVE/hooks/profile-lock.py" --test >/dev/null 2>&1 \
+      && note "profile lock hook: all self-checks passed" \
+      || { echo "  PROFILE LOCK HOOK SELF-CHECK FAILED - run: python3 ~/.claude/hooks/profile-lock.py --test" >&2; exit 1; }
+  fi
+  # Spec 0077 AC-1: the always loaded text of the live folder, CLAUDE.md plus the rules. Spec 0081 AC-23, AC-25: a rule in a
+  # subfolder loads too (private ones included); settings.json claudeMdExcludes (rules/ecc/) is left out.
   if ! total=$(python3 -c '
-import glob, sys
+import fnmatch, glob, json, os, sys
 live = sys.argv[1]
-files = [live + "/CLAUDE.md"] + sorted(glob.glob(live + "/rules/*.md"))
-print(sum(len(open(f, encoding="utf-8").read()) for f in files if __import__("os").path.isfile(f)))
+try:
+    skip = json.load(open(live + "/settings.json")).get("claudeMdExcludes") or []
+except (OSError, ValueError):
+    skip = []
+files = [live + "/CLAUDE.md"] + sorted(glob.glob(live + "/rules/**/*.md", recursive=True))
+files = [f for f in files if os.path.isfile(f) and not any(fnmatch.fnmatch(f, p) for p in skip)]
+print(sum(len(open(f, encoding="utf-8").read()) for f in files))
 ' "$LIVE"); then
     echo "  LIVE SIZE CHECK FAILED - could not measure $LIVE" >&2; exit 1
   fi
@@ -356,7 +443,7 @@ print(sum(len(open(f, encoding="utf-8").read()) for f in files if __import__("os
   for name in start-gates design-check issue-reread review-isolated; do
     python3 "$REPO/tools/scripts/$name.py" --test </dev/null >/dev/null 2>&1 \
       && note "$name: all self-checks passed" \
-      || { echo "  ${name^^} SELF-CHECK FAILED - run: python3 tools/scripts/$name.py --test" >&2; exit 1; }
+      || { echo "  SELF-CHECK FAILED: $name - run: python3 tools/scripts/$name.py --test" >&2; exit 1; }
   done
   missing=0
   while read -r imp; do

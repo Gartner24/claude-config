@@ -80,7 +80,7 @@ Closed rows (done or dropped, no open box) live in [done.md](done.md).
 | 66 | Update Claude Code through /claude-config | Release 9 | done |
 | 57 | Move my own skills out of jjstack | Release 9 | done |
 | 58 | Own status bar and dashboards with mods | Release 9 | done |
-| 59 | Memory tool: claude-mem, MemPalace, graphify or NotebookLM | Release 9 | planned |
+| 59 | Memory tool: claude-mem, MemPalace, graphify or NotebookLM | Release 9 | done |
 | 60 | Sessions pass work to each other | Release 9 | done |
 | 61 | Cheap model gatekeeper with open models | Release 9 | done |
 | 62 | Runner that improves itself | Release 9 | done |
@@ -138,12 +138,12 @@ Closed rows (done or dropped, no open box) live in [done.md](done.md).
 | 116 | watch-reels: "comment X" offers without commenting | Release 10 | done |
 | 117 | watch-reels: on-screen text, Spanish offers, faster batches | Release 10 | done |
 | 112 | Assertion Guardian: remaining hidden command forms | Release 10 | done |
-| 118 | Profiles: named profiles over one shared core | Release 11 | in-progress |
-| 119 | Mac support: claude-config on macOS and Linux | Release 11 | in-progress |
-| 120 | Rule: design workflows from the current icm-architect | Release 11 | in-progress |
-| 121 | Bump the icm-architect pin to upstream HEAD | Release 11 | in-progress |
-| 122 | watch-reels sees the whole video | Release 11 | in-progress |
-| 123 | Port the workflow-builder templates to icm-architect 8bc2f56 | Release 11 | planned |
+| 118 | Profiles: named profiles over one shared core | Release 11 | done |
+| 119 | Mac support: claude-config on macOS and Linux | Release 11 | done |
+| 120 | Rule: design workflows from the current icm-architect | Release 11 | done |
+| 121 | Bump the icm-architect pin to upstream HEAD | Release 11 | done |
+| 122 | watch-reels sees the whole video | Release 11 | done |
+| 123 | Port the workflow-builder templates to icm-architect 8bc2f56 | Release 11 | done |
 
 Build order follows the table: 6, 22, 20, 8, 7, 9, 10. The goal and the rules every feature keeps are in [docs/architecture.md](../architecture.md).
 
@@ -163,13 +163,6 @@ Multi agent pre ship review with a blind lane and a pre push receipt hook. code 
 
 ## Release 7: clean branches and the tool review
 The clean branches feature and the October 2026 tool review plan ([brief](../briefs/tool-review-2026-10.md)).
-
-### 59. Memory tool: claude-mem, MemPalace, graphify or NotebookLM
-Pick the memory tool (MemPalace or NotebookLM as a second brain; graphify was removed and claude-mem's data deleted 2026-10-19), weighing usage, token cost, memory quality and code memory.
-**Done when:** one memory setup is chosen with its reasons and installed, or each option is rejected with a reason.
-- [x] Research and compare: `/deep-research memory for Claude Code: claude-mem, MemPalace, graphify, NotebookLM` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
-- [ ] Design it (spec): `/architect memory tool` (after the MemPalace trial review, about 2026-10-30; your answer 2026-10-17) · waits on you
-Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
 
 ### 85. Mod install also reinstalls the runner copy · dropped
 Dropped 2026-10-22: the runner is retired live (row 90), so no mod calls an installed `wf` any more.
@@ -216,76 +209,8 @@ The two workflows you asked to be reminded of: `review-fix` (fix a PR's review f
 - [ ] Run review-fix on a real PR (still owed: your first `/review-fix <pr>` on a real review) · waits on you
 Source: [brief](../briefs/icm-restructure.md) "Workflows"; your messages 2026-10-22.
 
-### 115. Fix review-isolated with a full /tmp · done
-`tools/scripts/review-isolated.py` writes two Read denies per entry of /tmp into one `--settings` argument. At about 1,900 entries that argument passes the kernel's 128 KB limit for one argument, `claude` never starts ("Argument list too long"), and its self-test in the suite goes red. Seen 2026-10-26 with 1,904 entries.
-**Done when:** a review drafts with 5,000 entries in /tmp, and the self-test proves it.
-- [x] Fix: `/debug review-isolated full tmp` (settings go in a file in their own denied /tmp folder, not one argument)
-- [x] Test it: `/test review-isolated full tmp` (self test drafts with 5,000 /tmp entries; mutant with inline settings goes red)
-Source: suite failure 2026-10-26 (row 114 landing); `tools/scripts/review-isolated.py` `tmp_siblings`.
-
 ## Release 11: profiles for other people
 claude-config shared with a partner who makes videos, with the same quality bar and a different set of switches.
-
-### 118. Profiles: named profiles over one shared core · in-progress
-Every skill, rule, hook and the design pipeline stay one shared core. A named profile picks which skills fire on their own, which owner only rules load, how much Claude asks, and what its user may edit; you switch profiles on one machine (for example a `chip-profile` command), and `/claude-config update` updates only your own profile.
-**Done when:** your profile behaves exactly as today; a second profile installs on a fresh machine with fewer owner only rules and fewer questions at the same quality bar; that profile cannot edit locked core files, and editing one of its rules creates a new `custom-profile-<id>` instead of changing it; switching profiles on one machine works and switches back.
-- [x] Design it (spec): `/architect profiles` (spec [0081](../specs/0081-profiles/index.md), 2026-10-27, Sonnet cross check, 18 fixes applied)
-- [ ] Build it: `/develop profiles`
-  - [ ] PR A: profile files, install builds from core plus profile, overwrite check (AC-1 to AC-5)
-  - [ ] PR A: sync routing, `/claude-config profile` switch and update, band name (AC-6 to AC-9b)
-  - [ ] PR B: lock hook, `creator` profile, automatic custom profiles (AC-10 to AC-14)
-  - [ ] PR C: CODEOWNERS and the main branch rule set, with probe PRs (AC-15) · waits on you · later boxes go on
-  - [ ] PR D: `creator` from your partner's setup: settings field, overlay and routing rules, private layer, video skills (AC-16 to AC-26; amended 2026-10-27, Sonnet cross check, 15 fixes applied)
-- [ ] Verify it: `/check verify profiles`
-- [ ] Test it: `/test profiles`
-Open draft PRs on 2026-10-29: A #239, B #241, D #243, C #244.
-Source: [brief](../briefs/profiles.md) (D1 to D31); your messages 2026-10-27.
-
-### 119. Mac support: claude-config on macOS and Linux · in-progress
-Your partner uses a Mac. Install, sync, hooks and the scripts they call must run on macOS as well as Linux (old bash 3.2, BSD `sed -i` and `readlink -f`, no `bwrap`).
-**Done when:** `tools/bin/install.sh` and the suite run green on a Mac, and every Linux only part either has a macOS path or says plainly that it is Linux only.
-- [x] Design it (spec): `/architect mac support` (spec [0082](../specs/0082-mac-support.md), 2026-10-27, Sonnet cross check, 11 fixes applied)
-- [ ] Build it: `/develop mac support`
-  - [ ] PR A: advisory Mac and Linux CI job, portable shell, portability grep test (AC-0 to AC-3b)
-  - [ ] PR B1: RAM watcher, start-gates, review-isolated, Python 3.10 check (AC-4 to AC-6, AC-11)
-  - [ ] PR B2: mod, sound, key store, home paths; both jobs green (AC-7 to AC-10, AC-12)
-  - [ ] Make the Mac job a required check (AC-13) · waits on you
-- [ ] Verify it: `/check verify mac support`
-- [ ] Test it: `/test mac support`
-Source: [brief](../briefs/profiles.md) D11, D25, D26; your messages 2026-10-27.
-
-### 120. Rule: design workflows from the current icm-architect · in-progress
-Before Claude designs a workflow, playbook, pipeline or folder layout (`/architect`, `/workflow-builder`, or plain chat), it compares the installed `icm-architect` pin with upstream HEAD, reads the upstream version when they differ, says what changed, and bases the design on it. Seen 2026-10-27: a "runner" command was proposed for a business project without checking the ICM layout adopted in specs 0072, 0076 and 0077.
-**Done when:** `claude-home/rules-on-demand/icm-current.md` exists, `architect` and `workflow-builder` load it from `map.json`, a Routing line in `claude-home/CLAUDE.md` names it for plain chat, and the suite is green.
-- [x] Write the rule and wire it: `claude-home/rules-on-demand/icm-current.md`, `map.json`, Routing line, tests (PR #238, merged)
-- [ ] Install it live: pull main into your checkout, then `tools/bin/install.sh` (on 2026-10-29 `~/.claude` still had the old copy)
-- [ ] Verify it: `/check verify icm current`
-Source: your message 2026-10-27 ("this kind of updates need to be based on ICM structure (the updated structure, they update that a lot)"); specs 0072, 0076 AC-10, 0077.
-
-### 121. Bump the icm-architect pin to upstream HEAD · in-progress
-`tools/config/manifest.json` pins `icm-architect` at `e16cafe6a664dcf6d787a726b452adba77d913f4`; upstream HEAD on 2026-10-27 is `8bc2f5610d3843b3ffa31a142effe6b6337fef3c`. Needs the normal path: read what changed, skillspector scan, manifest edit, install, and a check that the workflow-builder templates still follow it (spec 0076 AC-10).
-**Done when:** the manifest pin equals upstream HEAD at bump time, the scan is clean, and the suite is green.
-- [x] Read the upstream diff and scan it: skillspector (no new findings, PR #240)
-- [x] Bump the pin: manifest at `8bc2f56` (PR #240, merged)
-- [ ] Install it live: `python3 ~/claude-config/tools/bin/claude-config.py update --apply icm-architect` after your checkout has main (on 2026-10-29 `~/.claude` still had the e16cafe files)
-Source: your message 2026-10-27; row 120. The template check this row named moved to row 123.
-
-### 122. watch-reels sees the whole video · in-progress
-Dense full size frames, a bigger speech model with a name list, and a Sonnet screen pass that writes `screens.md`, so names and links shown between cuts are not lost.
-**Done when:** spec 0080 AC-1 to AC-11 hold in the live skill.
-- [x] Design it (spec): `/architect watch-reels full watch` (spec [0080](../specs/0080-watch-reels-full-watch.md), accepted 2026-10-27)
-- [x] Build it: `/develop watch-reels full watch` (PR #242, merged 2026-10-29; live try on DegVQaYOnqU read the Blender MCP screens)
-- [x] Test it: AC-9 tests landed with the build (`test_watch_reels` 56 of 56; the mlx path was not run)
-- [ ] Install it live: pull main into your checkout, then `tools/bin/install.sh` (on 2026-10-29 `~/.claude/skills/watch-reels` had no `vocabulary.txt`)
-- [ ] Verify it: `/check verify watch-reels full watch`
-Known gap: speech still writes "Seedance" as "C-Dance 2.5" even with the name list (PR #242). spec 0080 · code in `claude-home/skills/watch-reels/`
-Source: spec 0080; PR #242.
-
-### 123. Port the workflow-builder templates to icm-architect 8bc2f56 · needs a decision
-The four workflow-builder templates still say they follow `e16cafe`. Upstream `8bc2f56` renamed "Human check" to "Check", added a `check.md` pass rule and changed the pipeline table, and `tools/check.py` enforces the old shape. Porting is your call (spec 0076 AC-10).
-**Done when:** every template's follows line names the pinned icm-architect, `check.py` enforces the new shape, and review-fix and restructure-check still pass it; or you decide to stay on `e16cafe` and the reason is written in spec 0076.
-- [ ] Design it (spec): `/architect workflow-builder templates to icm 8bc2f56`
-Source: PR #240 "Not in this PR"; row 121.
 
 ## Deferred
 Out of scope for the current build pass, kept so the plan stays honest.

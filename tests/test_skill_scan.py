@@ -57,7 +57,8 @@ def issue(sev="HIGH", pattern="Tainted flow (line 12)", text="requests.post(url)
 
 class Case(unittest.TestCase):
     def setUp(self):
-        self.tmp = Path(tempfile.mkdtemp())
+        # resolved: on a Mac /var links to /private/var, and the scan reports real paths (spec 0082 AC-3b)
+        self.tmp = Path(tempfile.mkdtemp()).resolve()
         self.addCleanup(shutil.rmtree, self.tmp, True)
         self.home = self.tmp / "home"
         self.skills = self.home / ".claude" / "skills"

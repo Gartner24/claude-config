@@ -11,16 +11,17 @@ Model: sonnet medium
 - The files your group names
 
 ## Process
-1. Fix each finding of your group, in order.
-2. Add a test for each fix.
-3. Mutation check each test: back up the file with `cp`, break the behavior the test covers, run only that test file and see it go red, restore from the backup and see it green (`~/.claude/rules/lessons.md`).
-4. Commit in your worktree (the prompt names the branch).
-5. Write the outputs below, then return the schema the prompt names.
+1. If an input is missing or empty, stop and say which.
+2. Fix each finding of your group, in order.
+3. Add a test for each fix.
+4. Mutation check each test: back up the file with `cp`, break the behavior the test covers, run only that test file and see it go red, restore from the backup and see it green (`~/.claude/rules/lessons.md`).
+5. Commit in your worktree (the prompt names the branch).
+6. Write the outputs below, then return the schema the prompt names.
 
 ## Outputs
 - `<run>/02_fix/output/<group>.md`: the findings fixed, each test with its mutant and whether it went red, and the commit sha
 
-## Human check
+## Check
 Each test went red on its mutant.
 
 ## Do NOT load

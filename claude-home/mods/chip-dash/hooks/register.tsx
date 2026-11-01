@@ -178,6 +178,7 @@ export const register: Register = on => {
             week: limit('seven_day')?.percentUsed ?? null,
             weekReset: limit('seven_day')?.resetsAt ?? null,
             via: raw.via ?? null,
+            profile: raw.profile ?? null,
             staleSince: null,
             owed,
           }

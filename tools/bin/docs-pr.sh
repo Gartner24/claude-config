@@ -6,7 +6,8 @@
 set -euo pipefail
 
 GH="${GH:-gh}"
-HERE="$(cd "$(dirname "$(realpath "$0")")" && pwd)"
+# python3, not `realpath`: the Mac before 13 has no realpath command (spec 0082 AC-2)
+HERE="$(cd "$(dirname "$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$0")")" && pwd)"
 die() { echo "docs-pr: $*" >&2; exit 2; }
 
 slug="${1:-docs}"

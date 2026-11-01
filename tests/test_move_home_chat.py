@@ -1,6 +1,5 @@
 """Spec 0067: tools/bin/move-home-chat.sh against a fake HOME and a stub pgrep; never the real ~/.claude."""
 import datetime
-import fcntl
 import json
 import os
 import shutil
@@ -39,7 +38,7 @@ def snapshot(home):
         for n in dirs + files:
             p = Path(root, n)
             rel = str(p.relative_to(home))
-            if rel == ".claude/move-home-chat.lock" or rel.startswith("Documents/claude-chats-backup-"):
+            if rel == ".claude/move-home-chat.lock.d" or rel.startswith("Documents/claude-chats-backup-"):
                 continue
             if p.is_symlink():
                 out[rel] = ("l", os.readlink(p))
@@ -166,10 +165,33 @@ class Refusals(Case):  # AC-1
         self.refuses()
 
     def test_lock_held_exits_1_changes_nothing(self):
-        lock = self.home / ".claude" / "move-home-chat.lock"
-        with open(lock, "w") as f:
-            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            self.refuses()
+        # spec 0082 AC-2: a mkdir lock (the Mac has no flock); the refusal leaves the holder's lock in place
+        lock = self.home / ".claude" / "move-home-chat.lock.d"
+        lock.mkdir()
+        r = self.refuses()
+        self.assertIn("another copy holds", r.stderr)
+        self.assertTrue(lock.is_dir())
+
+    def test_lock_of_a_live_pid_refuses(self):
+        lock = self.home / ".claude" / "move-home-chat.lock.d"
+        lock.mkdir()
+        (lock / "pid").write_text(f"{os.getpid()}\n")
+        r = self.refuses()
+        self.assertIn("another copy holds", r.stderr)
+        self.assertEqual((lock / "pid").read_text(), f"{os.getpid()}\n")
+
+    def test_stale_lock_of_a_dead_pid_is_taken_over(self):
+        # a kill -9 or power loss leaves the lock behind; its pid no longer runs
+        p = subprocess.run(["sh", "-c", "echo $$"], capture_output=True, text=True)
+        lock = self.home / ".claude" / "move-home-chat.lock.d"
+        lock.mkdir()
+        (lock / "pid").write_text(p.stdout)
+        self.ok()
+        self.assertFalse(lock.exists())
+
+    def test_lock_released_after_a_run(self):
+        self.ok()
+        self.assertFalse((self.home / ".claude" / "move-home-chat.lock.d").exists())
 
     def test_chat_clash_exits_1_changes_nothing(self):
         put(self.old / "a.jsonl", "different")

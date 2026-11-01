@@ -95,3 +95,10 @@ test('a workflow agent with no end for 2 hours is no longer counted', () => {
   expect(liveBuilds(running, BUILD_STALE_MS + 1)).toBe(1)
   expect([...running.keys()]).toEqual(['new'])
 })
+
+// covers: spec 0081 AC-9 (the active profile name is drawn; nothing when no state file names one)
+test('the band shows the active profile, and nothing without one', () => {
+  expect(segments({ ...facts, profile: 'creator' }, 0, false).left.find(s => s.id === 'profile')?.runs[0].text).toBe('creator')
+  expect(segments({ ...facts, profile: null }, 0, false).left.map(s => s.id)).not.toContain('profile')
+  expect(segments(facts, 0, false).left.map(s => s.id)).not.toContain('profile')
+})

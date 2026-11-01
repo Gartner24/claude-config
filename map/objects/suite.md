@@ -7,6 +7,7 @@ The tests for live code. Self-checks are the tests.
 - `tests/fast.py`: runs the suite; `python3 tests/fast.py`. Standing answer: run suite yes.
 - `tests/test_layout.py`: repo shape, links, the entry file and its link.
 - `tests/test_map.py`: every old `AGENTS.md` line has a home in `map/_meta/line-homes.md`.
+- `tests/test_portable.py`: no GNU only, bash 4, `/proc/` or author home construct in live shell and Python (spec 0082 AC-3); excuses go in `tests/portable-allow.txt` (path | pattern | reason), and one that matches nothing fails.
 - `tools/config/test-preferences.json`: the suite command for `/test`.
 
 ## Rules

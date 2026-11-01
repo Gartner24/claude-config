@@ -28,9 +28,11 @@ chk(){ if [ "$2" = "$3" ]; then ok "$1"; else no "$1 (got '$2', want '$3')"; fi;
 # like Claude Code's own: an assistant record holding a Skill tool_use. Millisecond stamps,
 # because init records a float start time and a whole-second stamp can land before it.
 PROJ="$HOME/.claude/projects/p"; mkdir -p "$PROJ"
+# python3, not `date +%3N`: BSD date prints the 3N literally (spec 0082)
+now(){ python3 -c 'import datetime as d; print(d.datetime.now(d.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z")'; }
 invoke(){  # invoke <session[/subagents/x]> <skill> [args] [iso-timestamp]
   printf '{"type":"assistant","timestamp":"%s","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"%s","args":"%s"}}]}}\n' \
-    "${4:-$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)}" "$2" "${3:-}" >> "$PROJ/$1.jsonl"
+    "${4:-$(now)}" "$2" "${3:-}" >> "$PROJ/$1.jsonl"
 }
 invoke_all(){
   for s in minimalist-ui ui-ux-pro-max frontend-design impeccable assets animate design-gate review-animations cro; do invoke "$1" $s; done
@@ -38,13 +40,14 @@ invoke_all(){
 }
 say(){  # say <session> <text> - a user record, as a person typing it
   printf '{"type":"user","timestamp":"%s","message":{"role":"user","content":"%s"}}\n' \
-    "$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)" "$2" >> "$PROJ/$1.jsonl"
+    "$(now)" "$2" >> "$PROJ/$1.jsonl"
 }
 critique(){  # critique <target> <total> [mtime offset s] - a report shaped like impeccable's own
   mkdir -p "$1/.impeccable/critique"
   local f="$1/.impeccable/critique/$(date -u +%Y-%m-%dT%H-%M-%S)-${RANDOM}__surface.md"
   printf -- '---\ntotal_score: %s\nmax_score: 40\n---\n# Critique\n' "$2" > "$f"
-  [ -n "${3:-}" ] && touch -d "@$(( $(date +%s) + $3 ))" "$f"
+  # python3, not `touch -d`: GNU only (spec 0082 AC-2)
+  [ -n "${3:-}" ] && python3 -c 'import os, sys, time; t = time.time() + int(sys.argv[2]); os.utime(sys.argv[1], (t, t))' "$f" "$3"
 }
 # review-animations is only required once it is model-invocable; model that state explicitly.
 mkdir -p "$HOME/.claude/skills/review-animations"
@@ -127,7 +130,7 @@ bash $LED show "$T" 2>/dev/null | grep -q "NOT fully audited" && ok "show warns 
 
 echo "T: stale ledger (>24h) never holds a session"
 bash $LED init "$T" >/dev/null 2>&1
-touch -d "2 days ago" "$T/.design/run.json"
+python3 -c 'import os, sys, time; t = time.time() - 2 * 86400; os.utime(sys.argv[1], (t, t))' "$T/.design/run.json"
 printf '{"session_id":"%s"}' "$CLAUDE_CODE_SESSION_ID" | bash $GATE >/dev/null 2>&1; chk "abandoned run released" "$?" "0"
 
 
@@ -158,6 +161,8 @@ for s in brief reference direction type color imagery surfaces audit; do bash $L
 bash $LED set emit RAN brand-system.html >/dev/null 2>&1
 bash $LED check >/dev/null 2>&1; chk "no board on disk -> blocked" "$?" "1"
 
+# Spec 0082 AC-12: the SKIP above used to print and then run these anyway, so a machine without the kit (CI) failed.
+if [ -z "${SKIP_BRAND:-}" ]; then
 cp $FIX/fixture-inter.html "$T2/brand-system.html"
 bash $LED check 2>&1 | grep -q "does not conform" \
   && ok "non-conforming board blocked by the validator" || no "non-conforming board blocked by the validator"
@@ -168,6 +173,7 @@ bash $LED check >/dev/null 2>&1; chk "broken clamp board blocked" "$?" "1"
 cp $FIX/fixture-conforming.html "$T2/brand-system.html"
 bash $LED check >/dev/null 2>&1; chk "conforming board passes the gate" "$?" "0"
 printf '{"session_id":"%s"}' "$CLAUDE_CODE_SESSION_ID" | bash $GATE >/dev/null 2>&1; chk "Stop hook releases a conforming brand run" "$?" "0"
+fi
 
 
 # ---------------------------------------------------------------------------
@@ -250,7 +256,7 @@ rm -f "$HOME/.claude/.design-active-ad-"* "$HOME/.claude/.design-last-ad-"*
 # anyway - "319 lines across 387 files" on a styled-components repo - which is
 # neither a finding nor a pass. A gate that answers a question it cannot evaluate
 # is worse than one that declines to.
-TL=/home/santiago/.claude/skills/design-gate/scripts/token-leak.sh
+TL="$REAL_HOME/.claude/skills/design-gate/scripts/token-leak.sh"
 TT=$(mktemp -d)
 echo
 echo "T: token-leak knows when it does not apply"
@@ -312,7 +318,7 @@ invoke inv-1 frontend-design:frontend-design
 bash $LED set assemble RAN ev >/dev/null 2>&1;   chk "plugin-namespaced invocation counts" "$?" "0"
 bash $LED set conversion RAN ev >/dev/null 2>&1; chk "an invocation from before init does not count" "$?" "1"
 printf '{"type":"user","timestamp":"%s","message":{"content":"<command-name>/cro</command-name>\\n<command-args></command-args>"}}\n' \
-  "$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)" >> "$PROJ/inv-1.jsonl"
+  "$(now)" >> "$PROJ/inv-1.jsonl"
 bash $LED set conversion RAN ev >/dev/null 2>&1; chk "the user typing the slash command counts" "$?" "0"
 invoke inv-1 minimalist-ui
 bash $LED set direction RAN ev 2>&1 | grep -q '`design-dna`' \

@@ -9,6 +9,18 @@ REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 # CLAUDE_LIVE_DIR is for the self checks only: they sync a temp live tree, never ~/.claude.
 LIVE="${CLAUDE_LIVE_DIR:-$HOME/.claude}"
 NAMES=(python3 "$REPO/tools/scripts/private-names.py")
+CONFIG=(python3 "$REPO/tools/bin/claude-config.py")
+# Spec 0081 AC-6: only an owner profile syncs; anyone else's changes reach the repo through a PR. A scratch copy of
+# this script with no tool (the spec 0013 self checks) syncs as before profiles.
+HAS_CONFIG=0
+[ -f "$REPO/tools/bin/claude-config.py" ] && HAS_CONFIG=1
+if [ "$HAS_CONFIG" = 1 ]; then
+  rc=0
+  "${CONFIG[@]}" profile-owner || rc=$?
+  # 3: not an owner, said why; any other failure must not pass for a sync that ran
+  [ "$rc" = 3 ] && exit 0
+  [ "$rc" = 0 ] || { echo "sync refused: the active profile could not be read (above); nothing was copied" >&2; exit 1; }
+fi
 
 # Spec 0013: private names (~/.claude/private/names.txt) never reach this public repo.
 # Every source is checked BEFORE anything is copied, so a refused sync leaves the repo
@@ -19,13 +31,20 @@ NAMES=(python3 "$REPO/tools/scripts/private-names.py")
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 fail=0
+# Spec 0081 AC-23: a private rule (from ~/.claude/private/rules/) holds private names on purpose and is never synced
+RULES=("$LIVE/rules")
+if [ "$HAS_CONFIG" = 1 ]; then
+  RULES=()
+  while IFS= read -r f; do [ -n "$f" ] && RULES+=("$f"); done < <("${CONFIG[@]}" public-rules)
+fi
 "${NAMES[@]}" strip-settings "$LIVE/settings.json" "$tmp/settings.json" "$tmp/private-settings.json" || fail=1
 "${NAMES[@]}" strip-settings "$LIVE/settings.local.json" "$tmp/settings.local.json" "$tmp/private-settings.local.json" || fail=1
-"${NAMES[@]}" check "$LIVE/CLAUDE.md" "$LIVE/agents" "$LIVE/rules" \
+"${NAMES[@]}" check "$LIVE/CLAUDE.md" "$LIVE/agents" ${RULES[@]+"${RULES[@]}"} \
   "$LIVE/hooks/block-destructive.sh" "$LIVE/hooks/review-stack-pre-push" "$LIVE/hooks/plain-panel.py" "$LIVE/hooks/context-monitor.js" || fail=1
 # Spec 0048: these may be missing from a live tree (first install, the self checks' temp trees).
 OPTIONAL=(hooks/claude-config-reminder.py hooks/workflow-start.sh hooks/handover-start.sh hooks/no-jjstack-bar.py hooks/live-tick.py
-          hooks/skill-rules.py hooks/chain-catch.py MAP.md scripts/claude-ram-watch.sh)
+          hooks/skill-rules.py hooks/chain-catch.py MAP.md scripts/claude-ram-watch.sh hooks/profile-lock.py
+          hooks/notify-sound.sh)
 for f in "${OPTIONAL[@]}" rules-on-demand; do
   if [ -e "$LIVE/$f" ]; then "${NAMES[@]}" check "$LIVE/$f" || fail=1; fi
 done
@@ -37,14 +56,18 @@ mv "$tmp/private-settings.json" "$LIVE/private/settings.json"
 mv "$tmp/private-settings.local.json" "$LIVE/private/settings.local.json"
 
 mkdir -p "$REPO/claude-home"
+# ponytail: copy-over, no delete - stale files show up in git status, delete by hand
+mkdir -p "$REPO/claude-home/agents" "$REPO/claude-home/rules"
+# Spec 0081 AC-6: live skillOverrides go into the active profile, each live rule back where the profile takes it from.
+if [ "$HAS_CONFIG" = 1 ]; then
+  "${CONFIG[@]}" sync-profile "$tmp/settings.json"
+else
+  cp -a "$LIVE/rules/." "$REPO/claude-home/rules/"
+fi
 cp "$LIVE/CLAUDE.md"            "$REPO/claude-home/CLAUDE.md"
 mv "$tmp/settings.json"         "$REPO/claude-home/settings.json"
 mv "$tmp/settings.local.json"   "$REPO/claude-home/settings.local.json"
-
-# ponytail: copy-over, no delete - stale files show up in git status, delete by hand
-mkdir -p "$REPO/claude-home/agents" "$REPO/claude-home/rules"
 cp -a "$LIVE/agents/." "$REPO/claude-home/agents/"
-cp -a "$LIVE/rules/."  "$REPO/claude-home/rules/"
 # Spec 0077 AC-7: the rules a skill or a pointer line loads; missing before the first install after 0077.
 if [ -d "$LIVE/rules-on-demand" ]; then
   mkdir -p "$REPO/claude-home/rules-on-demand"
@@ -71,12 +94,14 @@ done
 orphans=0
 for d in agents rules rules-on-demand; do
   [ -d "$REPO/claude-home/$d" ] || continue
+  # spec 0081: with profiles, sync-profile named the rules/ orphans (a core rule the profile does not list is none)
+  [ "$d" = rules ] && [ -d "$REPO/profiles" ] && [ "$HAS_CONFIG" = 1 ] && continue
   while IFS= read -r rel; do
     [ -e "$LIVE/$d/$rel" ] && continue
     orphans=$((orphans + 1))
     [ "$orphans" -le 10 ] && \
       echo "  ORPHAN: $d/$rel is tracked here but gone from $LIVE/$d - delete it by hand"
-  done < <(cd "$REPO/claude-home/$d" && find . -type f -printf '%P\n')
+  done < <(cd "$REPO/claude-home/$d" && find . -type f | sed 's|^\./||')
 done
 [ "$orphans" -gt 10 ] && echo "  ... and $((orphans - 10)) more"
 [ "$orphans" -gt 0 ] && echo "  $orphans orphan(s); nothing was auto-deleted. A full list means $LIVE is incomplete, not that this repo is stale."

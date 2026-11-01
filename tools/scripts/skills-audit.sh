@@ -19,11 +19,13 @@ MANIFEST="$HOME/.claude/.skills-manifest.json"
 
 # skill -> a string that MUST still be present. Add a row when you patch a skill you do
 # not own. If the string vanishes, the skill was re-installed over your fix.
-declare -A OVERRIDES=(
-  ["industrial-brutalist-ui"]="LOCAL OVERRIDE"
-  ["minimalist-ui"]="LOCAL OVERRIDE"
-  ["high-end-visual-design"]="LOCAL OVERRIDE"
-)
+# A case function, not `declare -A`: the Mac's bash 3.2 has no associative arrays (spec 0082 AC-1).
+OVERRIDES="industrial-brutalist-ui minimalist-ui high-end-visual-design"
+override() {
+  case "$1" in
+    industrial-brutalist-ui|minimalist-ui|high-end-visual-design) echo "LOCAL OVERRIDE" ;;
+  esac
+}
 
 REPOS=(
   "$HOME/.claude/skills/jjstack"
@@ -72,11 +74,11 @@ import json;print(len(json.load(open('$MANIFEST'))))") skills)"
 
     echo
     echo "== local overrides on skills we do not own =="
-    for s in "${!OVERRIDES[@]}"; do
+    for s in $OVERRIDES; do
       f="$SKILLS/$s/SKILL.md"
       if [ ! -f "$f" ]; then
         printf "  %-28s SKILL GONE\n" "$s"
-      elif grep -qF "${OVERRIDES[$s]}" "$f"; then
+      elif grep -qF "$(override "$s")" "$f"; then
         printf "  %-28s intact\n" "$s"
       else
         printf "  %-28s *** OVERRIDE LOST - skill was replaced, re-apply the patch ***\n" "$s"

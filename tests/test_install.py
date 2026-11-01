@@ -33,8 +33,21 @@ class Scratch(unittest.TestCase):
         self.hooks.mkdir(exist_ok=True)
         for h in self.hooks.iterdir():
             h.unlink()
+        self.profile()
 
-    def install(self, name, staged=False, *args):
+    def profile(self, name="engineer", **over):
+        """spec 0081: the scratch repo's profile lists every core rule it holds, so a rule a test adds installs."""
+        rules = sorted(p.name for p in (self.repo / "claude-home" / "rules").glob("*.md"))
+        p = {"name": name, "description": "d", "owner": True, "base": "", "skills": {}, "rules": rules, "hooks_off": [],
+             "editable": ["**"], **over}
+        (self.repo / "profiles" / name / "rules").mkdir(parents=True, exist_ok=True)
+        (self.repo / "profiles" / name / "profile.json").write_text(json.dumps(p))
+
+    def install(self, name, staged=False, *args, accept=True):
+        # spec 0081 AC-5: these installs go over a live tree on purpose; the overwrite check has its own tests
+        if accept:
+            args = ("--accept-overwrite", *args)
+        self.profile()
         home = self.tmp / f"home-{name}"
         live = home / ".claude"
         (live / "private").mkdir(parents=True, exist_ok=True)
@@ -116,6 +129,23 @@ class TestWorkflowLinks(Scratch):
         self.assertEqual(link.resolve(), (self.repo / "claude-home" / "workflows" / "a").resolve())
         self.assertFalse((live / "workflows" / "b").is_symlink())
         self.assertIn("SKIP workflows/b (a real file is already there)", r.stdout)
+
+    # covers: spec 0082 AC-2 (the realpath compare that replaced readlink -f: a link spelled through another path
+    # to the same folder is left alone; a link elsewhere is relinked)
+    def test_same_target_link_left_alone(self):
+        for name in ("a", "b"):
+            (self.repo / "claude-home" / "workflows" / name).mkdir(parents=True)
+        alias = self.tmp / "alias"
+        alias.symlink_to(self.repo)
+        wf = self.tmp / "home-same" / ".claude" / "workflows"
+        wf.mkdir(parents=True)
+        (wf / "a").symlink_to(alias / "claude-home" / "workflows" / "a")
+        (wf / "b").symlink_to(self.tmp)
+        _, _, r = self.install("same")
+        self.assertNotIn("  workflows/a\n", r.stdout, r.stdout + r.stderr)
+        self.assertEqual(os.readlink(wf / "a"), str(alias / "claude-home" / "workflows" / "a"))
+        self.assertIn("  workflows/b\n", r.stdout, r.stdout + r.stderr)
+        self.assertEqual((wf / "b").resolve(), (self.repo / "claude-home" / "workflows" / "b").resolve())
 
 
 class TestRulesOnDemand(Scratch):
@@ -199,6 +229,29 @@ class TestHookFiles(Scratch):
         self.assertIn("spec-paths: all self-checks passed", r.stdout)
         self.assertNotIn("sound.oga", r.stderr)
         self.assertNotIn("jjstack", r.stderr)
+
+
+class TestPythonVersion(Scratch):
+    # covers: spec 0082 AC-11 (a python3 older than 3.10 stops install first: exit 1, the brew hint, nothing written)
+    def test_old_python_refused(self):
+        fake = self.tmp / "bin"
+        fake.mkdir()
+        real = shutil.which("python3")
+        # the version check is the one `python3 -c` holding version_info; every other call runs the real python3
+        (fake / "python3").write_text(f'#!/bin/sh\ncase "$2" in *version_info*) exit 1 ;; esac\nexec {real} "$@"\n')
+        (fake / "python3").chmod(0o755)
+        home = self.tmp / "home-old"
+        env = {**os.environ, "HOME": str(home), "CLAUDE_LIVE_DIR": str(home / ".claude"), "GIT_CONFIG_GLOBAL": "/dev/null",
+               "PATH": f"{fake}{os.pathsep}{os.environ['PATH']}"}
+        r = subprocess.run(["bash", str(self.repo / "tools/bin/install.sh"), "--dry-run"], env=env, capture_output=True,
+                           text=True, stdin=subprocess.DEVNULL, timeout=120)
+        self.assertEqual((r.returncode, r.stderr.strip(), r.stdout), (1, "python3 3.10+ needed (on a Mac: brew install python)", ""))
+        self.assertFalse(home.exists())
+
+    def test_current_python_passes(self):
+        home, live, r = self.install("py-ok")
+        self.assertNotIn("python3 3.10+ needed", r.stderr)
+        self.assertIn("installing", r.stdout)
 
 
 class TestDryRun(unittest.TestCase):

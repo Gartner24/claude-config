@@ -23,6 +23,7 @@ Linked from `claude-home/skills/`; editing the repo copy is live.
 | `design` | Runs the design pipeline end to end - detect the stack, ground the direction in real shipped UI, lock it as portable tokens, source real components, assemble, add imagery and motion, then audit before presenting. |
 | `design-gate` | Audits a built UI surface blind - the AI-tell checklist, token portability, accessibility, contrast, responsive behaviour, motion discipline and performance - and writes .design/audit-report.md. |
 | `improve-my-system` | Weekly review of your own session history. |
+| `instagram-reels-design` | Instagram Reels design layer for CapCut perfume and beauty videos. |
 | `lead-finder` | Given a city and a trade, list 10 to 20 local businesses with weak web presence (no website, no booking, stale blog, another agency's credit) with the evidence for each. |
 | `nano-banana` | Generate hyper-realistic, tightly-controlled images (product shots, hero frames, brand imagery, blog images) using Google's Nano Banana (Gemini image model) via structured JSON prompting that neutralizes the plastic "AI look." Use in /brand-system (mascot/logo/imagery - replaces the manual step) and for /new-site + content-ops assets. |
 | `project-finder` | Use when the user needs to find, choose, or validate a topic for a thesis, capstone, degree project, or research proposal - topic open or undecided, ideas discarded, "what should I do my thesis on", "is this idea original", "does this already exist", "will this be accepted as a thesis". |
@@ -369,6 +370,14 @@ License: MIT.
 |---|---|---|
 | `design-motion-principles` | downloaded | Motion and interaction design expert based on Emil Kowalski, Jakub Krehel, and Jhey Tompkins' techniques. |
 
+### lemomo-ai/lemo-opuscar
+
+License: MIT.
+
+| Skill | Status | What it does |
+|---|---|---|
+| `lemo-opuscar` | edited | Direct and produce a short film made entirely in code, in one of the styles of the Lemo-Opuscar library (e.g. Impasto Oil Painting 油画厚涂, Watercolor Brush 水彩笔刷, Ukiyo-e 浮世绘, Satellite Briefing 卫星简报, Exploded Teardown 产品拆解). Use when the user asks for a video, film, short, promo, explainer or animation (视频、短片、动画、宣传片) in a named style, including explainers built from real material such as satellite imagery, laser scans, CAD files or archive scans (数据解说、科普、产品拆解), and new films cut from real archive footage and documents (剪辑与纪实, e.g. 用档案影像剪一支新闻片); when they want a film about their own topic and haven't chosen a style (help them choose); when they want to change a style into their own, make their own style from a blank page, or use a style they saved (改风格、从空白开始、我的风格); when they start the skill without saying what they want; or when they ask which film styles there are. Not for plain editing, trimming or converting the user's existing video files. |
+
 ### Leonxlnx/taste-skill
 
 License: unknown.
@@ -402,6 +411,25 @@ License: Apache-2.0.
 | Skill | Status | What it does |
 |---|---|---|
 | `impeccable` | downloaded | Use when the user wants to design, redesign, shape, critique, audit, polish, clarify, distill, harden, optimize, adapt, animate, colorize, extract, or otherwise improve a frontend interface. |
+
+### remotion-dev/skills
+
+License: none (owner yes 2026-10-29).
+
+| Skill | Status | What it does |
+|---|---|---|
+| `remotion-best-practices` | downloaded | Router for all Remotion skills |
+| `remotion-captions` | downloaded | Transcribing, displaying and animating captions |
+| `remotion-create` | downloaded | Create a new Remotion video |
+| `remotion-docs` | downloaded | Search Remotion documentation |
+| `remotion-interactivity` | downloaded | Structure Remotion markup for interactivity |
+| `remotion-maps` | downloaded | Remotion Map animation knowledge |
+| `remotion-markup` | downloaded | Content, animation and effects best practices |
+| `remotion-multimedia` | downloaded | Interacting with Mediabunny |
+| `remotion-render` | downloaded | Export a Remotion video |
+| `remotion-saas` | downloaded | Build an app with Remotion |
+| `remotion-studio` | downloaded | Preview a Remotion video |
+| `remotion-upgrade` | downloaded | Upgrade Remotion, and related packages |
 
 ### RinDig/icm-architect
 

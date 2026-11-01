@@ -129,7 +129,13 @@ root=$(git rev-parse --show-toplevel 2>/dev/null)
 # "run /scope first" here used to compete with it. Same status call and flags as that hook.
 src=$(printf '%s' "$input" | python3 -I -c "import json,sys; d=json.load(sys.stdin); print(d.get('source',''), d.get('cwd',''), sep='\n')" 2>/dev/null)
 slot=0
-timeout 2 "$HOME/.claude/skills/jjstack/bin/jjstack-rollover-slot" --cwd "${src#*$'\n'}" status --max-age-days 1 >/dev/null 2>&1 && slot=1
+# Spec 0082 AC-2: the Mac has no `timeout`; Homebrew coreutils names it gtimeout, else the command runs alone.
+with_timeout() {
+  if command -v timeout >/dev/null 2>&1; then timeout "$@"
+  elif command -v gtimeout >/dev/null 2>&1; then gtimeout "$@"
+  else shift; "$@"; fi
+}
+with_timeout 2 "$HOME/.claude/skills/jjstack/bin/jjstack-rollover-slot" --cwd "${src#*$'\n'}" status --max-age-days 1 >/dev/null 2>&1 && slot=1
 if [ "${src%%$'\n'*}" = clear ] && [ "$slot" = 1 ]; then
   root=
 fi

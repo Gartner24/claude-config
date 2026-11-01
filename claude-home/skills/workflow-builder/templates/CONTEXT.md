@@ -1,15 +1,15 @@
-<!-- follows icm-architect e16cafe6a664dcf6d787a726b452adba77d913f4 -->
+<!-- follows icm-architect 8bc2f5610d3843b3ffa31a142effe6b6337fef3c -->
 # {{name}}
 
 {{The job in one or two sentences, and what done looks like.}}
 
 ## Pipeline
-Numbered folders carry the order; each stage's `CONTEXT.md` says exactly what to read and write.
+Numbered folders carry the order; each stage's `CONTEXT.md` says exactly what to read, write and check.
 
-| Stage | Job | Input | Output | Human check |
-|---|---|---|---|---|
-| `01_{{stage}}` | {{job}} | {{input}} | {{output file}} | {{the one check}} |
-| `02_{{stage}}` | {{job}} | `01_{{stage}}` output | {{output file}} | {{the one check}} |
+| Stage | Job |
+|---|---|
+| `01_{{stage}}` | {{job}} |
+| `02_{{stage}}` | {{job}} |
 
 ## How to start
 `/{{name}} {{named args}}` in the repo to run on (`--limit 1` runs one item of the fan out stage). The starter skill
@@ -17,8 +17,9 @@ Numbered folders carry the order; each stage's `CONTEXT.md` says exactly what to
 straight through; nothing asks you mid run.
 
 ## Where runs write
-`<repo>/.workflow/runs/{{name}}/<run id>/NN_<stage>/output/`, git ignored. Read each stage's output against its
-human check after the run. Run folders stay until you delete them.
+`<repo>/.workflow/runs/{{name}}/<run id>/NN_<stage>/output/`, git ignored. A stage is done when its `output/` holds
+its file and any `check.md` there says `pass`; read each output against its stage's check after the run. Run folders
+stay until you delete them.
 
 ## Owner steps
 - Before the run: {{questions, choices; or "none"}}

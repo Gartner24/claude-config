@@ -55,7 +55,7 @@ registered in `config/routing.md` + `config/manifest.json`, and referenced by th
 | **HeyGen / Hedra** | Not skills - avatar-video SaaS. |
 | **Codrops "Claude mascot with SVG+GSAP"** | Not a skill - a blog article. The technique is covered by `gsap-core` + `gsap-timeline`. |
 | **35 of 47 marketingskills** | copywriting, copy-editing, content-strategy, social, emails, seo-audit, ai-seo, programmatic-seo, schema, site-architecture, image, video, etc. Covered by `content-ops` / `article-writing` / `seo-ops` / `voice-dna`; `image` and `video` would also collide by name. 12 adopted - see SKILLS.md. |
-| **"42 skills" IG carousel** (juanbertorello.ia) | **Unattributable.** Slides 2-6 of 7 seen; slide 1 (the source) missing. ~22 of the 42 map to marketingskills / gstack / taste-skill / Anthropic's canvas-design. The other 20 have no located source - full list in the carousel section below. Get slide 1 before re-evaluating. |
+| **"42 skills" IG carousel** (an Instagram creator's account) | **Unattributable.** Slides 2-6 of 7 seen; slide 1 (the source) missing. ~22 of the 42 map to marketingskills / gstack / taste-skill / Anthropic's canvas-design. The other 20 have no located source - full list in the carousel section below. Get slide 1 before re-evaluating. |
 
 ### The 20 unsourced names from that carousel
 

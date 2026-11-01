@@ -1397,3 +1397,80 @@ You asked for the gaps people's usual posts expose, then a faster skill with not
 - [x] Test it: `/test watch-reels gaps and speed` (12 tests added, 13 mutants red; suite 235 ok)
 - [x] Sync: `/sync`
 Source: your message 2026-10-26 ("Any gaps in the skill? ... optimize the skill so we dont loose anything").
+
+### 121. Bump the icm-architect pin to upstream HEAD · done
+`tools/config/manifest.json` pinned `icm-architect` at `e16cafe6a664dcf6d787a726b452adba77d913f4`; upstream HEAD on 2026-10-27 was `8bc2f5610d3843b3ffa31a142effe6b6337fef3c`.
+**Done when:** the manifest pin equals upstream HEAD at bump time, the scan is clean, and the suite is green.
+- [x] Read the upstream diff and scan it: skillspector (no new findings, PR #240)
+- [x] Bump the pin: manifest at `8bc2f56` (PR #240, merged)
+- [x] Install it live (installed 2026-10-29 from `git archive 8bc2f56`, hash equals the manifest; `update --apply` wrote a wrong patch after the merged pin bump, undone; drift: none)
+Source: your message 2026-10-27; row 120. The template check this row named moved to row 123.
+
+### 120. Rule: design workflows from the current icm-architect · done
+Before Claude designs a workflow, playbook, pipeline or folder layout (`/architect`, `/workflow-builder`, or plain chat), it compares the installed `icm-architect` pin with upstream HEAD, reads the upstream version when they differ, says what changed, and bases the design on it. Seen 2026-10-27: a "runner" command was proposed for a business project without checking the ICM layout adopted in specs 0072, 0076 and 0077.
+**Done when:** `claude-home/rules-on-demand/icm-current.md` exists, `architect` and `workflow-builder` load it from `map.json`, a Routing line in `claude-home/CLAUDE.md` names it for plain chat, and the suite is green.
+- [x] Write the rule and wire it: `claude-home/rules-on-demand/icm-current.md`, `map.json`, Routing line, tests (PR #238, merged)
+- [x] Install it live: pull main into your checkout, then `tools/bin/install.sh` (installed 2026-10-29 with profiles; `icm-current.md` live, wired in `map.json` and `CLAUDE.md`)
+- [x] Verify it: `/check verify icm current` (2026-10-30: the live `skill-rules.py` adds the rule for `architect` and `workflow-builder`, not for `test`; `CLAUDE.md` Routing names it; pin `8bc2f56` equals upstream HEAD)
+Source: your message 2026-10-27 ("this kind of updates need to be based on ICM structure (the updated structure, they update that a lot)"); specs 0072, 0076 AC-10, 0077.
+
+### 122. watch-reels sees the whole video · done
+Dense full size frames, a bigger speech model with a name list, and a Sonnet screen pass that writes `screens.md`, so names and links shown between cuts are not lost.
+**Done when:** spec 0080 AC-1 to AC-11 hold in the live skill.
+- [x] Design it (spec): `/architect watch-reels full watch` (spec [0080](../specs/0080-watch-reels-full-watch.md), accepted 2026-10-27)
+- [x] Build it: `/develop watch-reels full watch` (PR #242, merged 2026-10-29; live try on DegVQaYOnqU read the Blender MCP screens)
+- [x] Test it: AC-9 tests landed with the build (`test_watch_reels` 56 of 56; the mlx path was not run)
+- [x] Install it live: pull main into your checkout, then `tools/bin/install.sh` (installed 2026-10-29; `vocabulary.txt` is live)
+- [x] Verify it: `/check verify watch-reels full watch` (2026-10-30, live skill on reel DegVQaYOnqU: 40 frames at 1080x1920 incl. cut and last frames, sheet 16 of 40, speech `large-v3-turbo`, on-screen text read; Sonnet screen pass wrote 27 lines and read "Seedance 2.5" and the Blender MCP links where speech said "C-Dance". Not exercised live: a photo slide, `--keep-video`, `--redo`, the small model fallback; those are covered by the 56 tests)
+Known gap: speech still writes "Seedance" as "C-Dance 2.5" even with the name list (PR #242). spec 0080 · code in `claude-home/skills/watch-reels/`
+Source: spec 0080; PR #242.
+
+### 123. Port the workflow-builder templates to icm-architect 8bc2f56 · done
+The four workflow-builder templates still say they follow `e16cafe`. Upstream `8bc2f56` renamed "Human check" to "Check", added a `check.md` pass rule and changed the pipeline table, and `tools/check.py` enforces the old shape. Porting is your call (spec 0076 AC-10).
+**Done when:** every template's follows line names the pinned icm-architect, `check.py` enforces the new shape, and review-fix and restructure-check still pass it; or you decide to stay on `e16cafe` and the reason is written in spec 0076.
+- [x] Design it (spec): [0076 amendment 2026-10-30](../specs/0076-workflow-builder.md) (your answer 2026-10-29: port them; brief general D8)
+- [x] Build it: templates follow `8bc2f56`, `Check` section, `Stage | Job` table, stop on a missing input; `check.py` (31 self checks, mutant red); review-fix and restructure-check rewritten, both `ok`; suite 281 ok
+- [x] Install it live and see drift drop the template line (PR #248 merged 2026-10-30; the skill is linked live; drift: none)
+Source: PR #240 "Not in this PR"; row 121.
+
+### 59. Memory tool: claude-mem, MemPalace, graphify or NotebookLM · done
+Pick the memory tool (MemPalace or NotebookLM as a second brain; graphify was removed and claude-mem's data deleted 2026-10-19), weighing usage, token cost, memory quality and code memory.
+**Done when:** one memory setup is chosen with its reasons and installed, or each option is rejected with a reason.
+- [x] Research and compare: `/deep-research memory for Claude Code: claude-mem, MemPalace, graphify, NotebookLM` · report in [docs/research/tool-review-2026-10/](../research/tool-review-2026-10/)
+- [x] Design it (spec): `/architect memory tool` · skipped (trial review 2026-11-01: the `mp` search was last used 2026-10-22, never wired in, results crowded by memory files and old handovers; the report's rule was to adopt only if the trial earns it. Decision: no new memory tool, keep auto memory, briefs and handovers. NotebookLM and claude-mem rejected in the report. Undo: the `mempalace-data` Docker volume and `~/.local/share/mempalace-trial` are kept; delete them with `docker volume rm mempalace-data` when you are sure)
+Source: [brief](../briefs/tool-review-2026-10.md). Every item needs its own deep research and a comparison with the existing setup first; row 66 goes first.
+
+### 118. Profiles: named profiles over one shared core · done
+Every skill, rule, hook and the design pipeline stay one shared core. A named profile picks which skills fire on their own, which owner only rules load, how much Claude asks, and what its user may edit; you switch profiles on one machine (for example a `chip-profile` command), and `/claude-config update` updates only your own profile.
+**Done when:** your profile behaves exactly as today; a second profile installs on a fresh machine with fewer owner only rules and fewer questions at the same quality bar; that profile cannot edit locked core files, and editing one of its rules creates a new `custom-profile-<id>` instead of changing it; switching profiles on one machine works and switches back.
+- [x] Design it (spec): `/architect profiles` (spec [0081](../specs/0081-profiles/index.md), 2026-10-27, Sonnet cross check, 18 fixes applied)
+- [x] Build it: `/develop profiles`
+  - [x] PR A: profile files, install builds from core plus profile, overwrite check (AC-1 to AC-5)
+  - [x] PR A: sync routing, `/claude-config profile` switch and update, band name (AC-6 to AC-9b)
+  - [x] PR B: lock hook, `creator` profile, automatic custom profiles (AC-10 to AC-14)
+  - [x] PR C: CODEOWNERS and the main branch rule set, with probe PRs (AC-15). CODEOWNERS merged (#244); rule set "code owner review (spec 0081 AC-15)" on 2026-11-01 (your "just finish"): a code owner review is required, the admin role bypasses it. The probe by a non admin account waits until your partner has an account with push access
+  - [x] PR D: `creator` from your partner's setup: settings field, overlay and routing rules, private layer, video skills (AC-16 to AC-26; amended 2026-10-27, Sonnet cross check, 15 fixes applied). The Remotion skills have no license; you said install anyway (2026-10-29). There are 12, so 14 video skills in all, not 15
+- [x] Verify it: `/check verify profiles` (2026-10-30: all 4 verify.md commands pass on main; AC-15's rule set stays with the PR C box)
+- [x] Test it: `/test profiles` (tests landed with each PR, every one mutation checked there: PR D 13 mutants red; suite 281 ok on main)
+Merged 2026-10-29: A #239, B #241, D #243, C's CODEOWNERS #244; installed live (#247).
+Source: [brief](../briefs/profiles.md) (D1 to D31); your messages 2026-10-27.
+
+### 119. Mac support: claude-config on macOS and Linux · done
+Your partner uses a Mac. Install, sync, hooks and the scripts they call must run on macOS as well as Linux (old bash 3.2, BSD `sed -i` and `readlink -f`, no `bwrap`).
+**Done when:** `tools/bin/install.sh` and the suite run green on a Mac, and every Linux only part either has a macOS path or says plainly that it is Linux only.
+- [x] Design it (spec): `/architect mac support` (spec [0082](../specs/0082-mac-support.md), 2026-10-27, Sonnet cross check, 11 fixes applied)
+- [x] Build it: `/develop mac support`
+  - [x] PR A: advisory Mac and Linux CI job, portable shell, portability grep test (AC-0 to AC-3b) (#250, merged 2026-10-30; mod tests left out of CI and the pinned Python kept first on PATH, both stated in the PR)
+  - [x] PR B1: RAM watcher, start-gates, review-isolated, Python 3.10 check (AC-4 to AC-6, AC-11) (#251, merged 2026-10-30; also a safe tar fallback for Python 3.10.11)
+  - [x] PR B2: mod, sound, key store, home paths; both jobs green (AC-7 to AC-10, AC-12) (#252, merged 2026-10-30)
+  - [x] Make the Mac job a required check (AC-13) (2026-11-01, your "just finish": `portable (macos-latest)` and `portable (ubuntu-latest)` required in the rule set "main only through a PR", which has no bypass)
+- [x] Verify it: `/check verify mac support` (2026-10-30: CI run on #252 green on macos-latest with bash 3.2, the suite and a real install; live install here still rewrites 34 paths, every self check passes, drift: none. Not tried: a real Mac with Homebrew Python, the Keychain prompt)
+- [x] Test it: `/test mac support` (tests landed with each PR, every one mutation checked: A 16, B1 24, B2 16 mutants red; suite 302 ok)
+Source: [brief](../briefs/profiles.md) D11, D25, D26; your messages 2026-10-27.
+
+### 115. Fix review-isolated with a full /tmp · done · done
+`tools/scripts/review-isolated.py` writes two Read denies per entry of /tmp into one `--settings` argument. At about 1,900 entries that argument passes the kernel's 128 KB limit for one argument, `claude` never starts ("Argument list too long"), and its self-test in the suite goes red. Seen 2026-10-26 with 1,904 entries.
+**Done when:** a review drafts with 5,000 entries in /tmp, and the self-test proves it.
+- [x] Fix: `/debug review-isolated full tmp` (settings go in a file in their own denied /tmp folder, not one argument)
+- [x] Test it: `/test review-isolated full tmp` (self test drafts with 5,000 /tmp entries; mutant with inline settings goes red)
+Source: suite failure 2026-10-26 (row 114 landing); `tools/scripts/review-isolated.py` `tmp_siblings`.

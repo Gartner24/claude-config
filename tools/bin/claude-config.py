@@ -2,9 +2,16 @@
 """Keep this repo and ~/.claude in step (spec 0048). The /claude-config skill drives it.
 
   sync              ~/.claude -> repo for the copied kinds (tools/bin/sync.sh does the copy)
-  install [--dry-run]  repo -> ~/.claude (tools/bin/install.sh does the copy and the links)
+  install [--profile <name>] [--accept-overwrite] [--dry-run]
+                    repo -> ~/.claude (tools/bin/install.sh does the copy and the links)
+  profile [<name> | update | custom <short>]
+                    list the profiles, switch to one (install, then open a new chat), pull and reinstall the active one,
+                    or make your own copy of the active one and switch to it
+  profile-resolve, stage, overwrite, write-state, profile-owner, sync-profile
+                    steps tools/bin/install.sh and tools/bin/sync.sh call (spec 0081)
   drift             every item in one place and not the other, or different, by kind; exit 1 when any
   hook-files        exit 1 naming each live settings.json hook command whose file is missing (tools/bin/install.sh)
+  author-home       the home path the repo settings.json hooks are committed with, else $HOME (tools/bin/install.sh)
   update --plan     every git entry whose upstream moved, with its changed files; asks nothing
   update --apply <entry> [--resolved]
                     install upstream now for one entry, your patch merged in; exit 2 on a conflict
@@ -18,6 +25,7 @@ CLAUDE_LIVE_DIR and CLAUDE_CONFIG_REPO point it at temp trees, for the self chec
 Python 3 standard library only.
 """
 import datetime
+import difflib
 import fnmatch
 import hashlib
 import json
@@ -40,13 +48,28 @@ IGNORE = REPO / "tools" / "config" / "drift-ignore.json"
 COPIED_FILES = ("hooks/block-destructive.sh", "hooks/review-stack-pre-push", "hooks/plain-panel.py",
                 "hooks/context-monitor.js", "hooks/claude-config-reminder.py",
                 "hooks/workflow-start.sh", "hooks/handover-start.sh", "hooks/no-jjstack-bar.py", "hooks/chain-catch.py",
-                "hooks/live-tick.py", "hooks/skill-rules.py", "MAP.md",
+                "hooks/live-tick.py", "hooks/skill-rules.py", "hooks/profile-lock.py", "hooks/notify-sound.sh", "MAP.md",
                 "scripts/claude-ram-watch.sh")
 # .in_use/<pid> is a marker Claude Code drops in a plugin folder per running session; it used to make 10
 # of 12 plugin base_hash values go stale as soon as any session started.
 SKIP = {".git", "__pycache__", "node_modules", ".plugin-version", ".in_use"}
-# The home path settings.json is committed with; tools/bin/install.sh swaps it for $HOME.
-AUTHOR_HOME = "/home/santiago"
+
+
+def author_home():
+    """The home path settings.json is committed with; tools/bin/install.sh swaps it for $HOME. Spec 0082 AC-10: read
+    from its hook paths (/home/<user> or /Users/<user>), then any other home path in it, else $HOME, so a repo synced
+    on a Mac installs too."""
+    try:
+        d = json.loads((HOME_DIR / "settings.json").read_text())
+        hooks = json.dumps(d.get("hooks") or {})
+    except (OSError, ValueError, AttributeError):
+        return str(Path.home())
+    m = (re.search(r"(/(?:home|Users)/[^/\s\"'\\]+)/\.claude/", hooks)
+         or re.search(r"(/(?:home|Users)/[^/\s\"'\\]+)/", json.dumps(d)))
+    return m.group(1) if m else str(Path.home())
+
+
+AUTHOR_HOME = author_home()
 
 
 def folder_hash(path):
@@ -154,7 +177,20 @@ def tree_files(root):
 
 
 def copied_trees(out):
-    for kind in ("agents", "rules", "rules-on-demand"):
+    # spec 0081: live rules/ is what the active profile builds, not the whole core folder; a repo with no profiles
+    # (the self checks' scratch repos) compares the whole folder
+    p = current_profile()
+    built = {**profile_rules(p), **private_rules()} if p else \
+        {f"rules/{r}": HOME_DIR / "rules" / r for r in tree_files(HOME_DIR / "rules")}
+    for rel in sorted(set(built) | {f"rules/{r}" for r in tree_files(LIVE / "rules")}):
+        live = LIVE / rel
+        if rel not in built:
+            out.append(("rule", rel, "live only"))
+        elif not live.exists():
+            out.append(("rule", rel, "missing live"))
+        elif built[rel].read_bytes() != live.read_bytes():
+            out.append(("rule", rel, "differs"))
+    for kind in ("agents", "rules-on-demand"):
         rels = tree_files(HOME_DIR / kind) | tree_files(LIVE / kind)
         copied_files(sorted(f"{kind}/{r}" for r in rels), out, kind.rstrip("s"))
 
@@ -206,6 +242,8 @@ def settings(out):
                 continue
             live = json.loads(Path(f"{tmp}/s").read_text())
         repo = json.loads(repo_f.read_text().replace(AUTHOR_HOME, str(Path.home())))
+        if f == "settings.json" and current_profile():
+            repo = profile_settings(repo, current_profile())
         live = json.loads(json.dumps(live).replace(str(Path.home()), str(Path.home())))
         for key in ignore:
             drop(live, key)
@@ -336,6 +374,31 @@ def fetch(source, ref, tmp):
     return repo, git("rev-parse", "FETCH_HEAD", cwd=repo).stdout.decode().strip()
 
 
+def safe_extract(t, out):
+    """filter="data" by hand, for a Python without it (3.10.11 on the Mac runner, spec 0082 AC-11): refuse an absolute
+    or `..` name, a link pointing outside out, and anything but a file, folder or link. Checked member by member as
+    it is written, so a link an earlier member made is followed. Modes keep the owner bits."""
+    import tarfile
+    root = os.path.realpath(out)
+
+    def inside(p):
+        p = os.path.realpath(p)
+        return p == root or p.startswith(root + os.sep)
+
+    for m in t.getmembers():
+        dest = os.path.join(root, m.name)
+        link = m.issym() or m.islnk()
+        target = os.path.join(os.path.dirname(dest) if m.issym() else root, m.linkname) if link else dest
+        # target is dest itself for a file or folder: realpath follows a link an earlier member left in the way
+        if (not (m.isfile() or m.isdir() or link) or os.path.isabs(m.name) or ".." in m.name.split("/")
+                or (link and os.path.isabs(m.linkname)) or not inside(os.path.dirname(dest)) or not inside(target)):
+            raise tarfile.TarError(f"unsafe entry in the archive: {m.name}")
+        # as the data filter: no setuid, setgid, sticky or group and other write bits; the owner keeps rwx on a
+        # folder (so its children can be written) and rw on a file
+        m.mode = (m.mode & 0o755) | (0o700 if m.isdir() else 0o600)
+        t.extract(m, root)
+
+
 def export(repo, commit, path, tmp):
     """The folder `path` at commit, copied out with the standard library (no checkout)."""
     import io
@@ -345,7 +408,10 @@ def export(repo, commit, path, tmp):
     if r.returncode:
         raise Gone(f"{path} is not in {commit[:12]}")
     with tarfile.open(fileobj=io.BytesIO(r.stdout)) as t:
-        t.extractall(out, filter="data")
+        if hasattr(tarfile, "data_filter"):
+            t.extractall(out, filter="data")
+        else:
+            safe_extract(t, out)
     if (out / path).is_symlink():
         raise Gone(f"{path} is a link to {os.readlink(out / path)} in {commit[:12]}, renamed upstream")
     return out / path
@@ -1135,6 +1201,394 @@ def docs():
     return 0
 
 
+# ---------------------------------------------------------------- profiles (spec 0081)
+
+PROFILES = REPO / "profiles"
+PROFILE_STATE = LIVE / "state" / "profile.json"
+# the copied files every install needs; the rest of COPIED_FILES may be absent from a scratch copy (the self checks)
+REQUIRED_FILES = ("CLAUDE.md", "settings.json", "hooks/block-destructive.sh", "hooks/review-stack-pre-push",
+                  "hooks/plain-panel.py", "hooks/context-monitor.js", "hooks/handover-start.sh", "hooks/no-jjstack-bar.py",
+                  "hooks/skill-rules.py", "hooks/chain-catch.py", "hooks/live-tick.py")
+# AC-17: the settings a profile may set; model is replaced, the others merge key by key
+SETTINGS_KEYS = ("model", "env", "enabledPlugins", "extraKnownMarketplaces")
+PROFILE_FIELDS = {"name": str, "description": str, "owner": bool, "base": str, "skills": dict, "rules": list,
+                  "hooks_off": list, "editable": list}
+
+
+def profile_names():
+    return sorted(p.parent.name for p in PROFILES.glob("*/profile.json")) if PROFILES.is_dir() else ["engineer"]
+
+
+def load_profile(name):
+    if not PROFILES.is_dir() and name == "engineer":
+        # a repo with no profiles/ (a scratch copy in the self checks) installs as before profiles: every core rule,
+        # the settings as they are
+        skills = json.loads((HOME_DIR / "settings.json").read_text()).get("skillOverrides", {})
+        return {"name": "engineer", "description": "every core rule", "owner": True, "base": "", "skills": skills,
+                "rules": sorted(p.name for p in (HOME_DIR / "rules").glob("*.md")), "hooks_off": [], "editable": ["**"]}
+    return json.loads((PROFILES / name / "profile.json").read_text())
+
+
+def profile_problems(name):
+    """AC-1: every reason the profile file is not valid; [] when it is."""
+    try:
+        p = load_profile(name)
+    except (OSError, ValueError) as e:
+        return [f"{name}: profile.json does not load: {e}"]
+    out = [f"{name}: {k} missing or not {t.__name__}" for k, t in PROFILE_FIELDS.items() if not isinstance(p.get(k), t)]
+    if out:
+        return out
+    if p["name"] != name:
+        out.append(f"{name}: name is {p['name']!r}, not the folder name")
+    out += [f"{name}: rule {r} is not in claude-home/rules/" for r in p["rules"] if not (HOME_DIR / "rules" / r).is_file()]
+    out += [f"{name}: skill {s} is {v!r}, not on or name-only" for s, v in p["skills"].items() if v not in ("on", "name-only")]
+    if p["base"] and not (PROFILES / p["base"] / "profile.json").is_file():
+        out.append(f"{name}: base {p['base']} is not a profile")
+    for h in p["hooks_off"]:
+        if h == "profile-lock.py" or not (HOME_DIR / "hooks" / str(h)).is_file():
+            out.append(f"{name}: hooks_off {h} is not a core hook script that may be turned off")
+    # AC-17: hooks and permissions never come from a profile
+    s = p.get("settings", {})
+    if not isinstance(s, dict):
+        out.append(f"{name}: settings is not an object")
+    else:
+        out += [f"{name}: settings key {k} is not one of {', '.join(SETTINGS_KEYS)}" for k in s if k not in SETTINGS_KEYS]
+        out += [f"{name}: settings {k} is not an object" for k in SETTINGS_KEYS[1:] if not isinstance(s.get(k, {}), dict)]
+    return out
+
+
+def read_state():
+    try:
+        return json.loads(PROFILE_STATE.read_text())
+    except (OSError, ValueError):
+        return None
+
+
+def active_profile():
+    """AC-4: the name in state/profile.json, else engineer."""
+    s = read_state()
+    return s["name"] if isinstance(s, dict) and isinstance(s.get("name"), str) else "engineer"
+
+
+def current_profile():
+    """The active profile's file, or None in a repo with no profiles/ folder."""
+    name = active_profile()
+    return load_profile(name) if PROFILES.is_dir() and (PROFILES / name / "profile.json").is_file() else None
+
+
+def hook_script(cmd):
+    """The file name of the script a hook command runs, interpreter skipped; '' when there is none."""
+    try:
+        words = shlex.split(cmd) if isinstance(cmd, str) else []
+    except ValueError:
+        return ""
+    if len(words) > 1 and os.path.basename(words[0]) in INTERPRETERS:
+        words = words[1:]
+    return os.path.basename(words[0]) if words else ""
+
+
+def settings_keys(p):
+    """AC-17: the profile owned keys it writes, as dotted names (`model`, `env.X`)."""
+    s = p.get("settings", {})
+    return [k if k == "model" else f"{k}.{sub}" for k in SETTINGS_KEYS if k in s
+            for sub in ([None] if k == "model" else s[k])]
+
+
+def profile_settings(d, p):
+    """AC-2, AC-17: skillOverrides from the profile, then the profile's settings (model replaced, the others merged key
+    by key), then every hook command in hooks_off removed (empty groups dropped)."""
+    if p["skills"] or "skillOverrides" in d:
+        d["skillOverrides"] = dict(p["skills"])
+    s = p.get("settings", {})
+    if "model" in s:
+        d["model"] = s["model"]
+    for k in SETTINGS_KEYS[1:]:
+        if k in s:
+            d[k] = {**(d.get(k) or {}), **s[k]}
+    off = set(p["hooks_off"])
+    hooks = d.get("hooks") or {}
+    for event in list(hooks):
+        groups = []
+        for g in hooks[event]:
+            g["hooks"] = [c for c in g.get("hooks", []) if hook_script(c.get("command")) not in off]
+            if g["hooks"]:
+                groups.append(g)
+        if groups:
+            hooks[event] = groups
+        else:
+            del hooks[event]
+    return d
+
+
+def profile_rules(p):
+    """Live rules/ path -> repo source: the core files the profile lists, every core subfolder (rules/ecc/) whole,
+    then the profile's own rules/*.md."""
+    core = HOME_DIR / "rules"
+    out = {f"rules/{r}": core / r for r in p["rules"]}
+    for f in core.rglob("*"):
+        if f.is_file() and f.parent != core:
+            out[f"rules/{f.relative_to(core).as_posix()}"] = f
+    for f in sorted((PROFILES / p["name"] / "rules").glob("*.md")):
+        out[f"rules/{f.name}"] = f
+    return out
+
+
+def private_rules():
+    """AC-23: the person's own rules, ~/.claude/private/rules/**/*.md, subfolders kept (AC-25: a subfolder rule loads)."""
+    root = LIVE / "private" / "rules"
+    return {f"rules/{f.relative_to(root).as_posix()}": f for f in sorted(root.rglob("*.md")) if f.is_file()} \
+        if root.is_dir() else {}
+
+
+def stage(name, out):
+    """AC-2: the profile built into `out`, everything install writes but the private and autoMode steps on settings.json."""
+    out = Path(out)
+    problems = profile_problems(name)
+    if problems:
+        print("\n".join(problems), file=sys.stderr)
+        return 2
+    # a missing one used to stop install half way through the copy; here it stops before anything is written
+    missing = [rel for rel in REQUIRED_FILES if not (HOME_DIR / rel).exists()]
+    if missing:
+        print("\n".join(f"claude-home/{rel} is missing" for rel in missing), file=sys.stderr)
+        return 2
+    p = load_profile(name)
+    rules = profile_rules(p)
+    # AC-23: core, then the profile's own, then the private ones; a private rule never replaces another
+    clash = sorted(set(rules) & set(private_rules()))
+    if clash:
+        print("\n".join(f"private rule {LIVE / 'private' / rel} has the same name as a core or profile rule; rename it"
+                        for rel in clash), file=sys.stderr)
+        return 2
+    rules.update(private_rules())
+    shutil.copy2(HOME_DIR / "CLAUDE.md", out / "CLAUDE.md")
+    for d in ("agents", "rules-on-demand"):
+        if (HOME_DIR / d).is_dir():
+            shutil.copytree(HOME_DIR / d, out / d, symlinks=True)
+    for rel, src in rules.items():
+        (out / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, out / rel)
+    for rel in COPIED_FILES:
+        if (HOME_DIR / rel).exists():
+            (out / rel).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(HOME_DIR / rel, out / rel)
+    d = json.loads((HOME_DIR / "settings.json").read_text().replace(AUTHOR_HOME, str(Path.home())))
+    (out / "settings.json").write_text(json.dumps(profile_settings(d, p), indent=2) + "\n")
+    return 0
+
+
+def changed_lines(live_text, repo_text):
+    """Lines the live copy adds and removes against the build: what an overwrite would lose."""
+    add = rem = 0
+    for line in difflib.ndiff(repo_text.splitlines(), live_text.splitlines()):
+        add += line.startswith("+ ")
+        rem += line.startswith("- ")
+    return add, rem
+
+
+def sha(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def settings_sha(d, ignore):
+    d = json.loads(json.dumps(d))
+    for key in ignore:
+        drop(d, key)
+    return hashlib.sha256(json.dumps(d, sort_keys=True).encode()).hexdigest()
+
+
+def overwrite(out):
+    """AC-5: every live file the staged build would change, and every live rule it would not write. Exit 3 when any.
+    A live file still as the last install wrote it (its hash in state/profile.json `installed`) is not a live change:
+    without that, every profile switch listed the old profile's own rules and settings."""
+    out = Path(out)
+    ignore = json.loads(IGNORE.read_text()) if IGNORE.exists() else []
+    installed = (read_state() or {}).get("installed") or {}
+    items = []
+    for f in sorted(p for p in out.rglob("*") if p.is_file()):
+        rel = f.relative_to(out).as_posix()
+        live = LIVE / rel
+        if not live.is_file():
+            continue
+        if rel == "settings.json":
+            try:
+                a, b = json.loads(live.read_text()), json.loads(f.read_text())
+            except ValueError:
+                # spec 0019 AC-9: an unreadable live file holds nothing sync could carry; install warns and goes on
+                print(f"overwrite: live {rel} does not parse; it is replaced")
+                continue
+            if installed.get(rel) == settings_sha(a, ignore):
+                continue
+            for key in ignore:
+                drop(a, key)
+                drop(b, key)
+            # AC-17: a key the previous profile wrote, still at the value it wrote, is expected to change or go
+            old = read_state() or {}
+            for key in old.get("settings_keys", []):
+                head, _, sub = key.partition(".")
+                was = (old.get("settings") or {}).get(head)
+                was = was.get(sub) if sub and isinstance(was, dict) else was
+                now = a.get(head)
+                now = now.get(sub) if sub and isinstance(now, dict) else now
+                if now == was:
+                    drop(a, key)
+                    drop(b, key)
+                    for d in (a, b):
+                        if d.get(head) == {}:
+                            del d[head]
+            if a != b:
+                add, rem = changed_lines(json.dumps(a, indent=2, sort_keys=True), json.dumps(b, indent=2, sort_keys=True))
+                items.append(f"overwrite: changed {rel} +{add}/-{rem}")
+        elif live.read_bytes() != f.read_bytes() and installed.get(rel) != sha(live):
+            add, rem = changed_lines(live.read_text(errors="replace"), f.read_text(errors="replace"))
+            items.append(f"overwrite: changed {rel} +{add}/-{rem}")
+    for d in ("rules", "rules-on-demand"):
+        for rel in sorted(tree_files(LIVE / d)):
+            if not (out / d / rel).exists() and installed.get(f"{d}/{rel}") != sha(LIVE / d / rel):
+                items.append(f"overwrite: lost {d}/{rel}")
+    print("\n".join(items) if items else "overwrite: nothing to lose")
+    return 3 if items else 0
+
+
+def write_state(name, out=None):
+    """AC-2: the active profile file plus the repo's path, written atomically, and the hash of every file the install
+    just wrote (`out`, the staging folder) so the next overwrite check can tell a live edit from its own files."""
+    p = load_profile(name)
+    # AC-17, AC-23: what install wrote for this profile, so the next install and sync can tell it apart
+    s = dict(p, repo=str(REPO.resolve()), settings_keys=settings_keys(p), private_rules=sorted(private_rules()))
+    if out:
+        ignore = json.loads(IGNORE.read_text()) if IGNORE.exists() else []
+        files = [p.relative_to(out).as_posix() for p in Path(out).rglob("*") if p.is_file()]
+        s["installed"] = {rel: settings_sha(json.loads((LIVE / rel).read_text()), ignore) if rel == "settings.json"
+                          else sha(LIVE / rel) for rel in sorted(files) if (LIVE / rel).is_file()}
+    PROFILE_STATE.parent.mkdir(parents=True, exist_ok=True)
+    tmp = PROFILE_STATE.with_name(PROFILE_STATE.name + ".tmp")
+    tmp.write_text(json.dumps(s, indent=2) + "\n")
+    os.replace(tmp, PROFILE_STATE)
+    return 0
+
+
+def resolve(name):
+    """AC-4, AC-2: the profile install uses, and where the name came from; exit 2 naming the known ones."""
+    src = "--profile"
+    if not name:
+        name, src = active_profile(), ("state/profile.json" if read_state() else "default")
+    if name not in profile_names():
+        print(f"unknown profile: {name}; known: {', '.join(profile_names())}", file=sys.stderr)
+        return 2
+    print(f"{name} {src}")
+    return 0
+
+
+def install(*args):
+    return subprocess.run(["bash", str(REPO / "tools" / "bin" / "install.sh"), *args]).returncode
+
+
+def profile_cmd(rest):
+    """AC-7, AC-8: list, switch, update. A trailing --accept-overwrite goes to install (AC-5, after the user's answers)."""
+    accept = ["--accept-overwrite"] if rest[-1:] == ["--accept-overwrite"] else []
+    rest = rest[:len(rest) - len(accept)]
+    if not rest:
+        cur = active_profile()
+        for n in profile_names():
+            print(f"{'*' if n == cur else ' '} {n}: {load_profile(n).get('description', '')}")
+        return 0
+    if rest == ["update"]:
+        dirty = git("status", "--porcelain", cwd=REPO).stdout.decode().strip()
+        if dirty:
+            print(f"profile update: the repo has uncommitted changes, nothing installed:\n{dirty}")
+            return 1
+        r = git("pull", "--ff-only", cwd=REPO, check=False)
+        if r.returncode:
+            print(f"profile update: git pull failed, nothing installed:\n{(r.stdout + r.stderr).decode().strip()}")
+            return 1
+        return install("--profile", active_profile(), *accept)
+    if len(rest) == 2 and rest[0] == "custom":
+        return custom_profile(rest[1], accept)
+    if len(rest) == 1:
+        if rest[0] not in profile_names():
+            print(f"unknown profile: {rest[0]}; known: {', '.join(profile_names())}", file=sys.stderr)
+            return 2
+        rc = install("--profile", rest[0], *accept)
+        if rc == 0:
+            print(f"profile {rest[0]} active: open a new chat")
+        return rc
+    print(f"claude-config: unknown command: profile {' '.join(rest)}", file=sys.stderr)
+    return 2
+
+
+def custom_profile(short, accept):
+    """AC-12: the person's own copy of the active profile, profiles/custom-<short>/, then switched to it. It is an owner
+    profile limited to its base's edit list plus its own rules; its profile.json changes only through this tool."""
+    if not re.fullmatch(r"[a-z0-9-]{1,30}", short):
+        print(f"profile custom: {short!r} is not 1 to 30 of a-z, 0-9 and -; pick another name", file=sys.stderr)
+        return 2
+    name = f"custom-{short}"
+    dst = PROFILES / name
+    if dst.exists():
+        print(f"profile custom: {name} exists; pick another name", file=sys.stderr)
+        return 2
+    base = active_profile()
+    shutil.copytree(PROFILES / base, dst)
+    p = load_profile(base)
+    p.update(name=name, base=base, owner=True, editable=p["editable"] + [f"profiles/{name}/rules/**"],
+             description=f"{short}'s own copy of {base}")
+    (dst / "profile.json").write_text(json.dumps(p, indent=2) + "\n")
+    print(f"made {dst.relative_to(REPO)} from {base}")
+    rc = install("--profile", name, *accept)
+    if rc == 0:
+        print(f"profile {name} active: open a new chat")
+    return rc
+
+
+def sync_profile(stripped):
+    """AC-6, owner profiles: live skillOverrides go into the active profile's skills, not the core settings.json;
+    each live rule goes back to where the profile takes it from. A new live rule goes to the core and the profile's
+    list, as it reached the core before profiles. A repo with no profiles copies every live rule to the core."""
+    p = current_profile()
+    if p is not None:
+        s = json.loads(Path(stripped).read_text())
+        if "skillOverrides" in s:
+            p["skills"] = s.pop("skillOverrides")
+        # AC-17: a profile owned key goes back into the profile; the core keeps its own value
+        core = json.loads((HOME_DIR / "settings.json").read_text().replace(AUTHOR_HOME, str(Path.home())))
+        for key in settings_keys(p):
+            head, _, sub = key.partition(".")
+            if sub:
+                if sub in (s.get(head) or {}):
+                    p["settings"][head][sub] = s[head].pop(sub)
+                if sub in (core.get(head) or {}):
+                    s.setdefault(head, {})[sub] = core[head][sub]
+            elif head in s:
+                p["settings"][head] = s.pop(head)
+                if head in core:
+                    s[head] = core[head]
+        Path(stripped).write_text(json.dumps(s, indent=2) + "\n")
+    own = PROFILES / p["name"] / "rules" if p else None
+    # AC-23: a private rule never reaches the repo
+    private = {r.removeprefix("rules/") for r in (read_state() or {}).get("private_rules", [])}
+    for rel in sorted(tree_files(LIVE / "rules")):
+        if rel in private:
+            continue
+        src = LIVE / "rules" / rel
+        if own and "/" not in rel and (own / rel).exists():
+            dst = own / rel
+        else:
+            dst = HOME_DIR / "rules" / rel
+            if p and "/" not in rel and rel not in p["rules"]:
+                p["rules"].append(rel)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+    if p is None:
+        return 0
+    (PROFILES / p["name"] / "profile.json").write_text(json.dumps(p, indent=2) + "\n")
+    # tools/bin/sync.sh names the orphans of agents/ and rules-on-demand/; a core rule this profile does not list is not one
+    for rel, src in profile_rules(p).items():
+        if not (LIVE / rel).exists():
+            print(f"  ORPHAN: {src.relative_to(REPO)} is built into {rel} but gone from {LIVE} - delete it by hand")
+    return 0
+
+
 def main(argv):
     if not argv or argv[0] in ("-h", "--help"):
         print(__doc__.strip())
@@ -1142,12 +1596,38 @@ def main(argv):
     cmd, rest = argv[0], argv[1:]
     if cmd == "sync" and not rest:
         return subprocess.run(["bash", str(REPO / "tools" / "bin" / "sync.sh")]).returncode
-    if cmd == "install" and rest in ([], ["--dry-run"]):
-        return subprocess.run(["bash", str(REPO / "tools" / "bin" / "install.sh"), *rest]).returncode
+    if cmd == "install":
+        return install(*rest)
+    if cmd == "profile":
+        return profile_cmd(rest)
+    if cmd == "profile-resolve" and len(rest) <= 1:
+        return resolve(rest[0] if rest else "")
+    if cmd == "stage" and len(rest) == 2:
+        return stage(*rest)
+    if cmd == "overwrite" and len(rest) == 1:
+        return overwrite(rest[0])
+    if cmd == "write-state" and len(rest) in (1, 2):
+        return write_state(*rest)
+    if cmd == "profile-owner" and not rest:
+        p = current_profile()
+        if p is None or p.get("owner") is True:
+            return 0
+        print(f"sync: {p['name']} is not an owner profile; changes reach the repo through a PR")
+        return 3
+    if cmd == "public-rules" and not rest:
+        # AC-23: the live rules sync may read, private ones left out
+        private = set((read_state() or {}).get("private_rules", []))
+        print("\n".join(str(LIVE / "rules" / r) for r in sorted(tree_files(LIVE / "rules")) if f"rules/{r}" not in private))
+        return 0
+    if cmd == "sync-profile" and len(rest) == 1:
+        return sync_profile(rest[0])
     if cmd == "drift" and not rest:
         return drift()
     if cmd == "hook-files" and not rest:
         return hook_files()
+    if cmd == "author-home" and not rest:
+        print(AUTHOR_HOME)
+        return 0
     if cmd == "update" and rest == ["--plan"]:
         return update_plan()
     if cmd == "update" and len(rest) in (2, 3) and rest[0] == "--apply" and rest[2:] in ([], ["--resolved"]):

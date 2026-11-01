@@ -57,7 +57,8 @@ if [ "${1:-}" = --test ]; then
   case "$(hook env -u TM_WORKER_NAME | ctx)" in *"[cut: "*) r=1 ;; *) r=0 ;; esac; ok $r "small slot has no cut note"
   case "$(printf '%s' "$out" | ctx)" in *"$path"*) r=0 ;; *) r=1 ;; esac; ok $r "big slot keeps the slot path"
 
-  touch -d '2 days ago' "$path"
+  # python3, not `touch -d`: GNU only (spec 0082 AC-2)
+  python3 -c 'import os, sys, time; t = time.time() - 2 * 86400; os.utime(sys.argv[1], (t, t))' "$path"
   out="$(hook env -u TM_WORKER_NAME)"
   [ -z "$out" ]; ok $? "slot 2 days old prints nothing"
   case "$(ws clear)" in *"run /scope"*) r=0 ;; *) r=1 ;; esac; ok $r "workflow-start keeps /scope on clear with a stale slot"
@@ -81,7 +82,13 @@ cwd="$(python3 -I -c "import json,sys; print(json.load(sys.stdin).get('cwd') or 
 [ -n "$cwd" ] || exit 0
 rslot="$HOME/.claude/skills/jjstack/bin/jjstack-rollover-slot"
 [ -x "$rslot" ] || exit 0
-path="$(timeout 2 "$rslot" --cwd "$cwd" status --max-age-days 1 2>/dev/null)"
+# Spec 0082 AC-2: the Mac has no `timeout`; Homebrew coreutils names it gtimeout, else the command runs alone.
+with_timeout() {
+  if command -v timeout >/dev/null 2>&1; then timeout "$@"
+  elif command -v gtimeout >/dev/null 2>&1; then gtimeout "$@"
+  else shift; "$@"; fi
+}
+path="$(with_timeout 2 "$rslot" --cwd "$cwd" status --max-age-days 1 2>/dev/null)"
 [ -n "$path" ] || exit 0
 LC_ALL=C.UTF-8 python3 -I - "$path" <<'PY' 2>/dev/null
 import json, sys

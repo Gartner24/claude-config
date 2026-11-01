@@ -46,7 +46,7 @@ so the start skill gets its rules the same way a typed one does.
 1. **One source of truth per kind.** Copied files (`CLAUDE.md`, `settings*.json`, `agents/`, `rules/`,
    `rules-on-demand/`, the listed hooks, `MAP.md`): live wins, edit in `~/.claude`, then `tools/bin/sync.sh`. Linked files
    (`skills/`, `commands/`, `workflows/<name>/`) and mods: repo wins. Downloaded skills: upstream plus a patch.
-   Private files: `~/.claude/private/`, live only. Spec 0081 (once built): files a profile builds (`rules/`,
+   Private files: `~/.claude/private/`, live only. Spec 0081: files a profile builds (`rules/`,
    `settings.json` `skillOverrides`) are repo wins, from core plus `profiles/<name>/`; install lists live changes it
    would overwrite and stops first.
 2. **Downloaded skills are never patched for our rules.** A rule a workflow skill must follow lives in

@@ -37,7 +37,6 @@ function world(on: On, o: { tailscale?: string; answers?: Record<string, string>
   on('ui.toast', (_$, e: any) => { w.toasts.push({ text: e.text, timeoutMs: e.timeoutMs }); return { value: undefined } })
   on('ui.status', () => ({ value: undefined }))
   on('fs.read', (_$, e: any) => {
-    if (e.path.startsWith('/proc/')) return { value: o.cmdline ?? '' }
     const f = w.files.get(e.path) ?? (e.path.includes('/templates/') ? { text: 'TEMPLATE {{lastRequest}}', mtimeMs: 0 } : undefined)
     if (!f) throw new Error(`ENOENT ${e.path}`)
     return { value: f.text }
@@ -57,6 +56,8 @@ function world(on: On, o: { tailscale?: string; answers?: Record<string, string>
   on('process.run', (_$, e: any) => {
     if (e.argv[0] === 'tailscale') return o.tailscale ? ran(0, `${o.tailscale}\n`) : ran(1)
     if (e.argv[0] === 'kill') { w.killed.push(e.argv[1]); return ran(0) }
+    // spec 0082 AC-7: the command line comes from ps, as on a Mac
+    if (e.argv[0] === 'ps') { expect(e.argv).toEqual(['ps', '-o', 'command=', '-p', '42']); return ran(0, o.cmdline ? `${o.cmdline}\n` : '') }
     // stands for server.py --probe HOST PORT TOKEN_FILE NONCE, whose HMAC check has its own self test
     // (server.py --test): ours only when the listener signs with the token in the token file
     if (e.argv[2] === '--probe') {
@@ -247,7 +248,7 @@ test('AC-5 a server of ours on the same address is left alone and its address is
 })
 
 test('AC-5 when Tailscale came up, our loopback server is stopped and a new one starts', async ($, on) => {
-  const w = world(on, { token: 'T0K', tailscale: '100.88.1.2', cmdline: 'python3\0/h/.claude/skills/wf-handoff/server.py\0--bind', answers: { '127.0.0.1': OURS('127.0.0.1') } })
+  const w = world(on, { token: 'T0K', tailscale: '100.88.1.2', cmdline: 'python3 /h/.claude/skills/wf-handoff/server.py --bind 127.0.0.1', answers: { '127.0.0.1': OURS('127.0.0.1') } })
   await start($, w)
   expect(w.fetched.map(u => new URL(u).host)).toEqual(['100.88.1.2:3846', '127.0.0.1:3846'])
   expect(w.killed).toEqual(['42'])
@@ -269,7 +270,7 @@ test('AC-5 a port taken by something else is left alone with one log line', asyn
 })
 
 test('AC-5 a listener that says it is ours without our token gets no kill, no traffic, and file links', { options: { threshold: 200000 } }, async ($, on) => {
-  const w = world(on, { token: 'T0K', tailscale: '100.88.1.2', cmdline: 'python3\0/x/wf-handoff/server.py', answers: { '127.0.0.1': OURS('127.0.0.1', 'FAKE') } })
+  const w = world(on, { token: 'T0K', tailscale: '100.88.1.2', cmdline: 'python3 /x/wf-handoff/server.py', answers: { '127.0.0.1': OURS('127.0.0.1', 'FAKE') } })
   await start($, w)
   expect(w.killed).toEqual([])
   expect(w.spawned).toEqual([])

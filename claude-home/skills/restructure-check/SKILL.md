@@ -27,7 +27,7 @@ Start the `restructure-check` workflow (spec 0076). Its stages and their checks:
 4. Call the Workflow tool with `scriptPath` `~/.claude/workflows/restructure-check/restructure-check.js` and `args`
    `{repo, runId, head, headSha, ownerChecked, base}`.
 5. After the run, for each stage show its output folder `<repo>/.workflow/runs/restructure-check/<run id>/NN_<stage>/output/`,
-   the line under `## Human check` in `~/.claude/workflows/restructure-check/stages/NN_<stage>/CONTEXT.md`, and any `wf/...`
+   the line under `## Check` in `~/.claude/workflows/restructure-check/stages/NN_<stage>/CONTEXT.md`, and any `wf/...`
    branches the run returned. Say any stage marked `failed`. Count the folders in `<repo>/.workflow/runs/restructure-check/` and
    say "<n> run folders kept until you delete them".
 6. After the run: write the `report` field of the `03_judge` stage result, as returned, to

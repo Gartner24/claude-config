@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Store and read the Gemini API key from the GNOME keyring instead of a plaintext export.
+# Store and read the Gemini API key from the GNOME keyring (the Keychain on a Mac) instead of a plaintext export.
 #
 #   gemini-key.sh set     prompt for the key (hidden, never touches shell history)
 #   gemini-key.sh get     print it (used by the skill's generation scripts)
@@ -14,21 +14,36 @@ set -euo pipefail
 SERVICE=gemini
 ATTR=api
 
-have_keyring() { command -v secret-tool >/dev/null && pgrep -x gnome-keyring-d >/dev/null; }
+# Spec 0082 AC-9: the macOS security tool on a Mac; secret-tool and the gnome-keyring check only on Linux.
+mac() { [ "$(uname -s)" = Darwin ]; }
+have_keyring() {
+  if mac; then command -v security >/dev/null
+  else command -v secret-tool >/dev/null && pgrep -x gnome-keyring-d >/dev/null; fi
+}
+lookup() {
+  if mac; then security find-generic-password -s "$SERVICE" -a "$ATTR" -w
+  else secret-tool lookup service "$SERVICE" key "$ATTR"; fi
+}
 
 case "${1:-get}" in
   set)
-    have_keyring || { echo "no gnome-keyring - export GEMINI_API_KEY in your shell instead" >&2; exit 1; }
-    # -p reads from the terminal, so the key never appears in argv or history
-    printf 'Paste the Gemini API key (input hidden), then Enter: ' >&2
-    read -rs KEY; echo >&2
-    [ -n "$KEY" ] || { echo "empty - nothing stored" >&2; exit 1; }
-    printf '%s' "$KEY" | secret-tool store --label='Gemini API key' service "$SERVICE" key "$ATTR"
+    have_keyring || { echo "no keyring - export GEMINI_API_KEY in your shell instead" >&2; exit 1; }
+    if mac; then
+      # -w last makes security prompt for the key itself, so it never appears in argv or history; -U replaces an old one
+      echo "Paste the Gemini API key at the prompt (input hidden), then Enter" >&2
+      security add-generic-password -U -l 'Gemini API key' -s "$SERVICE" -a "$ATTR" -w
+    else
+      # -p reads from the terminal, so the key never appears in argv or history
+      printf 'Paste the Gemini API key (input hidden), then Enter: ' >&2
+      read -rs KEY; echo >&2
+      [ -n "$KEY" ] || { echo "empty - nothing stored" >&2; exit 1; }
+      printf '%s' "$KEY" | secret-tool store --label='Gemini API key' service "$SERVICE" key "$ATTR"
+    fi
     echo "stored in the keyring. Verify with: gemini-key.sh test" >&2
     ;;
 
   get)
-    if have_keyring && secret-tool lookup service "$SERVICE" key "$ATTR" 2>/dev/null; then :
+    if have_keyring && lookup 2>/dev/null; then :
     elif [ -n "${GEMINI_API_KEY:-}" ]; then printf '%s' "$GEMINI_API_KEY"
     else
       echo "no Gemini key found. Run: bash ~/.claude/skills/assets/scripts/gemini-key.sh set" >&2
@@ -89,7 +104,8 @@ PY
     ;;
 
   rm)
-    secret-tool clear service "$SERVICE" key "$ATTR" && echo "removed" >&2
+    if mac; then security delete-generic-password -s "$SERVICE" -a "$ATTR" >/dev/null && echo "removed" >&2
+    else secret-tool clear service "$SERVICE" key "$ATTR" && echo "removed" >&2; fi
     ;;
 
   *) sed -n '2,8p' "$0"; exit 2 ;;

@@ -33,7 +33,10 @@ class TestFast(unittest.TestCase):
         self.dir = tempfile.mkdtemp()
         with open(os.path.join(self.dir, "test_sample.py"), "w") as f:
             f.write(CASES)
-        self.enterContext(mock.patch.object(fast, "HERE", self.dir))
+        # start plus cleanup, not enterContext: that is Python 3.11 and the floor is 3.10 (spec 0082 AC-12)
+        patcher = mock.patch.object(fast, "HERE", self.dir)
+        patcher.start()
+        self.addCleanup(patcher.stop)
         sys.modules.pop("test_sample", None)
 
     def main(self, *argv):

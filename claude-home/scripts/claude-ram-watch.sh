@@ -12,12 +12,15 @@
 # ponytail: 5s polling; switch to cgroup memory.events if a leak ever outruns it.
 set -u
 
+# Linux only (/proc, systemd scopes): a Mac has neither, so the watcher does nothing there (spec 0082 AC-4).
+[ "$(uname -s)" = Darwin ] && exit 0
+
 INTERVAL=${INTERVAL:-5}
 CHILD_MAX_KB=${CHILD_MAX_KB:-2000000}      # 2 GB: any single helper above this is leaking
 MEM_FLOOR_KB=${MEM_FLOOR_KB:-3000000}      # below 3 GB available, kill the biggest helper regardless
 DRY_RUN=${DRY_RUN:-0}
-LOG=${LOG:-/home/santiago/.claude/logs/ram-watch.log}
-UNITDIR=${UNITDIR:-/home/santiago/.config/systemd/user}
+LOG=${LOG:-$HOME/.claude/logs/ram-watch.log}
+UNITDIR=${UNITDIR:-$HOME/.config/systemd/user}
 
 mkdir -p "$(dirname "$LOG")"
 

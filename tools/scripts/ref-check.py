@@ -22,9 +22,19 @@ import tempfile
 from pathlib import Path
 
 TOP = ("bin", "config", "claude-home", "runner", "scripts", "tools", "docs", "tests", "map", "_archive")
-# The fourth is how ~/.claude/settings.json really names the repo (the ~/claude-config link, expanded).
-SPELLINGS = ("~/claude-config/", "$HOME/claude-config/", "/home/santiago/dotfiles/claude-config/",
-             "/home/santiago/claude-config/")
+SPELLINGS = ("~/claude-config/", "$HOME/claude-config/")
+# Spec 0082 AC-10: the repo under any home, Linux or Mac; ~/.claude/settings.json names it this way (the
+# ~/claude-config link, expanded).
+HOME_SPELLING = r"/(?:home|Users)/[^/\s]+/(?:dotfiles/)?claude-config/"
+
+
+def strip_spelling(word, spellings=SPELLINGS):
+    """word without its home spelling of the repo in front, or None when it has none."""
+    for s in spellings:
+        if word.startswith(s):
+            return word[len(s):]
+    m = re.match(HOME_SPELLING, word)
+    return word[m.end():] if m else None
 # History and frozen or vendored trees are not read for references (AC-1).
 SKIP_PREFIX = ("docs/specs/", "docs/reviews/", "docs/briefs/", "_archive/", "claude-home/agents/",
                "claude-home/rules/ecc/", "claude-home/skills/anti-ai-writing/")
@@ -71,13 +81,11 @@ class Tree:
 def repo_target(word):
     """The repo relative path a token points at, or None when it is not a pointer into this repo."""
     word = word.strip("\"'()[]<>,;.:!")
-    for s in SPELLINGS:
-        if word.startswith(s):
-            word = word[len(s):]
-            break
-    else:
-        if not any(word.startswith(t + "/") for t in TOP):
-            return None
+    rest = strip_spelling(word)
+    if rest is not None:
+        word = rest
+    elif not any(word.startswith(t + "/") for t in TOP):
+        return None
     word = word.split("#", 1)[0]
     if not word or re.search(r"[<>{}$|\"']|\.\.\.", word):
         return None
@@ -154,11 +162,9 @@ def settings_pointers(home, spellings=None):
                 walk(x)
         elif isinstance(v, str):
             for word in v.split():
-                if word.startswith(sp):
-                    for s in sp:
-                        if word.startswith(s):
-                            out.append((str(p), word[len(s):]))
-                            break
+                rest = strip_spelling(word, sp)
+                if rest is not None:
+                    out.append((str(p), rest))
     walk(json.loads(p.read_text()))
     return out
 
@@ -219,7 +225,7 @@ def mapped(target, moves):
 def _token(text, path):
     """path appears as a whole path in text, bare or after a home spelling (`~/claude-config/<path>`): not inside a
     longer path, and not as path:line of another pointer."""
-    lead = "".join("|(?<=" + re.escape(s) + ")" for s in SPELLINGS)
+    lead = "".join("|(?<=" + re.escape(s) + ")" for s in SPELLINGS) + "|" + HOME_SPELLING
     return re.search(r"(?:(?<![\w./-])" + lead + ")" + re.escape(path) + r"(?![\w/-]|:\d)", text) is not None
 
 
@@ -408,6 +414,11 @@ def selftest():
                rc == 1 and "-> bin/t.sh" in body and "-> bin/ (moved to tools/bin/)" in body)
         (r2 / "docs/h.md").write_text("Run `~/claude-config/tools/bin/t.sh` from `tools/bin/`.\n")
         expect("folder move: home spelled and folder tokens naming the new path pass", verify(snap2, moves2, r2) == 0)
+    # spec 0082 AC-10: the repo under a Linux or a Mac home, any user, with or without dotfiles/
+    for w in ("/home/bob/dotfiles/claude-config/bin/t.sh", "/home/bob/claude-config/bin/t.sh",
+              "/Users/ann/claude-config/bin/t.sh", "/Users/ann/dotfiles/claude-config/bin/t.sh"):
+        expect(f"home spelling {w}", repo_target(w) == "bin/t.sh" and _token(f"run `{w}`", "bin/t.sh"))
+    expect("another folder named claude-config is not this repo", repo_target("/opt/x/claude-config/bin/t.sh") is None)
     for f in fails:
         print("FAIL", f)
     print("ref-check self check:", "FAILED" if fails else "ok")

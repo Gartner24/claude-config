@@ -3,7 +3,7 @@
 
 `start-gates [--running N]` (N = agents already running, default 0) prints
 `go: <gib> GiB free, 5 hour use <p>%, cores per suite <c>` and exits 0, or `wait: <reason>` and exits 1.
-Free memory is MemAvailable in /proc/meminfo; the 5 hour use is read from your account the way the retired
+Free memory is MemAvailable in /proc/meminfo (on a Mac, from sysctl and vm_stat); the 5 hour use is read from your account the way the retired
 runner's usage.py read it (one GET, no cache). The login token is read for that one request and never printed,
 logged or written. A value that cannot be read is unknown, and unknown means wait. `--test` runs the self checks.
 """
@@ -38,6 +38,30 @@ def free_gb(path=MEMINFO):
     except (OSError, ValueError, IndexError):
         pass
     return None
+
+
+def mac_free_gb(memsize, vm_stat):
+    """Darwin (spec 0082 AC-5): `sysctl -n hw.memsize` and `vm_stat` output; (free + inactive + speculative pages)
+    times the page size from vm_stat's first line, in GiB, never above the total; None when unread."""
+    try:
+        total = int(memsize.strip())
+        page = int(re.search(r"page size of (\d+) bytes", vm_stat.split("\n", 1)[0]).group(1))
+        pages = dict(re.findall(r"^(Pages [a-z ]+):\s+(\d+)\.", vm_stat, re.M))
+        avail = sum(int(pages[k]) for k in ("Pages free", "Pages inactive", "Pages speculative")) * page
+    except (ValueError, AttributeError, KeyError):
+        return None
+    return min(avail, total) / 1024 ** 3
+
+
+def read_free_gb():
+    if sys.platform != "darwin":
+        return free_gb()
+    try:
+        out = [subprocess.run(c, capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, check=True).stdout
+               for c in (["sysctl", "-n", "hw.memsize"], ["vm_stat"])]
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return mac_free_gb(*out)
 
 
 def token(env):
@@ -131,7 +155,9 @@ def main(argv):
         return self_test()
     if a.running < 0:
         ap.error("--running must be 0 or more")
-    code, line = gates(a.running, free_gb(), five_hour, len(os.sched_getaffinity(0)))
+    # a Mac has no sched_getaffinity (spec 0082 AC-5)
+    cpus = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else os.cpu_count() or 1
+    code, line = gates(a.running, read_free_gb(), five_hour, cpus)
     print(line)
     return code
 
@@ -170,6 +196,31 @@ def self_test():
         with open(mem, "w") as f:
             f.write("MemTotal: 1 kB\n")
         check("no MemAvailable line", free_gb(mem), None)
+
+        # spec 0082 AC-5: an Apple silicon vm_stat, 16384 byte pages; 65536 + 98304 + 32768 pages = 3.0 GiB
+        vm = ("Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                               65536.\n"
+              "Pages active:                            400000.\nPages inactive:                           98304.\n"
+              "Pages speculative:                        32768.\nPages throttled:                              0.\n"
+              "Pages wired down:                        150000.\n")
+        check("mac 3.0 GiB read", mac_free_gb("17179869184\n", vm), 3.0)
+        check("mac page size from line 1", mac_free_gb("17179869184\n", vm.replace("16384", "4096", 1)), 0.75)
+        check("mac capped at total", mac_free_gb("1073741824\n", vm), 1.0)
+        check("mac no speculative line", mac_free_gb("17179869184\n", vm.replace("Pages speculative", "Pages x")), None)
+        check("mac no page size", mac_free_gb("17179869184\n", vm.split("\n", 1)[1]), None)
+        check("mac no total", mac_free_gb("", vm), None)
+        # the Darwin branch runs sysctl and vm_stat, faked here on PATH
+        fake = os.path.join(tmp, "bin")
+        os.makedirs(fake)
+        for name, body in (("sysctl", "17179869184"), ("vm_stat", vm)):
+            with open(os.path.join(fake, name), "w") as f:
+                f.write(f"#!/bin/sh\ncat <<'EOF'\n{body}\nEOF\n")
+            os.chmod(os.path.join(fake, name), 0o755)
+        saved = sys.platform, os.environ["PATH"]
+        sys.platform, os.environ["PATH"] = "darwin", fake + os.pathsep + os.environ["PATH"]
+        try:
+            check("darwin reads sysctl and vm_stat", read_free_gb(), 3.0)
+        finally:
+            sys.platform, os.environ["PATH"] = saved
 
         cfg = os.path.join(tmp, "cfg")
         os.makedirs(cfg)

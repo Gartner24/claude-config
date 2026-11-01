@@ -76,6 +76,22 @@ def via():
     return None
 
 
+def profile():
+    # spec 0081 AC-9: the active profile install wrote; None when there is no state file
+    live = os.environ.get("CLAUDE_LIVE_DIR") or (os.environ.get("HOME") and os.path.join(os.environ["HOME"], ".claude"))
+    if not live:
+        return None
+    try:
+        with open(os.path.join(live, "state", "profile.json")) as f:
+            name = json.load(f).get("name")
+    except (OSError, ValueError, AttributeError):
+        return None
+    return clean(name) if isinstance(name, str) and name else None
+
+
 if __name__ == "__main__":
     cwd = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
-    print(json.dumps({"folder": clean(os.path.basename(cwd.rstrip("/")) or "/"), "git": git(cwd), "via": via()}))
+    out = {"folder": clean(os.path.basename(cwd.rstrip("/")) or "/"), "git": git(cwd), "via": via()}
+    if profile():
+        out["profile"] = profile()
+    print(json.dumps(out))
