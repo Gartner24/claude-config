@@ -35,7 +35,10 @@ outside="$(git log -m --format= --name-only --no-renames "$range" | grep -v -e '
 trusted="$(mktemp -d)"
 trap 'rm -rf "$trusted"' EXIT
 src="$(git -C "$HERE/../.." symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/main)"
-git -C "$HERE/../.." archive "$src" _archive/runner tools/scripts/private-names.py | tar -x -C "$trusted" || die "cannot read the scanners from $src"
+# A file, not a pipe: a pipe lets tar exit early and kill git archive with SIGPIPE under pipefail (suspected flake).
+git -C "$HERE/../.." archive -o "$trusted/scanners.tar" "$src" _archive/runner tools/scripts/private-names.py || die "cannot read the scanners from $src"
+tar -x -f "$trusted/scanners.tar" -C "$trusted" || die "cannot read the scanners from $src"
+rm -f "$trusted/scanners.tar"
 python3 -I "$trusted/tools/scripts/private-names.py" check-range "origin/$default" "$old" >&2 || die "private names scan hit"
 python3 -I - "$trusted/_archive/runner" "origin/$default" "$old" <<'EOF' || die "attribution scan hit"
 import subprocess, sys
