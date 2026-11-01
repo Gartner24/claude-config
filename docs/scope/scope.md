@@ -134,7 +134,7 @@ Closed rows (done or dropped, no open box) live in [done.md](done.md).
 | 111 | Review leftovers 2026-10-23: destructive guard pathspec forms | Release 10 | done |
 | 113 | Review leftovers 2026-10-23 (late): guard spellings and here-strings | Release 10 | done |
 | 114 | watch-reels skill: whole posts, sound, and batches | Release 10 | done |
-| 115 | Fix review-isolated with a full /tmp | Release 10 | in-progress |
+| 115 | Fix review-isolated with a full /tmp | Release 10 | done |
 | 116 | watch-reels: "comment X" offers without commenting | Release 10 | done |
 | 117 | watch-reels: on-screen text, Spanish offers, faster batches | Release 10 | done |
 | 112 | Assertion Guardian: remaining hidden command forms | Release 10 | done |
@@ -208,13 +208,6 @@ The two workflows you asked to be reminded of: `review-fix` (fix a PR's review f
 - [x] Run restructure-check on a real PR (PRs #205 and #210, 2026-10-22 and 2026-10-23)
 - [ ] Run review-fix on a real PR (still owed: your first `/review-fix <pr>` on a real review) · waits on you
 Source: [brief](../briefs/icm-restructure.md) "Workflows"; your messages 2026-10-22.
-
-### 115. Fix review-isolated with a full /tmp · in-progress
-`tools/scripts/review-isolated.py` writes two Read denies per entry of /tmp into one `--settings` argument. At about 1,900 entries that argument passes the kernel's 128 KB limit for one argument, `claude` never starts ("Argument list too long"), and its self-test in the suite goes red. Seen 2026-10-26 with 1,904 entries.
-**Done when:** a review drafts with 5,000 entries in /tmp, and the self-test proves it.
-- [ ] Fix: `/debug review-isolated full tmp` (draft PR #246, 2026-10-29: settings passed as a file; not merged)
-- [ ] Test it: `/test review-isolated full tmp` (in PR #246: self test drafts with 5,000 entries, mutant red, suite 251 ok; not merged)
-Source: suite failure 2026-10-26 (row 114 landing); `tools/scripts/review-isolated.py` `tmp_siblings`.
 
 ## Release 11: profiles for other people
 claude-config shared with a partner who makes videos, with the same quality bar and a different set of switches.

@@ -1467,3 +1467,10 @@ Your partner uses a Mac. Install, sync, hooks and the scripts they call must run
 - [x] Verify it: `/check verify mac support` (2026-10-30: CI run on #252 green on macos-latest with bash 3.2, the suite and a real install; live install here still rewrites 34 paths, every self check passes, drift: none. Not tried: a real Mac with Homebrew Python, the Keychain prompt)
 - [x] Test it: `/test mac support` (tests landed with each PR, every one mutation checked: A 16, B1 24, B2 16 mutants red; suite 302 ok)
 Source: [brief](../briefs/profiles.md) D11, D25, D26; your messages 2026-10-27.
+
+### 115. Fix review-isolated with a full /tmp · done · done
+`tools/scripts/review-isolated.py` writes two Read denies per entry of /tmp into one `--settings` argument. At about 1,900 entries that argument passes the kernel's 128 KB limit for one argument, `claude` never starts ("Argument list too long"), and its self-test in the suite goes red. Seen 2026-10-26 with 1,904 entries.
+**Done when:** a review drafts with 5,000 entries in /tmp, and the self-test proves it.
+- [x] Fix: `/debug review-isolated full tmp` (settings go in a file in their own denied /tmp folder, not one argument)
+- [x] Test it: `/test review-isolated full tmp` (self test drafts with 5,000 /tmp entries; mutant with inline settings goes red)
+Source: suite failure 2026-10-26 (row 114 landing); `tools/scripts/review-isolated.py` `tmp_siblings`.
