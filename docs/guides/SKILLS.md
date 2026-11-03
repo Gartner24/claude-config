@@ -447,6 +447,30 @@ License: MIT.
 |---|---|---|
 | `design-dna` | downloaded | Extract, define, and apply design DNA across three dimensions: design system (tokens), design style (qualitative feel), and visual effects (Canvas, WebGL, 3D, particles, shaders, scroll effects, etc.). |
 
+### https://github.com/haidrrrry/humanize-ai-writing
+
+License: MIT.
+
+| Skill | Status | What it does |
+|---|---|---|
+| `humanize-ai-writing` | downloaded, cite only | Free anti-AI-slop system prompt & skill that makes ChatGPT, Claude, Gemini, Grok & Kimi write like a human. Bans AI tells (delve, tapestry, 'not just X but Y', em-dash overuse) and humanizes output. |
+
+### https://github.com/mattpocock/skills/tree/main/skills/engineering/to-spec
+
+License: MIT.
+
+| Skill | Status | What it does |
+|---|---|---|
+| `to-spec` | downloaded, cite only | Skills for Real Engineers. Straight from my .agents directory. |
+
+### https://github.com/mattpocock/skills/tree/main/skills/productivity/grill-me
+
+License: MIT.
+
+| Skill | Status | What it does |
+|---|---|---|
+| `grill-me` | downloaded, cite only | Skills for Real Engineers. Straight from my .agents directory. |
+
 ### source unknown
 
 License: unknown.
