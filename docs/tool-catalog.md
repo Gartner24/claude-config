@@ -91,6 +91,9 @@ this repo. Older verdicts with longer notes: `docs/research/SKILLS-EVALUATION.md
 | Ollama local model (fb-local) | local model | 2026-10-17 | Private text jobs | Opt-in only, never a fallback: 6.1 tokens/s, 2 min cold load | tool-review brief A7 |
 | Headroom | proxy | 2026-10-17, later | Token compression | Postponed: telemetry on by default, unreleased cost bug | tool-review brief D3 |
 | Ghostty | terminal | 2026-09-30 | Alacritty replacement | Owner prefers tmux splits so far | chat 2026-09-30 |
+| humanize-ai-writing | skill | 2026-11-03 | Free anti-AI-slop system prompt & skill that makes ChatGPT, Claude, Gemini, Grok & Kimi write like a human. Bans AI tells (delve, tapestry, 'not just X but Y', em-dash overuse) and humanizes output. | new, not yet proven | 2009 Project item 40 |
+| to-spec | skill | 2026-11-03 | Skills for Real Engineers. Straight from my .agents directory. | new, not yet proven | 2009 Project item 86 |
+| grill-me | skill | 2026-11-03 | Skills for Real Engineers. Straight from my .agents directory. | new, not yet proven | 2009 Project item 86 |
 
 ## Removed
 

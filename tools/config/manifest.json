@@ -1245,6 +1245,21 @@
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
+    "grill-me": {
+      "base_hash": "eb2880386e9259f4ca51167f518c81cea969850d8f45bd8f79f579dcbbad902e",
+      "description": "Skills for Real Engineers. Straight from my .agents directory.",
+      "fetch": "git",
+      "framework": null,
+      "install": "copy https://github.com/mattpocock/skills/tree/main/skills/productivity/grill-me at 4ae2317ddb22b046e26455e4f9c9b3aaaf62212d into ~/.claude/skills-trial/grill-me",
+      "kind": "skill",
+      "license": "MIT",
+      "patch": null,
+      "path": "~/.claude/skills-trial/grill-me",
+      "pinned": "4ae2317ddb22b046e26455e4f9c9b3aaaf62212d",
+      "publish": false,
+      "source": "https://github.com/mattpocock/skills/tree/main/skills/productivity/grill-me",
+      "status": "downloaded"
+    },
     "gsap-core": {
       "base_hash": "e21b6ea38a87db00a2dfcd07dbe4992f64b4e7d5253f20eff9be33325845fcc7",
       "description": "Official GSAP skill for the core API \u2014 gsap.to(), from(), fromTo(), easing, duration, stagger, defaults, gsap.matchMedia() (responsive, prefers-reduced-motion).",
@@ -1439,6 +1454,21 @@
       "publish": true,
       "source": "github:Leonxlnx/taste-skill",
       "status": "edited"
+    },
+    "humanize-ai-writing": {
+      "base_hash": "2cb710c69af102b31fa4b642da4101e8a31ddbfab90dbc3560ec5fc0e42f78b1",
+      "description": "Free anti-AI-slop system prompt & skill that makes ChatGPT, Claude, Gemini, Grok & Kimi write like a human. Bans AI tells (delve, tapestry, 'not just X but Y', em-dash overuse) and humanizes output.",
+      "fetch": "git",
+      "framework": null,
+      "install": "copy https://github.com/haidrrrry/humanize-ai-writing at 8341788d53489bb7c9a7d9cb563e1064fe941679 into ~/.claude/skills-trial/humanize-ai-writing",
+      "kind": "skill",
+      "license": "MIT",
+      "patch": null,
+      "path": "~/.claude/skills-trial/humanize-ai-writing",
+      "pinned": "8341788d53489bb7c9a7d9cb563e1064fe941679",
+      "publish": false,
+      "source": "https://github.com/haidrrrry/humanize-ai-writing",
+      "status": "downloaded"
     },
     "humanizer": {
       "base_hash": "83b8af39dfd4ea3d971f1561a3c2036a009b366180d389da774cae66c9f005b8",
@@ -2773,6 +2803,21 @@
       "pinned": "945fb8dfd3bb1a0fc1193089ec740ab28bdcc9c5",
       "publish": true,
       "source": "github:CloudAI-X/threejs-skills",
+      "status": "downloaded"
+    },
+    "to-spec": {
+      "base_hash": "7c0ac5892441627cbe76e8587d47cbe3adedc61f779df5c9f82d473588503330",
+      "description": "Skills for Real Engineers. Straight from my .agents directory.",
+      "fetch": "git",
+      "framework": null,
+      "install": "copy https://github.com/mattpocock/skills/tree/main/skills/engineering/to-spec at 4ae2317ddb22b046e26455e4f9c9b3aaaf62212d into ~/.claude/skills-trial/to-spec",
+      "kind": "skill",
+      "license": "MIT",
+      "patch": null,
+      "path": "~/.claude/skills-trial/to-spec",
+      "pinned": "4ae2317ddb22b046e26455e4f9c9b3aaaf62212d",
+      "publish": false,
+      "source": "https://github.com/mattpocock/skills/tree/main/skills/engineering/to-spec",
       "status": "downloaded"
     },
     "transitions-dev": {
