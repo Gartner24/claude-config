@@ -447,6 +447,200 @@ License: MIT.
 |---|---|---|
 | `design-dna` | downloaded | Extract, define, and apply design DNA across three dimensions: design system (tokens), design style (qualitative feel), and visual effects (Canvas, WebGL, 3D, particles, shaders, scroll effects, etc.). |
 
+### https://github.com/AgriciDaniel/claude-ads
+
+License: MIT.
+
+| Skill | Status | What it does |
+|---|---|---|
+| `ads` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-amazon` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-apple` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-attribution` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-audit` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-budget` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-competitor` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-create` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-creative` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-dna` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-generate` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-google` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-landing` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-launch` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-linkedin` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-math` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-meta` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-microsoft` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-monitor` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-optimize` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-photoshoot` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-pinterest` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-plan` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-reddit` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-report` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-research` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-server-side-tracking` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-setup` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-snapchat` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-test` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-tiktok` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-validate` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-x` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+| `ads-youtube` | downloaded, cite only | Claude Meta Ads: safe connection and the skill that avoids bans |
+
+### https://github.com/alesha-pro/tools/tree/main/skills/hand-drawn-canvas-animation
+
+License: MIT.
+
+| Skill | Status | What it does |
+|---|---|---|
+| `hand-drawn-canvas-animation` | downloaded, cite only | Code-drawn animations with the hand-drawn-canvas-animation skill |
+
+### https://github.com/archive-dot-com/creator-marketing-skills
+
+License: NOASSERTION.
+
+| Skill | Status | What it does |
+|---|---|---|
+| `brand-context` | downloaded, cite only | Remotion motion-graphics skill for Claude (4 skills, free) |
+| `creator-content-concept-generator` | downloaded, cite only | Remotion motion-graphics skill for Claude (4 skills, free) |
+| `engagement-rate-calculator-benchmarker` | downloaded, cite only | Remotion motion-graphics skill for Claude (4 skills, free) |
+| `multi-platform-format-adapter` | downloaded, cite only | Remotion motion-graphics skill for Claude (4 skills, free) |
+| `organic-repost-caption-writer` | downloaded, cite only | Remotion motion-graphics skill for Claude (4 skills, free) |
+| `paid-ad-copy-adapter` | downloaded, cite only | Remotion motion-graphics skill for Claude (4 skills, free) |
+| `paid-social-creative-brief` | downloaded, cite only | Remotion motion-graphics skill for Claude (4 skills, free) |
+| `ugc-hook-analyzer` | downloaded, cite only | Remotion motion-graphics skill for Claude (4 skills, free) |
+| `utm-parameter-builder` | downloaded, cite only | Remotion motion-graphics skill for Claude (4 skills, free) |
+| `video-content-reviewer` | downloaded, cite only | Remotion motion-graphics skill for Claude (4 skills, free) |
+
+### https://github.com/emotixco/claude-skills-founder
+
+License: MIT.
+
+| Skill | Status | What it does |
+|---|---|---|
+| `competitor-matrix` | downloaded, cite only | Claude pricing strategy skill: fact or hype test |
+| `email-sequence` | downloaded, cite only | Claude pricing strategy skill: fact or hype test |
+| `go-to-market` | downloaded, cite only | Claude pricing strategy skill: fact or hype test |
+| `landing-page` | downloaded, cite only | Claude pricing strategy skill: fact or hype test |
+| `persona-gen` | downloaded, cite only | Claude pricing strategy skill: fact or hype test |
+| `pricing-strategy` | downloaded, cite only | Claude pricing strategy skill: fact or hype test |
+
+### https://github.com/haidrrrry/humanize-ai-writing
+
+License: MIT.
+
+| Skill | Status | What it does |
+|---|---|---|
+| `humanize-ai-writing` | downloaded, cite only | Free anti-AI-slop system prompt & skill that makes ChatGPT, Claude, Gemini, Grok & Kimi write like a human. Bans AI tells (delve, tapestry, 'not just X but Y', em-dash overuse) and humanizes output. |
+
+### https://github.com/heygen-com/hyperframes
+
+License: Apache-2.0.
+
+| Skill | Status | What it does |
+|---|---|---|
+| `hyperframes` | downloaded, cite only | Hypit: clone any viral video format with Claude Code and HyperFrames |
+| `hyperframes-cli` | downloaded, cite only | Hypit: clone any viral video format with Claude Code and HyperFrames |
+| `hyperframes-registry` | downloaded, cite only | Hypit: clone any viral video format with Claude Code and HyperFrames |
+| `media-use` | downloaded, cite only | Hypit: clone any viral video format with Claude Code and HyperFrames |
+| `remotion-to-hyperframes` | downloaded, cite only | Hypit: clone any viral video format with Claude Code and HyperFrames |
+| `reverse-any-video` | downloaded, cite only | Hypit: clone any viral video format with Claude Code and HyperFrames |
+| `slideshow` | downloaded, cite only | Hypit: clone any viral video format with Claude Code and HyperFrames |
+
+### https://github.com/hypit-ai/hypit
+
+License: NOASSERTION.
+
+| Skill | Status | What it does |
+|---|---|---|
+| `hypit` | downloaded, cite only | Hypit: clone a viral reel as an AI video workflow |
+
+### https://github.com/Jakeschincariol/linkedin-agent-skill
+
+License: MIT.
+
+| Skill | Status | What it does |
+|---|---|---|
+| `li-audit` | downloaded, cite only | 3 combined Claude skills: edit, virality and build |
+| `li-carousel` | downloaded, cite only | 3 combined Claude skills: edit, virality and build |
+| `li-human` | downloaded, cite only | 3 combined Claude skills: edit, virality and build |
+| `li-plan` | downloaded, cite only | 3 combined Claude skills: edit, virality and build |
+| `li-post` | downloaded, cite only | 3 combined Claude skills: edit, virality and build |
+| `li-repurpose` | downloaded, cite only | 3 combined Claude skills: edit, virality and build |
+
+### https://github.com/liamrjohnston/remotion-motion-graphics-skill
+
+License: MIT.
+
+| Skill | Status | What it does |
+|---|---|---|
+| `article-highlights` | downloaded, cite only | Remotion motion-graphics skill for Claude (4 skills, free) |
+| `cinematic-camera` | downloaded, cite only | Remotion motion-graphics skill for Claude (4 skills, free) |
+| `motion-graphics` | downloaded, cite only | Remotion motion-graphics skill for Claude (4 skills, free) |
+| `terminal-inserts` | downloaded, cite only | Remotion motion-graphics skill for Claude (4 skills, free) |
+
+### https://github.com/mattpocock/skills/tree/main/skills/engineering/to-spec
+
+License: MIT.
+
+| Skill | Status | What it does |
+|---|---|---|
+| `to-spec` | downloaded, cite only | Skills for Real Engineers. Straight from my .agents directory. |
+
+### https://github.com/mattpocock/skills/tree/main/skills/productivity/grill-me
+
+License: MIT.
+
+| Skill | Status | What it does |
+|---|---|---|
+| `grill-me` | downloaded, cite only | Skills for Real Engineers. Straight from my .agents directory. |
+
+### https://github.com/miqdadbadjuber/anti-slop
+
+License: MIT.
+
+| Skill | Status | What it does |
+|---|---|---|
+| `antislop` | downloaded, cite only | Anti-Slop skill for Claude Code and Thermos plugin for Cursor |
+| `antislop-copywriting` | downloaded, cite only | Anti-Slop skill for Claude Code and Thermos plugin for Cursor |
+| `antislop-ui` | downloaded, cite only | Anti-Slop skill for Claude Code and Thermos plugin for Cursor |
+
+### https://github.com/slavingia/skills
+
+License: NOASSERTION.
+
+| Skill | Status | What it does |
+|---|---|---|
+| `find-community` | downloaded, cite only | Open-source Claude skills for landing your first 100 customers |
+| `first-customers` | downloaded, cite only | Open-source Claude skills for landing your first 100 customers |
+| `grow-sustainably` | downloaded, cite only | Open-source Claude skills for landing your first 100 customers |
+| `marketing-plan` | downloaded, cite only | Open-source Claude skills for landing your first 100 customers |
+| `validate-idea` | downloaded, cite only | Open-source Claude skills for landing your first 100 customers |
+
+### https://github.com/zubair-trabzada/geo-seo-claude
+
+License: MIT.
+
+| Skill | Status | What it does |
+|---|---|---|
+| `geo` | downloaded, cite only | Take a viral video concept, add your twist, and act |
+| `geo-audit` | downloaded, cite only | Take a viral video concept, add your twist, and act |
+| `geo-brand-mentions` | downloaded, cite only | Take a viral video concept, add your twist, and act |
+| `geo-citability` | downloaded, cite only | Take a viral video concept, add your twist, and act |
+| `geo-compare` | downloaded, cite only | Take a viral video concept, add your twist, and act |
+| `geo-content` | downloaded, cite only | Take a viral video concept, add your twist, and act |
+| `geo-crawlers` | downloaded, cite only | Take a viral video concept, add your twist, and act |
+| `geo-llmstxt` | downloaded, cite only | Take a viral video concept, add your twist, and act |
+| `geo-platform-optimizer` | downloaded, cite only | Take a viral video concept, add your twist, and act |
+| `geo-proposal` | downloaded, cite only | Take a viral video concept, add your twist, and act |
+| `geo-prospect` | downloaded, cite only | Take a viral video concept, add your twist, and act |
+| `geo-report` | downloaded, cite only | Take a viral video concept, add your twist, and act |
+| `geo-report-pdf` | downloaded, cite only | Take a viral video concept, add your twist, and act |
+| `geo-schema` | downloaded, cite only | Take a viral video concept, add your twist, and act |
+| `geo-technical` | downloaded, cite only | Take a viral video concept, add your twist, and act |
+| `geo-update` | downloaded, cite only | Take a viral video concept, add your twist, and act |
+
 ### source unknown
 
 License: unknown.
