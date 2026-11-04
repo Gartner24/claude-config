@@ -526,6 +526,14 @@ License: MIT.
 | `persona-gen` | downloaded, cite only | Claude pricing strategy skill: fact or hype test |
 | `pricing-strategy` | downloaded, cite only | Claude pricing strategy skill: fact or hype test |
 
+### https://github.com/feitangyuan/onetake
+
+License: PolyForm Noncommercial 1.0.0.
+
+| Skill | Status | What it does |
+|---|---|---|
+| `onetake` | downloaded, cite only | Video made entirely by Claude: five skills, five styles (personal use only) |
+
 ### https://github.com/haidrrrry/humanize-ai-writing
 
 License: MIT.
@@ -568,6 +576,15 @@ License: MIT.
 | `li-plan` | downloaded, cite only | 3 combined Claude skills: edit, virality and build |
 | `li-post` | downloaded, cite only | 3 combined Claude skills: edit, virality and build |
 | `li-repurpose` | downloaded, cite only | 3 combined Claude skills: edit, virality and build |
+
+### https://github.com/Leonxlnx/earshot
+
+License: MIT.
+
+| Skill | Status | What it does |
+|---|---|---|
+| `earshot` | downloaded, cite only | Three free tools to add pro sound effects to Claude video edits |
+| `real-sound` | downloaded, cite only | Three free tools to add pro sound effects to Claude video edits |
 
 ### https://github.com/liamrjohnston/remotion-motion-graphics-skill
 
