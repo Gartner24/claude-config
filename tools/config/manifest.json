@@ -1485,6 +1485,21 @@
       "source": "github:affaan-m/everything-claude-code",
       "status": "downloaded"
     },
+    "earshot": {
+      "base_hash": "1045bbce49e43551aec1ed9d0d4746c23f62f352b63dd6e49ae8b80fa559ef6d",
+      "description": "Three free tools to add pro sound effects to Claude video edits",
+      "fetch": "git",
+      "framework": null,
+      "install": "copy https://github.com/Leonxlnx/earshot at 591fa3e028032e6dce56620a20e932e35667e8d8 skills/earshot into ~/.claude/skills-trial/earshot",
+      "kind": "skill",
+      "license": "MIT",
+      "patch": null,
+      "path": "~/.claude/skills-trial/earshot",
+      "pinned": "591fa3e028032e6dce56620a20e932e35667e8d8",
+      "publish": false,
+      "source": "https://github.com/Leonxlnx/earshot",
+      "status": "downloaded"
+    },
     "email-sequence": {
       "base_hash": "040900606bcdb5d2e547c248850ca47d506682d46753327e0e5ae62646736544",
       "description": "Claude pricing strategy skill: fact or hype test",
@@ -3448,6 +3463,21 @@
       "pinned": "1.0.0",
       "publish": false,
       "source": "github:anthropics/claude-plugins-official",
+      "status": "downloaded"
+    },
+    "real-sound": {
+      "base_hash": "441148a3040f861c462d936a013b7c44da78785a0f6b8682071c37eb982cd7f1",
+      "description": "Three free tools to add pro sound effects to Claude video edits",
+      "fetch": "git",
+      "framework": null,
+      "install": "copy https://github.com/Leonxlnx/earshot at 591fa3e028032e6dce56620a20e932e35667e8d8 skills/real-sound into ~/.claude/skills-trial/real-sound",
+      "kind": "skill",
+      "license": "MIT",
+      "patch": null,
+      "path": "~/.claude/skills-trial/real-sound",
+      "pinned": "591fa3e028032e6dce56620a20e932e35667e8d8",
+      "publish": false,
+      "source": "https://github.com/Leonxlnx/earshot",
       "status": "downloaded"
     },
     "redis-patterns": {

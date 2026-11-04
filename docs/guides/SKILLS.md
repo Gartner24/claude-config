@@ -569,6 +569,15 @@ License: MIT.
 | `li-post` | downloaded, cite only | 3 combined Claude skills: edit, virality and build |
 | `li-repurpose` | downloaded, cite only | 3 combined Claude skills: edit, virality and build |
 
+### https://github.com/Leonxlnx/earshot
+
+License: MIT.
+
+| Skill | Status | What it does |
+|---|---|---|
+| `earshot` | downloaded, cite only | Three free tools to add pro sound effects to Claude video edits |
+| `real-sound` | downloaded, cite only | Three free tools to add pro sound effects to Claude video edits |
+
 ### https://github.com/liamrjohnston/remotion-motion-graphics-skill
 
 License: MIT.
