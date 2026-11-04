@@ -526,6 +526,14 @@ License: MIT.
 | `persona-gen` | downloaded, cite only | Claude pricing strategy skill: fact or hype test |
 | `pricing-strategy` | downloaded, cite only | Claude pricing strategy skill: fact or hype test |
 
+### https://github.com/feitangyuan/onetake
+
+License: PolyForm Noncommercial 1.0.0.
+
+| Skill | Status | What it does |
+|---|---|---|
+| `onetake` | downloaded, cite only | Video made entirely by Claude: five skills, five styles (personal use only) |
+
 ### https://github.com/haidrrrry/humanize-ai-writing
 
 License: MIT.

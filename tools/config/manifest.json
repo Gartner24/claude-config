@@ -3120,6 +3120,21 @@
       "source": "github:coreyhaines31/marketingskills",
       "status": "downloaded"
     },
+    "onetake": {
+      "base_hash": "6f75fa6b3269b9301f0fea479d5ec71c83c6f6bbff9e33412b713bcfef344de2",
+      "description": "Video made entirely by Claude: five skills, five styles (personal use only)",
+      "fetch": "git",
+      "framework": null,
+      "install": "copy https://github.com/feitangyuan/onetake at 013a61ac8d98883c73733f59c06e49e9ba444f14 (without .git and cases/) into ~/.claude/skills-trial/onetake",
+      "kind": "skill",
+      "license": "PolyForm Noncommercial 1.0.0",
+      "patch": null,
+      "path": "~/.claude/skills-trial/onetake",
+      "pinned": "013a61ac8d98883c73733f59c06e49e9ba444f14",
+      "publish": false,
+      "source": "https://github.com/feitangyuan/onetake",
+      "status": "downloaded"
+    },
     "open-gstack-browser": {
       "base_hash": "8278d148b06df7f2d3e56329c4cc4209285d1acca4a0d54bbc9c6d0b043fa3ba",
       "description": "Launch GStack Browser \u2014 AI-controlled Chromium with the sidebar extension baked in.",
